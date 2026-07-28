@@ -1,0 +1,118 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.layout-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: auto !important;
+  overflow: visible !important;
+  background:
+    radial-gradient(
+      1200px 500px at 10% -10%,
+      color-mix(in srgb, var(--guy-accent, #2e7d32) 14%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 400px at 100% 0%,
+      color-mix(in srgb, var(--guy-primary, #0b5cab) 12%, transparent),
+      transparent 50%
+    ),
+    var(--guy-surface, #f3f6f4);
+}
+
+.layout-sidenav {
+  width: 300px;
+  border-right: none !important;
+  border-radius: 0 !important;
+  background: var(--guy-sidebar-bg, linear-gradient(180deg, #ffffff 0%, #f4f8f5 100%)) !important;
+  box-shadow: 4px 0 24px rgba(0, 51, 102, 0.06);
+}
+
+:host ::ng-deep .layout-sidenav.mat-drawer,
+:host ::ng-deep .layout-sidenav .mat-drawer-inner-container {
+  border-radius: 0 !important;
+}
+
+/* Fija al viewport en web y mobile (fixedInViewport) */
+:host ::ng-deep .layout-sidenav.mat-drawer {
+  top: 0 !important;
+  bottom: 0 !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+
+:host ::ng-deep .layout-sidenav .mat-drawer-inner-container {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .layout-sidenav .mat-drawer-inner-container > app-sidebar {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: block;
+}
+
+.layout-sidenav--mobile {
+  width: min(300px, 86vw);
+  max-width: 86vw;
+  border-radius: 0 16px 16px 0 !important;
+}
+
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer {
+  border-radius: 0 16px 16px 0 !important;
+  z-index: 100 !important;
+}
+
+:host ::ng-deep .mat-drawer-backdrop.mat-sidenav-shown {
+  z-index: 99 !important;
+  background: rgba(8, 14, 22, 0.55);
+}
+
+.layout-shell--mobile {
+  --guy-bottom-nav-height: 56px;
+}
+
+.layout-content {
+  padding-top: 1rem !important;
+  padding-bottom: 1.5rem !important;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+
+.layout-shell--mobile .layout-content {
+  padding-bottom: calc(
+    1.25rem + var(--guy-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)
+  ) !important;
+}
+
+:host ::ng-deep .mat-drawer-content.layout-shell {
+  background: transparent;
+  max-width: 100%;
+  overflow: visible !important;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+:host ::ng-deep .mat-sidenav-container.layout-container {
+  height: auto !important;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: visible !important;
+}
+
+@media (max-width: 960px) {
+  .layout-content.container-fluid {
+    padding-left: var(--guy-gutter, 0.75rem) !important;
+    padding-right: var(--guy-gutter, 0.75rem) !important;
+  }
+}

@@ -1,0 +1,25 @@
+<nav class="bottom-nav" aria-label="Navegación principal">
+  @for (item of items(); track item.route) {
+    <a
+      class="bottom-nav__item"
+      [routerLink]="item.route"
+      routerLinkActive="bottom-nav__item--active"
+      [routerLinkActiveOptions]="{ exact: item.exact === true }"
+      (click)="onNavClick()"
+    >
+      <mat-icon>{{ item.icon }}</mat-icon>
+      <span>{{ item.label }}</span>
+    </a>
+  }
+
+  <button
+    type="button"
+    class="bottom-nav__item"
+    [class.bottom-nav__item--active]="moreActive()"
+    aria-label="Más opciones"
+    (click)="onMoreClick()"
+  >
+    <mat-icon>menu</mat-icon>
+    <span>Más</span>
+  </button>
+</nav>

@@ -1,0 +1,46 @@
+<mat-sidenav-container class="layout-container">
+  <mat-sidenav
+    class="layout-sidenav"
+    [class.layout-sidenav--mobile]="isMobile()"
+    [mode]="isMobile() ? 'over' : 'side'"
+    [opened]="sidenavOpen()"
+    [fixedInViewport]="true"
+    [fixedTopGap]="0"
+    [fixedBottomGap]="0"
+    (openedChange)="onSidenavOpenedChange($event)"
+  >
+    <app-sidebar
+      [navItems]="navItems()"
+      [isMobile]="isMobile()"
+      (close)="onSidenavOpenedChange(false)"
+      (navigate)="closeSidenavOnNavigate()"
+    />
+  </mat-sidenav>
+
+  <mat-sidenav-content
+    class="layout-shell"
+    [class.layout-shell--mobile]="isMobile()"
+    [class.sidenav-open]="isMobile() && sidenavOpen()"
+  >
+    <app-toolbar
+      [user]="user()"
+      [isMobile]="isMobile()"
+      [sidenavOpen]="sidenavOpen()"
+      (menuToggle)="toggleSidenav()"
+      (logout)="logout()"
+    />
+
+    <main class="layout-content container-fluid py-4 guy-page-enter">
+      <router-outlet />
+    </main>
+
+    @if (isMobile()) {
+      <app-bottom-nav
+        [items]="bottomNavItems()"
+        [moreActive]="moreActive()"
+        (navigate)="closeSidenavOnNavigate()"
+        (openMore)="openMore()"
+      />
+    }
+  </mat-sidenav-content>
+</mat-sidenav-container>

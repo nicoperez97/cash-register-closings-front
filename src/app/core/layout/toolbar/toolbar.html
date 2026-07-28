@@ -1,0 +1,143 @@
+<header class="toolbar" [class.toolbar--mobile]="isMobile()">
+  <button
+    mat-icon-button
+    type="button"
+    class="toolbar-menu"
+    [matTooltip]="sidenavOpen() ? 'Ocultar menú' : 'Mostrar menú'"
+    [attr.aria-label]="sidenavOpen() ? 'Ocultar menú' : 'Mostrar menú'"
+    (click)="menuToggle.emit()"
+  >
+    <mat-icon>{{ sidenavOpen() ? 'menu_open' : 'menu' }}</mat-icon>
+  </button>
+
+  <div class="toolbar-context">
+    <span class="toolbar-eyebrow">{{ brand.company }}</span>
+    <span class="toolbar-title">{{ brand.productName }} · {{ brand.tagline }}</span>
+  </div>
+
+  @if (isMobile()) {
+    <div class="toolbar-brand" aria-hidden="true">
+      <img [src]="logoSrc()" alt="" class="toolbar-brand-logo" referrerpolicy="no-referrer" />
+    </div>
+  }
+
+  <span class="spacer"></span>
+
+  <div class="toolbar-actions">
+    @if (!offline.effectivelyOnline()) {
+      <span class="offline-pill" matTooltip="Sin conexión">
+        <mat-icon>cloud_off</mat-icon>
+        @if (!isMobile()) {
+          <span>Sin conexión</span>
+        }
+      </span>
+    }
+
+    @if (theme.themeSwitcherEnabled) {
+      <button
+        mat-icon-button
+        type="button"
+        class="theme-btn"
+        [matMenuTriggerFor]="themeMenu"
+        [matTooltip]="'Tema: ' + theme.modeLabel()"
+        [attr.aria-label]="'Tema: ' + theme.modeLabel()"
+      >
+        <mat-icon>{{ theme.modeIcon() }}</mat-icon>
+      </button>
+
+      <mat-menu #themeMenu="matMenu" class="theme-menu-panel" xPosition="before">
+        <div class="theme-panel" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+          <div class="theme-panel__title">Apariencia</div>
+          <div class="theme-modes">
+            <button type="button" class="theme-mode" [class.active]="theme.mode() === 'light'" (click)="setMode('light')">
+              <mat-icon>light_mode</mat-icon>
+              Claro
+            </button>
+            <button type="button" class="theme-mode" [class.active]="theme.mode() === 'dark'" (click)="setMode('dark')">
+              <mat-icon>dark_mode</mat-icon>
+              Oscuro
+            </button>
+            <button type="button" class="theme-mode" [class.active]="theme.mode() === 'system'" (click)="setMode('system')">
+              <mat-icon>brightness_auto</mat-icon>
+              Sistema
+            </button>
+          </div>
+
+          <div class="theme-panel__title">Colores</div>
+          <div class="theme-presets">
+            @for (p of theme.presets; track p.id) {
+              <button
+                type="button"
+                class="theme-preset"
+                [class.active]="theme.presetId() === p.id"
+                [matTooltip]="p.label"
+                (click)="theme.applyPreset(p.id)"
+              >
+                <span class="theme-preset__swatch" [style.background]="p.primary"></span>
+                <span class="theme-preset__swatch" [style.background]="p.accent"></span>
+              </button>
+            }
+          </div>
+
+          <div class="theme-custom">
+            <label class="theme-custom__row">
+              <span>Primario</span>
+              <input type="color" [value]="theme.primary()" (input)="onPrimaryInput($event)" />
+            </label>
+            <label class="theme-custom__row">
+              <span>Acento</span>
+              <input type="color" [value]="theme.accent()" (input)="onAccentInput($event)" />
+            </label>
+          </div>
+        </div>
+      </mat-menu>
+    }
+
+    @if (user(); as u) {
+      <button
+        type="button"
+        class="user-chip"
+        [matMenuTriggerFor]="userMenu"
+        [attr.aria-label]="'Usuario: ' + displayName(u)"
+      >
+        <mat-icon>account_circle</mat-icon>
+        @if (!isMobile()) {
+          <span class="user-email">{{ u.email }}</span>
+        }
+      </button>
+
+      <mat-menu #userMenu="matMenu" class="user-popover-panel" xPosition="before" [hasBackdrop]="true">
+        <div class="user-popover" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+          <div class="user-popover__avatar" aria-hidden="true">
+            <mat-icon>account_circle</mat-icon>
+          </div>
+          <div class="user-popover__meta">
+            <span class="user-popover__name">{{ displayName(u) }}</span>
+            @if (u.fullName?.trim()) {
+              <span class="user-popover__email">{{ u.email }}</span>
+            }
+            <span class="user-popover__role">{{ roleLabel(u) }}</span>
+          </div>
+        </div>
+      </mat-menu>
+    }
+
+    @if (isMobile()) {
+      <button
+        mat-icon-button
+        type="button"
+        class="logout-btn logout-btn--icon"
+        matTooltip="Salir"
+        aria-label="Salir"
+        (click)="logout.emit()"
+      >
+        <mat-icon>logout</mat-icon>
+      </button>
+    } @else {
+      <button mat-stroked-button type="button" class="logout-btn" (click)="logout.emit()">
+        <mat-icon>logout</mat-icon>
+        <span>Salir</span>
+      </button>
+    }
+  </div>
+</header>

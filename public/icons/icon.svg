@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#1B2A33"/>
+  <!-- cash register body -->
+  <rect x="96" y="168" width="320" height="220" rx="28" fill="#ffffff"/>
+  <!-- screen -->
+  <rect x="128" y="196" width="160" height="72" rx="12" fill="#E8F5E9"/>
+  <path d="M148 232h88M148 248h56" stroke="#2E7D32" stroke-width="10" stroke-linecap="round"/>
+  <!-- keypad -->
+  <circle cx="340" cy="214" r="10" fill="#1B2A33"/>
+  <circle cx="372" cy="214" r="10" fill="#1B2A33"/>
+  <circle cx="340" cy="246" r="10" fill="#1B2A33"/>
+  <circle cx="372" cy="246" r="10" fill="#1B2A33"/>
+  <!-- drawer -->
+  <rect x="128" y="292" width="256" height="64" rx="14" fill="#F4F7F5" stroke="#1B2A33" stroke-width="8"/>
+  <rect x="220" y="312" width="72" height="12" rx="6" fill="#1B2A33"/>
+  <!-- check badge (cierre OK) -->
+  <circle cx="392" cy="360" r="56" fill="#2E7D32"/>
+  <path d="M368 360l16 16 32-36" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
