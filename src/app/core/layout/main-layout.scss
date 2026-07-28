@@ -89,6 +89,12 @@
   overflow-x: clip;
 }
 
+.layout-content--cashier {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.75rem !important;
+  max-width: 1100px;
+}
+
 .layout-shell--mobile .layout-content {
   padding-bottom: calc(
     1.25rem + var(--guy-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)

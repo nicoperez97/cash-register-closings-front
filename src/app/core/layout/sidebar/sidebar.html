@@ -2,11 +2,24 @@
   <div class="sidebar-brand-block">
     <div
       class="sidebar-logo-wrap"
-      [class.sidebar-logo-wrap--app]="isAppLogo()"
+      [class.sidebar-logo-wrap--app]="isAppLogo() && !logoBroken()"
+      [class.sidebar-logo-wrap--fallback]="logoBroken() || !logoSrc()"
+      [style.--shop-accent]="shopContext.selectedShop()?.accentColor || null"
       role="img"
       [attr.aria-label]="logoAlt()"
-      [style.background-image]="logoBackground()"
-    ></div>
+    >
+      @if (!logoBroken() && logoSrc()) {
+        <img
+          class="sidebar-logo-img"
+          [src]="logoSrc()"
+          [alt]="logoAlt()"
+          referrerpolicy="no-referrer"
+          (error)="onLogoError()"
+        />
+      } @else {
+        <span class="sidebar-logo-fallback">{{ shopInitial(logoAlt()) }}</span>
+      }
+    </div>
     @if (isMobile()) {
       <button
         mat-icon-button

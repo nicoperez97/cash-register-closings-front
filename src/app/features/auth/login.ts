@@ -11,6 +11,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../core/auth/auth.service';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { ThemeService } from '../../core/theme/theme.service';
+import { ShopContextService } from '../../core/shop/shop-context.service';
+import { defaultHomeRoute } from '../../core/auth/auth.models';
 
 const LOGIN_THEME = '#1D65A0';
 const APP_THEME = '#1D65A0';
@@ -35,6 +37,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly theme = inject(ThemeService);
+  private readonly shops = inject(ShopContextService);
 
   readonly brand = APP_BRAND;
   busy = false;
@@ -51,7 +54,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.theme.lockLight(true);
     this.setThemeColor(LOGIN_THEME);
     if (this.auth.isAuthenticated()) {
-      void this.router.navigate(['/']);
+      void this.router.navigateByUrl(this.afterLoginUrl());
     }
   }
 
@@ -87,12 +90,16 @@ export class LoginComponent implements OnInit, OnDestroy {
     try {
       const { email, password } = this.form.getRawValue();
       await this.auth.login(email, password);
-      await this.router.navigate(['/']);
+      await this.router.navigateByUrl(this.afterLoginUrl());
     } catch {
       this.error = 'Email o contraseña incorrectos. Probá admin@cierres.com / demo.';
       this.form.enable({ emitEvent: false });
       this.busy = false;
     }
+  }
+
+  private afterLoginUrl(): string {
+    return defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
   }
 
   private setThemeColor(color: string): void {

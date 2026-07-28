@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { APP_BRAND } from '../../config/app-brand';
 import { ShopContextService } from '../../shop/shop-context.service';
+import { AuthService } from '../../auth/auth.service';
+import { defaultHomeRoute } from '../../auth/auth.models';
 
 export interface NavChild {
   label: string;
@@ -39,11 +41,20 @@ export interface NavItem {
 export class SidebarComponent {
   readonly brand = APP_BRAND;
   readonly shopContext = inject(ShopContextService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   readonly navItems = input.required<NavItem[]>();
   readonly isMobile = input(false);
   readonly navigate = output<void>();
   readonly close = output<void>();
+  readonly logoBroken = signal(false);
+
+  constructor() {
+    effect(() => {
+      this.shopContext.logoUrl();
+      this.logoBroken.set(false);
+    });
+  }
 
   onNavClick(): void {
     this.navigate.emit();
@@ -51,7 +62,7 @@ export class SidebarComponent {
 
   onShopChange(shopId: string): void {
     if (!this.shopContext.selectShop(shopId)) return;
-    void this.router.navigateByUrl('/');
+    void this.router.navigateByUrl(defaultHomeRoute(this.auth.currentUser(), shopId));
     this.navigate.emit();
   }
 
@@ -75,8 +86,7 @@ export class SidebarComponent {
     return url.includes('icon.svg') || url.includes('logo-app') || url === this.brand.defaultLogoUrl;
   }
 
-  logoBackground(): string {
-    const url = this.logoSrc().replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    return `url("${url}")`;
+  onLogoError(): void {
+    this.logoBroken.set(true);
   }
 }

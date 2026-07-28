@@ -30,7 +30,12 @@
       (logout)="logout()"
     />
 
-    <main class="layout-content container-fluid py-4 guy-page-enter">
+    <main
+      class="layout-content container-fluid guy-page-enter"
+      [class.py-4]="!isCashierLayout()"
+      [class.py-2]="isCashierLayout()"
+      [class.layout-content--cashier]="isCashierLayout()"
+    >
       <router-outlet />
     </main>
 

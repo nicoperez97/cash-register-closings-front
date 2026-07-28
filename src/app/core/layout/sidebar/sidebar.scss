@@ -35,27 +35,52 @@
 }
 
 .sidebar-logo-wrap {
-  width: 100px;
-  height: 100px;
+  width: 112px;
+  height: 112px;
   max-width: 100%;
   margin-inline: auto;
   border-radius: 50%;
   overflow: hidden;
   background-color: #fff;
-  background-repeat: no-repeat;
-  background-position: center center;
-  /* Recorta el margen del archivo sin comerse el logo */
-  background-size: 100%;
+  display: grid;
+  place-items: center;
   box-shadow:
     0 1px 2px rgba(27, 42, 51, 0.06),
-    0 12px 32px rgba(27, 42, 51, 0.14);
+    0 10px 24px rgba(27, 42, 51, 0.12);
   border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
 }
 
 .sidebar-logo-wrap--app {
-  border-radius: 28px;
-  background-size: 92%;
+  border-radius: 22px;
   background-color: #1b2a33;
+}
+
+.sidebar-logo-wrap--fallback {
+  --shop-accent: var(--guy-accent, #2e7d32);
+  background: var(--shop-accent);
+  border-color: color-mix(in srgb, var(--shop-accent) 40%, transparent);
+}
+
+.sidebar-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  padding: 10%;
+  box-sizing: border-box;
+}
+
+.sidebar-logo-wrap--app .sidebar-logo-img {
+  padding: 12%;
+  object-fit: contain;
+}
+
+.sidebar-logo-fallback {
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
 }
 
 .sidebar-close {

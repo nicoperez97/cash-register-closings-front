@@ -9,8 +9,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { startWith } from 'rxjs';
-import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
 import { ClosingsApiService } from './closings-api.service';
 import { environment } from '../../../environments/environment';
 
@@ -29,144 +30,261 @@ interface ShopUserOption {
     MatSelectModule,
     MatButtonModule,
     MatSnackBarModule,
-    PageHeaderComponent,
   ],
+  host: {
+    class: 'closing-form-page',
+    '[class.closing-form-page--cashier]': 'cashierOnly()',
+  },
   template: `
-    <app-page-header
-      [title]="isEdit() ? 'Editar cierre' : 'Nuevo cierre'"
-      [subtitle]="shop()?.name ?? ''"
-    />
+    <div class="closing-form-shell panel-card">
+      <header class="closing-form-head">
+        <div>
+          <h1>{{ isEdit() ? 'Editar cierre' : 'Nuevo cierre' }}</h1>
+          <p>{{ shop()?.name ?? '' }}</p>
+        </div>
+        <div class="closing-form-actions">
+          @if (!cashierOnly()) {
+            <button mat-stroked-button type="button" (click)="cancel()">Cancelar</button>
+          }
+          <button mat-flat-button color="primary" type="submit" form="closing-form">
+            Guardar cierre
+          </button>
+        </div>
+      </header>
 
-    <div class="panel-card">
-      <form class="guy-form-grid guy-form-grid--2" [formGroup]="form" (ngSubmit)="save()">
-        <mat-form-field appearance="outline">
-          <mat-label>Fecha</mat-label>
-          <input matInput type="date" formControlName="businessDate" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Caja (sistema)</mat-label>
-          <input matInput type="number" formControlName="posSystemAmount" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>PVS</mat-label>
-          <input matInput type="number" formControlName="cardAmount" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Efectivo</mat-label>
-          <input matInput type="number" formControlName="cashAmount" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>MercadoPago</mat-label>
-          <input matInput type="number" formControlName="mercadoPagoAmount" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>PedidosYa / delivery</mat-label>
-          <input matInput type="number" formControlName="deliveryAppsAmount" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Transferencia</mat-label>
-          <input matInput type="number" formControlName="transferAmount" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Cuenta DNI</mat-label>
-          <input matInput type="number" formControlName="accountDniAmount" />
-        </mat-form-field>
-        @if (shop()?.unitsLabel) {
-          <mat-form-field appearance="outline">
-            <mat-label>{{ shop()?.unitsLabel }}</mat-label>
-            <input matInput type="number" formControlName="unitsSold" />
-          </mat-form-field>
-        }
-        @if (shop()?.coversEnabled) {
-          <mat-form-field appearance="outline">
-            <mat-label>Comensales</mat-label>
-            <input matInput type="number" formControlName="coversCount" />
-          </mat-form-field>
-        }
-        <mat-form-field appearance="outline">
-          <mat-label>Cambio en caja</mat-label>
-          <input matInput type="number" formControlName="cashLeftInRegister" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Efectivo retirado</mat-label>
-          <input matInput type="number" formControlName="cashWithdrawn" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Quién se lo lleva</mat-label>
-          <mat-select formControlName="cashWithdrawnByUserId">
-            <mat-option value="">— Sin asignar —</mat-option>
-            @for (u of shopUsers(); track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Propinas</mat-label>
-          <input matInput type="number" formControlName="tipsAmount" />
-        </mat-form-field>
+      <form id="closing-form" class="closing-form" [formGroup]="form" (ngSubmit)="save()">
+        <div class="closing-form__cols">
+          <section class="closing-form__section">
+            <h2>Cobros del día</h2>
+            <div class="closing-form__fields">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Fecha</mat-label>
+                <input matInput type="date" formControlName="businessDate" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Caja (sistema)</mat-label>
+                <input matInput type="number" formControlName="posSystemAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>PVS</mat-label>
+                <input matInput type="number" formControlName="cardAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Efectivo</mat-label>
+                <input matInput type="number" formControlName="cashAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>MercadoPago</mat-label>
+                <input matInput type="number" formControlName="mercadoPagoAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>PedidosYa / delivery</mat-label>
+                <input matInput type="number" formControlName="deliveryAppsAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Transferencia</mat-label>
+                <input matInput type="number" formControlName="transferAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cuenta DNI</mat-label>
+                <input matInput type="number" formControlName="accountDniAmount" />
+              </mat-form-field>
+            </div>
+          </section>
 
-        <div class="closing-totals" style="grid-column:1/-1">
-          <div class="closing-totals__row">
-            <span>Suma (sin caja)</span>
+          <section class="closing-form__section">
+            <h2>Retiro y extras</h2>
+            <div class="closing-form__fields">
+              @if (shop()?.unitsLabel) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ shop()?.unitsLabel }}</mat-label>
+                  <input matInput type="number" formControlName="unitsSold" />
+                </mat-form-field>
+              }
+              @if (shop()?.coversEnabled) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Comensales</mat-label>
+                  <input matInput type="number" formControlName="coversCount" />
+                </mat-form-field>
+              }
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cambio en caja</mat-label>
+                <input matInput type="number" formControlName="cashLeftInRegister" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Efectivo retirado</mat-label>
+                <input matInput type="number" formControlName="cashWithdrawn" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Quién se lo lleva</mat-label>
+                <mat-select formControlName="cashWithdrawnByUserId">
+                  <mat-option value="">— Sin asignar —</mat-option>
+                  @for (u of shopUsers(); track u.id) {
+                    <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Propinas</mat-label>
+                <input matInput type="number" formControlName="tipsAmount" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
+                <mat-label>Notas</mat-label>
+                <textarea matInput rows="2" formControlName="notes"></textarea>
+              </mat-form-field>
+            </div>
+          </section>
+        </div>
+
+        <div class="closing-totals">
+          <div class="closing-totals__item">
+            <span>Suma cobros</span>
             <strong>{{ money(declaredTotal()) }}</strong>
           </div>
-          <div class="closing-totals__row">
-            <span>Caja (sistema)</span>
+          <div class="closing-totals__item">
+            <span>Caja sistema</span>
             <strong>{{ money(posAmount()) }}</strong>
           </div>
           <div
-            class="closing-totals__row closing-totals__diff"
+            class="closing-totals__item closing-totals__diff"
             [class.closing-totals__diff--ok]="difference() === 0"
             [class.closing-totals__diff--pos]="difference() > 0"
             [class.closing-totals__diff--neg]="difference() < 0"
           >
-            <span>Diferencia (caja − suma)</span>
+            <span>Diferencia</span>
             <strong>{{ money(difference()) }}</strong>
           </div>
-          @if (difference() !== 0) {
-            <p class="closing-totals__hint mb-0">
-              {{
-                difference() > 0
-                  ? 'La caja del sistema es mayor que lo declarado.'
-                  : 'Lo declarado supera la caja del sistema.'
-              }}
-            </p>
-          }
-        </div>
-
-        <mat-form-field appearance="outline" class="guy-form-grid--span" style="grid-column:1/-1">
-          <mat-label>Notas</mat-label>
-          <textarea matInput rows="3" formControlName="notes"></textarea>
-        </mat-form-field>
-        <div class="d-flex gap-2" style="grid-column:1/-1">
-          <button mat-flat-button color="primary" type="submit">Guardar</button>
-          <button mat-stroked-button type="button" (click)="cancel()">Cancelar</button>
         </div>
       </form>
     </div>
   `,
   styles: [
     `
-      .closing-totals {
-        display: grid;
-        gap: 0.5rem;
-        padding: 0.9rem 1rem;
-        border-radius: 12px;
-        border: 1px solid var(--guy-border, #d7e0d9);
-        background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, var(--guy-card, #fff));
+      :host {
+        display: block;
       }
-      .closing-totals__row {
+
+      :host.closing-form-page--cashier {
+        max-width: 920px;
+        margin-inline: auto;
+      }
+
+      .closing-form-shell {
+        padding: 1rem 1.15rem 1.1rem;
+      }
+
+      .closing-form-head {
         display: flex;
+        align-items: center;
         justify-content: space-between;
-        align-items: baseline;
-        gap: 1rem;
-        font-size: 0.95rem;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.85rem;
       }
-      .closing-totals__diff {
-        padding-top: 0.45rem;
-        border-top: 1px dashed var(--guy-border, #d7e0d9);
-        font-size: 1.05rem;
+
+      .closing-form-head h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+        line-height: 1.2;
       }
+
+      .closing-form-head p {
+        margin: 0.15rem 0 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .closing-form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+
+      .closing-form__cols {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 1.15rem;
+        align-items: start;
+      }
+
+      .closing-form__section {
+        padding: 0.9rem 1rem 1rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--guy-card, #fff) 92%, var(--guy-surface, #f3f6f4));
+      }
+
+      .closing-form__section h2 {
+        margin: 0 0 0.55rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .closing-form__fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem 1rem;
+      }
+
+      .closing-notes {
+        grid-column: 1 / -1;
+      }
+
+      .closing-form__fields .mat-mdc-form-field {
+        margin-bottom: 0 !important;
+      }
+
+      :host ::ng-deep .closing-form__fields .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+
+      :host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix {
+        min-height: 42px !important;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+      }
+
+      .closing-totals {
+        margin-top: 0.85rem;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.65rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 28%, var(--guy-border, #d7e0d9));
+        background: linear-gradient(
+          105deg,
+          color-mix(in srgb, var(--guy-accent, #2e7d32) 10%, #fff),
+          #fff 55%
+        );
+      }
+
+      .closing-totals__item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 0;
+      }
+
+      .closing-totals__item span {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .closing-totals__item strong {
+        font-size: 1.15rem;
+        line-height: 1.15;
+        color: var(--guy-navy, #003366);
+      }
+
       .closing-totals__diff--ok strong {
         color: var(--guy-accent, #2e7d32);
       }
@@ -176,9 +294,20 @@ interface ShopUserOption {
       .closing-totals__diff--neg strong {
         color: #ef6c00;
       }
-      .closing-totals__hint {
-        font-size: 0.8rem;
-        color: var(--guy-muted, #667);
+
+      @media (max-width: 960px) {
+        .closing-form__cols {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .closing-form__fields {
+          grid-template-columns: 1fr;
+        }
+        .closing-totals {
+          grid-template-columns: 1fr;
+        }
       }
     `,
   ],
@@ -188,6 +317,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly api = inject(ClosingsApiService);
   private readonly http = inject(HttpClient);
   private readonly shops = inject(ShopContextService);
+  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
@@ -195,6 +325,7 @@ export class ClosingsFormPage implements OnInit {
   readonly shop = this.shops.selectedShop;
   readonly isEdit = signal(false);
   readonly shopUsers = signal<ShopUserOption[]>([]);
+  readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
   private closingId: string | null = null;
 
   readonly form = this.fb.nonNullable.group({
@@ -316,7 +447,13 @@ export class ClosingsFormPage implements OnInit {
     req$.subscribe({
       next: () => {
         this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
-        void this.router.navigate(['/closings']);
+        if (this.cashierOnly() && !this.isEdit()) {
+          this.resetForNextClosing();
+          return;
+        }
+        void this.router.navigateByUrl(
+          defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
+        );
       },
       error: (err) => {
         const msg = err?.error?.message ?? 'No se pudo guardar';
@@ -326,6 +463,29 @@ export class ClosingsFormPage implements OnInit {
   }
 
   cancel(): void {
-    void this.router.navigate(['/closings']);
+    void this.router.navigateByUrl(
+      defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
+    );
+  }
+
+  private resetForNextClosing(): void {
+    const today = new Date().toISOString().slice(0, 10);
+    this.form.reset({
+      businessDate: today,
+      posSystemAmount: 0,
+      cardAmount: 0,
+      cashAmount: 0,
+      mercadoPagoAmount: 0,
+      deliveryAppsAmount: 0,
+      transferAmount: 0,
+      accountDniAmount: 0,
+      unitsSold: null,
+      coversCount: null,
+      cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
+      cashWithdrawn: 0,
+      cashWithdrawnByUserId: '',
+      tipsAmount: 0,
+      notes: '',
+    });
   }
 }

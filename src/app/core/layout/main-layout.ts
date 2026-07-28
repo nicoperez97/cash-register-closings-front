@@ -5,7 +5,13 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { canManageShop, canManageShopUsers, hasShopPermission } from '../auth/auth.models';
+import {
+  canManageShop,
+  canManageShopUsers,
+  defaultHomeRoute,
+  hasShopPermission,
+  isCashierOnly,
+} from '../auth/auth.models';
 import { ToolbarComponent } from './toolbar/toolbar';
 import { SidebarComponent, NavItem } from './sidebar/sidebar';
 import { BottomNavComponent, BottomNavItem } from './bottom-nav/bottom-nav';
@@ -45,6 +51,9 @@ export class MainLayoutComponent {
   readonly navItems = computed((): NavItem[] => {
     const user = this.auth.currentUser();
     const shopId = this.shopContext.selectedShopId();
+    if (isCashierOnly(user, shopId)) {
+      return [{ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' }];
+    }
     const items: NavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
     ];
@@ -66,6 +75,9 @@ export class MainLayoutComponent {
   readonly bottomNavItems = computed((): BottomNavItem[] => {
     const user = this.auth.currentUser();
     const shopId = this.shopContext.selectedShopId();
+    if (isCashierOnly(user, shopId)) {
+      return [{ label: 'Cierre', route: '/closings/new', icon: 'point_of_sale' }];
+    }
     const items: BottomNavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
     ];
@@ -84,6 +96,10 @@ export class MainLayoutComponent {
     return !allowed.some((route) => path === route || (route !== '/' && path.startsWith(route + '/')));
   });
 
+  readonly isCashierLayout = computed(() =>
+    isCashierOnly(this.auth.currentUser(), this.shopContext.selectedShopId()),
+  );
+
   constructor() {
     effect(() => {
       const mobile = this.isMobile();
@@ -93,14 +109,22 @@ export class MainLayoutComponent {
       this.sidenavOpen.set(!mobile);
     });
 
-    // Si la ruta actual no está permitida para el local, volver a inicio
+    // Si la ruta actual no está permitida para el local, ir al home del rol
     effect(() => {
       const user = this.auth.currentUser();
       const shopId = this.shopContext.selectedShopId();
       const path = this.currentUrl().split('?')[0];
-      if (!user || !shopId || path === '/' || path === '') return;
+      if (!user || !shopId) return;
+      const home = defaultHomeRoute(user, shopId);
+      if (isCashierOnly(user, shopId)) {
+        if (path !== '/closings/new') {
+          void this.router.navigateByUrl(home);
+        }
+        return;
+      }
+      if (path === '/' || path === '') return;
       if (!this.isPathAllowed(path, user, shopId)) {
-        void this.router.navigateByUrl('/');
+        void this.router.navigateByUrl(home);
       }
     });
 

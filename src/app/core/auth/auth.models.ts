@@ -37,7 +37,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reports.export',
     'shops.manage',
   ],
-  CASHIER: ['closings.create', 'closings.read', 'closings.update'],
+  CASHIER: ['closings.create'],
   VIEWER: ['closings.read', 'reports.view', 'reports.export'],
 };
 
@@ -129,4 +129,13 @@ export function canManageShopUsers(user: AuthUser | null, shopId: string | null)
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return true;
   const role = effectiveRoleForShop(user, shopId);
   return role === 'OWNER' || role === 'ADMIN';
+}
+
+/** Cajero del local: solo registra cierres nuevos. */
+export function isCashierOnly(user: AuthUser | null, shopId: string | null): boolean {
+  return effectiveRoleForShop(user, shopId) === 'CASHIER';
+}
+
+export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): string {
+  return isCashierOnly(user, shopId) ? '/closings/new' : '/';
 }
