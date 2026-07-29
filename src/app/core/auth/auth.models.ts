@@ -1,4 +1,4 @@
-export type GlobalRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER' | 'VIEWER';
+export type GlobalRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER' | 'VIEWER' | 'PARTNER';
 
 /** Compat: admin ≈ OWNER/ADMIN */
 export type UserRole = 'admin' | 'user';
@@ -11,7 +11,17 @@ export type Permission =
   | 'reports.view'
   | 'reports.export'
   | 'shops.manage'
-  | 'users.manage';
+  | 'users.manage'
+  | 'employees.manage'
+  | 'employees.read'
+  | 'attendance.manage'
+  | 'attendance.read'
+  | 'payroll.manage'
+  | 'payroll.read'
+  | 'movements.manage'
+  | 'movements.read'
+  | 'accounts.manage'
+  | 'concepts.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -22,6 +32,16 @@ const ALL_PERMISSIONS: Permission[] = [
   'reports.export',
   'shops.manage',
   'users.manage',
+  'employees.manage',
+  'employees.read',
+  'attendance.manage',
+  'attendance.read',
+  'payroll.manage',
+  'payroll.read',
+  'movements.manage',
+  'movements.read',
+  'accounts.manage',
+  'concepts.manage',
 ];
 
 /** Misma matriz que la API, para filtrar UI por rol del local. */
@@ -36,9 +56,28 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reports.view',
     'reports.export',
     'shops.manage',
+    'employees.manage',
+    'employees.read',
+    'attendance.manage',
+    'attendance.read',
+    'payroll.manage',
+    'payroll.read',
+    'movements.manage',
+    'movements.read',
+    'accounts.manage',
+    'concepts.manage',
   ],
   CASHIER: ['closings.create'],
-  VIEWER: ['closings.read', 'reports.view', 'reports.export'],
+  VIEWER: [
+    'closings.read',
+    'reports.view',
+    'reports.export',
+    'employees.read',
+    'attendance.read',
+    'payroll.read',
+    'movements.read',
+  ],
+  PARTNER: ['closings.read', 'reports.view', 'reports.export', 'movements.read'],
 };
 
 export interface ShopSummary {
@@ -51,6 +90,7 @@ export interface ShopSummary {
   currency: string;
   logoUrl?: string | null;
   accentColor?: string | null;
+  salesSystemId?: string | null;
 }
 
 export interface AuthUser {
@@ -62,6 +102,8 @@ export interface AuthUser {
   permissions: string[];
   shopIds: string[];
   shopRoles: Record<string, GlobalRole | string>;
+  /** Cuentas contables asociadas por local (N:N). */
+  shopAccountIds: Record<string, string[]>;
   shops: ShopSummary[];
 }
 
@@ -72,6 +114,7 @@ export function userRoleLabel(role?: string): string {
     MANAGER: 'Gerente',
     CASHIER: 'Cajero',
     VIEWER: 'Visor',
+    PARTNER: 'Socio',
     admin: 'Administrador',
     user: 'Usuario',
   };
@@ -84,6 +127,7 @@ export const GLOBAL_ROLE_OPTIONS: Array<{ value: GlobalRole; label: string }> = 
   { value: 'MANAGER', label: 'Gerente' },
   { value: 'CASHIER', label: 'Cajero' },
   { value: 'VIEWER', label: 'Visor' },
+  { value: 'PARTNER', label: 'Socio' },
 ];
 
 export function toUiRole(globalRole: GlobalRole): UserRole {

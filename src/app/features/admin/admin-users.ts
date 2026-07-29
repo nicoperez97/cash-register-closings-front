@@ -63,7 +63,12 @@ export class AdminUsersPage implements OnInit {
     if (o.value === 'OWNER') return false;
     const global = this.auth.currentUser()?.globalRole;
     if (global === 'OWNER' || global === 'ADMIN') return true;
-    return o.value === 'MANAGER' || o.value === 'CASHIER' || o.value === 'VIEWER';
+    return (
+      o.value === 'MANAGER' ||
+      o.value === 'CASHIER' ||
+      o.value === 'VIEWER' ||
+      o.value === 'PARTNER'
+    );
   });
 
   readonly rows = signal<AdminUserRow[]>([]);
@@ -73,6 +78,11 @@ export class AdminUsersPage implements OnInit {
     { key: 'fullName', label: 'Nombre' },
     { key: 'email', label: 'Correo' },
     { key: 'globalRole', label: 'Rol', format: (r) => userRoleLabel(String(r['globalRole'] ?? '')) },
+    {
+      key: 'ledgerAccountName',
+      label: 'Cuentas',
+      format: (r) => String(r['ledgerAccountName'] ?? '—'),
+    },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
 

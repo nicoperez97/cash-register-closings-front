@@ -19,6 +19,7 @@ import { ClosingsApiService, CashClosing, ShopUserOption } from './closings-api.
 import { closingStatusLabel } from '../../core/i18n/labels';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
+import { PosSalesImportDialogComponent } from './pos-sales-import-dialog';
 import {
   CLOSING_DIFFERENCE_FILTERS,
   CLOSING_PAYMENT_FILTERS,
@@ -169,6 +170,10 @@ import {
             <button mat-stroked-button type="button" (click)="openExcelImport()">
               <mat-icon>upload_file</mat-icon>
               Importar Excel
+            </button>
+            <button mat-stroked-button type="button" (click)="openPosSalesImport()">
+              <mat-icon>point_of_sale</mat-icon>
+              Importar reporte POS
             </button>
             <button mat-stroked-button type="button" (click)="openWhatsappImport()">
               <mat-icon>folder_zip</mat-icon>
@@ -391,6 +396,63 @@ export class ClosingsListPage {
       .subscribe((ok) => {
         if (ok) this.reloadToken.update((n) => n + 1);
       });
+  }
+
+  openPosSalesImport(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    const shop = this.shops.selectedShop();
+    if (!shop?.salesSystemId) {
+      this.snack.open(
+        'Configurá el sistema de ventas (Restosoft) en Administrar local',
+        'OK',
+        { duration: 4500 },
+      );
+      return;
+    }
+    this.api.listSalesSystems().subscribe({
+      next: (systems) => {
+        const sys = systems.find((s) => s.id === shop.salesSystemId);
+        this.dialogTitle
+          .track(
+            this.dialog.open(PosSalesImportDialogComponent, {
+              width: '780px',
+              maxWidth: '96vw',
+              panelClass: 'guy-dialog',
+              data: {
+                shopId,
+                shopName: shop.name ?? 'Local',
+                salesSystemName: sys?.name ?? null,
+              },
+            }),
+            'Importar reporte POS',
+          )
+          .afterClosed()
+          .subscribe((ok) => {
+            if (ok) this.reloadToken.update((n) => n + 1);
+          });
+      },
+      error: () => {
+        this.dialogTitle
+          .track(
+            this.dialog.open(PosSalesImportDialogComponent, {
+              width: '780px',
+              maxWidth: '96vw',
+              panelClass: 'guy-dialog',
+              data: {
+                shopId,
+                shopName: shop.name ?? 'Local',
+                salesSystemName: null,
+              },
+            }),
+            'Importar reporte POS',
+          )
+          .afterClosed()
+          .subscribe((ok) => {
+            if (ok) this.reloadToken.update((n) => n + 1);
+          });
+      },
+    });
   }
 
   downloadTemplate(): void {

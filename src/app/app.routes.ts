@@ -39,6 +39,13 @@ export const routes: Routes = [
         title: 'Editar cierre',
       },
       {
+        path: 'reports/products',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reports/sales-products-page').then((m) => m.SalesProductsPage),
+        title: 'Platos y rubros',
+      },
+      {
         path: 'reports',
         canActivate: [permissionGuard('reports.view')],
         loadComponent: () =>
@@ -58,6 +65,62 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/admin-users').then((m) => m.AdminUsersPage),
         title: 'Usuarios',
+      },
+      {
+        path: 'admin/accounts',
+        canActivate: [permissionGuard('accounts.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-accounts').then((m) => m.AdminAccountsPage),
+        title: 'Cuentas',
+      },
+      {
+        path: 'admin/concepts',
+        canActivate: [permissionGuard('concepts.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-concepts').then((m) => m.AdminConceptsPage),
+        title: 'Conceptos',
+      },
+      {
+        path: 'admin/sales-systems',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-sales-systems').then((m) => m.AdminSalesSystemsPage),
+        title: 'Sistemas de ventas',
+      },
+      {
+        path: 'admin/pos-products',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-pos-products').then((m) => m.AdminPosProductsPage),
+        title: 'Platos POS',
+      },
+      {
+        path: 'employees',
+        canActivate: [permissionGuard('employees.read')],
+        loadComponent: () =>
+          import('./features/employees/employees-list').then((m) => m.EmployeesListPage),
+        title: 'Empleados',
+      },
+      {
+        path: 'movements',
+        canActivate: [permissionGuard('movements.read')],
+        loadComponent: () =>
+          import('./features/movements/movements-list').then((m) => m.MovementsListPage),
+        title: 'Movimientos',
+      },
+      {
+        path: 'attendance',
+        canActivate: [permissionGuard('attendance.read')],
+        loadComponent: () =>
+          import('./features/attendance/attendance-page').then((m) => m.AttendancePage),
+        title: 'Asistencia',
+      },
+      {
+        path: 'payroll',
+        canActivate: [permissionGuard('payroll.read')],
+        loadComponent: () =>
+          import('./features/payroll/payroll-page').then((m) => m.PayrollPage),
+        title: 'Liquidaciones',
       },
     ],
   },

@@ -1,9 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -13,6 +14,7 @@ import { canManageShop } from '../../core/auth/auth.models';
 import { normalizeLogoUrl } from '../../core/utils/drive-url';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
+import { ClosingsApiService, SalesSystemOption } from '../closings/closings-api.service';
 
 @Component({
   selector: 'app-admin-shop',
@@ -21,6 +23,7 @@ import { Router } from '@angular/router';
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatSelectModule,
     MatSlideToggleModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -85,6 +88,16 @@ import { Router } from '@angular/router';
           <mat-label>Cambio por defecto</mat-label>
           <input matInput type="number" formControlName="defaultChangeAmount" />
         </mat-form-field>
+        <mat-form-field appearance="outline" style="grid-column:1/-1">
+          <mat-label>Sistema de ventas</mat-label>
+          <mat-select formControlName="salesSystemId">
+            <mat-option [value]="null">Sin sistema</mat-option>
+            @for (s of salesSystems(); track s.id) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Define cómo interpretar reportes POS (ej. Restosoft)</mat-hint>
+        </mat-form-field>
         <div style="grid-column:1/-1" class="d-flex align-items-center gap-2 mb-2">
           <mat-slide-toggle formControlName="coversEnabled">Comensales habilitados</mat-slide-toggle>
         </div>
@@ -120,10 +133,13 @@ import { Router } from '@angular/router';
 export class AdminShopPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
+  private readonly api = inject(ClosingsApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   readonly shops = inject(ShopContextService);
+
+  readonly salesSystems = signal<SalesSystemOption[]>([]);
 
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
@@ -133,6 +149,7 @@ export class AdminShopPage implements OnInit {
     unitsLabel: [''],
     defaultChangeAmount: [0],
     coversEnabled: [false],
+    salesSystemId: this.fb.control<string | null>(null),
   });
 
   ngOnInit(): void {
@@ -141,6 +158,10 @@ export class AdminShopPage implements OnInit {
       void this.router.navigate(['/']);
       return;
     }
+    this.api.listSalesSystems().subscribe({
+      next: (rows) => this.salesSystems.set(rows),
+      error: () => this.salesSystems.set([]),
+    });
     const shop = this.shops.selectedShop();
     if (!shop) return;
     this.form.patchValue({
@@ -151,6 +172,23 @@ export class AdminShopPage implements OnInit {
       unitsLabel: shop.unitsLabel ?? '',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
       coversEnabled: !!shop.coversEnabled,
+      salesSystemId: shop.salesSystemId ?? null,
+    });
+    // Reload shop from API to get salesSystemId if missing in cached me
+    this.http.get<any>(`${environment.apiUrl}/shops/${shopId}`).subscribe({
+      next: (s) => {
+        this.form.patchValue({
+          salesSystemId: s.salesSystemId ?? null,
+          name: s.name,
+          slug: s.slug,
+          logoUrl: s.logoUrl ?? '',
+          accentColor: s.accentColor ?? '#2E7D32',
+          unitsLabel: s.unitsLabel ?? '',
+          defaultChangeAmount: s.defaultChangeAmount ?? 0,
+          coversEnabled: !!s.coversEnabled,
+        });
+        this.shops.upsertShop(s);
+      },
     });
   }
 
@@ -181,6 +219,7 @@ export class AdminShopPage implements OnInit {
         unitsLabel: raw.unitsLabel.trim() || null,
         defaultChangeAmount: raw.defaultChangeAmount,
         coversEnabled: raw.coversEnabled,
+        salesSystemId: raw.salesSystemId || null,
       })
       .subscribe({
         next: (shop) => {

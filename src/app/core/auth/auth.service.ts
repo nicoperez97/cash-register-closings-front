@@ -86,8 +86,20 @@ export class AuthService {
       permissions: me.permissions ?? [],
       shopIds: me.shopIds ?? [],
       shopRoles: me.shopRoles ?? {},
+      shopAccountIds: this.normalizeShopAccountIds(me.shopAccountIds),
       shops: me.shops ?? [],
     };
+  }
+
+  /** Compat: antes era un string por shop; ahora es string[]. */
+  private normalizeShopAccountIds(raw: any): Record<string, string[]> {
+    if (!raw || typeof raw !== 'object') return {};
+    const out: Record<string, string[]> = {};
+    for (const [shopId, value] of Object.entries(raw)) {
+      if (Array.isArray(value)) out[shopId] = value.filter((v) => typeof v === 'string');
+      else if (typeof value === 'string' && value) out[shopId] = [value];
+    }
+    return out;
   }
 
   private readUser(): AuthUser | null {

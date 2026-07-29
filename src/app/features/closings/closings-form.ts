@@ -1,12 +1,13 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { startWith } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -15,11 +16,27 @@ import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
 import { ClosingsApiService } from './closings-api.service';
 import { environment } from '../../../environments/environment';
 
-interface ShopUserOption {
+interface EmployeeOption {
   id: string;
   fullName: string;
-  email?: string;
 }
+
+const EXPENSE_CATEGORY_OPTIONS = [
+  { value: 'RAW_MATERIALS', label: 'Materia prima' },
+  { value: 'DRINKS', label: 'Bebida' },
+  { value: 'SALARIES', label: 'Sueldos' },
+  { value: 'COMMISSIONS', label: 'Comisiones' },
+  { value: 'RENT', label: 'Alquiler' },
+  { value: 'EQUIPMENT', label: 'Equipamiento' },
+  { value: 'CLEANING', label: 'Limpieza' },
+  { value: 'DISPOSABLES', label: 'Descartables' },
+  { value: 'UTILITIES', label: 'Servicios' },
+  { value: 'MARKETING', label: 'Marketing' },
+  { value: 'SUPPLIES', label: 'Insumos' },
+  { value: 'SERVICES', label: 'Servicios' },
+  { value: 'TRANSFER_SHOP', label: 'Transferencia locales' },
+  { value: 'OTHER', label: 'Otros' },
+];
 
 @Component({
   selector: 'app-closings-form',
@@ -29,6 +46,7 @@ interface ShopUserOption {
     MatInputModule,
     MatSelectModule,
     MatButtonModule,
+    MatIconModule,
     MatSnackBarModule,
   ],
   host: {
@@ -117,10 +135,10 @@ interface ShopUserOption {
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Quién se lo lleva</mat-label>
-                <mat-select formControlName="cashWithdrawnByUserId">
+                <mat-select formControlName="cashWithdrawnByEmployeeId">
                   <mat-option value="">— Sin asignar —</mat-option>
-                  @for (u of shopUsers(); track u.id) {
-                    <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                  @for (e of employees(); track e.id) {
+                    <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
                   }
                 </mat-select>
               </mat-form-field>
@@ -135,6 +153,49 @@ interface ShopUserOption {
             </div>
           </section>
         </div>
+
+        <section class="closing-form__section closing-form__expenses">
+          <div class="closing-form__expenses-head">
+            <h2>Egresos del día</h2>
+            <button mat-stroked-button type="button" (click)="addExpense()">
+              <mat-icon>add</mat-icon>
+              Agregar egreso
+            </button>
+          </div>
+          <div class="closing-form__expenses-list" formArrayName="expenses">
+            @for (row of expenses.controls; track row; let i = $index) {
+              <div class="expense-row" [formGroupName]="i">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Concepto</mat-label>
+                  <input matInput formControlName="label" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Monto</mat-label>
+                  <input matInput type="number" formControlName="amount" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Categoría</mat-label>
+                  <mat-select formControlName="category">
+                    @for (opt of expenseCategories; track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="expense-row__remove"
+                  aria-label="Quitar egreso"
+                  (click)="removeExpense(i)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            } @empty {
+              <p class="closing-form__expenses-empty">No hay egresos cargados.</p>
+            }
+          </div>
+        </section>
 
         <div class="closing-totals">
           <div class="closing-totals__item">
@@ -249,6 +310,52 @@ interface ShopUserOption {
         padding-bottom: 10px !important;
       }
 
+      .closing-form__expenses {
+        margin-top: 1.15rem;
+      }
+
+      .closing-form__expenses-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.65rem;
+      }
+
+      .closing-form__expenses-head h2 {
+        margin: 0;
+      }
+
+      .closing-form__expenses-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+
+      .closing-form__expenses-empty {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .expense-row {
+        display: grid;
+        grid-template-columns: 1.4fr 0.8fr 1fr auto;
+        gap: 0.6rem;
+        align-items: center;
+      }
+
+      .expense-row__remove {
+        color: #c62828;
+      }
+
+      @media (max-width: 720px) {
+        .expense-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
       .closing-totals {
         margin-top: 0.85rem;
         display: grid;
@@ -324,7 +431,8 @@ export class ClosingsFormPage implements OnInit {
 
   readonly shop = this.shops.selectedShop;
   readonly isEdit = signal(false);
-  readonly shopUsers = signal<ShopUserOption[]>([]);
+  readonly employees = signal<EmployeeOption[]>([]);
+  readonly expenseCategories = EXPENSE_CATEGORY_OPTIONS;
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
   private closingId: string | null = null;
 
@@ -341,10 +449,15 @@ export class ClosingsFormPage implements OnInit {
     coversCount: [0 as number | null],
     cashLeftInRegister: [0],
     cashWithdrawn: [0],
-    cashWithdrawnByUserId: [''],
+    cashWithdrawnByEmployeeId: [''],
     tipsAmount: [0],
     notes: [''],
+    expenses: this.fb.array([]),
   });
+
+  get expenses(): FormArray {
+    return this.form.get('expenses') as FormArray;
+  }
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
@@ -371,10 +484,10 @@ export class ClosingsFormPage implements OnInit {
     const shopId = this.shops.selectedShopId();
     if (shopId) {
       this.http
-        .get<ShopUserOption[]>(`${environment.apiUrl}/shops/${shopId}/users`)
+        .get<EmployeeOption[]>(`${environment.apiUrl}/shops/${shopId}/employees`)
         .subscribe({
-          next: (rows) => this.shopUsers.set(rows),
-          error: () => this.snack.open('No se pudieron cargar los usuarios del local', 'OK', { duration: 3000 }),
+          next: (rows) => this.employees.set(rows),
+          error: () => this.snack.open('No se pudieron cargar los empleados del local', 'OK', { duration: 3000 }),
         });
     }
 
@@ -396,10 +509,20 @@ export class ClosingsFormPage implements OnInit {
           coversCount: c.coversCount ?? null,
           cashLeftInRegister: c.cashLeftInRegister,
           cashWithdrawn: c.cashWithdrawn,
-          cashWithdrawnByUserId: c.cashWithdrawnByUserId ?? '',
+          cashWithdrawnByEmployeeId: c.cashWithdrawnByEmployeeId ?? '',
           tipsAmount: c.tipsAmount,
           notes: c.notes ?? '',
         });
+        this.expenses.clear();
+        for (const expense of c.expenses ?? []) {
+          this.expenses.push(
+            this.buildExpenseGroup({
+              label: expense.label ?? '',
+              amount: expense.amount ?? 0,
+              category: expense.category ?? 'OTHER',
+            }),
+          );
+        }
       });
     } else {
       const today = new Date().toISOString().slice(0, 10);
@@ -430,15 +553,19 @@ export class ClosingsFormPage implements OnInit {
       return;
     }
     const raw = this.form.getRawValue();
-    const userId = raw.cashWithdrawnByUserId || null;
-    const selected = this.shopUsers().find((u) => u.id === userId);
+    const employeeId = raw.cashWithdrawnByEmployeeId || null;
+    const selected = this.employees().find((e) => e.id === employeeId);
     const body = {
       ...raw,
       unitsSold: raw.unitsSold || null,
       coversCount: raw.coversCount || null,
-      cashWithdrawnByUserId: userId,
+      cashWithdrawnByUserId: null,
+      cashWithdrawnByEmployeeId: employeeId,
       cashWithdrawnByName: selected?.fullName ?? null,
       declaredTotal: this.declaredTotal(),
+      expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>).filter(
+        (e) => !!e.label && Number(e.amount) > 0,
+      ),
     };
     const req$ =
       this.isEdit() && this.closingId
@@ -470,6 +597,7 @@ export class ClosingsFormPage implements OnInit {
 
   private resetForNextClosing(): void {
     const today = new Date().toISOString().slice(0, 10);
+    this.expenses.clear();
     this.form.reset({
       businessDate: today,
       posSystemAmount: 0,
@@ -483,9 +611,26 @@ export class ClosingsFormPage implements OnInit {
       coversCount: null,
       cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
       cashWithdrawn: 0,
-      cashWithdrawnByUserId: '',
+      cashWithdrawnByEmployeeId: '',
       tipsAmount: 0,
       notes: '',
+      expenses: [],
     });
+  }
+
+  private buildExpenseGroup(value: { label: string; amount: number; category: string }) {
+    return this.fb.nonNullable.group({
+      label: [value.label],
+      amount: [value.amount],
+      category: [value.category],
+    });
+  }
+
+  addExpense(): void {
+    this.expenses.push(this.buildExpenseGroup({ label: '', amount: 0, category: 'OTHER' }));
+  }
+
+  removeExpense(index: number): void {
+    this.expenses.removeAt(index);
   }
 }

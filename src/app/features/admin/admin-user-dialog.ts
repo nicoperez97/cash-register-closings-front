@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -17,6 +17,9 @@ export interface AdminUserRow {
   email: string;
   globalRole: string;
   active: boolean;
+  ledgerAccountIds?: string[];
+  ledgerAccountId?: string | null;
+  ledgerAccountName?: string | null;
 }
 
 export type AdminUserDialogData = {
@@ -24,6 +27,14 @@ export type AdminUserDialogData = {
   shopName: string;
   roleOptions: Array<{ value: string; label: string }>;
 } & ({ mode: 'create' } | { mode: 'edit'; user: AdminUserRow });
+
+interface AccountOption {
+  id: string;
+  name: string;
+  type: string;
+  userIds?: string[];
+  userId?: string | null;
+}
 
 @Component({
   selector: 'app-admin-user-dialog',
@@ -91,6 +102,17 @@ export type AdminUserDialogData = {
           </mat-select>
         </mat-form-field>
 
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Cuentas asociadas</mat-label>
+          <mat-icon matPrefix>account_balance</mat-icon>
+          <mat-select formControlName="ledgerAccountIds" multiple>
+            @for (a of accounts(); track a.id) {
+              <mat-option [value]="a.id">{{ a.name }}</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Podés asociar varias cuentas (Fonti, Manu, etc.)</mat-hint>
+        </mat-form-field>
+
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Usuario activo</mat-slide-toggle>
         }
@@ -114,7 +136,7 @@ export type AdminUserDialogData = {
     </mat-dialog-actions>
   `,
 })
-export class AdminUserDialogComponent {
+export class AdminUserDialogComponent implements OnInit {
   readonly data = inject<AdminUserDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<AdminUserDialogComponent, boolean>);
   private readonly fb = inject(FormBuilder);
@@ -124,14 +146,31 @@ export class AdminUserDialogComponent {
   readonly isEdit = this.data.mode === 'edit';
   private readonly user = this.data.mode === 'edit' ? this.data.user : null;
   readonly busy = signal(false);
+  readonly accounts = signal<AccountOption[]>([]);
+
+  private initialAccountIds(): string[] {
+    if (this.user?.ledgerAccountIds?.length) return [...this.user.ledgerAccountIds];
+    if (this.user?.ledgerAccountId) return [this.user.ledgerAccountId];
+    return [];
+  }
 
   readonly form = this.fb.nonNullable.group({
     fullName: [this.user?.fullName ?? '', Validators.required],
     email: [this.user?.email ?? '', [Validators.required, Validators.email]],
     password: [this.isEdit ? '' : 'demo', this.isEdit ? [] : [Validators.required]],
     globalRole: [this.user?.globalRole ?? 'CASHIER', Validators.required],
+    ledgerAccountIds: this.fb.nonNullable.control<string[]>(this.initialAccountIds()),
     active: [this.user?.active ?? true],
   });
+
+  ngOnInit(): void {
+    this.http
+      .get<AccountOption[]>(`${environment.apiUrl}/shops/${this.data.shopId}/accounts`)
+      .subscribe({
+        next: (rows) => this.accounts.set(rows),
+        error: () => this.accounts.set([]),
+      });
+  }
 
   save(): void {
     if (this.form.invalid) {
@@ -150,6 +189,7 @@ export class AdminUserDialogComponent {
         active: raw.active,
         shopIds: [shopId],
         shopRole: raw.globalRole,
+        ledgerAccountIds: raw.ledgerAccountIds ?? [],
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -180,6 +220,7 @@ export class AdminUserDialogComponent {
         password: raw.password,
         globalRole: raw.globalRole,
         shopIds: [shopId],
+        ledgerAccountIds: raw.ledgerAccountIds ?? [],
       })
       .subscribe({
         next: () => {

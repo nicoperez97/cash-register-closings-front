@@ -61,13 +61,43 @@ export class MainLayoutComponent {
       items.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
     }
     if (hasShopPermission(user, shopId, 'reports.view')) {
-      items.push({ label: 'Reportes', route: '/reports', icon: 'insights' });
+      items.push({
+        label: 'Reportes',
+        route: '/reports',
+        icon: 'insights',
+        children: [
+          { label: 'Cierres', route: '/reports', icon: 'insights' },
+          { label: 'Platos y rubros', route: '/reports/products', icon: 'restaurant_menu' },
+        ],
+      });
+    }
+    if (hasShopPermission(user, shopId, 'employees.read')) {
+      items.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
+    }
+    if (hasShopPermission(user, shopId, 'movements.read')) {
+      items.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
+    }
+    if (hasShopPermission(user, shopId, 'attendance.read')) {
+      items.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
+    }
+    if (hasShopPermission(user, shopId, 'payroll.read')) {
+      items.push({ label: 'Liquidaciones', route: '/payroll', icon: 'request_quote' });
     }
     if (canManageShop(user, shopId)) {
       items.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
     }
     if (canManageShopUsers(user, shopId)) {
       items.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
+    }
+    if (hasShopPermission(user, shopId, 'accounts.manage')) {
+      items.push({ label: 'Cuentas', route: '/admin/accounts', icon: 'account_balance' });
+    }
+    if (hasShopPermission(user, shopId, 'concepts.manage')) {
+      items.push({ label: 'Conceptos', route: '/admin/concepts', icon: 'sell' });
+    }
+    if (canManageShop(user, shopId)) {
+      items.push({ label: 'Sistemas', route: '/admin/sales-systems', icon: 'dns' });
+      items.push({ label: 'Platos', route: '/admin/pos-products', icon: 'restaurant_menu' });
     }
     return items;
   });
@@ -151,6 +181,30 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/admin/users')) {
       return canManageShopUsers(user, shopId);
+    }
+    if (path.startsWith('/admin/accounts')) {
+      return hasShopPermission(user, shopId, 'accounts.manage');
+    }
+    if (path.startsWith('/admin/concepts')) {
+      return hasShopPermission(user, shopId, 'concepts.manage');
+    }
+    if (path.startsWith('/admin/sales-systems')) {
+      return canManageShop(user, shopId);
+    }
+    if (path.startsWith('/admin/pos-products')) {
+      return canManageShop(user, shopId);
+    }
+    if (path.startsWith('/employees')) {
+      return hasShopPermission(user, shopId, 'employees.read');
+    }
+    if (path.startsWith('/movements')) {
+      return hasShopPermission(user, shopId, 'movements.read');
+    }
+    if (path.startsWith('/attendance')) {
+      return hasShopPermission(user, shopId, 'attendance.read');
+    }
+    if (path.startsWith('/payroll')) {
+      return hasShopPermission(user, shopId, 'payroll.read');
     }
     return true;
   }

@@ -22,6 +22,7 @@ export interface CashClosing {
   cashPendingPickup: number;
   cashWithdrawn: number;
   cashWithdrawnByUserId?: string | null;
+  cashWithdrawnByEmployeeId?: string | null;
   cashWithdrawnByName?: string | null;
   tipsAmount: number;
   declaredTotal: number;
@@ -123,6 +124,146 @@ export class ClosingsApiService {
       body,
     );
   }
+
+  listSalesSystems() {
+    return this.http.get<SalesSystemOption[]>(`${this.base}/sales-systems`);
+  }
+
+  previewPosSalesImport(shopId: string, file: File) {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<PosSalesImportPreview>(
+      `${this.base}/shops/${shopId}/sales-reports/import-excel`,
+      body,
+    );
+  }
+
+  commitPosSalesImport(shopId: string, file: File) {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<PosSalesImportResult>(
+      `${this.base}/shops/${shopId}/sales-reports/import-excel?commit=true`,
+      body,
+    );
+  }
+
+  salesProductsSummary(shopId: string, filters: SalesProductsFilters) {
+    return this.http.get<SalesProductsSummary>(
+      `${this.base}/shops/${shopId}/sales-reports/products/summary`,
+      { params: salesProductsFiltersToParams(filters) },
+    );
+  }
+
+  salesProductsExport(shopId: string, filters: SalesProductsFilters) {
+    return this.http.get(`${this.base}/shops/${shopId}/sales-reports/products/export.xlsx`, {
+      params: salesProductsFiltersToParams(filters),
+      responseType: 'blob',
+    });
+  }
+}
+
+export interface SalesProductsFilters {
+  from: string;
+  to: string;
+  q?: string | null;
+  category?: string | null;
+  paymentCode?: string | null;
+  salesSystemId?: string | null;
+}
+
+export interface SalesProductsSummary {
+  shopId: string;
+  from: string;
+  to: string;
+  totals: {
+    qty: number;
+    amount: number;
+    lineCount: number;
+    productCount: number;
+    categoryCount: number;
+    ticketCount: number;
+    avgTicketAmount: number;
+  };
+  products: Array<{
+    productCode: string | null;
+    productName: string | null;
+    category: string | null;
+    qty: number;
+    amount: number;
+    ticketCount: number;
+    share: number;
+    avgTicketAmount: number;
+  }>;
+  categories: Array<{
+    category: string;
+    productCount: number;
+    qty: number;
+    amount: number;
+    ticketCount: number;
+    share: number;
+  }>;
+  filterOptions: {
+    categories: string[];
+    paymentCodes: string[];
+  };
+}
+
+function salesProductsFiltersToParams(filters: SalesProductsFilters): Record<string, string> {
+  const params: Record<string, string> = {
+    from: filters.from,
+    to: filters.to,
+  };
+  if (filters.q) params['q'] = filters.q;
+  if (filters.category) params['category'] = filters.category;
+  if (filters.paymentCode) params['paymentCode'] = filters.paymentCode;
+  if (filters.salesSystemId) params['salesSystemId'] = filters.salesSystemId;
+  return params;
+}
+
+export interface SalesSystemOption {
+  id: string;
+  code: string;
+  name: string;
+  parserKey: string;
+}
+
+export interface PosSalesDayPreview {
+  businessDate: string;
+  ticketCount: number;
+  coversCount: number;
+  totalAmount: number;
+  cashAmount: number;
+  cardAmount: number;
+  mercadoPagoAmount: number;
+  deliveryAppsAmount: number;
+  transferAmount: number;
+  accountDniAmount: number;
+  otherAmount: number;
+  closingExists: boolean;
+  closingId: string | null;
+  closingLocked: boolean;
+  previousPosSystemAmount: number | null;
+  posMismatch: boolean;
+  unknownPaymentCodes: string[];
+}
+
+export interface PosSalesImportPreview {
+  salesSystemCode: string;
+  salesSystemName: string;
+  fileName: string | null;
+  shopLabel: string | null;
+  periodFrom: string | null;
+  periodTo: string | null;
+  ticketCount: number;
+  dayCount: number;
+  days: PosSalesDayPreview[];
+  unknownPaymentCodes: string[];
+}
+
+export interface PosSalesImportResult extends PosSalesImportPreview {
+  importId: string;
+  committedDays: number;
+  skippedLockedDays: number;
 }
 
 export interface WhatsappImportItem {

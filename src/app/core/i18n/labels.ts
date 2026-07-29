@@ -15,8 +15,44 @@ export function expenseCategoryLabel(category?: string | null): string {
     SERVICES: 'Servicios',
     TRANSFER_SHOP: 'Transferencia entre locales',
     OTHER: 'Otros',
+    RAW_MATERIALS: 'Materia prima',
+    DRINKS: 'Bebidas',
+    SALARIES: 'Sueldos',
+    RENT: 'Alquiler',
+    EQUIPMENT: 'Equipamiento',
+    CLEANING: 'Limpieza',
+    DISPOSABLES: 'Descartables',
+    UTILITIES: 'Servicios (UTE/OSE/Internet)',
+    MARKETING: 'Marketing',
+    COMMISSIONS: 'Comisiones',
   };
   return map[category ?? ''] ?? category ?? '—';
+}
+
+export function conceptKindLabel(kind?: string | null): string {
+  const map: Record<string, string> = {
+    INCOME: 'Ingreso',
+    EXPENSE: 'Egreso',
+    TRANSFER: 'Transferencia',
+  };
+  return map[kind ?? ''] ?? kind ?? '—';
+}
+
+export function accountTypeLabel(type?: string | null): string {
+  const map: Record<string, string> = {
+    PARTNER: 'Socio',
+    CHANNEL: 'Canal',
+    SYSTEM: 'Sistema',
+  };
+  return map[type ?? ''] ?? type ?? '—';
+}
+
+export function payrollStatusLabel(status?: string | null): string {
+  const map: Record<string, string> = {
+    DRAFT: 'Borrador',
+    LOCKED: 'Cerrada',
+  };
+  return map[status ?? ''] ?? status ?? '—';
 }
 
 export function extraLineTypeLabel(type?: string | null): string {

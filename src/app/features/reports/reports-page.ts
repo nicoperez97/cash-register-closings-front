@@ -10,6 +10,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import {
+  BalanceAccountRow,
+  BalancesTableComponent,
+} from '../../shared/components/balances-table';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
@@ -36,6 +40,7 @@ import {
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
+    BalancesTableComponent,
   ],
   template: `
     <app-page-header
@@ -159,7 +164,7 @@ import {
 
     <app-kpi-strip class="mb-3" [items]="kpis()" />
 
-    <div class="panel-card panel-card--flush">
+    <div class="panel-card panel-card--flush mb-3">
       <div class="panel-card__body">
         <div class="guy-list-head">
           <div>
@@ -176,6 +181,55 @@ import {
         />
       </div>
     </div>
+
+    <div class="reports-extra mb-3">
+      @if (balanceRows().length) {
+        <div class="panel-card panel-card--flush">
+          <app-balances-table [accounts]="balanceRows()" />
+          <p class="reports-extra__hint">Saldos del período filtrado (movimientos)</p>
+        </div>
+      }
+
+      @if (expenseRows().length) {
+        <div class="panel-card panel-card--flush">
+          <div class="panel-card__body">
+            <div class="guy-list-head">
+              <div>
+                <h2 class="guy-list-head__title">Egresos por concepto</h2>
+                <p class="guy-list-head__meta">Distribución de egresos del período filtrado</p>
+              </div>
+            </div>
+            <app-data-table
+              [columns]="expenseColumns"
+              [rows]="expenseRows()"
+              [sortable]="true"
+              [showActions]="false"
+              [canRemove]="never"
+            />
+          </div>
+        </div>
+      }
+    </div>
+  `,
+  styles: `
+    .reports-extra {
+      display: grid;
+      gap: 1rem;
+      align-items: start;
+    }
+
+    @media (min-width: 960px) {
+      .reports-extra {
+        grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+      }
+    }
+
+    .reports-extra__hint {
+      margin: 0;
+      padding: 0.55rem 1rem 0.75rem;
+      font-size: 0.75rem;
+      color: var(--guy-muted);
+    }
   `,
 })
 export class ReportsPage {
@@ -213,6 +267,8 @@ export class ReportsPage {
   readonly kpis = signal<KpiItem[]>([]);
   readonly days = signal<any[]>([]);
   readonly users = signal<ShopUserOption[]>([]);
+  readonly expenseRows = signal<any[]>([]);
+  readonly balanceRows = signal<BalanceAccountRow[]>([]);
 
   readonly columns: DataTableColumn[] = [
     { key: 'businessDate', label: 'Fecha' },
@@ -238,6 +294,20 @@ export class ReportsPage {
     },
     { key: 'cashWithdrawnByName', label: 'Quién' },
     { key: 'status', label: 'Estado' },
+  ];
+
+  readonly expenseColumns: DataTableColumn[] = [
+    { key: 'conceptName', label: 'Concepto' },
+    {
+      key: 'total',
+      label: 'Total',
+      format: (r) => `$ ${Number(r['total'] ?? 0).toLocaleString('es-UY')}`,
+    },
+    {
+      key: 'share',
+      label: 'Porcentaje',
+      format: (r) => `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-UY', { maximumFractionDigits: 1 })}%`,
+    },
   ];
 
   constructor() {
@@ -312,11 +382,19 @@ export class ReportsPage {
       next: (s) => {
         this.summary.set(s);
         this.days.set(s.days ?? []);
+        this.expenseRows.set(s.expensesByConcept ?? []);
+        this.balanceRows.set(
+          (s.accountBalances ?? []).map((a: { name: string; balance: number }) => ({
+            name: a.name,
+            balance: Number(a.balance ?? 0),
+          })),
+        );
         this.kpis.set([
           { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-UY')}` },
           { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-UY')}` },
           { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-UY')}` },
           { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-UY')}` },
+          { label: 'Egresos', value: `$ ${Number(s.expensesTotal ?? 0).toLocaleString('es-UY')}` },
         ]);
       },
       error: () => this.snack.open('Error al cargar reporte', 'OK', { duration: 3000 }),
