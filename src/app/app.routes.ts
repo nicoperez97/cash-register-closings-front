@@ -122,6 +122,13 @@ export const routes: Routes = [
           import('./features/payroll/payroll-page').then((m) => m.PayrollPage),
         title: 'Liquidaciones',
       },
+      {
+        path: 'commissions',
+        canActivate: [permissionGuard('commissions.read')],
+        loadComponent: () =>
+          import('./features/commissions/commissions-page').then((m) => m.CommissionsPage),
+        title: 'Comisiones',
+      },
     ],
   },
   { path: '**', redirectTo: '' },

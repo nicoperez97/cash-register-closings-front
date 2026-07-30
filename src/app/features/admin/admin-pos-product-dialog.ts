@@ -1,26 +1,50 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
+
+export interface AdminPosCategoryRow {
+  id: string;
+  name: string;
+  sortOrder: number;
+  notes?: string | null;
+  active: boolean;
+}
+
+export interface AdminPosSubcategoryRow {
+  id: string;
+  categoryId: string;
+  categoryName?: string | null;
+  name: string;
+  sortOrder: number;
+  notes?: string | null;
+  active: boolean;
+}
 
 export interface AdminPosProductRow {
   id: string;
   productCode: string;
   productName?: string | null;
   category?: string | null;
+  subcategory?: string | null;
+  categoryId?: string | null;
+  subcategoryId?: string | null;
   active: boolean;
 }
 
 export type AdminPosProductDialogData = {
   shopId: string;
   product: AdminPosProductRow;
+  categories: AdminPosCategoryRow[];
+  subcategories: AdminPosSubcategoryRow[];
 };
 
 @Component({
@@ -31,6 +55,7 @@ export type AdminPosProductDialogData = {
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
@@ -60,8 +85,22 @@ export type AdminPosProductDialogData = {
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Rubro</mat-label>
-          <input matInput formControlName="category" placeholder="Ej. Entradas, Bebidas, Postres" />
-          <mat-hint>Se aplica a las ventas históricas de este código</mat-hint>
+          <mat-select formControlName="categoryId" (selectionChange)="onCategoryChange()">
+            <mat-option [value]="null">Sin rubro</mat-option>
+            @for (c of data.categories; track c.id) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Subrubro</mat-label>
+          <mat-select formControlName="subcategoryId">
+            <mat-option [value]="null">Sin subrubro</mat-option>
+            @for (s of filteredSubs(); track s.id) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
 
         <mat-slide-toggle formControlName="active" color="primary">Activo</mat-slide-toggle>
@@ -84,12 +123,26 @@ export class AdminPosProductDialogComponent {
   private readonly fb = inject(FormBuilder);
 
   saving = false;
+  readonly filteredSubs = signal<AdminPosSubcategoryRow[]>([]);
 
   readonly form = this.fb.nonNullable.group({
     productName: [this.data.product.productName ?? '', Validators.required],
-    category: [this.data.product.category ?? ''],
+    categoryId: [this.data.product.categoryId ?? null as string | null],
+    subcategoryId: [this.data.product.subcategoryId ?? null as string | null],
     active: [this.data.product.active],
   });
+
+  constructor() {
+    this.onCategoryChange(false);
+  }
+
+  onCategoryChange(clearSub = true): void {
+    const catId = this.form.controls.categoryId.value;
+    this.filteredSubs.set(
+      this.data.subcategories.filter((s) => !catId || s.categoryId === catId),
+    );
+    if (clearSub) this.form.controls.subcategoryId.setValue(null);
+  }
 
   save(): void {
     if (this.form.invalid || this.saving) return;
@@ -100,7 +153,8 @@ export class AdminPosProductDialogComponent {
         `${environment.apiUrl}/shops/${this.data.shopId}/pos-products/${this.data.product.id}`,
         {
           productName: raw.productName.trim(),
-          category: raw.category.trim() || null,
+          categoryId: raw.categoryId,
+          subcategoryId: raw.subcategoryId,
           active: raw.active,
         },
       )

@@ -10,13 +10,15 @@ import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import {
-  GLOBAL_ROLE_OPTIONS,
-  canManageShopUsers,
-  userRoleLabel,
-} from '../../core/auth/auth.models';
+import { canManageShopUsers, userRoleLabel } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
+
+function accountTypeLabel(row: Record<string, unknown>): string {
+  const role = String(row['globalRole'] ?? '');
+  if (role === 'OWNER' || role === 'ADMIN') return userRoleLabel(role);
+  return 'Empleado';
+}
 
 @Component({
   selector: 'app-admin-users',
@@ -44,7 +46,12 @@ import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
           [rows]="rows()"
           [showActions]="true"
           [canRemove]="never"
+          [canDuplicate]="always"
+          editLabel="Editar datos"
+          duplicateLabel="Editar roles"
+          duplicateIcon="shield"
           (edit)="openEdit($event)"
+          (duplicate)="openRoles($event)"
         />
       </div>
     </div>
@@ -59,25 +66,14 @@ export class AdminUsersPage implements OnInit {
   private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
 
-  readonly roleOptions = GLOBAL_ROLE_OPTIONS.filter((o) => {
-    if (o.value === 'OWNER') return false;
-    const global = this.auth.currentUser()?.globalRole;
-    if (global === 'OWNER' || global === 'ADMIN') return true;
-    return (
-      o.value === 'MANAGER' ||
-      o.value === 'CASHIER' ||
-      o.value === 'VIEWER' ||
-      o.value === 'PARTNER'
-    );
-  });
-
   readonly rows = signal<AdminUserRow[]>([]);
   readonly never = () => false;
+  readonly always = () => true;
 
   readonly columns: DataTableColumn[] = [
     { key: 'fullName', label: 'Nombre' },
     { key: 'email', label: 'Correo' },
-    { key: 'globalRole', label: 'Rol', format: (r) => userRoleLabel(String(r['globalRole'] ?? '')) },
+    { key: 'globalRole', label: 'Tipo', format: (r) => accountTypeLabel(r) },
     {
       key: 'ledgerAccountName',
       label: 'Cuentas',
@@ -122,28 +118,45 @@ export class AdminUsersPage implements OnInit {
     this.openDialog({ mode: 'edit', user: row });
   }
 
+  openRoles(row: AdminUserRow): void {
+    this.openDialog({ mode: 'roles', user: row });
+  }
+
+  private canAssignUsersModule(): boolean {
+    const g = this.auth.currentUser()?.globalRole;
+    return g === 'OWNER' || g === 'ADMIN';
+  }
+
   private openDialog(
     mode:
       | { mode: 'create' }
-      | { mode: 'edit'; user: AdminUserRow },
+      | { mode: 'edit'; user: AdminUserRow }
+      | { mode: 'roles'; user: AdminUserRow },
   ): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const title =
+      mode.mode === 'roles'
+        ? 'Editar roles'
+        : mode.mode === 'edit'
+          ? 'Editar usuario'
+          : 'Nuevo usuario';
     this.dialogTitle
       .track(
         this.dialog.open(AdminUserDialogComponent, {
-          width: '520px',
+          width: mode.mode === 'roles' ? '640px' : '680px',
           maxWidth: '96vw',
+          maxHeight: '94vh',
           panelClass: 'guy-dialog',
           data: {
             ...mode,
             shopId,
             shopName,
-            roleOptions: this.roleOptions,
+            canAssignUsersModule: this.canAssignUsersModule(),
           },
         }),
-        mode.mode === 'edit' ? 'Editar usuario' : 'Nuevo usuario',
+        title,
       )
       .afterClosed()
       .subscribe((ok) => {

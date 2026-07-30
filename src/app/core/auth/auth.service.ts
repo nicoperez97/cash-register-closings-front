@@ -86,6 +86,8 @@ export class AuthService {
       permissions: me.permissions ?? [],
       shopIds: me.shopIds ?? [],
       shopRoles: me.shopRoles ?? {},
+      shopPermissions: me.shopPermissions ?? {},
+      shopModulePermissions: me.shopModulePermissions ?? {},
       shopAccountIds: this.normalizeShopAccountIds(me.shopAccountIds),
       shops: me.shops ?? [],
     };

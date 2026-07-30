@@ -54,16 +54,34 @@ export class MainLayoutComponent {
     if (isCashierOnly(user, shopId)) {
       return [{ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' }];
     }
+
     const items: NavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
     ];
+
+    const operacion: NonNullable<NavItem['children']> = [];
     if (hasShopPermission(user, shopId, 'closings.read')) {
-      items.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
+      operacion.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
     }
+    if (hasShopPermission(user, shopId, 'movements.read')) {
+      operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
+    }
+    if (hasShopPermission(user, shopId, 'attendance.read')) {
+      operacion.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
+    }
+    if (operacion.length) {
+      items.push({
+        label: 'Operación',
+        route: '__group_operacion',
+        icon: 'today',
+        children: operacion,
+      });
+    }
+
     if (hasShopPermission(user, shopId, 'reports.view')) {
       items.push({
         label: 'Reportes',
-        route: '/reports',
+        route: '__group_reportes',
         icon: 'insights',
         children: [
           { label: 'Cierres', route: '/reports', icon: 'insights' },
@@ -71,34 +89,52 @@ export class MainLayoutComponent {
         ],
       });
     }
+
+    const personal: NonNullable<NavItem['children']> = [];
     if (hasShopPermission(user, shopId, 'employees.read')) {
-      items.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
-    }
-    if (hasShopPermission(user, shopId, 'movements.read')) {
-      items.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
-    }
-    if (hasShopPermission(user, shopId, 'attendance.read')) {
-      items.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
+      personal.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
     }
     if (hasShopPermission(user, shopId, 'payroll.read')) {
-      items.push({ label: 'Liquidaciones', route: '/payroll', icon: 'request_quote' });
+      personal.push({ label: 'Liquidaciones', route: '/payroll', icon: 'request_quote' });
     }
+    if (hasShopPermission(user, shopId, 'commissions.read')) {
+      personal.push({ label: 'Comisiones', route: '/commissions', icon: 'percent' });
+    }
+    if (personal.length) {
+      items.push({
+        label: 'Personal',
+        route: '__group_personal',
+        icon: 'groups',
+        children: personal,
+      });
+    }
+
+    const admin: NonNullable<NavItem['children']> = [];
     if (canManageShop(user, shopId)) {
-      items.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
+      admin.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
     }
     if (canManageShopUsers(user, shopId)) {
-      items.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
+      admin.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
     }
     if (hasShopPermission(user, shopId, 'accounts.manage')) {
-      items.push({ label: 'Cuentas', route: '/admin/accounts', icon: 'account_balance' });
+      admin.push({ label: 'Cuentas', route: '/admin/accounts', icon: 'account_balance' });
     }
     if (hasShopPermission(user, shopId, 'concepts.manage')) {
-      items.push({ label: 'Conceptos', route: '/admin/concepts', icon: 'sell' });
+      admin.push({ label: 'Conceptos', route: '/admin/concepts', icon: 'sell' });
     }
     if (canManageShop(user, shopId)) {
-      items.push({ label: 'Sistemas', route: '/admin/sales-systems', icon: 'dns' });
-      items.push({ label: 'Platos', route: '/admin/pos-products', icon: 'restaurant_menu' });
+      admin.push({ label: 'Sistemas', route: '/admin/sales-systems', icon: 'dns' });
+      admin.push({ label: 'Platos y rubros', route: '/admin/pos-products', icon: 'restaurant_menu' });
     }
+    if (admin.length) {
+      items.push({
+        label: 'Administración',
+        route: '__group_admin',
+        icon: 'settings',
+        children: admin,
+      });
+    }
+
     return items;
   });
 
@@ -205,6 +241,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');
+    }
+    if (path.startsWith('/commissions')) {
+      return hasShopPermission(user, shopId, 'commissions.read');
     }
     return true;
   }

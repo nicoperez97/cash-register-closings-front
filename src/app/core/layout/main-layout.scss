@@ -23,11 +23,14 @@
 }
 
 .layout-sidenav {
-  width: 300px;
+  width: 300px !important;
+  min-width: 0 !important;
+  max-width: 300px !important;
   border-right: none !important;
   border-radius: 0 !important;
   background: var(--guy-sidebar-bg, linear-gradient(180deg, #ffffff 0%, #f4f8f5 100%)) !important;
   box-shadow: 4px 0 24px rgba(0, 51, 102, 0.06);
+  overflow: hidden !important;
 }
 
 :host ::ng-deep .layout-sidenav.mat-drawer,
@@ -42,6 +45,15 @@
   height: 100vh !important;
   height: 100dvh !important;
   max-height: 100dvh !important;
+  width: 300px !important;
+  max-width: 300px !important;
+}
+
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer {
+  width: min(300px, 86vw) !important;
+  max-width: 86vw !important;
+  border-radius: 0 16px 16px 0 !important;
+  z-index: 100 !important;
 }
 
 :host ::ng-deep .layout-sidenav .mat-drawer-inner-container {
@@ -58,17 +70,14 @@
   min-height: 0;
   height: 100%;
   display: block;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .layout-sidenav--mobile {
-  width: min(300px, 86vw);
-  max-width: 86vw;
+  width: min(300px, 86vw) !important;
+  max-width: 86vw !important;
   border-radius: 0 16px 16px 0 !important;
-}
-
-:host ::ng-deep .layout-sidenav--mobile.mat-drawer {
-  border-radius: 0 16px 16px 0 !important;
-  z-index: 100 !important;
 }
 
 :host ::ng-deep .mat-drawer-backdrop.mat-sidenav-shown {

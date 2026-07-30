@@ -167,6 +167,7 @@ export interface SalesProductsFilters {
   to: string;
   q?: string | null;
   category?: string | null;
+  subcategory?: string | null;
   paymentCode?: string | null;
   salesSystemId?: string | null;
 }
@@ -181,6 +182,7 @@ export interface SalesProductsSummary {
     lineCount: number;
     productCount: number;
     categoryCount: number;
+    subcategoryCount?: number;
     ticketCount: number;
     avgTicketAmount: number;
   };
@@ -188,6 +190,7 @@ export interface SalesProductsSummary {
     productCode: string | null;
     productName: string | null;
     category: string | null;
+    subcategory?: string | null;
     qty: number;
     amount: number;
     ticketCount: number;
@@ -202,8 +205,31 @@ export interface SalesProductsSummary {
     ticketCount: number;
     share: number;
   }>;
+  subcategories?: Array<{
+    category: string;
+    subcategory: string;
+    productCount: number;
+    qty: number;
+    amount: number;
+    ticketCount: number;
+    share: number;
+  }>;
+  byDay?: Array<{
+    date: string;
+    qty: number;
+    amount: number;
+    ticketCount: number;
+  }>;
+  byPayment?: Array<{
+    paymentCode: string;
+    qty: number;
+    amount: number;
+    ticketCount: number;
+    share: number;
+  }>;
   filterOptions: {
     categories: string[];
+    subcategories?: string[];
     paymentCodes: string[];
   };
 }
@@ -215,6 +241,7 @@ function salesProductsFiltersToParams(filters: SalesProductsFilters): Record<str
   };
   if (filters.q) params['q'] = filters.q;
   if (filters.category) params['category'] = filters.category;
+  if (filters.subcategory) params['subcategory'] = filters.subcategory;
   if (filters.paymentCode) params['paymentCode'] = filters.paymentCode;
   if (filters.salesSystemId) params['salesSystemId'] = filters.salesSystemId;
   return params;
