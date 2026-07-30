@@ -2,6 +2,7 @@ import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -16,7 +17,8 @@ import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
 
 function accountTypeLabel(row: Record<string, unknown>): string {
   const role = String(row['globalRole'] ?? '');
-  if (role === 'OWNER' || role === 'ADMIN') return userRoleLabel(role);
+  if (role === 'OWNER') return userRoleLabel(role);
+  if (role === 'ADMIN') return userRoleLabel(role);
   return 'Empleado';
 }
 
@@ -24,6 +26,7 @@ function accountTypeLabel(row: Record<string, unknown>): string {
   selector: 'app-admin-users',
   imports: [
     MatButtonModule,
+    MatButtonToggleModule,
     MatDialogModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -32,26 +35,42 @@ function accountTypeLabel(row: Record<string, unknown>): string {
   template: `
     <app-page-header
       title="Usuarios"
-      [subtitle]="shops.selectedShop()?.name ?? 'Administración'"
+      [subtitle]="headerSubtitle()"
       actionLabel="Nuevo usuario"
       actionIcon="person_add"
       [actionLarge]="true"
       (action)="openCreate()"
     />
 
+    @if (isSuperAdmin()) {
+      <div class="panel-card mb-3" style="padding: 0.75rem 1rem">
+        <mat-button-toggle-group
+          [value]="scope()"
+          (change)="scope.set($event.value); reload()"
+          aria-label="Alcance de usuarios"
+        >
+          <mat-button-toggle value="all">Todos los locales</mat-button-toggle>
+          <mat-button-toggle value="shop">Solo {{ shops.selectedShop()?.name ?? 'local' }}</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+    }
+
     <div class="panel-card panel-card--flush">
       <div class="panel-card__body">
         <app-data-table
-          [columns]="columns"
+          [columns]="columns()"
           [rows]="rows()"
           [showActions]="true"
-          [canRemove]="never"
+          [canRemove]="canToggleActive"
+          removeLabel="Activar / desactivar"
+          removeIcon="person_off"
           [canDuplicate]="always"
           editLabel="Editar datos"
           duplicateLabel="Editar roles"
           duplicateIcon="shield"
           (edit)="openEdit($event)"
           (duplicate)="openRoles($event)"
+          (remove)="toggleActive($event)"
         />
       </div>
     </div>
@@ -67,26 +86,52 @@ export class AdminUsersPage implements OnInit {
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminUserRow[]>([]);
-  readonly never = () => false;
+  readonly allShops = signal<Array<{ id: string; name: string }>>([]);
+  readonly scope = signal<'all' | 'shop'>('all');
   readonly always = () => true;
+  readonly canToggleActive = (row: AdminUserRow) =>
+    row.id !== this.auth.currentUser()?.id;
 
-  readonly columns: DataTableColumn[] = [
-    { key: 'fullName', label: 'Nombre' },
-    { key: 'email', label: 'Correo' },
-    { key: 'globalRole', label: 'Tipo', format: (r) => accountTypeLabel(r) },
-    {
-      key: 'ledgerAccountName',
-      label: 'Cuentas',
-      format: (r) => String(r['ledgerAccountName'] ?? '—'),
-    },
-    { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
-  ];
+  readonly isSuperAdmin = () => this.auth.isAdmin();
+
+  headerSubtitle(): string {
+    if (this.isSuperAdmin() && this.scope() === 'all') return 'Todos los locales';
+    return this.shops.selectedShop()?.name ?? 'Administración';
+  }
+
+  columns(): DataTableColumn[] {
+    const shopNames = new Map(this.allShops().map((s) => [s.id, s.name]));
+    const cols: DataTableColumn[] = [
+      { key: 'fullName', label: 'Nombre' },
+      { key: 'email', label: 'Correo' },
+      { key: 'globalRole', label: 'Tipo', format: (r) => accountTypeLabel(r) },
+    ];
+    if (this.isSuperAdmin()) {
+      cols.push({
+        key: 'shopIds',
+        label: 'Locales',
+        format: (r) => {
+          const ids = (r['shopIds'] as string[] | undefined) ?? [];
+          if (!ids.length) return '—';
+          return ids.map((id) => shopNames.get(id) ?? id.slice(0, 8)).join(', ');
+        },
+      });
+    } else {
+      cols.push({
+        key: 'ledgerAccountName',
+        label: 'Cuentas',
+        format: (r) => String(r['ledgerAccountName'] ?? '—'),
+      });
+    }
+    cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });
+    return cols;
+  }
 
   constructor() {
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;
-      if (!canManageShopUsers(this.auth.currentUser(), shopId)) {
+      if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
         void this.router.navigate(['/']);
         return;
       }
@@ -96,17 +141,56 @@ export class AdminUsersPage implements OnInit {
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
-    if (!canManageShopUsers(this.auth.currentUser(), shopId)) {
+    if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
       void this.router.navigate(['/']);
+      return;
+    }
+    if (this.auth.isAdmin()) {
+      this.http.get<Array<{ id: string; name: string }>>(`${environment.apiUrl}/shops`).subscribe({
+        next: (rows) => this.allShops.set(rows.map((s) => ({ id: s.id, name: s.name }))),
+        error: () => this.allShops.set(this.shops.shops().map((s) => ({ id: s.id, name: s.name }))),
+      });
+    } else {
+      this.allShops.set(this.shops.shops().map((s) => ({ id: s.id, name: s.name })));
     }
   }
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.http.get<AdminUserRow[]>(`${environment.apiUrl}/users`, { params: { shopId } }).subscribe({
+    if (!shopId && !this.auth.isAdmin()) return;
+
+    const opts =
+      this.auth.isAdmin() && this.scope() === 'all'
+        ? {}
+        : { params: { shopId: shopId! } };
+
+    this.http.get<AdminUserRow[]>(`${environment.apiUrl}/users`, opts).subscribe({
       next: (rows) => this.rows.set(rows),
       error: () => this.snack.open('No se pudieron cargar los usuarios', 'OK', { duration: 3000 }),
+    });
+  }
+
+  toggleActive(row: AdminUserRow): void {
+    if (row.id === this.auth.currentUser()?.id) {
+      this.snack.open('No podés desactivar tu propio usuario', 'OK', { duration: 3000 });
+      return;
+    }
+    const next = !row.active;
+    const shopId = this.shops.selectedShopId();
+    const qs = shopId ? `?shopId=${shopId}` : '';
+    this.http.patch(`${environment.apiUrl}/users/${row.id}${qs}`, { active: next }).subscribe({
+      next: () => {
+        this.snack.open(
+          next ? 'Usuario activado' : 'Usuario desactivado · no podrá iniciar sesión',
+          'OK',
+          { duration: 3000 },
+        );
+        this.reload();
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo cambiar el estado';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
     });
   }
 
@@ -154,6 +238,8 @@ export class AdminUsersPage implements OnInit {
             shopId,
             shopName,
             canAssignUsersModule: this.canAssignUsersModule(),
+            canAssignShops: this.auth.isAdmin(),
+            allShops: this.allShops(),
           },
         }),
         title,

@@ -96,11 +96,17 @@ import { ClosingsApiService, SalesSystemOption } from '../closings/closings-api.
               <mat-option [value]="s.id">{{ s.name }}</mat-option>
             }
           </mat-select>
-          <mat-hint>Define cómo interpretar reportes POS (ej. Restosoft)</mat-hint>
+          <mat-hint>Define cómo interpretar reportes POS (ej. Restosoft, WeMenu)</mat-hint>
         </mat-form-field>
         <div style="grid-column:1/-1" class="d-flex align-items-center gap-2 mb-2">
           <mat-slide-toggle formControlName="coversEnabled">Comensales habilitados</mat-slide-toggle>
         </div>
+        <div style="grid-column:1/-1" class="d-flex align-items-center gap-2 mb-2">
+          <mat-slide-toggle formControlName="active">Local habilitado</mat-slide-toggle>
+        </div>
+        <p class="text-muted small" style="grid-column:1/-1;margin-top:-0.5rem">
+          Si está deshabilitado no aparece en el selector de locales.
+        </p>
         <div class="d-flex gap-2" style="grid-column:1/-1">
           <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
             Guardar
@@ -149,6 +155,7 @@ export class AdminShopPage implements OnInit {
     unitsLabel: [''],
     defaultChangeAmount: [0],
     coversEnabled: [false],
+    active: [true],
     salesSystemId: this.fb.control<string | null>(null),
   });
 
@@ -172,6 +179,7 @@ export class AdminShopPage implements OnInit {
       unitsLabel: shop.unitsLabel ?? '',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
       coversEnabled: !!shop.coversEnabled,
+      active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
     // Reload shop from API to get salesSystemId if missing in cached me
@@ -186,6 +194,7 @@ export class AdminShopPage implements OnInit {
           unitsLabel: s.unitsLabel ?? '',
           defaultChangeAmount: s.defaultChangeAmount ?? 0,
           coversEnabled: !!s.coversEnabled,
+          active: !!s.active,
         });
         this.shops.upsertShop(s);
       },
@@ -219,11 +228,18 @@ export class AdminShopPage implements OnInit {
         unitsLabel: raw.unitsLabel.trim() || null,
         defaultChangeAmount: raw.defaultChangeAmount,
         coversEnabled: raw.coversEnabled,
+        active: raw.active,
         salesSystemId: raw.salesSystemId || null,
       })
       .subscribe({
         next: (shop) => {
-          this.shops.upsertShop(shop);
+          if (shop.active === false) {
+            this.shops.setShops(
+              this.shops.shops().filter((s) => s.id !== shop.id),
+            );
+          } else {
+            this.shops.upsertShop(shop);
+          }
           void this.auth.refreshMe();
           this.snack.open('Local actualizado', 'OK', { duration: 2500 });
         },

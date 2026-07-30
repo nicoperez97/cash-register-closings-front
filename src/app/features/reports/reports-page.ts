@@ -275,22 +275,22 @@ export class ReportsPage {
     {
       key: 'declaredTotal',
       label: 'Total',
-      format: (r) => `$ ${Number(r['declaredTotal']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['declaredTotal']).toLocaleString('es-AR')}`,
     },
     {
       key: 'cardAmount',
       label: 'PVS',
-      format: (r) => `$ ${Number(r['cardAmount']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['cardAmount']).toLocaleString('es-AR')}`,
     },
     {
       key: 'cashAmount',
       label: 'Efectivo',
-      format: (r) => `$ ${Number(r['cashAmount']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['cashAmount']).toLocaleString('es-AR')}`,
     },
     {
       key: 'cashWithdrawn',
       label: 'Retiro',
-      format: (r) => `$ ${Number(r['cashWithdrawn'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['cashWithdrawn'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'cashWithdrawnByName', label: 'Quién' },
     { key: 'status', label: 'Estado' },
@@ -301,12 +301,12 @@ export class ReportsPage {
     {
       key: 'total',
       label: 'Total',
-      format: (r) => `$ ${Number(r['total'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['total'] ?? 0).toLocaleString('es-AR')}`,
     },
     {
       key: 'share',
       label: 'Porcentaje',
-      format: (r) => `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-UY', { maximumFractionDigits: 1 })}%`,
+      format: (r) => `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
     },
   ];
 
@@ -390,11 +390,11 @@ export class ReportsPage {
           })),
         );
         this.kpis.set([
-          { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-UY')}` },
-          { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-UY')}` },
-          { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-UY')}` },
-          { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-UY')}` },
-          { label: 'Egresos', value: `$ ${Number(s.expensesTotal ?? 0).toLocaleString('es-UY')}` },
+          { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-AR')}` },
+          { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-AR')}` },
+          { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-AR')}` },
+          { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-AR')}` },
+          { label: 'Egresos', value: `$ ${Number(s.expensesTotal ?? 0).toLocaleString('es-AR')}` },
         ]);
       },
       error: () => this.snack.open('Error al cargar reporte', 'OK', { duration: 3000 }),

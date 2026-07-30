@@ -58,7 +58,7 @@ export type AdminSalesSystemDialogData = {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Nombre</mat-label>
           <mat-icon matPrefix>badge</mat-icon>
-          <input matInput formControlName="name" placeholder="Restosoft" />
+          <input matInput formControlName="name" placeholder="Restosoft / WeMenu" />
           @if (form.controls.name.touched && form.controls.name.hasError('required')) {
             <mat-error>Ingresá un nombre</mat-error>
           }

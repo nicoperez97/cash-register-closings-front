@@ -11,6 +11,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -193,8 +194,9 @@ import {
             [columns]="columns"
             [rows]="rows()"
             [sortable]="true"
-            [canRemove]="never"
+            [canRemove]="canRemoveRow"
             (edit)="goEdit($event)"
+            (remove)="onRemove($event)"
           />
         </div>
       </div>
@@ -209,6 +211,7 @@ export class ClosingsListPage {
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
 
   readonly statusOptions = CLOSING_STATUS_FILTERS;
   readonly paymentOptions = CLOSING_PAYMENT_FILTERS;
@@ -244,23 +247,23 @@ export class ClosingsListPage {
     {
       key: 'declaredTotal',
       label: 'Total',
-      format: (r) => `$ ${Number(r['declaredTotal']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['declaredTotal']).toLocaleString('es-AR')}`,
     },
     {
       key: 'cardAmount',
       label: 'PVS',
-      format: (r) => `$ ${Number(r['cardAmount']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['cardAmount']).toLocaleString('es-AR')}`,
     },
     {
       key: 'cashAmount',
       label: 'Efectivo',
-      format: (r) => `$ ${Number(r['cashAmount']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['cashAmount']).toLocaleString('es-AR')}`,
     },
     { key: 'status', label: 'Estado', format: (r) => closingStatusLabel(String(r['status'] ?? '')) },
     { key: 'cashWithdrawnByName', label: 'Retiro' },
   ];
 
-  readonly never = () => false;
+  readonly canRemoveRow = () => this.auth.isAdmin();
   private reloadToken = signal(0);
 
   constructor() {
@@ -354,6 +357,27 @@ export class ClosingsListPage {
     void this.router.navigate(['/closings', row.id]);
   }
 
+  async onRemove(row: CashClosing): Promise<void> {
+    if (!this.auth.isAdmin()) return;
+    const ok = await this.confirmDialog.confirm(
+      'Eliminar cierre',
+      `¿Eliminar el cierre del ${row.businessDate}? Esta acción no se puede deshacer.`,
+    );
+    if (!ok) return;
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.api.remove(shopId, row.id).subscribe({
+      next: () => {
+        this.snack.open('Cierre eliminado', 'OK', { duration: 2500 });
+        this.applyFilter();
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo eliminar el cierre';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
   openWhatsappImport(): void {
     const shopId = this.shopId();
     if (!shopId) return;
@@ -404,7 +428,7 @@ export class ClosingsListPage {
     const shop = this.shops.selectedShop();
     if (!shop?.salesSystemId) {
       this.snack.open(
-        'Configurá el sistema de ventas (Restosoft) en Administrar local',
+        'Configurá el sistema de ventas (Restosoft / WeMenu) en Administrar local',
         'OK',
         { duration: 4500 },
       );

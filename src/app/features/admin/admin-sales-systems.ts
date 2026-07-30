@@ -25,7 +25,7 @@ import {
   template: `
     <app-page-header
       title="Sistemas de ventas"
-      subtitle="POS / reportes de comprobantes (Restosoft, etc.)"
+      subtitle="POS / reportes de comprobantes (Restosoft, WeMenu, etc.)"
       actionLabel="Nuevo sistema"
       actionIcon="add"
       [actionLarge]="true"
@@ -78,7 +78,11 @@ export class AdminSalesSystemsPage implements OnInit {
     }
     this.http.get<ParserOption[]>(`${environment.apiUrl}/sales-systems/parsers`).subscribe({
       next: (rows) => this.parsers.set(rows),
-      error: () => this.parsers.set([{ key: 'restosoft', label: 'Restosoft' }]),
+      error: () =>
+        this.parsers.set([
+          { key: 'restosoft', label: 'Restosoft' },
+          { key: 'wemenu', label: 'WeMenu' },
+        ]),
     });
     this.reload();
   }

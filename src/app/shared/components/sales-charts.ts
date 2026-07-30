@@ -56,7 +56,7 @@ function colorAt(i: number, custom?: string): string {
                   [style.background]="colorAt(i, it.color)"
                 ></div>
               </div>
-              <div class="hbar__value">{{ it.value | number: '1.0-0' : 'es-UY' }}</div>
+              <div class="hbar__value">{{ it.value | number: '1.0-0' : 'es-AR' }}</div>
             </div>
           }
         </div>
@@ -183,7 +183,7 @@ export class HBarChartComponent {
             <circle cx="60" cy="60" r="28" fill="#fff" />
             <text x="60" y="58" text-anchor="middle" class="donut__center-label">Total</text>
             <text x="60" y="72" text-anchor="middle" class="donut__center-value">
-              {{ total | number: '1.0-0' : 'es-UY' }}
+              {{ total | number: '1.0-0' : 'es-AR' }}
             </text>
           </svg>
           <ul class="donut__legend">
@@ -322,7 +322,7 @@ export class DonutChartComponent {
 
   sharePct(v: number): string {
     if (this.total <= 0) return '0';
-    return ((v / this.total) * 100).toLocaleString('es-UY', { maximumFractionDigits: 1 });
+    return ((v / this.total) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 });
   }
 
   colorAt = colorAt;
@@ -442,7 +442,7 @@ export class LineChartComponent {
   }
 
   get maxLabel(): string {
-    return this.max.toLocaleString('es-UY', { maximumFractionDigits: 0 });
+    return this.max.toLocaleString('es-AR', { maximumFractionDigits: 0 });
   }
 
   get plotted(): Array<{ x: number; y: number; label: string; value: number }> {

@@ -163,7 +163,7 @@ export class BalancesTableComponent {
 
   formatMoney(value: number): string {
     const n = Number(value ?? 0);
-    return `$${n.toLocaleString('es-UY', {
+    return `$${n.toLocaleString('es-AR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

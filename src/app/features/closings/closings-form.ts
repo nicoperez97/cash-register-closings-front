@@ -64,13 +64,31 @@ const EXPENSE_CATEGORY_OPTIONS = [
           @if (!cashierOnly()) {
             <button mat-stroked-button type="button" (click)="cancel()">Cancelar</button>
           }
-          <button mat-flat-button color="primary" type="submit" form="closing-form">
+          @if (isLocked() && auth.isAdmin()) {
+            <button mat-stroked-button type="button" (click)="unlock()">
+              <mat-icon>lock_open</mat-icon>
+              Desbloquear
+            </button>
+          }
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            form="closing-form"
+            [disabled]="isLocked() && !auth.isAdmin()"
+          >
             Guardar cierre
           </button>
         </div>
       </header>
 
-      <form id="closing-form" class="closing-form" [formGroup]="form" (ngSubmit)="save()">
+      <form
+        id="closing-form"
+        class="closing-form"
+        [formGroup]="form"
+        (ngSubmit)="save()"
+        [class.closing-form--locked]="isLocked() && !auth.isAdmin()"
+      >
         <div class="closing-form__cols">
           <section class="closing-form__section">
             <h2>Cobros del día</h2>
@@ -424,16 +442,18 @@ export class ClosingsFormPage implements OnInit {
   private readonly api = inject(ClosingsApiService);
   private readonly http = inject(HttpClient);
   private readonly shops = inject(ShopContextService);
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
 
   readonly shop = this.shops.selectedShop;
   readonly isEdit = signal(false);
+  readonly status = signal<string | null>(null);
   readonly employees = signal<EmployeeOption[]>([]);
   readonly expenseCategories = EXPENSE_CATEGORY_OPTIONS;
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
+  readonly isLocked = () => this.status() === 'LOCKED';
   private closingId: string | null = null;
 
   readonly form = this.fb.nonNullable.group({
@@ -496,6 +516,10 @@ export class ClosingsFormPage implements OnInit {
       this.isEdit.set(true);
       this.closingId = id;
       this.api.get(shopId, id).subscribe((c) => {
+        this.status.set(c.status);
+        if (c.status === 'LOCKED' && !this.auth.isAdmin()) {
+          this.form.disable({ emitEvent: false });
+        }
         this.form.patchValue({
           businessDate: c.businessDate,
           posSystemAmount: c.posSystemAmount,
@@ -534,7 +558,7 @@ export class ClosingsFormPage implements OnInit {
   }
 
   money(value: number): string {
-    return `$ ${value.toLocaleString('es-UY', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
 
   private n(v: unknown): number {
@@ -543,6 +567,10 @@ export class ClosingsFormPage implements OnInit {
   }
 
   save(): void {
+    if (this.isLocked() && !this.auth.isAdmin()) {
+      this.snack.open('El cierre está bloqueado', 'OK', { duration: 2500 });
+      return;
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -593,6 +621,22 @@ export class ClosingsFormPage implements OnInit {
     void this.router.navigateByUrl(
       defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
     );
+  }
+
+  unlock(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.closingId || !this.auth.isAdmin()) return;
+    this.api.unlock(shopId, this.closingId).subscribe({
+      next: (c) => {
+        this.status.set(c.status);
+        this.form.enable({ emitEvent: false });
+        this.snack.open('Cierre desbloqueado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo desbloquear';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
   }
 
   private resetForNextClosing(): void {

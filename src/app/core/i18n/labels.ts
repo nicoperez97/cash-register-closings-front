@@ -22,7 +22,7 @@ export function expenseCategoryLabel(category?: string | null): string {
     EQUIPMENT: 'Equipamiento',
     CLEANING: 'Limpieza',
     DISPOSABLES: 'Descartables',
-    UTILITIES: 'Servicios (UTE/OSE/Internet)',
+    UTILITIES: 'Servicios (luz/gas/Internet)',
     MARKETING: 'Marketing',
     COMMISSIONS: 'Comisiones',
   };

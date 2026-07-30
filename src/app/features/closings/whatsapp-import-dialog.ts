@@ -195,7 +195,7 @@ export class WhatsappImportDialogComponent {
   }
 
   money(n: number): string {
-    return `$ ${Number(n || 0).toLocaleString('es-UY')}`;
+    return `$ ${Number(n || 0).toLocaleString('es-AR')}`;
   }
 
   confidenceLabel(c: string): string {

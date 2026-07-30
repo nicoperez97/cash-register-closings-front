@@ -384,19 +384,19 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 3 }),
+      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'ticketCount', label: 'Tickets' },
     {
       key: 'share',
       label: '%',
       format: (r) =>
-        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-UY', { maximumFractionDigits: 1 })}%`,
+        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
     },
   ];
 
@@ -406,19 +406,19 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 3 }),
+      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'ticketCount', label: 'Tickets' },
     {
       key: 'share',
       label: '%',
       format: (r) =>
-        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-UY', { maximumFractionDigits: 1 })}%`,
+        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
     },
   ];
 
@@ -429,19 +429,19 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 3 }),
+      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'ticketCount', label: 'Tickets' },
     {
       key: 'share',
       label: '%',
       format: (r) =>
-        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-UY', { maximumFractionDigits: 1 })}%`,
+        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
     },
   ];
 
@@ -450,12 +450,12 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 3 }),
+      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'ticketCount', label: 'Tickets' },
   ];
@@ -537,17 +537,17 @@ export class SalesProductsPage {
         this.paymentOptions.set(s.filterOptions?.paymentCodes ?? []);
         const t = s.totals;
         this.kpis.set([
-          { label: 'Importe total', value: `$ ${Number(t.amount).toLocaleString('es-UY')}` },
+          { label: 'Importe total', value: `$ ${Number(t.amount).toLocaleString('es-AR')}` },
           {
             label: 'Unidades',
-            value: Number(t.qty).toLocaleString('es-UY', { maximumFractionDigits: 1 }),
+            value: Number(t.qty).toLocaleString('es-AR', { maximumFractionDigits: 1 }),
           },
           { label: 'Tickets', value: String(t.ticketCount) },
           { label: 'Platos', value: String(t.productCount) },
           { label: 'Rubros', value: String(t.categoryCount) },
           {
             label: 'Ticket prom.',
-            value: `$ ${Number(t.avgTicketAmount).toLocaleString('es-UY', {
+            value: `$ ${Number(t.avgTicketAmount).toLocaleString('es-AR', {
               maximumFractionDigits: 0,
             })}`,
           },

@@ -200,7 +200,7 @@ export class MovementsListPage {
     {
       key: 'amountUyu',
       label: 'Monto',
-      format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-AR')}`,
     },
     { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
     {
@@ -210,7 +210,8 @@ export class MovementsListPage {
     },
   ];
 
-  readonly canEditRow = (row: Movement) => !row.closingId && this.canManage();
+  readonly canEditRow = (row: Movement) =>
+    this.canManage() && (!row.closingId || this.auth.isAdmin());
 
   private reloadToken = signal(0);
 
@@ -321,12 +322,12 @@ export class MovementsListPage {
   }
 
   openEdit(row: Movement): void {
-    if (row.closingId) return;
+    if (row.closingId && !this.auth.isAdmin()) return;
     this.openDialog({ mode: 'edit', movement: row });
   }
 
   async onRemove(row: Movement): Promise<void> {
-    if (row.closingId) return;
+    if (row.closingId && !this.auth.isAdmin()) return;
     const ok = await this.confirmDialog.confirm(
       'Eliminar movimiento',
       `¿Eliminar el movimiento del ${row.businessDate}?`,
