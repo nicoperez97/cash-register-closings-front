@@ -1,97 +1,104 @@
 <div class="login-page">
+  <div class="login-atmosphere" aria-hidden="true">
+    <span class="login-orb login-orb--a"></span>
+    <span class="login-orb login-orb--b"></span>
+    <span class="login-orb login-orb--c"></span>
+    <span class="login-grid"></span>
+  </div>
+
   <div class="login-shell">
-    <header class="login-hero">
-      <img [src]="brand.defaultLogoUrl" [alt]="brand.productName" class="login-logo" />
-      <h1>{{ brand.productName }}</h1>
-      <p>{{ brand.tagline }}</p>
+    <header class="login-brand">
+      <img
+        [src]="brand.defaultLogoUrl + '?v=2'"
+        [alt]="brand.productName"
+        class="login-logo"
+        width="96"
+        height="96"
+      />
+      <h1 class="login-brand__name">{{ brand.productName }}</h1>
+      <p class="login-brand__tag">{{ brand.loginSupport }}</p>
     </header>
 
-    <mat-card class="login-card">
+    <section class="login-panel" aria-labelledby="login-title">
       @if (busy) {
         <mat-progress-bar mode="indeterminate" class="login-progress" aria-label="Ingresando" />
       }
 
-      <mat-card-content class="login-card-body">
-        <div class="login-card-header">
-          <h2 class="login-card-title">Ingresar</h2>
-          <div class="login-status" [class.login-status--error]="!!error">
-            @if (error) {
-              <div class="login-alert" role="alert" aria-live="assertive">
-                <mat-icon class="login-alert__icon" aria-hidden="true">error</mat-icon>
-                <div class="login-alert__body">
-                  <strong class="login-alert__title">No se pudo iniciar sesión</strong>
-                  <p class="login-alert__message">{{ error }}</p>
-                </div>
-              </div>
-            } @else {
-              <div class="login-card-lead">
-                <p class="login-card-subtitle">Ingresá con tu cuenta</p>
-              </div>
-            }
+      <div class="login-panel__head">
+        <h2 id="login-title" class="login-panel__title">Ingresar</h2>
+        @if (!error) {
+          <p class="login-panel__lead">Usá tu correo y contraseña</p>
+        }
+      </div>
+
+      @if (error) {
+        <div class="login-alert" role="alert" aria-live="assertive">
+          <mat-icon class="login-alert__icon" aria-hidden="true">error</mat-icon>
+          <div class="login-alert__body">
+            <strong class="login-alert__title">No se pudo iniciar sesión</strong>
+            <p class="login-alert__message">{{ error }}</p>
           </div>
         </div>
+      }
 
-        <form [formGroup]="form" (ngSubmit)="submit()" class="login-form" novalidate>
-          <mat-form-field appearance="outline" class="w-100" subscriptSizing="fixed">
-            <mat-label>Correo</mat-label>
-            <mat-icon matPrefix>mail_outline</mat-icon>
-            <input
-              matInput
-              type="email"
-              formControlName="email"
-              autocomplete="username"
-              inputmode="email"
-              enterkeyhint="next"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <mat-error>{{ emailError() }}</mat-error>
-          </mat-form-field>
+      <form [formGroup]="form" (ngSubmit)="submit()" class="login-form" novalidate>
+        <mat-form-field appearance="outline" class="w-100" subscriptSizing="fixed">
+          <mat-label>Correo</mat-label>
+          <mat-icon matPrefix>mail_outline</mat-icon>
+          <input
+            matInput
+            type="email"
+            formControlName="email"
+            autocomplete="username"
+            inputmode="email"
+            enterkeyhint="next"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+          <mat-error>{{ emailError() }}</mat-error>
+        </mat-form-field>
 
-          <mat-form-field appearance="outline" class="w-100" subscriptSizing="fixed">
-            <mat-label>Contraseña</mat-label>
-            <mat-icon matPrefix>lock_outline</mat-icon>
-            <input
-              matInput
-              [type]="hidePassword ? 'password' : 'text'"
-              formControlName="password"
-              autocomplete="current-password"
-              enterkeyhint="go"
-            />
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              class="login-visibility"
-              (click)="hidePassword = !hidePassword"
-              [attr.aria-label]="hidePassword ? 'Mostrar contraseña' : 'Ocultar contraseña'"
-              [disabled]="busy"
-            >
-              <mat-icon>{{ hidePassword ? 'visibility' : 'visibility_off' }}</mat-icon>
-            </button>
-            <mat-error>{{ passwordError() }}</mat-error>
-          </mat-form-field>
-
+        <mat-form-field appearance="outline" class="w-100" subscriptSizing="fixed">
+          <mat-label>Contraseña</mat-label>
+          <mat-icon matPrefix>lock_outline</mat-icon>
+          <input
+            matInput
+            [type]="hidePassword ? 'password' : 'text'"
+            formControlName="password"
+            autocomplete="current-password"
+            enterkeyhint="go"
+          />
           <button
-            mat-flat-button
-            color="primary"
-            type="submit"
-            class="w-100 login-submit"
+            mat-icon-button
+            matSuffix
+            type="button"
+            class="login-visibility"
+            (click)="hidePassword = !hidePassword"
+            [attr.aria-label]="hidePassword ? 'Mostrar contraseña' : 'Ocultar contraseña'"
             [disabled]="busy"
-            [attr.aria-busy]="busy"
-            [attr.aria-label]="busy ? 'Ingresando' : 'Acceder'"
           >
-            @if (busy) {
-              <mat-spinner diameter="22" class="login-submit-spinner" />
-              <span>Ingresando…</span>
-            } @else {
-              Acceder
-            }
+            <mat-icon>{{ hidePassword ? 'visibility' : 'visibility_off' }}</mat-icon>
           </button>
-        </form>
-      </mat-card-content>
-    </mat-card>
+          <mat-error>{{ passwordError() }}</mat-error>
+        </mat-form-field>
 
-    <p class="login-by">{{ brand.tagline }}</p>
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="w-100 login-submit"
+          [disabled]="busy"
+          [attr.aria-busy]="busy"
+          [attr.aria-label]="busy ? 'Ingresando' : 'Acceder'"
+        >
+          @if (busy) {
+            <mat-spinner diameter="22" class="login-submit-spinner" />
+            <span>Ingresando…</span>
+          } @else {
+            Acceder
+          }
+        </button>
+      </form>
+    </section>
   </div>
 </div>

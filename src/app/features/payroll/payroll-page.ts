@@ -14,6 +14,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { payrollStatusLabel } from '../../core/i18n/labels';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 interface PayrollLine {
   id: string;
@@ -257,6 +258,10 @@ export class PayrollPage {
   ];
 
   constructor() {
+    usePageRefresh(() => {
+      this.reload();
+      this.reloadSac();
+    });
     effect(() => {
       const shopId = this.shopId();
       this.year();

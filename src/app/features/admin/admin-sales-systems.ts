@@ -18,6 +18,7 @@ import {
   AdminSalesSystemRow,
   ParserOption,
 } from './admin-sales-system-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-admin-sales-systems',
@@ -69,6 +70,10 @@ export class AdminSalesSystemsPage implements OnInit {
     },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
+
+  constructor() {
+    usePageRefresh(() => this.reload());
+  }
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();

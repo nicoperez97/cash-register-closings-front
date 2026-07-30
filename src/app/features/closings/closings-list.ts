@@ -21,6 +21,7 @@ import { closingStatusLabel } from '../../core/i18n/labels';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
 import { PosSalesImportDialogComponent } from './pos-sales-import-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 import {
   CLOSING_DIFFERENCE_FILTERS,
   CLOSING_PAYMENT_FILTERS,
@@ -267,6 +268,7 @@ export class ClosingsListPage {
   private reloadToken = signal(0);
 
   constructor() {
+    usePageRefresh(() => this.applyFilter());
     effect(() => {
       const id = this.shopId();
       this.reloadToken();

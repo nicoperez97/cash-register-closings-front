@@ -401,10 +401,12 @@ export function permissionsForShop(
   user: AuthUser | null,
   shopId: string | null,
 ): Permission[] {
-  if (!user || !shopId) return [];
+  if (!user) return [];
+  // Super admin: permisos globales aunque aún no tenga local seleccionado/asignado.
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') {
     return [...ALL_PERMISSIONS];
   }
+  if (!shopId) return [];
   const fromApi = user.shopPermissions?.[shopId];
   if (fromApi) return fromApi as Permission[];
   // Fallback legacy
@@ -427,8 +429,9 @@ export function canManageShop(user: AuthUser | null, shopId: string | null): boo
 
 /** Admin/owner del local (o admin global): puede gestionar usuarios de ese local. */
 export function canManageShopUsers(user: AuthUser | null, shopId: string | null): boolean {
-  if (!user || !shopId) return false;
+  if (!user) return false;
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return true;
+  if (!shopId) return false;
   if (hasShopPermission(user, shopId, 'users.manage')) return true;
   const role = effectiveRoleForShop(user, shopId);
   return role === 'OWNER' || role === 'ADMIN';

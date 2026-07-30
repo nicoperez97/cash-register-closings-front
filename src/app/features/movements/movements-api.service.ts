@@ -158,12 +158,14 @@ export interface MovementImportItem {
   willCreateFromAccount: boolean;
   willCreateToAccount: boolean;
   willCreateConcept: boolean;
+  alreadyExists: boolean;
   valid: boolean;
   error?: string;
 }
 
 export interface MovementImportResult {
   createdCount: number;
+  skippedCount?: number;
   createdIds: string[];
   createdAccounts: string[];
   createdConcepts: string[];

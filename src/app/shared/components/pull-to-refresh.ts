@@ -167,7 +167,31 @@ export class PullToRefreshComponent implements OnInit {
     if (!this.enabled() || this.disabled() || this.refreshing() || this.pending()) {
       return false;
     }
-    return this.scrollTop() <= 0;
+    return this.isAtScrollTop();
+  }
+
+  private isAtScrollTop(): boolean {
+    if (this.scrollTop() > 0) return false;
+    // Si algún contenedor interno (tabla, etc.) está scrolleado, no tirar refresh.
+    const el = document.elementFromPoint(
+      Math.min(window.innerWidth / 2, window.innerWidth - 1),
+      Math.min(80, window.innerHeight - 1),
+    );
+    let node: Element | null = el;
+    while (node && node !== document.body) {
+      if (node instanceof HTMLElement) {
+        const style = window.getComputedStyle(node);
+        const oy = style.overflowY;
+        if (
+          (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
+          node.scrollTop > 0
+        ) {
+          return false;
+        }
+      }
+      node = node.parentElement;
+    }
+    return true;
   }
 
   private scrollTop(): number {
@@ -198,7 +222,7 @@ export class PullToRefreshComponent implements OnInit {
     }
 
     const delta = e.touches[0].clientY - this.startY;
-    if (delta <= 0 || this.scrollTop() > 0) {
+    if (delta <= 0 || !this.isAtScrollTop()) {
       if (this.pulling) {
         e.preventDefault();
         this.pullDistance.set(0);

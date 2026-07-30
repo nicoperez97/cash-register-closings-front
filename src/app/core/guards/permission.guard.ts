@@ -4,6 +4,9 @@ import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
 import { Permission, canManageShopUsers, defaultHomeRoute, hasShopPermission } from '../auth/auth.models';
 
+/** Permisos que un super admin puede usar sin local seleccionado. */
+const GLOBAL_ADMIN_WITHOUT_SHOP: Permission[] = ['shops.manage'];
+
 export const permissionGuard = (permission: Permission): CanActivateFn => {
   return () => {
     const auth = inject(AuthService);
@@ -12,15 +15,28 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
     if (!auth.isAuthenticated()) {
       return router.createUrlTree(['/login']);
     }
+    const user = auth.currentUser();
     const shopId = shops.selectedShopId();
-    if (!hasShopPermission(auth.currentUser(), shopId, permission)) {
-      return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
+
+    if (!shopId) {
+      if (
+        auth.isAdmin() &&
+        GLOBAL_ADMIN_WITHOUT_SHOP.includes(permission) &&
+        hasShopPermission(user, null, permission)
+      ) {
+        return true;
+      }
+      return router.createUrlTree([defaultHomeRoute(user, null)]);
+    }
+
+    if (!hasShopPermission(user, shopId, permission)) {
+      return router.createUrlTree([defaultHomeRoute(user, shopId)]);
     }
     return true;
   };
 };
 
-/** Admin/owner del local activo puede gestionar usuarios. */
+/** Admin/owner del local activo (o admin global) puede gestionar usuarios. */
 export const shopUsersGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const shops = inject(ShopContextService);
@@ -28,10 +44,13 @@ export const shopUsersGuard: CanActivateFn = () => {
   if (!auth.isAuthenticated()) {
     return router.createUrlTree(['/login']);
   }
-  if (!canManageShopUsers(auth.currentUser(), shops.selectedShopId())) {
-    return router.createUrlTree([
-      defaultHomeRoute(auth.currentUser(), shops.selectedShopId()),
-    ]);
+  const shopId = shops.selectedShopId();
+  if (!canManageShopUsers(auth.currentUser(), shopId)) {
+    return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
+  }
+  // Admin de local necesita local; super admin puede entrar sin local (alcance "todos").
+  if (!shopId && !auth.isAdmin()) {
+    return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
   }
   return true;
 };

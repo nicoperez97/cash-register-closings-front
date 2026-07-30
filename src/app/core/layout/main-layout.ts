@@ -16,6 +16,8 @@ import { ToolbarComponent } from './toolbar/toolbar';
 import { SidebarComponent, NavItem } from './sidebar/sidebar';
 import { BottomNavComponent, BottomNavItem } from './bottom-nav/bottom-nav';
 import { ShopContextService } from '../shop/shop-context.service';
+import { PageRefreshService } from '../page-refresh.service';
+import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
 
 @Component({
   selector: 'app-main-layout',
@@ -25,6 +27,7 @@ import { ShopContextService } from '../shop/shop-context.service';
     ToolbarComponent,
     SidebarComponent,
     BottomNavComponent,
+    PullToRefreshComponent,
   ],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss',
@@ -34,6 +37,7 @@ export class MainLayoutComponent {
   private readonly shopContext = inject(ShopContextService);
   private readonly router = inject(Router);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
 
@@ -60,13 +64,13 @@ export class MainLayoutComponent {
     ];
 
     const operacion: NonNullable<NavItem['children']> = [];
-    if (hasShopPermission(user, shopId, 'closings.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'closings.read')) {
       operacion.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
     }
-    if (hasShopPermission(user, shopId, 'movements.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
       operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
     }
-    if (hasShopPermission(user, shopId, 'attendance.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
       operacion.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
     }
     if (operacion.length) {
@@ -78,7 +82,7 @@ export class MainLayoutComponent {
       });
     }
 
-    if (hasShopPermission(user, shopId, 'reports.view')) {
+    if (shopId && hasShopPermission(user, shopId, 'reports.view')) {
       items.push({
         label: 'Reportes',
         route: '__group_reportes',
@@ -91,13 +95,13 @@ export class MainLayoutComponent {
     }
 
     const personal: NonNullable<NavItem['children']> = [];
-    if (hasShopPermission(user, shopId, 'employees.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'employees.read')) {
       personal.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
     }
-    if (hasShopPermission(user, shopId, 'payroll.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'payroll.read')) {
       personal.push({ label: 'Liquidaciones', route: '/payroll', icon: 'request_quote' });
     }
-    if (hasShopPermission(user, shopId, 'commissions.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'commissions.read')) {
       personal.push({ label: 'Comisiones', route: '/commissions', icon: 'percent' });
     }
     if (personal.length) {
@@ -113,19 +117,19 @@ export class MainLayoutComponent {
     if (this.auth.isAdmin()) {
       admin.push({ label: 'Locales', route: '/admin/shops', icon: 'store' });
     }
-    if (canManageShop(user, shopId)) {
+    if (shopId && canManageShop(user, shopId)) {
       admin.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
     }
-    if (canManageShopUsers(user, shopId)) {
+    if (canManageShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
       admin.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
     }
-    if (hasShopPermission(user, shopId, 'accounts.manage')) {
+    if (shopId && hasShopPermission(user, shopId, 'accounts.manage')) {
       admin.push({ label: 'Cuentas', route: '/admin/accounts', icon: 'account_balance' });
     }
-    if (hasShopPermission(user, shopId, 'concepts.manage')) {
+    if (shopId && hasShopPermission(user, shopId, 'concepts.manage')) {
       admin.push({ label: 'Conceptos', route: '/admin/concepts', icon: 'sell' });
     }
-    if (canManageShop(user, shopId)) {
+    if (shopId && canManageShop(user, shopId)) {
       admin.push({ label: 'Sistemas', route: '/admin/sales-systems', icon: 'dns' });
       admin.push({ label: 'Platos y rubros', route: '/admin/pos-products', icon: 'restaurant_menu' });
     }
@@ -150,10 +154,10 @@ export class MainLayoutComponent {
     const items: BottomNavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
     ];
-    if (hasShopPermission(user, shopId, 'closings.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'closings.read')) {
       items.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
     }
-    if (hasShopPermission(user, shopId, 'reports.view')) {
+    if (shopId && hasShopPermission(user, shopId, 'reports.view')) {
       items.push({ label: 'Reportes', route: '/reports', icon: 'insights' });
     }
     return items;
@@ -178,13 +182,24 @@ export class MainLayoutComponent {
       this.sidenavOpen.set(!mobile);
     });
 
-    // Si la ruta actual no está permitida para el local, ir al home del rol
+    // Si la ruta actual no está permitida, ir al home del rol
     effect(() => {
       const user = this.auth.currentUser();
       const shopId = this.shopContext.selectedShopId();
       const path = this.currentUrl().split('?')[0];
-      if (!user || !shopId) return;
+      if (!user) return;
       const home = defaultHomeRoute(user, shopId);
+      if (!shopId) {
+        const allowedWithoutShop =
+          path === '/' ||
+          path === '' ||
+          path.startsWith('/admin/shops') ||
+          (path.startsWith('/admin/users') && this.auth.isAdmin());
+        if (!allowedWithoutShop && path !== '/login') {
+          void this.router.navigateByUrl(home);
+        }
+        return;
+      }
       if (isCashierOnly(user, shopId)) {
         if (path !== '/closings/new') {
           void this.router.navigateByUrl(home);

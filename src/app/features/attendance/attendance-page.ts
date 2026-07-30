@@ -15,6 +15,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { AttendanceExcelImportDialogComponent } from './attendance-excel-import-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 interface AttendanceDayCell {
   id?: string;
@@ -356,6 +357,10 @@ export class AttendancePage {
   }
 
   constructor() {
+    usePageRefresh(() => {
+      this.reload();
+      this.loadTodayMarks();
+    });
     effect(() => {
       const shopId = this.shopId();
       this.year();

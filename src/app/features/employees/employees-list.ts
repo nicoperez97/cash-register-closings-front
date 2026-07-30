@@ -15,6 +15,7 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { Employee, EmployeesApiService, ShopUserOption } from './employees-api.service';
 import { EmployeeDialogComponent } from './employee-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-employees-list',
@@ -100,6 +101,7 @@ export class EmployeesListPage {
   readonly canToggleVisibility = (_row: Employee) => this.canManage();
 
   constructor() {
+    usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {

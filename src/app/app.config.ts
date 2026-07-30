@@ -20,6 +20,7 @@ import { routes } from './app.routes';
 import { AppTitleStrategy } from './core/routing/app-title.strategy';
 import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { AuthService } from './core/auth/auth.service';
 
 registerLocaleData(localeEsAr);
 
@@ -55,10 +56,21 @@ function watchAppUpdates(): void {
   });
 }
 
+async function refreshSession(): Promise<void> {
+  const auth = inject(AuthService);
+  if (!auth.isAuthenticated()) return;
+  try {
+    await auth.refreshMe();
+  } catch {
+    auth.logout();
+  }
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideAppInitializer(watchAppUpdates),
+    provideAppInitializer(refreshSession),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(withInterceptors([authInterceptor])),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },

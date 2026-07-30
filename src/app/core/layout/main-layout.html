@@ -36,6 +36,13 @@
       [class.py-2]="isCashierLayout()"
       [class.layout-content--cashier]="isCashierLayout()"
     >
+      @if (isMobile() && pageRefresh.hasHandler()) {
+        <app-pull-to-refresh
+          [enabled]="true"
+          [refreshing]="pageRefresh.refreshing()"
+          (refresh)="pageRefresh.refresh()"
+        />
+      }
       <router-outlet />
     </main>
 

@@ -15,6 +15,7 @@ import {
   userRoleLabel,
 } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-home-page',
@@ -30,10 +31,10 @@ import { ClosingsApiService } from '../closings/closings-api.service';
     <app-page-header
       title="Cierres de caja"
       subtitle="Varios locales · roles · reportes"
-      [actionLabel]="canCreateClosing() ? 'Nuevo cierre' : ''"
-      actionIcon="add"
+      [actionLabel]="canCreateShop() ? 'Crear local' : canCreateClosing() ? 'Nuevo cierre' : ''"
+      [actionIcon]="canCreateShop() ? 'add_business' : 'add'"
       [actionLarge]="true"
-      (action)="goCreate()"
+      (action)="canCreateShop() ? goCreateShop() : goCreate()"
     />
 
     <app-kpi-strip [items]="kpis()" class="mb-3" />
@@ -41,10 +42,21 @@ import { ClosingsApiService } from '../closings/closings-api.service';
     <div class="panel-card mb-3">
       <h2 class="guy-section-title">Local activo</h2>
       <p class="text-muted mb-3">
-        {{ shopContext.selectedShop()?.name ?? 'Sin local asignado' }}.
-        Si tenés más de un local, cambiálo desde el menú lateral.
+        @if (shopContext.selectedShop(); as shop) {
+          {{ shop.name }}. Si tenés más de un local, cambiálo desde el menú lateral.
+        } @else if (canCreateShop()) {
+          Todavía no hay locales. Creá el primero para empezar a operar.
+        } @else {
+          Sin local asignado. Pedile a un administrador que te asigne uno.
+        }
       </p>
       <div class="d-flex flex-wrap gap-2">
+        @if (canCreateShop()) {
+          <a mat-flat-button color="primary" routerLink="/admin/shops">
+            <mat-icon>add_business</mat-icon>
+            Crear local
+          </a>
+        }
         @if (canReadClosings()) {
           <a mat-flat-button color="primary" routerLink="/closings">
             <mat-icon>point_of_sale</mat-icon>
@@ -106,10 +118,12 @@ export class HomePageComponent {
   private readonly router = inject(Router);
 
   private readonly reportSummary = signal<any>(null);
+  private readonly refreshTick = signal(0);
 
   readonly kpis = computed((): KpiItem[] => {
     const user = this.auth.currentUser();
     const shopId = this.shopContext.selectedShopId();
+    const hasShop = !!shopId;
     return [
       { label: 'Locales', value: this.shopContext.shops().length || '—', hint: 'Asignados' },
       {
@@ -122,12 +136,12 @@ export class HomePageComponent {
       },
       {
         label: 'Cierres',
-        value: hasShopPermission(user, shopId, 'closings.read') ? 'Sí' : '—',
+        value: hasShop && hasShopPermission(user, shopId, 'closings.read') ? 'Sí' : '—',
         hint: 'Lectura',
       },
       {
         label: 'Exportar',
-        value: hasShopPermission(user, shopId, 'reports.export') ? 'Sí' : '—',
+        value: hasShop && hasShopPermission(user, shopId, 'reports.export') ? 'Sí' : '—',
         hint: 'Excel',
       },
     ];
@@ -154,7 +168,9 @@ export class HomePageComponent {
   readonly reportCount = computed(() => this.reportSummary()?.count ?? 0);
 
   constructor() {
+    usePageRefresh(() => this.refreshTick.update((n) => n + 1));
     effect(() => {
+      this.refreshTick();
       const shopId = this.shopContext.selectedShopId();
       const canView = hasShopPermission(this.auth.currentUser(), shopId, 'reports.view');
       if (!shopId || !canView) {
@@ -175,27 +191,40 @@ export class HomePageComponent {
   }
 
   canReadClosings(): boolean {
-    return hasShopPermission(this.auth.currentUser(), this.shopContext.selectedShopId(), 'closings.read');
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'closings.read');
   }
 
   canViewReports(): boolean {
-    return hasShopPermission(this.auth.currentUser(), this.shopContext.selectedShopId(), 'reports.view');
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'reports.view');
   }
 
   canExport(): boolean {
-    return hasShopPermission(this.auth.currentUser(), this.shopContext.selectedShopId(), 'reports.export');
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'reports.export');
   }
 
   canCreateClosing(): boolean {
-    return hasShopPermission(this.auth.currentUser(), this.shopContext.selectedShopId(), 'closings.create');
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'closings.create');
+  }
+
+  canCreateShop(): boolean {
+    return this.auth.isAdmin() && this.shopContext.shops().length === 0;
   }
 
   goCreate(): void {
     void this.router.navigate(['/closings/new']);
   }
 
+  goCreateShop(): void {
+    void this.router.navigate(['/admin/shops']);
+  }
+
   canEditShop(): boolean {
-    return canManageShop(this.auth.currentUser(), this.shopContext.selectedShopId());
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && canManageShop(this.auth.currentUser(), shopId);
   }
 
   exportMonth(): void {
