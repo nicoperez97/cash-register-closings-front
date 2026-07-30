@@ -64,6 +64,18 @@ export class ClosingsApiService {
     return this.http.patch<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}`, body);
   }
 
+  lock(shopId: string, id: string) {
+    return this.http.post<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}/lock`, {});
+  }
+
+  unlock(shopId: string, id: string) {
+    return this.http.post<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}/unlock`, {});
+  }
+
+  remove(shopId: string, id: string) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/closings/${id}`);
+  }
+
   shopUsers(shopId: string) {
     return this.http.get<ShopUserOption[]>(`${this.base}/shops/${shopId}/users`);
   }

@@ -53,6 +53,13 @@ export const routes: Routes = [
         title: 'Reportes',
       },
       {
+        path: 'admin/shops',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-shops').then((m) => m.AdminShopsPage),
+        title: 'Locales',
+      },
+      {
         path: 'admin/shop',
         canActivate: [permissionGuard('shops.manage')],
         loadComponent: () =>

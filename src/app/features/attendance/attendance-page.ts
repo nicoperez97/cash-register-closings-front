@@ -348,7 +348,7 @@ export class AttendancePage {
   readonly todayMonth = new Date().getMonth() + 1;
 
   todayLabel(): string {
-    return new Date().toLocaleDateString('es-UY', {
+    return new Date().toLocaleDateString('es-AR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',

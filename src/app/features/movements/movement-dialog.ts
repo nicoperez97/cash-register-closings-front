@@ -117,7 +117,7 @@ function toDateString(value: Date | null): string {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Monto (UYU)</mat-label>
+          <mat-label>Monto ($)</mat-label>
           <mat-icon matPrefix>attach_money</mat-icon>
           <input matInput type="number" min="0" formControlName="amountUyu" />
           @if (form.controls.amountUyu.touched && form.controls.amountUyu.hasError('required')) {

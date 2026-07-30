@@ -38,7 +38,7 @@ export interface PosSalesImportDialogData {
 
     <mat-dialog-content>
       <p class="text-muted mb-3">
-        Subí el reporte de comprobantes del sistema de ventas (ej. Restosoft .xls).
+        Subí el reporte del sistema de ventas (Restosoft .xls / WeMenu .pdf).
         Se guardan los tickets, el agregado diario y se actualiza la caja del cierre.
       </p>
 
@@ -46,7 +46,7 @@ export interface PosSalesImportDialogData {
         <input
           #fileInput
           type="file"
-          accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept=".xls,.xlsx,.pdf,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           hidden
           (change)="onFile($event)"
         />
@@ -173,7 +173,7 @@ export class PosSalesImportDialogComponent {
   }
 
   money(n: number): string {
-    return `$${Number(n || 0).toLocaleString('es-UY', {
+    return `$${Number(n || 0).toLocaleString('es-AR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

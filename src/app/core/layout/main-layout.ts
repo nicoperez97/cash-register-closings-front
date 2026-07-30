@@ -110,6 +110,9 @@ export class MainLayoutComponent {
     }
 
     const admin: NonNullable<NavItem['children']> = [];
+    if (this.auth.isAdmin()) {
+      admin.push({ label: 'Locales', route: '/admin/shops', icon: 'store' });
+    }
     if (canManageShop(user, shopId)) {
       admin.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
     }
@@ -211,6 +214,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/reports')) {
       return hasShopPermission(user, shopId, 'reports.view');
+    }
+    if (path.startsWith('/admin/shops')) {
+      return this.auth.isAdmin();
     }
     if (path.startsWith('/admin/shop')) {
       return canManageShop(user, shopId);

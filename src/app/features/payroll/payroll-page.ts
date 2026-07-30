@@ -103,21 +103,33 @@ const MONTH_LABELS = [
               mat-flat-button
               color="primary"
               type="button"
-              [disabled]="busy() || isLocked()"
+              [disabled]="busy() || (isLocked() && !auth.isAdmin())"
               (click)="generate()"
             >
               <mat-icon>calculate</mat-icon>
               Generar
             </button>
-            <button
-              mat-stroked-button
-              type="button"
-              [disabled]="busy() || isLocked() || !hasPeriod()"
-              (click)="lock()"
-            >
-              <mat-icon>lock</mat-icon>
-              Cerrar liquidación
-            </button>
+            @if (isLocked() && auth.isAdmin()) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="busy() || !hasPeriod()"
+                (click)="unlock()"
+              >
+                <mat-icon>lock_open</mat-icon>
+                Reabrir liquidación
+              </button>
+            } @else {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="busy() || isLocked() || !hasPeriod()"
+                (click)="lock()"
+              >
+                <mat-icon>lock</mat-icon>
+                Cerrar liquidación
+              </button>
+            }
           </div>
         }
       </div>
@@ -180,7 +192,7 @@ const MONTH_LABELS = [
 export class PayrollPage {
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly confirmDialog = inject(ConfirmDialogService);
   readonly shops = inject(ShopContextService);
 
@@ -210,22 +222,22 @@ export class PayrollPage {
     {
       key: 'baseSalarySnapshot',
       label: 'Sueldo base',
-      format: (r) => `$ ${Number(r['baseSalarySnapshot']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['baseSalarySnapshot']).toLocaleString('es-AR')}`,
     },
     {
       key: 'overtimeAmount',
       label: 'Horas extra',
-      format: (r) => `$ ${Number(r['overtimeAmount']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['overtimeAmount']).toLocaleString('es-AR')}`,
     },
     {
       key: 'attendanceBonus',
       label: 'Presentismo',
-      format: (r) => `$ ${Number(r['attendanceBonus']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['attendanceBonus']).toLocaleString('es-AR')}`,
     },
     {
       key: 'total',
       label: 'Total',
-      format: (r) => `$ ${Number(r['total']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['total']).toLocaleString('es-AR')}`,
     },
   ];
 
@@ -235,12 +247,12 @@ export class PayrollPage {
     {
       key: 'bestSalary',
       label: 'Mejor sueldo',
-      format: (r) => `$ ${Number(r['bestSalary']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['bestSalary']).toLocaleString('es-AR')}`,
     },
     {
       key: 'sacAmount',
       label: 'Aguinaldo',
-      format: (r) => `$ ${Number(r['sacAmount']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['sacAmount']).toLocaleString('es-AR')}`,
     },
   ];
 
@@ -357,6 +369,34 @@ export class PayrollPage {
         error: (err) => {
           this.busy.set(false);
           const msg = err?.error?.message ?? 'No se pudo cerrar la liquidación';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  async unlock(): Promise<void> {
+    const shopId = this.shopId();
+    if (!shopId || !this.auth.isAdmin()) return;
+    const ok = await this.confirmDialog.confirm(
+      'Reabrir liquidación',
+      `¿Reabrir la liquidación de ${this.months[this.month() - 1].label} ${this.year()}?`,
+    );
+    if (!ok) return;
+    this.busy.set(true);
+    this.http
+      .post<PayrollPeriod>(
+        `${environment.apiUrl}/shops/${shopId}/payroll/${this.year()}/${this.month()}/unlock`,
+        {},
+      )
+      .subscribe({
+        next: (data) => {
+          this.busy.set(false);
+          this.period.set(data);
+          this.snack.open('Liquidación reabierta', 'OK', { duration: 2500 });
+        },
+        error: (err) => {
+          this.busy.set(false);
+          const msg = err?.error?.message ?? 'No se pudo reabrir la liquidación';
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });

@@ -45,8 +45,8 @@ export class LoginComponent implements OnInit, OnDestroy {
   hidePassword = true;
 
   readonly form = this.fb.nonNullable.group({
-    email: ['admin@cierres.com', [Validators.required, Validators.email]],
-    password: ['demo', [Validators.required]],
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]],
   });
 
   ngOnInit(): void {
@@ -91,8 +91,13 @@ export class LoginComponent implements OnInit, OnDestroy {
       const { email, password } = this.form.getRawValue();
       await this.auth.login(email, password);
       await this.router.navigateByUrl(this.afterLoginUrl());
-    } catch {
-      this.error = 'Email o contraseña incorrectos. Probá admin@cierres.com / demo.';
+    } catch (err: unknown) {
+      const apiMsg = (err as { error?: { message?: string | string[] } })?.error?.message;
+      const msg = Array.isArray(apiMsg) ? apiMsg.join(', ') : apiMsg;
+      this.error =
+        typeof msg === 'string' && msg.trim()
+          ? msg
+          : 'Email o contraseña incorrectos.';
       this.form.enable({ emitEvent: false });
       this.busy = false;
     }

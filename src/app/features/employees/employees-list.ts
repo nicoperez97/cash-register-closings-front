@@ -86,7 +86,7 @@ export class EmployeesListPage {
     {
       key: 'baseSalary',
       label: 'Sueldo base',
-      format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
     },
     { key: 'hireDate', label: 'Ingreso' },
     {

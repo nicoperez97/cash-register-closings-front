@@ -26,6 +26,7 @@ export interface AdminUserRow {
   email: string;
   globalRole: string;
   active: boolean;
+  shopIds?: string[];
   modulePermissions?: Record<string, string> | null;
   ledgerAccountIds?: string[];
   ledgerAccountId?: string | null;
@@ -36,6 +37,9 @@ export type AdminUserDialogData = {
   shopId: string;
   shopName: string;
   canAssignUsersModule: boolean;
+  /** Super admin: puede asignar varios locales. */
+  canAssignShops?: boolean;
+  allShops?: Array<{ id: string; name: string }>;
 } & (
   | { mode: 'create' }
   | { mode: 'edit'; user: AdminUserRow }
@@ -55,7 +59,9 @@ function isAdminRole(role?: string): boolean {
 }
 
 function accountTypeFromRole(role?: string): string {
-  return isAdminRole(role) ? 'ADMIN' : 'EMPLOYEE';
+  if (role === 'OWNER') return 'SUPER_ADMIN';
+  if (role === 'ADMIN') return 'ADMIN';
+  return 'EMPLOYEE';
 }
 
 function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
@@ -529,10 +535,29 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <div class="admin-banner">
             <mat-icon>verified_user</mat-icon>
             <div>
-              <strong>Acceso total.</strong>
-              Este usuario puede usar todos los módulos de {{ data.shopName }} sin restricciones.
+              @if (form.controls.accountType.value === 'SUPER_ADMIN') {
+                <strong>Super admin.</strong>
+                Ve todos los locales, puede crearlos y asignar usuarios a cualquiera.
+              } @else {
+                <strong>Acceso total.</strong>
+                Este usuario puede usar todos los módulos de los locales asignados sin restricciones.
+              }
             </div>
           </div>
+        }
+
+        @if (!isRolesOnly && data.canAssignShops && (data.allShops?.length ?? 0) > 0) {
+          <div class="divider"></div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Locales asignados</mat-label>
+            <mat-icon matPrefix>store</mat-icon>
+            <mat-select formControlName="shopIds" multiple>
+              @for (s of data.allShops; track s.id) {
+                <mat-option [value]="s.id">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>El usuario podrá operar en estos locales</mat-hint>
+          </mat-form-field>
         }
 
         @if (!isRolesOnly) {
@@ -551,6 +576,9 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
 
           @if (isEdit) {
             <mat-slide-toggle formControlName="active">Usuario activo</mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Si está inactivo no puede iniciar sesión ni usar la app.
+            </p>
           }
         }
       </form>
@@ -613,12 +641,17 @@ export class AdminUserDialogComponent implements OnInit {
 
   readonly accountTypeOptions = this.data.canAssignUsersModule
     ? ACCOUNT_TYPE_OPTIONS
-    : ACCOUNT_TYPE_OPTIONS.filter((o) => o.value === 'EMPLOYEE');
+    : ACCOUNT_TYPE_OPTIONS.filter((o) => o.value === 'EMPLOYEE' || o.value === 'ADMIN');
   readonly presets = MODULE_PRESETS;
   readonly moduleGroups = MODULE_GROUPS;
   readonly visibleModules = MODULE_DEFS.filter(
     (m) => m.key !== 'users' || this.data.canAssignUsersModule,
   );
+
+  private initialShopIds(): string[] {
+    if (this.user?.shopIds?.length) return [...this.user.shopIds];
+    return this.data.shopId ? [this.data.shopId] : [];
+  }
 
   private initialAccountIds(): string[] {
     if (this.user?.ledgerAccountIds?.length) return [...this.user.ledgerAccountIds];
@@ -638,15 +671,18 @@ export class AdminUserDialogComponent implements OnInit {
       this.isRolesOnly ? [] : [Validators.required, Validators.email],
     ],
     password: [
-      this.isEdit || this.isRolesOnly ? '' : 'demo',
+      '',
       this.isEdit || this.isRolesOnly ? [] : [Validators.required],
     ],
     accountType: [
       this.data.canAssignUsersModule
         ? accountTypeFromRole(this.user?.globalRole ?? 'CASHIER')
-        : 'EMPLOYEE',
+        : accountTypeFromRole(this.user?.globalRole ?? 'CASHIER') === 'SUPER_ADMIN'
+          ? 'ADMIN'
+          : accountTypeFromRole(this.user?.globalRole ?? 'CASHIER'),
       Validators.required,
     ],
+    shopIds: this.fb.nonNullable.control<string[]>(this.initialShopIds(), Validators.required),
     modules: this.fb.nonNullable.group({
       closings: [this.initialModules.closings],
       reports: [this.initialModules.reports],
@@ -707,7 +743,7 @@ export class AdminUserDialogComponent implements OnInit {
 
   setAccountType(value: string): void {
     this.form.controls.accountType.setValue(value);
-    if (value === 'ADMIN') this.activePreset.set(null);
+    if (value !== 'EMPLOYEE') this.activePreset.set(null);
   }
 
   setModuleLevel(key: ModuleKey, value: string): void {
@@ -741,22 +777,34 @@ export class AdminUserDialogComponent implements OnInit {
   }
 
   private resolveGlobalRole(): string {
-    if (this.form.controls.accountType.value === 'ADMIN') {
-      if (this.user?.globalRole === 'OWNER') return 'OWNER';
+    const t = this.form.controls.accountType.value;
+    if (t === 'SUPER_ADMIN') return 'OWNER';
+    if (t === 'ADMIN') {
+      if (this.user?.globalRole === 'OWNER' && !this.data.canAssignUsersModule) return 'OWNER';
       return 'ADMIN';
     }
     return 'CASHIER';
   }
 
-  private resolveModulePermissions(): Record<string, string> | null {
-    if (this.form.controls.accountType.value === 'ADMIN') return null;
-    const raw = this.form.controls.modules.getRawValue() as Record<string, string>;
-    const out: Record<string, string> = {};
-    for (const d of this.visibleModules) {
-      const v = raw[d.key] ?? 'none';
-      if (v && v !== 'none') out[d.key] = v;
+  private resolvedShopIds(raw: { shopIds: string[] }): string[] {
+    if (this.data.canAssignShops) {
+      const ids = [...new Set((raw.shopIds ?? []).filter(Boolean))];
+      return ids.length ? ids : [this.data.shopId];
     }
-    return out;
+    return [this.data.shopId];
+  }
+
+  private resolveModulePermissions(): Record<string, string> | null {
+    if (this.form.controls.accountType.value === 'EMPLOYEE') {
+      const raw = this.form.controls.modules.getRawValue() as Record<string, string>;
+      const out: Record<string, string> = {};
+      for (const d of this.visibleModules) {
+        const v = raw[d.key] ?? 'none';
+        if (v && v !== 'none') out[d.key] = v;
+      }
+      return out;
+    }
+    return null;
   }
 
   save(): void {
@@ -768,13 +816,14 @@ export class AdminUserDialogComponent implements OnInit {
     const raw = this.form.getRawValue();
     const globalRole = this.resolveGlobalRole();
     const modulePermissions = this.resolveModulePermissions();
+    const shopIds = this.resolvedShopIds(raw);
     this.busy.set(true);
 
     if (this.isRolesOnly && this.user) {
+      // No enviar shopIds: evita borrar asignaciones a otros locales.
       this.http
         .patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, {
           globalRole,
-          shopIds: [shopId],
           shopRole: globalRole,
           modulePermissions,
         })
@@ -799,7 +848,7 @@ export class AdminUserDialogComponent implements OnInit {
         email: raw.email,
         globalRole,
         active: raw.active,
-        shopIds: [shopId],
+        shopIds,
         shopRole: globalRole,
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
@@ -832,7 +881,7 @@ export class AdminUserDialogComponent implements OnInit {
         email: raw.email,
         password: raw.password,
         globalRole,
-        shopIds: [shopId],
+        shopIds,
         shopRole: globalRole,
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],

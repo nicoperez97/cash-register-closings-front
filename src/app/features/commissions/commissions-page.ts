@@ -210,18 +210,18 @@ export class CommissionsPage {
     {
       key: 'salesAmount',
       label: 'Ventas',
-      format: (r) => `$ ${Number(r['salesAmount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['salesAmount'] ?? 0).toLocaleString('es-AR')}`,
     },
     {
       key: 'ratePercent',
       label: '%',
       format: (r) =>
-        `${Number(r['ratePercent'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 2 })}%`,
+        `${Number(r['ratePercent'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}%`,
     },
     {
       key: 'commissionAmount',
       label: 'Comisión',
-      format: (r) => `$ ${Number(r['commissionAmount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['commissionAmount'] ?? 0).toLocaleString('es-AR')}`,
     },
   ];
 
@@ -230,12 +230,12 @@ export class CommissionsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 1 }),
+      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 1 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
     },
   ];
 
@@ -246,7 +246,7 @@ export class CommissionsPage {
       key: 'ratePercent',
       label: '%',
       format: (r) =>
-        `${Number(r['ratePercent'] ?? 0).toLocaleString('es-UY', { maximumFractionDigits: 2 })}%`,
+        `${Number(r['ratePercent'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}%`,
     },
     { key: 'notes', label: 'Notas' },
   ];
@@ -335,11 +335,11 @@ export class CommissionsPage {
         this.kpis.set([
           {
             label: 'Ventas POS',
-            value: `$ ${Number(res.salesTotal).toLocaleString('es-UY')}`,
+            value: `$ ${Number(res.salesTotal).toLocaleString('es-AR')}`,
           },
           {
             label: 'Total comisiones',
-            value: `$ ${Number(res.grandTotal).toLocaleString('es-UY')}`,
+            value: `$ ${Number(res.grandTotal).toLocaleString('es-AR')}`,
           },
           { label: 'Empleados', value: String(res.employees?.length ?? 0) },
           { label: 'Rubros con venta', value: String(res.salesByCategory?.length ?? 0) },

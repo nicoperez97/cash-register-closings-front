@@ -308,9 +308,15 @@ export const ACCOUNT_TYPE_OPTIONS: Array<{
   icon: string;
 }> = [
   {
+    value: 'SUPER_ADMIN',
+    label: 'Super admin',
+    description: 'Ve todos los locales, crea locales y asigna usuarios a cualquier local.',
+    icon: 'shield_person',
+  },
+  {
     value: 'ADMIN',
-    label: 'Administrador',
-    description: 'Acceso total a este local. No hace falta configurar módulos.',
+    label: 'Administrador de local',
+    description: 'Acceso total a los locales que le asignes. No hace falta configurar módulos.',
     icon: 'admin_panel_settings',
   },
   {
@@ -332,6 +338,7 @@ export interface ShopSummary {
   logoUrl?: string | null;
   accentColor?: string | null;
   salesSystemId?: string | null;
+  active?: boolean;
 }
 
 export interface AuthUser {
@@ -351,7 +358,7 @@ export interface AuthUser {
 
 export function userRoleLabel(role?: string): string {
   const map: Record<string, string> = {
-    OWNER: 'Propietario',
+    OWNER: 'Super admin',
     ADMIN: 'Administrador',
     MANAGER: 'Gerente',
     CASHIER: 'Cajero',
@@ -360,12 +367,13 @@ export function userRoleLabel(role?: string): string {
     admin: 'Administrador',
     user: 'Usuario',
     EMPLOYEE: 'Empleado',
+    SUPER_ADMIN: 'Super admin',
   };
   return map[role ?? ''] ?? 'Usuario';
 }
 
 export const GLOBAL_ROLE_OPTIONS: Array<{ value: GlobalRole; label: string }> = [
-  { value: 'OWNER', label: 'Propietario' },
+  { value: 'OWNER', label: 'Super admin' },
   { value: 'ADMIN', label: 'Administrador' },
   { value: 'MANAGER', label: 'Gerente' },
   { value: 'CASHIER', label: 'Cajero' },

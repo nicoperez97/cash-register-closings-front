@@ -208,7 +208,7 @@ export class DocsDataTablePage {
     {
       key: 'amount',
       label: 'Monto',
-      format: (r) => `$ ${Number(r.amount).toLocaleString('es-UY')}`,
+      format: (r) => `$ ${Number(r.amount).toLocaleString('es-AR')}`,
     },
   ];
 

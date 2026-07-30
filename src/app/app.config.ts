@@ -4,6 +4,7 @@ import {
   isDevMode,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
+  LOCALE_ID,
 } from '@angular/core';
 import { provideRouter, TitleStrategy, withPreloading, PreloadAllModules } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -11,12 +12,16 @@ import { provideServiceWorker, SwUpdate, VersionReadyEvent } from '@angular/serv
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { registerLocaleData } from '@angular/common';
+import localeEsAr from '@angular/common/locales/es-AR';
 import { filter } from 'rxjs';
 
 import { routes } from './app.routes';
 import { AppTitleStrategy } from './core/routing/app-title.strategy';
 import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
+
+registerLocaleData(localeEsAr);
 
 function watchAppUpdates(): void {
   const updates = inject(SwUpdate);
@@ -56,7 +61,8 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(watchAppUpdates),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(withInterceptors([authInterceptor])),
-    { provide: MAT_DATE_LOCALE, useValue: 'es-UY' },
+    { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
+    { provide: LOCALE_ID, useValue: 'es-AR' },
     provideNativeDateAdapter(),
     { provide: TitleStrategy, useClass: AppTitleStrategy },
     { provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl },

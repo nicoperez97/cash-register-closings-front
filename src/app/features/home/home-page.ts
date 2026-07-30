@@ -144,10 +144,10 @@ export class HomePageComponent {
       ];
     }
     return [
-      { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-UY')}` },
-      { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-UY')}` },
-      { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-UY')}` },
-      { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-UY')}` },
+      { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-AR')}` },
+      { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-AR')}` },
+      { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-AR')}` },
+      { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-AR')}` },
     ];
   });
 
