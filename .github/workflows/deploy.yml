@@ -13,6 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Debug OIDC token
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+        run: |
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
+          python3 -c "import base64,json;p=('$TOKEN'.split('.')[1]);p+='=' * (-len(p) % 4);print(json.dumps(json.loads(base64.urlsafe_b64decode(p)),indent=2))"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -27,11 +34,3 @@ jobs:
         run: aws s3 sync dist/cash-register-closings-front/browser s3://crc-frontend-2acfc3e0 --delete
       - name: Invalidate CloudFront
         run: aws cloudfront create-invalidation --distribution-id E3D3NP6AI310D8 --paths "/*"
-
-      - name: Debug OIDC token
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
-          python3 -c "import base64,json;p=('$TOKEN'.split('.')[1]);p+='=' * (-len(p) % 4);print(json.dumps(json.loads(base64.urlsafe_b64decode(p)),indent=2))"
