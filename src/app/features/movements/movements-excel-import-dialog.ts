@@ -37,7 +37,7 @@ export interface MovementsExcelImportDialogData {
     <mat-dialog-content>
       <p class="text-muted mb-3">
         Podés subir el Excel del contador (hoja <em>Movimientos</em>) o la plantilla del sistema.
-        Si faltan cuentas o conceptos, se crean al confirmar.
+        Si faltan cuentas o conceptos, se crean al confirmar. Filas ya existentes se omiten.
       </p>
 
       <div class="xl-actions mb-3">
@@ -64,7 +64,8 @@ export interface MovementsExcelImportDialogData {
 
       @if (items().length) {
         <p class="mb-2">
-          {{ items().length }} filas · {{ validCount() }} válidas · {{ invalidCount() }} con error
+          {{ items().length }} filas · {{ validCount() }} nuevas · {{ existsCount() }} ya existen ·
+          {{ invalidCount() }} con error
           @if (newAccountsCount() > 0) {
             · {{ newAccountsCount() }} cuentas nuevas
           }
@@ -86,7 +87,7 @@ export interface MovementsExcelImportDialogData {
             </thead>
             <tbody>
               @for (row of visibleItems(); track row.rowNumber) {
-                <tr [class.xl-preview__exists]="!row.valid">
+                <tr [class.xl-preview__exists]="row.alreadyExists || !row.valid">
                   <td>{{ row.businessDate }}</td>
                   <td>
                     {{ row.fromAccountName || '—' }}
@@ -107,7 +108,15 @@ export interface MovementsExcelImportDialogData {
                     }
                   </td>
                   <td>{{ money(row.amountUyu) }}</td>
-                  <td>{{ row.valid ? 'Listo' : row.error || 'Error' }}</td>
+                  <td>
+                    @if (row.alreadyExists) {
+                      Ya existe
+                    } @else if (row.valid) {
+                      Listo
+                    } @else {
+                      {{ row.error || 'Error' }}
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
@@ -131,7 +140,7 @@ export interface MovementsExcelImportDialogData {
         (click)="commit()"
       >
         <mat-icon>cloud_upload</mat-icon>
-        Importar {{ validCount() }} válidas
+        Importar {{ validCount() }} nuevas
       </button>
     </mat-dialog-actions>
   `,
@@ -196,7 +205,11 @@ export class MovementsExcelImportDialogComponent {
   readonly visibleItems = computed(() => this.items().slice(0, 100));
 
   validCount(): number {
-    return this.items().filter((i) => i.valid).length;
+    return this.items().filter((i) => i.valid && !i.alreadyExists).length;
+  }
+
+  existsCount(): number {
+    return this.items().filter((i) => i.alreadyExists).length;
   }
 
   invalidCount(): number {
@@ -278,7 +291,9 @@ export class MovementsExcelImportDialogComponent {
           .filter(Boolean)
           .join('. ');
         this.snack.open(
-          `Importados ${res.createdCount} movimientos.${extra ? ' ' + extra : ''}`,
+          `Importados ${res.createdCount} movimientos.${
+            res.skippedCount ? ` Omitidos ${res.skippedCount} (ya existían).` : ''
+          }${extra ? ' ' + extra : ''}`,
           'OK',
           { duration: 5500 },
         );

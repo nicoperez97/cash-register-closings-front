@@ -11,6 +11,7 @@ import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { activeLabel, conceptKindLabel } from '../../core/i18n/labels';
 import { AdminConceptDialogComponent, AdminConceptRow } from './admin-concept-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-admin-concepts',
@@ -55,6 +56,7 @@ export class AdminConceptsPage {
   ];
 
   constructor() {
+    usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;

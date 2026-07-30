@@ -18,6 +18,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
+import { usePageRefresh } from '../../core/page-refresh.service';
 import {
   AdminPosCategoryRow,
   AdminPosProductDialogComponent,
@@ -183,6 +184,10 @@ export class AdminPosProductsPage implements OnInit {
     { key: 'sortOrder', label: 'Orden' },
     { key: 'notes', label: 'Notas' },
   ];
+
+  constructor() {
+    usePageRefresh(() => this.reloadAll());
+  }
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();

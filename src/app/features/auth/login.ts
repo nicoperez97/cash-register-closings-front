@@ -1,7 +1,6 @@
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,14 +13,13 @@ import { ThemeService } from '../../core/theme/theme.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
 
-const LOGIN_THEME = '#1D65A0';
+const LOGIN_THEME = '#0E4F8C';
 const APP_THEME = '#1D65A0';
 
 @Component({
   selector: 'app-login',
   imports: [
     ReactiveFormsModule,
-    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,

@@ -26,6 +26,7 @@ import {
   SalesProductsFilters,
   SalesProductsSummary,
 } from '../closings/closings-api.service';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-sales-products-page',
@@ -461,6 +462,7 @@ export class SalesProductsPage {
   ];
 
   constructor() {
+    usePageRefresh(() => this.load());
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;

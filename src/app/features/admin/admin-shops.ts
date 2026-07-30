@@ -11,6 +11,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminShopDialogComponent, AdminShopRow } from './admin-shop-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-admin-shops',
@@ -67,6 +68,10 @@ export class AdminShopsPage implements OnInit {
     },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
+
+  constructor() {
+    usePageRefresh(() => this.reload());
+  }
 
   ngOnInit(): void {
     if (!this.auth.isAdmin()) {

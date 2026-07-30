@@ -25,6 +25,7 @@ import {
   CLOSING_STATUS_FILTERS,
   ClosingQueryFilters,
 } from '../closings/closing-filters';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-reports-page',
@@ -311,6 +312,7 @@ export class ReportsPage {
   ];
 
   constructor() {
+    usePageRefresh(() => this.load());
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;

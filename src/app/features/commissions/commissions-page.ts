@@ -24,6 +24,7 @@ import {
   CommissionsApiService,
 } from './commissions-api.service';
 import { CommissionRuleDialogComponent } from './commission-rule-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-commissions-page',
@@ -252,6 +253,12 @@ export class CommissionsPage {
   ];
 
   constructor() {
+    usePageRefresh(() => {
+      this.loadRules();
+      this.loadEmployees();
+      this.loadCategories();
+      this.calculate();
+    });
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;

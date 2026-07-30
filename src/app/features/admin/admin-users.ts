@@ -14,6 +14,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageShopUsers, userRoleLabel } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 function accountTypeLabel(row: Record<string, unknown>): string {
   const role = String(row['globalRole'] ?? '');
@@ -128,12 +129,16 @@ export class AdminUsersPage implements OnInit {
   }
 
   constructor() {
+    usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      if (!shopId) return;
       if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
         void this.router.navigate(['/']);
         return;
+      }
+      if (!shopId && !this.auth.isAdmin()) return;
+      if (!shopId && this.scope() === 'shop') {
+        this.scope.set('all');
       }
       this.reload();
     });

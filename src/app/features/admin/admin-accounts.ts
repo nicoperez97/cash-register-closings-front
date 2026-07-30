@@ -9,9 +9,9 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { AuthService } from '../../core/auth/auth.service';
 import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-admin-accounts',
@@ -46,7 +46,6 @@ export class AdminAccountsPage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
-  private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminAccountRow[]>([]);
@@ -63,10 +62,10 @@ export class AdminAccountsPage {
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
 
-  readonly canRemove = (row: AdminAccountRow) =>
-    row.type !== 'SYSTEM' || this.auth.isAdmin();
+  readonly canRemove = (row: AdminAccountRow) => row.type !== 'SYSTEM';
 
   constructor() {
+    usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;
@@ -94,7 +93,7 @@ export class AdminAccountsPage {
   }
 
   async onRemove(row: AdminAccountRow): Promise<void> {
-    if (row.type === 'SYSTEM' && !this.auth.isAdmin()) return;
+    if (row.type === 'SYSTEM') return;
     const ok = await this.confirmDialog.confirm('Eliminar cuenta', `¿Eliminar "${row.name}"?`);
     if (!ok) return;
     const shopId = this.shops.selectedShopId();

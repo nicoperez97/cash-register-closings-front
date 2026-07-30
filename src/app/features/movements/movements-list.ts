@@ -29,6 +29,7 @@ import {
 } from './movements-api.service';
 import { MovementDialogComponent, MovementEmployeeOption } from './movement-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-movements-list',
@@ -216,6 +217,7 @@ export class MovementsListPage {
   private reloadToken = signal(0);
 
   constructor() {
+    usePageRefresh(() => this.applyFilter());
     effect(() => {
       const shopId = this.shopId();
       this.reloadToken();

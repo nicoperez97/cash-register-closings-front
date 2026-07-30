@@ -108,8 +108,8 @@ export class AuthService {
     try {
       const raw = localStorage.getItem(USER_KEY);
       const user = raw ? (JSON.parse(raw) as AuthUser) : null;
-      if (user?.shops?.length) {
-        queueMicrotask(() => this.shopContext.setShops(user.shops));
+      if (user) {
+        queueMicrotask(() => this.shopContext.setShops(user.shops ?? []));
       }
       return user;
     } catch {
