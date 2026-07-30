@@ -1,0 +1,29 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build -- --configuration production
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::184658170545:role/crc-frontend-deploy
+          aws-region: sa-east-1
+      - name: Sync to S3
+        run: aws s3 sync dist/cash-register-closings-front/browser s3://crc-frontend-2acfc3e0 --delete
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id E3D3NP6AI310D8 --paths "/*"
