@@ -278,11 +278,6 @@ export interface PosSalesDayPreview {
   transferAmount: number;
   accountDniAmount: number;
   otherAmount: number;
-  closingExists: boolean;
-  closingId: string | null;
-  closingLocked: boolean;
-  previousPosSystemAmount: number | null;
-  posMismatch: boolean;
   unknownPaymentCodes: string[];
 }
 
@@ -302,7 +297,6 @@ export interface PosSalesImportPreview {
 export interface PosSalesImportResult extends PosSalesImportPreview {
   importId: string;
   committedDays: number;
-  skippedLockedDays: number;
 }
 
 export interface WhatsappImportItem {

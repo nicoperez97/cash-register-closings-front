@@ -43,7 +43,7 @@ export const routes: Routes = [
         canActivate: [permissionGuard('reports.view')],
         loadComponent: () =>
           import('./features/reports/sales-products-page').then((m) => m.SalesProductsPage),
-        title: 'Platos y rubros',
+        title: 'Ventas POS',
       },
       {
         path: 'reports',

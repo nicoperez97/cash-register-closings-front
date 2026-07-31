@@ -89,7 +89,7 @@ export class MainLayoutComponent {
         icon: 'insights',
         children: [
           { label: 'Cierres', route: '/reports', icon: 'insights' },
-          { label: 'Platos y rubros', route: '/reports/products', icon: 'restaurant_menu' },
+          { label: 'Ventas POS', route: '/reports/products', icon: 'restaurant_menu' },
         ],
       });
     }
