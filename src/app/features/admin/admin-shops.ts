@@ -11,11 +11,20 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminShopDialogComponent, AdminShopRow } from './admin-shop-dialog';
+import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-admin-shops',
-  imports: [MatButtonModule, MatDialogModule, MatSnackBarModule, PageHeaderComponent, DataTableComponent],
+  imports: [
+    MatButtonModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    MatIconModule,
+    PageHeaderComponent,
+    DataTableComponent,
+  ],
   template: `
     <app-page-header
       title="Locales"
@@ -33,12 +42,15 @@ import { usePageRefresh } from '../../core/page-refresh.service';
           [rows]="rows()"
           [sortable]="true"
           [showActions]="true"
-          [canDuplicate]="never"
+          [canDuplicate]="canBackupTools"
+          duplicateLabel="Backup / reset"
+          duplicateIcon="backup"
           [canRemove]="always"
           removeLabel="Habilitar / deshabilitar"
           removeIcon="storefront"
           editLabel="Editar"
           (edit)="openEdit($event)"
+          (duplicate)="openBackupTools($event)"
           (remove)="toggleActive($event)"
         />
       </div>
@@ -56,6 +68,7 @@ export class AdminShopsPage implements OnInit {
   readonly rows = signal<AdminShopRow[]>([]);
   readonly never = () => false;
   readonly always = () => true;
+  readonly canBackupTools = () => this.auth.isSuperAdmin();
 
   readonly columns: DataTableColumn[] = [
     { key: 'name', label: 'Nombre' },
@@ -94,6 +107,22 @@ export class AdminShopsPage implements OnInit {
 
   openEdit(row: AdminShopRow): void {
     this.openDialog({ mode: 'edit', shop: row });
+  }
+
+  openBackupTools(row: AdminShopRow): void {
+    if (!this.auth.isSuperAdmin()) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(ShopBackupDialogComponent, {
+          width: '520px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: { shopId: row.id, shopName: row.name, shopSlug: row.slug },
+        }),
+        'Backup y reset',
+      )
+      .afterClosed()
+      .subscribe();
   }
 
   toggleActive(row: AdminShopRow): void {

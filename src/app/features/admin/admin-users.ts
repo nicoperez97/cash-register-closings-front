@@ -243,6 +243,7 @@ export class AdminUsersPage implements OnInit {
             shopId,
             shopName,
             canAssignUsersModule: this.canAssignUsersModule(),
+            canAssignSuperAdmin: this.auth.isSuperAdmin(),
             canAssignShops: this.auth.isAdmin(),
             allShops: this.allShops(),
           },

@@ -28,6 +28,11 @@ export class AuthService {
     return role === 'ADMIN' || role === 'OWNER';
   }
 
+  /** Solo Super admin (OWNER). */
+  isSuperAdmin(): boolean {
+    return this.currentUser()?.globalRole === 'OWNER';
+  }
+
   hasPermission(permission: string): boolean {
     return !!this.currentUser()?.permissions?.includes(permission);
   }

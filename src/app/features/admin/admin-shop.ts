@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -18,6 +19,9 @@ import { Router } from '@angular/router';
 import { ClosingsApiService, SalesSystemOption } from '../closings/closings-api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { startWith } from 'rxjs';
+import { ShopBackupDialogComponent } from './shop-backup-dialog';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { ShopBackupApiService } from './shop-backup-api.service';
 
 @Component({
   selector: 'app-admin-shop',
@@ -30,6 +34,7 @@ import { startWith } from 'rxjs';
     MatSlideToggleModule,
     MatSnackBarModule,
     MatIconModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   template: `
@@ -178,6 +183,42 @@ import { startWith } from 'rxjs';
             <mat-slide-toggle formControlName="active" aria-label="Local habilitado" />
           </div>
         </section>
+
+        @if (isSuperAdmin()) {
+          <section class="panel-card shop-admin__danger">
+            <h2 class="guy-section-title">Zona peligrosa</h2>
+            <p class="text-muted small mb-3">
+              Solo super admin. Conserva configuración y usuarios; vacía datos operativos y catálogo
+              (sin recrear defaults).
+            </p>
+            <div class="shop-admin__danger-actions">
+              <button mat-stroked-button type="button" [disabled]="backupBusy()" (click)="downloadBackup()">
+                <mat-icon>download</mat-icon>
+                Descargar backup
+              </button>
+              <input
+                #backupFile
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                hidden
+                (change)="onRestoreFile($event)"
+              />
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="backupBusy()"
+                (click)="backupFile.click()"
+              >
+                <mat-icon>upload_file</mat-icon>
+                Cargar backup
+              </button>
+              <button mat-flat-button color="warn" type="button" [disabled]="backupBusy()" (click)="openBackupTools()">
+                <mat-icon>delete_forever</mat-icon>
+                Resetear…
+              </button>
+            </div>
+          </section>
+        }
 
         <div class="shop-admin__actions">
           <button
@@ -348,6 +389,14 @@ import { startWith } from 'rxjs';
       .shop-admin__actions button mat-icon {
         margin-right: 0.15rem;
       }
+      .shop-admin__danger {
+        border-color: color-mix(in srgb, #c62828 28%, var(--guy-border, #ddd));
+      }
+      .shop-admin__danger-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
       @media (max-width: 959px) {
         .shop-admin__preview {
           position: static;
@@ -360,13 +409,21 @@ export class AdminShopPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ClosingsApiService);
+  private readonly backupApi = inject(ShopBackupApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
 
   readonly salesSystems = signal<SalesSystemOption[]>([]);
   readonly saving = signal(false);
+  readonly backupBusy = signal(false);
+
+  isSuperAdmin(): boolean {
+    return this.auth.isSuperAdmin();
+  }
 
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
@@ -479,5 +536,72 @@ export class AdminShopPage implements OnInit {
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
+  }
+
+  downloadBackup(): void {
+    const shop = this.shops.selectedShop();
+    if (!shop) return;
+    this.backupBusy.set(true);
+    this.backupApi.downloadBackup(shop.id).subscribe({
+      next: (blob) => {
+        this.backupBusy.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup-${shop.slug || 'local'}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.snack.open('Backup descargado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        this.backupBusy.set(false);
+        const msg = err?.error?.message ?? 'No se pudo descargar el backup';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  onRestoreFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    const shop = this.shops.selectedShop();
+    if (!file || !shop) return;
+    if (
+      !window.confirm(
+        `¿Restaurar backup en “${shop.name}”? Se borrarán los datos actuales del local.`,
+      )
+    ) {
+      return;
+    }
+    this.backupBusy.set(true);
+    this.backupApi.restoreBackup(shop.id, file).subscribe({
+      next: () => {
+        this.backupBusy.set(false);
+        this.snack.open('Backup restaurado', 'OK', { duration: 3000 });
+      },
+      error: (err) => {
+        this.backupBusy.set(false);
+        const msg = err?.error?.message ?? 'No se pudo restaurar el backup';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
+      },
+    });
+  }
+
+  openBackupTools(): void {
+    const shop = this.shops.selectedShop();
+    if (!shop) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(ShopBackupDialogComponent, {
+          width: '520px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: { shopId: shop.id, shopName: shop.name, shopSlug: shop.slug },
+        }),
+        'Backup y reset',
+      )
+      .afterClosed()
+      .subscribe();
   }
 }
