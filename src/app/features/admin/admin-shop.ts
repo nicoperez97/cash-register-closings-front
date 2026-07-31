@@ -145,6 +145,19 @@ import { ShopBackupApiService } from './shop-backup-api.service';
               <mat-hint>Cómo se llaman las unidades vendidas en este local</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline">
+              <mat-label>Moneda</mat-label>
+              <mat-select formControlName="currency">
+                <mat-option value="ARS">ARS · Peso argentino</mat-option>
+                <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
+                <mat-option value="USD">USD · Dólar</mat-option>
+                <mat-option value="EUR">EUR · Euro</mat-option>
+                <mat-option value="BRL">BRL · Real</mat-option>
+                <mat-option value="CLP">CLP · Peso chileno</mat-option>
+                <mat-option value="PYG">PYG · Guaraní</mat-option>
+              </mat-select>
+              <mat-hint>Moneda de operación del local</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
               <mat-label>Cambio por defecto</mat-label>
               <input matInput type="number" formControlName="defaultChangeAmount" min="0" step="1" />
               <mat-hint>Monto sugerido de cambio al abrir un cierre</mat-hint>
@@ -188,8 +201,9 @@ import { ShopBackupApiService } from './shop-backup-api.service';
           <section class="panel-card shop-admin__danger">
             <h2 class="guy-section-title">Zona peligrosa</h2>
             <p class="text-muted small mb-3">
-              Solo super admin. Conserva configuración y usuarios; vacía datos operativos y catálogo
-              (sin recrear defaults).
+              Solo super admin. Conserva configuración y usuarios; vacía cierres, movimientos, POS,
+              personal, nómina, <strong>cuentas</strong> y <strong>conceptos</strong> (sin recrear
+              defaults).
             </p>
             <div class="shop-admin__danger-actions">
               <button mat-stroked-button type="button" [disabled]="backupBusy()" (click)="downloadBackup()">
@@ -431,6 +445,7 @@ export class AdminShopPage implements OnInit {
     logoUrl: [''],
     accentColor: ['#2E7D32'],
     unitsLabel: [''],
+    currency: ['ARS'],
     defaultChangeAmount: [0],
     coversEnabled: [false],
     active: [true],
@@ -470,6 +485,7 @@ export class AdminShopPage implements OnInit {
       logoUrl: shop.logoUrl ?? '',
       accentColor: shop.accentColor ?? '#2E7D32',
       unitsLabel: shop.unitsLabel ?? '',
+      currency: shop.currency ?? 'ARS',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
       coversEnabled: !!shop.coversEnabled,
       active: shop.active ?? true,
@@ -484,6 +500,7 @@ export class AdminShopPage implements OnInit {
           logoUrl: s.logoUrl ?? '',
           accentColor: s.accentColor ?? '#2E7D32',
           unitsLabel: s.unitsLabel ?? '',
+          currency: s.currency ?? 'ARS',
           defaultChangeAmount: s.defaultChangeAmount ?? 0,
           coversEnabled: !!s.coversEnabled,
           active: !!s.active,
@@ -514,6 +531,7 @@ export class AdminShopPage implements OnInit {
         logoUrl: raw.logoUrl.trim() || '',
         accentColor: raw.accentColor.trim() || null,
         unitsLabel: raw.unitsLabel.trim() || null,
+        currency: raw.currency || 'ARS',
         defaultChangeAmount: raw.defaultChangeAmount,
         coversEnabled: raw.coversEnabled,
         active: raw.active,

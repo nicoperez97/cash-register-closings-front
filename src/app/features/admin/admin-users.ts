@@ -62,16 +62,16 @@ function accountTypeLabel(row: Record<string, unknown>): string {
           [columns]="columns()"
           [rows]="rows()"
           [showActions]="true"
-          [canRemove]="canToggleActive"
-          removeLabel="Activar / desactivar"
-          removeIcon="person_off"
+          [canRemove]="canRemoveRow"
+          [removeLabel]="removeActionLabel()"
+          [removeIcon]="removeActionIcon()"
           [canDuplicate]="always"
           editLabel="Editar datos"
           duplicateLabel="Editar roles"
           duplicateIcon="shield"
           (edit)="openEdit($event)"
           (duplicate)="openRoles($event)"
-          (remove)="toggleActive($event)"
+          (remove)="onRemove($event)"
         />
       </div>
     </div>
@@ -90,10 +90,20 @@ export class AdminUsersPage implements OnInit {
   readonly allShops = signal<Array<{ id: string; name: string }>>([]);
   readonly scope = signal<'all' | 'shop'>('all');
   readonly always = () => true;
-  readonly canToggleActive = (row: AdminUserRow) =>
+  readonly canRemoveRow = (row: AdminUserRow) =>
     row.id !== this.auth.currentUser()?.id;
 
+  readonly isOwner = () => this.auth.isSuperAdmin();
+  /** Scope toggle: admin global (OWNER o ADMIN). */
   readonly isSuperAdmin = () => this.auth.isAdmin();
+
+  removeActionLabel(): string {
+    return this.isOwner() ? 'Eliminar' : 'Activar / desactivar';
+  }
+
+  removeActionIcon(): string {
+    return this.isOwner() ? 'delete' : 'person_off';
+  }
 
   headerSubtitle(): string {
     if (this.isSuperAdmin() && this.scope() === 'all') return 'Todos los locales';
@@ -172,6 +182,35 @@ export class AdminUsersPage implements OnInit {
     this.http.get<AdminUserRow[]>(`${environment.apiUrl}/users`, opts).subscribe({
       next: (rows) => this.rows.set(rows),
       error: () => this.snack.open('No se pudieron cargar los usuarios', 'OK', { duration: 3000 }),
+    });
+  }
+
+  onRemove(row: AdminUserRow): void {
+    if (this.isOwner()) {
+      this.deleteUser(row);
+      return;
+    }
+    this.toggleActive(row);
+  }
+
+  deleteUser(row: AdminUserRow): void {
+    if (row.id === this.auth.currentUser()?.id) {
+      this.snack.open('No podés eliminar tu propio usuario', 'OK', { duration: 3000 });
+      return;
+    }
+    const ok = window.confirm(
+      `¿Eliminar a “${row.fullName}” (${row.email})? Se quitará de todos los locales y no podrá iniciar sesión.`,
+    );
+    if (!ok) return;
+    this.http.delete(`${environment.apiUrl}/users/${row.id}`).subscribe({
+      next: () => {
+        this.snack.open('Usuario eliminado', 'OK', { duration: 3000 });
+        this.reload();
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo eliminar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
     });
   }
 

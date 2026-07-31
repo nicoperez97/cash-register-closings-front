@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { environment } from '../../../environments/environment';
 
 export interface AdminShopRow {
@@ -48,6 +49,7 @@ function slugify(raw: string): string {
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    MatSelectModule,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -85,6 +87,20 @@ function slugify(raw: string): string {
           <mat-label>Etiqueta unidades</mat-label>
           <mat-icon matPrefix>inventory_2</mat-icon>
           <input matInput formControlName="unitsLabel" placeholder="paninos" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Moneda</mat-label>
+          <mat-icon matPrefix>payments</mat-icon>
+          <mat-select formControlName="currency">
+            <mat-option value="ARS">ARS · Peso argentino</mat-option>
+            <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
+            <mat-option value="USD">USD · Dólar</mat-option>
+            <mat-option value="EUR">EUR · Euro</mat-option>
+            <mat-option value="BRL">BRL · Real</mat-option>
+            <mat-option value="CLP">CLP · Peso chileno</mat-option>
+            <mat-option value="PYG">PYG · Guaraní</mat-option>
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -153,6 +169,7 @@ export class AdminShopDialogComponent {
     name: [this.shop?.name ?? '', Validators.required],
     slug: [this.shop?.slug ?? '', Validators.required],
     unitsLabel: [this.shop?.unitsLabel ?? ''],
+    currency: [this.shop?.currency ?? 'ARS'],
     defaultChangeAmount: [this.shop?.defaultChangeAmount ?? 0],
     accentColor: [this.shop?.accentColor ?? '#2E7D32'],
     coversEnabled: [this.shop?.coversEnabled ?? false],
@@ -181,6 +198,7 @@ export class AdminShopDialogComponent {
       name: raw.name.trim(),
       slug: slugify(raw.slug) || raw.slug.trim(),
       unitsLabel: raw.unitsLabel.trim() || null,
+      currency: raw.currency || 'ARS',
       defaultChangeAmount: Number(raw.defaultChangeAmount) || 0,
       accentColor: raw.accentColor.trim() || null,
       coversEnabled: raw.coversEnabled,
