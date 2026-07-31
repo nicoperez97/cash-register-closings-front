@@ -16,13 +16,23 @@
         height="96"
       />
       <h1 class="login-brand__name">{{ brand.productName }}</h1>
-      <p class="login-brand__tag">{{ brand.loginSupport }}</p>
+      <p class="login-brand__tag">
+        {{ brand.loginSupport }}
+        <a
+          class="login-brand__credit"
+          [href]="brand.loginSupportCreditUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ brand.loginSupportCreditName }}
+        </a>
+      </p>
     </header>
 
-    <section class="login-panel" aria-labelledby="login-title">
+    <section class="login-panel" [class.login-panel--busy]="busy" aria-labelledby="login-title">
       @if (busy) {
-        <div class="login-progress" aria-hidden="true">
-          <mat-progress-bar mode="indeterminate" aria-label="Ingresando" />
+        <div class="login-progress" role="progressbar" aria-label="Ingresando" aria-busy="true">
+          <span class="login-progress__bar"></span>
         </div>
       }
 
@@ -93,12 +103,14 @@
           [attr.aria-busy]="busy"
           [attr.aria-label]="busy ? 'Ingresando' : 'Acceder'"
         >
-          @if (busy) {
-            <mat-spinner diameter="22" class="login-submit-spinner" />
-            <span>Ingresando…</span>
-          } @else {
+          <app-busy-label
+            [busy]="busy"
+            busyLabel="Ingresando…"
+            [spinnerSize]="20"
+            spinnerTone="on-primary"
+          >
             Acceder
-          }
+          </app-busy-label>
         </button>
       </form>
     </section>

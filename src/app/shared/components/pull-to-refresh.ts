@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { SpinnerComponent } from './spinner';
 
 const THRESHOLD_PX = 72;
 const MAX_PULL_PX = 120;
@@ -17,7 +17,7 @@ const RESISTANCE = 0.45;
 
 @Component({
   selector: 'app-pull-to-refresh',
-  imports: [MatIconModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, SpinnerComponent],
   template: `
     <div
       class="ptr"
@@ -29,7 +29,7 @@ const RESISTANCE = 0.45;
     >
       <div class="ptr-inner">
         @if (refreshing() || pending()) {
-          <mat-spinner diameter="22" />
+          <app-spinner [size]="20" tone="accent" />
         } @else {
           <mat-icon>{{ ready() ? 'refresh' : 'arrow_downward' }}</mat-icon>
         }

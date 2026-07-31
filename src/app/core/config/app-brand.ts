@@ -8,5 +8,7 @@ export const APP_BRAND = {
   eyebrow: 'Cierres',
   /** Logo por defecto antes de elegir local (SVG en /public). */
   defaultLogoUrl: 'icons/icon.svg',
-  loginSupport: 'Control diario de caja para tus locales by Nike',
+  loginSupport: 'Control diario de caja para tus locales by',
+  loginSupportCreditName: 'Nike',
+  loginSupportCreditUrl: 'https://www.instagram.com/nicoperez97/',
 } as const;

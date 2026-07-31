@@ -5,13 +5,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../core/auth/auth.service';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 const LOGIN_THEME = '#0E4F8C';
 const APP_THEME = '#1D65A0';
@@ -24,8 +23,7 @@ const APP_THEME = '#1D65A0';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressBarModule,
-    MatProgressSpinnerModule,
+    BusyLabelComponent,
   ],
   templateUrl: './login.html',
   styleUrl: './login.scss',

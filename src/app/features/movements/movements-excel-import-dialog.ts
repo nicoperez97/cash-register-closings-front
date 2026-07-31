@@ -8,6 +8,7 @@ import {
   MovementImportItem,
   MovementsApiService,
 } from './movements-api.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface MovementsExcelImportDialogData {
   shopId: string;
@@ -22,6 +23,7 @@ export interface MovementsExcelImportDialogData {
     MatIconModule,
     MatProgressBarModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -59,7 +61,7 @@ export interface MovementsExcelImportDialogData {
       </div>
 
       @if (busy()) {
-        <mat-progress-bar mode="indeterminate" class="mb-3" />
+        <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
       }
 
       @if (items().length) {
@@ -139,8 +141,10 @@ export interface MovementsExcelImportDialogData {
         [disabled]="busy() || !file() || validCount() === 0"
         (click)="commit()"
       >
-        <mat-icon>cloud_upload</mat-icon>
-        Importar {{ validCount() }} nuevas
+        <app-busy-label [busy]="busy()" busyLabel="Importando…">
+          <mat-icon>cloud_upload</mat-icon>
+          Importar {{ validCount() }} nuevas
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

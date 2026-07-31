@@ -10,6 +10,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Employee, EmployeesApiService, ShopUserOption } from './employees-api.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export type EmployeeDialogData = {
   shopId: string;
@@ -44,6 +45,7 @@ function toDateString(value: Date | null): string | null {
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -115,8 +117,10 @@ function toDateString(value: Date | null): string | null {
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
-        <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-        {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+          {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

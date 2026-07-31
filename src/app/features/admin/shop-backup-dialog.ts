@@ -8,6 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormsModule } from '@angular/forms';
 import { ShopBackupApiService } from './shop-backup-api.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface ShopBackupDialogData {
   shopId: string;
@@ -26,6 +27,7 @@ export interface ShopBackupDialogData {
     MatSnackBarModule,
     MatProgressBarModule,
     FormsModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -40,7 +42,7 @@ export interface ShopBackupDialogData {
 
     <mat-dialog-content>
       @if (busy()) {
-        <mat-progress-bar mode="indeterminate" class="mb-3" />
+        <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
       }
 
       <p class="lead">
@@ -58,8 +60,10 @@ export interface ShopBackupDialogData {
         </div>
         <div class="block__actions">
           <button mat-flat-button color="primary" type="button" [disabled]="busy()" (click)="download()">
-            <mat-icon>download</mat-icon>
-            Descargar backup
+            <app-busy-label [busy]="busy()" busyLabel="Descargando…">
+              <mat-icon>download</mat-icon>
+              Descargar backup
+            </app-busy-label>
           </button>
           <input
             #fileInput
@@ -133,8 +137,10 @@ export interface ShopBackupDialogData {
             [disabled]="busy() || !canReset()"
             (click)="reset()"
           >
-            <mat-icon>delete_forever</mat-icon>
-            Vaciar datos
+            <app-busy-label [busy]="busy()" busyLabel="Reseteando…">
+              <mat-icon>delete_forever</mat-icon>
+              Vaciar datos
+            </app-busy-label>
           </button>
         </div>
       </section>

@@ -1,17 +1,17 @@
 import { Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { SpinnerComponent } from './spinner';
 
 @Component({
   selector: 'app-loading-state',
-  imports: [MatProgressSpinnerModule, MatProgressBarModule, MatIconModule],
+  imports: [SpinnerComponent, MatProgressBarModule, MatIconModule],
   template: `
     @if (refreshing()) {
       <div class="refresh-banner" role="status" aria-live="polite">
-        <mat-progress-bar mode="indeterminate" aria-label="Actualizando datos" />
+        <mat-progress-bar mode="indeterminate" class="guy-progress" aria-label="Actualizando datos" />
         <div class="refresh-banner__row">
-          <mat-icon class="refresh-banner__icon" aria-hidden="true">sync</mat-icon>
+          <app-spinner [size]="20" tone="accent" />
           <div class="refresh-banner__text">
             <strong>{{ refreshTitle() }}</strong>
             <span>{{ refreshMessage() }}</span>
@@ -21,7 +21,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     } @else if (loading()) {
       <div class="loading-card" role="status" aria-live="polite" aria-busy="true">
         <div class="loading-card__orb">
-          <mat-spinner diameter="36" />
+          <app-spinner [size]="28" tone="accent" />
         </div>
         <div class="loading-card__text">
           <strong>{{ title() }}</strong>
@@ -44,8 +44,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
       }
 
       .refresh-banner mat-progress-bar {
-        --mdc-linear-progress-active-indicator-color: var(--guy-green, #2e7d32);
-        --mdc-linear-progress-track-color: rgba(46, 125, 50, 0.12);
+        --mdc-linear-progress-active-indicator-color: var(--guy-accent, #f27d16);
+        --mdc-linear-progress-track-color: rgba(242, 125, 22, 0.12);
         height: 3px;
       }
 
@@ -54,11 +54,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
         align-items: center;
         gap: 0.75rem;
         padding: 0.7rem 0.9rem;
-      }
-
-      .refresh-banner__icon {
-        color: var(--guy-green, #2e7d32);
-        animation: ptr-spin 1.1s linear infinite;
       }
 
       .refresh-banner__text {
@@ -105,10 +100,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
         flex-shrink: 0;
       }
 
-      .loading-card__orb ::ng-deep .mdc-circular-progress__indeterminate-circle-graphic {
-        stroke: var(--guy-green, #2e7d32);
-      }
-
       .loading-card__text {
         display: flex;
         flex-direction: column;
@@ -123,15 +114,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
       .loading-card__text span {
         color: var(--guy-muted, #5f6f76);
         font-size: 0.85rem;
-      }
-
-      @keyframes ptr-spin {
-        from {
-          transform: rotate(0deg);
-        }
-        to {
-          transform: rotate(360deg);
-        }
       }
 
       @media (max-width: 600px) {
@@ -154,4 +136,3 @@ export class LoadingStateComponent {
   readonly refreshTitle = input('Actualizando…');
   readonly refreshMessage = input('Obteniendo los datos más recientes');
 }
-
