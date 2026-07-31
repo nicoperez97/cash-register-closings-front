@@ -431,7 +431,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
 
         <div class="section">
           <p class="section__title">¿Qué tipo de acceso?</p>
-          <p class="section__hint">Elegí si es administrador del local o un empleado con permisos puntuales.</p>
+          <p class="section__hint">Elegí super admin, administrador del local o empleado con permisos puntuales.</p>
           <div class="type-grid" role="radiogroup" aria-label="Tipo de cuenta">
             @for (opt of accountTypeOptions; track opt.value) {
               <button
