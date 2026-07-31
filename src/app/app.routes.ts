@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { permissionGuard, shopUsersGuard } from './core/guards/permission.guard';
+import { permissionGuard, shopUsersGuard, superAdminGuard } from './core/guards/permission.guard';
 import { MainLayoutComponent } from './core/layout/main-layout';
 import { LoginComponent } from './features/auth/login';
 
@@ -54,7 +54,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/shops',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [superAdminGuard],
         loadComponent: () =>
           import('./features/admin/admin-shops').then((m) => m.AdminShopsPage),
         title: 'Locales',

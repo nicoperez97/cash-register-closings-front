@@ -114,7 +114,7 @@ export class MainLayoutComponent {
     }
 
     const admin: NonNullable<NavItem['children']> = [];
-    if (this.auth.isAdmin()) {
+    if (this.auth.isSuperAdmin()) {
       admin.push({ label: 'Locales', route: '/admin/shops', icon: 'store' });
     }
     if (shopId && canManageShop(user, shopId)) {
@@ -193,7 +193,7 @@ export class MainLayoutComponent {
         const allowedWithoutShop =
           path === '/' ||
           path === '' ||
-          path.startsWith('/admin/shops') ||
+          (path.startsWith('/admin/shops') && this.auth.isSuperAdmin()) ||
           (path.startsWith('/admin/users') && this.auth.isAdmin());
         if (!allowedWithoutShop && path !== '/login') {
           void this.router.navigateByUrl(home);
@@ -231,7 +231,7 @@ export class MainLayoutComponent {
       return hasShopPermission(user, shopId, 'reports.view');
     }
     if (path.startsWith('/admin/shops')) {
-      return this.auth.isAdmin();
+      return this.auth.isSuperAdmin();
     }
     if (path.startsWith('/admin/shop')) {
       return canManageShop(user, shopId);

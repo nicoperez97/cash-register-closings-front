@@ -211,7 +211,7 @@ export class HomePageComponent {
   }
 
   canCreateShop(): boolean {
-    return this.auth.isAdmin() && this.shopContext.shops().length === 0;
+    return this.auth.isSuperAdmin() && this.shopContext.shops().length === 0;
   }
 
   goCreate(): void {
