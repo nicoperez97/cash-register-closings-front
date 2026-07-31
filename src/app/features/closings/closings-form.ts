@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -13,13 +12,7 @@ import { startWith } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
-import { ClosingsApiService } from './closings-api.service';
-import { environment } from '../../../environments/environment';
-
-interface EmployeeOption {
-  id: string;
-  fullName: string;
-}
+import { ClosingsApiService, ShopUserOption } from './closings-api.service';
 
 const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'RAW_MATERIALS', label: 'Materia prima' },
@@ -153,10 +146,10 @@ const EXPENSE_CATEGORY_OPTIONS = [
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Quién se lo lleva</mat-label>
-                <mat-select formControlName="cashWithdrawnByEmployeeId">
+                <mat-select formControlName="cashWithdrawnByUserId">
                   <mat-option value="">— Sin asignar —</mat-option>
-                  @for (e of employees(); track e.id) {
-                    <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+                  @for (u of users(); track u.id) {
+                    <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
                   }
                 </mat-select>
               </mat-form-field>
@@ -440,7 +433,6 @@ const EXPENSE_CATEGORY_OPTIONS = [
 export class ClosingsFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ClosingsApiService);
-  private readonly http = inject(HttpClient);
   private readonly shops = inject(ShopContextService);
   readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
@@ -450,7 +442,7 @@ export class ClosingsFormPage implements OnInit {
   readonly shop = this.shops.selectedShop;
   readonly isEdit = signal(false);
   readonly status = signal<string | null>(null);
-  readonly employees = signal<EmployeeOption[]>([]);
+  readonly users = signal<ShopUserOption[]>([]);
   readonly expenseCategories = EXPENSE_CATEGORY_OPTIONS;
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
   readonly isLocked = () => this.status() === 'LOCKED';
@@ -469,7 +461,7 @@ export class ClosingsFormPage implements OnInit {
     coversCount: [0 as number | null],
     cashLeftInRegister: [0],
     cashWithdrawn: [0],
-    cashWithdrawnByEmployeeId: [''],
+    cashWithdrawnByUserId: [''],
     tipsAmount: [0],
     notes: [''],
     expenses: this.fb.array([]),
@@ -503,12 +495,13 @@ export class ClosingsFormPage implements OnInit {
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
     if (shopId) {
-      this.http
-        .get<EmployeeOption[]>(`${environment.apiUrl}/shops/${shopId}/employees`)
-        .subscribe({
-          next: (rows) => this.employees.set(rows),
-          error: () => this.snack.open('No se pudieron cargar los empleados del local', 'OK', { duration: 3000 }),
-        });
+      this.api.shopUsers(shopId).subscribe({
+        next: (rows) => this.users.set(rows),
+        error: () =>
+          this.snack.open('No se pudieron cargar los usuarios del local', 'OK', {
+            duration: 3000,
+          }),
+      });
     }
 
     const id = this.route.snapshot.paramMap.get('id');
@@ -533,7 +526,7 @@ export class ClosingsFormPage implements OnInit {
           coversCount: c.coversCount ?? null,
           cashLeftInRegister: c.cashLeftInRegister,
           cashWithdrawn: c.cashWithdrawn,
-          cashWithdrawnByEmployeeId: c.cashWithdrawnByEmployeeId ?? '',
+          cashWithdrawnByUserId: c.cashWithdrawnByUserId ?? '',
           tipsAmount: c.tipsAmount,
           notes: c.notes ?? '',
         });
@@ -581,14 +574,14 @@ export class ClosingsFormPage implements OnInit {
       return;
     }
     const raw = this.form.getRawValue();
-    const employeeId = raw.cashWithdrawnByEmployeeId || null;
-    const selected = this.employees().find((e) => e.id === employeeId);
+    const userId = raw.cashWithdrawnByUserId || null;
+    const selected = this.users().find((u) => u.id === userId);
     const body = {
       ...raw,
       unitsSold: raw.unitsSold || null,
       coversCount: raw.coversCount || null,
-      cashWithdrawnByUserId: null,
-      cashWithdrawnByEmployeeId: employeeId,
+      cashWithdrawnByUserId: userId,
+      cashWithdrawnByEmployeeId: null,
       cashWithdrawnByName: selected?.fullName ?? null,
       declaredTotal: this.declaredTotal(),
       expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>).filter(
@@ -655,7 +648,7 @@ export class ClosingsFormPage implements OnInit {
       coversCount: null,
       cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
       cashWithdrawn: 0,
-      cashWithdrawnByEmployeeId: '',
+      cashWithdrawnByUserId: '',
       tipsAmount: 0,
       notes: '',
       expenses: [],

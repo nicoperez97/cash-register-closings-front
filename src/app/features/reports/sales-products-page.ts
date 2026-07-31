@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
@@ -26,6 +27,8 @@ import {
   SalesProductsFilters,
   SalesProductsSummary,
 } from '../closings/closings-api.service';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { PosSalesImportDialogComponent } from './pos-sales-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
@@ -40,6 +43,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     MatDatepickerModule,
     MatTabsModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
@@ -49,7 +53,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
   ],
   template: `
     <app-page-header
-      title="Platos y rubros"
+      title="Ventas POS"
       [subtitle]="shops.selectedShop()?.name ?? ''"
       [actionLabel]="canExport() ? 'Descargar Excel' : ''"
       [actionDisabled]="!canExport() || !hasRange()"
@@ -130,6 +134,12 @@ import { usePageRefresh } from '../../core/page-refresh.service';
           <mat-icon>refresh</mat-icon>
           Actualizar
         </button>
+        @if (canExport()) {
+          <button mat-stroked-button type="button" (click)="openPosSalesImport()">
+            <mat-icon>upload_file</mat-icon>
+            Importar Restosoft / POS
+          </button>
+        }
       </div>
     </div>
 
@@ -277,6 +287,8 @@ export class SalesProductsPage {
   private readonly api = inject(ClosingsApiService);
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
 
   readonly never = () => false;
 
@@ -482,6 +494,50 @@ export class SalesProductsPage {
 
   canExport(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reports.export');
+  }
+
+  openPosSalesImport(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const shop = this.shops.selectedShop();
+    if (!shop?.salesSystemId) {
+      this.snack.open(
+        'Configurá el sistema de ventas (Restosoft / WeMenu) en Administrar local',
+        'OK',
+        { duration: 4500 },
+      );
+      return;
+    }
+    this.api.listSalesSystems().subscribe({
+      next: (systems) => {
+        const sys = systems.find((s) => s.id === shop.salesSystemId);
+        this.openImportDialog(shopId, shop.name ?? 'Local', sys?.name ?? null);
+      },
+      error: () => {
+        this.openImportDialog(shopId, shop.name ?? 'Local', null);
+      },
+    });
+  }
+
+  private openImportDialog(
+    shopId: string,
+    shopName: string,
+    salesSystemName: string | null,
+  ): void {
+    this.dialogTitle
+      .track(
+        this.dialog.open(PosSalesImportDialogComponent, {
+          width: '780px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: { shopId, shopName, salesSystemName },
+        }),
+        'Importar ventas POS',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.load();
+      });
   }
 
   hasRange(): boolean {

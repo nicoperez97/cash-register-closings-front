@@ -35,6 +35,7 @@ export interface ExcelImportDialogData {
 
     <mat-dialog-content>
       <p class="text-muted mb-3">
+        Plantilla propia de cierres de caja (no es el reporte Restosoft).
         Descargá la plantilla, completá una fila por día y subí el archivo .xlsx.
         Si “Quién se lo lleva” no existe, se crea como Visor (pass 123456).
       </p>

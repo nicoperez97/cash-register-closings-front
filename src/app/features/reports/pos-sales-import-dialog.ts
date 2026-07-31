@@ -6,9 +6,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   ClosingsApiService,
-  PosSalesDayPreview,
   PosSalesImportPreview,
-} from './closings-api.service';
+} from '../closings/closings-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface PosSalesImportDialogData {
@@ -33,7 +32,7 @@ export interface PosSalesImportDialogData {
         <mat-icon>point_of_sale</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>Importar reporte POS</strong>
+        <strong>Importar ventas POS</strong>
         <span>{{ data.shopName }}{{ data.salesSystemName ? ' · ' + data.salesSystemName : '' }}</span>
       </span>
     </h2>
@@ -41,7 +40,7 @@ export interface PosSalesImportDialogData {
     <mat-dialog-content>
       <p class="text-muted mb-3">
         Subí el reporte del sistema de ventas (Restosoft .xls / WeMenu .pdf).
-        Se guardan los tickets, el agregado diario y se actualiza la caja del cierre.
+        Se actualizan tickets, platos y totales diarios de ventas. No crea ni modifica cierres de caja.
       </p>
 
       <div class="xl-actions mb-3">
@@ -78,22 +77,19 @@ export interface PosSalesImportDialogData {
               <tr>
                 <th>Fecha</th>
                 <th>Tickets</th>
-                <th>Total POS</th>
+                <th>Total</th>
                 <th>Efectivo</th>
-                <th>Cierre</th>
+                <th>Tarjeta</th>
               </tr>
             </thead>
             <tbody>
               @for (row of p.days; track row.businessDate) {
-                <tr
-                  [class.xl-preview__locked]="row.closingLocked"
-                  [class.xl-preview__mismatch]="row.posMismatch"
-                >
+                <tr>
                   <td>{{ row.businessDate }}</td>
                   <td>{{ row.ticketCount }}</td>
                   <td>{{ money(row.totalAmount) }}</td>
                   <td>{{ money(row.cashAmount) }}</td>
-                  <td>{{ statusLabel(row) }}</td>
+                  <td>{{ money(row.cardAmount) }}</td>
                 </tr>
               }
             </tbody>
@@ -110,7 +106,7 @@ export interface PosSalesImportDialogData {
         mat-flat-button
         color="primary"
         type="button"
-        [disabled]="busy() || !file() || !committableCount()"
+        [disabled]="busy() || !file() || !preview()?.dayCount"
         (click)="commit()"
       >
         <app-busy-label [busy]="busy()" busyLabel="Importando…">
@@ -151,13 +147,6 @@ export interface PosSalesImportDialogData {
         background: var(--guy-card, #fff);
         font-weight: 600;
       }
-      .xl-preview__locked {
-        opacity: 0.45;
-      }
-      .xl-preview__mismatch td:nth-child(3) {
-        color: #c0392b;
-        font-weight: 600;
-      }
     `,
   ],
 })
@@ -172,22 +161,11 @@ export class PosSalesImportDialogComponent {
   readonly preview = signal<PosSalesImportPreview | null>(null);
   readonly busy = signal(false);
 
-  committableCount(): number {
-    return this.preview()?.days.filter((d) => !d.closingLocked).length ?? 0;
-  }
-
   money(n: number): string {
     return `$${Number(n || 0).toLocaleString('es-AR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  }
-
-  statusLabel(row: PosSalesDayPreview): string {
-    if (row.closingLocked) return 'Bloqueado';
-    if (row.closingExists && row.posMismatch) return 'Actualizar (diff)';
-    if (row.closingExists) return 'Actualizar';
-    return 'Crear borrador';
   }
 
   onFile(ev: Event): void {
@@ -219,8 +197,7 @@ export class PosSalesImportDialogComponent {
       next: (res) => {
         this.busy.set(false);
         this.snack.open(
-          `Importados ${res.committedDays} días · ${res.ticketCount} comprobantes` +
-            (res.skippedLockedDays ? ` · ${res.skippedLockedDays} bloqueados omitidos` : ''),
+          `Importados ${res.committedDays} días · ${res.ticketCount} comprobantes`,
           'OK',
           { duration: 5000 },
         );
