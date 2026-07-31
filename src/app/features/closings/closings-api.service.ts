@@ -3,6 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { ClosingQueryFilters, closingFiltersToParams } from './closing-filters';
 
+export interface ClosingPosnetAmount {
+  posnetId: string;
+  name: string;
+  type: 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
+  amount: number;
+}
+
 export interface CashClosing {
   id: string;
   shopId: string;
@@ -15,6 +22,7 @@ export interface CashClosing {
   transferAmount: number;
   accountDniAmount: number;
   otherAmount: number;
+  posnetAmounts?: ClosingPosnetAmount[];
   unitsSold?: number | null;
   coversCount?: number | null;
   averageTicket?: number | null;
