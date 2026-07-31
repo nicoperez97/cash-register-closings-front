@@ -327,6 +327,12 @@ export const ACCOUNT_TYPE_OPTIONS: Array<{
   },
 ];
 
+export interface ShopPosnet {
+  id: string;
+  name: string;
+  type: 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
+}
+
 export interface ShopSummary {
   id: string;
   name: string;
@@ -338,6 +344,7 @@ export interface ShopSummary {
   logoUrl?: string | null;
   accentColor?: string | null;
   salesSystemId?: string | null;
+  posnets?: ShopPosnet[];
   active?: boolean;
 }
 

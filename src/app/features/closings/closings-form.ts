@@ -1,5 +1,5 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,7 +12,7 @@ import { startWith } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
-import { ClosingsApiService, ShopUserOption } from './closings-api.service';
+import { ClosingsApiService, ClosingPosnetAmount, ShopUserOption } from './closings-api.service';
 
 const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'RAW_MATERIALS', label: 'Materia prima' },
@@ -30,6 +30,12 @@ const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'TRANSFER_SHOP', label: 'Transferencia locales' },
   { value: 'OTHER', label: 'Otros' },
 ];
+
+const POSNET_TYPE_LABEL: Record<string, string> = {
+  PVS: 'PVS',
+  MERCADO_PAGO: 'Mercado Pago',
+  CUENTA_DNI: 'Cuenta DNI',
+};
 
 @Component({
   selector: 'app-closings-form',
@@ -94,17 +100,35 @@ const EXPENSE_CATEGORY_OPTIONS = [
                 <mat-label>Caja (sistema)</mat-label>
                 <input matInput type="number" formControlName="posSystemAmount" />
               </mat-form-field>
+
+              @if (hasPosnets()) {
+                <div class="closing-form__posnets" formArrayName="posnetAmounts">
+                  <p class="closing-form__posnets-title">Posnets</p>
+                  @for (row of posnetAmounts.controls; track row; let i = $index) {
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" [formGroupName]="i">
+                      <mat-label>{{ posnetLabel(i) }}</mat-label>
+                      <input matInput type="number" formControlName="amount" />
+                    </mat-form-field>
+                  }
+                </div>
+              }
+
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>PVS</mat-label>
-                <input matInput type="number" formControlName="cardAmount" />
+                <mat-label>PVS{{ hasPosnets() ? ' (suma posnets)' : '' }}</mat-label>
+                <input matInput type="number" formControlName="cardAmount" [readonly]="hasPosnets()" />
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Efectivo</mat-label>
                 <input matInput type="number" formControlName="cashAmount" />
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>MercadoPago</mat-label>
-                <input matInput type="number" formControlName="mercadoPagoAmount" />
+                <mat-label>MercadoPago{{ hasPosnets() ? ' (suma posnets)' : '' }}</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="mercadoPagoAmount"
+                  [readonly]="hasPosnets()"
+                />
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>PedidosYa / delivery</mat-label>
@@ -115,8 +139,13 @@ const EXPENSE_CATEGORY_OPTIONS = [
                 <input matInput type="number" formControlName="transferAmount" />
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cuenta DNI</mat-label>
-                <input matInput type="number" formControlName="accountDniAmount" />
+                <mat-label>Cuenta DNI{{ hasPosnets() ? ' (suma posnets)' : '' }}</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="accountDniAmount"
+                  [readonly]="hasPosnets()"
+                />
               </mat-form-field>
             </div>
           </section>
@@ -303,6 +332,27 @@ const EXPENSE_CATEGORY_OPTIONS = [
         gap: 0.85rem 1rem;
       }
 
+      .closing-form__posnets {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem 1rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 10px;
+        border: 1px dashed color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, var(--guy-accent, #2e7d32) 6%, #fff);
+      }
+
+      .closing-form__posnets-title {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+
       .closing-notes {
         grid-column: 1 / -1;
       }
@@ -319,6 +369,15 @@ const EXPENSE_CATEGORY_OPTIONS = [
         min-height: 42px !important;
         padding-top: 10px !important;
         padding-bottom: 10px !important;
+      }
+
+      :host ::ng-deep .closing-form__posnets .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+
+      :host ::ng-deep .closing-form__fields .mat-mdc-form-field.mat-form-field-disabled .mat-mdc-text-field-wrapper,
+      :host ::ng-deep .closing-form__fields input[readonly] {
+        cursor: default;
       }
 
       .closing-form__expenses {
@@ -420,7 +479,8 @@ const EXPENSE_CATEGORY_OPTIONS = [
       }
 
       @media (max-width: 560px) {
-        .closing-form__fields {
+        .closing-form__fields,
+        .closing-form__posnets {
           grid-template-columns: 1fr;
         }
         .closing-totals {
@@ -438,6 +498,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly shop = this.shops.selectedShop;
   readonly isEdit = signal(false);
@@ -465,11 +526,18 @@ export class ClosingsFormPage implements OnInit {
     tipsAmount: [0],
     notes: [''],
     expenses: this.fb.array([]),
+    posnetAmounts: this.fb.array([]),
   });
 
   get expenses(): FormArray {
     return this.form.get('expenses') as FormArray;
   }
+
+  get posnetAmounts(): FormArray {
+    return this.form.get('posnetAmounts') as FormArray;
+  }
+
+  readonly hasPosnets = computed(() => (this.shop()?.posnets?.length ?? 0) > 0);
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
@@ -504,6 +572,10 @@ export class ClosingsFormPage implements OnInit {
       });
     }
 
+    this.posnetAmounts.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncPosnetTypeTotals());
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new' && shopId) {
       this.isEdit.set(true);
@@ -530,6 +602,7 @@ export class ClosingsFormPage implements OnInit {
           tipsAmount: c.tipsAmount,
           notes: c.notes ?? '',
         });
+        this.initPosnetAmounts(c.posnetAmounts);
         this.expenses.clear();
         for (const expense of c.expenses ?? []) {
           this.expenses.push(
@@ -547,6 +620,7 @@ export class ClosingsFormPage implements OnInit {
         businessDate: today,
         cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
       });
+      this.initPosnetAmounts();
     }
   }
 
@@ -554,9 +628,76 @@ export class ClosingsFormPage implements OnInit {
     return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
 
+  posnetLabel(index: number): string {
+    const row = this.posnetAmounts.at(index)?.getRawValue() as ClosingPosnetAmount | undefined;
+    if (!row) return 'Posnet';
+    const typeLabel = POSNET_TYPE_LABEL[row.type] ?? row.type;
+    return `${row.name} (${typeLabel})`;
+  }
+
   private n(v: unknown): number {
     const num = Number(v ?? 0);
     return Number.isFinite(num) ? num : 0;
+  }
+
+  private initPosnetAmounts(saved?: ClosingPosnetAmount[] | null): void {
+    const configured = this.shop()?.posnets ?? [];
+    this.posnetAmounts.clear({ emitEvent: false });
+    if (!configured.length) {
+      this.syncPosnetTypeTotals();
+      return;
+    }
+    const byId = new Map((saved ?? []).map((p) => [p.posnetId, p]));
+    for (const posnet of configured) {
+      const prev = byId.get(posnet.id);
+      this.posnetAmounts.push(
+        this.buildPosnetAmountGroup({
+          posnetId: posnet.id,
+          name: posnet.name,
+          type: posnet.type,
+          amount: prev?.amount ?? 0,
+        }),
+        { emitEvent: false },
+      );
+    }
+    // Si el cierre tiene posnets viejos ya no configurados, los conservamos.
+    for (const row of saved ?? []) {
+      if (configured.some((p) => p.id === row.posnetId)) continue;
+      this.posnetAmounts.push(this.buildPosnetAmountGroup(row), { emitEvent: false });
+    }
+    this.syncPosnetTypeTotals();
+  }
+
+  private buildPosnetAmountGroup(value: ClosingPosnetAmount) {
+    return this.fb.nonNullable.group({
+      posnetId: [value.posnetId],
+      name: [value.name],
+      type: [value.type],
+      amount: [value.amount ?? 0],
+    });
+  }
+
+  private syncPosnetTypeTotals(): void {
+    if (!this.hasPosnets() && this.posnetAmounts.length === 0) return;
+    if (this.posnetAmounts.length === 0) return;
+    let card = 0;
+    let mp = 0;
+    let dni = 0;
+    for (const ctrl of this.posnetAmounts.controls) {
+      const row = ctrl.getRawValue() as ClosingPosnetAmount;
+      const amount = this.n(row.amount);
+      if (row.type === 'PVS') card += amount;
+      else if (row.type === 'MERCADO_PAGO') mp += amount;
+      else if (row.type === 'CUENTA_DNI') dni += amount;
+    }
+    this.form.patchValue(
+      {
+        cardAmount: card,
+        mercadoPagoAmount: mp,
+        accountDniAmount: dni,
+      },
+      { emitEvent: true },
+    );
   }
 
   save(): void {
@@ -573,9 +714,16 @@ export class ClosingsFormPage implements OnInit {
       this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
       return;
     }
+    this.syncPosnetTypeTotals();
     const raw = this.form.getRawValue();
     const userId = raw.cashWithdrawnByUserId || null;
     const selected = this.users().find((u) => u.id === userId);
+    const posnetAmounts = (raw.posnetAmounts as ClosingPosnetAmount[]).map((p) => ({
+      posnetId: p.posnetId,
+      name: p.name,
+      type: p.type,
+      amount: this.n(p.amount),
+    }));
     const body = {
       ...raw,
       unitsSold: raw.unitsSold || null,
@@ -584,6 +732,7 @@ export class ClosingsFormPage implements OnInit {
       cashWithdrawnByEmployeeId: null,
       cashWithdrawnByName: selected?.fullName ?? null,
       declaredTotal: this.declaredTotal(),
+      posnetAmounts: this.hasPosnets() || posnetAmounts.length ? posnetAmounts : undefined,
       expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>).filter(
         (e) => !!e.label && Number(e.amount) > 0,
       ),
@@ -652,7 +801,9 @@ export class ClosingsFormPage implements OnInit {
       tipsAmount: 0,
       notes: '',
       expenses: [],
+      posnetAmounts: [],
     });
+    this.initPosnetAmounts();
   }
 
   private buildExpenseGroup(value: { label: string; amount: number; category: string }) {

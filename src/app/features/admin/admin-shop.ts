@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -12,8 +12,9 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageShop } from '../../core/auth/auth.models';
+import { canManageShop, ShopPosnet } from '../../core/auth/auth.models';
 import { normalizeLogoUrl } from '../../core/utils/drive-url';
+import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
 import { ClosingsApiService, SalesSystemOption } from '../closings/closings-api.service';
@@ -22,6 +23,12 @@ import { startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopBackupApiService } from './shop-backup-api.service';
+
+const POSNET_TYPE_OPTIONS = [
+  { value: 'PVS', label: 'PVS' },
+  { value: 'MERCADO_PAGO', label: 'Mercado Pago' },
+  { value: 'CUENTA_DNI', label: 'Cuenta DNI' },
+] as const;
 
 @Component({
   selector: 'app-admin-shop',
@@ -181,6 +188,51 @@ import { ShopBackupApiService } from './shop-backup-api.service';
               </div>
               <mat-slide-toggle formControlName="coversEnabled" aria-label="Comensales habilitados" />
             </div>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <div class="shop-admin__posnets-head">
+            <div>
+              <h2 class="guy-section-title">Posnets</h2>
+              <p class="text-muted small mb-0">
+                Terminales del local. En el cierre se pide un monto por cada uno y se suma por tipo
+                (PVS, Mercado Pago, Cuenta DNI).
+              </p>
+            </div>
+            <button mat-stroked-button type="button" (click)="addPosnet()">
+              <mat-icon>add</mat-icon>
+              Agregar posnet
+            </button>
+          </div>
+          <div class="shop-admin__posnets" formArrayName="posnets">
+            @for (row of posnets.controls; track row; let i = $index) {
+              <div class="shop-admin__posnet-row" [formGroupName]="i">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Nombre</mat-label>
+                  <input matInput formControlName="name" placeholder="ej. Caja 1" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Tipo</mat-label>
+                  <mat-select formControlName="type">
+                    @for (opt of posnetTypes; track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="shop-admin__posnet-remove"
+                  aria-label="Quitar posnet"
+                  (click)="removePosnet(i)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            } @empty {
+              <p class="text-muted small mb-0">Sin posnets. Los montos PVS / MP / DNI se cargan a mano.</p>
+            }
           </div>
         </section>
 
@@ -411,6 +463,36 @@ import { ShopBackupApiService } from './shop-backup-api.service';
         flex-wrap: wrap;
         gap: 0.5rem;
       }
+      .shop-admin__posnets-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.85rem;
+      }
+      .shop-admin__posnets-head .guy-section-title {
+        margin-bottom: 0.25rem;
+      }
+      .shop-admin__posnets {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .shop-admin__posnet-row {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr auto;
+        gap: 0.6rem;
+        align-items: center;
+      }
+      .shop-admin__posnet-remove {
+        color: #c62828;
+      }
+      @media (max-width: 640px) {
+        .shop-admin__posnet-row {
+          grid-template-columns: 1fr;
+        }
+      }
       @media (max-width: 959px) {
         .shop-admin__preview {
           position: static;
@@ -434,6 +516,7 @@ export class AdminShopPage implements OnInit {
   readonly salesSystems = signal<SalesSystemOption[]>([]);
   readonly saving = signal(false);
   readonly backupBusy = signal(false);
+  readonly posnetTypes = POSNET_TYPE_OPTIONS;
 
   isSuperAdmin(): boolean {
     return this.auth.isSuperAdmin();
@@ -450,7 +533,12 @@ export class AdminShopPage implements OnInit {
     coversEnabled: [false],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
+    posnets: this.fb.array([]),
   });
+
+  get posnets(): FormArray {
+    return this.form.get('posnets') as FormArray;
+  }
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
@@ -491,6 +579,7 @@ export class AdminShopPage implements OnInit {
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
+    this.setPosnets(shop.posnets ?? []);
     this.http.get<any>(`${environment.apiUrl}/shops/${shopId}`).subscribe({
       next: (s) => {
         this.form.patchValue({
@@ -505,6 +594,7 @@ export class AdminShopPage implements OnInit {
           coversEnabled: !!s.coversEnabled,
           active: !!s.active,
         });
+        this.setPosnets(s.posnets ?? []);
         this.shops.upsertShop(s);
       },
     });
@@ -517,6 +607,35 @@ export class AdminShopPage implements OnInit {
   onAccentPicker(ev: Event): void {
     const value = (ev.target as HTMLInputElement).value;
     this.form.controls.accentColor.setValue(value.toUpperCase());
+  }
+
+  addPosnet(): void {
+    this.posnets.push(
+      this.buildPosnetGroup({
+        id: newId(),
+        name: '',
+        type: 'PVS',
+      }),
+    );
+  }
+
+  removePosnet(index: number): void {
+    this.posnets.removeAt(index);
+  }
+
+  private setPosnets(rows: ShopPosnet[]): void {
+    this.posnets.clear();
+    for (const row of rows) {
+      this.posnets.push(this.buildPosnetGroup(row));
+    }
+  }
+
+  private buildPosnetGroup(value: ShopPosnet) {
+    return this.fb.nonNullable.group({
+      id: [value.id || newId()],
+      name: [value.name, Validators.required],
+      type: [value.type || 'PVS', Validators.required],
+    });
   }
 
   save(): void {
@@ -536,6 +655,13 @@ export class AdminShopPage implements OnInit {
         coversEnabled: raw.coversEnabled,
         active: raw.active,
         salesSystemId: raw.salesSystemId || null,
+        posnets: (raw.posnets as ShopPosnet[])
+          .map((p) => ({
+            id: p.id,
+            name: String(p.name ?? '').trim(),
+            type: p.type,
+          }))
+          .filter((p) => !!p.name),
       })
       .subscribe({
         next: (shop) => {
