@@ -231,30 +231,44 @@ const MONTH_LABELS = [
         padding: 0.25rem;
         font-size: 0.75rem;
       }
-      .att-table__day--today {
-        background: color-mix(in srgb, var(--guy-primary, #0b5cab) 14%, #fff);
-        box-shadow: inset 0 0 0 2px var(--guy-primary, #0b5cab);
-      }
-      .att-table__day.att-table__day--today {
-        color: var(--guy-primary, #0b5cab);
-        font-weight: 800;
+      .att-table thead .att-table__day--today {
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--guy-primary, #1d65a0) 18%, #fff) 0%,
+          color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, #fff) 100%
+        );
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 28%, var(--guy-border, #d7e0d9));
+        border-bottom-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, transparent);
+        box-shadow: inset 0 -2px 0 var(--guy-primary, #1d65a0);
+        color: var(--guy-primary, #1d65a0);
+        font-weight: 700;
         vertical-align: middle;
-        padding: 0.35rem 0.2rem;
-        min-width: 2.4rem;
+        padding: 0.4rem 0.25rem 0.45rem;
+        min-width: 2.6rem;
+      }
+      tbody td.att-table__day--today {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 18%, var(--guy-border, #d7e0d9));
       }
       .att-table__day-num {
         display: block;
-        line-height: 1.1;
+        font-size: 0.85rem;
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
       }
       .att-table__day-label {
-        display: block;
-        margin-top: 0.1rem;
-        font-size: 0.58rem;
+        display: inline-block;
+        margin-top: 0.2rem;
+        padding: 0.12rem 0.4rem;
+        border-radius: 999px;
+        font-size: 0.55rem;
         font-weight: 800;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: var(--guy-primary, #0b5cab);
         line-height: 1;
+        color: #fff;
+        background: var(--guy-primary, #1d65a0);
       }
       .att-table__name {
         text-align: left;
@@ -273,39 +287,61 @@ const MONTH_LABELS = [
         width: 1.9rem;
         height: 1.9rem;
         border: 1px solid var(--guy-border, #d7e0d9);
-        border-radius: 6px;
-        background: transparent;
+        border-radius: 8px;
+        background: linear-gradient(
+          180deg,
+          #fff 0%,
+          color-mix(in srgb, var(--guy-border, #d7e0d9) 35%, #fff) 100%
+        );
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         padding: 0;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease,
+          box-shadow 0.15s ease,
+          transform 0.12s ease;
+      }
+      .att-cell:not(:disabled):hover {
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 40%, var(--guy-border, #d7e0d9));
+        box-shadow: 0 1px 3px color-mix(in srgb, var(--guy-primary, #1d65a0) 18%, transparent);
+        transform: translateY(-1px);
       }
       .att-cell:disabled {
         cursor: default;
-        opacity: 0.7;
+        opacity: 0.75;
       }
       .att-cell--present {
-        background: color-mix(in srgb, var(--guy-green, #2e7d32) 20%, transparent);
-        border-color: var(--guy-green, #2e7d32);
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 22%, #fff);
+        border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 70%, #fff);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--guy-green, #2e7d32) 25%, transparent);
+      }
+      .att-cell--present .att-cell__icon {
+        color: var(--guy-green, #2e7d32);
       }
       .att-cell--holiday {
-        background: color-mix(in srgb, #e65100 20%, transparent);
-        border-color: #e65100;
+        background: color-mix(in srgb, #e65100 22%, #fff);
+        border-color: color-mix(in srgb, #e65100 70%, #fff);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, #e65100 25%, transparent);
       }
-      .att-cell--today {
-        outline: 2px solid var(--guy-primary, #0b5cab);
-        outline-offset: 0;
+      .att-cell--holiday .att-cell__icon {
+        color: #e65100;
       }
       .att-cell--today:not(.att-cell--present):not(.att-cell--holiday) {
-        border-color: var(--guy-primary, #0b5cab);
-        background: color-mix(in srgb, var(--guy-primary, #0b5cab) 8%, transparent);
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, #fff);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--guy-primary, #1d65a0) 20%, transparent);
+      }
+      .att-cell--today.att-cell--present,
+      .att-cell--today.att-cell--holiday {
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--guy-primary, #1d65a0) 22%, transparent);
       }
       .att-cell__icon {
-        font-size: 1.1rem;
-        width: 1.1rem;
-        height: 1.1rem;
-        color: var(--guy-navy, #003366);
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
       }
       .att-legend {
         display: flex;
@@ -329,8 +365,12 @@ const MONTH_LABELS = [
         width: 1rem;
         height: 1rem;
         border-radius: 4px;
-        box-shadow: inset 0 0 0 2px var(--guy-primary, #0b5cab);
-        background: color-mix(in srgb, var(--guy-primary, #0b5cab) 14%, #fff);
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--guy-primary, #1d65a0) 18%, #fff),
+          color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, #fff)
+        );
+        box-shadow: inset 0 -2px 0 var(--guy-primary, #1d65a0);
       }
       .today-panel__head {
         display: flex;
