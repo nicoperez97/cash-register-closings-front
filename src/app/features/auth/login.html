@@ -21,7 +21,9 @@
 
     <section class="login-panel" aria-labelledby="login-title">
       @if (busy) {
-        <mat-progress-bar mode="indeterminate" class="login-progress" aria-label="Ingresando" />
+        <div class="login-progress" aria-hidden="true">
+          <mat-progress-bar mode="indeterminate" aria-label="Ingresando" />
+        </div>
       }
 
       <div class="login-panel__head">
