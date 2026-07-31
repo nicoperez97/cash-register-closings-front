@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
 import { accountTypeLabel } from '../../core/i18n/labels';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface AdminAccountRow {
   id: string;
@@ -63,6 +64,7 @@ interface UserOption {
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -144,8 +146,10 @@ interface UserOption {
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
-        <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-        {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+          {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

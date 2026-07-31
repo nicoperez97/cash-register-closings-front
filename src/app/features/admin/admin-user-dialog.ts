@@ -19,6 +19,7 @@ import {
   ModuleKey,
   emptyModuleLevels,
 } from '../../core/auth/auth.models';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface AdminUserRow {
   id: string;
@@ -90,6 +91,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
     MatIconModule,
     MatSnackBarModule,
     MatTooltipModule,
+    BusyLabelComponent,
   ],
   styles: [
     `
@@ -597,8 +599,10 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
-        <mat-icon>{{ saveIcon }}</mat-icon>
-        {{ saveLabel }}
+        <app-busy-label [busy]="busy()" busyLabel="Guardando…">
+          <mat-icon>{{ saveIcon }}</mat-icon>
+          {{ saveLabel }}
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

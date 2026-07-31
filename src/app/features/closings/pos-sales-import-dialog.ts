@@ -9,6 +9,7 @@ import {
   PosSalesDayPreview,
   PosSalesImportPreview,
 } from './closings-api.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface PosSalesImportDialogData {
   shopId: string;
@@ -24,6 +25,7 @@ export interface PosSalesImportDialogData {
     MatIconModule,
     MatProgressBarModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -57,7 +59,7 @@ export interface PosSalesImportDialogData {
       </div>
 
       @if (busy()) {
-        <mat-progress-bar mode="indeterminate" class="mb-3" />
+        <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
       }
 
       @if (preview(); as p) {
@@ -111,8 +113,10 @@ export interface PosSalesImportDialogData {
         [disabled]="busy() || !file() || !committableCount()"
         (click)="commit()"
       >
-        <mat-icon>cloud_upload</mat-icon>
-        Confirmar importación
+        <app-busy-label [busy]="busy()" busyLabel="Importando…">
+          <mat-icon>cloud_upload</mat-icon>
+          Confirmar importación
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

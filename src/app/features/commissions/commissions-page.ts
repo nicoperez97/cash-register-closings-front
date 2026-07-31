@@ -25,6 +25,7 @@ import {
 } from './commissions-api.service';
 import { CommissionRuleDialogComponent } from './commission-rule-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 @Component({
   selector: 'app-commissions-page',
@@ -41,6 +42,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
+    BusyLabelComponent,
   ],
   template: `
     <app-page-header
@@ -82,8 +84,10 @@ import { usePageRefresh } from '../../core/page-refresh.service';
               [disabled]="!hasRange() || busy()"
               (click)="calculate()"
             >
-              <mat-icon>calculate</mat-icon>
-              Calcular
+              <app-busy-label [busy]="busy()" busyLabel="Calculando…">
+                <mat-icon>calculate</mat-icon>
+                Calcular
+              </app-busy-label>
             </button>
           </div>
         </div>

@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
 import { conceptKindLabel } from '../../core/i18n/labels';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface AdminConceptRow {
   id: string;
@@ -41,6 +42,7 @@ export type AdminConceptDialogData =
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -91,8 +93,10 @@ export type AdminConceptDialogData =
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
-        <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-        {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+          {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

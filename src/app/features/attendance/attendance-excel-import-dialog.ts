@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface AttendanceExcelImportDialogData {
   shopId: string;
@@ -41,6 +42,7 @@ interface AttendanceImportResult {
     MatIconModule,
     MatProgressBarModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -78,7 +80,7 @@ interface AttendanceImportResult {
       </div>
 
       @if (busy()) {
-        <mat-progress-bar mode="indeterminate" class="mb-3" />
+        <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
       }
 
       @if (items().length) {
@@ -136,8 +138,10 @@ interface AttendanceImportResult {
         [disabled]="busy() || !file() || validCount() === 0"
         (click)="commit()"
       >
-        <mat-icon>cloud_upload</mat-icon>
-        Importar {{ validCount() }} días
+        <app-busy-label [busy]="busy()" busyLabel="Importando…">
+          <mat-icon>cloud_upload</mat-icon>
+          Importar {{ validCount() }} días
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

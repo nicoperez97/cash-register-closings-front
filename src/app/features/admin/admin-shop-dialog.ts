@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { environment } from '../../../environments/environment';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface AdminShopRow {
   id: string;
@@ -50,6 +51,7 @@ function slugify(raw: string): string {
     MatIconModule,
     MatSnackBarModule,
     MatSelectModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -137,8 +139,10 @@ function slugify(raw: string): string {
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
-        <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-        {{ isEdit ? 'Guardar' : 'Crear' }}
+        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+          {{ isEdit ? 'Guardar' : 'Crear' }}
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

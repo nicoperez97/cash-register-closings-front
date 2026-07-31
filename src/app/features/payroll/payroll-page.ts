@@ -15,6 +15,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { payrollStatusLabel } from '../../core/i18n/labels';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 interface PayrollLine {
   id: string;
@@ -69,6 +70,7 @@ const MONTH_LABELS = [
     MatSnackBarModule,
     PageHeaderComponent,
     DataTableComponent,
+    BusyLabelComponent,
   ],
   template: `
     <app-page-header
@@ -107,8 +109,10 @@ const MONTH_LABELS = [
               [disabled]="busy() || (isLocked() && !auth.isAdmin())"
               (click)="generate()"
             >
-              <mat-icon>calculate</mat-icon>
-              Generar
+              <app-busy-label [busy]="busy()" busyLabel="Generando…">
+                <mat-icon>calculate</mat-icon>
+                Generar
+              </app-busy-label>
             </button>
             @if (isLocked() && auth.isAdmin()) {
               <button

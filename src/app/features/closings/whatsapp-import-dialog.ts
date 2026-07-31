@@ -8,6 +8,7 @@ import {
   ClosingsApiService,
   WhatsappImportItem,
 } from './closings-api.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface WhatsappImportDialogData {
   shopId: string;
@@ -22,6 +23,7 @@ export interface WhatsappImportDialogData {
     MatIconModule,
     MatProgressBarModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -55,7 +57,7 @@ export interface WhatsappImportDialogData {
       </div>
 
       @if (busy()) {
-        <mat-progress-bar mode="indeterminate" class="mb-3" />
+        <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
       }
 
       @if (items().length) {
@@ -118,8 +120,10 @@ export interface WhatsappImportDialogData {
         [disabled]="busy() || !file() || creatableCount() === 0"
         (click)="commit()"
       >
-        <mat-icon>cloud_upload</mat-icon>
-        Confirmar importación
+        <app-busy-label [busy]="busy()" busyLabel="Importando…">
+          <mat-icon>cloud_upload</mat-icon>
+          Confirmar importación
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,

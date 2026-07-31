@@ -1,5 +1,6 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -126,6 +127,15 @@ const MONTH_LABELS = [
           <mat-icon>today</mat-icon>
           Ver mes actual
         </button>
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="!shopId() || exporting()"
+          (click)="exportExcel()"
+        >
+          <mat-icon>download</mat-icon>
+          Descargar Excel
+        </button>
       </div>
     </div>
 
@@ -136,13 +146,23 @@ const MONTH_LABELS = [
     } @else {
       <div class="panel-card panel-card--flush">
         <div class="panel-card__body">
-          <div class="att-table-wrap">
+          <div class="att-table-wrap" #tableWrap>
             <table class="att-table">
               <thead>
                 <tr>
                   <th class="att-table__name">Empleado</th>
                   @for (d of dayNumbers(); track d) {
-                    <th>{{ d }}</th>
+                    <th
+                      class="att-table__day"
+                      [class.att-table__day--today]="isTodayColumn(d)"
+                      [attr.data-day]="d"
+                      [attr.title]="isTodayColumn(d) ? 'Hoy' : null"
+                    >
+                      <span class="att-table__day-num">{{ d }}</span>
+                      @if (isTodayColumn(d)) {
+                        <span class="att-table__day-label">Hoy</span>
+                      }
+                    </th>
                   }
                 </tr>
               </thead>
@@ -151,12 +171,13 @@ const MONTH_LABELS = [
                   <tr>
                     <td class="att-table__name">{{ emp.fullName }}</td>
                     @for (d of dayNumbers(); track d) {
-                      <td>
+                      <td [class.att-table__day--today]="isTodayColumn(d)">
                         <button
                           type="button"
                           class="att-cell"
                           [class.att-cell--present]="isPresent(emp, d)"
                           [class.att-cell--holiday]="isHoliday(emp, d)"
+                          [class.att-cell--today]="isTodayColumn(d)"
                           [disabled]="!canManage() || saving()"
                           [matTooltip]="cellTooltip(emp, d)"
                           (click)="togglePresent(emp, d)"
@@ -183,6 +204,9 @@ const MONTH_LABELS = [
             <span class="att-legend__item">
               <span class="att-cell att-cell--holiday att-legend__swatch"></span> Feriado
             </span>
+            <span class="att-legend__item">
+              <span class="att-legend__today-swatch"></span> Hoy
+            </span>
             <span class="att-legend__hint">Click: presente/ausente · Click derecho: feriado</span>
           </p>
         </div>
@@ -193,10 +217,12 @@ const MONTH_LABELS = [
     `
       .att-table-wrap {
         overflow-x: auto;
+        scroll-behavior: smooth;
       }
       .att-table {
         border-collapse: collapse;
-        width: 100%;
+        width: max-content;
+        min-width: 100%;
       }
       .att-table th,
       .att-table td {
@@ -204,6 +230,31 @@ const MONTH_LABELS = [
         text-align: center;
         padding: 0.25rem;
         font-size: 0.75rem;
+      }
+      .att-table__day--today {
+        background: color-mix(in srgb, var(--guy-primary, #0b5cab) 14%, #fff);
+        box-shadow: inset 0 0 0 2px var(--guy-primary, #0b5cab);
+      }
+      .att-table__day.att-table__day--today {
+        color: var(--guy-primary, #0b5cab);
+        font-weight: 800;
+        vertical-align: middle;
+        padding: 0.35rem 0.2rem;
+        min-width: 2.4rem;
+      }
+      .att-table__day-num {
+        display: block;
+        line-height: 1.1;
+      }
+      .att-table__day-label {
+        display: block;
+        margin-top: 0.1rem;
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--guy-primary, #0b5cab);
+        line-height: 1;
       }
       .att-table__name {
         text-align: left;
@@ -242,6 +293,14 @@ const MONTH_LABELS = [
         background: color-mix(in srgb, #e65100 20%, transparent);
         border-color: #e65100;
       }
+      .att-cell--today {
+        outline: 2px solid var(--guy-primary, #0b5cab);
+        outline-offset: 0;
+      }
+      .att-cell--today:not(.att-cell--present):not(.att-cell--holiday) {
+        border-color: var(--guy-primary, #0b5cab);
+        background: color-mix(in srgb, var(--guy-primary, #0b5cab) 8%, transparent);
+      }
       .att-cell__icon {
         font-size: 1.1rem;
         width: 1.1rem;
@@ -265,6 +324,13 @@ const MONTH_LABELS = [
       .att-legend__swatch {
         width: 1rem;
         height: 1rem;
+      }
+      .att-legend__today-swatch {
+        width: 1rem;
+        height: 1rem;
+        border-radius: 4px;
+        box-shadow: inset 0 0 0 2px var(--guy-primary, #0b5cab);
+        background: color-mix(in srgb, var(--guy-primary, #0b5cab) 14%, #fff);
       }
       .today-panel__head {
         display: flex;
@@ -328,6 +394,7 @@ export class AttendancePage {
   readonly shops = inject(ShopContextService);
 
   readonly shopId = this.shops.selectedShopId;
+  private readonly tableWrap = viewChild<ElementRef<HTMLElement>>('tableWrap');
   readonly months = MONTH_LABELS.map((label, idx) => ({ value: idx + 1, label }));
   readonly years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
 
@@ -335,6 +402,10 @@ export class AttendancePage {
   readonly month = signal(new Date().getMonth() + 1);
   readonly data = signal<AttendanceMonthResponse | null>(null);
   readonly saving = signal(false);
+  readonly exporting = signal(false);
+  /** Evita que respuestas viejas pisen datos más nuevos al cambiar mes/refresco. */
+  private monthLoadSeq = 0;
+  private todayLoadSeq = 0;
   /** Estado rápido de hoy (independiente del mes en pantalla). */
   readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
 
@@ -357,9 +428,8 @@ export class AttendancePage {
   }
 
   constructor() {
-    usePageRefresh(() => {
-      this.reload();
-      this.loadTodayMarks();
+    usePageRefresh(async () => {
+      await Promise.all([this.reload(), this.loadTodayMarks()]);
     });
     effect(() => {
       const shopId = this.shopId();
@@ -370,8 +440,8 @@ export class AttendancePage {
         this.todayMarks.set({});
         return;
       }
-      this.reload();
-      this.loadTodayMarks();
+      void this.reload();
+      void this.loadTodayMarks();
     });
   }
 
@@ -379,9 +449,77 @@ export class AttendancePage {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'attendance.manage');
   }
 
+  exportExcel(): void {
+    const shopId = this.shopId();
+    const shop = this.shops.selectedShop();
+    if (!shopId || this.exporting()) return;
+    const year = this.year();
+    const month = this.month();
+    this.exporting.set(true);
+    this.http
+      .get(`${environment.apiUrl}/shops/${shopId}/attendance/export.xlsx`, {
+        params: { year: String(year), month: String(month) },
+        responseType: 'blob',
+      })
+      .subscribe({
+        next: (blob) => {
+          this.exporting.set(false);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const monthPad = String(month).padStart(2, '0');
+          a.download = `presentismo-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${year}-${monthPad}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => {
+          this.exporting.set(false);
+          this.snack.open('No se pudo descargar el Excel', 'OK', { duration: 3000 });
+        },
+      });
+  }
+
+  private shopFileSlug(name?: string | null): string {
+    const raw = (name ?? 'local')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40);
+    return raw || 'local';
+  }
+
   goToTodayMonth(): void {
     this.year.set(this.todayYear);
     this.month.set(this.todayMonth);
+  }
+
+  isTodayColumn(day: number): boolean {
+    return (
+      this.year() === this.todayYear &&
+      this.month() === this.todayMonth &&
+      day === this.todayDay
+    );
+  }
+
+  private scrollMatrixToToday(attempt = 0): void {
+    if (!this.isTodayColumn(this.todayDay)) return;
+    const wrap = this.tableWrap()?.nativeElement;
+    const todayHeader = wrap?.querySelector<HTMLElement>(
+      `.att-table__day[data-day="${this.todayDay}"]`,
+    );
+    if (!wrap || !todayHeader) {
+      if (attempt < 12) {
+        requestAnimationFrame(() => this.scrollMatrixToToday(attempt + 1));
+      }
+      return;
+    }
+    const wrapRect = wrap.getBoundingClientRect();
+    const dayRect = todayHeader.getBoundingClientRect();
+    const delta =
+      dayRect.left - wrapRect.left - wrapRect.width / 2 + dayRect.width / 2;
+    wrap.scrollBy({ left: delta, behavior: attempt === 0 ? 'auto' : 'smooth' });
   }
 
   isPresentToday(emp: AttendanceEmployeeRow): boolean {
@@ -421,7 +559,7 @@ export class AttendancePage {
           }
           this.todayMarks.set(next);
           if (this.year() === this.todayYear && this.month() === this.todayMonth) {
-            this.reload();
+            void this.reload();
           }
           this.snack.open('Todos marcados presentes hoy', 'OK', { duration: 2500 });
         },
@@ -433,26 +571,38 @@ export class AttendancePage {
       });
   }
 
-  private loadTodayMarks(): void {
+  private loadTodayMarks(): Promise<void> {
     const shopId = this.shopId();
-    if (!shopId) return;
-    this.http
-      .get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
-        params: { year: String(this.todayYear), month: String(this.todayMonth) },
-      })
-      .subscribe({
-        next: (data) => {
-          const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
-          for (const e of data.employees ?? []) {
-            const cell = e.days[this.todayIso];
-            marks[e.employeeId] = {
-              isPresent: !!cell?.isPresent,
-              isHoliday: !!cell?.isHoliday,
-            };
-          }
-          this.todayMarks.set(marks);
+    if (!shopId) return Promise.resolve();
+    const seq = ++this.todayLoadSeq;
+    return firstValueFrom(
+      this.http.get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
+        params: {
+          year: String(this.todayYear),
+          month: String(this.todayMonth),
+          _: String(Date.now()),
         },
-        error: () => this.todayMarks.set({}),
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      }),
+    )
+      .then((data) => {
+        if (seq !== this.todayLoadSeq) return;
+        const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
+        for (const e of data.employees ?? []) {
+          const cell = e.days[this.todayIso];
+          marks[e.employeeId] = {
+            isPresent: !!cell?.isPresent,
+            isHoliday: !!cell?.isHoliday,
+          };
+        }
+        this.todayMarks.set(marks);
+      })
+      .catch(() => {
+        if (seq !== this.todayLoadSeq) return;
+        this.todayMarks.set({});
       });
   }
 
@@ -540,8 +690,8 @@ export class AttendancePage {
       .afterClosed()
       .subscribe((ok) => {
         if (ok) {
-          this.reload();
-          this.loadTodayMarks();
+          void this.reload();
+          void this.loadTodayMarks();
         }
       });
   }
@@ -554,16 +704,33 @@ export class AttendancePage {
     this.year.set(value);
   }
 
-  reload(): void {
+  reload(): Promise<void> {
     const shopId = this.shopId();
-    if (!shopId) return;
-    this.http
-      .get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
-        params: { year: String(this.year()), month: String(this.month()) },
+    if (!shopId) return Promise.resolve();
+    const seq = ++this.monthLoadSeq;
+    const year = this.year();
+    const month = this.month();
+    return firstValueFrom(
+      this.http.get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
+        params: {
+          year: String(year),
+          month: String(month),
+          _: String(Date.now()),
+        },
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      }),
+    )
+      .then((data) => {
+        if (seq !== this.monthLoadSeq) return;
+        this.data.set(data);
+        this.scrollMatrixToToday();
       })
-      .subscribe({
-        next: (data) => this.data.set(data),
-        error: () => this.snack.open('No se pudo cargar la asistencia', 'OK', { duration: 3000 }),
+      .catch(() => {
+        if (seq !== this.monthLoadSeq) return;
+        this.snack.open('No se pudo cargar la asistencia', 'OK', { duration: 3000 });
       });
   }
 

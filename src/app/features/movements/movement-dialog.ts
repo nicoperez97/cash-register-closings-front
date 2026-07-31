@@ -10,6 +10,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export interface MovementEmployeeOption {
   id: string;
@@ -51,6 +52,7 @@ function toDateString(value: Date | null): string {
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    BusyLabelComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -170,8 +172,10 @@ function toDateString(value: Date | null): string {
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
-        <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-        {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+          {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+        </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,
