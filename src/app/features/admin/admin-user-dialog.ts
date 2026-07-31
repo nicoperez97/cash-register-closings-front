@@ -37,6 +37,8 @@ export type AdminUserDialogData = {
   shopId: string;
   shopName: string;
   canAssignUsersModule: boolean;
+  /** Solo Super admin (OWNER) puede asignar/ver el tipo Super admin. */
+  canAssignSuperAdmin: boolean;
   /** Super admin: puede asignar varios locales. */
   canAssignShops?: boolean;
   allShops?: Array<{ id: string; name: string }>;
@@ -431,7 +433,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
 
         <div class="section">
           <p class="section__title">¿Qué tipo de acceso?</p>
-          <p class="section__hint">Elegí super admin, administrador del local o empleado con permisos puntuales.</p>
+          <p class="section__hint">Elegí si es administrador del local o un empleado con permisos puntuales.</p>
           <div class="type-grid" role="radiogroup" aria-label="Tipo de cuenta">
             @for (opt of accountTypeOptions; track opt.value) {
               <button
@@ -639,7 +641,7 @@ export class AdminUserDialogComponent implements OnInit {
   /** Fuerza refresco de resumen al cambiar pills. */
   readonly modulesTick = signal(0);
 
-  readonly accountTypeOptions = this.data.canAssignUsersModule
+  readonly accountTypeOptions = this.data.canAssignSuperAdmin
     ? ACCOUNT_TYPE_OPTIONS
     : ACCOUNT_TYPE_OPTIONS.filter((o) => o.value === 'EMPLOYEE' || o.value === 'ADMIN');
   readonly presets = MODULE_PRESETS;
@@ -675,7 +677,7 @@ export class AdminUserDialogComponent implements OnInit {
       this.isEdit || this.isRolesOnly ? [] : [Validators.required],
     ],
     accountType: [
-      this.data.canAssignUsersModule
+      this.data.canAssignSuperAdmin
         ? accountTypeFromRole(this.user?.globalRole ?? 'CASHIER')
         : accountTypeFromRole(this.user?.globalRole ?? 'CASHIER') === 'SUPER_ADMIN'
           ? 'ADMIN'
@@ -780,7 +782,7 @@ export class AdminUserDialogComponent implements OnInit {
     const t = this.form.controls.accountType.value;
     if (t === 'SUPER_ADMIN') return 'OWNER';
     if (t === 'ADMIN') {
-      if (this.user?.globalRole === 'OWNER' && !this.data.canAssignUsersModule) return 'OWNER';
+      if (this.user?.globalRole === 'OWNER' && !this.data.canAssignSuperAdmin) return 'OWNER';
       return 'ADMIN';
     }
     return 'CASHIER';
