@@ -94,8 +94,9 @@ export class AdminUsersPage implements OnInit {
     row.id !== this.auth.currentUser()?.id;
 
   readonly isOwner = () => this.auth.isSuperAdmin();
-  /** Scope toggle: admin global (OWNER o ADMIN). */
-  readonly isSuperAdmin = () => this.auth.isAdmin();
+  /** Scope multi-local: Super admin, o admin con más de un local asignado. */
+  readonly isSuperAdmin = () =>
+    this.auth.isSuperAdmin() || this.shops.shops().length > 1;
 
   removeActionLabel(): string {
     return this.isOwner() ? 'Eliminar' : 'Activar / desactivar';

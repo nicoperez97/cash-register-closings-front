@@ -20,7 +20,7 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
 
     if (!shopId) {
       if (
-        auth.isAdmin() &&
+        auth.isSuperAdmin() &&
         GLOBAL_ADMIN_WITHOUT_SHOP.includes(permission) &&
         hasShopPermission(user, null, permission)
       ) {
@@ -34,6 +34,22 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
     }
     return true;
   };
+};
+
+/** Solo Super admin (OWNER). */
+export const superAdminGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+  if (!auth.isSuperAdmin()) {
+    return router.createUrlTree([
+      defaultHomeRoute(auth.currentUser(), shops.selectedShopId()),
+    ]);
+  }
+  return true;
 };
 
 /** Admin/owner del local activo (o admin global) puede gestionar usuarios. */
