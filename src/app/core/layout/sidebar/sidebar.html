@@ -114,28 +114,46 @@
     </div>
   }
 
-  <nav class="sidebar-nav">
+  <nav class="sidebar-nav" data-scroll-trap>
     @for (item of navItems(); track item.route) {
       @if (item.children?.length) {
-        <div class="nav-group" [class.nav-group--active]="groupExpanded(item)">
-          <div class="nav-group__title">
+        <div
+          class="nav-group"
+          [class.nav-group--active]="groupHasActive(item)"
+          [class.nav-group--collapsed]="!isGroupOpen(item)"
+        >
+          <button
+            type="button"
+            class="nav-group__title"
+            [attr.aria-expanded]="isGroupOpen(item)"
+            [attr.aria-controls]="'nav-group-' + item.route"
+            (click)="toggleGroup(item, $event)"
+          >
             <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-            <span>{{ item.label }}</span>
-          </div>
-          <div class="nav-group__children">
-            @for (child of item.children; track child.route) {
-              <a
-                class="nav-child"
-                [routerLink]="child.route"
-                routerLinkActive="active"
-                [routerLinkActiveOptions]="{ exact: child.route === '/reports' }"
-                (click)="onNavClick()"
-              >
-                <mat-icon class="nav-icon nav-icon--child">{{ child.icon }}</mat-icon>
-                <span>{{ child.label }}</span>
-              </a>
-            }
-          </div>
+            <span class="nav-group__label">{{ item.label }}</span>
+            <mat-icon class="nav-group__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          @if (isGroupOpen(item)) {
+            <div
+              class="nav-group__children"
+              role="group"
+              [id]="'nav-group-' + item.route"
+              [attr.aria-label]="item.label"
+            >
+              @for (child of item.children; track child.route) {
+                <a
+                  class="nav-child"
+                  [routerLink]="child.route"
+                  routerLinkActive="active"
+                  [routerLinkActiveOptions]="{ exact: child.route === '/reports' }"
+                  (click)="onNavClick()"
+                >
+                  <mat-icon class="nav-icon nav-icon--child">{{ child.icon }}</mat-icon>
+                  <span>{{ child.label }}</span>
+                </a>
+              }
+            </div>
+          }
         </div>
       } @else {
         <a
