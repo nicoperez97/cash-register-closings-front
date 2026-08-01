@@ -12,11 +12,9 @@
   box-sizing: border-box;
   min-height: 56px;
   padding: 0.35rem 0.75rem 0.35rem 0.35rem;
-  background: var(--guy-toolbar-bg, var(--guy-card, #ffffff));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--guy-border, #d7e0d9);
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--guy-primary, #003366) 6%, transparent);
+  background: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
+  border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+  box-shadow: none;
 }
 
 .toolbar-menu {
@@ -173,9 +171,9 @@
   gap: 0.4rem;
   padding: 0.35rem 0.55rem 0.35rem 0.25rem;
   min-height: 56px;
-  background: var(--guy-toolbar-bg, var(--guy-card, #ffffff));
-  border-bottom-color: var(--guy-border, #d7e0d9);
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--guy-primary, #003366) 8%, transparent);
+  background: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
+  border-bottom-color: color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+  box-shadow: none;
 
   .toolbar-menu {
     width: 40px;

@@ -22,8 +22,9 @@
   --guy-radius: 12px;
   --guy-gutter: 0.75rem;
   --guy-bottom-nav-height: 0px;
-  --guy-sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f4f8f5 100%);
-  --guy-toolbar-bg: rgba(255, 255, 255, 0.92);
+  /* Misma base en sidebar, toolbar y página para evitar bandas en la juntura */
+  --guy-sidebar-bg: var(--guy-surface);
+  --guy-toolbar-bg: var(--guy-surface);
   --guy-table-header-bg: #f4f8f6;
   --guy-table-row-even: #fafcfb;
   --guy-table-sticky: #eef3f1;
@@ -49,8 +50,8 @@ html[data-theme='dark'] {
   --guy-muted: #9aabb8;
   --guy-green-soft: color-mix(in srgb, var(--guy-accent) 18%, #17212b);
   --guy-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --guy-sidebar-bg: linear-gradient(180deg, #141e28 0%, #101820 100%);
-  --guy-toolbar-bg: #141e28;
+  --guy-sidebar-bg: var(--guy-surface);
+  --guy-toolbar-bg: var(--guy-surface);
   --guy-table-header-bg: #1c2834;
   --guy-table-row-even: #121a22;
   --guy-table-sticky: #15202a;
