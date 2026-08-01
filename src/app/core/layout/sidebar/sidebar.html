@@ -133,27 +133,34 @@
             <span class="nav-group__label">{{ item.label }}</span>
             <mat-icon class="nav-group__chevron" aria-hidden="true">expand_more</mat-icon>
           </button>
-          @if (isGroupOpen(item)) {
-            <div
-              class="nav-group__children"
-              role="group"
-              [id]="'nav-group-' + item.route"
-              [attr.aria-label]="item.label"
-            >
-              @for (child of item.children; track child.route) {
-                <a
-                  class="nav-child"
-                  [routerLink]="child.route"
-                  routerLinkActive="active"
-                  [routerLinkActiveOptions]="{ exact: child.route === '/reports' }"
-                  (click)="onNavClick()"
-                >
-                  <mat-icon class="nav-icon nav-icon--child">{{ child.icon }}</mat-icon>
-                  <span>{{ child.label }}</span>
-                </a>
-              }
+          <div
+            class="nav-group__panel"
+            [class.nav-group__panel--open]="isGroupOpen(item)"
+            [id]="'nav-group-' + item.route"
+          >
+            <div class="nav-group__panel-inner">
+              <div
+                class="nav-group__children"
+                role="group"
+                [attr.aria-label]="item.label"
+                [attr.aria-hidden]="!isGroupOpen(item)"
+              >
+                @for (child of item.children; track child.route) {
+                  <a
+                    class="nav-child"
+                    [routerLink]="child.route"
+                    routerLinkActive="active"
+                    [routerLinkActiveOptions]="{ exact: child.route === '/reports' }"
+                    [attr.tabindex]="isGroupOpen(item) ? null : -1"
+                    (click)="onNavClick()"
+                  >
+                    <mat-icon class="nav-icon nav-icon--child">{{ child.icon }}</mat-icon>
+                    <span>{{ child.label }}</span>
+                  </a>
+                }
+              </div>
             </div>
-          }
+          </div>
         </div>
       } @else {
         <a
