@@ -48,6 +48,8 @@ export class SidebarComponent {
   readonly logoBroken = signal(false);
   readonly currentUrl = signal(this.router.url);
   readonly shopPickerOpen = signal(false);
+  /** Rutas de grupos contraídos (vacío = todos abiertos por defecto). */
+  private readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
     effect(() => {
@@ -76,9 +78,26 @@ export class SidebarComponent {
     this.onShopChange(shopId);
   }
 
-  groupExpanded(item: NavItem): boolean {
+  /** True si algún hijo coincide con la URL actual (estilo activo). */
+  groupHasActive(item: NavItem): boolean {
     const path = this.currentUrl().split('?')[0];
     return (item.children ?? []).some((c) => this.routeMatches(path, c.route));
+  }
+
+  /** Abierto por defecto; solo se cierra si el usuario lo contrajo. */
+  isGroupOpen(item: NavItem): boolean {
+    return !this.collapsedGroups().has(item.route);
+  }
+
+  toggleGroup(item: NavItem, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.collapsedGroups.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.route)) next.delete(item.route);
+      else next.add(item.route);
+      return next;
+    });
   }
 
   private routeMatches(path: string, route: string): boolean {

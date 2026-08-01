@@ -38,7 +38,8 @@
     >
       @if (isMobile() && pageRefresh.hasHandler()) {
         <app-pull-to-refresh
-          [enabled]="true"
+          [enabled]="!sidenavOpen()"
+          [disabled]="sidenavOpen()"
           [refreshing]="pageRefresh.refreshing()"
           (refresh)="pageRefresh.refresh()"
         />

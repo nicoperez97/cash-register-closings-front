@@ -163,11 +163,22 @@ export class PullToRefreshComponent implements OnInit {
     });
   }
 
-  private canStart(): boolean {
+  private canStart(e?: TouchEvent): boolean {
     if (!this.enabled() || this.disabled() || this.refreshing() || this.pending()) {
       return false;
     }
+    // No interferir con gestos dentro del sidenav / overlays.
+    if (e && this.isInsideScrollTrap(e.target)) {
+      return false;
+    }
     return this.isAtScrollTop();
+  }
+
+  private isInsideScrollTrap(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    return !!target.closest(
+      '.mat-drawer, .mat-sidenav, .layout-sidenav, .sidebar-nav, [data-scroll-trap]',
+    );
   }
 
   private isAtScrollTop(): boolean {
@@ -204,7 +215,7 @@ export class PullToRefreshComponent implements OnInit {
   }
 
   private onTouchStart(e: TouchEvent): void {
-    if (!this.canStart() || e.touches.length !== 1) {
+    if (!this.canStart(e) || e.touches.length !== 1) {
       this.tracking = false;
       return;
     }
@@ -216,7 +227,7 @@ export class PullToRefreshComponent implements OnInit {
 
   private onTouchMove(e: TouchEvent): void {
     if (!this.tracking || e.touches.length !== 1) return;
-    if (this.disabled() || this.refreshing()) {
+    if (this.disabled() || this.refreshing() || this.isInsideScrollTrap(e.target)) {
       this.reset();
       return;
     }
