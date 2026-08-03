@@ -190,8 +190,8 @@ export class AdminShopDialogComponent {
     openingTime: [this.shop?.openingTime ?? '10:00'],
     accentColor: [this.shop?.accentColor ?? '#2E7D32'],
     coversEnabled: [this.shop?.coversEnabled ?? false],
-    reservationsEnabled: [this.shop?.reservationsEnabled !== false],
-    waitingListEnabled: [this.shop?.waitingListEnabled !== false],
+    reservationsEnabled: [this.shop ? !!this.shop.reservationsEnabled : true],
+    waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
     active: [this.shop?.active ?? true],
   });
 

@@ -511,7 +511,7 @@ export class HomePageComponent {
     const shop = this.shopContext.selectedShop();
     return (
       !!shopId &&
-      shop?.reservationsEnabled !== false &&
+      !!shop?.reservationsEnabled &&
       hasShopPermission(this.auth.currentUser(), shopId, 'reservations.read')
     );
   }
@@ -521,7 +521,7 @@ export class HomePageComponent {
     const shop = this.shopContext.selectedShop();
     return (
       !!shopId &&
-      shop?.waitingListEnabled !== false &&
+      !!shop?.waitingListEnabled &&
       hasShopPermission(this.auth.currentUser(), shopId, 'waitingList.read')
     );
   }

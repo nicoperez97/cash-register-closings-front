@@ -4,56 +4,54 @@ export type BodyScrollLockReason = 'sidenav' | 'dialog' | string;
 
 /**
  * Un solo lock de body para sidenav, dialogs, etc.
- * Evita que dos callers pisen `position:fixed` / scrollY entre sí.
+ * Solo usa overflow:hidden (sin position:fixed): fixed achica el body y,
+ * con top:-scrollY, deja la pantalla de atrás en gris vacío detrás del modal.
+ * Soporta el mismo reason anidado (p.ej. varios MatDialog) con refcount.
  */
 @Injectable({ providedIn: 'root' })
 export class BodyScrollLockService {
-  private readonly reasons = new Set<BodyScrollLockReason>();
+  private readonly reasonCounts = new Map<BodyScrollLockReason, number>();
   private locked = false;
-  private scrollY = 0;
 
   lock(reason: BodyScrollLockReason): void {
     if (typeof document === 'undefined') return;
-    this.reasons.add(reason);
+    const next = (this.reasonCounts.get(reason) ?? 0) + 1;
+    this.reasonCounts.set(reason, next);
     if (this.locked) return;
+
     const html = document.documentElement;
     const body = document.body;
-    this.scrollY = window.scrollY || html.scrollTop || 0;
-    body.dataset['guyScrollY'] = String(this.scrollY);
     html.classList.add('guy-body-scroll-lock');
     body.classList.add('guy-body-scroll-lock');
-    body.style.position = 'fixed';
-    body.style.inset = '0';
-    body.style.width = '100%';
-    body.style.top = `-${this.scrollY}px`;
-    body.style.overflow = 'hidden';
-    html.style.overflow = 'hidden';
     this.locked = true;
   }
 
   unlock(reason: BodyScrollLockReason): void {
     if (typeof document === 'undefined') return;
-    this.reasons.delete(reason);
-    if (this.reasons.size > 0 || !this.locked) return;
+    const current = this.reasonCounts.get(reason) ?? 0;
+    if (current <= 1) this.reasonCounts.delete(reason);
+    else this.reasonCounts.set(reason, current - 1);
+
+    if (this.reasonCounts.size > 0 || !this.locked) return;
+
     const html = document.documentElement;
     const body = document.body;
-    const scrollY = Number(body.dataset['guyScrollY'] || this.scrollY || 0);
     html.classList.remove('guy-body-scroll-lock');
     body.classList.remove('guy-body-scroll-lock');
-    // Compat con clase vieja del dialog lock
     html.classList.remove('guy-dialog-scroll-lock');
     body.classList.remove('guy-dialog-scroll-lock');
+    // Limpieza por si quedó estilo inline de locks viejos
     body.style.position = '';
-    body.style.inset = '';
-    body.style.width = '';
     body.style.top = '';
+    body.style.left = '';
+    body.style.right = '';
+    body.style.width = '';
     body.style.overflow = '';
     html.style.overflow = '';
     delete body.dataset['guyScrollY'];
     delete body.dataset['dialogScrollY'];
     delete body.dataset['sidenavScrollY'];
     this.locked = false;
-    window.scrollTo(0, scrollY);
   }
 
   isLocked(): boolean {
@@ -61,6 +59,6 @@ export class BodyScrollLockService {
   }
 
   hasReason(reason: BodyScrollLockReason): boolean {
-    return this.reasons.has(reason);
+    return (this.reasonCounts.get(reason) ?? 0) > 0;
   }
 }
