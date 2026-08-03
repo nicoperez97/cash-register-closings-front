@@ -311,7 +311,7 @@ const WEEKDAY_OPTIONS = [
         </section>
 
         @if (canManageAccounts()) {
-          <section class="panel-card">
+          <section class="panel-card" id="shop-admin-channel-accounts">
             <div class="shop-admin__posnets-head">
               <div>
                 <h2 class="guy-section-title">Cuentas canal</h2>
@@ -746,8 +746,8 @@ export class AdminShopPage implements OnInit {
       openingTime: shop.openingTime ?? '10:00',
       closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
-      reservationsEnabled: shop.reservationsEnabled !== false,
-      waitingListEnabled: shop.waitingListEnabled !== false,
+      reservationsEnabled: !!shop.reservationsEnabled,
+      waitingListEnabled: !!shop.waitingListEnabled,
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
@@ -766,8 +766,8 @@ export class AdminShopPage implements OnInit {
           openingTime: s.openingTime ?? '10:00',
           closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
           coversEnabled: !!s.coversEnabled,
-          reservationsEnabled: s.reservationsEnabled !== false,
-          waitingListEnabled: s.waitingListEnabled !== false,
+          reservationsEnabled: !!s.reservationsEnabled,
+          waitingListEnabled: !!s.waitingListEnabled,
           active: !!s.active,
         });
         this.setPosnets(s.posnets ?? []);
@@ -824,13 +824,16 @@ export class AdminShopPage implements OnInit {
     });
   }
 
-  reloadAccounts(): void {
+  reloadAccounts(after?: () => void): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManageAccounts()) return;
     this.http
       .get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`)
       .subscribe({
-        next: (rows) => this.accounts.set(rows.filter((r) => r.type === 'CHANNEL')),
+        next: (rows) => {
+          this.accounts.set(rows.filter((r) => r.type === 'CHANNEL'));
+          after?.();
+        },
         error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
       });
   }
@@ -852,7 +855,7 @@ export class AdminShopPage implements OnInit {
     this.http.delete(`${environment.apiUrl}/shops/${shopId}/accounts/${row.id}`).subscribe({
       next: () => {
         this.snack.open('Cuenta eliminada', 'OK', { duration: 2500 });
-        this.reloadAccounts();
+        this.reloadAccounts(() => this.scrollToChannelAccounts());
       },
       error: (err) => {
         const msg = err?.error?.message ?? 'No se pudo eliminar la cuenta';
@@ -861,11 +864,29 @@ export class AdminShopPage implements OnInit {
     });
   }
 
+  private scrollToChannelAccounts(fallbackY?: number): void {
+    const go = () => {
+      const el = document.getElementById('shop-admin-channel-accounts');
+      if (el) {
+        el.scrollIntoView({ block: 'start', behavior: 'auto' });
+        return;
+      }
+      if (fallbackY != null) {
+        window.scrollTo({ top: fallbackY, left: 0, behavior: 'auto' });
+      }
+    };
+    requestAnimationFrame(() => {
+      go();
+      requestAnimationFrame(go);
+    });
+  }
+
   private openAccountDialog(
     mode: { mode: 'create' } | { mode: 'edit'; account: AdminAccountRow },
   ): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
+    const scrollY = window.scrollY;
     this.dialogTitle
       .track(
         this.dialog.open(AdminAccountDialogComponent, {
@@ -882,7 +903,11 @@ export class AdminShopPage implements OnInit {
       )
       .afterClosed()
       .subscribe((ok) => {
-        if (ok) this.reloadAccounts();
+        if (ok) {
+          this.reloadAccounts(() => this.scrollToChannelAccounts(scrollY));
+        } else {
+          this.scrollToChannelAccounts(scrollY);
+        }
       });
   }
 
@@ -917,13 +942,18 @@ export class AdminShopPage implements OnInit {
       })
       .subscribe({
         next: (shop) => {
+          const scrollY = window.scrollY;
           this.saving.set(false);
           if (shop.active === false) {
             this.shops.setShops(this.shops.shops().filter((s) => s.id !== shop.id));
           } else {
             this.shops.upsertShop(shop);
           }
-          void this.auth.refreshMe();
+          void this.auth.refreshMe().finally(() => {
+            requestAnimationFrame(() => {
+              window.scrollTo({ top: scrollY, left: 0, behavior: 'instant' as ScrollBehavior });
+            });
+          });
           this.snack.open('Local actualizado', 'OK', { duration: 2500 });
         },
         error: (err) => {

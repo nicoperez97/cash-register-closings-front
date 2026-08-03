@@ -357,8 +357,8 @@ export class MainLayoutComponent {
   private shopFeature(feature: 'reservations' | 'waitingList'): boolean {
     const shop = this.shopContext.selectedShop();
     if (!shop) return false;
-    if (feature === 'reservations') return shop.reservationsEnabled !== false;
-    return shop.waitingListEnabled !== false;
+    if (feature === 'reservations') return !!shop.reservationsEnabled;
+    return !!shop.waitingListEnabled;
   }
 
   logout(): void {

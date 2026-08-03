@@ -619,14 +619,13 @@ select {
   touch-action: pan-y;
 }
 
-/* Modal / sidenav: el scroll queda en el overlay, no en la página de atrás. */
+/* Modal / sidenav: bloquea scroll sin position:fixed (fixed oculta la página detrás). */
 html.guy-body-scroll-lock,
 body.guy-body-scroll-lock,
 html.guy-dialog-scroll-lock,
 body.guy-dialog-scroll-lock {
   overflow: hidden !important;
   overscroll-behavior: none;
-  touch-action: none;
 }
 
 .cdk-overlay-container {

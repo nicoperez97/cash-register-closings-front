@@ -11,7 +11,9 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideServiceWorker, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialogConfig } from '@angular/material/dialog';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { ScrollStrategy } from '@angular/cdk/overlay';
 import { registerLocaleData } from '@angular/common';
 import localeEsAr from '@angular/common/locales/es-AR';
 import { filter } from 'rxjs';
@@ -21,7 +23,7 @@ import { AppTitleStrategy } from './core/routing/app-title.strategy';
 import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { AuthService } from './core/auth/auth.service';
-import { DialogBodyScrollLockService } from './shared/services/dialog-body-scroll-lock.service';
+import { BodyScrollLockService } from './shared/services/body-scroll-lock.service';
 
 registerLocaleData(localeEsAr);
 
@@ -67,8 +69,42 @@ async function refreshSession(): Promise<void> {
   }
 }
 
-function enableDialogBodyScrollLock(): void {
-  inject(DialogBodyScrollLockService).start();
+/**
+ * Reemplaza BlockScrollStrategy de CDK (deja scrollY en 0 → la página salta al tope)
+ * por nuestro body lock, en el enable del overlay (antes del autoFocus).
+ */
+function createDialogBodyScrollStrategy(bodyLock: BodyScrollLockService): ScrollStrategy {
+  let enabled = false;
+  return {
+    attach: () => undefined,
+    enable: () => {
+      if (enabled) return;
+      enabled = true;
+      bodyLock.lock('dialog');
+    },
+    disable: () => {
+      if (!enabled) return;
+      enabled = false;
+      bodyLock.unlock('dialog');
+    },
+    detach: () => {
+      if (!enabled) return;
+      enabled = false;
+      bodyLock.unlock('dialog');
+    },
+  };
+}
+
+function dialogDefaultOptions(): MatDialogConfig {
+  const bodyLock = inject(BodyScrollLockService);
+  // Getter: MatDialog hace `{ ...defaultOptions }` en cada open → strategy nueva.
+  return {
+    restoreFocus: false,
+    autoFocus: 'first-tabbable',
+    get scrollStrategy() {
+      return createDialogBodyScrollStrategy(bodyLock);
+    },
+  };
 }
 
 export const appConfig: ApplicationConfig = {
@@ -76,7 +112,6 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
-    provideAppInitializer(enableDialogBodyScrollLock),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(withInterceptors([authInterceptor])),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
@@ -84,6 +119,7 @@ export const appConfig: ApplicationConfig = {
     provideNativeDateAdapter(),
     { provide: TitleStrategy, useClass: AppTitleStrategy },
     { provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl },
+    { provide: MAT_DIALOG_DEFAULT_OPTIONS, useFactory: dialogDefaultOptions },
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
