@@ -186,8 +186,11 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     <div class="reports-extra mb-3">
       @if (balanceRows().length) {
         <div class="panel-card panel-card--flush">
-          <app-balances-table [accounts]="balanceRows()" />
-          <p class="reports-extra__hint">Saldos del período filtrado (movimientos)</p>
+          <app-balances-table
+            title="Saldos"
+            subtitle="Período filtrado · movimientos"
+            [accounts]="balanceRows()"
+          />
         </div>
       }
 
@@ -223,13 +226,6 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       .reports-extra {
         grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
       }
-    }
-
-    .reports-extra__hint {
-      margin: 0;
-      padding: 0.55rem 1rem 0.75rem;
-      font-size: 0.75rem;
-      color: var(--guy-muted);
     }
   `,
 })

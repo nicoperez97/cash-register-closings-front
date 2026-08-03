@@ -19,6 +19,7 @@ import { ShopContextService } from '../shop/shop-context.service';
 import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
 import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
+import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -40,6 +41,7 @@ export class MainLayoutComponent {
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly destroyRef = inject(DestroyRef);
   private readonly bodyLock = inject(BodyScrollLockService);
+  private readonly paymentsInbox = inject(PaymentsInboxService);
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
@@ -76,10 +78,10 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
       operacion.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
     }
-    if (shopId && hasShopPermission(user, shopId, 'reservations.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
       operacion.push({ label: 'Reservas', route: '/reservations', icon: 'table_restaurant' });
     }
-    if (shopId && hasShopPermission(user, shopId, 'waitingList.read')) {
+    if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
       operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
     }
     if (operacion.length) {
@@ -88,6 +90,33 @@ export class MainLayoutComponent {
         route: '__group_operacion',
         icon: 'today',
         children: operacion,
+      });
+    }
+
+    const pagos: NonNullable<NavItem['children']> = [];
+    if (shopId && hasShopPermission(user, shopId, 'payments.read')) {
+      pagos.push({
+        label: 'A proveedores',
+        route: '/payments/suppliers',
+        icon: 'local_shipping',
+        badge: this.paymentsInbox.pendingSupplierCount() || null,
+      });
+      pagos.push({
+        label: 'A empleados',
+        route: '/payments/employees',
+        icon: 'badge',
+        badge: this.paymentsInbox.pendingEmployeeCount() || null,
+      });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'suppliers.read')) {
+      pagos.push({ label: 'Proveedores', route: '/suppliers', icon: 'inventory_2' });
+    }
+    if (pagos.length) {
+      items.push({
+        label: 'Pagos',
+        route: '__group_pagos',
+        icon: 'payments',
+        children: pagos,
       });
     }
 
@@ -283,10 +312,20 @@ export class MainLayoutComponent {
       return hasShopPermission(user, shopId, 'attendance.read');
     }
     if (path.startsWith('/reservations')) {
-      return hasShopPermission(user, shopId, 'reservations.read');
+      return (
+        hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')
+      );
     }
     if (path.startsWith('/waiting-list')) {
-      return hasShopPermission(user, shopId, 'waitingList.read');
+      return (
+        hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')
+      );
+    }
+    if (path.startsWith('/payments')) {
+      return hasShopPermission(user, shopId, 'payments.read');
+    }
+    if (path.startsWith('/suppliers')) {
+      return hasShopPermission(user, shopId, 'suppliers.read');
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');
@@ -313,6 +352,13 @@ export class MainLayoutComponent {
 
   openMore(): void {
     this.sidenavOpen.set(true);
+  }
+
+  private shopFeature(feature: 'reservations' | 'waitingList'): boolean {
+    const shop = this.shopContext.selectedShop();
+    if (!shop) return false;
+    if (feature === 'reservations') return shop.reservationsEnabled !== false;
+    return shop.waitingListEnabled !== false;
   }
 
   logout(): void {

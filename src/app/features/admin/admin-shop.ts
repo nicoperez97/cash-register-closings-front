@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -10,9 +10,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageShop, ShopPosnet } from '../../core/auth/auth.models';
+import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
 import { normalizeLogoUrl } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
@@ -23,11 +25,25 @@ import { startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopBackupApiService } from './shop-backup-api.service';
+import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
+import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
+import { usePageRefresh } from '../../core/page-refresh.service';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
   { value: 'MERCADO_PAGO', label: 'Mercado Pago' },
   { value: 'CUENTA_DNI', label: 'Cuenta DNI' },
+] as const;
+
+/** 0=domingo … 6=sábado (Date.getDay()). */
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mié' },
+  { value: 4, label: 'Jue' },
+  { value: 5, label: 'Vie' },
+  { value: 6, label: 'Sáb' },
+  { value: 0, label: 'Dom' },
 ] as const;
 
 @Component({
@@ -43,6 +59,7 @@ const POSNET_TYPE_OPTIONS = [
     MatIconModule,
     MatDialogModule,
     PageHeaderComponent,
+    DataTableComponent,
   ],
   template: `
     <app-page-header
@@ -200,6 +217,51 @@ const POSNET_TYPE_OPTIONS = [
               </div>
               <mat-slide-toggle formControlName="coversEnabled" aria-label="Comensales habilitados" />
             </div>
+            <div class="shop-admin__toggle shop-admin__full">
+              <div>
+                <strong>Reservas</strong>
+                <p class="text-muted small mb-0">
+                  Habilita el módulo de reservas y la pantalla pública del local.
+                </p>
+              </div>
+              <mat-slide-toggle
+                formControlName="reservationsEnabled"
+                aria-label="Reservas habilitadas"
+              />
+            </div>
+            <div class="shop-admin__toggle shop-admin__full">
+              <div>
+                <strong>Lista de espera</strong>
+                <p class="text-muted small mb-0">
+                  Habilita la cola de espera y su pantalla pública.
+                </p>
+              </div>
+              <mat-slide-toggle
+                formControlName="waitingListEnabled"
+                aria-label="Lista de espera habilitada"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <h2 class="guy-section-title">Días de franco</h2>
+          <p class="text-muted small mb-3">
+            Marcá los días en que el local no abre. Se reflejan en presentismo.
+          </p>
+          <div class="shop-admin__weekdays">
+            <div class="shop-admin__weekday-chips">
+              @for (d of weekdayOptions; track d.value) {
+                <button
+                  type="button"
+                  class="shop-admin__weekday"
+                  [class.shop-admin__weekday--on]="isClosedWeekday(d.value)"
+                  (click)="toggleClosedWeekday(d.value)"
+                >
+                  {{ d.label }}
+                </button>
+              }
+            </div>
           </div>
         </section>
 
@@ -247,6 +309,32 @@ const POSNET_TYPE_OPTIONS = [
             }
           </div>
         </section>
+
+        @if (canManageAccounts()) {
+          <section class="panel-card">
+            <div class="shop-admin__posnets-head">
+              <div>
+                <h2 class="guy-section-title">Cuentas canal</h2>
+                <p class="text-muted small mb-0">
+                  Medios de cobro del local (PVS, efectivo, MP…). Todas las cuentas están en
+                  Administración → Cuentas.
+                </p>
+              </div>
+              <button mat-stroked-button type="button" (click)="openCreateAccount()">
+                <mat-icon>add</mat-icon>
+                Nueva cuenta
+              </button>
+            </div>
+            <app-data-table
+              [columns]="accountColumns"
+              [rows]="accounts()"
+              [sortable]="true"
+              [canRemove]="canRemoveAccount"
+              (edit)="openEditAccount($event)"
+              (remove)="onRemoveAccount($event)"
+            />
+          </section>
+        }
 
         <section class="panel-card">
           <h2 class="guy-section-title">Estado</h2>
@@ -510,6 +598,31 @@ const POSNET_TYPE_OPTIONS = [
           position: static;
         }
       }
+      .shop-admin__weekdays {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .shop-admin__weekday-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .shop-admin__weekday {
+        min-width: 2.75rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: #fff;
+        border-radius: 999px;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+        cursor: pointer;
+      }
+      .shop-admin__weekday--on {
+        background: color-mix(in srgb, var(--guy-navy, #003366) 12%, transparent);
+        border-color: var(--guy-navy, #003366);
+      }
     `,
   ],
 })
@@ -523,15 +636,40 @@ export class AdminShopPage implements OnInit {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
   readonly shops = inject(ShopContextService);
 
   readonly salesSystems = signal<SalesSystemOption[]>([]);
+  readonly accounts = signal<AdminAccountRow[]>([]);
   readonly saving = signal(false);
   readonly backupBusy = signal(false);
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
 
+  readonly accountColumns: DataTableColumn[] = [
+    { key: 'name', label: 'Nombre' },
+    { key: 'code', label: 'Código' },
+    { key: 'type', label: 'Tipo', format: (r) => accountTypeLabel(String(r['type'] ?? '')) },
+    {
+      key: 'userFullName',
+      label: 'Usuarios',
+      format: (r) => String(r['userFullName'] ?? '—'),
+    },
+    {
+      key: 'hideFromCashWithdraw',
+      label: 'Retiro',
+      format: (r) => (r['hideFromCashWithdraw'] ? 'Oculta' : 'Visible'),
+    },
+    { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
+  ];
+
+  readonly canRemoveAccount = (row: AdminAccountRow) => row.type !== 'SYSTEM';
+
   isSuperAdmin(): boolean {
     return this.auth.isSuperAdmin();
+  }
+
+  canManageAccounts(): boolean {
+    return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'accounts.manage');
   }
 
   readonly form = this.fb.nonNullable.group({
@@ -543,11 +681,16 @@ export class AdminShopPage implements OnInit {
     currency: ['ARS'],
     defaultChangeAmount: [0],
     openingTime: ['10:00'],
+    closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
+    reservationsEnabled: [true],
+    waitingListEnabled: [true],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
     posnets: this.fb.array([]),
   });
+
+  readonly weekdayOptions = WEEKDAY_OPTIONS;
 
   get posnets(): FormArray {
     return this.form.get('posnets') as FormArray;
@@ -567,6 +710,18 @@ export class AdminShopPage implements OnInit {
   readonly previewUrl = computed(
     () => normalizeLogoUrl(this.formValue()?.logoUrl ?? '') ?? '',
   );
+
+  constructor() {
+    usePageRefresh(() => this.reloadAccounts());
+    effect(() => {
+      const shopId = this.shops.selectedShopId();
+      if (!shopId || !this.canManageAccounts()) {
+        this.accounts.set([]);
+        return;
+      }
+      this.reloadAccounts();
+    });
+  }
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
@@ -589,7 +744,10 @@ export class AdminShopPage implements OnInit {
       currency: shop.currency ?? 'ARS',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
       openingTime: shop.openingTime ?? '10:00',
+      closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
+      reservationsEnabled: shop.reservationsEnabled !== false,
+      waitingListEnabled: shop.waitingListEnabled !== false,
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
@@ -606,7 +764,10 @@ export class AdminShopPage implements OnInit {
           currency: s.currency ?? 'ARS',
           defaultChangeAmount: s.defaultChangeAmount ?? 0,
           openingTime: s.openingTime ?? '10:00',
+          closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
           coversEnabled: !!s.coversEnabled,
+          reservationsEnabled: s.reservationsEnabled !== false,
+          waitingListEnabled: s.waitingListEnabled !== false,
           active: !!s.active,
         });
         this.setPosnets(s.posnets ?? []);
@@ -622,6 +783,16 @@ export class AdminShopPage implements OnInit {
   onAccentPicker(ev: Event): void {
     const value = (ev.target as HTMLInputElement).value;
     this.form.controls.accentColor.setValue(value.toUpperCase());
+  }
+
+  isClosedWeekday(day: number): boolean {
+    return this.form.controls.closedWeekdays.value.includes(day);
+  }
+
+  toggleClosedWeekday(day: number): void {
+    const cur = this.form.controls.closedWeekdays.value;
+    const next = cur.includes(day) ? cur.filter((d) => d !== day) : [...cur, day];
+    this.form.controls.closedWeekdays.setValue(next.sort((a, b) => a - b));
   }
 
   addPosnet(): void {
@@ -653,6 +824,68 @@ export class AdminShopPage implements OnInit {
     });
   }
 
+  reloadAccounts(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canManageAccounts()) return;
+    this.http
+      .get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`)
+      .subscribe({
+        next: (rows) => this.accounts.set(rows.filter((r) => r.type === 'CHANNEL')),
+        error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
+      });
+  }
+
+  openCreateAccount(): void {
+    this.openAccountDialog({ mode: 'create' });
+  }
+
+  openEditAccount(row: AdminAccountRow): void {
+    this.openAccountDialog({ mode: 'edit', account: row });
+  }
+
+  async onRemoveAccount(row: AdminAccountRow): Promise<void> {
+    if (row.type === 'SYSTEM') return;
+    const ok = await this.confirmDialog.confirm('Eliminar cuenta', `¿Eliminar "${row.name}"?`);
+    if (!ok) return;
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.http.delete(`${environment.apiUrl}/shops/${shopId}/accounts/${row.id}`).subscribe({
+      next: () => {
+        this.snack.open('Cuenta eliminada', 'OK', { duration: 2500 });
+        this.reloadAccounts();
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo eliminar la cuenta';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  private openAccountDialog(
+    mode: { mode: 'create' } | { mode: 'edit'; account: AdminAccountRow },
+  ): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(AdminAccountDialogComponent, {
+          width: '520px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            ...mode,
+            shopId,
+            ...(mode.mode === 'create' ? { defaultType: 'CHANNEL' as const } : {}),
+          },
+        }),
+        mode.mode === 'edit' ? 'Editar cuenta' : 'Nueva cuenta',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.reloadAccounts();
+      });
+  }
+
   save(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.form.invalid || this.saving()) return;
@@ -668,7 +901,10 @@ export class AdminShopPage implements OnInit {
         currency: raw.currency || 'ARS',
         defaultChangeAmount: raw.defaultChangeAmount,
         openingTime: raw.openingTime || '10:00',
+        closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
         coversEnabled: raw.coversEnabled,
+        reservationsEnabled: raw.reservationsEnabled,
+        waitingListEnabled: raw.waitingListEnabled,
         active: raw.active,
         salesSystemId: raw.salesSystemId || null,
         posnets: (raw.posnets as ShopPosnet[])

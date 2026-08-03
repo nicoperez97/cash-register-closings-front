@@ -1,21 +1,41 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
+import {
+  BalanceAccountRow,
+  BalancesTableComponent,
+} from '../../shared/components/balances-table';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import {
-  canManageShop,
-  effectiveRoleForShop,
-  hasShopPermission,
-  userRoleLabel,
-} from '../../core/auth/auth.models';
+import { canManageShop, hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
+import { MovementsApiService } from '../movements/movements-api.service';
+import { PaymentsApiService } from '../payments/payments-api.service';
+import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
+
+interface AttendanceEmployee {
+  employeeId: string;
+  fullName: string;
+}
+
+interface AttendanceMonthResponse {
+  employees: Array<{
+    employeeId: string;
+    fullName: string;
+    days: Record<string, { isPresent?: boolean; isHoliday?: boolean } | undefined>;
+  }>;
+}
+
+interface BalanceRowExt extends BalanceAccountRow {
+  type?: string;
+}
 
 @Component({
   selector: 'app-home-page',
@@ -26,168 +46,415 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     MatSnackBarModule,
     PageHeaderComponent,
     KpiStripComponent,
+    BalancesTableComponent,
   ],
   template: `
     <app-page-header
-      title="Cierres de caja"
-      subtitle="Varios locales · roles · reportes"
+      [title]="shopContext.selectedShop()?.name ?? 'Inicio'"
+      [subtitle]="headerSubtitle()"
       [actionLabel]="canCreateShop() ? 'Crear local' : canCreateClosing() ? 'Nuevo cierre' : ''"
       [actionIcon]="canCreateShop() ? 'add_business' : 'add'"
       [actionLarge]="true"
       (action)="canCreateShop() ? goCreateShop() : goCreate()"
     />
 
-    <app-kpi-strip [items]="kpis()" class="mb-3" />
+    @if (kpis().length) {
+      <app-kpi-strip [items]="kpis()" class="mb-3" />
+    }
 
-    <div class="panel-card mb-3">
-      <h2 class="guy-section-title">Local activo</h2>
-      <p class="text-muted mb-3">
-        @if (shopContext.selectedShop(); as shop) {
-          {{ shop.name }}. Si tenés más de un local, cambiálo desde el menú lateral.
-        } @else if (canCreateShop()) {
-          Todavía no hay locales. Creá el primero para empezar a operar.
-        } @else {
-          Sin local asignado. Pedile a un administrador que te asigne uno.
+    <div class="home-shortcuts mb-3">
+      @if (canCreateShop()) {
+        <a mat-stroked-button routerLink="/admin/shops">
+          <mat-icon>add_business</mat-icon>
+          Crear local
+        </a>
+      }
+      @if (canReadClosings()) {
+        <a mat-flat-button color="primary" routerLink="/closings">
+          <mat-icon>point_of_sale</mat-icon>
+          Cierres
+        </a>
+      }
+      @if (canViewReports()) {
+        <a mat-stroked-button routerLink="/reports">
+          <mat-icon>insights</mat-icon>
+          Reportes
+        </a>
+        @if (canExport()) {
+          <button mat-stroked-button type="button" (click)="exportMonth()">
+            <mat-icon>download</mat-icon>
+            Excel
+          </button>
         }
-      </p>
-      <div class="d-flex flex-wrap gap-2">
-        @if (canCreateShop()) {
-          <a mat-flat-button color="primary" routerLink="/admin/shops">
-            <mat-icon>add_business</mat-icon>
-            Crear local
-          </a>
-        }
-        @if (canReadClosings()) {
-          <a mat-flat-button color="primary" routerLink="/closings">
-            <mat-icon>point_of_sale</mat-icon>
-            Ver cierres
-          </a>
-        }
-        @if (canViewReports()) {
-          <a mat-stroked-button routerLink="/reports">
-            <mat-icon>insights</mat-icon>
-            Ver reportes
-          </a>
-        }
-        @if (canEditShop()) {
-          <a mat-stroked-button routerLink="/admin/shop">
-            <mat-icon>storefront</mat-icon>
-            Administrar local
-          </a>
-        }
-      </div>
+      }
+      @if (canOpenReservations()) {
+        <a mat-stroked-button routerLink="/reservations">
+          <mat-icon>table_restaurant</mat-icon>
+          Reservas
+        </a>
+      }
+      @if (canOpenWaitingList()) {
+        <a mat-stroked-button routerLink="/waiting-list">
+          <mat-icon>hourglass_top</mat-icon>
+          Lista de espera
+        </a>
+      }
+      @if (canViewPayments()) {
+        <a mat-stroked-button routerLink="/payments/suppliers">
+          <mat-icon>payments</mat-icon>
+          Pagos
+        </a>
+      }
+      @if (canEditShop()) {
+        <a mat-stroked-button routerLink="/admin/shop">
+          <mat-icon>storefront</mat-icon>
+          Local
+        </a>
+      }
     </div>
 
-    @if (canViewReports()) {
-      <div class="panel-card mb-3">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    @if (canViewAttendance()) {
+      <div class="panel-card mb-3 today-panel">
+        <div class="today-panel__head">
           <div>
-            <h2 class="guy-section-title mb-1">Reportes del mes</h2>
-            <p class="text-muted mb-0 small">{{ periodLabel() }}</p>
+            <h2 class="today-panel__title">Hoy</h2>
+            <p class="today-panel__date">
+              {{ todayLabel() }}
+              @if (isTodayClosed()) {
+                · Franco
+              }
+            </p>
           </div>
-          <div class="d-flex flex-wrap gap-2">
-            <a mat-stroked-button routerLink="/reports">
-              <mat-icon>open_in_new</mat-icon>
-              Detalle
+          <div class="today-panel__actions">
+            @if (canManageAttendance() && !isTodayClosed()) {
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="attendanceBusy() || !attendanceEmployees().length"
+                (click)="markAllPresentToday()"
+              >
+                <mat-icon>done_all</mat-icon>
+                Todos presentes
+              </button>
+            }
+            <a mat-stroked-button routerLink="/attendance">
+              <mat-icon>calendar_month</mat-icon>
+              Ver mes
             </a>
-            @if (canExport()) {
-              <button mat-flat-button color="primary" type="button" (click)="exportMonth()">
-                <mat-icon>download</mat-icon>
-                Excel
+          </div>
+        </div>
+        @if (isTodayClosed()) {
+          <p class="text-muted small mb-0">Hoy es franco del local. No se marca presentismo.</p>
+        } @else if (attendanceEmployees().length) {
+          <div class="today-panel__chips">
+            @for (emp of attendanceEmployees(); track emp.employeeId) {
+              <button
+                type="button"
+                class="today-chip"
+                [class.today-chip--present]="isPresentToday(emp.employeeId)"
+                [disabled]="!canManageAttendance() || attendanceBusy() || isTodayClosed()"
+                (click)="togglePresentToday(emp)"
+              >
+                <mat-icon>{{
+                  isPresentToday(emp.employeeId) ? 'check_circle' : 'radio_button_unchecked'
+                }}</mat-icon>
+                {{ emp.fullName }}
               </button>
             }
           </div>
-        </div>
+        } @else {
+          <p class="text-muted small mb-0">No hay empleados activos para marcar hoy.</p>
+        }
+      </div>
+    }
 
-        <app-kpi-strip [items]="reportKpis()" class="mb-2" />
-        <p class="mb-0 text-muted">
-          {{ reportCount() }} cierres en el período
-        </p>
+    @if (canViewBalances()) {
+      <div class="panel-card panel-card--flush mb-3">
+        <app-balances-table
+          title="Saldos"
+          subtitle="Cuentas del local activo"
+          [accounts]="balanceRows()"
+          [showFooter]="false"
+        />
       </div>
     }
 
     <p class="text-center text-muted mt-4 mb-0 small">{{ brand.tagline }}</p>
   `,
+  styles: [
+    `
+      .home-shortcuts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .today-panel__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.85rem;
+      }
+      .today-panel__title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .today-panel__date {
+        margin: 0.15rem 0 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+        text-transform: capitalize;
+      }
+      .today-panel__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+      .today-panel__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .today-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: #fff;
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+        cursor: pointer;
+      }
+      .today-chip mat-icon {
+        font-size: 1.15rem;
+        width: 1.15rem;
+        height: 1.15rem;
+      }
+      .today-chip--present {
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
+        border-color: var(--guy-green, #2e7d32);
+      }
+      .today-chip:disabled {
+        opacity: 0.7;
+        cursor: default;
+      }
+    `,
+  ],
 })
 export class HomePageComponent {
   readonly brand = APP_BRAND;
   readonly shopContext = inject(ShopContextService);
   readonly auth = inject(AuthService);
   private readonly api = inject(ClosingsApiService);
+  private readonly movementsApi = inject(MovementsApiService);
+  private readonly paymentsApi = inject(PaymentsApiService);
+  private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly router = inject(Router);
 
   private readonly reportSummary = signal<any>(null);
   private readonly refreshTick = signal(0);
+  readonly balanceRows = signal<BalanceRowExt[]>([]);
+  readonly attendanceBusy = signal(false);
+  readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
+  readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
+  readonly paymentsPending = signal<number | null>(null);
+
+  private readonly todayIso = this.toIso(new Date());
+
+  readonly presentTodayCount = computed(() => {
+    const marks = this.todayMarks();
+    return this.attendanceEmployees().filter((e) => marks[e.employeeId]?.isPresent).length;
+  });
+
+  readonly cashBalance = computed(() => {
+    const rows = this.balanceRows();
+    const cash = rows.find(
+      (a) => a.type === 'CHANNEL' && /efectivo/i.test(a.name),
+    );
+    if (cash) return Number(cash.balance ?? 0);
+    const channels = rows.filter((a) => a.type === 'CHANNEL');
+    if (!channels.length) return null;
+    return channels.reduce((sum, a) => sum + Number(a.balance ?? 0), 0);
+  });
 
   readonly kpis = computed((): KpiItem[] => {
-    const user = this.auth.currentUser();
+    const items: KpiItem[] = [];
     const shopId = this.shopContext.selectedShopId();
-    const hasShop = !!shopId;
-    return [
-      { label: 'Locales', value: this.shopContext.shops().length || '—', hint: 'Asignados' },
-      {
-        label: 'Rol en local',
-        value: (() => {
-          const role = effectiveRoleForShop(user, shopId);
-          return role ? userRoleLabel(role) : '—';
-        })(),
-        hint: 'Permisos activos',
-      },
-      {
-        label: 'Cierres',
-        value: hasShop && hasShopPermission(user, shopId, 'closings.read') ? 'Sí' : '—',
-        hint: 'Lectura',
-      },
-      {
-        label: 'Exportar',
-        value: hasShop && hasShopPermission(user, shopId, 'reports.export') ? 'Sí' : '—',
-        hint: 'Excel',
-      },
-    ];
-  });
+    if (!shopId) return items;
 
-  readonly reportKpis = computed((): KpiItem[] => {
-    const s = this.reportSummary();
-    if (!s?.totals) {
-      return [
-        { label: 'Total declarado', value: '—' },
-        { label: 'PVS', value: '—' },
-        { label: 'Efectivo', value: '—' },
-        { label: 'Retiros', value: '—' },
-      ];
+    if (this.canViewAttendance()) {
+      if (this.isTodayClosed()) {
+        items.push({
+          label: 'Presentes hoy',
+          value: 'Franco',
+          hint: 'Local cerrado',
+          icon: 'hotel',
+          route: '/attendance',
+          tone: 'muted',
+        });
+      } else {
+        const total = this.attendanceEmployees().length;
+        const present = this.presentTodayCount();
+        items.push({
+          label: 'Presentes hoy',
+          value: total ? `${present} / ${total}` : '—',
+          hint: total ? (present === total ? 'Completo' : 'Presentismo') : 'Sin empleados',
+          icon: 'event_available',
+          route: '/attendance',
+          tone: total && present === total ? 'ok' : total && present === 0 ? 'warn' : 'default',
+        });
+      }
     }
-    return [
-      { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-AR')}` },
-      { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-AR')}` },
-      { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-AR')}` },
-      { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-AR')}` },
-    ];
-  });
 
-  readonly reportCount = computed(() => this.reportSummary()?.count ?? 0);
+    if (this.canReadClosings() || this.canViewReports()) {
+      const count = this.reportSummary()?.count;
+      items.push({
+        label: 'Cierres del mes',
+        value: count != null ? count : '—',
+        hint: this.periodLabel(),
+        icon: 'point_of_sale',
+        route: '/closings',
+      });
+    }
+
+    if (this.canViewReports()) {
+      const declared = this.reportSummary()?.totals?.declared;
+      items.push({
+        label: 'Total declarado',
+        value:
+          declared != null ? `$ ${Number(declared).toLocaleString('es-AR')}` : '—',
+        hint: 'Mes en curso',
+        icon: 'insights',
+        route: '/reports',
+      });
+    }
+
+    if (this.canViewPayments()) {
+      const pending = this.paymentsPending();
+      items.push({
+        label: 'Pagos pendientes',
+        value: pending != null ? pending : '—',
+        hint: pending === 0 ? 'Al día' : 'Validar / abonar',
+        icon: 'payments',
+        route: '/payments/suppliers',
+        tone: pending != null && pending > 0 ? 'warn' : pending === 0 ? 'ok' : 'default',
+      });
+    }
+
+    if (this.canViewBalances()) {
+      const cash = this.cashBalance();
+      const cashRow = this.balanceRows().find(
+        (a) => a.type === 'CHANNEL' && /efectivo/i.test(a.name),
+      );
+      items.push({
+        label: 'Efectivo en caja',
+        value: cash != null ? this.formatMoney(cash) : '—',
+        hint: cashRow ? cashRow.name : 'Suma canales',
+        icon: 'account_balance_wallet',
+        route: '/movements',
+      });
+    }
+
+    return items;
+  });
 
   constructor() {
     usePageRefresh(() => this.refreshTick.update((n) => n + 1));
     effect(() => {
       this.refreshTick();
       const shopId = this.shopContext.selectedShopId();
-      const canView = hasShopPermission(this.auth.currentUser(), shopId, 'reports.view');
-      if (!shopId || !canView) {
+      const user = this.auth.currentUser();
+      const canViewReports = hasShopPermission(user, shopId, 'reports.view');
+      const canReadClosings = hasShopPermission(user, shopId, 'closings.read');
+      if (!shopId || (!canViewReports && !canReadClosings)) {
         this.reportSummary.set(null);
-        return;
+      } else {
+        const { from, to } = this.monthRange();
+        this.api.summary(shopId, { from, to }).subscribe({
+          next: (s) => this.reportSummary.set(s),
+          error: () => this.reportSummary.set(null),
+        });
       }
-      const { from, to } = this.monthRange();
-      this.api.summary(shopId, { from, to }).subscribe({
-        next: (s) => this.reportSummary.set(s),
-        error: () => this.reportSummary.set(null),
-      });
+
+      if (!shopId || !hasShopPermission(user, shopId, 'movements.read')) {
+        this.balanceRows.set([]);
+      } else {
+        this.movementsApi.balances(shopId).subscribe({
+          next: (res) =>
+            this.balanceRows.set(
+              (res.accounts ?? []).map((a: any) => ({
+                name: a.name,
+                balance: Number(a.balance ?? 0),
+                type: a.type,
+              })),
+            ),
+          error: () => this.balanceRows.set([]),
+        });
+      }
+
+      if (!shopId || !this.canViewAttendance()) {
+        this.attendanceEmployees.set([]);
+        this.todayMarks.set({});
+      } else {
+        this.loadAttendanceToday(shopId);
+      }
+
+      if (!shopId || !this.canViewPayments()) {
+        this.paymentsPending.set(null);
+      } else {
+        this.paymentsApi.list(shopId).subscribe({
+          next: (rows) => {
+            const n = rows.filter(
+              (p) => p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED',
+            ).length;
+            this.paymentsPending.set(n);
+          },
+          error: () => this.paymentsPending.set(null),
+        });
+      }
     });
+  }
+
+  headerSubtitle(): string {
+    const date = this.todayLabel();
+    const shop = this.shopContext.selectedShop();
+    if (shop) return `${date} · ${shop.name}`;
+    if (this.canCreateShop()) return `${date} · Creá tu primer local`;
+    return `${date} · Sin local asignado`;
+  }
+
+  todayLabel(): string {
+    return new Date().toLocaleDateString('es-AR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  }
+
+  isTodayClosed(): boolean {
+    const closed = this.shopContext.selectedShop()?.closedWeekdays ?? [];
+    if (!closed.length) return false;
+    return closed.includes(new Date().getDay());
   }
 
   periodLabel(): string {
     const { from, to } = this.monthRange();
     return `${this.formatDisplay(from)} – ${this.formatDisplay(to)}`;
+  }
+
+  formatMoney(value: number): string {
+    return `$ ${Number(value).toLocaleString('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
 
   canReadClosings(): boolean {
@@ -198,6 +465,16 @@ export class HomePageComponent {
   canViewReports(): boolean {
     const shopId = this.shopContext.selectedShopId();
     return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'reports.view');
+  }
+
+  canViewBalances(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'movements.read');
+  }
+
+  canViewPayments(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'payments.read');
   }
 
   canExport(): boolean {
@@ -214,6 +491,41 @@ export class HomePageComponent {
     return this.auth.isSuperAdmin() && this.shopContext.shops().length === 0;
   }
 
+  canViewAttendance(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    const user = this.auth.currentUser();
+    return (
+      !!shopId &&
+      (hasShopPermission(user, shopId, 'attendance.read') ||
+        hasShopPermission(user, shopId, 'attendance.manage'))
+    );
+  }
+
+  canManageAttendance(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'attendance.manage');
+  }
+
+  canOpenReservations(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    const shop = this.shopContext.selectedShop();
+    return (
+      !!shopId &&
+      shop?.reservationsEnabled !== false &&
+      hasShopPermission(this.auth.currentUser(), shopId, 'reservations.read')
+    );
+  }
+
+  canOpenWaitingList(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    const shop = this.shopContext.selectedShop();
+    return (
+      !!shopId &&
+      shop?.waitingListEnabled !== false &&
+      hasShopPermission(this.auth.currentUser(), shopId, 'waitingList.read')
+    );
+  }
+
   goCreate(): void {
     void this.router.navigate(['/closings/new']);
   }
@@ -225,6 +537,110 @@ export class HomePageComponent {
   canEditShop(): boolean {
     const shopId = this.shopContext.selectedShopId();
     return !!shopId && canManageShop(this.auth.currentUser(), shopId);
+  }
+
+  isPresentToday(employeeId: string): boolean {
+    return !!this.todayMarks()[employeeId]?.isPresent;
+  }
+
+  togglePresentToday(emp: AttendanceEmployee): void {
+    if (!this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed()) return;
+    const shopId = this.shopContext.selectedShopId();
+    if (!shopId) return;
+    const nextPresent = !this.isPresentToday(emp.employeeId);
+    this.attendanceBusy.set(true);
+    this.http
+      .post<{ isPresent: boolean; isHoliday: boolean }>(
+        `${environment.apiUrl}/shops/${shopId}/attendance`,
+        {
+          employeeId: emp.employeeId,
+          date: this.todayIso,
+          isPresent: nextPresent,
+        },
+      )
+      .subscribe({
+        next: (result) => {
+          this.attendanceBusy.set(false);
+          this.todayMarks.update((m) => ({
+            ...m,
+            [emp.employeeId]: {
+              isPresent: !!result.isPresent,
+              isHoliday: !!result.isHoliday,
+            },
+          }));
+        },
+        error: (err) => {
+          this.attendanceBusy.set(false);
+          const msg = err?.error?.message ?? 'No se pudo guardar la asistencia';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  markAllPresentToday(): void {
+    const shopId = this.shopContext.selectedShopId();
+    if (!shopId || !this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed())
+      return;
+    const employees = this.attendanceEmployees();
+    if (!employees.length) return;
+    this.attendanceBusy.set(true);
+    const items = employees.map((e) => ({
+      employeeId: e.employeeId,
+      date: this.todayIso,
+      isPresent: true,
+    }));
+    this.http.post(`${environment.apiUrl}/shops/${shopId}/attendance/bulk`, { items }).subscribe({
+      next: () => {
+        this.attendanceBusy.set(false);
+        const next = { ...this.todayMarks() };
+        for (const e of employees) {
+          next[e.employeeId] = {
+            isPresent: true,
+            isHoliday: next[e.employeeId]?.isHoliday ?? false,
+          };
+        }
+        this.todayMarks.set(next);
+        this.snack.open('Todos marcados presentes hoy', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        this.attendanceBusy.set(false);
+        const msg = err?.error?.message ?? 'No se pudo marcar el presentismo';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  private loadAttendanceToday(shopId: string): void {
+    const now = new Date();
+    this.http
+      .get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
+        params: {
+          year: String(now.getFullYear()),
+          month: String(now.getMonth() + 1),
+        },
+      })
+      .subscribe({
+        next: (data) => {
+          const employees = (data.employees ?? []).map((e) => ({
+            employeeId: e.employeeId,
+            fullName: e.fullName,
+          }));
+          this.attendanceEmployees.set(employees);
+          const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
+          for (const e of data.employees ?? []) {
+            const cell = e.days?.[this.todayIso];
+            marks[e.employeeId] = {
+              isPresent: !!cell?.isPresent,
+              isHoliday: !!cell?.isHoliday,
+            };
+          }
+          this.todayMarks.set(marks);
+        },
+        error: () => {
+          this.attendanceEmployees.set([]);
+          this.todayMarks.set({});
+        },
+      });
   }
 
   exportMonth(): void {

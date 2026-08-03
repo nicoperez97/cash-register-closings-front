@@ -203,7 +203,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                 (selectionChange)="onWithdrawnUserChange($event.value)"
               >
                 <mat-option value="">— Sin asignar —</mat-option>
-                @for (u of users(); track u.id) {
+                @for (u of withdrawUsers(); track u.id) {
                   <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
                 }
               </mat-select>
@@ -1035,6 +1035,14 @@ export class ClosingsFormPage implements OnInit {
     if (!userId) return [];
     const user = this.users().find((u) => u.id === userId);
     return user?.ledgerAccounts ?? [];
+  });
+
+  /** Usuarios visibles en “Quién se lo lleva”; mantiene el seleccionado si está oculto (edición). */
+  readonly withdrawUsers = computed(() => {
+    const selected = String(this.formValue().cashWithdrawnByUserId ?? '');
+    return this.users().filter(
+      (u) => !u.hideFromCashWithdraw || u.id === selected,
+    );
   });
 
   readonly needsWithdrawnAccountPick = computed(() => this.withdrawnAccountOptions().length > 1);

@@ -33,6 +33,55 @@
       </span>
     }
 
+    <button
+      mat-icon-button
+      type="button"
+      class="notif-btn"
+      [matMenuTriggerFor]="notifMenu"
+      matTooltip="Notificaciones"
+      aria-label="Notificaciones"
+      (menuOpened)="openNotifications()"
+    >
+      <mat-icon [class.notif-btn__icon--dot]="unreadCount() > 0">notifications</mat-icon>
+      @if (unreadCount() > 0) {
+        <span class="notif-btn__badge">{{ badgeLabel(unreadCount()) }}</span>
+      }
+    </button>
+
+    <mat-menu #notifMenu="matMenu" class="notif-menu-panel" xPosition="before">
+      <div class="notif-panel" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+        <div class="notif-panel__head">
+          <strong>Notificaciones</strong>
+          @if (unreadCount() > 0) {
+            <button type="button" class="notif-panel__link" (click)="markAllRead()">
+              Marcar leídas
+            </button>
+          }
+        </div>
+        @if (loadingNotifs()) {
+          <p class="notif-panel__empty">Cargando…</p>
+        } @else if (!notifications().length) {
+          <p class="notif-panel__empty">No hay notificaciones</p>
+        } @else {
+          <ul class="notif-panel__list">
+            @for (n of notifications(); track n.id) {
+              <li>
+                <button
+                  type="button"
+                  class="notif-item"
+                  [class.notif-item--unread]="!n.read"
+                  (click)="openNotification(n)"
+                >
+                  <span class="notif-item__title">{{ n.title }}</span>
+                  <span class="notif-item__body">{{ n.body }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </mat-menu>
+
     @if (theme.themeSwitcherEnabled) {
       <button
         mat-icon-button

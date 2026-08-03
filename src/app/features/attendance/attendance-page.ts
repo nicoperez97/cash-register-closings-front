@@ -155,11 +155,14 @@ const MONTH_LABELS = [
                     <th
                       class="att-table__day"
                       [class.att-table__day--today]="isTodayColumn(d)"
+                      [class.att-table__day--closed]="isClosedDay(d)"
                       [attr.data-day]="d"
-                      [attr.title]="isTodayColumn(d) ? 'Hoy' : null"
+                      [attr.title]="isClosedDay(d) ? 'Franco' : isTodayColumn(d) ? 'Hoy' : null"
                     >
                       <span class="att-table__day-num">{{ d }}</span>
-                      @if (isTodayColumn(d)) {
+                      @if (isClosedDay(d)) {
+                        <span class="att-table__day-label">Franco</span>
+                      } @else if (isTodayColumn(d)) {
                         <span class="att-table__day-label">Hoy</span>
                       }
                     </th>
@@ -171,19 +174,25 @@ const MONTH_LABELS = [
                   <tr>
                     <td class="att-table__name">{{ emp.fullName }}</td>
                     @for (d of dayNumbers(); track d) {
-                      <td [class.att-table__day--today]="isTodayColumn(d)">
+                      <td
+                        [class.att-table__day--today]="isTodayColumn(d)"
+                        [class.att-table__day--closed]="isClosedDay(d)"
+                      >
                         <button
                           type="button"
                           class="att-cell"
                           [class.att-cell--present]="isPresent(emp, d)"
                           [class.att-cell--holiday]="isHoliday(emp, d)"
+                          [class.att-cell--closed]="isClosedDay(d)"
                           [class.att-cell--today]="isTodayColumn(d)"
-                          [disabled]="!canManage() || saving()"
+                          [disabled]="!canManage() || saving() || isClosedDay(d)"
                           [matTooltip]="cellTooltip(emp, d)"
                           (click)="togglePresent(emp, d)"
                           (contextmenu)="toggleHoliday($event, emp, d)"
                         >
-                          @if (isHoliday(emp, d)) {
+                          @if (isClosedDay(d)) {
+                            <mat-icon class="att-cell__icon">hotel</mat-icon>
+                          } @else if (isHoliday(emp, d)) {
                             <mat-icon class="att-cell__icon">star</mat-icon>
                           } @else if (isPresent(emp, d)) {
                             <mat-icon class="att-cell__icon">check</mat-icon>
@@ -203,6 +212,9 @@ const MONTH_LABELS = [
             </span>
             <span class="att-legend__item">
               <span class="att-cell att-cell--holiday att-legend__swatch"></span> Feriado
+            </span>
+            <span class="att-legend__item">
+              <span class="att-cell att-cell--closed att-legend__swatch"></span> Franco
             </span>
             <span class="att-legend__item">
               <span class="att-legend__today-swatch"></span> Hoy
@@ -329,7 +341,21 @@ const MONTH_LABELS = [
       .att-cell--holiday .att-cell__icon {
         color: #e65100;
       }
-      .att-cell--today:not(.att-cell--present):not(.att-cell--holiday) {
+      .att-cell--closed {
+        background: color-mix(in srgb, #607d8b 16%, #fff);
+        border-color: color-mix(in srgb, #607d8b 45%, #fff);
+        cursor: default;
+      }
+      .att-cell--closed .att-cell__icon {
+        color: #607d8b;
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+      }
+      .att-table__day--closed {
+        color: #607d8b;
+      }
+      .att-cell--today:not(.att-cell--present):not(.att-cell--holiday):not(.att-cell--closed) {
         border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, var(--guy-border, #d7e0d9));
         background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, #fff);
         box-shadow: 0 0 0 1px color-mix(in srgb, var(--guy-primary, #1d65a0) 20%, transparent);
@@ -790,7 +816,15 @@ export class AttendancePage {
     return this.cellFor(emp, day).isHoliday;
   }
 
+  isClosedDay(day: number): boolean {
+    const closed = this.shops.selectedShop()?.closedWeekdays ?? [];
+    if (!closed.length) return false;
+    const d = new Date(this.year(), this.month() - 1, day);
+    return closed.includes(d.getDay());
+  }
+
   cellTooltip(emp: AttendanceEmployeeRow, day: number): string {
+    if (this.isClosedDay(day)) return 'Franco del local';
     const cell = this.cellFor(emp, day);
     const parts = [cell.isPresent ? 'Presente' : 'Ausente'];
     if (cell.isHoliday) parts.push('Feriado');
@@ -798,14 +832,14 @@ export class AttendancePage {
   }
 
   togglePresent(emp: AttendanceEmployeeRow, day: number): void {
-    if (!this.canManage()) return;
+    if (!this.canManage() || this.isClosedDay(day)) return;
     const cell = this.cellFor(emp, day);
     this.upsert(emp, day, { isPresent: !cell.isPresent });
   }
 
   toggleHoliday(event: Event, emp: AttendanceEmployeeRow, day: number): void {
     event.preventDefault();
-    if (!this.canManage()) return;
+    if (!this.canManage() || this.isClosedDay(day)) return;
     const cell = this.cellFor(emp, day);
     this.upsert(emp, day, { isHoliday: !cell.isHoliday });
   }
