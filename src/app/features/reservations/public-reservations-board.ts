@@ -14,9 +14,12 @@ import {
   PublicReservationsBoard,
   ReservationsApiService,
 } from './reservations-api.service';
+import { BoardInstallBannerComponent } from './board-install-banner';
+import { BoardPwaService } from './board-pwa.service';
 
 @Component({
   selector: 'app-public-reservations-board',
+  imports: [BoardInstallBannerComponent],
   template: `
     @if (toast(); as t) {
       <div class="board-toast" role="status" aria-live="polite">
@@ -71,6 +74,12 @@ import {
             </button>
           </div>
         </header>
+
+        <app-board-install-banner
+          kind="reservations"
+          [shopName]="b.shop.name"
+          [accent]="accent()"
+        />
 
         <section class="board__totals" aria-label="Totales">
           <div class="board__total">
@@ -190,7 +199,7 @@ import {
       .board {
         --accent: #c45c26;
         min-height: 100dvh;
-        padding: 1.15rem 1.1rem 1.5rem;
+        padding: 1.15rem 1.1rem 5.5rem;
         color: #f4efe6;
         box-sizing: border-box;
         background:
@@ -662,6 +671,9 @@ import {
 export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReservationsApiService);
+  private readonly boardPwa = inject(BoardPwaService);
+  private slug = '';
+  private pwaApplied = false;
 
   private readonly refresh$ = new Subject<void>();
   private pollSub: Subscription | null = null;
@@ -698,8 +710,8 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    const slug = this.route.snapshot.paramMap.get('slug') ?? '';
-    if (!slug) {
+    this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
+    if (!this.slug) {
       this.error.set('Local no encontrado');
       return;
     }
@@ -710,14 +722,14 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.pollSub = merge(interval(60_000).pipe(startWith(0)), this.refresh$)
       .pipe(
         tap(() => this.refreshing.set(true)),
-        switchMap(() => this.api.publicBoard(slug)),
+        switchMap(() => this.api.publicBoard(this.slug)),
       )
       .subscribe({
         next: (b) => {
           this.applyBoard(b);
           this.refreshing.set(false);
           this.error.set('');
-          document.title = `Reservas · ${b.shop.name}`;
+          this.applyBoardPwa(b);
         },
         error: () => {
           this.refreshing.set(false);
@@ -732,6 +744,18 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.refresh$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
     document.body.classList.remove('auth-login');
+    this.boardPwa.restore();
+  }
+
+  private applyBoardPwa(b: PublicReservationsBoard): void {
+    if (this.pwaApplied) return;
+    this.pwaApplied = true;
+    this.boardPwa.apply({
+      kind: 'reservations',
+      slug: this.slug || b.shop.slug,
+      shopName: b.shop.name,
+      accentColor: b.shop.accentColor,
+    });
   }
 
   refresh(): void {
