@@ -376,9 +376,10 @@ export class MovementsListPage {
     this.dialogTitle
       .track(
         this.dialog.open(MovementDialogComponent, {
-          width: '680px',
+          width: '520px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
+          autoFocus: 'first-tabbable',
           data: {
             ...mode,
             shopId,
