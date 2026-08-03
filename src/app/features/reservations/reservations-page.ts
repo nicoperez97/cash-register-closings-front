@@ -74,19 +74,13 @@ function toTimeString(value: Date | null): string | undefined {
             <span class="text-muted small">{{ dateLabel() }}</span>
             @if (shopSlug()) {
               <div class="floor-public-actions">
-                <a
-                  mat-stroked-button
-                  class="floor-public-btn"
-                  [href]="publicUrl()"
-                  target="_blank"
-                  rel="noopener"
-                >
+                <a class="floor-public-btn" [href]="publicUrl()" target="_blank" rel="noopener">
                   <mat-icon>open_in_new</mat-icon>
-                  Ver
+                  Pantalla pública
                 </a>
-                <button mat-stroked-button type="button" class="floor-public-btn" (click)="copyPublicUrl()">
-                  <mat-icon>link</mat-icon>
-                  Copiar URL
+                <button type="button" class="floor-public-btn floor-public-btn--ghost" (click)="copyPublicUrl()">
+                  <mat-icon>content_copy</mat-icon>
+                  Copiar link
                 </button>
               </div>
             }
@@ -221,23 +215,54 @@ function toTimeString(value: Date | null): string | undefined {
       .floor-public-actions {
         display: inline-flex;
         flex-wrap: wrap;
-        gap: 0.4rem;
+        gap: 0.5rem;
       }
 
       .floor-public-btn {
-        min-height: 34px !important;
-        padding: 0 0.75rem !important;
-        border-radius: 999px !important;
-        font-size: 0.82rem !important;
-        font-weight: 650 !important;
-        line-height: 1 !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        min-height: 2.4rem;
+        padding: 0.45rem 1rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 92%, #0f2a1a);
+        color: #fff;
+        text-decoration: none;
+        font: inherit;
+        font-size: 0.86rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 16px rgba(46, 125, 50, 0.22);
+        transition:
+          transform 140ms ease,
+          background 140ms ease,
+          border-color 140ms ease;
       }
 
       .floor-public-btn mat-icon {
-        font-size: 1rem;
-        width: 1rem;
-        height: 1rem;
-        margin-right: 0.15rem;
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+        color: inherit;
+      }
+
+      .floor-public-btn:hover {
+        transform: translateY(-1px);
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 78%, #0f2a1a);
+      }
+
+      .floor-public-btn--ghost {
+        background: transparent;
+        color: var(--guy-navy, #003366);
+        border-color: color-mix(in srgb, var(--guy-navy, #003366) 28%, transparent);
+        box-shadow: none;
+      }
+
+      .floor-public-btn--ghost:hover {
+        background: color-mix(in srgb, var(--guy-navy, #003366) 6%, #fff);
+        border-color: color-mix(in srgb, var(--guy-navy, #003366) 45%, transparent);
       }
 
       .floor-form {

@@ -24,6 +24,7 @@ export interface WaitingListRow {
   guestName: string;
   partySize: number;
   phone: string;
+  area: ReservationArea;
   notes?: string | null;
   status: WaitingListStatus;
   whatsappUrl?: string;
@@ -57,6 +58,29 @@ export interface PublicReservationsBoard {
     area: ReservationArea;
     reservationTime?: string | null;
     status: ReservationStatus;
+  }>;
+}
+
+export interface PublicWaitingBoard {
+  shop: {
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+    accentColor?: string | null;
+  };
+  totals: {
+    parties: number;
+    guests: number;
+    inside: number;
+    outside: number;
+  };
+  waiting: Array<{
+    id: string;
+    position: number;
+    guestName: string;
+    partySize: number;
+    area: ReservationArea;
+    status: WaitingListStatus;
   }>;
 }
 
@@ -109,7 +133,13 @@ export class ReservationsApiService {
 
   createWaiting(
     shopId: string,
-    body: { guestName: string; partySize: number; phone: string; notes?: string },
+    body: {
+      guestName: string;
+      partySize: number;
+      phone: string;
+      area?: ReservationArea;
+      notes?: string;
+    },
   ) {
     return this.http.post<WaitingListRow>(`${this.base}/shops/${shopId}/waiting-list`, body);
   }
@@ -131,6 +161,12 @@ export class ReservationsApiService {
     return this.http.get<PublicReservationsBoard>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/reservations`,
       { params },
+    );
+  }
+
+  publicWaitingBoard(slug: string) {
+    return this.http.get<PublicWaitingBoard>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiting-list`,
     );
   }
 }
