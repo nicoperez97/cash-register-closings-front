@@ -70,16 +70,27 @@ function toTimeString(value: Date | null): string | undefined {
       <div class="floor-panel__head">
         <div>
           <h2 class="guy-section-title">Reservas del día</h2>
-          <p class="text-muted small mb-0">
-            {{ dateLabel() }}
+          <div class="floor-head-meta">
+            <span class="text-muted small">{{ dateLabel() }}</span>
             @if (shopSlug()) {
-              ·
-              <a class="floor-public-link" [href]="publicUrl()" target="_blank" rel="noopener">
-                Ver pantalla pública
-                <mat-icon>open_in_new</mat-icon>
-              </a>
+              <div class="floor-public-actions">
+                <a
+                  mat-stroked-button
+                  class="floor-public-btn"
+                  [href]="publicUrl()"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  <mat-icon>open_in_new</mat-icon>
+                  Ver
+                </a>
+                <button mat-stroked-button type="button" class="floor-public-btn" (click)="copyPublicUrl()">
+                  <mat-icon>link</mat-icon>
+                  Copiar URL
+                </button>
+              </div>
             }
-          </p>
+          </div>
         </div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-date">
           <mat-label>Fecha</mat-label>
@@ -95,10 +106,20 @@ function toTimeString(value: Date | null): string | undefined {
       </div>
 
       @if (canManage()) {
-        <form class="floor-form" [formGroup]="reservationForm" (ngSubmit)="saveReservation()">
+        <form
+          id="reservation-compose"
+          class="floor-form"
+          [formGroup]="reservationForm"
+          (ngSubmit)="saveReservation()"
+        >
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Nombre</mat-label>
-            <input matInput formControlName="guestName" placeholder="Opcional" />
+            <input
+              matInput
+              formControlName="guestName"
+              placeholder="Opcional"
+              id="reservation-guest-name"
+            />
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Personas</mat-label>
@@ -189,19 +210,34 @@ function toTimeString(value: Date | null): string | undefined {
         flex-shrink: 0;
       }
 
-      .floor-public-link {
-        display: inline-flex;
+      .floor-head-meta {
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 0.15rem;
-        color: var(--guy-primary, #1b5e20);
-        text-decoration: none;
-        font-weight: 600;
+        gap: 0.55rem 0.75rem;
+        margin-top: 0.2rem;
       }
 
-      .floor-public-link mat-icon {
-        font-size: 0.95rem;
-        width: 0.95rem;
-        height: 0.95rem;
+      .floor-public-actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+
+      .floor-public-btn {
+        min-height: 34px !important;
+        padding: 0 0.75rem !important;
+        border-radius: 999px !important;
+        font-size: 0.82rem !important;
+        font-weight: 650 !important;
+        line-height: 1 !important;
+      }
+
+      .floor-public-btn mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+        margin-right: 0.15rem;
       }
 
       .floor-form {
@@ -217,15 +253,33 @@ function toTimeString(value: Date | null): string | undefined {
           grid-template-columns: 1fr 1fr;
         }
 
-        .floor-form button,
+        .floor-form > mat-form-field:nth-child(3),
+        .floor-form button[type='submit'],
         .floor-area-toggle {
           grid-column: 1 / -1;
         }
       }
 
       .floor-area-toggle {
+        width: 100%;
+        display: inline-flex !important;
         border-radius: 12px;
         overflow: hidden;
+      }
+
+      .floor-area-toggle .mat-button-toggle {
+        flex: 1 1 0;
+      }
+
+      .floor-area-toggle .mat-button-toggle-label-content {
+        width: 100%;
+        text-align: center;
+        line-height: 1.2;
+        padding: 0.55rem 0.75rem !important;
+      }
+
+      .floor-area-toggle .mat-button-toggle-button {
+        width: 100%;
       }
 
       .floor-stats {
@@ -366,6 +420,25 @@ export class ReservationsPage implements OnInit {
     return `${window.location.origin}/r/${encodeURIComponent(slug)}`;
   }
 
+  async copyPublicUrl(): Promise<void> {
+    const url = this.publicUrl();
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        input.remove();
+      }
+      this.snack.open('URL copiada', 'OK', { duration: 2000 });
+    } catch {
+      this.snack.open('No se pudo copiar la URL', 'OK', { duration: 3000 });
+    }
+  }
+
   onDayPicked(value: Date | null): void {
     if (!value) return;
     this.businessDate.set(toDateString(value));
@@ -373,7 +446,18 @@ export class ReservationsPage implements OnInit {
   }
 
   focusReservationForm(): void {
-    // form already visible
+    if (!this.canManage()) {
+      this.snack.open('No tenés permiso para crear reservas', 'OK', { duration: 2500 });
+      return;
+    }
+    const form = document.getElementById('reservation-compose');
+    form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Esperar el scroll / layout antes de enfocar
+    requestAnimationFrame(() => {
+      const input = document.getElementById('reservation-guest-name') as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    });
   }
 
   private loadReservations(): void {
