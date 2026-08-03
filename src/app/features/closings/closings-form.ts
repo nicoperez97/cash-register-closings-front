@@ -8,7 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { merge, startWith } from 'rxjs';
+import { firstValueFrom, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -1449,22 +1449,39 @@ export class ClosingsFormPage implements OnInit {
       this.isEdit() && this.closingId
         ? this.api.update(shopId, this.closingId, body)
         : this.api.create(shopId, body);
+    const wasCreate = !this.isEdit();
     req$.subscribe({
       next: () => {
-        this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
-        if (this.cashierOnly() && !this.isEdit()) {
-          this.resetForNextClosing();
-          return;
-        }
-        void this.router.navigateByUrl(
-          defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
-        );
+        void this.afterSaved(wasCreate);
       },
       error: (err) => {
         const msg = err?.error?.message ?? 'No se pudo guardar';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
+  }
+
+  private async afterSaved(wasCreate: boolean): Promise<void> {
+    if (wasCreate) {
+      const ref = this.snack.open('Cierre guardado', 'Compartir', {
+        duration: 12000,
+        horizontalPosition: 'center',
+        verticalPosition: 'bottom',
+      });
+      const dismissed = await firstValueFrom(ref.afterDismissed());
+      if (dismissed.dismissedByAction) {
+        await this.shareSummary();
+      }
+    } else {
+      this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
+    }
+    if (this.cashierOnly() && wasCreate) {
+      this.resetForNextClosing();
+      return;
+    }
+    void this.router.navigateByUrl(
+      defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
+    );
   }
 
   cancel(): void {
