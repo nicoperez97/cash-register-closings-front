@@ -59,6 +59,11 @@ export class AdminAccountsPage {
       label: 'Usuarios',
       format: (r) => String(r['userFullName'] ?? '—'),
     },
+    {
+      key: 'hideFromCashWithdraw',
+      label: 'Retiro',
+      format: (r) => (r['hideFromCashWithdraw'] ? 'Oculta' : 'Visible'),
+    },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
 
