@@ -1,5 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +10,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { environment } from '../../../environments/environment';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 
@@ -17,13 +19,29 @@ export interface MovementEmployeeOption {
   fullName: string;
 }
 
+export interface MovementUserAccountOption {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface MovementUserOption {
+  id: string;
+  fullName: string;
+  email?: string;
+  ledgerAccounts?: MovementUserAccountOption[];
+}
+
 export type MovementDialogData = {
   shopId: string;
   shopName: string;
   accounts: LedgerAccount[];
   concepts: Concept[];
   employees: MovementEmployeeOption[];
+  users: MovementUserOption[];
 } & ({ mode: 'create' } | { mode: 'edit'; movement: Movement });
+
+const LOCAL_ACCOUNTS_KEY = '__local__';
 
 function toDateInput(value?: string | null): Date | null {
   if (!value) return new Date();
@@ -37,6 +55,17 @@ function toDateString(value: Date | null): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function partnerCodeFromName(fullName: string): string {
+  const slug = fullName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 28);
+  return slug || 'SOCIO';
 }
 
 @Component({
@@ -66,7 +95,7 @@ function toDateString(value: Date | null): string {
     </h2>
 
     <mat-dialog-content>
-      <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
+      <form class="guy-dialog__form mov-form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Fecha</mat-label>
           <mat-icon matPrefix>event</mat-icon>
@@ -75,31 +104,121 @@ function toDateString(value: Date | null): string {
           <mat-datepicker #datePicker />
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cuenta origen</mat-label>
-          <mat-icon matPrefix>call_made</mat-icon>
-          <mat-select formControlName="fromAccountId">
-            @for (a of data.accounts; track a.id) {
-              <mat-option [value]="a.id">{{ a.name }}</mat-option>
-            }
-          </mat-select>
-          @if (form.controls.fromAccountId.touched && form.controls.fromAccountId.hasError('required')) {
-            <mat-error>Elegí una cuenta origen</mat-error>
+        <section class="mov-side">
+          <div class="mov-side__head">
+            <strong>Origen</strong>
+            <span>Opcional</span>
+          </div>
+          <div class="mov-side__row">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Usuario</mat-label>
+              <mat-icon matPrefix>person</mat-icon>
+              <mat-select
+                formControlName="fromUserId"
+                (selectionChange)="onSideUserChange('from', $event.value)"
+              >
+                <mat-option value="">— Sin usuario —</mat-option>
+                <mat-option [value]="localKey">Cuentas del local</mat-option>
+                @for (u of users(); track u.id) {
+                  <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cuenta</mat-label>
+              <mat-icon matPrefix>call_made</mat-icon>
+              <mat-select formControlName="fromAccountId">
+                <mat-option value="">— Sin cuenta —</mat-option>
+                @for (a of fromAccountOptions(); track a.id) {
+                  <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          @if (canQuickAdd('from')) {
+            <div class="mov-side__add">
+              @if (!addingFrom()) {
+                <button mat-stroked-button type="button" (click)="addingFrom.set(true)">
+                  <mat-icon>add</mat-icon>
+                  Nueva cuenta
+                </button>
+              } @else {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
+                  <mat-label>Nombre de la cuenta</mat-label>
+                  <input matInput [formControl]="newFromAccountName" placeholder="ej. Socio Juan" />
+                </mat-form-field>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="createAccountForSide('from')"
+                >
+                  Crear
+                </button>
+                <button mat-button type="button" (click)="cancelQuickAdd('from')">Cancelar</button>
+              }
+            </div>
           }
-        </mat-form-field>
+        </section>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cuenta destino</mat-label>
-          <mat-icon matPrefix>call_received</mat-icon>
-          <mat-select formControlName="toAccountId">
-            @for (a of data.accounts; track a.id) {
-              <mat-option [value]="a.id">{{ a.name }}</mat-option>
-            }
-          </mat-select>
-          @if (form.controls.toAccountId.touched && form.controls.toAccountId.hasError('required')) {
-            <mat-error>Elegí una cuenta destino</mat-error>
+        <section class="mov-side">
+          <div class="mov-side__head">
+            <strong>Destino</strong>
+            <span>Opcional</span>
+          </div>
+          <div class="mov-side__row">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Usuario</mat-label>
+              <mat-icon matPrefix>person</mat-icon>
+              <mat-select
+                formControlName="toUserId"
+                (selectionChange)="onSideUserChange('to', $event.value)"
+              >
+                <mat-option value="">— Sin usuario —</mat-option>
+                <mat-option [value]="localKey">Cuentas del local</mat-option>
+                @for (u of users(); track u.id) {
+                  <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cuenta</mat-label>
+              <mat-icon matPrefix>call_received</mat-icon>
+              <mat-select formControlName="toAccountId">
+                <mat-option value="">— Sin cuenta —</mat-option>
+                @for (a of toAccountOptions(); track a.id) {
+                  <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          @if (canQuickAdd('to')) {
+            <div class="mov-side__add">
+              @if (!addingTo()) {
+                <button mat-stroked-button type="button" (click)="addingTo.set(true)">
+                  <mat-icon>add</mat-icon>
+                  Nueva cuenta
+                </button>
+              } @else {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
+                  <mat-label>Nombre de la cuenta</mat-label>
+                  <input matInput [formControl]="newToAccountName" placeholder="ej. Socio Juan" />
+                </mat-form-field>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  [disabled]="busy()"
+                  (click)="createAccountForSide('to')"
+                >
+                  Crear
+                </button>
+                <button mat-button type="button" (click)="cancelQuickAdd('to')">Cancelar</button>
+              }
+            </div>
           }
-        </mat-form-field>
+        </section>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Concepto</mat-label>
@@ -184,6 +303,65 @@ function toDateString(value: Date | null): string {
       .guy-dialog__span-2 {
         grid-column: 1 / -1;
       }
+
+      .mov-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+      }
+
+      .mov-side {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 70%, #fff);
+      }
+
+      .mov-side__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .mov-side__head strong {
+        font-size: 0.78rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--guy-navy, #003366);
+      }
+
+      .mov-side__head span {
+        font-size: 0.75rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .mov-side__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.65rem;
+      }
+
+      .mov-side__add {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .mov-side__add-field {
+        flex: 1 1 180px;
+        margin: 0;
+      }
+
+      @media (max-width: 560px) {
+        .mov-side__row {
+          grid-template-columns: 1fr;
+        }
+      }
     `,
   ],
 })
@@ -192,16 +370,30 @@ export class MovementDialogComponent {
   readonly ref = inject(MatDialogRef<MovementDialogComponent, boolean>);
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(MovementsApiService);
+  private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
 
   readonly isEdit = this.data.mode === 'edit';
   private readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
+  readonly localKey = LOCAL_ACCOUNTS_KEY;
+  readonly addingFrom = signal(false);
+  readonly addingTo = signal(false);
+  readonly accounts = signal<LedgerAccount[]>([...this.data.accounts]);
+  readonly users = signal<MovementUserOption[]>([...this.data.users]);
+
+  readonly newFromAccountName = this.fb.nonNullable.control('');
+  readonly newToAccountName = this.fb.nonNullable.control('');
+
+  private initialFromUser = this.resolveUserForAccount(this.movement?.fromAccountId ?? null);
+  private initialToUser = this.resolveUserForAccount(this.movement?.toAccountId ?? null);
 
   readonly form = this.fb.nonNullable.group({
     businessDate: [toDateInput(this.movement?.businessDate), Validators.required],
-    fromAccountId: [this.movement?.fromAccountId ?? '', Validators.required],
-    toAccountId: [this.movement?.toAccountId ?? '', Validators.required],
+    fromUserId: [this.initialFromUser],
+    toUserId: [this.initialToUser],
+    fromAccountId: [this.movement?.fromAccountId ?? ''],
+    toAccountId: [this.movement?.toAccountId ?? ''],
     conceptId: this.fb.control<string | null>(this.movement?.conceptId ?? null),
     description: [this.movement?.description ?? ''],
     amountUyu: [this.movement?.amountUyu ?? 0, [Validators.required, Validators.min(0)]],
@@ -212,6 +404,122 @@ export class MovementDialogComponent {
     invoiceNumber: [this.movement?.invoiceNumber ?? ''],
   });
 
+  private readonly formValue = signal(this.form.getRawValue());
+
+  constructor() {
+    this.form.valueChanges.subscribe(() => this.formValue.set(this.form.getRawValue()));
+  }
+
+  readonly fromAccountOptions = computed(() =>
+    this.accountsForUserKey(this.formValue().fromUserId),
+  );
+  readonly toAccountOptions = computed(() => this.accountsForUserKey(this.formValue().toUserId));
+
+  canQuickAdd(side: 'from' | 'to'): boolean {
+    const userId = side === 'from' ? this.formValue().fromUserId : this.formValue().toUserId;
+    return !!userId && userId !== LOCAL_ACCOUNTS_KEY;
+  }
+
+  onSideUserChange(side: 'from' | 'to', userKey: string): void {
+    const options = this.accountsForUserKey(userKey);
+    const control = side === 'from' ? 'fromAccountId' : 'toAccountId';
+    const current = String(this.form.getRawValue()[control] ?? '');
+    if (!options.some((a) => a.id === current)) {
+      this.form.patchValue({ [control]: options.length === 1 ? options[0].id : '' });
+    }
+    if (side === 'from') this.cancelQuickAdd('from');
+    else this.cancelQuickAdd('to');
+  }
+
+  cancelQuickAdd(side: 'from' | 'to'): void {
+    if (side === 'from') {
+      this.addingFrom.set(false);
+      this.newFromAccountName.setValue('');
+    } else {
+      this.addingTo.set(false);
+      this.newToAccountName.setValue('');
+    }
+  }
+
+  createAccountForSide(side: 'from' | 'to'): void {
+    const userId = side === 'from' ? this.form.getRawValue().fromUserId : this.form.getRawValue().toUserId;
+    if (!userId || userId === LOCAL_ACCOUNTS_KEY) return;
+    const nameCtrl = side === 'from' ? this.newFromAccountName : this.newToAccountName;
+    const name = nameCtrl.value.trim();
+    if (!name) {
+      this.snack.open('Ingresá el nombre de la cuenta', 'OK', { duration: 2500 });
+      return;
+    }
+    const user = this.users().find((u) => u.id === userId);
+    const codeBase = partnerCodeFromName(name);
+    let code = codeBase;
+    let n = 2;
+    const existing = new Set(this.accounts().map((a) => a.code.toUpperCase()));
+    while (existing.has(code)) {
+      code = `${codeBase}_${n}`.slice(0, 40);
+      n += 1;
+    }
+
+    this.busy.set(true);
+    this.http
+      .post<LedgerAccount & { userIds?: string[] }>(
+        `${environment.apiUrl}/shops/${this.data.shopId}/accounts`,
+        {
+          name,
+          code,
+          type: 'PARTNER',
+          userIds: [userId],
+          active: true,
+        },
+      )
+      .subscribe({
+        next: (created) => {
+          const account: LedgerAccount = {
+            id: created.id,
+            shopId: created.shopId,
+            name: created.name,
+            code: created.code,
+            type: created.type,
+            linkedPaymentMethod: created.linkedPaymentMethod ?? null,
+            userIds: created.userIds ?? [userId],
+            active: created.active,
+          };
+          this.accounts.update((rows) => [...rows, account]);
+          this.users.update((rows) =>
+            rows.map((u) =>
+              u.id !== userId
+                ? u
+                : {
+                    ...u,
+                    ledgerAccounts: [
+                      ...(u.ledgerAccounts ?? []),
+                      { id: account.id, name: account.name, code: account.code },
+                    ],
+                  },
+            ),
+          );
+          if (side === 'from') {
+            this.form.patchValue({ fromAccountId: account.id });
+            this.cancelQuickAdd('from');
+          } else {
+            this.form.patchValue({ toAccountId: account.id });
+            this.cancelQuickAdd('to');
+          }
+          this.busy.set(false);
+          this.snack.open(
+            `Cuenta «${account.name}» creada${user ? ` para ${user.fullName}` : ''}`,
+            'OK',
+            { duration: 2500 },
+          );
+        },
+        error: (err) => {
+          this.busy.set(false);
+          const msg = err?.error?.message ?? 'No se pudo crear la cuenta';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+        },
+      });
+  }
+
   save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -221,8 +529,8 @@ export class MovementDialogComponent {
     const raw = this.form.getRawValue();
     const body: Partial<Movement> = {
       businessDate: toDateString(raw.businessDate),
-      fromAccountId: raw.fromAccountId,
-      toAccountId: raw.toAccountId,
+      fromAccountId: raw.fromAccountId || null,
+      toAccountId: raw.toAccountId || null,
       conceptId: raw.conceptId || null,
       description: raw.description.trim() || null,
       amountUyu: raw.amountUyu,
@@ -253,5 +561,32 @@ export class MovementDialogComponent {
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
+  }
+
+  private accountsForUserKey(userKey: string | null | undefined): Array<{ id: string; name: string }> {
+    const key = String(userKey ?? '');
+    if (!key) return [];
+    if (key === LOCAL_ACCOUNTS_KEY) {
+      return this.accounts()
+        .filter((a) => a.type === 'CHANNEL' || a.type === 'SYSTEM')
+        .map((a) => ({ id: a.id, name: a.name }));
+    }
+    const fromUsers = this.users().find((u) => u.id === key)?.ledgerAccounts ?? [];
+    if (fromUsers.length) return fromUsers.map((a) => ({ id: a.id, name: a.name }));
+    return this.accounts()
+      .filter((a) => (a.userIds ?? []).includes(key))
+      .map((a) => ({ id: a.id, name: a.name }));
+  }
+
+  private resolveUserForAccount(accountId: string | null | undefined): string {
+    if (!accountId) return '';
+    const account = this.data.accounts.find((a) => a.id === accountId);
+    if (account?.type === 'CHANNEL' || account?.type === 'SYSTEM') return LOCAL_ACCOUNTS_KEY;
+    const fromUsers = this.data.users.find((u) =>
+      (u.ledgerAccounts ?? []).some((a) => a.id === accountId),
+    );
+    if (fromUsers) return fromUsers.id;
+    const uid = account?.userIds?.[0];
+    return uid ?? LOCAL_ACCOUNTS_KEY;
   }
 }

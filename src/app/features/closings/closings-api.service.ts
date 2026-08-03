@@ -32,6 +32,7 @@ export interface CashClosing {
   cashWithdrawnByUserId?: string | null;
   cashWithdrawnByEmployeeId?: string | null;
   cashWithdrawnByName?: string | null;
+  cashWithdrawnToAccountId?: string | null;
   tipsAmount: number;
   declaredTotal: number;
   calculatedTotal: number;
@@ -43,10 +44,17 @@ export interface CashClosing {
   extraLines?: Array<{ id?: string; type: string; label: string; amount: number; meta?: string }>;
 }
 
+export interface ShopUserAccountOption {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export interface ShopUserOption {
   id: string;
   fullName: string;
   email: string;
+  ledgerAccounts?: ShopUserAccountOption[];
 }
 
 @Injectable({ providedIn: 'root' })

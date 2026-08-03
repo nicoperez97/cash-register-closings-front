@@ -23,6 +23,7 @@ export interface AdminAccountRow {
   userId?: string | null;
   userFullName?: string | null;
   active: boolean;
+  hideFromCashWithdraw?: boolean;
 }
 
 export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string }> = [
@@ -129,6 +130,10 @@ interface UserOption {
           <mat-hint>Una cuenta puede tener varios usuarios</mat-hint>
         </mat-form-field>
 
+        <mat-slide-toggle formControlName="hideFromCashWithdraw">
+          Ocultar en «Quién se lo lleva»
+        </mat-slide-toggle>
+
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Cuenta activa</mat-slide-toggle>
         }
@@ -181,6 +186,7 @@ export class AdminAccountDialogComponent implements OnInit {
     type: [this.account?.type ?? 'PARTNER', Validators.required],
     linkedPaymentMethod: this.fb.control<string | null>(this.account?.linkedPaymentMethod ?? null),
     userIds: this.fb.nonNullable.control<string[]>(this.initialUserIds()),
+    hideFromCashWithdraw: [this.account?.hideFromCashWithdraw ?? false],
     active: [this.account?.active ?? true],
   });
 
@@ -208,6 +214,7 @@ export class AdminAccountDialogComponent implements OnInit {
       type: raw.type,
       linkedPaymentMethod: raw.linkedPaymentMethod || null,
       userIds: raw.userIds ?? [],
+      hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);

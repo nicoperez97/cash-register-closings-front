@@ -58,7 +58,9 @@ export interface BalanceAccountRow {
 
     .guy-saldos {
       width: 100%;
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
       background: transparent;
     }
 

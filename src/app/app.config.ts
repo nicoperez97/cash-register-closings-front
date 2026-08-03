@@ -21,6 +21,7 @@ import { AppTitleStrategy } from './core/routing/app-title.strategy';
 import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { AuthService } from './core/auth/auth.service';
+import { DialogBodyScrollLockService } from './shared/services/dialog-body-scroll-lock.service';
 
 registerLocaleData(localeEsAr);
 
@@ -66,11 +67,16 @@ async function refreshSession(): Promise<void> {
   }
 }
 
+function enableDialogBodyScrollLock(): void {
+  inject(DialogBodyScrollLockService).start();
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
+    provideAppInitializer(enableDialogBodyScrollLock),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(withInterceptors([authInterceptor])),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },

@@ -18,6 +18,7 @@ import { BottomNavComponent, BottomNavItem } from './bottom-nav/bottom-nav';
 import { ShopContextService } from '../shop/shop-context.service';
 import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
+import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -38,6 +39,7 @@ export class MainLayoutComponent {
   private readonly router = inject(Router);
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly bodyLock = inject(BodyScrollLockService);
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
@@ -185,50 +187,15 @@ export class MainLayoutComponent {
 
     // En móvil, con el drawer abierto: bloquear scroll de la página detrás
     // (si no, el gesto a veces scrollea el contenido y no la sidebar).
-    let bodyScrollLocked = false;
     effect(() => {
       if (typeof document === 'undefined') return;
       const lock = !!this.isMobile() && this.sidenavOpen();
-      const html = document.documentElement;
-      const body = document.body;
-      if (lock && !bodyScrollLocked) {
-        const scrollY = window.scrollY || html.scrollTop || 0;
-        body.dataset['sidenavScrollY'] = String(scrollY);
-        html.style.overflow = 'hidden';
-        body.style.overflow = 'hidden';
-        body.style.position = 'fixed';
-        body.style.inset = '0';
-        body.style.width = '100%';
-        body.style.top = `-${scrollY}px`;
-        bodyScrollLocked = true;
-      } else if (!lock && bodyScrollLocked) {
-        const scrollY = Number(body.dataset['sidenavScrollY'] || '0');
-        html.style.overflow = '';
-        body.style.overflow = '';
-        body.style.position = '';
-        body.style.inset = '';
-        body.style.width = '';
-        body.style.top = '';
-        delete body.dataset['sidenavScrollY'];
-        bodyScrollLocked = false;
-        window.scrollTo(0, scrollY);
-      }
+      if (lock) this.bodyLock.lock('sidenav');
+      else this.bodyLock.unlock('sidenav');
     });
 
     this.destroyRef.onDestroy(() => {
-      if (typeof document === 'undefined' || !bodyScrollLocked) return;
-      const html = document.documentElement;
-      const body = document.body;
-      const scrollY = Number(body.dataset['sidenavScrollY'] || '0');
-      html.style.overflow = '';
-      body.style.overflow = '';
-      body.style.position = '';
-      body.style.inset = '';
-      body.style.width = '';
-      body.style.top = '';
-      delete body.dataset['sidenavScrollY'];
-      bodyScrollLocked = false;
-      if (scrollY) window.scrollTo(0, scrollY);
+      this.bodyLock.unlock('sidenav');
     });
 
     // Si la ruta actual no está permitida, ir al home del rol
