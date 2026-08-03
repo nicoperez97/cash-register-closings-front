@@ -1337,7 +1337,7 @@ export class ClosingsFormPage implements OnInit {
     const selected = this.users().find((u) => u.id === userId);
     const withdrawnAccounts = selected?.ledgerAccounts ?? [];
     let accountId = raw.cashWithdrawnToAccountId || null;
-    if (this.n(raw.cashWithdrawn) > 0 && userId && withdrawnAccounts.length > 1 && !accountId) {
+    if (this.n(raw.cashAmount) > 0 && userId && withdrawnAccounts.length > 1 && !accountId) {
       this.snack.open('Seleccioná la cuenta destino del efectivo', 'OK', { duration: 3000 });
       return;
     }

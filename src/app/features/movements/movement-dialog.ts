@@ -104,12 +104,17 @@ function partnerCodeFromName(fullName: string): string {
           <mat-datepicker #datePicker />
         </mat-form-field>
 
-        <section class="mov-side">
-          <div class="mov-side__head">
-            <strong>Origen</strong>
-            <span>Opcional</span>
-          </div>
-          <div class="mov-side__row">
+        <div class="mov-transfer">
+          <section class="mov-side">
+            <div class="mov-side__head">
+              <span class="mov-side__badge mov-side__badge--from" aria-hidden="true">
+                <mat-icon>call_made</mat-icon>
+              </span>
+              <div class="mov-side__titles">
+                <strong>Origen</strong>
+                <span>De dónde sale</span>
+              </div>
+            </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Usuario</mat-label>
               <mat-icon matPrefix>person</mat-icon>
@@ -117,7 +122,7 @@ function partnerCodeFromName(fullName: string): string {
                 formControlName="fromUserId"
                 (selectionChange)="onSideUserChange('from', $event.value)"
               >
-                <mat-option value="">— Sin usuario —</mat-option>
+                <mat-option value="">Sin usuario</mat-option>
                 <mat-option [value]="localKey">Cuentas del local</mat-option>
                 @for (u of users(); track u.id) {
                   <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
@@ -126,48 +131,57 @@ function partnerCodeFromName(fullName: string): string {
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta</mat-label>
-              <mat-icon matPrefix>call_made</mat-icon>
+              <mat-icon matPrefix>account_balance_wallet</mat-icon>
               <mat-select formControlName="fromAccountId">
-                <mat-option value="">— Sin cuenta —</mat-option>
+                <mat-option value="">Sin cuenta</mat-option>
                 @for (a of fromAccountOptions(); track a.id) {
                   <mat-option [value]="a.id">{{ a.name }}</mat-option>
                 }
               </mat-select>
             </mat-form-field>
-          </div>
-          @if (canQuickAdd('from')) {
-            <div class="mov-side__add">
-              @if (!addingFrom()) {
-                <button mat-stroked-button type="button" (click)="addingFrom.set(true)">
-                  <mat-icon>add</mat-icon>
-                  Nueva cuenta
-                </button>
-              } @else {
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
-                  <mat-label>Nombre de la cuenta</mat-label>
-                  <input matInput [formControl]="newFromAccountName" placeholder="ej. Socio Juan" />
-                </mat-form-field>
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="button"
-                  [disabled]="busy()"
-                  (click)="createAccountForSide('from')"
-                >
-                  Crear
-                </button>
-                <button mat-button type="button" (click)="cancelQuickAdd('from')">Cancelar</button>
-              }
-            </div>
-          }
-        </section>
+            @if (canQuickAdd('from')) {
+              <div class="mov-side__add">
+                @if (!addingFrom()) {
+                  <button mat-stroked-button type="button" class="mov-side__add-btn" (click)="addingFrom.set(true)">
+                    <mat-icon>add</mat-icon>
+                    Nueva cuenta
+                  </button>
+                } @else {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
+                    <mat-label>Nombre de la cuenta</mat-label>
+                    <input matInput [formControl]="newFromAccountName" placeholder="ej. Socio Juan" />
+                  </mat-form-field>
+                  <div class="mov-side__add-actions">
+                    <button mat-button type="button" (click)="cancelQuickAdd('from')">Cancelar</button>
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="button"
+                      [disabled]="busy()"
+                      (click)="createAccountForSide('from')"
+                    >
+                      Crear
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </section>
 
-        <section class="mov-side">
-          <div class="mov-side__head">
-            <strong>Destino</strong>
-            <span>Opcional</span>
+          <div class="mov-transfer__arrow" aria-hidden="true">
+            <mat-icon>south</mat-icon>
           </div>
-          <div class="mov-side__row">
+
+          <section class="mov-side">
+            <div class="mov-side__head">
+              <span class="mov-side__badge mov-side__badge--to" aria-hidden="true">
+                <mat-icon>call_received</mat-icon>
+              </span>
+              <div class="mov-side__titles">
+                <strong>Destino</strong>
+                <span>A dónde entra</span>
+              </div>
+            </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Usuario</mat-label>
               <mat-icon matPrefix>person</mat-icon>
@@ -175,7 +189,7 @@ function partnerCodeFromName(fullName: string): string {
                 formControlName="toUserId"
                 (selectionChange)="onSideUserChange('to', $event.value)"
               >
-                <mat-option value="">— Sin usuario —</mat-option>
+                <mat-option value="">Sin usuario</mat-option>
                 <mat-option [value]="localKey">Cuentas del local</mat-option>
                 @for (u of users(); track u.id) {
                   <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
@@ -184,41 +198,43 @@ function partnerCodeFromName(fullName: string): string {
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta</mat-label>
-              <mat-icon matPrefix>call_received</mat-icon>
+              <mat-icon matPrefix>account_balance_wallet</mat-icon>
               <mat-select formControlName="toAccountId">
-                <mat-option value="">— Sin cuenta —</mat-option>
+                <mat-option value="">Sin cuenta</mat-option>
                 @for (a of toAccountOptions(); track a.id) {
                   <mat-option [value]="a.id">{{ a.name }}</mat-option>
                 }
               </mat-select>
             </mat-form-field>
-          </div>
-          @if (canQuickAdd('to')) {
-            <div class="mov-side__add">
-              @if (!addingTo()) {
-                <button mat-stroked-button type="button" (click)="addingTo.set(true)">
-                  <mat-icon>add</mat-icon>
-                  Nueva cuenta
-                </button>
-              } @else {
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
-                  <mat-label>Nombre de la cuenta</mat-label>
-                  <input matInput [formControl]="newToAccountName" placeholder="ej. Socio Juan" />
-                </mat-form-field>
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="button"
-                  [disabled]="busy()"
-                  (click)="createAccountForSide('to')"
-                >
-                  Crear
-                </button>
-                <button mat-button type="button" (click)="cancelQuickAdd('to')">Cancelar</button>
-              }
-            </div>
-          }
-        </section>
+            @if (canQuickAdd('to')) {
+              <div class="mov-side__add">
+                @if (!addingTo()) {
+                  <button mat-stroked-button type="button" class="mov-side__add-btn" (click)="addingTo.set(true)">
+                    <mat-icon>add</mat-icon>
+                    Nueva cuenta
+                  </button>
+                } @else {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
+                    <mat-label>Nombre de la cuenta</mat-label>
+                    <input matInput [formControl]="newToAccountName" placeholder="ej. Socio Juan" />
+                  </mat-form-field>
+                  <div class="mov-side__add-actions">
+                    <button mat-button type="button" (click)="cancelQuickAdd('to')">Cancelar</button>
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="button"
+                      [disabled]="busy()"
+                      (click)="createAccountForSide('to')"
+                    >
+                      Crear
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </section>
+        </div>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Concepto</mat-label>
@@ -231,50 +247,67 @@ function partnerCodeFromName(fullName: string): string {
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="guy-dialog__span-2">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Descripción</mat-label>
           <mat-icon matPrefix>notes</mat-icon>
-          <input matInput formControlName="description" />
+          <input matInput formControlName="description" placeholder="Opcional" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-amount">
           <mat-label>Monto ($)</mat-label>
           <mat-icon matPrefix>attach_money</mat-icon>
-          <input matInput type="number" min="0" formControlName="amountUyu" />
+          <input matInput type="number" min="0" inputmode="decimal" formControlName="amountUyu" />
           @if (form.controls.amountUyu.touched && form.controls.amountUyu.hasError('required')) {
             <mat-error>Ingresá un monto</mat-error>
           }
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cotización USD (opcional)</mat-label>
-          <input matInput type="number" min="0" step="0.01" formControlName="usdRate" />
-        </mat-form-field>
+        <div class="mov-more">
+          <button
+            type="button"
+            class="mov-more__toggle"
+            (click)="showMore.set(!showMore())"
+            [attr.aria-expanded]="showMore()"
+          >
+            <mat-icon>{{ showMore() ? 'expand_less' : 'expand_more' }}</mat-icon>
+            <span>{{ showMore() ? 'Menos opciones' : 'Más opciones' }}</span>
+            <span class="mov-more__hint">USD, empleado, factura</span>
+          </button>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Monto USD (opcional)</mat-label>
-          <input matInput type="number" min="0" step="0.01" formControlName="amountUsd" />
-          <mat-hint>Se calcula solo si dejás este campo vacío y cargás la cotización</mat-hint>
-        </mat-form-field>
+          @if (showMore()) {
+            <div class="mov-more__body">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cotización USD</mat-label>
+                <input matInput type="number" min="0" step="0.01" inputmode="decimal" formControlName="usdRate" />
+              </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Empleado (opcional)</mat-label>
-          <mat-icon matPrefix>badge</mat-icon>
-          <mat-select formControlName="employeeId">
-            <mat-option [value]="null">Sin empleado</mat-option>
-            @for (e of data.employees; track e.id) {
-              <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Monto USD</mat-label>
+                <input matInput type="number" min="0" step="0.01" inputmode="decimal" formControlName="amountUsd" />
+                <mat-hint>Se calcula si dejás vacío y hay cotización</mat-hint>
+              </mat-form-field>
 
-        <div class="guy-dialog__span-2 d-flex align-items-center gap-3 flex-wrap">
-          <mat-slide-toggle formControlName="invoiced">Facturado</mat-slide-toggle>
-          @if (form.controls.invoiced.value) {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1;min-width:180px">
-              <mat-label>N° de factura</mat-label>
-              <input matInput formControlName="invoiceNumber" />
-            </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Empleado</mat-label>
+                <mat-icon matPrefix>badge</mat-icon>
+                <mat-select formControlName="employeeId">
+                  <mat-option [value]="null">Sin empleado</mat-option>
+                  @for (e of data.employees; track e.id) {
+                    <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <div class="mov-invoice">
+                <mat-slide-toggle formControlName="invoiced">Facturado</mat-slide-toggle>
+                @if (form.controls.invoiced.value) {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>N° de factura</mat-label>
+                    <input matInput formControlName="invoiceNumber" />
+                  </mat-form-field>
+                }
+              </div>
+            </div>
           }
         </div>
       </form>
@@ -293,73 +326,225 @@ function partnerCodeFromName(fullName: string): string {
       >
         <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
           <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-          {{ isEdit ? 'Guardar cambios' : 'Crear' }}
+          {{ isEdit ? 'Guardar' : 'Crear' }}
         </app-busy-label>
       </button>
     </mat-dialog-actions>
   `,
   styles: [
     `
-      .guy-dialog__span-2 {
-        grid-column: 1 / -1;
-      }
-
       .mov-form {
         display: flex;
         flex-direction: column;
-        gap: 0.85rem;
+        gap: 0.75rem;
+        container-type: inline-size;
+        container-name: mov-form;
+      }
+
+      .mov-transfer {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .mov-transfer__arrow {
+        display: grid;
+        place-items: center;
+        height: 1.75rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .mov-transfer__arrow mat-icon {
+        font-size: 1.15rem;
+        width: 1.15rem;
+        height: 1.15rem;
+        opacity: 0.7;
       }
 
       .mov-side {
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
-        padding: 0.7rem 0.8rem;
-        border: 1px solid var(--guy-border, #d7e0d9);
-        border-radius: 12px;
-        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 70%, #fff);
+        padding: 0.75rem 0.85rem 0.85rem;
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 85%, #fff);
+        border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
       }
 
       .mov-side__head {
         display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 0.5rem;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 0.1rem;
       }
 
-      .mov-side__head strong {
-        font-size: 0.78rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
+      .mov-side__badge {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
+
+      .mov-side__badge mat-icon {
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+
+      .mov-side__badge--from {
+        background: color-mix(in srgb, #c62828 12%, transparent);
+        color: #c62828;
+      }
+
+      .mov-side__badge--to {
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 16%, transparent);
+        color: var(--guy-green, #2e7d32);
+      }
+
+      .mov-side__titles {
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        min-width: 0;
+      }
+
+      .mov-side__titles strong {
+        font-size: 0.92rem;
+        font-weight: 700;
+        line-height: 1.2;
         color: var(--guy-navy, #003366);
       }
 
-      .mov-side__head span {
+      .mov-side__titles span {
         font-size: 0.75rem;
         color: var(--guy-muted, #5f6f76);
       }
 
-      .mov-side__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.65rem;
+      .mov-side .mat-mdc-form-field {
+        width: 100%;
       }
 
       .mov-side__add {
         display: flex;
-        flex-wrap: wrap;
-        align-items: center;
+        flex-direction: column;
         gap: 0.45rem;
       }
 
+      .mov-side__add-btn {
+        width: 100%;
+        min-height: 44px;
+      }
+
       .mov-side__add-field {
-        flex: 1 1 180px;
+        width: 100%;
         margin: 0;
       }
 
-      @media (max-width: 560px) {
-        .mov-side__row {
-          grid-template-columns: 1fr;
+      .mov-side__add-actions {
+        display: flex;
+        gap: 0.4rem;
+        justify-content: flex-end;
+      }
+
+      .mov-side__add-actions .mat-mdc-button-base {
+        min-height: 44px;
+      }
+
+      .mov-amount {
+        margin-top: 0.15rem;
+      }
+
+      .mov-more {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        margin-top: 0.15rem;
+      }
+
+      .mov-more__toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        width: 100%;
+        min-height: 44px;
+        padding: 0.45rem 0.65rem;
+        border: 1px dashed color-mix(in srgb, var(--guy-border, #d7e0d9) 90%, transparent);
+        border-radius: 12px;
+        background: transparent;
+        color: var(--guy-navy, #003366);
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .mov-more__toggle mat-icon {
+        font-size: 1.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .mov-more__hint {
+        margin-left: auto;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--guy-muted, #5f6f76);
+        white-space: nowrap;
+      }
+
+      .mov-more__body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        padding: 0.15rem 0 0.25rem;
+      }
+
+      .mov-invoice {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        padding: 0.35rem 0.15rem 0;
+      }
+
+      /* Desktop ancho: usuario + cuenta en dos columnas */
+      @container mov-form (min-width: 520px) {
+        .mov-side {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.65rem 0.75rem;
+          align-items: start;
+        }
+
+        .mov-side__head,
+        .mov-side__add {
+          grid-column: 1 / -1;
+        }
+      }
+
+      /* Fallback si no hay container queries */
+      @supports not (container-type: inline-size) {
+        @media (min-width: 640px) {
+          .mov-side {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem 0.75rem;
+            align-items: start;
+          }
+
+          .mov-side__head,
+          .mov-side__add {
+            grid-column: 1 / -1;
+          }
+        }
+      }
+
+      @media (max-width: 420px) {
+        .mov-more__hint {
+          display: none;
         }
       }
     `,
@@ -376,6 +561,7 @@ export class MovementDialogComponent {
   readonly isEdit = this.data.mode === 'edit';
   private readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
+  readonly showMore = signal(false);
   readonly localKey = LOCAL_ACCOUNTS_KEY;
   readonly addingFrom = signal(false);
   readonly addingTo = signal(false);
@@ -408,6 +594,16 @@ export class MovementDialogComponent {
 
   constructor() {
     this.form.valueChanges.subscribe(() => this.formValue.set(this.form.getRawValue()));
+    // Abrir “Más opciones” si el movimiento ya tiene datos secundarios.
+    if (
+      this.movement &&
+      (this.movement.usdRate != null ||
+        this.movement.amountUsd != null ||
+        this.movement.employeeId ||
+        this.movement.invoiced)
+    ) {
+      this.showMore.set(true);
+    }
   }
 
   readonly fromAccountOptions = computed(() =>
