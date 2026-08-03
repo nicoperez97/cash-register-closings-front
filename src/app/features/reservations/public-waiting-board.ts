@@ -8,15 +8,14 @@ import {
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, interval, merge, startWith, switchMap, tap } from 'rxjs';
-import { formatIsoDateLong } from '../../core/shop/business-date';
 import { normalizeLogoUrl } from '../../core/utils/drive-url';
 import {
-  PublicReservationsBoard,
+  PublicWaitingBoard,
   ReservationsApiService,
 } from './reservations-api.service';
 
 @Component({
-  selector: 'app-public-reservations-board',
+  selector: 'app-public-waiting-board',
   template: `
     @if (toast(); as t) {
       <div class="board-toast" role="status" aria-live="polite">
@@ -39,9 +38,8 @@ import {
               <img class="board__logo" [src]="logoUrl()!" [alt]="b.shop.name" />
             }
             <div class="board__titles">
-              <p class="board__eyebrow">Reservas de hoy</p>
+              <p class="board__eyebrow">Lista de espera</p>
               <h1 class="board__brand">{{ b.shop.name }}</h1>
-              <p class="board__date">{{ dateLabel() }}</p>
             </div>
           </div>
           <div class="board__live-row">
@@ -79,7 +77,7 @@ import {
           </div>
           <div class="board__total">
             <strong>{{ b.totals.parties }}</strong>
-            <span>mesas</span>
+            <span>grupos</span>
           </div>
           <div class="board__total">
             <strong>{{ b.totals.inside }}</strong>
@@ -95,36 +93,28 @@ import {
           <div class="board__col">
             <h2>Adentro <span>{{ inside().length }}</span></h2>
             <ul>
-              @for (r of inside(); track r.id) {
-                <li [class.board__item--new]="isNew(r.id)">
-                  <span class="board__name">{{ r.guestName || 'Reserva' }}</span>
-                  <span class="board__meta">
-                    @if (r.reservationTime) {
-                      {{ r.reservationTime }} ·
-                    }
-                    {{ r.partySize }}p
-                  </span>
+              @for (w of inside(); track w.id) {
+                <li [class.board__item--new]="isNew(w.id)">
+                  <span class="board__position">#{{ w.position }}</span>
+                  <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
+                  <span class="board__meta">{{ w.partySize }}p</span>
                 </li>
               } @empty {
-                <li class="board__empty">Sin reservas</li>
+                <li class="board__empty">Sin espera</li>
               }
             </ul>
           </div>
           <div class="board__col board__col--out">
             <h2>Afuera <span>{{ outside().length }}</span></h2>
             <ul>
-              @for (r of outside(); track r.id) {
-                <li [class.board__item--new]="isNew(r.id)">
-                  <span class="board__name">{{ r.guestName || 'Reserva' }}</span>
-                  <span class="board__meta">
-                    @if (r.reservationTime) {
-                      {{ r.reservationTime }} ·
-                    }
-                    {{ r.partySize }}p
-                  </span>
+              @for (w of outside(); track w.id) {
+                <li [class.board__item--new]="isNew(w.id)">
+                  <span class="board__position">#{{ w.position }}</span>
+                  <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
+                  <span class="board__meta">{{ w.partySize }}p</span>
                 </li>
               } @empty {
-                <li class="board__empty">Sin reservas</li>
+                <li class="board__empty">Sin espera</li>
               }
             </ul>
           </div>
@@ -132,7 +122,7 @@ import {
       </div>
     } @else {
       <div class="board board--loading">
-        <p>Cargando reservas…</p>
+        <p>Cargando lista de espera…</p>
       </div>
     }
   `,
@@ -184,7 +174,7 @@ import {
       }
 
       .board {
-        --accent: #c45c26;
+        --accent: #2e7d32;
         min-height: 100dvh;
         padding: 1.15rem 1.1rem 1.5rem;
         color: #f4efe6;
@@ -261,14 +251,6 @@ import {
         font-weight: 750;
         letter-spacing: -0.03em;
         line-height: 1.05;
-      }
-
-      .board__date {
-        position: relative;
-        margin: 0.35rem 0 0;
-        font-size: 0.95rem;
-        color: #cfc6ba;
-        text-transform: capitalize;
       }
 
       .board__live-row {
@@ -445,9 +427,10 @@ import {
       }
 
       .board__col li {
-        display: flex;
-        flex-direction: column;
-        gap: 0.1rem;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 0.45rem;
         padding: 0.55rem 0.65rem;
         border-radius: 12px;
         background: rgba(0, 0, 0, 0.22);
@@ -468,23 +451,37 @@ import {
         }
       }
 
+      .board__position {
+        font-size: 0.82rem;
+        font-weight: 750;
+        font-variant-numeric: tabular-nums;
+        color: color-mix(in srgb, var(--accent) 85%, #fff);
+      }
+
       .board__name {
         font-size: 1rem;
         font-weight: 650;
         letter-spacing: -0.01em;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .board__meta {
         font-size: 0.78rem;
         color: #b5aa9c;
+        font-variant-numeric: tabular-nums;
       }
 
       .board__empty {
+        display: block;
         background: transparent !important;
         color: #8a8176;
         text-align: center;
         padding: 0.85rem 0.35rem !important;
         font-size: 0.85rem;
+        grid-column: 1 / -1;
       }
 
       @media (max-width: 720px) {
@@ -526,11 +523,6 @@ import {
         .board__brand {
           font-size: 1.35rem;
           line-height: 1.1;
-        }
-
-        .board__date {
-          margin: 0.15rem 0 0;
-          font-size: 0.78rem;
         }
 
         .board__live-row {
@@ -584,13 +576,15 @@ import {
         .board__col li {
           padding: 0.4rem 0.45rem;
           border-radius: 9px;
+          gap: 0.35rem;
+        }
+
+        .board__position {
+          font-size: 0.72rem;
         }
 
         .board__name {
           font-size: 0.88rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
         }
 
         .board__meta {
@@ -608,7 +602,7 @@ import {
     `,
   ],
 })
-export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
+export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReservationsApiService);
 
@@ -619,31 +613,27 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   private hasLoadedOnce = false;
   private highlightIds = new Set<string>();
 
-  readonly board = signal<PublicReservationsBoard | null>(null);
+  readonly board = signal<PublicWaitingBoard | null>(null);
   readonly error = signal('');
   readonly refreshing = signal(false);
   readonly toast = signal('');
   readonly highlightTick = signal(0);
 
-  readonly accent = computed(() => this.board()?.shop.accentColor || '#c45c26');
+  readonly accent = computed(() => this.board()?.shop.accentColor || '#2e7d32');
 
   readonly logoUrl = computed(() => {
     const raw = this.board()?.shop.logoUrl;
     return normalizeLogoUrl(raw) || raw?.trim() || null;
   });
 
-  readonly dateLabel = computed(() => {
-    const iso = this.board()?.businessDate;
-    return iso ? formatIsoDateLong(iso) : '';
-  });
-
   readonly inside = computed(() => {
     this.highlightTick();
-    return (this.board()?.reservations ?? []).filter((r) => r.area !== 'OUTSIDE');
+    return (this.board()?.waiting ?? []).filter((w) => w.area !== 'OUTSIDE');
   });
+
   readonly outside = computed(() => {
     this.highlightTick();
-    return (this.board()?.reservations ?? []).filter((r) => r.area === 'OUTSIDE');
+    return (this.board()?.waiting ?? []).filter((w) => w.area === 'OUTSIDE');
   });
 
   ngOnInit(): void {
@@ -659,14 +649,14 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.pollSub = merge(interval(60_000).pipe(startWith(0)), this.refresh$)
       .pipe(
         tap(() => this.refreshing.set(true)),
-        switchMap(() => this.api.publicBoard(slug)),
+        switchMap(() => this.api.publicWaitingBoard(slug)),
       )
       .subscribe({
         next: (b) => {
           this.applyBoard(b);
           this.refreshing.set(false);
           this.error.set('');
-          document.title = `Reservas · ${b.shop.name}`;
+          document.title = `Lista de espera · ${b.shop.name}`;
         },
         error: () => {
           this.refreshing.set(false);
@@ -693,12 +683,12 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     return this.highlightIds.has(id);
   }
 
-  private applyBoard(b: PublicReservationsBoard): void {
-    const nextIds = new Set((b.reservations ?? []).map((r) => r.id));
+  private applyBoard(b: PublicWaitingBoard): void {
+    const nextIds = new Set((b.waiting ?? []).map((w) => w.id));
     if (this.hasLoadedOnce) {
-      const newcomers = (b.reservations ?? []).filter((r) => !this.knownIds.has(r.id));
+      const newcomers = (b.waiting ?? []).filter((w) => !this.knownIds.has(w.id));
       if (newcomers.length) {
-        this.highlightIds = new Set(newcomers.map((r) => r.id));
+        this.highlightIds = new Set(newcomers.map((w) => w.id));
         this.highlightTick.update((n) => n + 1);
         this.notifyNew(newcomers);
       }
@@ -709,28 +699,23 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   }
 
   private notifyNew(
-    rows: Array<{ guestName: string; partySize: number; reservationTime?: string | null }>,
+    rows: Array<{ guestName: string; partySize: number; position: number }>,
   ): void {
     const first = rows[0];
-    const label = first.guestName?.trim() || 'Reserva';
-    const detail = [
-      first.reservationTime || null,
-      `${first.partySize} pers.`,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    const label = first.guestName?.trim() || 'Invitado';
+    const detail = `#${first.position} · ${first.partySize} pers.`;
     const message =
       rows.length === 1
-        ? `Nueva reserva: ${label}${detail ? ` (${detail})` : ''}`
-        : `${rows.length} nuevas reservas (última: ${label})`;
+        ? `Nuevo en lista: ${label} (${detail})`
+        : `${rows.length} nuevos en lista (último: ${label})`;
 
     this.showToast(message);
 
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
-        new Notification('Reservas · ' + (this.board()?.shop.name ?? 'Local'), {
+        new Notification('Lista de espera · ' + (this.board()?.shop.name ?? 'Local'), {
           body: message,
-          tag: 'reservations-new',
+          tag: 'waiting-new',
         });
       } catch {
         // Algunos navegadores bloquean Notification sin service worker.

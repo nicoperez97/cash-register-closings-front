@@ -19,6 +19,14 @@ export const routes: Routes = [
     title: 'Reservas',
   },
   {
+    path: 'w/:slug',
+    loadComponent: () =>
+      import('./features/reservations/public-waiting-board').then(
+        (m) => m.PublicWaitingBoardComponent,
+      ),
+    title: 'Lista de espera',
+  },
+  {
     path: '',
     component: MainLayoutComponent,
     canActivate: [authGuard],
