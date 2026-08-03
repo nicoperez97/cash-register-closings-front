@@ -5,12 +5,12 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
-import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
+import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
@@ -45,7 +45,7 @@ export class AdminAccountsPage {
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
-  private readonly confirmDialog = inject(ConfirmDialogService);
+  private readonly accountDelete = inject(AdminAccountDeleteService);
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminAccountRow[]>([]);
@@ -98,21 +98,10 @@ export class AdminAccountsPage {
   }
 
   async onRemove(row: AdminAccountRow): Promise<void> {
-    if (row.type === 'SYSTEM') return;
-    const ok = await this.confirmDialog.confirm('Eliminar cuenta', `¿Eliminar "${row.name}"?`);
-    if (!ok) return;
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
-    this.http.delete(`${environment.apiUrl}/shops/${shopId}/accounts/${row.id}`).subscribe({
-      next: () => {
-        this.snack.open('Cuenta eliminada', 'OK', { duration: 2500 });
-        this.reload();
-      },
-      error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar la cuenta';
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-      },
-    });
+    const deleted = await this.accountDelete.remove(shopId, row);
+    if (deleted) this.reload();
   }
 
   private openDialog(

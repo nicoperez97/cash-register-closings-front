@@ -11,7 +11,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
-import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
@@ -25,14 +24,26 @@ import { startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopBackupApiService } from './shop-backup-api.service';
-import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
-import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
+import { AdminAccountDialogComponent, AdminAccountRow, LINKED_PAYMENT_METHOD_OPTIONS } from './admin-account-dialog';
+import { AdminAccountDeleteService } from './admin-account-delete-dialog';
+import { activeLabel } from '../../core/i18n/labels';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
   { value: 'MERCADO_PAGO', label: 'Mercado Pago' },
   { value: 'CUENTA_DNI', label: 'Cuenta DNI' },
+] as const;
+
+/** Campos del cierre → medio vinculado a cuenta canal. */
+const CLOSING_DEPOSIT_FIELDS = [
+  { value: 'card', label: 'PVS / Tarjeta' },
+  { value: 'mercadoPago', label: 'Mercado Pago' },
+  { value: 'cash', label: 'Efectivo' },
+  { value: 'accountDni', label: 'Cuenta DNI' },
+  { value: 'delivery', label: 'Delivery' },
+  { value: 'transfer', label: 'Transferencia' },
+  { value: 'other', label: 'Otros' },
 ] as const;
 
 /** 0=domingo … 6=sábado (Date.getDay()). */
@@ -311,6 +322,42 @@ const WEEKDAY_OPTIONS = [
         </section>
 
         @if (canManageAccounts()) {
+          <section class="panel-card" id="shop-admin-closing-deposits">
+            <div class="shop-admin__posnets-head">
+              <div>
+                <h2 class="guy-section-title">Depósito del cierre</h2>
+                <p class="text-muted small mb-0">
+                  A qué cuenta canal va cada campo del cierre (PVS, Mercado Pago, efectivo…).
+                </p>
+              </div>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="depositSaving()"
+                (click)="savePaymentDeposits()"
+              >
+                <mat-icon>save</mat-icon>
+                {{ depositSaving() ? 'Guardando…' : 'Guardar depósitos' }}
+              </button>
+            </div>
+            <div class="shop-admin__deposits" [formGroup]="depositForm">
+              @for (field of closingDepositFields; track field.value) {
+                <div class="shop-admin__deposit-row">
+                  <span class="shop-admin__deposit-label">{{ field.label }}</span>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Cuenta destino</mat-label>
+                    <mat-select [formControlName]="field.value">
+                      <mat-option [value]="null">Sin vincular</mat-option>
+                      @for (a of accounts(); track a.id) {
+                        <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              }
+            </div>
+          </section>
+
           <section class="panel-card" id="shop-admin-channel-accounts">
             <div class="shop-admin__posnets-head">
               <div>
@@ -623,6 +670,28 @@ const WEEKDAY_OPTIONS = [
         background: color-mix(in srgb, var(--guy-navy, #003366) 12%, transparent);
         border-color: var(--guy-navy, #003366);
       }
+      .shop-admin__deposits {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .shop-admin__deposit-row {
+        display: grid;
+        grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: center;
+      }
+      .shop-admin__deposit-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+      }
+      @media (max-width: 600px) {
+        .shop-admin__deposit-row {
+          grid-template-columns: 1fr;
+          gap: 0.25rem;
+        }
+      }
     `,
   ],
 })
@@ -636,23 +705,34 @@ export class AdminShopPage implements OnInit {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
-  private readonly confirmDialog = inject(ConfirmDialogService);
+  private readonly accountDelete = inject(AdminAccountDeleteService);
   readonly shops = inject(ShopContextService);
 
   readonly salesSystems = signal<SalesSystemOption[]>([]);
   readonly accounts = signal<AdminAccountRow[]>([]);
   readonly saving = signal(false);
+  readonly depositSaving = signal(false);
   readonly backupBusy = signal(false);
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
+  readonly closingDepositFields = CLOSING_DEPOSIT_FIELDS;
+
+  readonly depositForm = this.fb.nonNullable.group({
+    card: this.fb.control<string | null>(null),
+    mercadoPago: this.fb.control<string | null>(null),
+    cash: this.fb.control<string | null>(null),
+    accountDni: this.fb.control<string | null>(null),
+    delivery: this.fb.control<string | null>(null),
+    transfer: this.fb.control<string | null>(null),
+    other: this.fb.control<string | null>(null),
+  });
 
   readonly accountColumns: DataTableColumn[] = [
     { key: 'name', label: 'Nombre' },
     { key: 'code', label: 'Código' },
-    { key: 'type', label: 'Tipo', format: (r) => accountTypeLabel(String(r['type'] ?? '')) },
     {
-      key: 'userFullName',
-      label: 'Usuarios',
-      format: (r) => String(r['userFullName'] ?? '—'),
+      key: 'linkedPaymentMethod',
+      label: 'Depósito',
+      format: (r) => this.paymentMethodLabel(String(r['linkedPaymentMethod'] ?? '')),
     },
     {
       key: 'hideFromCashWithdraw',
@@ -663,6 +743,11 @@ export class AdminShopPage implements OnInit {
   ];
 
   readonly canRemoveAccount = (row: AdminAccountRow) => row.type !== 'SYSTEM';
+
+  paymentMethodLabel(value: string): string {
+    if (!value) return '—';
+    return LINKED_PAYMENT_METHOD_OPTIONS.find((o) => o.value === value)?.label ?? value;
+  }
 
   isSuperAdmin(): boolean {
     return this.auth.isSuperAdmin();
@@ -831,10 +916,61 @@ export class AdminShopPage implements OnInit {
       .get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`)
       .subscribe({
         next: (rows) => {
-          this.accounts.set(rows.filter((r) => r.type === 'CHANNEL'));
+          const channels = rows.filter((r) => r.type === 'CHANNEL');
+          this.accounts.set(channels);
+          this.syncDepositForm(channels);
           after?.();
         },
         error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
+      });
+  }
+
+  private syncDepositForm(channels: AdminAccountRow[]): void {
+    const next: Record<string, string | null> = {
+      card: null,
+      mercadoPago: null,
+      cash: null,
+      accountDni: null,
+      delivery: null,
+      transfer: null,
+      other: null,
+    };
+    for (const a of channels) {
+      const method = a.linkedPaymentMethod;
+      if (method && method in next) {
+        next[method] = a.id;
+      }
+    }
+    this.depositForm.patchValue(next, { emitEvent: false });
+  }
+
+  savePaymentDeposits(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const raw = this.depositForm.getRawValue();
+    const used = Object.values(raw).filter((id): id is string => !!id);
+    if (new Set(used).size !== used.length) {
+      this.snack.open('Cada cuenta solo puede recibir un medio del cierre', 'OK', {
+        duration: 3500,
+      });
+      return;
+    }
+    this.depositSaving.set(true);
+    this.http
+      .put<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts/payment-deposits`, raw)
+      .subscribe({
+        next: (rows) => {
+          this.depositSaving.set(false);
+          const channels = rows.filter((r) => r.type === 'CHANNEL');
+          this.accounts.set(channels);
+          this.syncDepositForm(channels);
+          this.snack.open('Depósitos del cierre actualizados', 'OK', { duration: 2500 });
+        },
+        error: (err) => {
+          this.depositSaving.set(false);
+          const msg = err?.error?.message ?? 'No se pudieron guardar los depósitos';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
       });
   }
 
@@ -847,21 +983,12 @@ export class AdminShopPage implements OnInit {
   }
 
   async onRemoveAccount(row: AdminAccountRow): Promise<void> {
-    if (row.type === 'SYSTEM') return;
-    const ok = await this.confirmDialog.confirm('Eliminar cuenta', `¿Eliminar "${row.name}"?`);
-    if (!ok) return;
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
-    this.http.delete(`${environment.apiUrl}/shops/${shopId}/accounts/${row.id}`).subscribe({
-      next: () => {
-        this.snack.open('Cuenta eliminada', 'OK', { duration: 2500 });
-        this.reloadAccounts(() => this.scrollToChannelAccounts());
-      },
-      error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar la cuenta';
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-      },
-    });
+    const deleted = await this.accountDelete.remove(shopId, row);
+    if (deleted) {
+      this.reloadAccounts(() => this.scrollToChannelAccounts());
+    }
   }
 
   private scrollToChannelAccounts(fallbackY?: number): void {

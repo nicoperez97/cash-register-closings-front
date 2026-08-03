@@ -28,12 +28,12 @@ export interface AdminAccountRow {
 
 export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'cash', label: 'Efectivo' },
-  { value: 'card', label: 'Tarjeta / PVS' },
+  { value: 'card', label: 'PVS / Tarjeta' },
   { value: 'mercadoPago', label: 'Mercado Pago' },
   { value: 'delivery', label: 'Delivery' },
   { value: 'transfer', label: 'Transferencia' },
   { value: 'accountDni', label: 'Cuenta DNI' },
-  { value: 'other', label: 'Otro' },
+  { value: 'other', label: 'Otros' },
 ];
 
 export const ACCOUNT_TYPE_OPTIONS: Array<{
