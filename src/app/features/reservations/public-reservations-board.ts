@@ -100,9 +100,11 @@ import {
                   <span class="board__name">{{ r.guestName || 'Reserva' }}</span>
                   <span class="board__meta">
                     @if (r.reservationTime) {
-                      {{ r.reservationTime }} ·
+                      <span class="board__time">{{ r.reservationTime }}</span>
                     }
-                    {{ r.partySize }}p
+                    <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
+                      <strong>{{ r.partySize }}</strong><span>p</span>
+                    </span>
                   </span>
                 </li>
               } @empty {
@@ -118,9 +120,11 @@ import {
                   <span class="board__name">{{ r.guestName || 'Reserva' }}</span>
                   <span class="board__meta">
                     @if (r.reservationTime) {
-                      {{ r.reservationTime }} ·
+                      <span class="board__time">{{ r.reservationTime }}</span>
                     }
-                    {{ r.partySize }}p
+                    <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
+                      <strong>{{ r.partySize }}</strong><span>p</span>
+                    </span>
                   </span>
                 </li>
               } @empty {
@@ -475,8 +479,43 @@ import {
       }
 
       .board__meta {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+
+      .board__time {
         font-size: 0.78rem;
         color: #b5aa9c;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .board__pax {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.05rem;
+        padding: 0.2rem 0.45rem 0.22rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 22%, rgba(0, 0, 0, 0.35));
+        border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        color: #fff8f2;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .board__pax strong {
+        font-size: 1.15rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .board__pax span {
+        font-size: 0.72rem;
+        font-weight: 700;
+        opacity: 0.85;
+        text-transform: lowercase;
       }
 
       .board__empty {
@@ -593,8 +632,20 @@ import {
           text-overflow: ellipsis;
         }
 
-        .board__meta {
-          font-size: 0.7rem;
+        .board__time {
+          font-size: 0.68rem;
+        }
+
+        .board__pax {
+          padding: 0.16rem 0.4rem 0.18rem;
+        }
+
+        .board__pax strong {
+          font-size: 1.05rem;
+        }
+
+        .board__pax span {
+          font-size: 0.65rem;
         }
       }
 

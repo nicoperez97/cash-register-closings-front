@@ -97,7 +97,9 @@ import {
                 <li [class.board__item--new]="isNew(w.id)">
                   <span class="board__position">#{{ w.position }}</span>
                   <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
-                  <span class="board__meta">{{ w.partySize }}p</span>
+                  <span class="board__pax" [attr.aria-label]="w.partySize + ' personas'">
+                    <strong>{{ w.partySize }}</strong><span>p</span>
+                  </span>
                 </li>
               } @empty {
                 <li class="board__empty">Sin espera</li>
@@ -111,7 +113,9 @@ import {
                 <li [class.board__item--new]="isNew(w.id)">
                   <span class="board__position">#{{ w.position }}</span>
                   <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
-                  <span class="board__meta">{{ w.partySize }}p</span>
+                  <span class="board__pax" [attr.aria-label]="w.partySize + ' personas'">
+                    <strong>{{ w.partySize }}</strong><span>p</span>
+                  </span>
                 </li>
               } @empty {
                 <li class="board__empty">Sin espera</li>
@@ -468,10 +472,31 @@ import {
         white-space: nowrap;
       }
 
-      .board__meta {
-        font-size: 0.78rem;
-        color: #b5aa9c;
+      .board__pax {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.05rem;
+        padding: 0.2rem 0.45rem 0.22rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 22%, rgba(0, 0, 0, 0.35));
+        border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        color: #f2fff5;
         font-variant-numeric: tabular-nums;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .board__pax strong {
+        font-size: 1.15rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .board__pax span {
+        font-size: 0.72rem;
+        font-weight: 700;
+        opacity: 0.85;
+        text-transform: lowercase;
       }
 
       .board__empty {
@@ -587,8 +612,16 @@ import {
           font-size: 0.88rem;
         }
 
-        .board__meta {
-          font-size: 0.7rem;
+        .board__pax {
+          padding: 0.16rem 0.4rem 0.18rem;
+        }
+
+        .board__pax strong {
+          font-size: 1.05rem;
+        }
+
+        .board__pax span {
+          font-size: 0.65rem;
         }
       }
 
