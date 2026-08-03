@@ -589,6 +589,11 @@ select {
   color: #c62828;
 }
 
+.guy-dialog__title-icon--ok {
+  background: color-mix(in srgb, #2e7d32 14%, transparent);
+  color: #2e7d32;
+}
+
 .guy-dialog__title-text {
   display: flex;
   flex-direction: column;
