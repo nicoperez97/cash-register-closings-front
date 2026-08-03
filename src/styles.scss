@@ -606,6 +606,34 @@ select {
 .guy-dialog .mat-mdc-dialog-content {
   padding: 0.5rem 1.25rem 0.25rem !important;
   max-height: min(70vh, 520px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* Modal / sidenav: el scroll queda en el overlay, no en la página de atrás. */
+html.guy-body-scroll-lock,
+body.guy-body-scroll-lock,
+html.guy-dialog-scroll-lock,
+body.guy-dialog-scroll-lock {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.cdk-overlay-container {
+  pointer-events: none;
+}
+
+.cdk-overlay-container .cdk-overlay-pane,
+.cdk-overlay-container .cdk-overlay-backdrop {
+  pointer-events: auto;
+}
+
+.mat-mdc-dialog-container,
+.mat-mdc-dialog-surface {
+  overscroll-behavior: contain;
 }
 
 .guy-dialog .mat-mdc-dialog-actions {
@@ -613,6 +641,74 @@ select {
   padding: 0.85rem 1.25rem 1.1rem !important;
   gap: 0.5rem;
   border-top: 1px solid var(--guy-border, rgba(15, 23, 42, 0.08));
+}
+
+@media (max-width: 960px) {
+  .cdk-overlay-pane.mat-mdc-dialog-panel {
+    max-width: calc(100vw - 0.75rem) !important;
+  }
+
+  .guy-dialog .mat-mdc-dialog-container .mdc-dialog__surface,
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    max-height: min(92dvh, 100dvh) !important;
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .guy-dialog .mat-mdc-dialog-title {
+    flex-shrink: 0;
+    padding: 0.95rem 1rem 0.25rem !important;
+  }
+
+  .guy-dialog .mat-mdc-dialog-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 0.35rem 1rem 0.15rem !important;
+  }
+
+  .guy-dialog .mat-mdc-dialog-actions {
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 0.5rem;
+
+    .mat-mdc-button-base {
+      flex: 1 1 calc(50% - 0.25rem);
+      min-height: 44px;
+    }
+  }
+
+  /* Touch targets ≥ 44px */
+  .mat-mdc-icon-button {
+    --mdc-icon-button-state-layer-size: 44px;
+    width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
+  }
+
+  button.mat-mdc-button,
+  button.mat-mdc-outlined-button,
+  button.mat-mdc-unelevated-button,
+  button.mat-mdc-raised-button,
+  a.mat-mdc-button,
+  a.mat-mdc-outlined-button,
+  a.mat-mdc-unelevated-button,
+  .guy-btn-open {
+    min-height: 44px !important;
+  }
+
+  .guy-btn-open {
+    height: auto;
+    padding-inline: 0.85rem;
+  }
+
+  /* Previews de import: un solo scroll corto, no pelear con el del dialog */
+  .xl-preview,
+  .wa-preview {
+    max-height: min(36dvh, 240px) !important;
+  }
 }
 
 .guy-dialog__form {

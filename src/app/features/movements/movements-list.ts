@@ -20,6 +20,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { EmployeesApiService } from '../employees/employees-api.service';
+import { ClosingsApiService } from '../closings/closings-api.service';
 import {
   Concept,
   LedgerAccount,
@@ -27,7 +28,11 @@ import {
   MovementFilters,
   MovementsApiService,
 } from './movements-api.service';
-import { MovementDialogComponent, MovementEmployeeOption } from './movement-dialog';
+import {
+  MovementDialogComponent,
+  MovementEmployeeOption,
+  MovementUserOption,
+} from './movement-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
@@ -166,6 +171,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 export class MovementsListPage {
   private readonly api = inject(MovementsApiService);
   private readonly employeesApi = inject(EmployeesApiService);
+  private readonly closingsApi = inject(ClosingsApiService);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
@@ -179,6 +185,7 @@ export class MovementsListPage {
   readonly accounts = signal<LedgerAccount[]>([]);
   readonly concepts = signal<Concept[]>([]);
   readonly employees = signal<MovementEmployeeOption[]>([]);
+  readonly users = signal<MovementUserOption[]>([]);
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(
@@ -194,8 +201,8 @@ export class MovementsListPage {
 
   readonly columns: DataTableColumn[] = [
     { key: 'businessDate', label: 'Fecha' },
-    { key: 'fromAccountName', label: 'Origen' },
-    { key: 'toAccountName', label: 'Destino' },
+    { key: 'fromAccountName', label: 'Origen', format: (r) => r['fromAccountName'] ?? '—' },
+    { key: 'toAccountName', label: 'Destino', format: (r) => r['toAccountName'] ?? '—' },
     { key: 'conceptName', label: 'Concepto', format: (r) => r['conceptName'] ?? '—' },
     { key: 'description', label: 'Descripción' },
     {
@@ -227,6 +234,7 @@ export class MovementsListPage {
         this.accounts.set([]);
         this.concepts.set([]);
         this.employees.set([]);
+        this.users.set([]);
         return;
       }
       this.api.accounts(shopId).subscribe({
@@ -240,6 +248,18 @@ export class MovementsListPage {
       this.employeesApi.list(shopId).subscribe({
         next: (rows) => this.employees.set(rows.map((e) => ({ id: e.id, fullName: e.fullName }))),
         error: () => this.employees.set([]),
+      });
+      this.closingsApi.shopUsers(shopId).subscribe({
+        next: (rows) =>
+          this.users.set(
+            rows.map((u) => ({
+              id: u.id,
+              fullName: u.fullName,
+              email: u.email,
+              ledgerAccounts: u.ledgerAccounts ?? [],
+            })),
+          ),
+        error: () => this.users.set([]),
       });
       this.load();
     });
@@ -356,7 +376,7 @@ export class MovementsListPage {
     this.dialogTitle
       .track(
         this.dialog.open(MovementDialogComponent, {
-          width: '640px',
+          width: '680px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
           data: {
@@ -366,13 +386,31 @@ export class MovementsListPage {
             accounts: this.accounts(),
             concepts: this.concepts(),
             employees: this.employees(),
+            users: this.users(),
           },
         }),
         mode.mode === 'edit' ? 'Editar movimiento' : 'Nuevo movimiento',
       )
       .afterClosed()
       .subscribe((ok) => {
-        if (ok) this.applyFilter();
+        if (!ok) return;
+        this.api.accounts(shopId).subscribe({
+          next: (rows) => this.accounts.set(rows),
+          error: () => undefined,
+        });
+        this.closingsApi.shopUsers(shopId).subscribe({
+          next: (rows) =>
+            this.users.set(
+              rows.map((u) => ({
+                id: u.id,
+                fullName: u.fullName,
+                email: u.email,
+                ledgerAccounts: u.ledgerAccounts ?? [],
+              })),
+            ),
+          error: () => undefined,
+        });
+        this.applyFilter();
       });
   }
 }

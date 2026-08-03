@@ -6,8 +6,8 @@ export interface Movement {
   id: string;
   shopId: string;
   businessDate: string;
-  fromAccountId: string;
-  toAccountId: string;
+  fromAccountId?: string | null;
+  toAccountId?: string | null;
   fromAccountName?: string | null;
   toAccountName?: string | null;
   description?: string | null;
@@ -31,6 +31,7 @@ export interface LedgerAccount {
   code: string;
   type: 'PARTNER' | 'CHANNEL' | 'SYSTEM';
   linkedPaymentMethod?: string | null;
+  userIds?: string[];
   active: boolean;
 }
 

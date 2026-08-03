@@ -176,8 +176,15 @@ export class PullToRefreshComponent implements OnInit {
 
   private isInsideScrollTrap(target: EventTarget | null): boolean {
     if (!(target instanceof Element)) return false;
+    if (
+      document.body.classList.contains('guy-dialog-scroll-lock') ||
+      document.body.classList.contains('guy-body-scroll-lock')
+    ) {
+      return true;
+    }
+    if (document.querySelector('.cdk-overlay-container .cdk-overlay-backdrop')) return true;
     return !!target.closest(
-      '.mat-drawer, .mat-sidenav, .layout-sidenav, .sidebar-nav, [data-scroll-trap]',
+      '.mat-drawer, .mat-sidenav, .layout-sidenav, .sidebar-nav, .cdk-overlay-container, .mat-mdc-dialog-container, [data-scroll-trap]',
     );
   }
 
