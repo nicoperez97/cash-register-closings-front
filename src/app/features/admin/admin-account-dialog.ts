@@ -17,7 +17,7 @@ export interface AdminAccountRow {
   id: string;
   name: string;
   code: string;
-  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM';
+  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER';
   linkedPaymentMethod?: string | null;
   userIds?: string[];
   userId?: string | null;
@@ -36,15 +36,24 @@ export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string
   { value: 'other', label: 'Otro' },
 ];
 
-export const ACCOUNT_TYPE_OPTIONS: Array<{ value: 'PARTNER' | 'CHANNEL' | 'SYSTEM'; label: string }> = [
+export const ACCOUNT_TYPE_OPTIONS: Array<{
+  value: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER';
+  label: string;
+}> = [
   { value: 'PARTNER', label: accountTypeLabel('PARTNER') },
   { value: 'CHANNEL', label: accountTypeLabel('CHANNEL') },
   { value: 'SYSTEM', label: accountTypeLabel('SYSTEM') },
+  { value: 'SUPPLIER', label: accountTypeLabel('SUPPLIER') },
 ];
 
-export type AdminAccountDialogData =
+export type AdminAccountDialogData = {
+  shopId?: string;
+  /** Prefijo de tipo al crear (ej. CHANNEL desde config del local). */
+  defaultType?: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER';
+} & (
   | { mode: 'create' }
-  | { mode: 'edit'; account: AdminAccountRow };
+  | { mode: 'edit'; account: AdminAccountRow }
+);
 
 interface UserOption {
   id: string;
@@ -183,7 +192,10 @@ export class AdminAccountDialogComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     name: [this.account?.name ?? '', Validators.required],
     code: [this.account?.code ?? '', Validators.required],
-    type: [this.account?.type ?? 'PARTNER', Validators.required],
+    type: [
+      this.account?.type ?? this.data.defaultType ?? 'PARTNER',
+      Validators.required,
+    ],
     linkedPaymentMethod: this.fb.control<string | null>(this.account?.linkedPaymentMethod ?? null),
     userIds: this.fb.nonNullable.control<string[]>(this.initialUserIds()),
     hideFromCashWithdraw: [this.account?.hideFromCashWithdraw ?? false],
@@ -214,7 +226,7 @@ export class AdminAccountDialogComponent implements OnInit {
       type: raw.type,
       linkedPaymentMethod: raw.linkedPaymentMethod || null,
       userIds: raw.userIds ?? [],
-      hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+      hideFromCashWithdraw: raw.type === 'SUPPLIER' ? true : !!raw.hideFromCashWithdraw,
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);

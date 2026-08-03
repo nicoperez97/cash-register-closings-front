@@ -118,7 +118,7 @@ export class AdminUsersPage implements OnInit {
       { key: 'email', label: 'Correo' },
       { key: 'globalRole', label: 'Tipo', format: (r) => accountTypeLabel(r) },
     ];
-    if (this.isSuperAdmin()) {
+    if (this.isSuperAdmin() && this.scope() === 'all') {
       cols.push({
         key: 'shopIds',
         label: 'Locales',
@@ -133,6 +133,11 @@ export class AdminUsersPage implements OnInit {
         key: 'ledgerAccountName',
         label: 'Cuentas',
         format: (r) => String(r['ledgerAccountName'] ?? '—'),
+      });
+      cols.push({
+        key: 'hideFromCashWithdraw',
+        label: 'Retiro',
+        format: (r) => (r['hideFromCashWithdraw'] ? 'Oculto' : 'Visible'),
       });
     }
     cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });

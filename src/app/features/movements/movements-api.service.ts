@@ -10,6 +10,10 @@ export interface Movement {
   toAccountId?: string | null;
   fromAccountName?: string | null;
   toAccountName?: string | null;
+  fromUserId?: string | null;
+  toUserId?: string | null;
+  fromUserName?: string | null;
+  toUserName?: string | null;
   description?: string | null;
   amountUyu: number;
   usdRate?: number | null;
@@ -129,6 +133,7 @@ export class MovementsApiService {
 export interface AccountBalanceRow {
   accountId: string;
   name: string;
+  type?: string;
   income: number;
   expense: number;
   balance: number;

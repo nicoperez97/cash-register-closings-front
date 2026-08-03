@@ -131,6 +131,11 @@
           >
             <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
             <span class="nav-group__label">{{ item.label }}</span>
+            @if (groupBadge(item); as gb) {
+              <span class="nav-badge nav-badge--group" aria-label="{{ gb }} pendientes">
+                {{ badgeLabel(gb) }}
+              </span>
+            }
             <mat-icon class="nav-group__chevron" aria-hidden="true">expand_more</mat-icon>
           </button>
           <div
@@ -155,7 +160,12 @@
                     (click)="onNavClick()"
                   >
                     <mat-icon class="nav-icon nav-icon--child">{{ child.icon }}</mat-icon>
-                    <span>{{ child.label }}</span>
+                    <span class="nav-child__label">{{ child.label }}</span>
+                    @if (child.badge && child.badge > 0) {
+                      <span class="nav-badge" aria-label="{{ child.badge }} pendientes">
+                        {{ badgeLabel(child.badge) }}
+                      </span>
+                    }
                   </a>
                 }
               </div>
@@ -172,6 +182,11 @@
         >
           <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
           <span>{{ item.label }}</span>
+          @if (item.badge && item.badge > 0) {
+            <span class="nav-badge" aria-label="{{ item.badge }} pendientes">
+              {{ badgeLabel(item.badge) }}
+            </span>
+          }
         </a>
       }
     }

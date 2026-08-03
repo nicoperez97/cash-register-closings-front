@@ -14,6 +14,7 @@ export interface NavChild {
   label: string;
   route: string;
   icon: string;
+  badge?: number | null;
 }
 
 export interface NavItem {
@@ -22,6 +23,7 @@ export interface NavItem {
   icon: string;
   children?: NavChild[];
   exact?: boolean;
+  badge?: number | null;
 }
 
 @Component({
@@ -137,6 +139,22 @@ export class SidebarComponent {
 
   onLogoError(): void {
     this.logoBroken.set(true);
+  }
+
+  badgeLabel(count: number): string {
+    const n = Math.max(0, Math.floor(Number(count) || 0));
+    if (n > 9) return '9+';
+    return String(n);
+  }
+
+  /** Suma badges de hijos (p. ej. Operación → Pagos). */
+  groupBadge(item: NavItem): number {
+    const fromItem = Number(item.badge) || 0;
+    const fromChildren = (item.children ?? []).reduce(
+      (sum, c) => sum + (Number(c.badge) || 0),
+      0,
+    );
+    return fromItem + fromChildren;
   }
 
   onShopLogoError(event: Event): void {

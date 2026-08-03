@@ -54,6 +54,7 @@ export interface ShopUserOption {
   id: string;
   fullName: string;
   email: string;
+  hideFromCashWithdraw?: boolean;
   ledgerAccounts?: ShopUserAccountOption[];
 }
 

@@ -622,8 +622,12 @@ export class MovementDialogComponent {
   readonly newFromAccountName = this.fb.nonNullable.control('');
   readonly newToAccountName = this.fb.nonNullable.control('');
 
-  private initialFromUser = this.resolveUserForAccount(this.movement?.fromAccountId ?? null);
-  private initialToUser = this.resolveUserForAccount(this.movement?.toAccountId ?? null);
+  private initialFromUser =
+    this.movement?.fromUserId ||
+    this.resolveUserForAccount(this.movement?.fromAccountId ?? null);
+  private initialToUser =
+    this.movement?.toUserId ||
+    this.resolveUserForAccount(this.movement?.toAccountId ?? null);
 
   private defaultBusinessDate(): string {
     const shop = this.shops.selectedShop();
@@ -788,6 +792,9 @@ export class MovementDialogComponent {
       businessDate: toDateString(raw.businessDate),
       fromAccountId: raw.fromAccountId || null,
       toAccountId: raw.toAccountId || null,
+      fromUserId:
+        raw.fromUserId && raw.fromUserId !== LOCAL_ACCOUNTS_KEY ? raw.fromUserId : null,
+      toUserId: raw.toUserId && raw.toUserId !== LOCAL_ACCOUNTS_KEY ? raw.toUserId : null,
       conceptId: raw.conceptId || null,
       description: raw.description.trim() || null,
       amountUyu: raw.amountUyu,

@@ -87,6 +87,34 @@ export const routes: Routes = [
         title: 'Lista de espera',
       },
       {
+        path: 'payments',
+        pathMatch: 'full',
+        redirectTo: 'payments/suppliers',
+      },
+      {
+        path: 'payments/suppliers',
+        canActivate: [permissionGuard('payments.read')],
+        data: { paymentKind: 'supplier' },
+        loadComponent: () =>
+          import('./features/payments/payments-page').then((m) => m.PaymentsPage),
+        title: 'Pagos a proveedores',
+      },
+      {
+        path: 'payments/employees',
+        canActivate: [permissionGuard('payments.read')],
+        data: { paymentKind: 'employee' },
+        loadComponent: () =>
+          import('./features/payments/payments-page').then((m) => m.PaymentsPage),
+        title: 'Pagos a empleados',
+      },
+      {
+        path: 'suppliers',
+        canActivate: [permissionGuard('suppliers.read')],
+        loadComponent: () =>
+          import('./features/suppliers/suppliers-list').then((m) => m.SuppliersListPage),
+        title: 'Proveedores',
+      },
+      {
         path: 'admin/shops',
         canActivate: [superAdminGuard],
         loadComponent: () =>

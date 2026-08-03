@@ -1,4 +1,5 @@
 import { Component, Input } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 
 export interface BalanceAccountRow {
   name: string;
@@ -7,47 +8,73 @@ export interface BalanceAccountRow {
 
 @Component({
   selector: 'app-balances-table',
+  imports: [MatIconModule],
   template: `
     <div class="guy-saldos" role="region" [attr.aria-label]="title">
-      <div class="guy-saldos__banner">{{ title }}</div>
-      <table class="guy-saldos__table">
-        <thead>
-          <tr>
-            <th scope="col">Cuenta</th>
-            <th scope="col" class="guy-saldos__col-saldo">Saldo</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of accounts; track row.name) {
-            <tr>
-              <td>{{ row.name }}</td>
-              <td
-                class="guy-saldos__amount"
-                [class.guy-saldos__amount--neg]="row.balance < 0"
-              >
-                {{ formatMoney(row.balance) }}
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="2" class="guy-saldos__empty">Sin cuentas</td>
-            </tr>
-          }
-        </tbody>
-        @if (accounts.length) {
-          <tfoot>
-            <tr>
-              <td>TOTAL</td>
-              <td
-                class="guy-saldos__amount"
-                [class.guy-saldos__amount--neg]="total < 0"
-              >
-                {{ formatMoney(total) }}
-              </td>
-            </tr>
-          </tfoot>
+      @if (showHeader) {
+        <header class="guy-saldos__head">
+          <div class="guy-saldos__head-main">
+            <span class="guy-saldos__badge" aria-hidden="true">
+              <mat-icon>account_balance_wallet</mat-icon>
+            </span>
+            <div>
+              <h3 class="guy-saldos__title">{{ title }}</h3>
+              @if (subtitle) {
+                <p class="guy-saldos__subtitle">{{ subtitle }}</p>
+              }
+            </div>
+          </div>
+          <div
+            class="guy-saldos__total-pill"
+            [class.guy-saldos__total-pill--neg]="total < 0"
+            [class.guy-saldos__total-pill--pos]="total > 0"
+          >
+            <span class="guy-saldos__total-label">Total</span>
+            <strong class="guy-saldos__total-value">{{ formatMoney(total) }}</strong>
+          </div>
+        </header>
+      }
+
+      <div class="guy-saldos__list" role="list">
+        @for (row of accounts; track row.name; let i = $index) {
+          <div class="guy-saldos__row" role="listitem" [style.--i]="i">
+            <span
+              class="guy-saldos__avatar"
+              [attr.data-tone]="avatarTone(row.name)"
+              aria-hidden="true"
+            >
+              {{ initials(row.name) }}
+            </span>
+            <span class="guy-saldos__name">{{ row.name }}</span>
+            <span
+              class="guy-saldos__amount"
+              [class.guy-saldos__amount--neg]="row.balance < 0"
+              [class.guy-saldos__amount--pos]="row.balance > 0"
+              [class.guy-saldos__amount--zero]="row.balance === 0"
+            >
+              {{ formatMoney(row.balance) }}
+            </span>
+          </div>
+        } @empty {
+          <div class="guy-saldos__empty">
+            <mat-icon>inbox</mat-icon>
+            <span>Sin cuentas</span>
+          </div>
         }
-      </table>
+      </div>
+
+      @if (accounts.length && showFooter) {
+        <footer class="guy-saldos__foot">
+          <span class="guy-saldos__foot-label">Total</span>
+          <strong
+            class="guy-saldos__foot-amount"
+            [class.guy-saldos__amount--neg]="total < 0"
+            [class.guy-saldos__amount--pos]="total > 0"
+          >
+            {{ formatMoney(total) }}
+          </strong>
+        </footer>
+      }
     </div>
   `,
   styles: `
@@ -58,105 +85,292 @@ export interface BalanceAccountRow {
 
     .guy-saldos {
       width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior-x: contain;
       background: transparent;
     }
 
-    .guy-saldos__banner {
-      padding: 0.75rem 1rem;
-      text-align: center;
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #fff;
+    .guy-saldos__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 1rem 1.1rem 0.85rem;
+      border-bottom: 1px solid var(--guy-border, #d7e0d9);
       background: linear-gradient(
-        135deg,
-        var(--guy-navy-deep) 0%,
-        var(--guy-primary) 100%
+        180deg,
+        color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, var(--guy-card, #fff)) 0%,
+        var(--guy-card, #fff) 100%
       );
     }
 
-    .guy-saldos__table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.875rem;
-      color: var(--guy-text);
+    .guy-saldos__head-main {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      min-width: 0;
     }
 
-    .guy-saldos__table th,
-    .guy-saldos__table td {
-      padding: 0.55rem 0.85rem;
-      border-bottom: 1px solid var(--guy-table-cell-border);
-      line-height: 1.35;
-      vertical-align: middle;
+    .guy-saldos__badge {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 2.35rem;
+      height: 2.35rem;
+      border-radius: 0.7rem;
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, transparent);
+      color: var(--guy-primary, #1d65a0);
     }
 
-    .guy-saldos__table thead th {
-      background: var(--guy-table-header-bg);
-      color: var(--guy-muted);
-      font-size: 0.72rem;
+    .guy-saldos__badge mat-icon {
+      font-size: 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    .guy-saldos__title {
+      margin: 0;
+      font-size: 1.05rem;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: -0.01em;
+      color: var(--guy-navy-deep, #003366);
+      line-height: 1.2;
+    }
+
+    .guy-saldos__subtitle {
+      margin: 0.15rem 0 0;
+      font-size: 0.78rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.3;
+    }
+
+    .guy-saldos__total-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.1rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.65rem;
+      background: color-mix(in srgb, var(--guy-muted, #5f6f76) 8%, transparent);
+      border: 1px solid var(--guy-border, #d7e0d9);
+    }
+
+    .guy-saldos__total-pill--pos {
+      background: color-mix(in srgb, #2e7d32 10%, transparent);
+      border-color: color-mix(in srgb, #2e7d32 28%, transparent);
+    }
+
+    .guy-saldos__total-pill--neg {
+      background: color-mix(in srgb, #c62828 10%, transparent);
+      border-color: color-mix(in srgb, #c62828 28%, transparent);
+    }
+
+    .guy-saldos__total-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      text-align: left;
+      color: var(--guy-muted, #5f6f76);
     }
 
-    .guy-saldos__col-saldo {
-      text-align: right !important;
-      min-width: 7.5rem;
+    .guy-saldos__total-value {
+      font-size: 1rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      color: var(--guy-text, #1b2a33);
+      line-height: 1.2;
     }
 
-    .guy-saldos__table tbody tr:nth-child(even) {
-      background: var(--guy-table-row-even);
+    .guy-saldos__total-pill--pos .guy-saldos__total-value {
+      color: #2e7d32;
     }
 
-    .guy-saldos__table tbody tr:hover {
-      background: color-mix(in srgb, var(--guy-primary) 6%, transparent);
+    .guy-saldos__total-pill--neg .guy-saldos__total-value {
+      color: #c62828;
+    }
+
+    .guy-saldos__list {
+      display: flex;
+      flex-direction: column;
+      max-height: min(28rem, 60vh);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .guy-saldos__row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.65rem 1.1rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+      animation: guy-saldos-in 320ms var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+      animation-delay: calc(var(--i, 0) * 18ms);
+      transition:
+        background var(--guy-dur-fast, 140ms) var(--guy-ease, ease),
+        transform var(--guy-dur-fast, 140ms) var(--guy-ease, ease);
+    }
+
+    .guy-saldos__row:last-child {
+      border-bottom: none;
+    }
+
+    .guy-saldos__row:hover {
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 5%, transparent);
+    }
+
+    @keyframes guy-saldos-in {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .guy-saldos__avatar {
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.55rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #fff;
+      background: var(--guy-primary, #1d65a0);
+      flex: none;
+    }
+
+    .guy-saldos__avatar[data-tone='1'] {
+      background: #1d65a0;
+    }
+    .guy-saldos__avatar[data-tone='2'] {
+      background: #2e7d32;
+    }
+    .guy-saldos__avatar[data-tone='3'] {
+      background: #f27d16;
+    }
+    .guy-saldos__avatar[data-tone='4'] {
+      background: #6a1b9a;
+    }
+    .guy-saldos__avatar[data-tone='5'] {
+      background: #00838f;
+    }
+    .guy-saldos__avatar[data-tone='6'] {
+      background: #c62828;
+    }
+
+    .guy-saldos__name {
+      min-width: 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--guy-text, #1b2a33);
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .guy-saldos__amount {
-      text-align: right;
-      white-space: nowrap;
+      font-size: 0.9rem;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
-      font-weight: 500;
-      color: var(--guy-text);
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+      color: var(--guy-text, #1b2a33);
+    }
+
+    .guy-saldos__amount--pos {
+      color: #2e7d32;
     }
 
     .guy-saldos__amount--neg {
-      color: #c0392b;
+      color: #c62828;
+    }
+
+    .guy-saldos__amount--zero {
+      color: var(--guy-muted, #5f6f76);
+      font-weight: 500;
     }
 
     .guy-saldos__empty {
-      text-align: center;
-      color: var(--guy-muted);
-      font-style: italic;
-      padding: 1.25rem 0.85rem !important;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 2rem 1rem;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.9rem;
     }
 
-    .guy-saldos__table tfoot td {
-      border-bottom: none;
-      border-top: 1px solid var(--guy-border);
-      background: color-mix(in srgb, var(--guy-primary) 7%, var(--guy-card));
+    .guy-saldos__empty mat-icon {
+      font-size: 1.75rem;
+      width: 1.75rem;
+      height: 1.75rem;
+      opacity: 0.55;
+    }
+
+    .guy-saldos__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.85rem 1.1rem;
+      border-top: 1px solid var(--guy-border, #d7e0d9);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, var(--guy-card, #fff)) 0%,
+        color-mix(in srgb, var(--guy-primary, #1d65a0) 4%, var(--guy-card, #fff)) 100%
+      );
+    }
+
+    .guy-saldos__foot-label {
+      font-size: 0.72rem;
       font-weight: 700;
-      color: var(--guy-navy-deep);
-      padding-top: 0.7rem;
-      padding-bottom: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #5f6f76);
     }
 
-    :host-context(html[data-theme='dark']) .guy-saldos__table tfoot td {
+    .guy-saldos__foot-amount {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      color: var(--guy-navy-deep, #003366);
+    }
+
+    :host-context(html[data-theme='dark']) .guy-saldos__title,
+    :host-context(html[data-theme='dark']) .guy-saldos__foot-amount {
       color: var(--guy-text);
     }
 
-    :host-context(html[data-theme='dark']) .guy-saldos__amount--neg {
+    :host-context(html[data-theme='dark']) .guy-saldos__amount--pos,
+    :host-context(html[data-theme='dark']) .guy-saldos__total-pill--pos .guy-saldos__total-value {
+      color: #81c784;
+    }
+
+    :host-context(html[data-theme='dark']) .guy-saldos__amount--neg,
+    :host-context(html[data-theme='dark']) .guy-saldos__total-pill--neg .guy-saldos__total-value {
       color: #ff8a80;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .guy-saldos__row {
+        animation: none;
+      }
     }
   `,
 })
 export class BalancesTableComponent {
   @Input() title = 'Saldos';
+  @Input() subtitle = '';
+  @Input() showHeader = true;
+  /** Pie con total; en home conviene false si el total ya va en el header. */
+  @Input() showFooter = true;
   @Input() accounts: BalanceAccountRow[] = [];
 
   get total(): number {
@@ -169,5 +383,21 @@ export class BalancesTableComponent {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  }
+
+  initials(name: string): string {
+    const parts = String(name ?? '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  avatarTone(name: string): string {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i) * (i + 1)) % 6;
+    return String(h + 1);
   }
 }

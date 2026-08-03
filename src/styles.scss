@@ -1227,7 +1227,8 @@ button.mat-mdc-mini-fab mat-icon {
 }
 
 .user-popover-panel.mat-mdc-menu-panel,
-.theme-menu-panel.mat-mdc-menu-panel {
+.theme-menu-panel.mat-mdc-menu-panel,
+.notif-menu-panel.mat-mdc-menu-panel {
   min-width: 0 !important;
   max-width: min(320px, 90vw) !important;
   border-radius: 14px !important;
@@ -1236,12 +1237,26 @@ button.mat-mdc-mini-fab mat-icon {
   box-shadow:
     0 10px 28px rgba(0, 51, 102, 0.12),
     0 2px 8px rgba(0, 51, 102, 0.06) !important;
+}
+
+.user-popover-panel.mat-mdc-menu-panel,
+.theme-menu-panel.mat-mdc-menu-panel {
   overflow: visible !important;
+}
+
+.notif-menu-panel.mat-mdc-menu-panel {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .user-popover-panel .mat-mdc-menu-content,
 .theme-menu-panel .mat-mdc-menu-content {
   padding: 0.85rem 0.95rem !important;
+}
+
+.notif-menu-panel .mat-mdc-menu-content {
+  padding: 0 !important;
+  overflow-x: hidden !important;
 }
 
 /* —— Docs helpers —— */

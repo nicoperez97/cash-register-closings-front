@@ -27,7 +27,11 @@ export type Permission =
   | 'reservations.read'
   | 'reservations.manage'
   | 'waitingList.read'
-  | 'waitingList.manage';
+  | 'waitingList.manage'
+  | 'payments.read'
+  | 'payments.manage'
+  | 'suppliers.read'
+  | 'suppliers.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -54,6 +58,10 @@ const ALL_PERMISSIONS: Permission[] = [
   'reservations.manage',
   'waitingList.read',
   'waitingList.manage',
+  'payments.read',
+  'payments.manage',
+  'suppliers.read',
+  'suppliers.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -84,6 +92,10 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reservations.manage',
     'waitingList.read',
     'waitingList.manage',
+    'payments.read',
+    'payments.manage',
+    'suppliers.read',
+    'suppliers.manage',
   ],
   CASHIER: ['closings.create', 'closings.read'],
   VIEWER: [
@@ -96,8 +108,17 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'commissions.read',
     'movements.read',
     'reservations.read',
+    'payments.read',
+    'suppliers.read',
   ],
-  PARTNER: ['closings.read', 'reports.view', 'reports.export', 'movements.read'],
+  PARTNER: [
+    'closings.read',
+    'reports.view',
+    'reports.export',
+    'movements.read',
+    'payments.read',
+    'suppliers.read',
+  ],
 };
 
 export type ModuleKey =
@@ -112,6 +133,8 @@ export type ModuleKey =
   | 'concepts'
   | 'reservations'
   | 'waitingList'
+  | 'payments'
+  | 'suppliers'
   | 'shop'
   | 'users';
 
@@ -260,11 +283,35 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'payments',
+    label: 'Pagos',
+    icon: 'payments',
+    group: 'daily',
+    hint: 'Pagos a validar y abonar',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'suppliers',
+    label: 'Proveedores',
+    icon: 'local_shipping',
+    group: 'config',
+    hint: 'Proveedores y su cuenta asociada',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
     group: 'config',
-    hint: 'Config del local, platos y sistemas',
+    hint: 'Config del local, cuentas, platos y sistemas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'manage', label: 'Gestionar', short: 'Todo' },
@@ -388,11 +435,17 @@ export interface ShopSummary {
   slug: string;
   unitsLabel?: string | null;
   coversEnabled: boolean;
+  /** Si es false, reservas no están disponibles en este local. */
+  reservationsEnabled?: boolean;
+  /** Si es false, lista de espera no está disponible en este local. */
+  waitingListEnabled?: boolean;
   defaultChangeAmount: number;
   currency: string;
   timezone?: string;
   /** Hora de apertura HH:mm; el día laboral dura hasta esa hora del día siguiente. */
   openingTime?: string;
+  /** Días de franco (0=domingo … 6=sábado). */
+  closedWeekdays?: number[];
   logoUrl?: string | null;
   accentColor?: string | null;
   salesSystemId?: string | null;

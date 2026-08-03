@@ -126,8 +126,11 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     } @else {
       <div class="movements-layout mb-3">
         <div class="panel-card panel-card--flush movements-layout__saldos">
-          <app-balances-table [accounts]="balanceRows()" />
-          <p class="movements-layout__hint">Saldos acumulados (canales del local y socios)</p>
+          <app-balances-table
+            title="Saldos"
+            subtitle="Acumulados · canales y socios"
+            [accounts]="balanceRows()"
+          />
         </div>
 
         <div class="panel-card panel-card--flush movements-layout__table">
@@ -160,12 +163,6 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       }
     }
 
-    .movements-layout__hint {
-      margin: 0;
-      padding: 0.55rem 1rem 0.75rem;
-      font-size: 0.75rem;
-      color: var(--guy-muted);
-    }
   `,
 })
 export class MovementsListPage {
@@ -201,8 +198,17 @@ export class MovementsListPage {
 
   readonly columns: DataTableColumn[] = [
     { key: 'businessDate', label: 'Fecha' },
-    { key: 'fromAccountName', label: 'Origen', format: (r) => r['fromAccountName'] ?? '—' },
-    { key: 'toAccountName', label: 'Destino', format: (r) => r['toAccountName'] ?? '—' },
+    {
+      key: 'fromAccountName',
+      label: 'Origen',
+      format: (r) =>
+        String(r['fromAccountName'] || r['fromUserName'] || '—'),
+    },
+    {
+      key: 'toAccountName',
+      label: 'Destino',
+      format: (r) => String(r['toAccountName'] || r['toUserName'] || '—'),
+    },
     { key: 'conceptName', label: 'Concepto', format: (r) => r['conceptName'] ?? '—' },
     { key: 'description', label: 'Descripción' },
     {
