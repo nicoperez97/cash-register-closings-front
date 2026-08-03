@@ -72,7 +72,7 @@ function toDateString(value: Date | null): string | null {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Sueldo base</mat-label>
           <mat-icon matPrefix>payments</mat-icon>
-          <input matInput type="number" min="0" formControlName="baseSalary" />
+          <input matInput type="number" min="0" inputmode="decimal" formControlName="baseSalary" />
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">

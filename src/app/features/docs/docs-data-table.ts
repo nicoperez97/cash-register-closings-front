@@ -69,7 +69,7 @@ type RowDialogData = { mode: 'create' } | { mode: 'edit'; item: DemoRow };
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Monto</mat-label>
           <mat-icon matPrefix>payments</mat-icon>
-          <input matInput type="number" formControlName="amount" />
+          <input matInput type="number" inputmode="decimal" formControlName="amount" />
         </mat-form-field>
       </form>
     </mat-dialog-content>

@@ -51,7 +51,7 @@ export type AdminPosSubcategoryDialogData = {
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Orden</mat-label>
-          <input matInput type="number" formControlName="sortOrder" />
+          <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="sortOrder" />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Notas</mat-label>
@@ -157,7 +157,7 @@ export class AdminPosCategoryDialogComponent {
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Orden</mat-label>
-          <input matInput type="number" formControlName="sortOrder" />
+          <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="sortOrder" />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Notas</mat-label>

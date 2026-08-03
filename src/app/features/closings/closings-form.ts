@@ -9,11 +9,33 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { merge, startWith } from 'rxjs';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
 import { newId } from '../../core/utils/id';
+import {
+  formatBusinessDayHint,
+  formatIsoDateDisplay,
+  resolveShopBusinessDate,
+} from '../../core/shop/business-date';
 import { ClosingsApiService, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+
+function toDateInput(value?: string | null): Date {
+  if (!value) return new Date();
+  const d = new Date(`${value}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+function toDateString(value: Date | null | string | undefined): string {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = value instanceof Date ? value : new Date();
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'RAW_MATERIALS', label: 'Materia prima' },
@@ -56,6 +78,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
+    MatDatepickerModule,
   ],
   host: {
     class: 'closing-form-page',
@@ -141,25 +164,34 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
           <div class="closing-form__fields closing-form__fields--main">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Fecha</mat-label>
-              <input matInput type="date" formControlName="businessDate" />
+              <input matInput [matDatepicker]="closingDatePicker" formControlName="businessDate" />
+              <mat-datepicker-toggle matIconSuffix [for]="closingDatePicker" />
+              <mat-datepicker #closingDatePicker />
+              @if (businessDayHint()) {
+                <mat-hint>{{ businessDayHint() }}</mat-hint>
+              }
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Caja (sistema)</mat-label>
-              <input matInput type="number" formControlName="posSystemAmount" />
+              <input matInput type="number"
+                      inputmode="decimal" formControlName="posSystemAmount" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Efectivo</mat-label>
-              <input matInput type="number" formControlName="cashAmount" />
+              <input matInput type="number"
+                      inputmode="decimal" formControlName="cashAmount" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>PVS{{ locksCard() ? ' (suma posnets)' : '' }}</mat-label>
-              <input matInput type="number" formControlName="cardAmount" [readonly]="locksCard()" />
+              <input matInput type="number"
+                      inputmode="decimal" formControlName="cardAmount" [readonly]="locksCard()" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta DNI{{ locksDni() ? ' (suma)' : '' }}</mat-label>
               <input
                 matInput
                 type="number"
+                      inputmode="decimal"
                 formControlName="accountDniAmount"
                 [readonly]="locksDni()"
               />
@@ -239,7 +271,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                     </mat-form-field>
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>Monto</mat-label>
-                      <input matInput type="number" formControlName="amount" />
+                      <input matInput type="number"
+                      inputmode="decimal" formControlName="amount" />
                     </mat-form-field>
                     @if (!isConfiguredPosnet(i)) {
                       <button
@@ -296,7 +329,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                     </mat-form-field>
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>Monto</mat-label>
-                      <input matInput type="number" formControlName="amount" />
+                      <input matInput type="number"
+                      inputmode="decimal" formControlName="amount" />
                     </mat-form-field>
                     <button
                       mat-icon-button
@@ -341,17 +375,20 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                     <input
                       matInput
                       type="number"
+                      inputmode="decimal"
                       formControlName="mercadoPagoAmount"
                       [readonly]="locksMp()"
                     />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>PedidosYa / delivery</mat-label>
-                    <input matInput type="number" formControlName="deliveryAppsAmount" />
+                    <input matInput type="number"
+                      inputmode="decimal" formControlName="deliveryAppsAmount" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Transferencia</mat-label>
-                    <input matInput type="number" formControlName="transferAmount" />
+                    <input matInput type="number"
+                      inputmode="decimal" formControlName="transferAmount" />
                   </mat-form-field>
                 </div>
               </div>
@@ -382,26 +419,31 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   @if (shop()?.unitsLabel) {
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ shop()?.unitsLabel }}</mat-label>
-                      <input matInput type="number" formControlName="unitsSold" />
+                      <input matInput type="number"
+                      inputmode="numeric" pattern="[0-9]*" formControlName="unitsSold" />
                     </mat-form-field>
                   }
                   @if (shop()?.coversEnabled) {
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>Comensales</mat-label>
-                      <input matInput type="number" formControlName="coversCount" />
+                      <input matInput type="number"
+                      inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
                     </mat-form-field>
                   }
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Cambio en caja</mat-label>
-                    <input matInput type="number" formControlName="cashLeftInRegister" />
+                    <input matInput type="number"
+                      inputmode="decimal" formControlName="cashLeftInRegister" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Efectivo retirado</mat-label>
-                    <input matInput type="number" formControlName="cashWithdrawn" />
+                    <input matInput type="number"
+                      inputmode="decimal" formControlName="cashWithdrawn" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Propinas</mat-label>
-                    <input matInput type="number" formControlName="tipsAmount" />
+                    <input matInput type="number"
+                      inputmode="decimal" formControlName="tipsAmount" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
                     <mat-label>Notas</mat-label>
@@ -447,7 +489,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                       </mat-form-field>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Monto</mat-label>
-                        <input matInput type="number" formControlName="amount" />
+                        <input matInput type="number"
+                      inputmode="decimal" formControlName="amount" />
                       </mat-form-field>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Categoría</mat-label>
@@ -906,8 +949,16 @@ export class ClosingsFormPage implements OnInit {
   /** IDs de posnets del local (para distinguir transferencias DNI ad-hoc al editar). */
   private configuredPosnetIds = new Set<string>();
 
+  private currentBusinessDate(): string {
+    const shop = this.shop();
+    return resolveShopBusinessDate(new Date(), {
+      timezone: shop?.timezone,
+      openingTime: shop?.openingTime,
+    });
+  }
+
   readonly form = this.fb.nonNullable.group({
-    businessDate: ['', Validators.required],
+    businessDate: [null as Date | null, Validators.required],
     posSystemAmount: [0],
     cardAmount: [0],
     cashAmount: [0],
@@ -945,6 +996,12 @@ export class ClosingsFormPage implements OnInit {
     { initialValue: this.form.getRawValue() },
   );
 
+  readonly businessDayHint = computed(() => {
+    const date = toDateString(this.formValue()?.businessDate as Date | string | null);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
+    return formatBusinessDayHint(date, this.shop()?.openingTime);
+  });
+
   readonly locksCard = computed(() => this.hasPosnetType('PVS'));
   readonly locksMp = computed(() => this.hasPosnetType('MERCADO_PAGO'));
   readonly locksDni = computed(
@@ -969,11 +1026,8 @@ export class ClosingsFormPage implements OnInit {
   });
 
   readonly summaryDate = computed(() => {
-    const raw = String(this.formValue().businessDate ?? '');
-    if (!raw) return '—';
-    const [y, m, d] = raw.split('-');
-    if (!y || !m || !d) return raw;
-    return `${d}/${m}/${y}`;
+    const date = toDateString(this.formValue().businessDate as Date | string | null);
+    return date ? formatIsoDateDisplay(date) : '—';
   });
 
   readonly withdrawnAccountOptions = computed((): ShopUserAccountOption[] => {
@@ -1085,7 +1139,7 @@ export class ClosingsFormPage implements OnInit {
           this.form.disable({ emitEvent: false });
         }
         this.form.patchValue({
-          businessDate: c.businessDate,
+          businessDate: toDateInput(c.businessDate),
           posSystemAmount: c.posSystemAmount,
           cardAmount: c.cardAmount,
           cashAmount: c.cashAmount,
@@ -1116,9 +1170,9 @@ export class ClosingsFormPage implements OnInit {
         this.syncPanelDefaults();
       });
     } else {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = this.currentBusinessDate();
       this.form.patchValue({
-        businessDate: today,
+        businessDate: toDateInput(today),
         cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
       });
       this.initPaymentLines();
@@ -1367,6 +1421,7 @@ export class ClosingsFormPage implements OnInit {
 
     const body = {
       ...raw,
+      businessDate: toDateString(raw.businessDate as Date | string | null),
       unitsSold: raw.unitsSold || null,
       coversCount: raw.coversCount || null,
       cashWithdrawnByUserId: userId,
@@ -1427,11 +1482,11 @@ export class ClosingsFormPage implements OnInit {
   }
 
   private resetForNextClosing(): void {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = this.currentBusinessDate();
     this.expenses.clear();
     this.dniTransfers.clear();
     this.form.reset({
-      businessDate: today,
+      businessDate: toDateInput(today),
       posSystemAmount: 0,
       cardAmount: 0,
       cashAmount: 0,

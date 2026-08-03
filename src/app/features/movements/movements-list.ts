@@ -127,7 +127,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       <div class="movements-layout mb-3">
         <div class="panel-card panel-card--flush movements-layout__saldos">
           <app-balances-table [accounts]="balanceRows()" />
-          <p class="movements-layout__hint">Saldos acumulados (todas las cuentas activas)</p>
+          <p class="movements-layout__hint">Saldos acumulados (canales del local y socios)</p>
         </div>
 
         <div class="panel-card panel-card--flush movements-layout__table">

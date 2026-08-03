@@ -36,6 +36,27 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
   };
 };
 
+/** Requiere al menos uno de los permisos. */
+export const anyPermissionGuard = (...permissions: Permission[]): CanActivateFn => {
+  return () => {
+    const auth = inject(AuthService);
+    const shops = inject(ShopContextService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) {
+      return router.createUrlTree(['/login']);
+    }
+    const user = auth.currentUser();
+    const shopId = shops.selectedShopId();
+    if (!shopId) {
+      return router.createUrlTree([defaultHomeRoute(user, null)]);
+    }
+    if (permissions.some((p) => hasShopPermission(user, shopId, p))) {
+      return true;
+    }
+    return router.createUrlTree([defaultHomeRoute(user, shopId)]);
+  };
+};
+
 /** Solo Super admin (OWNER). */
 export const superAdminGuard: CanActivateFn = () => {
   const auth = inject(AuthService);

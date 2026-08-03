@@ -20,6 +20,7 @@ export interface AdminShopRow {
   unitsLabel?: string | null;
   coversEnabled?: boolean;
   defaultChangeAmount?: number;
+  openingTime?: string;
   logoUrl?: string | null;
   accentColor?: string | null;
   active: boolean;
@@ -108,7 +109,14 @@ function slugify(raw: string): string {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Cambio por defecto</mat-label>
           <mat-icon matPrefix>payments</mat-icon>
-          <input matInput type="number" formControlName="defaultChangeAmount" />
+          <input matInput type="number" inputmode="decimal" formControlName="defaultChangeAmount" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Hora de apertura</mat-label>
+          <mat-icon matPrefix>schedule</mat-icon>
+          <input matInput type="time" formControlName="openingTime" />
+          <mat-hint>Día laboral hasta esta hora del día siguiente</mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -175,6 +183,7 @@ export class AdminShopDialogComponent {
     unitsLabel: [this.shop?.unitsLabel ?? ''],
     currency: [this.shop?.currency ?? 'ARS'],
     defaultChangeAmount: [this.shop?.defaultChangeAmount ?? 0],
+    openingTime: [this.shop?.openingTime ?? '10:00'],
     accentColor: [this.shop?.accentColor ?? '#2E7D32'],
     coversEnabled: [this.shop?.coversEnabled ?? false],
     active: [this.shop?.active ?? true],
@@ -204,6 +213,7 @@ export class AdminShopDialogComponent {
       unitsLabel: raw.unitsLabel.trim() || null,
       currency: raw.currency || 'ARS',
       defaultChangeAmount: Number(raw.defaultChangeAmount) || 0,
+      openingTime: raw.openingTime || '10:00',
       accentColor: raw.accentColor.trim() || null,
       coversEnabled: raw.coversEnabled,
     };

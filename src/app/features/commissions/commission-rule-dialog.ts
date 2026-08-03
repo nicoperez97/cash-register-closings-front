@@ -63,7 +63,14 @@ export type CommissionRuleDialogData = {
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>% comisión</mat-label>
-          <input matInput type="number" min="0" step="0.01" formControlName="ratePercent" />
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            formControlName="ratePercent"
+          />
           <span matTextSuffix>%</span>
         </mat-form-field>
 
