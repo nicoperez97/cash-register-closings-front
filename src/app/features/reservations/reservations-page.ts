@@ -106,10 +106,20 @@ function toTimeString(value: Date | null): string | undefined {
       </div>
 
       @if (canManage()) {
-        <form class="floor-form" [formGroup]="reservationForm" (ngSubmit)="saveReservation()">
+        <form
+          id="reservation-compose"
+          class="floor-form"
+          [formGroup]="reservationForm"
+          (ngSubmit)="saveReservation()"
+        >
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Nombre</mat-label>
-            <input matInput formControlName="guestName" placeholder="Opcional" />
+            <input
+              matInput
+              formControlName="guestName"
+              placeholder="Opcional"
+              id="reservation-guest-name"
+            />
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Personas</mat-label>
@@ -243,15 +253,33 @@ function toTimeString(value: Date | null): string | undefined {
           grid-template-columns: 1fr 1fr;
         }
 
-        .floor-form button,
+        .floor-form > mat-form-field:nth-child(3),
+        .floor-form button[type='submit'],
         .floor-area-toggle {
           grid-column: 1 / -1;
         }
       }
 
       .floor-area-toggle {
+        width: 100%;
+        display: inline-flex !important;
         border-radius: 12px;
         overflow: hidden;
+      }
+
+      .floor-area-toggle .mat-button-toggle {
+        flex: 1 1 0;
+      }
+
+      .floor-area-toggle .mat-button-toggle-label-content {
+        width: 100%;
+        text-align: center;
+        line-height: 1.2;
+        padding: 0.55rem 0.75rem !important;
+      }
+
+      .floor-area-toggle .mat-button-toggle-button {
+        width: 100%;
       }
 
       .floor-stats {
@@ -418,7 +446,18 @@ export class ReservationsPage implements OnInit {
   }
 
   focusReservationForm(): void {
-    // form already visible
+    if (!this.canManage()) {
+      this.snack.open('No tenés permiso para crear reservas', 'OK', { duration: 2500 });
+      return;
+    }
+    const form = document.getElementById('reservation-compose');
+    form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Esperar el scroll / layout antes de enfocar
+    requestAnimationFrame(() => {
+      const input = document.getElementById('reservation-guest-name') as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    });
   }
 
   private loadReservations(): void {

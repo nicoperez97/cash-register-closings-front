@@ -41,6 +41,13 @@
   --guy-dur-slow: 380ms;
 }
 
+/* PWA instalada: evitar zoom por gestos */
+html.guy-pwa,
+html.guy-pwa body {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+}
+
 html[data-theme='dark'] {
   color-scheme: dark;
   --guy-surface: #0f1720;
