@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -19,7 +20,9 @@ import {
   formatIsoDateDisplay,
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
-import { ClosingsApiService, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { ClosingSaveDialogComponent } from './closing-save-dialog';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -78,6 +81,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
+    MatDialogModule,
     MatDatepickerModule,
   ],
   host: {
@@ -928,6 +932,8 @@ export class ClosingsFormPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly shop = this.shops.selectedShop;
@@ -1445,14 +1451,18 @@ export class ClosingsFormPage implements OnInit {
     // dniTransfers es solo UI; no lo mandamos al API
     delete (body as { dniTransfers?: unknown }).dniTransfers;
 
-    const req$ =
-      this.isEdit() && this.closingId
-        ? this.api.update(shopId, this.closingId, body)
-        : this.api.create(shopId, body);
     const wasCreate = !this.isEdit();
-    req$.subscribe({
+    if (wasCreate) {
+      void this.saveNewWithDialog(shopId, body);
+      return;
+    }
+
+    this.api.update(shopId, this.closingId!, body).subscribe({
       next: () => {
-        void this.afterSaved(wasCreate);
+        this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
+        void this.router.navigateByUrl(
+          defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
+        );
       },
       error: (err) => {
         const msg = err?.error?.message ?? 'No se pudo guardar';
@@ -1461,21 +1471,34 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
-  private async afterSaved(wasCreate: boolean): Promise<void> {
-    if (wasCreate) {
-      const ref = this.snack.open('Cierre guardado', 'Compartir', {
-        duration: 12000,
-        horizontalPosition: 'center',
-        verticalPosition: 'bottom',
-      });
-      const dismissed = await firstValueFrom(ref.afterDismissed());
-      if (dismissed.dismissedByAction) {
-        await this.shareSummary();
-      }
-    } else {
-      this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
-    }
-    if (this.cashierOnly() && wasCreate) {
+  private async saveNewWithDialog(shopId: string, body: Partial<CashClosing>): Promise<void> {
+    const result = await firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(ClosingSaveDialogComponent, {
+            width: '440px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            disableClose: true,
+            data: {
+              shopName: this.shop()?.name ?? 'Local',
+              date: this.summaryDate(),
+              pvs: this.money(this.cardAmount()),
+              cash: this.money(this.cashAmount()),
+              accountDni: this.money(this.accountDniAmount()),
+              posSystem: this.money(this.posAmount()),
+              total: this.money(this.declaredTotal()),
+              save$: () => this.api.create(shopId, body),
+            },
+          }),
+          'Confirmar cierre',
+        )
+        .afterClosed(),
+    );
+
+    if (result !== 'saved') return;
+
+    if (this.cashierOnly()) {
       this.resetForNextClosing();
       return;
     }
