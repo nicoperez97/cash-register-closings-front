@@ -639,8 +639,26 @@ body.guy-dialog-scroll-lock {
 .guy-dialog .mat-mdc-dialog-actions {
   margin: 0;
   padding: 0.85rem 1.25rem 1.1rem !important;
-  gap: 0.5rem;
+  gap: 0.65rem;
   border-top: 1px solid var(--guy-border, rgba(15, 23, 42, 0.08));
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
+}
+
+.guy-dialog .mat-mdc-dialog-actions .mat-mdc-button-base {
+  min-height: 44px;
+  margin: 0 !important;
+  border-radius: 12px !important;
+}
+
+.guy-dialog .mat-mdc-dialog-actions .mat-mdc-unelevated-button,
+.guy-dialog .mat-mdc-dialog-actions .mat-mdc-outlined-button,
+.guy-dialog .mat-mdc-dialog-actions .mat-mdc-raised-button,
+.guy-dialog .mat-mdc-dialog-actions .mat-mdc-button {
+  border-radius: 12px !important;
 }
 
 @media (max-width: 960px) {
@@ -669,14 +687,46 @@ body.guy-dialog-scroll-lock {
 
   .guy-dialog .mat-mdc-dialog-actions {
     flex-shrink: 0;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
     justify-content: stretch;
+    align-items: stretch;
     padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) !important;
-    gap: 0.5rem;
+    gap: 0.55rem;
+    background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
 
     .mat-mdc-button-base {
-      flex: 1 1 calc(50% - 0.25rem);
-      min-height: 44px;
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 48px;
+      margin: 0 !important;
+      border-radius: 12px !important;
+    }
+
+    .mat-mdc-outlined-button,
+    .mat-mdc-button,
+    .mat-mdc-unelevated-button,
+    .mat-mdc-raised-button {
+      border-radius: 12px !important;
+    }
+
+    .mat-mdc-outlined-button {
+      --mdc-outlined-button-outline-color: color-mix(in srgb, var(--guy-navy, #003366) 28%, transparent);
+      font-weight: 600;
+    }
+
+    .mat-mdc-unelevated-button {
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 6px 16px color-mix(in srgb, var(--guy-navy, #003366) 22%, transparent);
+    }
+
+    app-busy-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      width: 100%;
     }
   }
 
@@ -745,6 +795,27 @@ html[data-theme='dark'] .guy-dialog .mat-mdc-dialog-actions {
 /* —— Forms —— */
 .mat-mdc-form-field {
   width: 100%;
+}
+
+/* Números en mobile: teclado numérico cómodo, sin flechas ni zoom iOS */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+@media (max-width: 960px) {
+  .mat-mdc-input-element[type='number'],
+  .mat-mdc-input-element[inputmode='decimal'],
+  .mat-mdc-input-element[inputmode='numeric'],
+  .mat-mdc-input-element[inputmode='tel'] {
+    font-size: 16px !important;
+  }
 }
 
 .guy-form-grid {

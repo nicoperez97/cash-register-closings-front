@@ -76,6 +76,12 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
       operacion.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
     }
+    if (shopId && hasShopPermission(user, shopId, 'reservations.read')) {
+      operacion.push({ label: 'Reservas', route: '/reservations', icon: 'table_restaurant' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'waitingList.read')) {
+      operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
+    }
     if (operacion.length) {
       items.push({
         label: 'Operación',
@@ -275,6 +281,12 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/attendance')) {
       return hasShopPermission(user, shopId, 'attendance.read');
+    }
+    if (path.startsWith('/reservations')) {
+      return hasShopPermission(user, shopId, 'reservations.read');
+    }
+    if (path.startsWith('/waiting-list')) {
+      return hasShopPermission(user, shopId, 'waitingList.read');
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');

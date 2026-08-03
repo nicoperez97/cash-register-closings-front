@@ -13,6 +13,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { resolveShopCalendarDate } from '../../core/shop/business-date';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 
 export interface MovementEmployeeOption {
   id: string;
@@ -313,14 +315,21 @@ function partnerCodeFromName(fullName: string): string {
       </form>
     </mat-dialog-content>
 
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
+    <mat-dialog-actions class="mov-actions">
+      <button
+        mat-stroked-button
+        type="button"
+        class="mov-actions__cancel"
+        (click)="ref.close(false)"
+        [disabled]="busy()"
+      >
         Cancelar
       </button>
       <button
         mat-flat-button
         color="primary"
         type="button"
+        class="mov-actions__save"
         [disabled]="form.invalid || busy()"
         (click)="save()"
       >
@@ -333,6 +342,47 @@ function partnerCodeFromName(fullName: string): string {
   `,
   styles: [
     `
+      .mov-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+        gap: 0.55rem !important;
+        width: 100%;
+        margin: 0 !important;
+        padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) !important;
+        border-top: 1px solid var(--guy-border, rgba(15, 23, 42, 0.08));
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
+      }
+
+      .mov-actions__cancel,
+      .mov-actions__save {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 48px;
+        margin: 0 !important;
+        border-radius: 12px !important;
+      }
+
+      .mov-actions__cancel {
+        --mdc-outlined-button-outline-color: color-mix(in srgb, var(--guy-navy, #003366) 28%, transparent);
+        font-weight: 600;
+      }
+
+      .mov-actions__save {
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--guy-navy, #003366) 22%, transparent);
+      }
+
+      .mov-actions__save app-busy-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        width: 100%;
+      }
+
       .mov-form {
         display: flex;
         flex-direction: column;
@@ -557,6 +607,7 @@ export class MovementDialogComponent {
   private readonly api = inject(MovementsApiService);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
+  private readonly shops = inject(ShopContextService);
 
   readonly isEdit = this.data.mode === 'edit';
   private readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
@@ -574,8 +625,18 @@ export class MovementDialogComponent {
   private initialFromUser = this.resolveUserForAccount(this.movement?.fromAccountId ?? null);
   private initialToUser = this.resolveUserForAccount(this.movement?.toAccountId ?? null);
 
+  private defaultBusinessDate(): string {
+    const shop = this.shops.selectedShop();
+    return resolveShopCalendarDate(new Date(), {
+      timezone: shop?.timezone,
+    });
+  }
+
   readonly form = this.fb.nonNullable.group({
-    businessDate: [toDateInput(this.movement?.businessDate), Validators.required],
+    businessDate: [
+      toDateInput(this.movement?.businessDate ?? this.defaultBusinessDate()),
+      Validators.required,
+    ],
     fromUserId: [this.initialFromUser],
     toUserId: [this.initialToUser],
     fromAccountId: [this.movement?.fromAccountId ?? ''],

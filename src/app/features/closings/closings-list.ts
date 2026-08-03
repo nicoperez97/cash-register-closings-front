@@ -137,12 +137,12 @@ import {
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Total desde</mat-label>
-            <input matInput type="number" min="0" formControlName="minTotal" />
+            <input matInput type="number" min="0" inputmode="decimal" formControlName="minTotal" />
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Total hasta</mat-label>
-            <input matInput type="number" min="0" formControlName="maxTotal" />
+            <input matInput type="number" min="0" inputmode="decimal" formControlName="maxTotal" />
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">

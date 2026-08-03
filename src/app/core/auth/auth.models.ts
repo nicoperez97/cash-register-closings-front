@@ -23,7 +23,11 @@ export type Permission =
   | 'movements.manage'
   | 'movements.read'
   | 'accounts.manage'
-  | 'concepts.manage';
+  | 'concepts.manage'
+  | 'reservations.read'
+  | 'reservations.manage'
+  | 'waitingList.read'
+  | 'waitingList.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -46,6 +50,10 @@ const ALL_PERMISSIONS: Permission[] = [
   'movements.read',
   'accounts.manage',
   'concepts.manage',
+  'reservations.read',
+  'reservations.manage',
+  'waitingList.read',
+  'waitingList.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -72,6 +80,10 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'movements.read',
     'accounts.manage',
     'concepts.manage',
+    'reservations.read',
+    'reservations.manage',
+    'waitingList.read',
+    'waitingList.manage',
   ],
   CASHIER: ['closings.create', 'closings.read'],
   VIEWER: [
@@ -83,6 +95,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'payroll.read',
     'commissions.read',
     'movements.read',
+    'reservations.read',
   ],
   PARTNER: ['closings.read', 'reports.view', 'reports.export', 'movements.read'],
 };
@@ -97,6 +110,8 @@ export type ModuleKey =
   | 'commissions'
   | 'accounts'
   | 'concepts'
+  | 'reservations'
+  | 'waitingList'
   | 'shop'
   | 'users';
 
@@ -221,6 +236,30 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'reservations',
+    label: 'Reservas',
+    icon: 'table_restaurant',
+    group: 'daily',
+    hint: 'Reservas del día (adentro / afuera)',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'waitingList',
+    label: 'Lista de espera',
+    icon: 'queue',
+    group: 'daily',
+    hint: 'Cola de espera con WhatsApp',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
@@ -277,6 +316,16 @@ export const MODULE_PRESETS: Array<{
     description: 'Solo marca asistencia',
     icon: 'event_available',
     modules: { attendance: 'manage' },
+  },
+  {
+    id: 'receptionist',
+    label: 'Recepcionista',
+    description: 'Reservas y lista de espera',
+    icon: 'support_agent',
+    modules: {
+      reservations: 'manage',
+      waitingList: 'manage',
+    },
   },
   {
     id: 'viewer',
@@ -341,6 +390,9 @@ export interface ShopSummary {
   coversEnabled: boolean;
   defaultChangeAmount: number;
   currency: string;
+  timezone?: string;
+  /** Hora de apertura HH:mm; el día laboral dura hasta esa hora del día siguiente. */
+  openingTime?: string;
   logoUrl?: string | null;
   accentColor?: string | null;
   salesSystemId?: string | null;

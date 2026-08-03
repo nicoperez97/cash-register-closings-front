@@ -1,11 +1,23 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { permissionGuard, shopUsersGuard, superAdminGuard } from './core/guards/permission.guard';
+import {
+  permissionGuard,
+  shopUsersGuard,
+  superAdminGuard,
+} from './core/guards/permission.guard';
 import { MainLayoutComponent } from './core/layout/main-layout';
 import { LoginComponent } from './features/auth/login';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent, title: 'Ingresar' },
+  {
+    path: 'r/:slug',
+    loadComponent: () =>
+      import('./features/reservations/public-reservations-board').then(
+        (m) => m.PublicReservationsBoardComponent,
+      ),
+    title: 'Reservas',
+  },
   {
     path: '',
     component: MainLayoutComponent,
@@ -51,6 +63,20 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/reports/reports-page').then((m) => m.ReportsPage),
         title: 'Reportes',
+      },
+      {
+        path: 'reservations',
+        canActivate: [permissionGuard('reservations.read')],
+        loadComponent: () =>
+          import('./features/reservations/reservations-page').then((m) => m.ReservationsPage),
+        title: 'Reservas',
+      },
+      {
+        path: 'waiting-list',
+        canActivate: [permissionGuard('waitingList.read')],
+        loadComponent: () =>
+          import('./features/reservations/waiting-list-page').then((m) => m.WaitingListPage),
+        title: 'Lista de espera',
       },
       {
         path: 'admin/shops',

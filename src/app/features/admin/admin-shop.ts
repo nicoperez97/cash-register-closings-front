@@ -166,8 +166,20 @@ const POSNET_TYPE_OPTIONS = [
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Cambio por defecto</mat-label>
-              <input matInput type="number" formControlName="defaultChangeAmount" min="0" step="1" />
+              <input
+                matInput
+                type="number"
+                formControlName="defaultChangeAmount"
+                min="0"
+                step="1"
+                inputmode="decimal"
+              />
               <mat-hint>Monto sugerido de cambio al abrir un cierre</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Hora de apertura</mat-label>
+              <input matInput type="time" formControlName="openingTime" />
+              <mat-hint>El día del cierre corre hasta esta hora del día siguiente</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline" class="shop-admin__full">
               <mat-label>Sistema de ventas</mat-label>
@@ -530,6 +542,7 @@ export class AdminShopPage implements OnInit {
     unitsLabel: [''],
     currency: ['ARS'],
     defaultChangeAmount: [0],
+    openingTime: ['10:00'],
     coversEnabled: [false],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
@@ -575,6 +588,7 @@ export class AdminShopPage implements OnInit {
       unitsLabel: shop.unitsLabel ?? '',
       currency: shop.currency ?? 'ARS',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
+      openingTime: shop.openingTime ?? '10:00',
       coversEnabled: !!shop.coversEnabled,
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
@@ -591,6 +605,7 @@ export class AdminShopPage implements OnInit {
           unitsLabel: s.unitsLabel ?? '',
           currency: s.currency ?? 'ARS',
           defaultChangeAmount: s.defaultChangeAmount ?? 0,
+          openingTime: s.openingTime ?? '10:00',
           coversEnabled: !!s.coversEnabled,
           active: !!s.active,
         });
@@ -652,6 +667,7 @@ export class AdminShopPage implements OnInit {
         unitsLabel: raw.unitsLabel.trim() || null,
         currency: raw.currency || 'ARS',
         defaultChangeAmount: raw.defaultChangeAmount,
+        openingTime: raw.openingTime || '10:00',
         coversEnabled: raw.coversEnabled,
         active: raw.active,
         salesSystemId: raw.salesSystemId || null,
