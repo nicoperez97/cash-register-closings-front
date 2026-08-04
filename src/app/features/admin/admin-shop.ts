@@ -76,18 +76,22 @@ const WEEKDAY_OPTIONS = [
     <app-page-header
       title="Administrar local"
       [subtitle]="shops.selectedShop()?.name ?? 'Configuración del local activo'"
-      actionLabel="Guardar"
-      actionIcon="save"
-      [actionDisabled]="form.invalid || saving()"
-      (action)="save()"
     />
 
-    <form class="shop-admin" [formGroup]="form" (ngSubmit)="save()">
+    <form
+      class="shop-admin"
+      [formGroup]="form"
+      (ngSubmit)="save()"
+      [style.--guy-primary]="liveAccentSecondary()"
+      [style.--guy-navy]="liveAccentSecondary()"
+      [style.--guy-blue]="liveAccentSecondary()"
+    >
       <aside class="shop-admin__preview panel-card">
         <p class="shop-admin__preview-label">Vista previa</p>
         <div
           class="shop-admin__brand"
           [style.--preview-accent]="liveAccent()"
+          [style.--preview-accent-secondary]="liveAccentSecondary()"
         >
           <div class="shop-admin__logo-wrap">
             @if (previewUrl()) {
@@ -108,7 +112,10 @@ const WEEKDAY_OPTIONS = [
         </div>
         <div class="shop-admin__swatch-row">
           <span class="shop-admin__swatch" [style.background]="liveAccent()"></span>
-          <span class="text-muted small">{{ liveAccent() }} · color de énfasis</span>
+          <span class="shop-admin__swatch" [style.background]="liveAccentSecondary()"></span>
+          <span class="text-muted small">
+            {{ liveAccent() }} · {{ liveAccentSecondary() }}
+          </span>
         </div>
         <p class="text-muted small mb-0">
           Así se ve en el menú lateral y en botones del local.
@@ -132,87 +139,160 @@ const WEEKDAY_OPTIONS = [
           </div>
         </section>
 
-        <section class="panel-card">
+        <section class="panel-card shop-admin__appearance">
           <h2 class="guy-section-title">Apariencia</h2>
           <p class="text-muted small mb-3">
             Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
           </p>
-          <div class="guy-form-grid guy-form-grid--2">
-            <mat-form-field appearance="outline" class="shop-admin__full">
-              <mat-label>URL del logo</mat-label>
-              <input
-                matInput
-                formControlName="logoUrl"
-                placeholder="Pegá el vínculo de Drive (Copiar vínculo)"
-              />
-              <mat-hint>
-                Google Drive con permiso “Cualquiera con el enlace”, o una URL directa. También es el
-                ícono al instalar las apps de Reservas y Lista de espera.
-              </mat-hint>
-            </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Color de énfasis</mat-label>
-              <input matInput formControlName="accentColor" placeholder="#007A14" />
-              <mat-hint>Hex (#RRGGBB) para botones y menú activo</mat-hint>
-            </mat-form-field>
-            <div class="shop-admin__color-picker">
-              <label class="shop-admin__color-label" for="accentPicker">Elegir color</label>
-              <input
-                id="accentPicker"
-                type="color"
-                [value]="colorPickerValue()"
-                (input)="onAccentPicker($event)"
-              />
-              <span
-                class="shop-admin__swatch shop-admin__swatch--lg"
-                [style.background]="liveAccent()"
-                aria-hidden="true"
-              ></span>
+          <mat-form-field appearance="outline" class="shop-admin__logo-field" subscriptSizing="dynamic">
+            <mat-label>URL del logo</mat-label>
+            <input
+              matInput
+              formControlName="logoUrl"
+              placeholder="Pegá el vínculo de Drive (Copiar vínculo)"
+            />
+            <mat-hint>
+              Google Drive con permiso “Cualquiera con el enlace”, o una URL directa. Se muestra en
+              el tablero; la instalación PWA usa los íconos del sitio (Chrome exige PNG 192 y 512
+              same-origin).
+            </mat-hint>
+          </mat-form-field>
+
+          <div class="shop-admin__colors">
+            <div class="shop-admin__color-row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Color principal</mat-label>
+                <input matInput formControlName="accentColor" placeholder="#007A14" />
+                <mat-hint>Hex (#RRGGBB) · menú activo y botones</mat-hint>
+              </mat-form-field>
+              <div class="shop-admin__color-picker">
+                <label class="shop-admin__color-label" for="accentPicker">Principal</label>
+                <input
+                  id="accentPicker"
+                  type="color"
+                  [value]="colorPickerValue()"
+                  (input)="onAccentPicker($event)"
+                />
+                <span
+                  class="shop-admin__swatch shop-admin__swatch--lg"
+                  [style.background]="liveAccent()"
+                  aria-hidden="true"
+                ></span>
+              </div>
+            </div>
+
+            <div class="shop-admin__color-row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Color de énfasis</mat-label>
+                <input matInput formControlName="accentSecondary" placeholder="#F9A825" />
+                <mat-hint>Hex (#RRGGBB) · títulos y detalles (reemplaza el negro)</mat-hint>
+              </mat-form-field>
+              <div class="shop-admin__color-picker">
+                <label class="shop-admin__color-label" for="accentSecondaryPicker">Énfasis</label>
+                <input
+                  id="accentSecondaryPicker"
+                  type="color"
+                  [value]="colorSecondaryPickerValue()"
+                  (input)="onAccentSecondaryPicker($event)"
+                />
+                <span
+                  class="shop-admin__swatch shop-admin__swatch--lg"
+                  [style.background]="liveAccentSecondary()"
+                  aria-hidden="true"
+                ></span>
+              </div>
             </div>
           </div>
         </section>
 
         <section class="panel-card">
           <h2 class="guy-section-title">Operación</h2>
-          <p class="text-muted small mb-3">Defaults de cierres e integración POS.</p>
-          <div class="guy-form-grid guy-form-grid--2">
+          <p class="text-muted small mb-3">
+            Caja, producción, POS y módulos del día a día.
+          </p>
+
+          <div class="shop-admin__op-block">
+            <h3 class="shop-admin__op-title">Caja</h3>
+            <div class="guy-form-grid guy-form-grid--2">
+              <mat-form-field appearance="outline">
+                <mat-label>Etiqueta de unidades</mat-label>
+                <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
+                <mat-hint>Cómo se llaman las unidades vendidas</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Moneda</mat-label>
+                <mat-select formControlName="currency">
+                  <mat-option value="ARS">ARS · Peso argentino</mat-option>
+                  <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
+                  <mat-option value="USD">USD · Dólar</mat-option>
+                  <mat-option value="EUR">EUR · Euro</mat-option>
+                  <mat-option value="BRL">BRL · Real</mat-option>
+                  <mat-option value="CLP">CLP · Peso chileno</mat-option>
+                  <mat-option value="PYG">PYG · Guaraní</mat-option>
+                </mat-select>
+                <mat-hint>Moneda de operación del local</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Cambio por defecto</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="defaultChangeAmount"
+                  min="0"
+                  step="1"
+                  inputmode="decimal"
+                />
+                <mat-hint>Monto sugerido al abrir un cierre</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Hora de apertura</mat-label>
+                <input matInput type="time" formControlName="openingTime" />
+                <mat-hint>El día del cierre corre hasta esta hora del día siguiente</mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="shop-admin__toggle-list">
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Comensales</strong>
+                  <p class="text-muted small mb-0">
+                    Pedir cantidad de comensales en cada cierre.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="coversEnabled"
+                  aria-label="Comensales habilitados"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="shop-admin__op-block">
+            <h3 class="shop-admin__op-title">Producción</h3>
+            <div class="guy-form-grid guy-form-grid--2">
+              <mat-form-field appearance="outline">
+                <mat-label>Horas por defecto</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="productionDefaultHours"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  inputmode="decimal"
+                />
+                <mat-hint>Al marcar presente en Asistencia · Producción</mat-hint>
+              </mat-form-field>
+              <p class="shop-admin__op-note">
+                Se aplica al tocar un día en la grilla de producción. Se puede editar después
+                manteniendo el dedo / clic derecho.
+              </p>
+            </div>
+          </div>
+
+          <div class="shop-admin__op-block">
+            <h3 class="shop-admin__op-title">Ventas POS</h3>
             <mat-form-field appearance="outline">
-              <mat-label>Etiqueta de unidades</mat-label>
-              <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
-              <mat-hint>Cómo se llaman las unidades vendidas en este local</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Moneda</mat-label>
-              <mat-select formControlName="currency">
-                <mat-option value="ARS">ARS · Peso argentino</mat-option>
-                <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
-                <mat-option value="USD">USD · Dólar</mat-option>
-                <mat-option value="EUR">EUR · Euro</mat-option>
-                <mat-option value="BRL">BRL · Real</mat-option>
-                <mat-option value="CLP">CLP · Peso chileno</mat-option>
-                <mat-option value="PYG">PYG · Guaraní</mat-option>
-              </mat-select>
-              <mat-hint>Moneda de operación del local</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Cambio por defecto</mat-label>
-              <input
-                matInput
-                type="number"
-                formControlName="defaultChangeAmount"
-                min="0"
-                step="1"
-                inputmode="decimal"
-              />
-              <mat-hint>Monto sugerido de cambio al abrir un cierre</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Hora de apertura</mat-label>
-              <input matInput type="time" formControlName="openingTime" />
-              <mat-hint>El día del cierre corre hasta esta hora del día siguiente</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="shop-admin__full">
               <mat-label>Sistema de ventas</mat-label>
               <mat-select formControlName="salesSystemId">
                 <mat-option [value]="null">Sin sistema</mat-option>
@@ -220,40 +300,37 @@ const WEEKDAY_OPTIONS = [
                   <mat-option [value]="s.id">{{ s.name }}</mat-option>
                 }
               </mat-select>
-              <mat-hint>Define cómo interpretar reportes POS (Restosoft, WeMenu, etc.)</mat-hint>
+              <mat-hint>Cómo interpretar reportes (Restosoft, WeMenu, etc.)</mat-hint>
             </mat-form-field>
-            <div class="shop-admin__toggle shop-admin__full">
-              <div>
-                <strong>Comensales</strong>
-                <p class="text-muted small mb-0">
-                  Mostrar y pedir cantidad de comensales en los cierres.
-                </p>
+          </div>
+
+          <div class="shop-admin__op-block shop-admin__op-block--last">
+            <h3 class="shop-admin__op-title">Módulos públicos</h3>
+            <div class="shop-admin__toggle-list">
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Reservas</strong>
+                  <p class="text-muted small mb-0">
+                    Módulo interno y pantalla pública del local.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="reservationsEnabled"
+                  aria-label="Reservas habilitadas"
+                />
               </div>
-              <mat-slide-toggle formControlName="coversEnabled" aria-label="Comensales habilitados" />
-            </div>
-            <div class="shop-admin__toggle shop-admin__full">
-              <div>
-                <strong>Reservas</strong>
-                <p class="text-muted small mb-0">
-                  Habilita el módulo de reservas y la pantalla pública del local.
-                </p>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Lista de espera</strong>
+                  <p class="text-muted small mb-0">
+                    Cola de espera y su pantalla pública.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="waitingListEnabled"
+                  aria-label="Lista de espera habilitada"
+                />
               </div>
-              <mat-slide-toggle
-                formControlName="reservationsEnabled"
-                aria-label="Reservas habilitadas"
-              />
-            </div>
-            <div class="shop-admin__toggle shop-admin__full">
-              <div>
-                <strong>Lista de espera</strong>
-                <p class="text-muted small mb-0">
-                  Habilita la cola de espera y su pantalla pública.
-                </p>
-              </div>
-              <mat-slide-toggle
-                formControlName="waitingListEnabled"
-                aria-label="Lista de espera habilitada"
-              />
             </div>
           </div>
         </section>
@@ -436,17 +513,19 @@ const WEEKDAY_OPTIONS = [
           </section>
         }
 
-        <div class="shop-admin__actions">
-          <button
-            mat-flat-button
-            color="primary"
-            type="submit"
-            [disabled]="form.invalid || saving()"
-          >
-            <mat-icon>save</mat-icon>
-            {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
-          </button>
-        </div>
+        <div class="shop-admin__save-spacer" aria-hidden="true"></div>
+      </div>
+
+      <div class="shop-admin__save-bar" [style.--save-accent]="liveAccent()">
+        <button
+          mat-flat-button
+          type="submit"
+          class="shop-admin__save-btn"
+          [disabled]="form.invalid || saving()"
+        >
+          <mat-icon>save</mat-icon>
+          {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+        </button>
       </div>
     </form>
   `,
@@ -484,8 +563,8 @@ const WEEKDAY_OPTIONS = [
         border: 1px solid color-mix(in srgb, var(--preview-accent, #2e7d32) 35%, var(--guy-border, #ddd));
         background: linear-gradient(
           135deg,
-          color-mix(in srgb, var(--preview-accent, #2e7d32) 12%, var(--guy-card, #fff)),
-          var(--guy-card, #fff)
+          color-mix(in srgb, var(--preview-accent, #2e7d32) 14%, var(--guy-card, #fff)),
+          color-mix(in srgb, var(--preview-accent-secondary, #f9a825) 10%, var(--guy-card, #fff))
         );
         margin-bottom: 0.85rem;
       }
@@ -519,7 +598,7 @@ const WEEKDAY_OPTIONS = [
       }
       .shop-admin__brand-text strong {
         font-size: 1rem;
-        color: var(--guy-navy, #003366);
+        color: var(--preview-accent-secondary, var(--guy-navy, #003366));
         line-height: 1.25;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -560,17 +639,42 @@ const WEEKDAY_OPTIONS = [
       .shop-admin__full {
         grid-column: 1 / -1;
       }
+      .shop-admin__appearance {
+        display: flex;
+        flex-direction: column;
+      }
+      .shop-admin__logo-field {
+        width: 100%;
+        margin-bottom: 0.35rem;
+      }
+      .shop-admin__colors {
+        display: flex;
+        flex-direction: column;
+        gap: 1.15rem;
+        margin-top: 0.85rem;
+      }
+      .shop-admin__color-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.85rem;
+        align-items: start;
+      }
+      .shop-admin__color-row > mat-form-field {
+        width: 100%;
+        min-width: 0;
+      }
       .shop-admin__color-picker {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.65rem;
         min-height: 56px;
-        padding-bottom: 1.25rem;
+        padding-top: 0.35rem;
       }
       .shop-admin__color-label {
         font-size: 0.85rem;
         color: var(--guy-muted, #5f6f76);
         margin: 0;
+        white-space: nowrap;
       }
       input[type='color'] {
         width: 48px;
@@ -580,6 +684,59 @@ const WEEKDAY_OPTIONS = [
         border-radius: 8px;
         background: transparent;
         cursor: pointer;
+      }
+      @media (max-width: 560px) {
+        .shop-admin__color-row {
+          grid-template-columns: 1fr;
+        }
+        .shop-admin__color-picker {
+          padding-top: 0;
+          min-height: 0;
+        }
+      }
+      .shop-admin__op-block {
+        padding: 1rem 0 1.15rem;
+        border-bottom: 1px solid var(--guy-border, #e4ebe6);
+      }
+      .shop-admin__op-block--last {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+      .shop-admin__op-title {
+        margin: 0 0 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .shop-admin__op-note {
+        margin: 0;
+        align-self: start;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        border: 1px dashed var(--guy-border, #d7e0d9);
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, transparent);
+        font-size: 0.85rem;
+        line-height: 1.45;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .shop-admin__toggle-list {
+        display: flex;
+        flex-direction: column;
+        margin-top: 0.35rem;
+        border: 1px solid var(--guy-border, #ddd);
+        border-radius: 12px;
+        overflow: hidden;
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
+      }
+      .shop-admin__toggle-list .shop-admin__toggle {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+      .shop-admin__toggle-list .shop-admin__toggle + .shop-admin__toggle {
+        border-top: 1px solid var(--guy-border, #e4ebe6);
       }
       .shop-admin__toggle {
         display: flex;
@@ -597,13 +754,62 @@ const WEEKDAY_OPTIONS = [
         color: var(--guy-navy, #003366);
         margin-bottom: 0.15rem;
       }
-      .shop-admin__actions {
-        display: flex;
-        justify-content: flex-end;
-        padding-bottom: 0.5rem;
+      .shop-admin__save-spacer {
+        height: 5.25rem;
       }
-      .shop-admin__actions button mat-icon {
-        margin-right: 0.15rem;
+      .shop-admin__save-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(
+          0.85rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+        z-index: 40;
+        display: flex;
+        justify-content: center;
+        pointer-events: none;
+        padding: 0 1rem;
+      }
+      .shop-admin__save-btn {
+        pointer-events: auto;
+        min-width: 12.5rem;
+        height: 3rem !important;
+        padding: 0 1.35rem !important;
+        border-radius: 999px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.01em;
+        color: #fff !important;
+        background: var(--save-accent, var(--guy-primary, #1d65a0)) !important;
+        box-shadow:
+          0 10px 28px color-mix(in srgb, var(--save-accent, #1d65a0) 38%, transparent),
+          0 2px 8px rgba(8, 20, 30, 0.16) !important;
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.15s ease,
+          filter 0.15s ease;
+      }
+      .shop-admin__save-btn:not(:disabled):hover {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
+        box-shadow:
+          0 14px 32px color-mix(in srgb, var(--save-accent, #1d65a0) 42%, transparent),
+          0 4px 12px rgba(8, 20, 30, 0.18) !important;
+      }
+      .shop-admin__save-btn:not(:disabled):active {
+        transform: translateY(1px);
+        box-shadow:
+          0 6px 16px color-mix(in srgb, var(--save-accent, #1d65a0) 30%, transparent),
+          0 1px 4px rgba(8, 20, 30, 0.14) !important;
+      }
+      .shop-admin__save-btn:disabled {
+        opacity: 0.55;
+        box-shadow: 0 4px 12px rgba(8, 20, 30, 0.1) !important;
+      }
+      .shop-admin__save-btn mat-icon {
+        margin-right: 0.35rem;
+        font-size: 1.2rem;
+        width: 1.2rem;
+        height: 1.2rem;
       }
       .shop-admin__danger {
         border-color: color-mix(in srgb, #c62828 28%, var(--guy-border, #ddd));
@@ -765,10 +971,12 @@ export class AdminShopPage implements OnInit {
     slug: ['', Validators.required],
     logoUrl: [''],
     accentColor: ['#2E7D32'],
+    accentSecondary: ['#F9A825'],
     unitsLabel: [''],
     currency: ['ARS'],
     defaultChangeAmount: [0],
     openingTime: ['10:00'],
+    productionDefaultHours: [8],
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
     reservationsEnabled: [true],
@@ -794,6 +1002,10 @@ export class AdminShopPage implements OnInit {
   readonly liveAccent = computed(() => {
     const v = this.formValue()?.accentColor?.trim() || '#2E7D32';
     return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : '#2E7D32';
+  });
+  readonly liveAccentSecondary = computed(() => {
+    const v = this.formValue()?.accentSecondary?.trim() || this.liveAccent();
+    return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : this.liveAccent();
   });
   readonly previewUrl = computed(
     () => normalizeLogoUrl(this.formValue()?.logoUrl ?? '') ?? '',
@@ -828,10 +1040,12 @@ export class AdminShopPage implements OnInit {
       slug: shop.slug,
       logoUrl: shop.logoUrl ?? '',
       accentColor: shop.accentColor ?? '#2E7D32',
+      accentSecondary: shop.accentSecondary ?? '#F9A825',
       unitsLabel: shop.unitsLabel ?? '',
       currency: shop.currency ?? 'ARS',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
       openingTime: shop.openingTime ?? '10:00',
+      productionDefaultHours: shop.productionDefaultHours ?? 8,
       closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
       reservationsEnabled: !!shop.reservationsEnabled,
@@ -848,10 +1062,12 @@ export class AdminShopPage implements OnInit {
           slug: s.slug,
           logoUrl: s.logoUrl ?? '',
           accentColor: s.accentColor ?? '#2E7D32',
+          accentSecondary: s.accentSecondary ?? '#F9A825',
           unitsLabel: s.unitsLabel ?? '',
           currency: s.currency ?? 'ARS',
           defaultChangeAmount: s.defaultChangeAmount ?? 0,
           openingTime: s.openingTime ?? '10:00',
+          productionDefaultHours: s.productionDefaultHours ?? 8,
           closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
           coversEnabled: !!s.coversEnabled,
           reservationsEnabled: !!s.reservationsEnabled,
@@ -868,9 +1084,18 @@ export class AdminShopPage implements OnInit {
     return this.liveAccent();
   }
 
+  colorSecondaryPickerValue(): string {
+    return this.liveAccentSecondary();
+  }
+
   onAccentPicker(ev: Event): void {
     const value = (ev.target as HTMLInputElement).value;
     this.form.controls.accentColor.setValue(value.toUpperCase());
+  }
+
+  onAccentSecondaryPicker(ev: Event): void {
+    const value = (ev.target as HTMLInputElement).value;
+    this.form.controls.accentSecondary.setValue(value.toUpperCase());
   }
 
   isClosedWeekday(day: number): boolean {
@@ -1052,10 +1277,12 @@ export class AdminShopPage implements OnInit {
         slug: raw.slug,
         logoUrl: raw.logoUrl.trim() || '',
         accentColor: raw.accentColor.trim() || null,
+        accentSecondary: raw.accentSecondary.trim() || null,
         unitsLabel: raw.unitsLabel.trim() || null,
         currency: raw.currency || 'ARS',
         defaultChangeAmount: raw.defaultChangeAmount,
         openingTime: raw.openingTime || '10:00',
+        productionDefaultHours: raw.productionDefaultHours ?? 8,
         closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
         coversEnabled: raw.coversEnabled,
         reservationsEnabled: raw.reservationsEnabled,

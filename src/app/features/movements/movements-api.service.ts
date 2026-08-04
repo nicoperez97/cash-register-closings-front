@@ -110,6 +110,13 @@ export class MovementsApiService {
     });
   }
 
+  exportExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to'> = {}) {
+    return this.http.get(`${this.base}/shops/${shopId}/movements/export.xlsx`, {
+      params: filtersToParams(filters),
+      responseType: 'blob',
+    });
+  }
+
   previewExcelImport(shopId: string, file: File) {
     const body = new FormData();
     body.append('file', file);

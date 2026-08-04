@@ -35,6 +35,8 @@ import {
 } from './movement-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import {
   movementSavedDialogData,
@@ -57,6 +59,7 @@ import { shareText } from '../../shared/utils/share-text';
     MatDatepickerModule,
     MatDialogModule,
     MatSnackBarModule,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -69,60 +72,82 @@ import { shareText } from '../../shared/utils/share-text';
       (action)="openCreate()"
     />
 
-    @if (shopId() && canManage()) {
+    @if (shopId()) {
       <div class="xl-toolbar mb-3">
-        <button mat-stroked-button type="button" (click)="openExcelImport()">
-          <mat-icon>upload_file</mat-icon>
-          Importar Excel
+        @if (canManage()) {
+          <button mat-stroked-button type="button" (click)="openExcelImport()">
+            <mat-icon>upload_file</mat-icon>
+            Importar Excel
+          </button>
+        }
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="exporting()"
+          (click)="exportExcel()"
+        >
+          <mat-icon>download</mat-icon>
+          Descargar Excel
         </button>
       </div>
     }
     @if (shopId()) {
-      <div class="panel-card guy-filters mb-3">
+      <div
+        class="panel-card guy-filters mb-3"
+        [class.guy-filters--collapsed]="filtersCollapsed()"
+      >
         <div class="guy-filters__head">
           <div>
             <h2 class="guy-filters__title">Filtros</h2>
             <p class="guy-filters__subtitle">Buscá por período, concepto y texto</p>
           </div>
-          <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
-            <mat-icon>filter_alt_off</mat-icon>
-            Limpiar
-          </button>
+          <div class="guy-filters__tools">
+            <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
+              <mat-icon>filter_alt_off</mat-icon>
+              Limpiar
+            </button>
+            <app-filters-collapse-btn
+              [collapsed]="filtersCollapsed()"
+              (toggle)="toggleFilters()"
+            />
+          </div>
         </div>
 
-        <form class="guy-filters__grid guy-filters__grid--dense" [formGroup]="filters">
-          <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
-            <mat-label>Período</mat-label>
-            <mat-date-range-input [formGroup]="range" [rangePicker]="picker">
-              <input matStartDate formControlName="start" placeholder="Desde" />
-              <input matEndDate formControlName="end" placeholder="Hasta" />
-            </mat-date-range-input>
-            <mat-datepicker-toggle matIconSuffix [for]="picker" />
-            <mat-date-range-picker #picker />
-          </mat-form-field>
+        <div class="guy-filters__body">
+          <form class="guy-filters__grid guy-filters__grid--dense" [formGroup]="filters">
+            <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
+              <mat-label>Período</mat-label>
+              <mat-date-range-input [formGroup]="range" [rangePicker]="picker">
+                <input matStartDate formControlName="start" placeholder="Desde" />
+                <input matEndDate formControlName="end" placeholder="Hasta" />
+              </mat-date-range-input>
+              <mat-datepicker-toggle matIconSuffix [for]="picker" />
+              <mat-date-range-picker #picker />
+            </mat-form-field>
 
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Concepto</mat-label>
-            <mat-select formControlName="conceptId">
-              <mat-option value="">Todos</mat-option>
-              @for (c of concepts(); track c.id) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Concepto</mat-label>
+              <mat-select formControlName="conceptId">
+                <mat-option value="">Todos</mat-option>
+                @for (c of concepts(); track c.id) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
-            <mat-label>Buscar en descripción</mat-label>
-            <mat-icon matPrefix>search</mat-icon>
-            <input matInput formControlName="q" placeholder="Texto libre" />
-          </mat-form-field>
-        </form>
+            <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
+              <mat-label>Buscar en descripción</mat-label>
+              <mat-icon matPrefix>search</mat-icon>
+              <input matInput formControlName="q" placeholder="Texto libre" />
+            </mat-form-field>
+          </form>
 
-        <div class="guy-filters__actions">
-          <button mat-flat-button color="primary" type="button" (click)="applyFilter()">
-            <mat-icon>filter_alt</mat-icon>
-            Filtrar
-          </button>
+          <div class="guy-filters__actions">
+            <button mat-flat-button color="primary" type="button" (click)="applyFilter()">
+              <mat-icon>filter_alt</mat-icon>
+              Filtrar
+            </button>
+          </div>
         </div>
       </div>
     }
@@ -159,6 +184,12 @@ import { shareText } from '../../shared/utils/share-text';
     }
   `,
   styles: `
+    .xl-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
     .movements-layout {
       display: grid;
       gap: 1rem;
@@ -184,6 +215,10 @@ export class MovementsListPage {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
 
+  private readonly filtersUi = createFiltersCollapsed('movements');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   readonly shopId = this.shops.selectedShopId;
   readonly rows = signal<Movement[]>([]);
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
@@ -191,6 +226,7 @@ export class MovementsListPage {
   readonly concepts = signal<Concept[]>([]);
   readonly employees = signal<MovementEmployeeOption[]>([]);
   readonly users = signal<MovementUserOption[]>([]);
+  readonly exporting = signal(false);
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(
@@ -283,6 +319,41 @@ export class MovementsListPage {
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'movements.manage');
+  }
+
+  exportExcel(): void {
+    const shopId = this.shopId();
+    const shop = this.shops.selectedShop();
+    if (!shopId || this.exporting()) return;
+    const from = this.formatDate(this.range.controls.start.value) ?? undefined;
+    const to = this.formatDate(this.range.controls.end.value) ?? undefined;
+    this.exporting.set(true);
+    this.api.exportExcel(shopId, { from, to }).subscribe({
+      next: (blob) => {
+        this.exporting.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `movimientos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.exporting.set(false);
+        this.snack.open('No se pudo descargar el Excel', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  private shopFileSlug(name?: string | null): string {
+    const raw = (name ?? 'local')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40);
+    return raw || 'local';
   }
 
   applyFilter(): void {

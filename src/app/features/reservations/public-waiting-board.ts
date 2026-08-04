@@ -189,7 +189,8 @@ import { BoardPwaService } from './board-pwa.service';
       .board {
         --accent: #2e7d32;
         min-height: 100dvh;
-        padding: 1.15rem 1.1rem 5.5rem;
+        padding: calc(1.15rem + env(safe-area-inset-top, 0px)) 1.1rem
+          calc(5.5rem + env(safe-area-inset-bottom, 0px));
         color: #f4efe6;
         box-sizing: border-box;
         background:
@@ -688,7 +689,7 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    document.body.classList.add('auth-login');
+    this.boardPwa.prime('waiting', this.slug);
     void this.ensureNotificationPermission();
 
     this.pollSub = merge(interval(60_000).pipe(startWith(0)), this.refresh$)
@@ -715,7 +716,6 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
     this.pollSub = null;
     this.refresh$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
-    document.body.classList.remove('auth-login');
     this.boardPwa.restore();
   }
 

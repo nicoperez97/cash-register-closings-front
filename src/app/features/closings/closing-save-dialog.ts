@@ -3,7 +3,9 @@ import { Observable } from 'rxjs';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { shareText } from '../../shared/utils/share-text';
 
 export type ClosingSaveSummary = {
   shopName: string;
@@ -24,7 +26,7 @@ export type ClosingSaveDialogResult = 'saved' | 'cancelled';
 
 @Component({
   selector: 'app-closing-save-dialog',
-  imports: [MatDialogModule, MatButtonModule, MatIconModule, BusyLabelComponent],
+  imports: [MatDialogModule, MatButtonModule, MatIconModule, MatSnackBarModule, BusyLabelComponent],
   template: `
     <h2 mat-dialog-title>
       <span
@@ -173,6 +175,7 @@ export type ClosingSaveDialogResult = 'saved' | 'cancelled';
 export class ClosingSaveDialogComponent {
   readonly data = inject<ClosingSaveDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<ClosingSaveDialogComponent, ClosingSaveDialogResult>);
+  private readonly snack = inject(MatSnackBar);
 
   readonly phase = signal<'confirm' | 'saving' | 'saved' | 'error'>('confirm');
   readonly errorMsg = signal('Revisá los datos e intentá de nuevo.');
@@ -204,18 +207,13 @@ export class ClosingSaveDialogComponent {
     ].join('\n');
 
     this.sharing.set(true);
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        await navigator.share({ title: `Cierre ${this.data.shopName}`, text });
-        return;
-      }
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      }
-    } catch (err) {
-      if ((err as { name?: string })?.name === 'AbortError') return;
-    } finally {
-      this.sharing.set(false);
+    const result = await shareText({ title: `Cierre ${this.data.shopName}`, text });
+    this.sharing.set(false);
+
+    if (result === 'copied') {
+      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
     }
   }
 }

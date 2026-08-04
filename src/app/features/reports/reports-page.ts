@@ -26,6 +26,8 @@ import {
   ClosingQueryFilters,
 } from '../closings/closing-filters';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 @Component({
   selector: 'app-reports-page',
@@ -42,6 +44,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     KpiStripComponent,
     DataTableComponent,
     BalancesTableComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -53,18 +56,28 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       (action)="export()"
     />
 
-    <div class="panel-card guy-filters mb-3">
+    <div
+      class="panel-card guy-filters mb-3"
+      [class.guy-filters--collapsed]="filtersCollapsed()"
+    >
       <div class="guy-filters__head">
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">Acotá el período y el resto de criterios del reporte</p>
         </div>
-        <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
-          <mat-icon>filter_alt_off</mat-icon>
-          Limpiar
-        </button>
+        <div class="guy-filters__tools">
+          <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
+            <mat-icon>filter_alt_off</mat-icon>
+            Limpiar
+          </button>
+          <app-filters-collapse-btn
+            [collapsed]="filtersCollapsed()"
+            (toggle)="toggleFilters()"
+          />
+        </div>
       </div>
 
+      <div class="guy-filters__body">
       <form class="guy-filters__grid guy-filters__grid--dense" [formGroup]="filters">
         <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
           <mat-label>Período</mat-label>
@@ -161,6 +174,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
           Actualizar
         </button>
       </div>
+      </div>
     </div>
 
     <app-kpi-strip class="mb-3" [items]="kpis()" />
@@ -230,6 +244,10 @@ import { usePageRefresh } from '../../core/page-refresh.service';
   `,
 })
 export class ReportsPage {
+  private readonly filtersUi = createFiltersCollapsed('reports');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   readonly shops = inject(ShopContextService);
   private readonly api = inject(ClosingsApiService);
   private readonly auth = inject(AuthService);

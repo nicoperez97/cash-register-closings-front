@@ -26,6 +26,8 @@ import {
 import { CommissionRuleDialogComponent } from './commission-rule-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 @Component({
   selector: 'app-commissions-page',
@@ -43,6 +45,7 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
     KpiStripComponent,
     DataTableComponent,
     BusyLabelComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -56,7 +59,10 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 
     <mat-tab-group animationDuration="0ms" class="mb-3">
       <mat-tab label="Calcular">
-        <div class="panel-card guy-filters mb-3 mt-3">
+        <div
+          class="panel-card guy-filters mb-3 mt-3"
+          [class.guy-filters--collapsed]="filtersCollapsed()"
+        >
           <div class="guy-filters__head">
             <div>
               <h2 class="guy-filters__title">Período</h2>
@@ -64,7 +70,14 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
                 Usa ventas POS por rubro × % de cada empleado (ej. COMIDA 1%, PIZZA 2,5%)
               </p>
             </div>
+            <div class="guy-filters__tools">
+              <app-filters-collapse-btn
+                [collapsed]="filtersCollapsed()"
+                (toggle)="toggleFilters()"
+              />
+            </div>
           </div>
+          <div class="guy-filters__body">
           <form class="guy-filters__grid guy-filters__grid--dense" [formGroup]="range">
             <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
               <mat-label>Período</mat-label>
@@ -89,6 +102,7 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
                 Calcular
               </app-busy-label>
             </button>
+          </div>
           </div>
         </div>
 
@@ -181,6 +195,10 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
   `,
 })
 export class CommissionsPage {
+  private readonly filtersUi = createFiltersCollapsed('commissions');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   readonly shops = inject(ShopContextService);
   private readonly api = inject(CommissionsApiService);
   private readonly auth = inject(AuthService);

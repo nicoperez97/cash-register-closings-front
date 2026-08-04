@@ -171,6 +171,13 @@ export const routes: Routes = [
         title: 'Empleados',
       },
       {
+        path: 'candidates',
+        canActivate: [permissionGuard('candidates.read')],
+        loadComponent: () =>
+          import('./features/candidates/candidates-list').then((m) => m.CandidatesListPage),
+        title: 'CVs / Candidatos',
+      },
+      {
         path: 'movements',
         canActivate: [permissionGuard('movements.read')],
         loadComponent: () =>
@@ -182,7 +189,16 @@ export const routes: Routes = [
         canActivate: [permissionGuard('attendance.read')],
         loadComponent: () =>
           import('./features/attendance/attendance-page').then((m) => m.AttendancePage),
-        title: 'Asistencia',
+        title: 'Asistencia · Servicio',
+      },
+      {
+        path: 'production-attendance',
+        canActivate: [permissionGuard('attendance.read')],
+        loadComponent: () =>
+          import('./features/attendance/production-attendance-page').then(
+            (m) => m.ProductionAttendancePage,
+          ),
+        title: 'Asistencia · Produccion',
       },
       {
         path: 'payroll',

@@ -9,7 +9,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { Employee, EmployeesApiService, ShopUserOption } from './employees-api.service';
+import { Employee, EmployeeType, EmployeesApiService, ShopUserOption } from './employees-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 export type EmployeeDialogData = {
@@ -76,6 +76,20 @@ function toDateString(value: Date | null): string | null {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Tipo</mat-label>
+          <mat-icon matPrefix>badge</mat-icon>
+          <mat-select formControlName="type">
+            <mat-option value="FIXED">Fijo</mat-option>
+            <mat-option value="ROTATING">Rotativo</mat-option>
+          </mat-select>
+          <mat-hint>Los rotativos no se marcan con “Todos presentes”</mat-hint>
+        </mat-form-field>
+
+        <mat-slide-toggle formControlName="producesFood">
+          Produce comida (asistencia en producción)
+        </mat-slide-toggle>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Usuario vinculado (opcional)</mat-label>
           <mat-icon matPrefix>person</mat-icon>
           <mat-select formControlName="userId">
@@ -139,6 +153,8 @@ export class EmployeeDialogComponent {
   readonly form = this.fb.nonNullable.group({
     fullName: [this.employee?.fullName ?? '', Validators.required],
     baseSalary: [this.employee?.baseSalary ?? 0, [Validators.required, Validators.min(0)]],
+    type: this.fb.nonNullable.control<EmployeeType>(this.employee?.type ?? 'FIXED'),
+    producesFood: [this.employee?.producesFood ?? false],
     userId: this.fb.control<string | null>(this.employee?.userId ?? null),
     hireDate: this.fb.control<Date | null>(toDateInput(this.employee?.hireDate)),
     notes: [this.employee?.notes ?? ''],
@@ -155,6 +171,8 @@ export class EmployeeDialogComponent {
     const body: Partial<Employee> = {
       fullName: raw.fullName.trim(),
       baseSalary: raw.baseSalary,
+      type: raw.type,
+      producesFood: !!raw.producesFood,
       userId: raw.userId || null,
       hireDate: toDateString(raw.hireDate),
       notes: raw.notes.trim() || null,

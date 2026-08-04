@@ -30,6 +30,8 @@ import {
   paymentSharePayload,
 } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 type PaymentKind = 'supplier' | 'employee';
 
@@ -52,6 +54,7 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
     MatFormFieldModule,
     MatDialogModule,
     MatSnackBarModule,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -63,22 +66,32 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
       (action)="openCreate()"
     />
 
-    <div class="panel-card guy-filters mb-3">
+    <div
+      class="panel-card guy-filters mb-3"
+      [class.guy-filters--collapsed]="filtersCollapsed()"
+    >
       <div class="guy-filters__head">
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">Estado del pago</p>
         </div>
-        <button
-          mat-stroked-button
-          type="button"
-          [disabled]="!shopId() || exporting()"
-          (click)="exportExcel()"
-        >
-          <mat-icon>download</mat-icon>
-          {{ exporting() ? 'Descargando…' : 'Descargar Excel' }}
-        </button>
+        <div class="guy-filters__tools">
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="!shopId() || exporting()"
+            (click)="exportExcel()"
+          >
+            <mat-icon>download</mat-icon>
+            {{ exporting() ? 'Descargando…' : 'Descargar Excel' }}
+          </button>
+          <app-filters-collapse-btn
+            [collapsed]="filtersCollapsed()"
+            (toggle)="toggleFilters()"
+          />
+        </div>
       </div>
+      <div class="guy-filters__body">
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Estado</mat-label>
         <mat-select [formControl]="statusFilter">
@@ -88,6 +101,7 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
           }
         </mat-select>
       </mat-form-field>
+      </div>
     </div>
 
     <div class="pay-list">
@@ -279,6 +293,10 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
   ],
 })
 export class PaymentsPage {
+  private readonly filtersUi = createFiltersCollapsed('payments');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   private readonly api = inject(PaymentsApiService);
   private readonly suppliersApi = inject(SuppliersApiService);
   private readonly employeesApi = inject(EmployeesApiService);

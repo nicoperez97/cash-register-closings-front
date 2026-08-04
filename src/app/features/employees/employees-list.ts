@@ -16,6 +16,8 @@ import { activeLabel } from '../../core/i18n/labels';
 import { Employee, EmployeesApiService, ShopUserOption } from './employees-api.service';
 import { EmployeeDialogComponent } from './employee-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 @Component({
   selector: 'app-employees-list',
@@ -28,6 +30,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     MatSnackBarModule,
     PageHeaderComponent,
     DataTableComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -40,16 +43,27 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       (action)="openCreate()"
     />
 
-    <div class="panel-card guy-filters mb-3">
+    <div
+      class="panel-card guy-filters mb-3"
+      [class.guy-filters--collapsed]="filtersCollapsed()"
+    >
       <div class="guy-filters__head">
         <div>
           <h3 class="guy-filters__title">Filtros</h3>
           <p class="guy-filters__subtitle">Incluí empleados ocultos</p>
         </div>
+        <div class="guy-filters__tools">
+          <app-filters-collapse-btn
+            [collapsed]="filtersCollapsed()"
+            (toggle)="toggleFilters()"
+          />
+        </div>
       </div>
+      <div class="guy-filters__body">
       <mat-slide-toggle [ngModel]="includeInactive()" (ngModelChange)="onToggleInactive($event)">
         Mostrar ocultos
       </mat-slide-toggle>
+      </div>
     </div>
 
     <div class="panel-card panel-card--flush">
@@ -70,6 +84,10 @@ import { usePageRefresh } from '../../core/page-refresh.service';
   `,
 })
 export class EmployeesListPage {
+  private readonly filtersUi = createFiltersCollapsed('employees');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   private readonly api = inject(EmployeesApiService);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
@@ -84,6 +102,16 @@ export class EmployeesListPage {
 
   readonly columns: DataTableColumn[] = [
     { key: 'fullName', label: 'Nombre' },
+    {
+      key: 'type',
+      label: 'Tipo',
+      format: (r) => (r['type'] === 'ROTATING' ? 'Rotativo' : 'Fijo'),
+    },
+    {
+      key: 'producesFood',
+      label: 'Produce',
+      format: (r) => (r['producesFood'] ? 'Sí' : 'No'),
+    },
     {
       key: 'baseSalary',
       label: 'Sueldo base',

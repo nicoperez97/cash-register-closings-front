@@ -23,12 +23,14 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 interface AttendanceEmployee {
   employeeId: string;
   fullName: string;
+  type?: 'FIXED' | 'ROTATING';
 }
 
 interface AttendanceMonthResponse {
   employees: Array<{
     employeeId: string;
     fullName: string;
+    type?: 'FIXED' | 'ROTATING';
     days: Record<string, { isPresent?: boolean; isHoliday?: boolean } | undefined>;
   }>;
 }
@@ -153,7 +155,9 @@ interface BalanceRowExt extends BalanceAccountRow {
                 type="button"
                 class="today-chip"
                 [class.today-chip--present]="isPresentToday(emp.employeeId)"
+                [class.today-chip--rotating]="emp.type === 'ROTATING'"
                 [disabled]="!canManageAttendance() || attendanceBusy() || isTodayClosed()"
+                [title]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
                 (click)="togglePresentToday(emp)"
               >
                 <mat-icon>{{
@@ -240,6 +244,10 @@ interface BalanceRowExt extends BalanceAccountRow {
       .today-chip--present {
         background: color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
         border-color: var(--guy-green, #2e7d32);
+      }
+      .today-chip--rotating:not(.today-chip--present) {
+        border-style: dashed;
+        opacity: 0.92;
       }
       .today-chip:disabled {
         opacity: 0.7;
@@ -581,10 +589,13 @@ export class HomePageComponent {
     const shopId = this.shopContext.selectedShopId();
     if (!shopId || !this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed())
       return;
-    const employees = this.attendanceEmployees();
-    if (!employees.length) return;
+    const fixed = this.attendanceEmployees().filter((e) => e.type !== 'ROTATING');
+    if (!fixed.length) {
+      this.snack.open('No hay empleados fijos para marcar', 'OK', { duration: 2500 });
+      return;
+    }
     this.attendanceBusy.set(true);
-    const items = employees.map((e) => ({
+    const items = fixed.map((e) => ({
       employeeId: e.employeeId,
       date: this.todayIso,
       isPresent: true,
@@ -593,14 +604,21 @@ export class HomePageComponent {
       next: () => {
         this.attendanceBusy.set(false);
         const next = { ...this.todayMarks() };
-        for (const e of employees) {
+        for (const e of fixed) {
           next[e.employeeId] = {
             isPresent: true,
             isHoliday: next[e.employeeId]?.isHoliday ?? false,
           };
         }
         this.todayMarks.set(next);
-        this.snack.open('Todos marcados presentes hoy', 'OK', { duration: 2500 });
+        const skipped = this.attendanceEmployees().length - fixed.length;
+        this.snack.open(
+          skipped
+            ? `Fijos marcados presentes (${skipped} rotativo${skipped === 1 ? '' : 's'} omitido${skipped === 1 ? '' : 's'})`
+            : 'Todos marcados presentes hoy',
+          'OK',
+          { duration: 2500 },
+        );
       },
       error: (err) => {
         this.attendanceBusy.set(false);
@@ -624,6 +642,7 @@ export class HomePageComponent {
           const employees = (data.employees ?? []).map((e) => ({
             employeeId: e.employeeId,
             fullName: e.fullName,
+            type: e.type === 'ROTATING' ? ('ROTATING' as const) : ('FIXED' as const),
           }));
           this.attendanceEmployees.set(employees);
           const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};

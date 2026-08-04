@@ -2,6 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
+export type EmployeeType = 'FIXED' | 'ROTATING';
+
 export interface Employee {
   id: string;
   shopId: string;
@@ -10,6 +12,10 @@ export interface Employee {
   userId?: string | null;
   hireDate?: string | null;
   notes?: string | null;
+  /** Fijo entra en “Todos presentes”; rotativo solo a mano. */
+  type: EmployeeType;
+  /** Si produce comida → aparece en asistencia de producción. */
+  producesFood?: boolean;
   active: boolean;
 }
 

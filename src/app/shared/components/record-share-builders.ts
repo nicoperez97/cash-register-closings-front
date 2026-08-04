@@ -1,5 +1,7 @@
 import { Movement } from '../../features/movements/movements-api.service';
 import { ShopPayment } from '../../features/payments/payments-api.service';
+import { CashClosing } from '../../features/closings/closings-api.service';
+import { closingStatusLabel } from '../../core/i18n/labels';
 import { formatDateAr, formatMoneyAr } from '../utils/share-text';
 import { RecordSavedDialogData } from './record-saved-dialog';
 
@@ -107,4 +109,36 @@ export function movementSharePayload(movement: Movement, shopName: string): {
 } {
   const data = movementSavedDialogData(movement, shopName);
   return { title: data.shareTitle, text: data.shareText || data.shareTitle };
+}
+
+export function closingSharePayload(
+  closing: CashClosing,
+  shopName: string,
+): { title: string; text: string } {
+  const date = formatDateAr(closing.businessDate);
+  const lines = [
+    `Cierre de caja — ${shopName}`,
+    `Fecha: ${date}`,
+    `Estado: ${closingStatusLabel(closing.status)}`,
+    `PVS: ${formatMoneyAr(closing.cardAmount)}`,
+    `Mercado Pago: ${formatMoneyAr(closing.mercadoPagoAmount)}`,
+    `Efectivo: ${formatMoneyAr(closing.cashAmount)}`,
+    `Cuenta DNI: ${formatMoneyAr(closing.accountDniAmount)}`,
+    `Delivery: ${formatMoneyAr(closing.deliveryAppsAmount)}`,
+    `Transferencia: ${formatMoneyAr(closing.transferAmount)}`,
+    `Otros: ${formatMoneyAr(closing.otherAmount)}`,
+    `Caja sistema: ${formatMoneyAr(closing.posSystemAmount)}`,
+    `Total declarado: ${formatMoneyAr(closing.declaredTotal)}`,
+    `Diferencia: ${formatMoneyAr(closing.difference)}`,
+  ];
+  if (closing.cashWithdrawnByName) {
+    lines.push(`Retiro: ${closing.cashWithdrawnByName}`);
+  }
+  if (closing.notes?.trim()) {
+    lines.push(`Notas: ${closing.notes.trim()}`);
+  }
+  return {
+    title: `Cierre · ${shopName}`,
+    text: lines.join('\n'),
+  };
 }

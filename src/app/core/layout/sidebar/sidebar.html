@@ -5,6 +5,7 @@
       [class.sidebar-logo-wrap--app]="isAppLogo() && !logoBroken()"
       [class.sidebar-logo-wrap--fallback]="logoBroken() || !logoSrc()"
       [style.--shop-accent]="shopContext.selectedShop()?.accentColor || null"
+      [style.--shop-accent-secondary]="shopContext.selectedShop()?.accentSecondary || null"
       role="img"
       [attr.aria-label]="logoAlt()"
     >
@@ -45,6 +46,7 @@
           [attr.aria-expanded]="shopPickerOpen()"
           [attr.aria-label]="'Cambiar local. Activo: ' + shop.name"
           [style.--shop-accent]="shop.accentColor || null"
+          [style.--shop-accent-secondary]="shop.accentSecondary || null"
           (click)="toggleShopPicker()"
         >
           <span class="shop-switcher__avatar" aria-hidden="true">
@@ -67,37 +69,68 @@
         @if (shopPickerOpen()) {
           <div class="shop-picker" role="listbox" [attr.aria-label]="'Elegir local'">
             @for (s of shopContext.shops(); track s.id) {
-              <button
-                type="button"
+              <div
                 class="shop-switcher shop-switcher--option"
-                role="option"
-                [attr.aria-selected]="s.id === shop.id"
                 [class.shop-switcher--option-active]="s.id === shop.id"
                 [style.--shop-accent]="s.accentColor || null"
-                (click)="pickShop(s.id)"
+                [style.--shop-accent-secondary]="s.accentSecondary || null"
               >
-                <span class="shop-switcher__avatar" aria-hidden="true">
-                  @if (shopLogo(s.logoUrl); as logo) {
-                    <img [src]="logo" alt="" width="42" height="42" (error)="onShopLogoError($event)" />
-                  } @else {
-                    <span class="shop-switcher__initials">{{ shopInitial(s.name) }}</span>
-                  }
-                </span>
-                <span class="shop-switcher__meta">
-                  <span class="shop-switcher__label">{{ s.id === shop.id ? 'Local activo' : 'Local' }}</span>
-                  <span class="shop-switcher__name">{{ s.name }}</span>
-                </span>
-                @if (s.id === shop.id) {
-                  <span class="shop-switcher__chevron-wrap shop-switcher__check-wrap" aria-hidden="true">
-                    <mat-icon class="shop-switcher__chevron">check</mat-icon>
+                <button
+                  type="button"
+                  class="shop-switcher__main"
+                  role="option"
+                  [attr.aria-selected]="s.id === shop.id"
+                  (click)="pickShop(s.id)"
+                >
+                  <span class="shop-switcher__avatar" aria-hidden="true">
+                    @if (shopLogo(s.logoUrl); as logo) {
+                      <img [src]="logo" alt="" width="42" height="42" (error)="onShopLogoError($event)" />
+                    } @else {
+                      <span class="shop-switcher__initials">{{ shopInitial(s.name) }}</span>
+                    }
                   </span>
-                }
-              </button>
+                  <span class="shop-switcher__meta">
+                    <span class="shop-switcher__label">
+                      {{ s.id === shop.id ? 'Local activo' : 'Local' }}
+                      @if (isFavorite(s.id)) {
+                        · Favorito
+                      }
+                    </span>
+                    <span class="shop-switcher__name">{{ s.name }}</span>
+                  </span>
+                  @if (s.id === shop.id) {
+                    <span class="shop-switcher__chevron-wrap shop-switcher__check-wrap" aria-hidden="true">
+                      <mat-icon class="shop-switcher__chevron">check</mat-icon>
+                    </span>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="shop-switcher__fav"
+                  [class.shop-switcher__fav--on]="isFavorite(s.id)"
+                  [disabled]="favoriteBusy()"
+                  [attr.aria-label]="
+                    isFavorite(s.id) ? 'Quitar de favoritos' : 'Marcar como local favorito'
+                  "
+                  [matTooltip]="
+                    isFavorite(s.id)
+                      ? 'Quitar favorito'
+                      : 'Favorito: se selecciona al iniciar sesión'
+                  "
+                  (click)="toggleFavorite($event, s.id)"
+                >
+                  <mat-icon>{{ isFavorite(s.id) ? 'star' : 'star_border' }}</mat-icon>
+                </button>
+              </div>
             }
           </div>
         }
       } @else {
-        <div class="shop-switcher shop-switcher--static" [style.--shop-accent]="shop.accentColor || null">
+        <div
+          class="shop-switcher shop-switcher--static"
+          [style.--shop-accent]="shop.accentColor || null"
+          [style.--shop-accent-secondary]="shop.accentSecondary || null"
+        >
           <span class="shop-switcher__avatar" aria-hidden="true">
             @if (shopLogo(shop.logoUrl); as logo) {
               <img [src]="logo" alt="" width="42" height="42" (error)="onShopLogoError($event)" />

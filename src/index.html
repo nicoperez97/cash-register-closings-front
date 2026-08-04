@@ -69,13 +69,12 @@
     />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" id="apple-status-bar" />
     <meta name="apple-mobile-web-app-title" content="Cierres" id="apple-app-title" />
     <meta name="application-name" content="Cierres de caja" id="app-name-meta" />
     <meta name="format-detection" content="telephone=no" />
-    <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#1D65A0" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1D65A0" />
+    <meta name="color-scheme" content="light" id="app-color-scheme" />
+    <meta name="theme-color" content="#1D65A0" id="app-theme-color" />
     <meta
       name="description"
       content="Cierres de caja multi-local: roles, reportes y export Excel."
@@ -95,7 +94,21 @@
            aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */
         var path = location.pathname || '';
         var board = path.match(/^\/(r|w)\/([^/]+)\/?$/);
+        var isLogin = path === '/login' || path.indexOf('/login?') === 0;
         var manifestHref = 'manifest.webmanifest';
+
+        if (board || isLogin) {
+          /* Barra de estado oscura antes del primer paint (login / tableros). */
+          var statusColor = isLogin ? '#08263f' : '#0e0c0b';
+          var themeMeta = document.getElementById('app-theme-color');
+          if (themeMeta) themeMeta.setAttribute('content', statusColor);
+          var scheme = document.getElementById('app-color-scheme');
+          if (scheme) scheme.setAttribute('content', 'dark');
+          var appleBar = document.getElementById('apple-status-bar');
+          if (appleBar) appleBar.setAttribute('content', 'black-translucent');
+          document.documentElement.style.backgroundColor = statusColor;
+          document.documentElement.style.colorScheme = 'dark';
+        }
 
         if (board) {
           var kind = board[1];
@@ -129,6 +142,9 @@
               if (!src) return;
               var apple = document.getElementById('apple-touch-icon');
               if (apple) apple.setAttribute('href', src);
+              if (m.theme_color) {
+                if (themeMeta) themeMeta.setAttribute('content', statusColor);
+              }
             })
             .catch(function () {});
         }
