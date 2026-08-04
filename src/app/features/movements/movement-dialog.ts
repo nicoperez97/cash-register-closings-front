@@ -602,7 +602,7 @@ function partnerCodeFromName(fullName: string): string {
 })
 export class MovementDialogComponent {
   readonly data = inject<MovementDialogData>(MAT_DIALOG_DATA);
-  readonly ref = inject(MatDialogRef<MovementDialogComponent, boolean>);
+  readonly ref = inject(MatDialogRef<MovementDialogComponent, boolean | Movement>);
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(MovementsApiService);
   private readonly http = inject(HttpClient);
@@ -812,12 +812,14 @@ export class MovementDialogComponent {
         : this.api.create(shopId, body);
 
     req.subscribe({
-      next: () => {
+      next: (saved) => {
         this.busy.set(false);
-        this.snack.open(this.isEdit ? 'Movimiento actualizado' : 'Movimiento creado', 'OK', {
-          duration: 2500,
-        });
-        this.ref.close(true);
+        if (this.isEdit) {
+          this.snack.open('Movimiento actualizado', 'OK', { duration: 2500 });
+          this.ref.close(true);
+          return;
+        }
+        this.ref.close(saved);
       },
       error: (err) => {
         this.busy.set(false);

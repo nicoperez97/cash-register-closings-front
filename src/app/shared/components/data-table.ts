@@ -174,6 +174,19 @@ export interface DataTableColumn {
                         <mat-icon>{{ duplicateIcon() }}</mat-icon>
                       </button>
                     }
+                    @if (rowCanShare(row)) {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="data-table__edit"
+                        [matTooltip]="actionsEnabled() ? shareLabel() : 'Requiere conexión'"
+                        [attr.aria-label]="shareLabel()"
+                        [disabled]="!actionsEnabled()"
+                        (click)="share.emit(row)"
+                      >
+                        <mat-icon>{{ shareIcon() }}</mat-icon>
+                      </button>
+                    }
                     @if (rowCanRemove(row)) {
                       <button
                         mat-icon-button
@@ -263,6 +276,19 @@ export interface DataTableColumn {
                         (click)="duplicate.emit(row)"
                       >
                         <mat-icon>{{ duplicateIcon() }}</mat-icon>
+                      </button>
+                    }
+                    @if (rowCanShare(row)) {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="data-table__edit"
+                        [matTooltip]="actionsEnabled() ? shareLabel() : 'Requiere conexión'"
+                        [attr.aria-label]="shareLabel()"
+                        [disabled]="!actionsEnabled()"
+                        (click)="share.emit(row)"
+                      >
+                        <mat-icon>{{ shareIcon() }}</mat-icon>
                       </button>
                     }
                     @if (rowCanRemove(row)) {
@@ -587,11 +613,14 @@ export class DataTableComponent {
   readonly removeIcon = input('delete');
   readonly duplicateLabel = input('Duplicar');
   readonly duplicateIcon = input('content_copy');
+  readonly shareLabel = input('Compartir');
+  readonly shareIcon = input('share');
   readonly editDisabledLabel = input('No disponible');
   readonly pageSizeOptions = input<number[]>([...PAGE_SIZE_OPTIONS]);
   readonly canEdit = input<(row: any) => boolean>();
   readonly canRemove = input<(row: any) => boolean>();
   readonly canDuplicate = input<(row: any) => boolean>();
+  readonly canShare = input<(row: any) => boolean>();
   readonly editLabelFor = input<(row: any) => string>();
   readonly editIconFor = input<(row: any) => string>();
   /** Opt-in row selection via checkboxes. */
@@ -601,6 +630,7 @@ export class DataTableComponent {
   readonly edit = output<any>();
   readonly remove = output<any>();
   readonly duplicate = output<any>();
+  readonly share = output<any>();
   readonly page = output<PageEvent>();
   readonly selectionChange = output<string[]>();
 
@@ -731,6 +761,10 @@ export class DataTableComponent {
 
   rowCanDuplicate(row: any): boolean {
     return this.canDuplicate()?.(row) ?? false;
+  }
+
+  rowCanShare(row: any): boolean {
+    return this.canShare()?.(row) ?? false;
   }
 
   rowEditLabel(row: any): string {

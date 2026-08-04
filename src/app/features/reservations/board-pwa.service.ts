@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
 
 export type BoardPwaKind = 'reservations' | 'waiting';
 
@@ -14,86 +15,59 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-const LABELS: Record<BoardPwaKind, { short: string; fullPrefix: string; pathPrefix: string }> = {
-  reservations: { short: 'Reservas', fullPrefix: 'Reservas', pathPrefix: 'r' },
-  waiting: { short: 'Espera', fullPrefix: 'Lista de espera', pathPrefix: 'w' },
-};
-
+/**
+ * PWA de tableros públicos (/r, /w).
+ * Manifest always via same-origin `/api/v1/...` (prod directo, dev vía proxy).
+ */
 @Injectable({ providedIn: 'root' })
 export class BoardPwaService {
-  private manifestObjectUrl: string | null = null;
+  private readonly mainPwa = inject(MainPwaInstallService);
   private previousManifestHref: string | null = null;
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private bipHandler: ((e: Event) => void) | null = null;
   private activeKey: string | null = null;
 
-  /** Chrome/Edge disparó beforeinstallprompt. */
   readonly canNativeInstall = signal(false);
   readonly isStandalone = signal(detectStandalone());
   readonly isIos = signal(detectIos());
-  /** Banner visible (no instalado y no descartado). */
   readonly showBanner = signal(false);
+  /** Nombre que verá el usuario al instalar (para el banner). */
+  readonly installLabel = signal('Reservas');
 
   apply(opts: BoardPwaOptions): void {
-    const labels = LABELS[opts.kind];
     const slug = String(opts.slug || '')
       .trim()
       .toLowerCase();
     if (!slug) return;
 
+    this.mainPwa.setBoardContext(true);
+
     const key = `${opts.kind}:${slug}`;
     this.activeKey = key;
     this.isStandalone.set(detectStandalone());
 
-    const origin = window.location.origin;
-    const startPath = `/${labels.pathPrefix}/${encodeURIComponent(slug)}`;
-    const startUrl = `${origin}${startPath}`;
-    const name = `${labels.fullPrefix} · ${opts.shopName}`;
-    const shortName = `${labels.short} · ${truncate(opts.shopName, 12)}`;
-    const theme = opts.accentColor?.trim() || (opts.kind === 'waiting' ? '#2e7d32' : '#c45c26');
+    const shortPrefix = opts.kind === 'waiting' ? 'Espera' : 'Reservas';
+    // iOS trunca ~12–13 chars en el ícono
+    const appleTitle = shortPrefix;
+    const short = `${shortPrefix} · ${truncate(opts.shopName, 10)}`;
+    const full =
+      opts.kind === 'waiting'
+        ? `Lista de espera · ${opts.shopName}`
+        : `Reservas · ${opts.shopName}`;
+    const theme =
+      opts.accentColor?.trim() || (opts.kind === 'waiting' ? '#2e7d32' : '#c45c26');
 
-    document.title = name;
-    setMeta('apple-mobile-web-app-title', labels.short);
-    setMeta('application-name', shortName);
+    this.installLabel.set(short);
+
+    document.title = full;
+    setMeta('apple-mobile-web-app-title', appleTitle);
+    setMeta('application-name', short);
+    setMeta('description', full);
     setThemeColor(theme);
 
-    const manifest = {
-      name,
-      short_name: shortName,
-      description: `${labels.fullPrefix} en vivo — ${opts.shopName}`,
-      lang: 'es-AR',
-      dir: 'ltr',
-      display: 'standalone',
-      orientation: 'any',
-      theme_color: theme,
-      background_color: '#0e0c0b',
-      id: startUrl,
-      scope: startUrl,
-      start_url: startUrl,
-      categories: ['business', 'food'],
-      icons: [
-        {
-          src: `${origin}/icons/icon-192x192.png`,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any',
-        },
-        {
-          src: `${origin}/icons/icon-512x512.png`,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any',
-        },
-        {
-          src: `${origin}/icons/icon-maskable-512x512.png`,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable',
-        },
-      ],
-    };
-
-    this.setManifest(manifest);
+    const href = this.resolveManifestHref(opts.kind, slug);
+    this.setManifestHref(href);
+    void this.prefetchManifest(href);
     this.listenInstallPrompt();
     this.refreshBannerVisibility();
   }
@@ -103,20 +77,18 @@ export class BoardPwaService {
     this.canNativeInstall.set(false);
     this.showBanner.set(false);
     this.activeKey = null;
+    this.mainPwa.setBoardContext(false);
 
-    if (this.manifestObjectUrl) {
-      URL.revokeObjectURL(this.manifestObjectUrl);
-      this.manifestObjectUrl = null;
-    }
-
-    const link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
-    if (link) {
-      link.href = this.previousManifestHref || 'manifest.webmanifest';
-    }
+    const href = this.previousManifestHref || 'manifest.webmanifest';
     this.previousManifestHref = null;
+    this.setManifestHref(href, true);
 
     setMeta('apple-mobile-web-app-title', 'Cierres');
     setMeta('application-name', 'Cierres de caja');
+    setMeta(
+      'description',
+      'Cierres de caja multi-local: roles, reportes y export Excel.',
+    );
     setThemeColor('#1D65A0');
   }
 
@@ -149,21 +121,53 @@ export class BoardPwaService {
     }
   }
 
-  private setManifest(manifest: Record<string, unknown>): void {
-    const link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
-    if (!link) return;
+  private resolveManifestHref(kind: BoardPwaKind, slug: string): string {
+    const appOrigin = window.location.origin;
+    const qs = `appOrigin=${encodeURIComponent(appOrigin)}`;
+    const enc = encodeURIComponent(slug);
+    const manifestKind = kind === 'waiting' ? 'waiting' : 'reservations';
+    return `/api/v1/public/shops/${enc}/manifests/${manifestKind}?${qs}`;
+  }
 
-    if (!this.previousManifestHref) {
-      this.previousManifestHref = link.getAttribute('href') || 'manifest.webmanifest';
+  private async prefetchManifest(href: string): Promise<void> {
+    try {
+      const res = await fetch(href, { credentials: 'omit', cache: 'no-store' });
+      if (!res.ok) return;
+      const json = (await res.json()) as { short_name?: string; name?: string };
+      if (json.short_name) this.installLabel.set(json.short_name);
+      if (json.name) document.title = json.name;
+    } catch {
+      // El link del manifest igual queda; iOS puede usar apple-mobile-web-app-title
     }
-    if (this.manifestObjectUrl) {
-      URL.revokeObjectURL(this.manifestObjectUrl);
-      this.manifestObjectUrl = null;
+  }
+
+  private setManifestHref(href: string, restoring = false): void {
+    const existing = document.querySelectorAll('link[rel="manifest"]');
+    if (!restoring && !this.previousManifestHref && existing.length) {
+      const current = (existing[0] as HTMLLinkElement).getAttribute('href') || '';
+      this.previousManifestHref =
+        current.includes('/manifests/') || current.includes('/pwa/')
+          ? 'manifest.webmanifest'
+          : current || 'manifest.webmanifest';
     }
 
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    this.manifestObjectUrl = URL.createObjectURL(blob);
-    link.href = this.manifestObjectUrl;
+    // Preferir actualizar el href in-place: recrear el <link> después del load
+    // no hace que iOS vuelva a leer el manifest.
+    const first = existing[0] as HTMLLinkElement | undefined;
+    if (first && existing.length === 1) {
+      first.id = 'app-manifest';
+      if (first.getAttribute('href') !== href) {
+        first.setAttribute('href', href);
+      }
+      return;
+    }
+
+    existing.forEach((n) => n.parentNode?.removeChild(n));
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.id = 'app-manifest';
+    link.href = href;
+    document.head.appendChild(link);
   }
 
   private listenInstallPrompt(): void {
@@ -240,6 +244,9 @@ function setMeta(name: string, content: string): void {
   if (!el) {
     el = document.createElement('meta');
     el.setAttribute('name', name);
+    if (name === 'apple-mobile-web-app-title') el.id = 'apple-app-title';
+    if (name === 'application-name') el.id = 'app-name-meta';
+    if (name === 'description') el.id = 'app-desc-meta';
     document.head.appendChild(el);
   }
   el.setAttribute('content', content);

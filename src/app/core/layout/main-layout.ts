@@ -20,6 +20,8 @@ import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
 import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
 import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
+import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
+import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -30,6 +32,7 @@ import { PaymentsInboxService } from '../../features/payments/payments-inbox.ser
     SidebarComponent,
     BottomNavComponent,
     PullToRefreshComponent,
+    MainPwaInstallBannerComponent,
   ],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss',
@@ -42,6 +45,7 @@ export class MainLayoutComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly bodyLock = inject(BodyScrollLockService);
   private readonly paymentsInbox = inject(PaymentsInboxService);
+  private readonly mainPwa = inject(MainPwaInstallService);
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
@@ -212,6 +216,8 @@ export class MainLayoutComponent {
   );
 
   constructor() {
+    this.mainPwa.start();
+
     effect(() => {
       const mobile = this.isMobile();
       const prev = this.lastMobile();

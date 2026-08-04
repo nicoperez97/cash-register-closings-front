@@ -2,6 +2,63 @@
 <html lang="es-AR">
   <head>
     <meta charset="utf-8" />
+    <script>
+      /* Dispositivos incompatibles con Angular → versión iPad ES5 */
+      (function () {
+        var path = location.pathname || '';
+        if (path.indexOf('/ipad') === 0) return;
+
+        function iosMajor() {
+          var ua = navigator.userAgent || '';
+          var touchMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+          if (!/iPad|iPhone|iPod/.test(ua) && !touchMac) return null;
+          var m = ua.match(/OS (\d+)[._](\d+)/);
+          if (m) return parseInt(m[1], 10);
+          var v = ua.match(/Version\/(\d+)\./);
+          if (v) return parseInt(v[1], 10);
+          return null;
+        }
+
+        function safariMajor() {
+          var ua = navigator.userAgent || '';
+          if (!/Safari\//.test(ua) || /Chrome\/|CriOS\/|FxiOS\//.test(ua)) return null;
+          var v = ua.match(/Version\/(\d+)\./);
+          return v ? parseInt(v[1], 10) : null;
+        }
+
+        function chromeMajor() {
+          var ua = navigator.userAgent || '';
+          var m = ua.match(/(?:Chrome|CriOS)\/(\d+)/);
+          return m ? parseInt(m[1], 10) : null;
+        }
+
+        function needsLegacy() {
+          if (typeof Promise === 'undefined') return true;
+          if (typeof fetch === 'undefined') return true;
+          if (typeof Symbol === 'undefined') return true;
+          if (!window.CSS || typeof window.CSS.supports !== 'function') return true;
+
+          var ios = iosMajor();
+          if (ios !== null && ios < 16) return true;
+
+          var safari = safariMajor();
+          if (safari !== null && safari < 16) return true;
+
+          var chrome = chromeMajor();
+          if (chrome !== null && chrome < 107) return true;
+
+          if (/MSIE |Trident\//.test(navigator.userAgent || '')) return true;
+
+          return false;
+        }
+
+        if (needsLegacy()) {
+          // Preferir same-origin /ipad/ (public/ + proxy). Evita depender de :3000
+          // y de redirects cross-port que en Safari viejo fallan o entran en bucle.
+          location.replace('/ipad/');
+        }
+      })();
+    </script>
     <title>Cierres de caja</title>
     <base href="/" />
 
@@ -10,8 +67,65 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
       id="app-viewport"
     />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Cierres" id="apple-app-title" />
+    <meta name="application-name" content="Cierres de caja" id="app-name-meta" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#1D65A0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1D65A0" />
+    <meta
+      name="description"
+      content="Cierres de caja multi-local: roles, reportes y export Excel."
+      id="app-desc-meta"
+    />
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png" />
+    <link rel="apple-touch-icon" href="icons/icon-180x180.png" id="apple-touch-icon" />
+
     <script>
       (function () {
+        /* iOS lee el primer <link rel="manifest"> que ve.
+           Si el href inicial es manifest.webmanifest, cachea "Cierres" + start_url /
+           aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */
+        var path = location.pathname || '';
+        var board = path.match(/^\/(r|w)\/([^/]+)\/?$/);
+        var manifestHref = 'manifest.webmanifest';
+
+        if (board) {
+          var kind = board[1];
+          var slug = board[2];
+          var shortTitle = kind === 'w' ? 'Espera' : 'Reservas';
+          var fullTitle = kind === 'w' ? 'Lista de espera' : 'Reservas';
+          document.title = fullTitle;
+          var appleTitle = document.getElementById('apple-app-title');
+          if (appleTitle) appleTitle.setAttribute('content', shortTitle);
+          var appName = document.getElementById('app-name-meta');
+          if (appName) appName.setAttribute('content', shortTitle);
+          var desc = document.getElementById('app-desc-meta');
+          if (desc) desc.setAttribute('content', fullTitle + ' en vivo');
+          var qs = 'appOrigin=' + encodeURIComponent(location.origin);
+          var manifestKind = kind === 'w' ? 'waiting' : 'reservations';
+          manifestHref =
+            '/api/v1/public/shops/' +
+            encodeURIComponent(decodeURIComponent(slug)) +
+            '/manifests/' +
+            manifestKind +
+            '?' +
+            qs;
+        }
+
+        var manifest = document.createElement('link');
+        manifest.rel = 'manifest';
+        manifest.id = 'app-manifest';
+        manifest.href = manifestHref;
+        document.head.appendChild(manifest);
+
         var isPwa =
           window.matchMedia('(display-mode: standalone)').matches ||
           window.matchMedia('(display-mode: fullscreen)').matches ||
@@ -28,23 +142,6 @@
         document.documentElement.classList.add('guy-pwa');
       })();
     </script>
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Cierres" />
-    <meta name="application-name" content="Cierres de caja" />
-    <meta name="format-detection" content="telephone=no" />
-    <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#1D65A0" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1D65A0" />
-    <meta name="description" content="Cierres de caja multi-local: roles, reportes y export Excel." />
-
-    <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="icon" href="favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png" />
-    <link rel="apple-touch-icon" href="icons/icon-180x180.png" />
   </head>
   <body>
     <app-root></app-root>

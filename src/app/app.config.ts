@@ -10,8 +10,7 @@ import { provideRouter, TitleStrategy, withPreloading, PreloadAllModules } from 
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideServiceWorker, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatPaginatorIntl } from '@angular/material/paginator';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialogConfig } from '@angular/material/dialog';
+import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 import { ScrollStrategy } from '@angular/cdk/overlay';
 import { registerLocaleData } from '@angular/common';
@@ -24,25 +23,34 @@ import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { BodyScrollLockService } from './shared/services/body-scroll-lock.service';
+import { AppUpdateDialogComponent } from './shared/components/app-update-dialog';
 
 registerLocaleData(localeEsAr);
 
 function watchAppUpdates(): void {
   const updates = inject(SwUpdate);
-  const snackBar = inject(MatSnackBar);
+  const dialog = inject(MatDialog);
   if (!updates.isEnabled) return;
 
+  let prompting = false;
+
   const promptReload = (): void => {
-    snackBar
-      .open('Hay una nueva versión disponible', 'Actualizar', {
-        duration: 0,
-        horizontalPosition: 'center',
-        verticalPosition: 'bottom',
-      })
-      .onAction()
-      .subscribe(() => {
-        void updates.activateUpdate().then(() => document.location.reload());
-      });
+    if (prompting) return;
+    prompting = true;
+    dialog.open(AppUpdateDialogComponent, {
+      width: '440px',
+      maxWidth: '94vw',
+      disableClose: true,
+      autoFocus: 'dialog',
+      restoreFocus: false,
+      hasBackdrop: true,
+      closeOnNavigation: false,
+      panelClass: ['guy-dialog', 'app-update-dialog-panel'],
+      backdropClass: 'app-update-dialog-backdrop',
+      data: {
+        activate: () => updates.activateUpdate().then(() => document.location.reload()),
+      },
+    });
   };
 
   updates.versionUpdates
