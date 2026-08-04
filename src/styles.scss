@@ -1023,7 +1023,7 @@ button.mat-mdc-mini-fab mat-icon {
 }
 
 .guy-filters__collapse {
-  display: none;
+  display: inline-flex;
   flex-shrink: 0;
   height: 36px;
   border-radius: 999px;
@@ -1054,32 +1054,22 @@ button.mat-mdc-mini-fab mat-icon {
     padding-top 0.3s ease;
 }
 
-@media (max-width: 959px) {
-  .guy-filters__collapse {
-    display: inline-flex;
-  }
+.guy-filters--collapsed .guy-filters__body {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-0.35rem);
+  padding-top: 0;
+  pointer-events: none;
+}
 
-  .guy-filters--collapsed .guy-filters__body {
-    overflow: hidden;
-    max-height: 0;
-    opacity: 0;
-    transform: translateY(-0.35rem);
-    padding-top: 0;
-    pointer-events: none;
-  }
-
-  .guy-filters--collapsed .guy-filters__head {
-    margin-bottom: 0;
-  }
+.guy-filters--collapsed .guy-filters__head {
+  margin-bottom: 0;
 }
 
 @media (min-width: 960px) {
-  .guy-filters__body {
-    max-height: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    pointer-events: auto !important;
-    overflow: visible !important;
+  .guy-filters:not(.guy-filters--collapsed) .guy-filters__body {
+    max-height: none;
     padding-top: 0.25rem;
   }
 }
