@@ -134,7 +134,9 @@ const WEEKDAY_OPTIONS = [
 
         <section class="panel-card">
           <h2 class="guy-section-title">Apariencia</h2>
-          <p class="text-muted small mb-3">Logo y color que identifican al local en la app.</p>
+          <p class="text-muted small mb-3">
+            Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
+          </p>
           <div class="guy-form-grid guy-form-grid--2">
             <mat-form-field appearance="outline" class="shop-admin__full">
               <mat-label>URL del logo</mat-label>
@@ -144,7 +146,8 @@ const WEEKDAY_OPTIONS = [
                 placeholder="Pegá el vínculo de Drive (Copiar vínculo)"
               />
               <mat-hint>
-                Google Drive con permiso “Cualquiera con el enlace”, o una URL directa de imagen.
+                Google Drive con permiso “Cualquiera con el enlace”, o una URL directa. También es el
+                ícono al instalar las apps de Reservas y Lista de espera.
               </mat-hint>
             </mat-form-field>
 
