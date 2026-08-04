@@ -6,7 +6,8 @@ export type NotificationType =
   | 'PAYMENT_VALIDATE'
   | 'PAYMENT_PAY'
   | 'PAYMENT_REJECTED'
-  | 'PAYMENT_PAID';
+  | 'PAYMENT_PAID'
+  | 'CLOSING_CREATED';
 
 export interface AppNotification {
   id: string;
@@ -16,9 +17,45 @@ export interface AppNotification {
   title: string;
   body: string;
   paymentId: string | null;
+  closingId?: string | null;
   read: boolean;
   readAt: string | null;
   createdAt: string;
+}
+
+export function notificationIcon(type: NotificationType | string): string {
+  switch (type) {
+    case 'PAYMENT_VALIDATE':
+      return 'fact_check';
+    case 'PAYMENT_PAY':
+      return 'payments';
+    case 'PAYMENT_REJECTED':
+      return 'cancel';
+    case 'PAYMENT_PAID':
+      return 'check_circle';
+    case 'CLOSING_CREATED':
+      return 'point_of_sale';
+    default:
+      return 'notifications';
+  }
+}
+
+/** Clase CSS de color por tipo (toolbar / lista). */
+export function notificationToneClass(type: NotificationType | string): string {
+  switch (type) {
+    case 'PAYMENT_VALIDATE':
+      return 'notif-tone--amber';
+    case 'PAYMENT_PAY':
+      return 'notif-tone--blue';
+    case 'PAYMENT_REJECTED':
+      return 'notif-tone--red';
+    case 'PAYMENT_PAID':
+      return 'notif-tone--green';
+    case 'CLOSING_CREATED':
+      return 'notif-tone--navy';
+    default:
+      return 'notif-tone--muted';
+  }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -37,6 +74,12 @@ export class NotificationsApiService {
     const params: Record<string, string> = {};
     if (shopId) params['shopId'] = shopId;
     return this.http.get<{ count: number }>(`${this.base}/notifications/unread-count`, { params });
+  }
+
+  unreadCountsByShop() {
+    return this.http.get<{ counts: Record<string, number> }>(
+      `${this.base}/notifications/unread-counts-by-shop`,
+    );
   }
 
   markRead(id: string) {

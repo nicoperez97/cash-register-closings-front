@@ -21,6 +21,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { ProductionAttendanceExcelImportDialogComponent } from './production-attendance-excel-import-dialog';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
+import { LoadingStateComponent } from '../../shared/components/loading-state';
 
 interface ProdDayCell {
   id?: string;
@@ -68,6 +69,7 @@ function localIsoDate(d = new Date()): string {
     MatSnackBarModule,
     PageHeaderComponent,
     FiltersCollapseBtnComponent,
+    LoadingStateComponent,
   ],
   template: `
     <app-page-header
@@ -190,6 +192,12 @@ function localIsoDate(d = new Date()): string {
 
     @if (!shopId()) {
       <div class="panel-card">Seleccioná un local en el menú lateral.</div>
+    } @else if (loading()) {
+      <app-loading-state
+        [loading]="true"
+        title="Cargando…"
+        message="Obteniendo asistencia de producción"
+      />
     } @else if (!employees().length) {
       <div class="panel-card">
         No hay productores activos. Marcá “Produce comida” en Empleados para que aparezcan acá.
@@ -477,6 +485,7 @@ export class ProductionAttendancePage {
   readonly year = signal(this.todayYear);
   readonly month = signal(this.todayMonth);
   readonly data = signal<ProdMonthResponse | null>(null);
+  readonly loading = signal(true);
   readonly todayMarks = signal<Record<string, number>>({});
   readonly saving = signal(false);
   readonly exporting = signal(false);
@@ -504,6 +513,7 @@ export class ProductionAttendancePage {
       if (!shopId) {
         this.data.set(null);
         this.todayMarks.set({});
+        this.loading.set(false);
         return;
       }
       void this.reload();
@@ -884,8 +894,12 @@ export class ProductionAttendancePage {
 
   private async reload(): Promise<void> {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
     const seq = ++this.monthLoadSeq;
+    this.loading.set(true);
     try {
       const data = await firstValueFrom(
         this.http.get<ProdMonthResponse>(
@@ -902,11 +916,13 @@ export class ProductionAttendancePage {
       );
       if (seq !== this.monthLoadSeq) return;
       this.data.set(data);
+      this.loading.set(false);
       if (data.defaultHours) this.defaultHours.set(Number(data.defaultHours) || 8);
       requestAnimationFrame(() => this.scrollMatrixToToday());
     } catch {
       if (seq !== this.monthLoadSeq) return;
       this.data.set(null);
+      this.loading.set(false);
       this.snack.open('No se pudo cargar la asistencia de producción', 'OK', { duration: 3000 });
     }
   }

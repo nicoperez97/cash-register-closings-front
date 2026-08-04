@@ -21,6 +21,7 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
+import { LoadingStateComponent } from '../../shared/components/loading-state';
 
 interface AttendanceDayCell {
   id?: string;
@@ -63,6 +64,7 @@ const MONTH_LABELS = [
     MatSnackBarModule,
     PageHeaderComponent,
     FiltersCollapseBtnComponent,
+    LoadingStateComponent,
   ],
   template: `
     <app-page-header
@@ -176,6 +178,12 @@ const MONTH_LABELS = [
 
     @if (!shopId()) {
       <div class="panel-card">Seleccioná un local en el menú lateral.</div>
+    } @else if (loading()) {
+      <app-loading-state
+        [loading]="true"
+        title="Cargando…"
+        message="Obteniendo asistencia del mes"
+      />
     } @else if (!employees().length) {
       <div class="panel-card">No hay empleados activos para mostrar.</div>
     } @else {
@@ -543,6 +551,7 @@ export class AttendancePage {
   readonly year = signal(new Date().getFullYear());
   readonly month = signal(new Date().getMonth() + 1);
   readonly data = signal<AttendanceMonthResponse | null>(null);
+  readonly loading = signal(true);
   readonly saving = signal(false);
   readonly exporting = signal(false);
   readonly sharing = signal(false);
@@ -886,10 +895,14 @@ export class AttendancePage {
 
   reload(): Promise<void> {
     const shopId = this.shopId();
-    if (!shopId) return Promise.resolve();
+    if (!shopId) {
+      this.loading.set(false);
+      return Promise.resolve();
+    }
     const seq = ++this.monthLoadSeq;
     const year = this.year();
     const month = this.month();
+    this.loading.set(true);
     return firstValueFrom(
       this.http.get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
         params: {
@@ -906,10 +919,12 @@ export class AttendancePage {
       .then((data) => {
         if (seq !== this.monthLoadSeq) return;
         this.data.set(data);
+        this.loading.set(false);
         this.scrollMatrixToToday();
       })
       .catch(() => {
         if (seq !== this.monthLoadSeq) return;
+        this.loading.set(false);
         this.snack.open('No se pudo cargar la asistencia', 'OK', { duration: 3000 });
       });
   }

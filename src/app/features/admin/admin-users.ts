@@ -61,6 +61,7 @@ function accountTypeLabel(row: Record<string, unknown>): string {
         <app-data-table
           [columns]="columns()"
           [rows]="rows()"
+          [loading]="loading()"
           [showActions]="true"
           [canRemove]="canRemoveRow"
           [removeLabel]="removeActionLabel()"
@@ -87,6 +88,7 @@ export class AdminUsersPage implements OnInit {
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminUserRow[]>([]);
+  readonly loading = signal(true);
   readonly allShops = signal<Array<{ id: string; name: string }>>([]);
   readonly scope = signal<'all' | 'shop'>('all');
   readonly always = () => true;
@@ -178,16 +180,26 @@ export class AdminUsersPage implements OnInit {
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId && !this.auth.isAdmin()) return;
+    if (!shopId && !this.auth.isAdmin()) {
+      this.loading.set(false);
+      return;
+    }
 
     const opts =
       this.auth.isAdmin() && this.scope() === 'all'
         ? {}
         : { params: { shopId: shopId! } };
 
+    this.loading.set(true);
     this.http.get<AdminUserRow[]>(`${environment.apiUrl}/users`, opts).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () => this.snack.open('No se pudieron cargar los usuarios', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los usuarios', 'OK', { duration: 3000 });
+      },
     });
   }
 

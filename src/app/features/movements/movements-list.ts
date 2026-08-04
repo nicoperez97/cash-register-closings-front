@@ -169,6 +169,7 @@ import { shareText } from '../../shared/utils/share-text';
             <app-data-table
               [columns]="columns"
               [rows]="rows()"
+              [loading]="loading()"
               [sortable]="true"
               [canEdit]="canEditRow"
               [canRemove]="canEditRow"
@@ -221,6 +222,7 @@ export class MovementsListPage {
 
   readonly shopId = this.shops.selectedShopId;
   readonly rows = signal<Movement[]>([]);
+  readonly loading = signal(true);
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
   readonly accounts = signal<LedgerAccount[]>([]);
   readonly concepts = signal<Concept[]>([]);
@@ -287,6 +289,7 @@ export class MovementsListPage {
         this.concepts.set([]);
         this.employees.set([]);
         this.users.set([]);
+        this.loading.set(false);
         return;
       }
       this.api.accounts(shopId).subscribe({
@@ -381,10 +384,20 @@ export class MovementsListPage {
 
   private load(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.list(shopId, this.currentFilters()).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () => this.snack.open('No se pudieron cargar los movimientos', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los movimientos', 'OK', { duration: 3000 });
+      },
     });
     // Saldos al estilo del contador: acumulados (sin filtrar por período de la grilla).
     this.api.balances(shopId).subscribe({

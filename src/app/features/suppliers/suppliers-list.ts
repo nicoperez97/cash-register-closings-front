@@ -7,6 +7,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -29,6 +30,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     MatSnackBarModule,
     MatTooltipModule,
     PageHeaderComponent,
+    SpinnerComponent,
     FiltersCollapseBtnComponent,
   ],
   template: `
@@ -66,60 +68,70 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     </div>
 
     <div class="supplier-list">
-      @for (row of rows(); track row.id) {
-        <article class="panel-card supplier-card" [class.supplier-card--hidden]="!row.active">
-          <div class="supplier-card__main">
-            <div>
-              <h3 class="supplier-card__name">{{ row.name }}</h3>
-              <p class="supplier-card__meta">
-                {{ row.accountName || 'Sin cuenta' }}
-                @if (!row.active) {
-                  · Oculto
-                }
-              </p>
-            </div>
-            @if (canManage()) {
-              <div class="supplier-card__actions">
-                <button mat-icon-button type="button" matTooltip="Editar" (click)="openEdit(row)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button
-                  mat-icon-button
-                  type="button"
-                  [matTooltip]="row.active ? 'Ocultar' : 'Mostrar'"
-                  (click)="onToggleVisibility(row)"
-                >
-                  <mat-icon>{{ row.active ? 'visibility_off' : 'visibility' }}</mat-icon>
-                </button>
-              </div>
-            }
-          </div>
-
-          <div class="supplier-card__alias">
-            <span class="supplier-card__label">Alias / CBU</span>
-            <div class="supplier-card__alias-row">
-              <code class="supplier-card__value">{{ row.bankAlias || '—' }}</code>
-              @if (row.bankAlias) {
-                <button
-                  mat-stroked-button
-                  type="button"
-                  (click)="copyAlias(row)"
-                >
-                  <mat-icon>content_copy</mat-icon>
-                  Copiar
-                </button>
-              }
-            </div>
-          </div>
-        </article>
-      } @empty {
-        <div class="panel-card guy-empty">
-          <mat-icon>local_shipping</mat-icon>
+      @if (loading()) {
+        <div class="panel-card guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
+          <app-spinner [size]="28" tone="accent" />
           <div>
-            <strong>Sin proveedores todavía</strong>
-            <div class="small">Creá el primero para asociarle una cuenta y su alias/CBU.</div>
+            <strong>Cargando…</strong>
+            <div class="small">Obteniendo proveedores</div>
           </div>
         </div>
+      } @else {
+        @for (row of rows(); track row.id) {
+          <article class="panel-card supplier-card" [class.supplier-card--hidden]="!row.active">
+            <div class="supplier-card__main">
+              <div>
+                <h3 class="supplier-card__name">{{ row.name }}</h3>
+                <p class="supplier-card__meta">
+                  {{ row.accountName || 'Sin cuenta' }}
+                  @if (!row.active) {
+                    · Oculto
+                  }
+                </p>
+              </div>
+              @if (canManage()) {
+                <div class="supplier-card__actions">
+                  <button mat-icon-button type="button" matTooltip="Editar" (click)="openEdit(row)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [matTooltip]="row.active ? 'Ocultar' : 'Mostrar'"
+                    (click)="onToggleVisibility(row)"
+                  >
+                    <mat-icon>{{ row.active ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+
+            <div class="supplier-card__alias">
+              <span class="supplier-card__label">Alias / CBU</span>
+              <div class="supplier-card__alias-row">
+                <code class="supplier-card__value">{{ row.bankAlias || '—' }}</code>
+                @if (row.bankAlias) {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="copyAlias(row)"
+                  >
+                    <mat-icon>content_copy</mat-icon>
+                    Copiar
+                  </button>
+                }
+              </div>
+            </div>
+          </article>
+        } @empty {
+          <div class="panel-card guy-empty">
+            <mat-icon>local_shipping</mat-icon>
+            <div>
+              <strong>Sin proveedores todavía</strong>
+              <div class="small">Creá el primero para asociarle una cuenta y su alias/CBU.</div>
+            </div>
+          </div>
+        }
       }
     </div>
   `,
@@ -191,6 +203,7 @@ export class SuppliersListPage {
   private readonly confirmDialog = inject(ConfirmDialogService);
 
   readonly rows = signal<ShopSupplier[]>([]);
+  readonly loading = signal(true);
   readonly includeInactive = signal(false);
 
   constructor() {
@@ -199,6 +212,7 @@ export class SuppliersListPage {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {
         this.rows.set([]);
+        this.loading.set(false);
         return;
       }
       this.reload();
@@ -220,10 +234,20 @@ export class SuppliersListPage {
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.list(shopId, this.includeInactive()).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () => this.snack.open('No se pudieron cargar los proveedores', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los proveedores', 'OK', { duration: 3000 });
+      },
     });
   }
 

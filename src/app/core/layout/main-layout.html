@@ -44,7 +44,19 @@
           (refresh)="pageRefresh.refresh()"
         />
       }
-      <router-outlet />
+      @if (routeLoading()) {
+        <div class="route-loading" role="status" aria-live="polite" aria-busy="true">
+          <mat-progress-bar mode="indeterminate" class="guy-progress route-loading__bar" />
+          <app-loading-state
+            [loading]="true"
+            title="Cargando…"
+            message="Preparando la pantalla"
+          />
+        </div>
+      }
+      <div class="route-outlet" [class.route-outlet--hidden]="routeLoading()">
+        <router-outlet />
+      </div>
     </main>
 
     @if (isMobile()) {

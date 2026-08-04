@@ -49,11 +49,30 @@
           [style.--shop-accent-secondary]="shop.accentSecondary || null"
           (click)="toggleShopPicker()"
         >
-          <span class="shop-switcher__avatar" aria-hidden="true">
-            @if (shopLogo(shop.logoUrl); as logo) {
-              <img [src]="logo" alt="" width="42" height="42" (error)="onShopLogoError($event)" />
-            } @else {
-              <span class="shop-switcher__initials">{{ shopInitial(shop.name) }}</span>
+          <span class="shop-switcher__avatar-wrap" aria-hidden="true">
+            <span class="shop-switcher__avatar">
+              @if (shopAvatarSrc(shop.id, shop.logoUrl); as logo) {
+                <img
+                  [src]="logo"
+                  alt=""
+                  width="42"
+                  height="42"
+                  referrerpolicy="no-referrer"
+                  (error)="onShopLogoError(shop.id)"
+                />
+              } @else {
+                <span class="shop-switcher__initials">{{ shopInitial(shop.name) }}</span>
+              }
+            </span>
+            @if (otherShopsUnread(); as otherUnread) {
+              @if (otherUnread > 0) {
+                <span
+                  class="shop-switcher__notif-badge"
+                  [attr.title]="otherUnread + ' notificaciones en otros locales'"
+                >
+                  {{ badgeLabel(otherUnread) }}
+                </span>
+              }
             }
           </span>
           <span class="shop-switcher__meta">
@@ -82,11 +101,25 @@
                   [attr.aria-selected]="s.id === shop.id"
                   (click)="pickShop(s.id)"
                 >
-                  <span class="shop-switcher__avatar" aria-hidden="true">
-                    @if (shopLogo(s.logoUrl); as logo) {
-                      <img [src]="logo" alt="" width="42" height="42" (error)="onShopLogoError($event)" />
-                    } @else {
-                      <span class="shop-switcher__initials">{{ shopInitial(s.name) }}</span>
+                  <span class="shop-switcher__avatar-wrap" aria-hidden="true">
+                    <span class="shop-switcher__avatar">
+                      @if (shopAvatarSrc(s.id, s.logoUrl); as logo) {
+                        <img
+                          [src]="logo"
+                          alt=""
+                          width="42"
+                          height="42"
+                          referrerpolicy="no-referrer"
+                          (error)="onShopLogoError(s.id)"
+                        />
+                      } @else {
+                        <span class="shop-switcher__initials">{{ shopInitial(s.name) }}</span>
+                      }
+                    </span>
+                    @if (shopUnread(s.id); as unread) {
+                      @if (unread > 0) {
+                        <span class="shop-switcher__notif-badge">{{ badgeLabel(unread) }}</span>
+                      }
                     }
                   </span>
                   <span class="shop-switcher__meta">
@@ -132,8 +165,15 @@
           [style.--shop-accent-secondary]="shop.accentSecondary || null"
         >
           <span class="shop-switcher__avatar" aria-hidden="true">
-            @if (shopLogo(shop.logoUrl); as logo) {
-              <img [src]="logo" alt="" width="42" height="42" (error)="onShopLogoError($event)" />
+            @if (shopAvatarSrc(shop.id, shop.logoUrl); as logo) {
+              <img
+                [src]="logo"
+                alt=""
+                width="42"
+                height="42"
+                referrerpolicy="no-referrer"
+                (error)="onShopLogoError(shop.id)"
+              />
             } @else {
               <span class="shop-switcher__initials">{{ shopInitial(shop.name) }}</span>
             }

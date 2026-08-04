@@ -71,6 +71,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
         <app-data-table
           [columns]="columns"
           [rows]="rows()"
+          [loading]="loading()"
           [sortable]="true"
           [showActions]="canManage()"
           [canRemove]="canToggleVisibility"
@@ -97,6 +98,7 @@ export class EmployeesListPage {
   private readonly confirmDialog = inject(ConfirmDialogService);
 
   readonly rows = signal<Employee[]>([]);
+  readonly loading = signal(true);
   readonly users = signal<ShopUserOption[]>([]);
   readonly includeInactive = signal(false);
 
@@ -135,6 +137,7 @@ export class EmployeesListPage {
       if (!shopId) {
         this.rows.set([]);
         this.users.set([]);
+        this.loading.set(false);
         return;
       }
       this.reload();
@@ -160,10 +163,20 @@ export class EmployeesListPage {
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.list(shopId, this.includeInactive()).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () => this.snack.open('No se pudieron cargar los empleados', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los empleados', 'OK', { duration: 3000 });
+      },
     });
   }
 

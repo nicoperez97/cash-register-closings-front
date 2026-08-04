@@ -169,6 +169,7 @@ const MONTH_LABELS = [
           <app-data-table
             [columns]="lineColumns"
             [rows]="lines()"
+            [loading]="loading()"
             [sortable]="true"
             [showActions]="false"
           />
@@ -231,6 +232,7 @@ export class PayrollPage {
   readonly year = signal(new Date().getFullYear());
   readonly month = signal(new Date().getMonth() + 1);
   readonly period = signal<PayrollPeriod | null>(null);
+  readonly loading = signal(true);
   readonly busy = signal(false);
 
   readonly semester = signal<1 | 2>(new Date().getMonth() < 6 ? 1 : 2);
@@ -295,6 +297,7 @@ export class PayrollPage {
       this.month();
       if (!shopId) {
         this.period.set(null);
+        this.loading.set(false);
         return;
       }
       this.reload();
@@ -333,12 +336,22 @@ export class PayrollPage {
 
   reload(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.http
       .get<PayrollPeriod>(`${environment.apiUrl}/shops/${shopId}/payroll/${this.year()}/${this.month()}`)
       .subscribe({
-        next: (data) => this.period.set(data),
-        error: () => this.snack.open('No se pudo cargar la liquidación', 'OK', { duration: 3000 }),
+        next: (data) => {
+          this.period.set(data);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loading.set(false);
+          this.snack.open('No se pudo cargar la liquidación', 'OK', { duration: 3000 });
+        },
       });
   }
 

@@ -125,3 +125,17 @@
     padding-right: var(--guy-gutter, 0.75rem) !important;
   }
 }
+
+.route-loading {
+  margin-bottom: 0.5rem;
+}
+
+.route-loading__bar {
+  margin: -0.35rem 0 0.75rem;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.route-outlet--hidden {
+  display: none;
+}
