@@ -1,29 +1,26 @@
 import { Component, inject, input } from '@angular/core';
-import { BoardPwaKind, BoardPwaService } from './board-pwa.service';
+import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
 
 @Component({
-  selector: 'app-board-install-banner',
+  selector: 'app-main-pwa-install-banner',
   template: `
     @if (pwa.showBanner()) {
-      <aside class="install" role="region" aria-label="Instalar acceso directo">
+      <aside class="install" role="region" aria-label="Instalar aplicación">
         <div class="install__text">
-          <strong>{{ title() }}</strong>
+          <strong>Instalar Cierres</strong>
           @if (pwa.canNativeInstall()) {
-            <span>Instalá este tablero como app en el dispositivo.</span>
+            <span>Agregá la app a tu dispositivo para acceso rápido.</span>
           } @else if (pwa.isIos()) {
-            <span>
-              Safari → Compartir → <em>Agregar a pantalla de inicio</em>.
-              El ícono debe decir <em>{{ pwa.installLabel() }}</em> (no “Cierres”).
-            </span>
+            <span>En Safari: Compartir → <em>Agregar a pantalla de inicio</em>.</span>
           } @else {
-            <span>Abrí el menú del navegador → Instalar app. Tiene que ser este tablero, no la app Cierres.</span>
+            <span>Desde el menú del navegador: Instalar app / Agregar a inicio.</span>
           }
         </div>
         <div class="install__actions">
           @if (pwa.canNativeInstall()) {
             <button type="button" class="install__btn" (click)="onInstall()">Instalar</button>
           }
-          <button type="button" class="install__dismiss" (click)="pwa.dismissBanner()" aria-label="Cerrar">
+          <button type="button" class="install__dismiss" (click)="pwa.dismiss()" aria-label="Cerrar">
             Ahora no
           </button>
         </div>
@@ -34,10 +31,10 @@ import { BoardPwaKind, BoardPwaService } from './board-pwa.service';
     `
       .install {
         position: fixed;
-        z-index: 30;
+        z-index: 1200;
         left: 0.75rem;
         right: 0.75rem;
-        bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        bottom: calc(0.75rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -45,10 +42,10 @@ import { BoardPwaKind, BoardPwaService } from './board-pwa.service';
         gap: 0.75rem;
         padding: 0.85rem 1rem;
         border-radius: 14px;
-        background: rgba(18, 16, 14, 0.94);
-        border: 1px solid color-mix(in srgb, var(--install-accent, #c45c26) 45%, transparent);
-        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
-        color: #f4efe6;
+        background: color-mix(in srgb, var(--guy-navy-deep, #154a75) 94%, #000);
+        border: 1px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, transparent);
+        box-shadow: 0 14px 36px rgba(0, 30, 60, 0.35);
+        color: #f4f8fc;
         backdrop-filter: blur(8px);
       }
 
@@ -67,7 +64,7 @@ import { BoardPwaKind, BoardPwaService } from './board-pwa.service';
       }
 
       .install__text span {
-        opacity: 0.85;
+        opacity: 0.88;
       }
 
       .install__text em {
@@ -96,31 +93,22 @@ import { BoardPwaKind, BoardPwaService } from './board-pwa.service';
 
       .install__btn {
         border: 0;
-        background: var(--install-accent, #c45c26);
+        background: var(--guy-accent, #f27d16);
         color: #fff;
       }
 
       .install__dismiss {
         border: 1px solid rgba(255, 255, 255, 0.22);
         background: transparent;
-        color: #f4efe6;
+        color: #f4f8fc;
       }
     `,
   ],
-  host: {
-    '[style.--install-accent]': 'accent()',
-  },
 })
-export class BoardInstallBannerComponent {
-  readonly pwa = inject(BoardPwaService);
-
-  readonly kind = input.required<BoardPwaKind>();
-  readonly shopName = input.required<string>();
-  readonly accent = input<string>('#c45c26');
-
-  title(): string {
-    return this.kind() === 'waiting' ? 'App Lista de espera' : 'App Reservas';
-  }
+export class MainPwaInstallBannerComponent {
+  readonly pwa = inject(MainPwaInstallService);
+  /** Espacio extra inferior (p.ej. bottom nav). Se aplica vía CSS var del layout. */
+  readonly lift = input(false);
 
   async onInstall(): Promise<void> {
     await this.pwa.install();

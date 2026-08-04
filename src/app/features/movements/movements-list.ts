@@ -35,6 +35,12 @@ import {
 } from './movement-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
+import {
+  movementSavedDialogData,
+  movementSharePayload,
+} from '../../shared/components/record-share-builders';
+import { shareText } from '../../shared/utils/share-text';
 
 @Component({
   selector: 'app-movements-list',
@@ -141,9 +147,11 @@ import { usePageRefresh } from '../../core/page-refresh.service';
               [sortable]="true"
               [canEdit]="canEditRow"
               [canRemove]="canEditRow"
+              [canShare]="canShareRow"
               editDisabledLabel="Generado por un cierre"
               (edit)="openEdit($event)"
               (remove)="onRemove($event)"
+              (share)="shareMovement($event)"
             />
           </div>
         </div>
@@ -226,6 +234,8 @@ export class MovementsListPage {
 
   readonly canEditRow = (row: Movement) =>
     this.canManage() && (!row.closingId || this.auth.isAdmin());
+
+  readonly canShareRow = (_row: Movement) => true;
 
   private reloadToken = signal(0);
 
@@ -399,8 +409,11 @@ export class MovementsListPage {
         mode.mode === 'edit' ? 'Editar movimiento' : 'Nuevo movimiento',
       )
       .afterClosed()
-      .subscribe((ok) => {
-        if (!ok) return;
+      .subscribe((result) => {
+        if (!result) return;
+        if (typeof result === 'object' && result.id) {
+          this.openMovementSaved(result, shopName);
+        }
         this.api.accounts(shopId).subscribe({
           next: (rows) => this.accounts.set(rows),
           error: () => undefined,
@@ -419,5 +432,28 @@ export class MovementsListPage {
         });
         this.applyFilter();
       });
+  }
+
+  private openMovementSaved(movement: Movement, shopName: string): void {
+    this.dialogTitle.track(
+      this.dialog.open(RecordSavedDialogComponent, {
+        width: '440px',
+        maxWidth: '95vw',
+        panelClass: 'guy-dialog',
+        data: movementSavedDialogData(movement, shopName),
+      }),
+      'Movimiento guardado',
+    );
+  }
+
+  async shareMovement(row: Movement): Promise<void> {
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const payload = movementSharePayload(row, shopName);
+    const result = await shareText(payload);
+    if (result === 'copied') {
+      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    }
   }
 }

@@ -672,6 +672,31 @@ body.guy-dialog-scroll-lock {
   border-radius: 12px !important;
 }
 
+/* Modal obligatorio de nueva versión PWA */
+.app-update-dialog-backdrop {
+  background: rgba(8, 16, 24, 0.78) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.cdk-overlay-pane.app-update-dialog-panel {
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    border-radius: 22px !important;
+    overflow: hidden;
+    padding: 0 !important;
+    border: 1px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 18%, var(--guy-border, #d7e0d9));
+    box-shadow:
+      0 28px 64px rgba(0, 30, 60, 0.28),
+      0 0 0 1px color-mix(in srgb, #fff 35%, transparent) inset;
+  }
+}
+
+html[data-theme='dark'] .cdk-overlay-pane.app-update-dialog-panel {
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 35%, var(--guy-border));
+  }
+}
+
 @media (max-width: 960px) {
   .cdk-overlay-pane.mat-mdc-dialog-panel {
     max-width: calc(100vw - 0.75rem) !important;

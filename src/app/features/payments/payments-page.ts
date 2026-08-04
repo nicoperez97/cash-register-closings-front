@@ -24,6 +24,12 @@ import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.se
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatIsoDateDisplay } from '../../core/shop/business-date';
+import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
+import {
+  paymentPaidDialogData,
+  paymentSharePayload,
+} from '../../shared/components/record-share-builders';
+import { shareText } from '../../shared/utils/share-text';
 
 type PaymentKind = 'supplier' | 'employee';
 
@@ -153,6 +159,12 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
               <button mat-flat-button color="primary" type="button" (click)="pay(p)">
                 <mat-icon>paid</mat-icon>
                 Marcar pagado
+              </button>
+            }
+            @if (p.status === 'PAID') {
+              <button mat-stroked-button type="button" (click)="sharePayment(p)">
+                <mat-icon>share</mat-icon>
+                Compartir
               </button>
             }
             @if (canManage()) {
@@ -540,13 +552,33 @@ export class PaymentsPage {
     if (!ok) return;
     const shopId = this.shopId();
     if (!shopId) return;
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
     this.api.pay(shopId, p.id).subscribe({
-      next: () => {
-        this.snack.open('Pago registrado', 'OK', { duration: 2500 });
+      next: (paid) => {
         this.reload();
+        this.dialogTitle.track(
+          this.dialog.open(RecordSavedDialogComponent, {
+            width: '440px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            data: paymentPaidDialogData(paid, shopName),
+          }),
+          'Pago registrado',
+        );
       },
       error: (err) => this.showErr(err),
     });
+  }
+
+  async sharePayment(p: ShopPayment): Promise<void> {
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const payload = paymentSharePayload(p, shopName);
+    const result = await shareText(payload);
+    if (result === 'copied') {
+      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    }
   }
 
   async cancel(p: ShopPayment): Promise<void> {

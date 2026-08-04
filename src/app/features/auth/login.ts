@@ -11,6 +11,8 @@ import { ThemeService } from '../../core/theme/theme.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
+import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
 
 const LOGIN_THEME = '#0E4F8C';
 const APP_THEME = '#1D65A0';
@@ -24,6 +26,7 @@ const APP_THEME = '#1D65A0';
     MatButtonModule,
     MatIconModule,
     BusyLabelComponent,
+    MainPwaInstallBannerComponent,
   ],
   templateUrl: './login.html',
   styleUrl: './login.scss',
@@ -34,6 +37,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly theme = inject(ThemeService);
   private readonly shops = inject(ShopContextService);
+  private readonly mainPwa = inject(MainPwaInstallService);
 
   readonly brand = APP_BRAND;
   busy = false;
@@ -49,6 +53,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     document.body.classList.add('auth-login');
     this.theme.lockLight(true);
     this.setThemeColor(LOGIN_THEME);
+    this.mainPwa.start();
     if (this.auth.isAuthenticated()) {
       void this.router.navigateByUrl(this.afterLoginUrl());
     }

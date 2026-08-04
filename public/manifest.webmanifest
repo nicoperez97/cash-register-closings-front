@@ -8,23 +8,23 @@
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "any",
-  "scope": "./",
-  "start_url": "./",
-  "id": "./",
+  "scope": "/",
+  "start_url": "/",
+  "id": "/",
   "categories": ["business", "finance", "productivity"],
   "shortcuts": [
     {
       "name": "Reservas",
       "short_name": "Reservas",
       "description": "Gestión de reservas del local",
-      "url": "./reservations",
+      "url": "/reservations",
       "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "Lista de espera",
       "short_name": "Espera",
       "description": "Cola de espera del local",
-      "url": "./waiting-list",
+      "url": "/waiting-list",
       "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ],
