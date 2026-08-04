@@ -380,7 +380,11 @@ export class ClosingsListPage {
 
   async shareClosing(row: CashClosing): Promise<void> {
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const result = await shareText(closingSharePayload(row, shopName));
+    const result = await shareText(
+      closingSharePayload(row, shopName, {
+        unitsLabel: this.shops.selectedShop()?.unitsLabel,
+      }),
+    );
     if (result === 'copied') {
       this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
     } else if (result === 'failed') {

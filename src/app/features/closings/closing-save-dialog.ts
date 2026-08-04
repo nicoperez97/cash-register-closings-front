@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { appendClosingUnitsAndCarrier } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
 
 export type ClosingSaveSummary = {
@@ -15,6 +16,9 @@ export type ClosingSaveSummary = {
   accountDni: string;
   posSystem: string;
   total: string;
+  unitsLabel?: string | null;
+  unitsSold?: number | null;
+  cashWithdrawnByName?: string | null;
 };
 
 export type ClosingSaveDialogData = ClosingSaveSummary & {
@@ -107,6 +111,18 @@ export type ClosingSaveDialogResult = 'saved' | 'cancelled';
           <dt>Total</dt>
           <dd>{{ data.total }}</dd>
         </div>
+        @if (data.unitsLabel && data.unitsSold != null) {
+          <div>
+            <dt>{{ data.unitsLabel }}</dt>
+            <dd>{{ data.unitsSold }}</dd>
+          </div>
+        }
+        @if (data.cashWithdrawnByName) {
+          <div>
+            <dt>Quién se lo lleva</dt>
+            <dd>{{ data.cashWithdrawnByName }}</dd>
+          </div>
+        }
       </dl>
     </mat-dialog-content>
 
@@ -196,7 +212,7 @@ export class ClosingSaveDialogComponent {
   }
 
   async share(): Promise<void> {
-    const text = [
+    const lines = [
       `Cierre de caja — ${this.data.shopName}`,
       `Fecha: ${this.data.date}`,
       `PVS: ${this.data.pvs}`,
@@ -204,10 +220,18 @@ export class ClosingSaveDialogComponent {
       `Cuenta DNI: ${this.data.accountDni}`,
       `Caja sistema: ${this.data.posSystem}`,
       `Total: ${this.data.total}`,
-    ].join('\n');
+    ];
+    appendClosingUnitsAndCarrier(lines, {
+      unitsLabel: this.data.unitsLabel,
+      unitsSold: this.data.unitsSold,
+      cashWithdrawnByName: this.data.cashWithdrawnByName,
+    });
 
     this.sharing.set(true);
-    const result = await shareText({ title: `Cierre ${this.data.shopName}`, text });
+    const result = await shareText({
+      title: `Cierre ${this.data.shopName}`,
+      text: lines.join('\n'),
+    });
     this.sharing.set(false);
 
     if (result === 'copied') {

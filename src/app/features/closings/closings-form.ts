@@ -23,6 +23,7 @@ import {
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
 import { shareText } from '../../shared/utils/share-text';
+import { appendClosingUnitsAndCarrier } from '../../shared/components/record-share-builders';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
 
 function toDateInput(value?: string | null): Date {
@@ -1359,7 +1360,12 @@ export class ClosingsFormPage implements OnInit {
 
   async shareSummary(): Promise<void> {
     const shopName = this.shop()?.name ?? 'Local';
-    const text = [
+    const raw = this.form.getRawValue();
+    const userId = String(raw.cashWithdrawnByUserId ?? '');
+    const who =
+      this.users().find((u) => u.id === userId)?.fullName?.trim() ||
+      null;
+    const lines = [
       `Cierre de caja — ${shopName}`,
       `Fecha: ${this.summaryDate()}`,
       `PVS: ${this.money(this.cardAmount())}`,
@@ -1367,9 +1373,17 @@ export class ClosingsFormPage implements OnInit {
       `Cuenta DNI: ${this.money(this.accountDniAmount())}`,
       `Caja sistema: ${this.money(this.posAmount())}`,
       `Total: ${this.money(this.declaredTotal())}`,
-    ].join('\n');
+    ];
+    appendClosingUnitsAndCarrier(lines, {
+      unitsLabel: this.shop()?.unitsLabel,
+      unitsSold: raw.unitsSold,
+      cashWithdrawnByName: who,
+    });
 
-    const result = await shareText({ title: `Cierre ${shopName}`, text });
+    const result = await shareText({
+      title: `Cierre ${shopName}`,
+      text: lines.join('\n'),
+    });
     if (result === 'copied') {
       this.snack.open('Resumen copiado al portapapeles', 'OK', { duration: 2500 });
     } else if (result === 'failed') {
@@ -1480,6 +1494,9 @@ export class ClosingsFormPage implements OnInit {
               accountDni: this.money(this.accountDniAmount()),
               posSystem: this.money(this.posAmount()),
               total: this.money(this.declaredTotal()),
+              unitsLabel: this.shop()?.unitsLabel ?? null,
+              unitsSold: body.unitsSold ?? null,
+              cashWithdrawnByName: body.cashWithdrawnByName ?? null,
               save$: () => this.api.create(shopId, body),
             },
           }),
