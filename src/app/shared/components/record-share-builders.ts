@@ -114,6 +114,7 @@ export function movementSharePayload(movement: Movement, shopName: string): {
 export function closingSharePayload(
   closing: CashClosing,
   shopName: string,
+  opts?: { unitsLabel?: string | null },
 ): { title: string; text: string } {
   const date = formatDateAr(closing.businessDate);
   const lines = [
@@ -131,9 +132,11 @@ export function closingSharePayload(
     `Total declarado: ${formatMoneyAr(closing.declaredTotal)}`,
     `Diferencia: ${formatMoneyAr(closing.difference)}`,
   ];
-  if (closing.cashWithdrawnByName) {
-    lines.push(`Retiro: ${closing.cashWithdrawnByName}`);
-  }
+  appendClosingUnitsAndCarrier(lines, {
+    unitsLabel: opts?.unitsLabel,
+    unitsSold: closing.unitsSold,
+    cashWithdrawnByName: closing.cashWithdrawnByName,
+  });
   if (closing.notes?.trim()) {
     lines.push(`Notas: ${closing.notes.trim()}`);
   }
@@ -141,4 +144,26 @@ export function closingSharePayload(
     title: `Cierre · ${shopName}`,
     text: lines.join('\n'),
   };
+}
+
+/** Unidades del local (ej. paninos) y quién se lleva el efectivo. */
+export function appendClosingUnitsAndCarrier(
+  lines: string[],
+  opts: {
+    unitsLabel?: string | null;
+    unitsSold?: number | null;
+    cashWithdrawnByName?: string | null;
+  },
+): void {
+  const label = opts.unitsLabel?.trim();
+  if (label && opts.unitsSold != null) {
+    const qty = Number(opts.unitsSold);
+    if (!Number.isNaN(qty)) {
+      lines.push(`${label}: ${qty}`);
+    }
+  }
+  const who = opts.cashWithdrawnByName?.trim();
+  if (who) {
+    lines.push(`Quién se lo lleva: ${who}`);
+  }
 }
