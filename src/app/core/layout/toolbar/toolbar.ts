@@ -21,6 +21,8 @@ import { ShopContextService } from '../../shop/shop-context.service';
 import {
   AppNotification,
   NotificationsApiService,
+  notificationIcon,
+  notificationToneClass,
 } from '../../../features/payments/notifications-api.service';
 import { interval, startWith, switchMap } from 'rxjs';
 
@@ -136,8 +138,24 @@ export class ToolbarComponent implements OnInit {
         },
       });
     }
+    if (n.shopId && n.shopId !== this.shopContext.selectedShopId()) {
+      this.shopContext.selectShop(n.shopId);
+    }
+    if (n.closingId || n.type === 'CLOSING_CREATED') {
+      const path = n.closingId ? `/closings/${n.closingId}` : '/closings';
+      void this.router.navigateByUrl(path);
+      return;
+    }
     if (n.paymentId || n.type.startsWith('PAYMENT_')) {
       void this.router.navigateByUrl('/payments/suppliers');
     }
+  }
+
+  notifIcon(type: string): string {
+    return notificationIcon(type);
+  }
+
+  notifTone(type: string): string {
+    return notificationToneClass(type);
   }
 }

@@ -72,8 +72,13 @@
                   [class.notif-item--unread]="!n.read"
                   (click)="openNotification(n)"
                 >
-                  <span class="notif-item__title">{{ n.title }}</span>
-                  <span class="notif-item__body">{{ n.body }}</span>
+                  <span class="notif-item__icon" [class]="notifTone(n.type)" aria-hidden="true">
+                    <mat-icon>{{ notifIcon(n.type) }}</mat-icon>
+                  </span>
+                  <span class="notif-item__content">
+                    <span class="notif-item__title">{{ n.title }}</span>
+                    <span class="notif-item__body">{{ n.body }}</span>
+                  </span>
                 </button>
               </li>
             }

@@ -190,6 +190,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
         <app-data-table
           [columns]="columns"
           [rows]="days()"
+          [loading]="loading()"
           [sortable]="true"
           [showActions]="false"
           [canRemove]="never"
@@ -281,6 +282,7 @@ export class ReportsPage {
   readonly summary = signal<any>(null);
   readonly kpis = signal<KpiItem[]>([]);
   readonly days = signal<any[]>([]);
+  readonly loading = signal(true);
   readonly users = signal<ShopUserOption[]>([]);
   readonly expenseRows = signal<any[]>([]);
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
@@ -393,7 +395,11 @@ export class ReportsPage {
   load(): void {
     const shopId = this.shops.selectedShopId();
     const filters = this.currentFilters();
-    if (!shopId || !filters.from || !filters.to) return;
+    if (!shopId || !filters.from || !filters.to) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.summary(shopId, filters).subscribe({
       next: (s) => {
         this.summary.set(s);
@@ -412,8 +418,12 @@ export class ReportsPage {
           { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-AR')}` },
           { label: 'Egresos', value: `$ ${Number(s.expensesTotal ?? 0).toLocaleString('es-AR')}` },
         ]);
+        this.loading.set(false);
       },
-      error: () => this.snack.open('Error al cargar reporte', 'OK', { duration: 3000 }),
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Error al cargar reporte', 'OK', { duration: 3000 });
+      },
     });
   }
 

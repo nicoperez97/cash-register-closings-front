@@ -1,8 +1,16 @@
 import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  Router,
+  RouterOutlet,
+} from '@angular/router';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import {
@@ -18,6 +26,7 @@ import { BottomNavComponent, BottomNavItem } from './bottom-nav/bottom-nav';
 import { ShopContextService } from '../shop/shop-context.service';
 import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
+import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
 import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
@@ -28,10 +37,12 @@ import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
   imports: [
     RouterOutlet,
     MatSidenavModule,
+    MatProgressBarModule,
     ToolbarComponent,
     SidebarComponent,
     BottomNavComponent,
     PullToRefreshComponent,
+    LoadingStateComponent,
     MainPwaInstallBannerComponent,
   ],
   templateUrl: './main-layout.html',
@@ -49,6 +60,10 @@ export class MainLayoutComponent {
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
+
+  /** Lazy chunk / navegación en curso (con demora corta para no parpadear). */
+  readonly routeLoading = signal(false);
+  private routeLoadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly isMobile = toSignal(
     this.breakpointObserver
@@ -249,6 +264,7 @@ export class MainLayoutComponent {
 
     this.destroyRef.onDestroy(() => {
       this.bodyLock.unlock('sidenav');
+      if (this.routeLoadingTimer) clearTimeout(this.routeLoadingTimer);
     });
 
     // Si la ruta actual no está permitida, ir al home del rol
@@ -284,6 +300,25 @@ export class MainLayoutComponent {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => this.currentUrl.set(e.urlAfterRedirects));
+
+    this.router.events.subscribe((e) => {
+      if (e instanceof NavigationStart) {
+        if (this.routeLoadingTimer) clearTimeout(this.routeLoadingTimer);
+        this.routeLoadingTimer = setTimeout(() => this.routeLoading.set(true), 120);
+        return;
+      }
+      if (
+        e instanceof NavigationEnd ||
+        e instanceof NavigationCancel ||
+        e instanceof NavigationError
+      ) {
+        if (this.routeLoadingTimer) {
+          clearTimeout(this.routeLoadingTimer);
+          this.routeLoadingTimer = null;
+        }
+        this.routeLoading.set(false);
+      }
+    });
   }
 
   private isPathAllowed(path: string, user: NonNullable<ReturnType<AuthService['currentUser']>>, shopId: string): boolean {

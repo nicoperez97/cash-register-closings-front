@@ -9,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
+import { SpinnerComponent } from './spinner';
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
@@ -38,6 +39,7 @@ export interface DataTableColumn {
     MatCheckboxModule,
     MatPaginatorModule,
     MatSortModule,
+    SpinnerComponent,
   ],
   template: `
     <div class="data-table-shell">
@@ -62,7 +64,15 @@ export interface DataTableColumn {
       }
 
       <div class="guy-table-wrap data-table" [class.data-table--dense]="dense()">
-        @if (!pagedRows().length) {
+        @if (loading()) {
+          <div class="guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
+            <app-spinner [size]="28" tone="accent" />
+            <div>
+              <strong>Cargando…</strong>
+              <div class="small">{{ loadingMessage() }}</div>
+            </div>
+          </div>
+        } @else if (!pagedRows().length) {
           <div class="guy-empty">
             <mat-icon>{{ filteredRows().length || rows().length ? 'search_off' : 'inbox' }}</mat-icon>
             <div>
@@ -591,6 +601,9 @@ export interface DataTableColumn {
 export class DataTableComponent {
   readonly columns = input<DataTableColumn[]>([]);
   readonly rows = input<any[]>([]);
+  /** Mostrar spinner en lugar de vacío mientras llegan datos. */
+  readonly loading = input(false);
+  readonly loadingMessage = input('Obteniendo registros');
   readonly showActions = input(true);
   /** Compact row padding/typography (e.g. dual base list). */
   readonly dense = input(false);

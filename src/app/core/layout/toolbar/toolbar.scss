@@ -156,6 +156,9 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
   text-align: left;
   border: 1px solid var(--guy-border, #d7e0d9);
   border-radius: 10px;
@@ -168,6 +171,57 @@
 .notif-item--unread {
   border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 40%, var(--guy-border, #d7e0d9));
   background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, #fff);
+}
+
+.notif-item__icon {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  margin-top: 0.05rem;
+}
+
+.notif-item__icon mat-icon {
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.notif-item__content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.notif-tone--amber {
+  background: color-mix(in srgb, #ef6c00 18%, #fff);
+  color: #ef6c00;
+}
+
+.notif-tone--blue {
+  background: color-mix(in srgb, #1565c0 16%, #fff);
+  color: #1565c0;
+}
+
+.notif-tone--red {
+  background: color-mix(in srgb, #c62828 16%, #fff);
+  color: #c62828;
+}
+
+.notif-tone--green {
+  background: color-mix(in srgb, #2e7d32 16%, #fff);
+  color: #2e7d32;
+}
+
+.notif-tone--navy {
+  background: color-mix(in srgb, #003366 14%, #fff);
+  color: #003366;
+}
+
+.notif-tone--muted {
+  background: color-mix(in srgb, #5f6f76 12%, #fff);
+  color: #5f6f76;
 }
 
 .notif-item__title {

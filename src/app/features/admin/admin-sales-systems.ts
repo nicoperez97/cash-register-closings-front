@@ -38,6 +38,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
         <app-data-table
           [columns]="columns"
           [rows]="rows()"
+          [loading]="loading()"
           [sortable]="true"
           (edit)="openEdit($event)"
           (remove)="onRemove($event)"
@@ -57,6 +58,7 @@ export class AdminSalesSystemsPage implements OnInit {
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminSalesSystemRow[]>([]);
+  readonly loading = signal(true);
   readonly parsers = signal<ParserOption[]>([]);
 
   readonly columns: DataTableColumn[] = [
@@ -93,14 +95,20 @@ export class AdminSalesSystemsPage implements OnInit {
   }
 
   reload(): void {
+    this.loading.set(true);
     this.http
       .get<AdminSalesSystemRow[]>(`${environment.apiUrl}/sales-systems`, {
         params: { all: '1' },
       })
       .subscribe({
-        next: (rows) => this.rows.set(rows),
-        error: () =>
-          this.snack.open('No se pudieron cargar los sistemas', 'OK', { duration: 3000 }),
+        next: (rows) => {
+          this.rows.set(rows);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loading.set(false);
+          this.snack.open('No se pudieron cargar los sistemas', 'OK', { duration: 3000 });
+        },
       });
   }
 

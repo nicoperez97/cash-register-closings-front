@@ -40,6 +40,7 @@ import { MatIconModule } from '@angular/material/icon';
         <app-data-table
           [columns]="columns"
           [rows]="rows()"
+          [loading]="loading()"
           [sortable]="true"
           [showActions]="true"
           [canDuplicate]="canBackupTools"
@@ -66,6 +67,7 @@ export class AdminShopsPage implements OnInit {
   private readonly router = inject(Router);
 
   readonly rows = signal<AdminShopRow[]>([]);
+  readonly loading = signal(true);
   readonly never = () => false;
   readonly always = () => true;
   readonly canBackupTools = () => this.auth.isSuperAdmin();
@@ -95,9 +97,16 @@ export class AdminShopsPage implements OnInit {
   }
 
   reload(): void {
+    this.loading.set(true);
     this.http.get<AdminShopRow[]>(`${environment.apiUrl}/shops`).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () => this.snack.open('No se pudieron cargar los locales', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los locales', 'OK', { duration: 3000 });
+      },
     });
   }
 

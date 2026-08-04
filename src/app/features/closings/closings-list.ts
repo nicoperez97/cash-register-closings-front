@@ -205,6 +205,7 @@ import {
           <app-data-table
             [columns]="columns"
             [rows]="rows()"
+            [loading]="loading()"
             [sortable]="true"
             [canShare]="canShareRow"
             [canRemove]="canRemoveRow"
@@ -237,6 +238,7 @@ export class ClosingsListPage {
   readonly sourceOptions = CLOSING_SOURCE_FILTERS;
 
   readonly rows = signal<CashClosing[]>([]);
+  readonly loading = signal(true);
   readonly users = signal<ShopUserOption[]>([]);
   readonly shopId = this.shops.selectedShopId;
   readonly shopLabel = () => this.shops.selectedShop()?.name ?? 'Sin local';
@@ -292,6 +294,7 @@ export class ClosingsListPage {
       if (!id) {
         this.rows.set([]);
         this.users.set([]);
+        this.loading.set(false);
         return;
       }
       this.api.shopUsers(id).subscribe({
@@ -349,10 +352,20 @@ export class ClosingsListPage {
   private load(): void {
     const id = this.shopId();
     const filters = this.currentFilters();
-    if (!id || !filters.from || !filters.to) return;
+    if (!id || !filters.from || !filters.to) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.list(id, filters).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () => this.snack.open('No se pudieron cargar los cierres', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los cierres', 'OK', { duration: 3000 });
+      },
     });
   }
 

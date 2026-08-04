@@ -32,6 +32,7 @@ import {
 import { shareText } from '../../shared/utils/share-text';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { SpinnerComponent } from '../../shared/components/spinner';
 
 type PaymentKind = 'supplier' | 'employee';
 
@@ -55,6 +56,7 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
     MatDialogModule,
     MatSnackBarModule,
     FiltersCollapseBtnComponent,
+    SpinnerComponent,
   ],
   template: `
     <app-page-header
@@ -105,43 +107,52 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
     </div>
 
     <div class="pay-list">
-      @for (p of visibleRows(); track p.id) {
-        <article class="panel-card pay-card" [attr.data-status]="p.status">
-          <div class="pay-card__top">
-            <div>
-              <h3 class="pay-card__title">{{ p.title || 'Sin concepto' }}</h3>
-              <p class="pay-card__meta">
-                @if (p.dueDate) {
-                  Vence {{ formatDate(p.dueDate) }}
-                } @else {
-                  Sin fecha
-                }
-                @if (p.paidAt) {
-                  · Pagado {{ formatDate(p.paidAt) }}
-                }
-              </p>
-            </div>
-            <div class="pay-card__amount">$ {{ (p.amount || 0).toLocaleString('es-AR') }}</div>
+      @if (loading()) {
+        <div class="panel-card guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
+          <app-spinner [size]="28" tone="accent" />
+          <div>
+            <strong>Cargando…</strong>
+            <div class="small">Obteniendo pagos</div>
           </div>
-
-          <div class="pay-card__grid">
-            <div>
-              <span class="pay-card__label">Estado</span>
-              <strong class="pay-card__status">{{ statusLabel(p.status) }}</strong>
+        </div>
+      } @else {
+        @for (p of visibleRows(); track p.id) {
+          <article class="panel-card pay-card" [attr.data-status]="p.status">
+            <div class="pay-card__top">
+              <div>
+                <h3 class="pay-card__title">{{ p.title || 'Sin concepto' }}</h3>
+                <p class="pay-card__meta">
+                  @if (p.dueDate) {
+                    Vence {{ formatDate(p.dueDate) }}
+                  } @else {
+                    Sin fecha
+                  }
+                  @if (p.paidAt) {
+                    · Pagado {{ formatDate(p.paidAt) }}
+                  }
+                </p>
+              </div>
+              <div class="pay-card__amount">$ {{ (p.amount || 0).toLocaleString('es-AR') }}</div>
             </div>
-            @if (isSupplierKind()) {
+
+            <div class="pay-card__grid">
               <div>
-                <span class="pay-card__label">Proveedor</span>
-                <strong>{{ p.supplierName || '—' }}</strong>
+                <span class="pay-card__label">Estado</span>
+                <strong class="pay-card__status">{{ statusLabel(p.status) }}</strong>
               </div>
-            } @else {
+              @if (isSupplierKind()) {
+                <div>
+                  <span class="pay-card__label">Proveedor</span>
+                  <strong>{{ p.supplierName || '—' }}</strong>
+                </div>
+              } @else {
+                <div>
+                  <span class="pay-card__label">Empleado</span>
+                  <strong>{{ p.employeeName || '—' }}</strong>
+                </div>
+              }
               <div>
-                <span class="pay-card__label">Empleado</span>
-                <strong>{{ p.employeeName || '—' }}</strong>
-              </div>
-            }
-            <div>
-              <span class="pay-card__label">Paga</span>
+                <span class="pay-card__label">Paga</span>
               <strong>{{ p.payerName || '—' }}</strong>
             </div>
             <div>
@@ -213,6 +224,7 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
             <div class="small">{{ emptyHint() }}</div>
           </div>
         </div>
+      }
       }
     </div>
   `,
@@ -339,6 +351,7 @@ export class PaymentsPage {
   );
 
   readonly rows = signal<ShopPayment[]>([]);
+  readonly loading = signal(true);
   readonly users = signal<Array<{ id: string; fullName: string }>>([]);
   readonly accounts = signal<Array<{ id: string; name: string }>>([]);
   readonly suppliers = signal<ShopSupplier[]>([]);
@@ -389,7 +402,11 @@ export class PaymentsPage {
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shopId();
-      if (!shopId) return;
+      if (!shopId) {
+        this.rows.set([]);
+        this.loading.set(false);
+        return;
+      }
       this.reloadMeta(shopId);
       this.reload();
     });
@@ -431,14 +448,22 @@ export class PaymentsPage {
 
   reload(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
     const status = this.statusFilter.value || undefined;
+    this.loading.set(true);
     this.api.list(shopId, status).subscribe({
       next: (rows) => {
         this.rows.set(rows);
+        this.loading.set(false);
         this.paymentsInbox.refresh();
       },
-      error: () => this.snack.open('No se pudieron cargar los pagos', 'OK', { duration: 3000 }),
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los pagos', 'OK', { duration: 3000 });
+      },
     });
   }
 

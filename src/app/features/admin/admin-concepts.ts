@@ -31,6 +31,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
         <app-data-table
           [columns]="columns"
           [rows]="rows()"
+          [loading]="loading()"
           [sortable]="true"
           (edit)="openEdit($event)"
           (remove)="onRemove($event)"
@@ -48,6 +49,7 @@ export class AdminConceptsPage {
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminConceptRow[]>([]);
+  readonly loading = signal(true);
 
   readonly columns: DataTableColumn[] = [
     { key: 'name', label: 'Nombre' },
@@ -59,19 +61,33 @@ export class AdminConceptsPage {
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      if (!shopId) return;
+      if (!shopId) {
+        this.rows.set([]);
+        this.loading.set(false);
+        return;
+      }
       this.reload();
     });
   }
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.http
       .get<AdminConceptRow[]>(`${environment.apiUrl}/shops/${shopId}/concepts`)
       .subscribe({
-        next: (rows) => this.rows.set(rows),
-        error: () => this.snack.open('No se pudieron cargar los conceptos', 'OK', { duration: 3000 }),
+        next: (rows) => {
+          this.rows.set(rows);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loading.set(false);
+          this.snack.open('No se pudieron cargar los conceptos', 'OK', { duration: 3000 });
+        },
       });
   }
 

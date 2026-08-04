@@ -95,6 +95,7 @@ const STATUS_LABEL: Record<CandidateStatus, string> = {
         <app-data-table
           [columns]="columns"
           [rows]="rows()"
+          [loading]="loading()"
           [sortable]="true"
           [showActions]="canManage()"
           [canRemove]="canDelete"
@@ -130,6 +131,7 @@ export class CandidatesListPage {
   private readonly confirmDialog = inject(ConfirmDialogService);
 
   readonly rows = signal<Candidate[]>([]);
+  readonly loading = signal(true);
   readonly statusFilter = signal('');
 
   readonly columns: DataTableColumn[] = [
@@ -165,6 +167,7 @@ export class CandidatesListPage {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {
         this.rows.set([]);
+        this.loading.set(false);
         return;
       }
       this.reload();
@@ -186,11 +189,20 @@ export class CandidatesListPage {
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.list(shopId, this.statusFilter() || undefined).subscribe({
-      next: (rows) => this.rows.set(rows),
-      error: () =>
-        this.snack.open('No se pudieron cargar los candidatos', 'OK', { duration: 3000 }),
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar los candidatos', 'OK', { duration: 3000 });
+      },
     });
   }
 

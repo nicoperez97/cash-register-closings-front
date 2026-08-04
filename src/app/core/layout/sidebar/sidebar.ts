@@ -1,15 +1,17 @@
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { filter } from 'rxjs';
+import { filter, interval, startWith, switchMap } from 'rxjs';
 import { APP_BRAND } from '../../config/app-brand';
 import { ShopContextService } from '../../shop/shop-context.service';
 import { AuthService } from '../../auth/auth.service';
 import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl } from '../../utils/drive-url';
+import { NotificationsApiService } from '../../../features/payments/notifications-api.service';
 
 export interface NavChild {
   label: string;
@@ -46,14 +48,20 @@ export class SidebarComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
+  private readonly notificationsApi = inject(NotificationsApiService);
+  private readonly destroyRef = inject(DestroyRef);
   readonly navItems = input.required<NavItem[]>();
   readonly isMobile = input(false);
   readonly navigate = output<void>();
   readonly close = output<void>();
   readonly logoBroken = signal(false);
+  /** Logos de locales que fallaron al cargar (mostrar iniciales). */
+  readonly brokenShopLogos = signal<ReadonlySet<string>>(new Set());
   readonly currentUrl = signal(this.router.url);
   readonly shopPickerOpen = signal(false);
   readonly favoriteBusy = signal(false);
+  /** Unread por shopId (otros locales). */
+  readonly unreadByShop = signal<Record<string, number>>({});
   /** Rutas de grupos contraídos (vacío = todos abiertos por defecto). */
   private readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
 
@@ -62,12 +70,44 @@ export class SidebarComponent {
       this.shopContext.logoUrl();
       this.logoBroken.set(false);
     });
+    effect(() => {
+      // Si cambian URLs de logo, reintentar carga.
+      const urls = this.shopContext.shops().map((s) => `${s.id}:${s.logoUrl ?? ''}`).join('|');
+      void urls;
+      this.brokenShopLogos.set(new Set());
+    });
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => {
         this.currentUrl.set(e.urlAfterRedirects);
         this.shopPickerOpen.set(false);
       });
+
+    interval(45000)
+      .pipe(
+        startWith(0),
+        switchMap(() => this.notificationsApi.unreadCountsByShop()),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (r) => this.unreadByShop.set(r?.counts ?? {}),
+        error: () => this.unreadByShop.set({}),
+      });
+  }
+
+  shopUnread(shopId: string): number {
+    return Math.max(0, Number(this.unreadByShop()[shopId]) || 0);
+  }
+
+  /** Badge en el switcher cerrado: suma de no leídas en *otros* locales. */
+  otherShopsUnread(): number {
+    const current = this.shopContext.selectedShopId();
+    let total = 0;
+    for (const [id, count] of Object.entries(this.unreadByShop())) {
+      if (id === current) continue;
+      total += Math.max(0, Number(count) || 0);
+    }
+    return total;
   }
 
   onNavClick(): void {
@@ -152,6 +192,12 @@ export class SidebarComponent {
     return normalizeLogoUrl(url) || url?.trim() || null;
   }
 
+  /** Logo para el avatar del switcher; null si no hay URL o falló la carga. */
+  shopAvatarSrc(shopId: string, logoUrl?: string | null): string | null {
+    if (this.brokenShopLogos().has(shopId)) return null;
+    return this.shopLogo(logoUrl);
+  }
+
   logoSrc(): string {
     return this.shopContext.logoUrl();
   }
@@ -185,8 +231,12 @@ export class SidebarComponent {
     return fromItem + fromChildren;
   }
 
-  onShopLogoError(event: Event): void {
-    const img = event.target as HTMLImageElement | null;
-    if (img) img.style.display = 'none';
+  onShopLogoError(shopId: string): void {
+    this.brokenShopLogos.update((prev) => {
+      if (prev.has(shopId)) return prev;
+      const next = new Set(prev);
+      next.add(shopId);
+      return next;
+    });
   }
 }
