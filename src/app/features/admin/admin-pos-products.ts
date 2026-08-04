@@ -19,6 +19,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import {
   AdminPosCategoryRow,
   AdminPosProductDialogComponent,
@@ -43,6 +45,7 @@ import {
     MatSnackBarModule,
     PageHeaderComponent,
     DataTableComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -56,7 +59,22 @@ import {
 
     <mat-tab-group animationDuration="0ms">
       <mat-tab label="Platos">
-        <div class="panel-card guy-filters mb-3 mt-3">
+        <div
+          class="panel-card guy-filters mb-3 mt-3"
+          [class.guy-filters--collapsed]="filtersCollapsed()"
+        >
+          <div class="guy-filters__head">
+            <div>
+              <h2 class="guy-filters__title">Filtros</h2>
+            </div>
+            <div class="guy-filters__tools">
+              <app-filters-collapse-btn
+                [collapsed]="filtersCollapsed()"
+                (toggle)="toggleFilters()"
+              />
+            </div>
+          </div>
+          <div class="guy-filters__body">
           <form
             class="guy-filters__grid guy-filters__grid--dense"
             (submit)="$event.preventDefault(); loadProducts()"
@@ -73,6 +91,7 @@ import {
               </button>
             </div>
           </form>
+          </div>
         </div>
 
         <div class="panel-card panel-card--flush">
@@ -148,6 +167,10 @@ import {
   `,
 })
 export class AdminPosProductsPage implements OnInit {
+  private readonly filtersUi = createFiltersCollapsed('pos-products');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);

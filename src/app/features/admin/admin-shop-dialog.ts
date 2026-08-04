@@ -25,6 +25,7 @@ export interface AdminShopRow {
   openingTime?: string;
   logoUrl?: string | null;
   accentColor?: string | null;
+  accentSecondary?: string | null;
   active: boolean;
 }
 
@@ -122,9 +123,15 @@ function slugify(raw: string): string {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Color de énfasis</mat-label>
+          <mat-label>Color principal</mat-label>
           <mat-icon matPrefix>palette</mat-icon>
-          <input matInput formControlName="accentColor" placeholder="#E65100" />
+          <input matInput formControlName="accentColor" placeholder="#2E7D32" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Color de énfasis</mat-label>
+          <mat-icon matPrefix>colorize</mat-icon>
+          <input matInput formControlName="accentSecondary" placeholder="#F9A825" />
         </mat-form-field>
 
         <mat-slide-toggle formControlName="coversEnabled">Comensales habilitados</mat-slide-toggle>
@@ -189,6 +196,7 @@ export class AdminShopDialogComponent {
     defaultChangeAmount: [this.shop?.defaultChangeAmount ?? 0],
     openingTime: [this.shop?.openingTime ?? '10:00'],
     accentColor: [this.shop?.accentColor ?? '#2E7D32'],
+    accentSecondary: [this.shop?.accentSecondary ?? '#F9A825'],
     coversEnabled: [this.shop?.coversEnabled ?? false],
     reservationsEnabled: [this.shop ? !!this.shop.reservationsEnabled : true],
     waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
@@ -221,6 +229,7 @@ export class AdminShopDialogComponent {
       defaultChangeAmount: Number(raw.defaultChangeAmount) || 0,
       openingTime: raw.openingTime || '10:00',
       accentColor: raw.accentColor.trim() || null,
+      accentSecondary: raw.accentSecondary.trim() || null,
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,
       waitingListEnabled: raw.waitingListEnabled,

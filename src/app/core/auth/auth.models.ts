@@ -14,6 +14,8 @@ export type Permission =
   | 'users.manage'
   | 'employees.manage'
   | 'employees.read'
+  | 'candidates.manage'
+  | 'candidates.read'
   | 'attendance.manage'
   | 'attendance.read'
   | 'payroll.manage'
@@ -44,6 +46,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'users.manage',
   'employees.manage',
   'employees.read',
+  'candidates.manage',
+  'candidates.read',
   'attendance.manage',
   'attendance.read',
   'payroll.manage',
@@ -78,6 +82,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'shops.manage',
     'employees.manage',
     'employees.read',
+    'candidates.manage',
+    'candidates.read',
     'attendance.manage',
     'attendance.read',
     'payroll.manage',
@@ -103,6 +109,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reports.view',
     'reports.export',
     'employees.read',
+    'candidates.read',
     'attendance.read',
     'payroll.read',
     'commissions.read',
@@ -127,6 +134,7 @@ export type ModuleKey =
   | 'movements'
   | 'attendance'
   | 'employees'
+  | 'candidates'
   | 'payroll'
   | 'commissions'
   | 'accounts'
@@ -206,6 +214,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     icon: 'badge',
     group: 'people',
     hint: 'Ficha de personal',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'candidates',
+    label: 'CVs / Candidatos',
+    icon: 'person_search',
+    group: 'people',
+    hint: 'Cargar CV por foto u OCR',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -385,6 +405,7 @@ export const MODULE_PRESETS: Array<{
       movements: 'read',
       attendance: 'read',
       employees: 'read',
+      candidates: 'read',
       payroll: 'read',
       commissions: 'read',
     },
@@ -444,10 +465,14 @@ export interface ShopSummary {
   timezone?: string;
   /** Hora de apertura HH:mm; el día laboral dura hasta esa hora del día siguiente. */
   openingTime?: string;
+  /** Horas por defecto al marcar asistencia en producción. */
+  productionDefaultHours?: number;
   /** Días de franco (0=domingo … 6=sábado). */
   closedWeekdays?: number[];
   logoUrl?: string | null;
   accentColor?: string | null;
+  /** Color de énfasis / secundario del local. */
+  accentSecondary?: string | null;
   salesSystemId?: string | null;
   posnets?: ShopPosnet[];
   active?: boolean;
@@ -466,6 +491,8 @@ export interface AuthUser {
   shopModulePermissions?: Record<string, Record<string, string>>;
   shopAccountIds: Record<string, string[]>;
   shops: ShopSummary[];
+  /** Local favorito al iniciar sesión. */
+  favoriteShopId?: string | null;
 }
 
 export function userRoleLabel(role?: string): string {

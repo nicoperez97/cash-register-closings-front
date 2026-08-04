@@ -11,8 +11,10 @@ export class ShopContextService {
   private readonly theme = inject(ThemeService);
   private readonly shopsSignal = signal<ShopSummary[]>([]);
   private readonly selectedId = signal<string | null>(localStorage.getItem(SHOP_KEY));
+  private readonly favoriteId = signal<string | null>(null);
 
   readonly shops = this.shopsSignal.asReadonly();
+  readonly favoriteShopId = this.favoriteId.asReadonly();
   readonly selectedShopId = computed(() => {
     const id = this.selectedId();
     const list = this.shopsSignal();
@@ -34,22 +36,56 @@ export class ShopContextService {
   });
 
   readonly accentColor = computed(() => this.selectedShop()?.accentColor?.trim() || null);
+  readonly accentSecondary = computed(
+    () => this.selectedShop()?.accentSecondary?.trim() || null,
+  );
 
   constructor() {
     effect(() => {
       this.theme.setShopAccent(this.accentColor());
+      this.theme.setShopAccentSecondary(this.accentSecondary());
     });
   }
 
-  setShops(shops: ShopSummary[]): void {
+  /**
+   * @param preferredId Local favorito del usuario: se usa si no hay selección válida en localStorage
+   *   (p.ej. tras login).
+   * @param forcePreferred Si true, selecciona el favorito aunque haya otro local en memoria.
+   */
+  setShops(
+    shops: ShopSummary[],
+    preferredId?: string | null,
+    forcePreferred = false,
+  ): void {
     this.shopsSignal.set(shops);
-    const id = this.selectedId();
-    if (!id || !shops.some((s) => s.id === id)) {
-      const next = shops[0]?.id ?? null;
-      this.selectedId.set(next);
-      if (next) localStorage.setItem(SHOP_KEY, next);
-      else localStorage.removeItem(SHOP_KEY);
+    if (preferredId !== undefined) {
+      this.favoriteId.set(
+        preferredId && shops.some((s) => s.id === preferredId) ? preferredId : null,
+      );
     }
+
+    const preferred =
+      preferredId && shops.some((s) => s.id === preferredId) ? preferredId : null;
+
+    if (forcePreferred && preferred) {
+      this.selectedId.set(preferred);
+      localStorage.setItem(SHOP_KEY, preferred);
+      return;
+    }
+
+    const id = this.selectedId();
+    const idOk = !!(id && shops.some((s) => s.id === id));
+    if (idOk) return;
+
+    const next = preferred ?? shops[0]?.id ?? null;
+    this.selectedId.set(next);
+    if (next) localStorage.setItem(SHOP_KEY, next);
+    else localStorage.removeItem(SHOP_KEY);
+  }
+
+  setFavoriteShopId(shopId: string | null): void {
+    const list = this.shopsSignal();
+    this.favoriteId.set(shopId && list.some((s) => s.id === shopId) ? shopId : null);
   }
 
   /** Actualiza un shop en memoria (p.ej. tras editar logo). */
@@ -74,7 +110,9 @@ export class ShopContextService {
   clear(): void {
     this.shopsSignal.set([]);
     this.selectedId.set(null);
+    this.favoriteId.set(null);
     localStorage.removeItem(SHOP_KEY);
     this.theme.setShopAccent(null);
+    this.theme.setShopAccentSecondary(null);
   }
 }

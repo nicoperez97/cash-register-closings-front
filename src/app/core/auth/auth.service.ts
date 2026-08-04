@@ -61,7 +61,7 @@ export class AuthService {
     const user = this.mapMe(me);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.currentUser.set(user);
-    this.shopContext.setShops(user.shops);
+    this.shopContext.setShops(user.shops, user.favoriteShopId, true);
     return true;
   }
 
@@ -71,7 +71,17 @@ export class AuthService {
     const user = this.mapMe(me);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.currentUser.set(user);
-    this.shopContext.setShops(user.shops);
+    this.shopContext.setShops(user.shops, user.favoriteShopId);
+  }
+
+  async setFavoriteShop(shopId: string | null): Promise<void> {
+    const me = await firstValueFrom(
+      this.http.patch<any>(`${environment.apiUrl}/auth/favorite-shop`, { shopId }),
+    );
+    const user = this.mapMe(me);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUser.set(user);
+    this.shopContext.setFavoriteShopId(user.favoriteShopId ?? null);
   }
 
   logout(): void {
@@ -95,6 +105,7 @@ export class AuthService {
       shopModulePermissions: me.shopModulePermissions ?? {},
       shopAccountIds: this.normalizeShopAccountIds(me.shopAccountIds),
       shops: me.shops ?? [],
+      favoriteShopId: me.favoriteShopId ?? null,
     };
   }
 
@@ -114,7 +125,9 @@ export class AuthService {
       const raw = localStorage.getItem(USER_KEY);
       const user = raw ? (JSON.parse(raw) as AuthUser) : null;
       if (user) {
-        queueMicrotask(() => this.shopContext.setShops(user.shops ?? []));
+        queueMicrotask(() =>
+          this.shopContext.setShops(user.shops ?? [], user.favoriteShopId ?? null),
+        );
       }
       return user;
     } catch {

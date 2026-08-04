@@ -21,6 +21,10 @@ import { closingStatusLabel } from '../../core/i18n/labels';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { closingSharePayload } from '../../shared/components/record-share-builders';
+import { shareText } from '../../shared/utils/share-text';
 import {
   CLOSING_DIFFERENCE_FILTERS,
   CLOSING_PAYMENT_FILTERS,
@@ -43,6 +47,7 @@ import {
     MatDatepickerModule,
     MatDialogModule,
     MatSnackBarModule,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -56,18 +61,28 @@ import {
     />
 
     @if (shopId()) {
-      <div class="panel-card guy-filters mb-3">
+      <div
+        class="panel-card guy-filters mb-3"
+        [class.guy-filters--collapsed]="filtersCollapsed()"
+      >
         <div class="guy-filters__head">
           <div>
             <h2 class="guy-filters__title">Filtros</h2>
             <p class="guy-filters__subtitle">Buscá por período, estado, montos y más</p>
           </div>
-          <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
-            <mat-icon>filter_alt_off</mat-icon>
-            Limpiar
-          </button>
+          <div class="guy-filters__tools">
+            <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
+              <mat-icon>filter_alt_off</mat-icon>
+              Limpiar
+            </button>
+            <app-filters-collapse-btn
+              [collapsed]="filtersCollapsed()"
+              (toggle)="toggleFilters()"
+            />
+          </div>
         </div>
 
+        <div class="guy-filters__body">
         <form class="guy-filters__grid guy-filters__grid--dense" [formGroup]="filters">
           <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
             <mat-label>Período</mat-label>
@@ -178,6 +193,7 @@ import {
             </button>
           }
         </div>
+        </div>
       </div>
     }
 
@@ -190,8 +206,10 @@ import {
             [columns]="columns"
             [rows]="rows()"
             [sortable]="true"
+            [canShare]="canShareRow"
             [canRemove]="canRemoveRow"
             (edit)="goEdit($event)"
+            (share)="shareClosing($event)"
             (remove)="onRemove($event)"
           />
         </div>
@@ -208,6 +226,10 @@ export class ClosingsListPage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
+
+  private readonly filtersUi = createFiltersCollapsed('closings');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
 
   readonly statusOptions = CLOSING_STATUS_FILTERS;
   readonly paymentOptions = CLOSING_PAYMENT_FILTERS;
@@ -352,6 +374,18 @@ export class ClosingsListPage {
 
   goEdit(row: CashClosing): void {
     void this.router.navigate(['/closings', row.id]);
+  }
+
+  readonly canShareRow = (_row: CashClosing) => true;
+
+  async shareClosing(row: CashClosing): Promise<void> {
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const result = await shareText(closingSharePayload(row, shopName));
+    if (result === 'copied') {
+      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    }
   }
 
   async onRemove(row: CashClosing): Promise<void> {

@@ -13,9 +13,10 @@ import { defaultHomeRoute } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
+import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 
-const LOGIN_THEME = '#0E4F8C';
-const APP_THEME = '#1D65A0';
+/** Color del tope del gradiente de login (barra de estado móvil). */
+const LOGIN_STATUS = '#08263f';
 
 @Component({
   selector: 'app-login',
@@ -52,7 +53,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     document.body.classList.add('auth-login');
     this.theme.lockLight(true);
-    this.setThemeColor(LOGIN_THEME);
+    applyStatusBar(LOGIN_STATUS, 'dark');
     this.mainPwa.start();
     if (this.auth.isAuthenticated()) {
       void this.router.navigateByUrl(this.afterLoginUrl());
@@ -62,7 +63,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     document.body.classList.remove('auth-login');
     this.theme.lockLight(false);
-    this.setThemeColor(APP_THEME);
+    resetStatusBar();
   }
 
   emailError(): string {
@@ -106,10 +107,5 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   private afterLoginUrl(): string {
     return defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
-  }
-
-  private setThemeColor(color: string): void {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', color);
   }
 }

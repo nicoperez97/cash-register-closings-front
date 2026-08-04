@@ -41,8 +41,10 @@ export class ThemeService {
   private media?: MediaQueryList;
   /** Login y pantallas auth: siempre light, sin cambiar la preferencia del usuario. */
   private readonly forceLight = signal(true);
-  /** Color de énfasis del local activo (sobrescribe el accent del tema). */
+  /** Color principal del local activo (sobrescribe el accent del tema). */
   private readonly shopAccent = signal<string | null>(null);
+  /** Color de énfasis / secundario del local activo. */
+  private readonly shopAccentSecondary = signal<string | null>(null);
 
   /** Flag de UI: el botón de tema está oculto por ahora. */
   readonly themeSwitcherEnabled = THEME_SWITCHER_ENABLED;
@@ -51,6 +53,9 @@ export class ThemeService {
   readonly presetId = computed(() => this.state().presetId);
   readonly primary = computed(() => this.state().primary);
   readonly accent = computed(() => this.shopAccent() ?? this.state().accent);
+  readonly accentSecondary = computed(
+    () => this.shopAccentSecondary() ?? this.shopAccent() ?? this.state().accent,
+  );
   readonly presets = COLOR_PRESETS;
 
   readonly resolvedMode = computed<'light' | 'dark'>(() => {
@@ -83,6 +88,7 @@ export class ThemeService {
       this.state();
       this.forceLight();
       this.shopAccent();
+      this.shopAccentSecondary();
       this.apply();
       this.persist();
     });
@@ -98,6 +104,13 @@ export class ThemeService {
     const next = color?.trim() || null;
     if (this.shopAccent() === next) return;
     this.shopAccent.set(next);
+  }
+
+  /** Segundo color (énfasis) del local activo. */
+  setShopAccentSecondary(color: string | null): void {
+    const next = color?.trim() || null;
+    if (this.shopAccentSecondary() === next) return;
+    this.shopAccentSecondary.set(next);
   }
 
   setMode(mode: ThemeMode): void {
@@ -152,16 +165,25 @@ export class ThemeService {
     const root = document.documentElement;
     const { primary } = this.state();
     const accent = this.shopAccent() ?? this.state().accent;
+    /** Énfasis explícito del local; si no hay, se reutiliza el principal. */
+    const accentSecondaryExplicit = this.shopAccentSecondary();
+    const accentSecondary = accentSecondaryExplicit ?? accent;
+    /**
+     * El “negro/navy” de la UI (títulos, focos, botones outlined, etc.)
+     * pasa a ser el color de énfasis del local cuando está definido.
+     */
+    const brandPrimary = accentSecondaryExplicit ?? primary;
     const dark = this.resolvedMode() === 'dark';
 
     root.dataset['theme'] = dark ? 'dark' : 'light';
     root.style.colorScheme = dark ? 'dark' : 'light';
-    root.style.setProperty('--guy-primary', primary);
+    root.style.setProperty('--guy-primary', brandPrimary);
     root.style.setProperty('--guy-accent', accent);
-    root.style.setProperty('--guy-navy', primary);
-    root.style.setProperty('--guy-blue', primary);
+    root.style.setProperty('--guy-accent-secondary', accentSecondary);
+    root.style.setProperty('--guy-navy', brandPrimary);
+    root.style.setProperty('--guy-blue', brandPrimary);
     root.style.setProperty('--guy-green', accent);
-    root.style.setProperty('--guy-orange', accent);
+    root.style.setProperty('--guy-orange', accentSecondary);
 
     document.body.style.colorScheme = dark ? 'dark' : 'light';
   }

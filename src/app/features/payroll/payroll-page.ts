@@ -15,6 +15,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { payrollStatusLabel } from '../../core/i18n/labels';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 
 interface PayrollLine {
@@ -71,6 +73,7 @@ const MONTH_LABELS = [
     PageHeaderComponent,
     DataTableComponent,
     BusyLabelComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -81,7 +84,22 @@ const MONTH_LABELS = [
     @if (!shopId()) {
       <div class="panel-card">Seleccioná un local en el menú lateral.</div>
     } @else {
-      <div class="panel-card guy-filters mb-3">
+      <div
+        class="panel-card guy-filters mb-3"
+        [class.guy-filters--collapsed]="filtersCollapsed()"
+      >
+        <div class="guy-filters__head">
+          <div>
+            <h2 class="guy-filters__title">Filtros</h2>
+          </div>
+          <div class="guy-filters__tools">
+            <app-filters-collapse-btn
+              [collapsed]="filtersCollapsed()"
+              (toggle)="toggleFilters()"
+            />
+          </div>
+        </div>
+        <div class="guy-filters__body">
         <div class="guy-filters__grid guy-filters__grid--dense">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Mes</mat-label>
@@ -137,6 +155,7 @@ const MONTH_LABELS = [
             }
           </div>
         }
+        </div>
       </div>
 
       <div class="panel-card panel-card--flush mb-3">
@@ -195,6 +214,10 @@ const MONTH_LABELS = [
   `,
 })
 export class PayrollPage {
+  private readonly filtersUi = createFiltersCollapsed('payroll');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   readonly auth = inject(AuthService);

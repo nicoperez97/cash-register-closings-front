@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
+import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 
 export type BoardPwaKind = 'reservations' | 'waiting';
 
@@ -37,6 +38,25 @@ export class BoardPwaService {
   /** Nombre que verá el usuario al instalar (para el banner). */
   readonly installLabel = signal('Reservas');
 
+  /**
+   * Escucha `beforeinstallprompt` apenas entra el tablero (sin esperar al API).
+   * Si se registra tarde, Chrome ya disparó el evento y no aparece Instalar en UI.
+   */
+  prime(kind: BoardPwaKind, slugRaw: string): void {
+    const slug = String(slugRaw || '')
+      .trim()
+      .toLowerCase();
+    if (!slug) return;
+
+    this.mainPwa.setBoardContext(true);
+    this.activeKey = `${kind}:${slug}`;
+    this.isStandalone.set(detectStandalone());
+    this.installLabel.set(kind === 'waiting' ? 'Espera' : 'Reservas');
+    applyStatusBar(boardStatusColor(kind, null), 'dark');
+    this.listenInstallPrompt();
+    this.refreshBannerVisibility();
+  }
+
   apply(opts: BoardPwaOptions): void {
     const slug = String(opts.slug || '')
       .trim()
@@ -57,7 +77,7 @@ export class BoardPwaService {
       opts.kind === 'waiting'
         ? `Lista de espera · ${opts.shopName}`
         : `Reservas · ${opts.shopName}`;
-    const theme =
+    const accent =
       opts.accentColor?.trim() || (opts.kind === 'waiting' ? '#2e7d32' : '#c45c26');
 
     this.installLabel.set(short);
@@ -66,7 +86,7 @@ export class BoardPwaService {
     setMeta('apple-mobile-web-app-title', appleTitle);
     setMeta('application-name', short);
     setMeta('description', full);
-    setThemeColor(theme);
+    applyStatusBar(boardStatusColor(opts.kind, accent), 'dark');
     this.applyInstallIcon(opts.logoUrl);
 
     const href = this.resolveManifestHref(opts.kind, slug);
@@ -87,6 +107,7 @@ export class BoardPwaService {
     this.previousManifestHref = null;
     this.setManifestHref(href, true);
     this.restoreInstallIcon();
+    resetStatusBar();
 
     setMeta('apple-mobile-web-app-title', 'Cierres');
     setMeta('application-name', 'Cierres de caja');
@@ -94,7 +115,6 @@ export class BoardPwaService {
       'description',
       'Cierres de caja multi-local: roles, reportes y export Excel.',
     );
-    setThemeColor('#1D65A0');
   }
 
   dismissBanner(): void {
@@ -202,7 +222,7 @@ export class BoardPwaService {
   }
 
   private listenInstallPrompt(): void {
-    this.teardownInstallPrompt();
+    if (this.bipHandler) return;
     this.bipHandler = (e: Event) => {
       e.preventDefault();
       this.deferredPrompt = e as BeforeInstallPromptEvent;
@@ -270,6 +290,40 @@ function truncate(value: string, max: number): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
+/** Color de la barra de estado: oscuro tintado con el accent del local (no el accent puro). */
+function boardStatusColor(kind: BoardPwaKind, accent: string | null | undefined): string {
+  const fallback = kind === 'waiting' ? '#2e7d32' : '#c45c26';
+  const a = String(accent || fallback).trim() || fallback;
+  // ~18% accent sobre fondo del tablero → se ve continuo con el hero
+  return mixHex('#0e0c0b', a, 0.22);
+}
+
+function mixHex(base: string, tint: string, amount: number): string {
+  const b = parseHex(base);
+  const t = parseHex(tint);
+  if (!b || !t) return base;
+  const w = Math.min(1, Math.max(0, amount));
+  const r = Math.round(b.r * (1 - w) + t.r * w);
+  const g = Math.round(b.g * (1 - w) + t.g * w);
+  const bl = Math.round(b.b * (1 - w) + t.b * w);
+  return `#${[r, g, bl].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function parseHex(raw: string): { r: number; g: number; b: number } | null {
+  const m = String(raw)
+    .trim()
+    .replace(/^#/, '')
+    .match(/^([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
 function setMeta(name: string, content: string): void {
   let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
   if (!el) {
@@ -281,16 +335,4 @@ function setMeta(name: string, content: string): void {
     document.head.appendChild(el);
   }
   el.setAttribute('content', content);
-}
-
-function setThemeColor(color: string): void {
-  const nodes = document.querySelectorAll('meta[name="theme-color"]');
-  if (!nodes.length) {
-    const el = document.createElement('meta');
-    el.setAttribute('name', 'theme-color');
-    el.setAttribute('content', color);
-    document.head.appendChild(el);
-    return;
-  }
-  nodes.forEach((n) => n.setAttribute('content', color));
 }

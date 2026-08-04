@@ -79,9 +79,6 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
       operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
     }
-    if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
-      operacion.push({ label: 'Asistencia', route: '/attendance', icon: 'event_available' });
-    }
     if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
       operacion.push({ label: 'Reservas', route: '/reservations', icon: 'table_restaurant' });
     }
@@ -94,6 +91,18 @@ export class MainLayoutComponent {
         route: '__group_operacion',
         icon: 'today',
         children: operacion,
+      });
+    }
+
+    if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
+      items.push({
+        label: 'Asistencia',
+        route: '__group_asistencia',
+        icon: 'event_available',
+        children: [
+          { label: 'Servicio', route: '/attendance', icon: 'storefront' },
+          { label: 'Produccion', route: '/production-attendance', icon: 'restaurant' },
+        ],
       });
     }
 
@@ -139,6 +148,9 @@ export class MainLayoutComponent {
     const personal: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'employees.read')) {
       personal.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'candidates.read')) {
+      personal.push({ label: 'CVs / Candidatos', route: '/candidates', icon: 'person_search' });
     }
     if (shopId && hasShopPermission(user, shopId, 'payroll.read')) {
       personal.push({ label: 'Liquidaciones', route: '/payroll', icon: 'request_quote' });
@@ -311,10 +323,13 @@ export class MainLayoutComponent {
     if (path.startsWith('/employees')) {
       return hasShopPermission(user, shopId, 'employees.read');
     }
+    if (path.startsWith('/candidates')) {
+      return hasShopPermission(user, shopId, 'candidates.read');
+    }
     if (path.startsWith('/movements')) {
       return hasShopPermission(user, shopId, 'movements.read');
     }
-    if (path.startsWith('/attendance')) {
+    if (path.startsWith('/attendance') || path.startsWith('/production-attendance')) {
       return hasShopPermission(user, shopId, 'attendance.read');
     }
     if (path.startsWith('/reservations')) {

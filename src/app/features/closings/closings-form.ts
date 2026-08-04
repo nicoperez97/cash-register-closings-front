@@ -22,6 +22,7 @@ import {
 } from '../../core/shop/business-date';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { shareText } from '../../shared/utils/share-text';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
 
 function toDateInput(value?: string | null): Date {
@@ -1368,19 +1369,10 @@ export class ClosingsFormPage implements OnInit {
       `Total: ${this.money(this.declaredTotal())}`,
     ].join('\n');
 
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-        await navigator.share({ title: `Cierre ${shopName}`, text });
-        return;
-      }
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        this.snack.open('Resumen copiado al portapapeles', 'OK', { duration: 2500 });
-        return;
-      }
-      this.snack.open('No se pudo compartir en este dispositivo', 'OK', { duration: 3000 });
-    } catch (err) {
-      if ((err as { name?: string })?.name === 'AbortError') return;
+    const result = await shareText({ title: `Cierre ${shopName}`, text });
+    if (result === 'copied') {
+      this.snack.open('Resumen copiado al portapapeles', 'OK', { duration: 2500 });
+    } else if (result === 'failed') {
       this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
     }
   }

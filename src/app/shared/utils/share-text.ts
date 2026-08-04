@@ -5,27 +5,58 @@ export async function shareText(opts: {
 }): Promise<'shared' | 'copied' | 'aborted' | 'failed'> {
   const title = opts.title;
   const text = opts.text;
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      await navigator.share({ title, text });
+  const payload = { title, text };
+
+  const canUseShare =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
+
+  if (canUseShare) {
+    try {
+      await navigator.share(payload);
       return 'shared';
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return 'aborted';
+      // En desktop (Chrome/Edge) share a menudo existe pero falla: seguimos con clipboard.
     }
+  }
+
+  if (await copyText(text)) return 'copied';
+  return 'failed';
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
-      return 'copied';
+      return true;
     }
-    return 'failed';
-  } catch (err) {
-    if ((err as { name?: string })?.name === 'AbortError') return 'aborted';
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        return 'copied';
-      }
-    } catch {
-      // ignore
-    }
-    return 'failed';
+  } catch {
+    // fallback legacy abajo
+  }
+  return copyViaTextarea(text);
+}
+
+function copyViaTextarea(text: string): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.position = 'fixed';
+    el.style.top = '0';
+    el.style.left = '0';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    el.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
   }
 }
 

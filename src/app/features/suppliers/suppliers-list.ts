@@ -15,6 +15,8 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { ShopSupplier, SuppliersApiService } from './suppliers-api.service';
 import { SupplierDialogComponent } from './supplier-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 @Component({
   selector: 'app-suppliers-list',
@@ -27,6 +29,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
     MatSnackBarModule,
     MatTooltipModule,
     PageHeaderComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
@@ -39,16 +42,27 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       (action)="openCreate()"
     />
 
-    <div class="panel-card guy-filters mb-3">
+    <div
+      class="panel-card guy-filters mb-3"
+      [class.guy-filters--collapsed]="filtersCollapsed()"
+    >
       <div class="guy-filters__head">
         <div>
           <h3 class="guy-filters__title">Filtros</h3>
           <p class="guy-filters__subtitle">Incluí proveedores ocultos</p>
         </div>
+        <div class="guy-filters__tools">
+          <app-filters-collapse-btn
+            [collapsed]="filtersCollapsed()"
+            (toggle)="toggleFilters()"
+          />
+        </div>
       </div>
+      <div class="guy-filters__body">
       <mat-slide-toggle [ngModel]="includeInactive()" (ngModelChange)="onToggleInactive($event)">
         Mostrar ocultos
       </mat-slide-toggle>
+      </div>
     </div>
 
     <div class="supplier-list">
@@ -164,6 +178,10 @@ import { usePageRefresh } from '../../core/page-refresh.service';
   ],
 })
 export class SuppliersListPage {
+  private readonly filtersUi = createFiltersCollapsed('suppliers');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   private readonly api = inject(SuppliersApiService);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);

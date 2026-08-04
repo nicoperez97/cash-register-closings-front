@@ -17,6 +17,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { AttendanceExcelImportDialogComponent } from './attendance-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 interface AttendanceDayCell {
   id?: string;
@@ -29,6 +31,7 @@ interface AttendanceEmployeeRow {
   employeeId: string;
   fullName: string;
   baseSalary: number;
+  type?: 'FIXED' | 'ROTATING';
   days: Record<string, AttendanceDayCell>;
 }
 
@@ -57,10 +60,11 @@ const MONTH_LABELS = [
     MatDialogModule,
     MatSnackBarModule,
     PageHeaderComponent,
+    FiltersCollapseBtnComponent,
   ],
   template: `
     <app-page-header
-      title="Asistencia"
+      title="Asistencia · Servicio"
       [subtitle]="shops.selectedShop()?.name ?? 'Sin local'"
       [actionLabel]="canManage() ? 'Importar Excel' : ''"
       [actionDisabled]="!canManage()"
@@ -94,7 +98,9 @@ const MONTH_LABELS = [
               type="button"
               class="today-chip"
               [class.today-chip--present]="isPresentToday(emp)"
+              [class.today-chip--rotating]="emp.type === 'ROTATING'"
               [disabled]="!canManage() || saving()"
+              [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
               (click)="togglePresentToday(emp)"
             >
               <mat-icon>{{ isPresentToday(emp) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
@@ -105,7 +111,22 @@ const MONTH_LABELS = [
       </div>
     }
 
-    <div class="panel-card guy-filters mb-3">
+    <div
+      class="panel-card guy-filters mb-3"
+      [class.guy-filters--collapsed]="filtersCollapsed()"
+    >
+      <div class="guy-filters__head">
+        <div>
+          <h2 class="guy-filters__title">Filtros</h2>
+        </div>
+        <div class="guy-filters__tools">
+          <app-filters-collapse-btn
+            [collapsed]="filtersCollapsed()"
+            (toggle)="toggleFilters()"
+          />
+        </div>
+      </div>
+      <div class="guy-filters__body">
       <div class="guy-filters__grid guy-filters__grid--dense">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Mes</mat-label>
@@ -136,6 +157,7 @@ const MONTH_LABELS = [
           <mat-icon>download</mat-icon>
           Descargar Excel
         </button>
+      </div>
       </div>
     </div>
 
@@ -187,8 +209,12 @@ const MONTH_LABELS = [
                           [class.att-cell--today]="isTodayColumn(d)"
                           [disabled]="!canManage() || saving() || isClosedDay(d)"
                           [matTooltip]="cellTooltip(emp, d)"
-                          (click)="togglePresent(emp, d)"
+                          (click)="onCellClick(emp, d)"
                           (contextmenu)="toggleHoliday($event, emp, d)"
+                          (pointerdown)="onPressStart($event, () => toggleHoliday($event, emp, d))"
+                          (pointerup)="onPressEnd()"
+                          (pointerleave)="onPressEnd()"
+                          (pointercancel)="onPressEnd()"
                         >
                           @if (isClosedDay(d)) {
                             <mat-icon class="att-cell__icon">hotel</mat-icon>
@@ -219,7 +245,12 @@ const MONTH_LABELS = [
             <span class="att-legend__item">
               <span class="att-legend__today-swatch"></span> Hoy
             </span>
-            <span class="att-legend__hint">Click: presente/ausente · Click derecho: feriado</span>
+            <span class="att-legend__hint">
+              Toque: presente/ausente · Mantener pulsado: feriado
+            </span>
+            <span class="att-legend__hint att-legend__hint--desk">
+              En PC: click derecho también marca feriado
+            </span>
           </p>
         </div>
       </div>
@@ -383,6 +414,24 @@ const MONTH_LABELS = [
         align-items: center;
         gap: 0.35rem;
       }
+      .att-legend__hint--desk {
+        opacity: 0.85;
+      }
+      @media (max-width: 720px) {
+        .att-legend__hint--desk {
+          display: none;
+        }
+      }
+      .att-cell {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .today-chip {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+      }
       .att-legend__swatch {
         width: 1rem;
         height: 1rem;
@@ -444,6 +493,10 @@ const MONTH_LABELS = [
         background: color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
         border-color: var(--guy-green, #2e7d32);
       }
+      .today-chip--rotating:not(.today-chip--present) {
+        border-style: dashed;
+        opacity: 0.92;
+      }
       .today-chip:disabled {
         opacity: 0.7;
         cursor: default;
@@ -452,6 +505,10 @@ const MONTH_LABELS = [
   ],
 })
 export class AttendancePage {
+  private readonly filtersUi = createFiltersCollapsed('attendance');
+  readonly filtersCollapsed = this.filtersUi.collapsed;
+  readonly toggleFilters = this.filtersUi.toggleFilters;
+
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
@@ -604,12 +661,16 @@ export class AttendancePage {
   markAllPresentToday(): void {
     const shopId = this.shopId();
     if (!shopId || !this.canManage()) return;
-    const items = this.employees().map((e) => ({
+    const fixed = this.employees().filter((e) => e.type !== 'ROTATING');
+    const items = fixed.map((e) => ({
       employeeId: e.employeeId,
       date: this.todayIso,
       isPresent: true,
     }));
-    if (!items.length) return;
+    if (!items.length) {
+      this.snack.open('No hay empleados fijos para marcar', 'OK', { duration: 2500 });
+      return;
+    }
     this.saving.set(true);
     this.http
       .post(`${environment.apiUrl}/shops/${shopId}/attendance/bulk`, { items })
@@ -617,7 +678,7 @@ export class AttendancePage {
         next: () => {
           this.saving.set(false);
           const next = { ...this.todayMarks() };
-          for (const e of this.employees()) {
+          for (const e of fixed) {
             next[e.employeeId] = {
               isPresent: true,
               isHoliday: next[e.employeeId]?.isHoliday ?? false,
@@ -627,7 +688,14 @@ export class AttendancePage {
           if (this.year() === this.todayYear && this.month() === this.todayMonth) {
             void this.reload();
           }
-          this.snack.open('Todos marcados presentes hoy', 'OK', { duration: 2500 });
+          const skipped = this.employees().length - fixed.length;
+          this.snack.open(
+            skipped
+              ? `Fijos marcados presentes (${skipped} rotativo${skipped === 1 ? '' : 's'} omitido${skipped === 1 ? '' : 's'})`
+              : 'Todos marcados presentes hoy',
+            'OK',
+            { duration: 2500 },
+          );
         },
         error: (err) => {
           this.saving.set(false);
@@ -828,7 +896,35 @@ export class AttendancePage {
     const cell = this.cellFor(emp, day);
     const parts = [cell.isPresent ? 'Presente' : 'Ausente'];
     if (cell.isHoliday) parts.push('Feriado');
+    parts.push('Toque: presente · Mantener: feriado');
     return parts.join(' · ');
+  }
+
+  onCellClick(emp: AttendanceEmployeeRow, day: number): void {
+    if (this.consumeLongPressClick()) return;
+    this.togglePresent(emp, day);
+  }
+
+  onPressStart(event: PointerEvent, onLongPress: () => void): void {
+    if (!this.canManage()) return;
+    if (event.pointerType === 'mouse') return;
+    this.clearPressTimer();
+    this.pressTimer = window.setTimeout(() => {
+      this.pressTimer = null;
+      this.skipNextClick = true;
+      try {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate?.(12);
+        }
+      } catch {
+        // ignore
+      }
+      onLongPress();
+    }, 480);
+  }
+
+  onPressEnd(): void {
+    this.clearPressTimer();
   }
 
   togglePresent(emp: AttendanceEmployeeRow, day: number): void {
@@ -839,9 +935,26 @@ export class AttendancePage {
 
   toggleHoliday(event: Event, emp: AttendanceEmployeeRow, day: number): void {
     event.preventDefault();
+    this.clearPressTimer();
     if (!this.canManage() || this.isClosedDay(day)) return;
     const cell = this.cellFor(emp, day);
     this.upsert(emp, day, { isHoliday: !cell.isHoliday });
+  }
+
+  private pressTimer: number | null = null;
+  private skipNextClick = false;
+
+  private clearPressTimer(): void {
+    if (this.pressTimer != null) {
+      window.clearTimeout(this.pressTimer);
+      this.pressTimer = null;
+    }
+  }
+
+  private consumeLongPressClick(): boolean {
+    if (!this.skipNextClick) return false;
+    this.skipNextClick = false;
+    return true;
   }
 
   private upsert(

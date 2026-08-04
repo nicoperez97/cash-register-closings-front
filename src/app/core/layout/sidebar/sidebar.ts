@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/ro
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { filter } from 'rxjs';
 import { APP_BRAND } from '../../config/app-brand';
 import { ShopContextService } from '../../shop/shop-context.service';
@@ -34,6 +35,7 @@ export interface NavItem {
     MatIconModule,
     MatButtonModule,
     MatTooltipModule,
+    MatSnackBarModule,
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -43,6 +45,7 @@ export class SidebarComponent {
   readonly shopContext = inject(ShopContextService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly snack = inject(MatSnackBar);
   readonly navItems = input.required<NavItem[]>();
   readonly isMobile = input(false);
   readonly navigate = output<void>();
@@ -50,6 +53,7 @@ export class SidebarComponent {
   readonly logoBroken = signal(false);
   readonly currentUrl = signal(this.router.url);
   readonly shopPickerOpen = signal(false);
+  readonly favoriteBusy = signal(false);
   /** Rutas de grupos contraídos (vacío = todos abiertos por defecto). */
   private readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
 
@@ -78,6 +82,30 @@ export class SidebarComponent {
   pickShop(shopId: string): void {
     this.shopPickerOpen.set(false);
     this.onShopChange(shopId);
+  }
+
+  isFavorite(shopId: string): boolean {
+    return this.shopContext.favoriteShopId() === shopId;
+  }
+
+  async toggleFavorite(event: Event, shopId: string): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.favoriteBusy()) return;
+    const next = this.isFavorite(shopId) ? null : shopId;
+    this.favoriteBusy.set(true);
+    try {
+      await this.auth.setFavoriteShop(next);
+      this.snack.open(
+        next ? 'Local favorito guardado. Se usará al iniciar sesión.' : 'Favorito quitado',
+        'OK',
+        { duration: 2500 },
+      );
+    } catch {
+      this.snack.open('No se pudo guardar el favorito', 'OK', { duration: 3000 });
+    } finally {
+      this.favoriteBusy.set(false);
+    }
   }
 
   /** True si algún hijo coincide con la URL actual (estilo activo). */
