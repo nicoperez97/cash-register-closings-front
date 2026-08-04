@@ -118,6 +118,19 @@
             manifestKind +
             '?' +
             qs;
+          /* Prefetch logo del local → apple-touch-icon (iOS lo lee temprano). */
+          fetch(manifestHref, { credentials: 'omit', cache: 'no-store' })
+            .then(function (r) {
+              return r.ok ? r.json() : null;
+            })
+            .then(function (m) {
+              if (!m || !m.icons || !m.icons.length) return;
+              var src = m.icons[0].src;
+              if (!src) return;
+              var apple = document.getElementById('apple-touch-icon');
+              if (apple) apple.setAttribute('href', src);
+            })
+            .catch(function () {});
         }
 
         var manifest = document.createElement('link');

@@ -8,6 +8,8 @@ export interface BoardPwaOptions {
   slug: string;
   shopName: string;
   accentColor?: string | null;
+  /** Logo del local → ícono de instalación (manifest + apple-touch-icon). */
+  logoUrl?: string | null;
 }
 
 type BeforeInstallPromptEvent = Event & {
@@ -23,6 +25,7 @@ type BeforeInstallPromptEvent = Event & {
 export class BoardPwaService {
   private readonly mainPwa = inject(MainPwaInstallService);
   private previousManifestHref: string | null = null;
+  private previousAppleTouchHref: string | null = null;
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private bipHandler: ((e: Event) => void) | null = null;
   private activeKey: string | null = null;
@@ -64,6 +67,7 @@ export class BoardPwaService {
     setMeta('application-name', short);
     setMeta('description', full);
     setThemeColor(theme);
+    this.applyInstallIcon(opts.logoUrl);
 
     const href = this.resolveManifestHref(opts.kind, slug);
     this.setManifestHref(href);
@@ -82,6 +86,7 @@ export class BoardPwaService {
     const href = this.previousManifestHref || 'manifest.webmanifest';
     this.previousManifestHref = null;
     this.setManifestHref(href, true);
+    this.restoreInstallIcon();
 
     setMeta('apple-mobile-web-app-title', 'Cierres');
     setMeta('application-name', 'Cierres de caja');
@@ -133,12 +138,38 @@ export class BoardPwaService {
     try {
       const res = await fetch(href, { credentials: 'omit', cache: 'no-store' });
       if (!res.ok) return;
-      const json = (await res.json()) as { short_name?: string; name?: string };
+      const json = (await res.json()) as {
+        short_name?: string;
+        name?: string;
+        icons?: Array<{ src?: string }>;
+      };
       if (json.short_name) this.installLabel.set(json.short_name);
       if (json.name) document.title = json.name;
+      const iconSrc = json.icons?.find((i) => i.src)?.src;
+      if (iconSrc) this.applyInstallIcon(iconSrc);
     } catch {
       // El link del manifest igual queda; iOS puede usar apple-mobile-web-app-title
     }
+  }
+
+  private applyInstallIcon(logoUrl?: string | null): void {
+    const src = String(logoUrl || '').trim();
+    if (!src) return;
+    const apple = document.getElementById('apple-touch-icon') as HTMLLinkElement | null;
+    if (apple) {
+      if (this.previousAppleTouchHref === null) {
+        this.previousAppleTouchHref = apple.getAttribute('href') || 'icons/icon-180x180.png';
+      }
+      apple.setAttribute('href', src);
+    }
+  }
+
+  private restoreInstallIcon(): void {
+    const apple = document.getElementById('apple-touch-icon') as HTMLLinkElement | null;
+    if (apple && this.previousAppleTouchHref) {
+      apple.setAttribute('href', this.previousAppleTouchHref);
+    }
+    this.previousAppleTouchHref = null;
   }
 
   private setManifestHref(href: string, restoring = false): void {

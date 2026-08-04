@@ -727,6 +727,7 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
       slug: this.slug || b.shop.slug,
       shopName: b.shop.name,
       accentColor: b.shop.accentColor,
+      logoUrl: this.logoUrl(),
     });
   }
 
