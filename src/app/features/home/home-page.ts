@@ -19,6 +19,8 @@ import { MovementsApiService } from '../movements/movements-api.service';
 import { PaymentsApiService } from '../payments/payments-api.service';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
+import { shareText } from '../../shared/utils/share-text';
 
 interface AttendanceEmployee {
   employeeId: string;
@@ -128,6 +130,17 @@ interface BalanceRowExt extends BalanceAccountRow {
             </p>
           </div>
           <div class="today-panel__actions">
+            @if (attendanceEmployees().length && !isTodayClosed()) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="sharingAttendance()"
+                (click)="shareTodayAttendance()"
+              >
+                <mat-icon>share</mat-icon>
+                Compartir
+              </button>
+            }
             @if (canManageAttendance() && !isTodayClosed()) {
               <button
                 mat-flat-button
@@ -271,6 +284,7 @@ export class HomePageComponent {
   private readonly refreshTick = signal(0);
   readonly balanceRows = signal<BalanceRowExt[]>([]);
   readonly attendanceBusy = signal(false);
+  readonly sharingAttendance = signal(false);
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
   readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
   readonly paymentsPending = signal<number | null>(null);
@@ -549,6 +563,32 @@ export class HomePageComponent {
 
   isPresentToday(employeeId: string): boolean {
     return !!this.todayMarks()[employeeId]?.isPresent;
+  }
+
+  async shareTodayAttendance(): Promise<void> {
+    const shopName = this.shopContext.selectedShop()?.name ?? 'Local';
+    const marks = this.todayMarks();
+    const payload = attendanceDaySharePayload({
+      shopName,
+      dateLabel: this.todayLabel(),
+      kind: 'servicio',
+      employees: this.attendanceEmployees().map((emp) => {
+        const m = marks[emp.employeeId];
+        return {
+          fullName: emp.fullName,
+          present: !!m?.isPresent,
+          holiday: !!m?.isHoliday,
+        };
+      }),
+    });
+    this.sharingAttendance.set(true);
+    const result = await shareText(payload);
+    this.sharingAttendance.set(false);
+    if (result === 'copied') {
+      this.snack.open('Presentismo copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    }
   }
 
   togglePresentToday(emp: AttendanceEmployee): void {

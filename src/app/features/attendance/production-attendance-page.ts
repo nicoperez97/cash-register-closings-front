@@ -19,6 +19,8 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { ProductionAttendanceExcelImportDialogComponent } from './production-attendance-excel-import-dialog';
+import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
+import { shareText } from '../../shared/utils/share-text';
 
 interface ProdDayCell {
   id?: string;
@@ -86,18 +88,29 @@ function localIsoDate(d = new Date()): string {
               {{ todayLabel() }} · Default {{ defaultHours() }} h
             </p>
           </div>
-          @if (canManage()) {
+          <div class="today-panel__actions">
             <button
-              mat-flat-button
-              color="primary"
+              mat-stroked-button
               type="button"
-              [disabled]="saving()"
-              (click)="markAllPresentToday()"
+              [disabled]="sharing()"
+              (click)="shareToday()"
             >
-              <mat-icon>done_all</mat-icon>
-              Todos presentes
+              <mat-icon>share</mat-icon>
+              Compartir
             </button>
-          }
+            @if (canManage()) {
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="saving()"
+                (click)="markAllPresentToday()"
+              >
+                <mat-icon>done_all</mat-icon>
+                Todos presentes
+              </button>
+            }
+          </div>
         </div>
         <div class="today-panel__chips">
           @for (emp of employees(); track emp.employeeId) {
@@ -276,6 +289,12 @@ function localIsoDate(d = new Date()): string {
         font-size: 0.85rem;
         color: var(--guy-muted, #5f6f76);
         text-transform: capitalize;
+      }
+      .today-panel__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
       }
       .today-panel__chips {
         display: flex;
@@ -461,6 +480,7 @@ export class ProductionAttendancePage {
   readonly todayMarks = signal<Record<string, number>>({});
   readonly saving = signal(false);
   readonly exporting = signal(false);
+  readonly sharing = signal(false);
   readonly defaultHours = signal(8);
 
   private monthLoadSeq = 0;
@@ -571,6 +591,31 @@ export class ProductionAttendancePage {
       day: 'numeric',
       month: 'long',
     });
+  }
+
+  async shareToday(): Promise<void> {
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const payload = attendanceDaySharePayload({
+      shopName,
+      dateLabel: this.todayLabel(),
+      kind: 'produccion',
+      employees: this.employees().map((emp) => {
+        const hours = this.hoursToday(emp);
+        return {
+          fullName: emp.fullName,
+          present: hours > 0,
+          hours,
+        };
+      }),
+    });
+    this.sharing.set(true);
+    const result = await shareText(payload);
+    this.sharing.set(false);
+    if (result === 'copied') {
+      this.snack.open('Presentismo copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    }
   }
 
   formatHours(h: number): string {
