@@ -313,11 +313,22 @@ export class PaymentDialogComponent {
       amountRaw === null || amountRaw === undefined || (amountRaw as any) === ''
         ? null
         : Number(amountRaw);
+    if (this.isPaidEdit && (!(amount != null && amount > 0) || !raw.accountId)) {
+      this.snack.open(
+        !raw.accountId
+          ? 'Indicá la cuenta que paga'
+          : 'Un pago abonado necesita un monto mayor a 0',
+        'OK',
+        { duration: 3500 },
+      );
+      return;
+    }
+    const paidAtIso = this.isPaidEdit ? this.toIsoDate(raw.paidAt) : null;
     const body = {
       title: (raw.title ?? '').trim() || null,
       amount,
       dueDate: this.toIsoDate(raw.dueDate),
-      ...(this.isPaidEdit ? { paidAt: this.toIsoDate(raw.paidAt) } : {}),
+      ...(paidAtIso ? { paidAt: paidAtIso } : {}),
       supplierId: this.isSupplierKind ? raw.supplierId || null : null,
       employeeId: this.isSupplierKind ? null : raw.employeeId || null,
       payerUserId: raw.payerUserId || null,
@@ -352,7 +363,7 @@ export class PaymentDialogComponent {
       error: (err) => {
         this.busy.set(false);
         const msg = err?.error?.message ?? 'No se pudo guardar';
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
   }

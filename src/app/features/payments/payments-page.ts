@@ -537,6 +537,15 @@ export class PaymentsPage {
       mode === 'create' && kind === 'employee'
         ? { supplierId: null as string | null }
         : undefined;
+    // Incluir la cuenta actual del pago aunque esté filtrada en el catálogo.
+    const accounts = [...this.accounts()];
+    if (
+      payment?.accountId &&
+      payment.accountName &&
+      !accounts.some((a) => a.id === payment.accountId)
+    ) {
+      accounts.unshift({ id: payment.accountId, name: payment.accountName });
+    }
     this.dialogTitle
       .track(
         this.dialog.open(PaymentDialogComponent, {
@@ -549,7 +558,7 @@ export class PaymentsPage {
             shopId,
             shopName: shop.name,
             users: this.users(),
-            accounts: this.accounts(),
+            accounts,
             suppliers: this.suppliers(),
             employees: this.employees(),
             canManageSuppliers: this.canManageSuppliers(),
