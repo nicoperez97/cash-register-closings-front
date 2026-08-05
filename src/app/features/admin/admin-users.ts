@@ -293,7 +293,8 @@ export class AdminUsersPage implements OnInit {
         this.dialog.open(AdminUserDialogComponent, {
           width: mode.mode === 'roles' ? '640px' : '680px',
           maxWidth: '96vw',
-          maxHeight: '94vh',
+          maxHeight: 'calc(100dvh - 4.5rem)',
+          autoFocus: 'dialog',
           panelClass: 'guy-dialog',
           data: {
             ...mode,

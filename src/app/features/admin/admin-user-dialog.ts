@@ -97,10 +97,33 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
   styles: [
     `
       :host {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        max-height: 100%;
+        overflow: hidden;
+      }
+      mat-dialog-title,
+      h2[mat-dialog-title] {
+        flex: 0 0 auto;
       }
       mat-dialog-content {
+        flex: 1 1 auto;
+        min-height: 0;
         max-height: min(72vh, 720px);
+        overflow-x: hidden;
+        overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+      }
+      mat-dialog-actions {
+        flex: 0 0 auto;
+      }
+      @media (max-width: 960px) {
+        mat-dialog-content {
+          max-height: calc(100dvh - 56px - 11.5rem);
+        }
       }
       .section {
         margin: 0.35rem 0 1rem;

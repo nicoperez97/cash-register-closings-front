@@ -716,32 +716,66 @@ html[data-theme='dark'] .cdk-overlay-pane.app-update-dialog-panel {
     max-width: calc(100vw - 0.75rem) !important;
   }
 
+  .cdk-overlay-pane.guy-dialog.mat-mdc-dialog-panel {
+    /* Overlay vive fuera de .layout-container (donde --guy-bottom-nav-height=56). */
+    max-height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px) - 0.75rem) !important;
+  }
+
+  .guy-dialog .mat-mdc-dialog-container,
+  .guy-dialog .mat-mdc-dialog-inner-container {
+    max-height: inherit !important;
+    min-height: 0 !important;
+  }
+
   .guy-dialog .mat-mdc-dialog-container .mdc-dialog__surface,
-  .mat-mdc-dialog-container .mdc-dialog__surface {
-    max-height: min(92dvh, 100dvh) !important;
+  .guy-dialog .mat-mdc-dialog-container .mat-mdc-dialog-surface {
+    max-height: inherit !important;
     display: flex !important;
-    flex-direction: column;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Host proyectado: cadena flex hasta el content scrolleable. */
+  .guy-dialog .mdc-dialog__surface > .mat-mdc-dialog-component-host,
+  .guy-dialog .mat-mdc-dialog-surface > .mat-mdc-dialog-component-host {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    width: 100%;
+    overflow: hidden !important;
   }
 
   .guy-dialog .mat-mdc-dialog-title {
-    flex-shrink: 0;
+    flex: 0 0 auto !important;
     padding: 0.95rem 1rem 0.25rem !important;
   }
 
+  /*
+   * max-height explícito: en iOS/PWA el flex solo no alcanza para armar el scroll.
+   * overflow-y: scroll es más fiable que auto con touch.
+   */
   .guy-dialog .mat-mdc-dialog-content {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: none;
+    flex: 1 1 auto !important;
+    flex-grow: 1 !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 56px - 11.5rem) !important;
+    overflow-x: hidden !important;
+    overflow-y: scroll !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
     padding: 0.35rem 1rem 0.15rem !important;
   }
 
   .guy-dialog .mat-mdc-dialog-actions {
-    flex-shrink: 0;
+    flex: 0 0 auto !important;
     flex-direction: row;
     flex-wrap: nowrap;
     justify-content: stretch;
     align-items: stretch;
-    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0.75rem 1rem 0.75rem !important;
     gap: 0.55rem;
     background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
 
