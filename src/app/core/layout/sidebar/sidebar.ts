@@ -1,17 +1,16 @@
-import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { filter, interval, startWith, switchMap } from 'rxjs';
+import { filter } from 'rxjs';
 import { APP_BRAND } from '../../config/app-brand';
 import { ShopContextService } from '../../shop/shop-context.service';
 import { AuthService } from '../../auth/auth.service';
 import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl } from '../../utils/drive-url';
-import { NotificationsApiService } from '../../../features/payments/notifications-api.service';
+import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 
 export interface NavChild {
   label: string;
@@ -48,8 +47,7 @@ export class SidebarComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
-  private readonly notificationsApi = inject(NotificationsApiService);
-  private readonly destroyRef = inject(DestroyRef);
+  private readonly notifsInbox = inject(NotificationsInboxService);
   readonly navItems = input.required<NavItem[]>();
   readonly isMobile = input(false);
   readonly navigate = output<void>();
@@ -60,12 +58,11 @@ export class SidebarComponent {
   readonly currentUrl = signal(this.router.url);
   readonly shopPickerOpen = signal(false);
   readonly favoriteBusy = signal(false);
-  /** Unread por shopId (otros locales). */
-  readonly unreadByShop = signal<Record<string, number>>({});
   /** Rutas de grupos contraídos (vacío = todos abiertos por defecto). */
   private readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
+    this.notifsInbox.ensureStarted();
     effect(() => {
       this.shopContext.logoUrl();
       this.logoBroken.set(false);
@@ -82,28 +79,17 @@ export class SidebarComponent {
         this.currentUrl.set(e.urlAfterRedirects);
         this.shopPickerOpen.set(false);
       });
-
-    interval(45000)
-      .pipe(
-        startWith(0),
-        switchMap(() => this.notificationsApi.unreadCountsByShop()),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe({
-        next: (r) => this.unreadByShop.set(r?.counts ?? {}),
-        error: () => this.unreadByShop.set({}),
-      });
   }
 
   shopUnread(shopId: string): number {
-    return Math.max(0, Number(this.unreadByShop()[shopId]) || 0);
+    return Math.max(0, Number(this.notifsInbox.unreadByShop()[shopId]) || 0);
   }
 
   /** Badge en el switcher cerrado: suma de no leídas en *otros* locales. */
   otherShopsUnread(): number {
     const current = this.shopContext.selectedShopId();
     let total = 0;
-    for (const [id, count] of Object.entries(this.unreadByShop())) {
+    for (const [id, count] of Object.entries(this.notifsInbox.unreadByShop())) {
       if (id === current) continue;
       total += Math.max(0, Number(count) || 0);
     }

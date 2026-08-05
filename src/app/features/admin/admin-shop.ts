@@ -361,8 +361,8 @@ const WEEKDAY_OPTIONS = [
             <div>
               <h2 class="guy-section-title">Posnets</h2>
               <p class="text-muted small mb-0">
-                Terminales del local. En el cierre se pide un monto por cada uno y se suma por tipo
-                (PVS, Mercado Pago, Cuenta DNI).
+                Terminales del local (PVS / Mercado Pago). Cuenta DNI se carga por transferencias en el
+                cierre; el tipo Cuenta DNI queda disponible por si lo necesitás.
               </p>
             </div>
             <button mat-stroked-button type="button" (click)="addPosnet()">
@@ -396,7 +396,10 @@ const WEEKDAY_OPTIONS = [
                 </button>
               </div>
             } @empty {
-              <p class="text-muted small mb-0">Sin posnets. Los montos PVS / MP / DNI se cargan a mano.</p>
+              <p class="text-muted small mb-0">
+                Sin posnets. En el cierre, PVS y Mercado Pago se cargan a mano; Cuenta DNI por
+                transferencias.
+              </p>
             }
           </div>
         </section>

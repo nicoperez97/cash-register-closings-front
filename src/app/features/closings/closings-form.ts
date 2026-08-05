@@ -177,184 +177,198 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                 <mat-hint>{{ businessDayHint() }}</mat-hint>
               }
             </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Caja (sistema)</mat-label>
-              <input matInput type="number"
-                      inputmode="decimal" formControlName="posSystemAmount" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Efectivo</mat-label>
-              <input matInput type="number"
-                      inputmode="decimal" formControlName="cashAmount" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>PVS{{ locksCard() ? ' (suma posnets)' : '' }}</mat-label>
-              <input matInput type="number"
-                      inputmode="decimal" formControlName="cardAmount" [readonly]="locksCard()" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Cuenta DNI{{ locksDni() ? ' (suma)' : '' }}</mat-label>
-              <input
-                matInput
-                type="number"
-                      inputmode="decimal"
-                formControlName="accountDniAmount"
-                [readonly]="locksDni()"
-              />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Quién se lo lleva</mat-label>
-              <mat-select
-                formControlName="cashWithdrawnByUserId"
-                (selectionChange)="onWithdrawnUserChange($event.value)"
-              >
-                <mat-option value="">— Sin asignar —</mat-option>
-                @for (u of withdrawUsers(); track u.id) {
-                  <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            @if (needsWithdrawnAccountPick()) {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cuenta destino del efectivo</mat-label>
-                <mat-select formControlName="cashWithdrawnToAccountId">
-                  @for (acc of withdrawnAccountOptions(); track acc.id) {
-                    <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-            } @else if (withdrawnAccountHint()) {
-              <p class="closing-form__account-hint">{{ withdrawnAccountHint() }}</p>
-            }
           </div>
-        </section>
 
-        <div class="closing-form__panels">
-          <section class="closing-panel" [class.closing-panel--open]="panelPosnets()">
-            <button
-              type="button"
-              class="closing-panel__toggle"
-              (click)="togglePanel('posnets')"
-              [attr.aria-expanded]="panelPosnets()"
-            >
-              <span class="closing-panel__icon" aria-hidden="true">
-                <mat-icon>point_of_sale</mat-icon>
-              </span>
-              <span class="closing-panel__text">
-                <strong>Posnets</strong>
-                <span>{{ posnetsPanelHint() }}</span>
-              </span>
-              <mat-icon class="closing-panel__chevron">{{
-                panelPosnets() ? 'expand_less' : 'expand_more'
-              }}</mat-icon>
-            </button>
-            @if (panelPosnets()) {
-              <div class="closing-panel__body" formArrayName="posnetAmounts">
-                <div class="closing-panel__toolbar">
-                  <button mat-stroked-button type="button" (click)="addPosnet()">
-                    <mat-icon>add</mat-icon>
-                    Agregar posnet
-                  </button>
-                </div>
-                @for (row of posnetAmounts.controls; track row; let i = $index) {
-                  <div class="closing-form__posnet-row" [formGroupName]="i">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Nombre</mat-label>
-                      <input
-                        matInput
-                        formControlName="name"
-                        placeholder="ej. Caja 1"
-                        [readonly]="isConfiguredPosnet(i)"
-                      />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Tipo</mat-label>
-                      <mat-select formControlName="type" [disabled]="isConfiguredPosnet(i)">
-                        @for (opt of posnetTypes; track opt.value) {
-                          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                        }
-                      </mat-select>
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Monto</mat-label>
-                      <input matInput type="number"
-                      inputmode="decimal" formControlName="amount" />
-                    </mat-form-field>
-                    @if (!isConfiguredPosnet(i)) {
-                      <button
-                        mat-icon-button
-                        type="button"
-                        class="closing-form__row-remove"
-                        aria-label="Quitar posnet"
-                        (click)="removePosnet(i)"
-                      >
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    } @else {
-                      <span class="closing-form__posnet-spacer" aria-hidden="true"></span>
-                    }
-                  </div>
-                } @empty {
-                  <p class="closing-form__hint">Sin posnets. Podés cargar PVS a mano o agregar uno ahora.</p>
-                }
+          <div class="closing-form__block">
+            <div class="closing-form__block-head">
+              <h3>1. Posnets</h3>
+              <p>{{ posnetsPanelHint() }}</p>
+            </div>
+            <div class="closing-form__block-body" formArrayName="posnetAmounts">
+              <div class="closing-panel__toolbar">
+                <button mat-stroked-button type="button" (click)="addPosnet()">
+                  <mat-icon>add</mat-icon>
+                  Agregar posnet
+                </button>
               </div>
-            }
-          </section>
-
-          <section class="closing-panel" [class.closing-panel--open]="panelDni()">
-            <button
-              type="button"
-              class="closing-panel__toggle"
-              (click)="togglePanel('dni')"
-              [attr.aria-expanded]="panelDni()"
-            >
-              <span class="closing-panel__icon" aria-hidden="true">
-                <mat-icon>account_balance</mat-icon>
-              </span>
-              <span class="closing-panel__text">
-                <strong>Transferencias Cuenta DNI</strong>
-                <span>{{ dniPanelHint() }}</span>
-              </span>
-              <mat-icon class="closing-panel__chevron">{{
-                panelDni() ? 'expand_less' : 'expand_more'
-              }}</mat-icon>
-            </button>
-            @if (panelDni()) {
-              <div class="closing-panel__body" formArrayName="dniTransfers">
-                <div class="closing-panel__toolbar">
-                  <button mat-stroked-button type="button" (click)="addDniTransfer()">
-                    <mat-icon>add</mat-icon>
-                    Agregar transferencia
-                  </button>
-                </div>
-                @for (row of dniTransfers.controls; track row; let i = $index) {
-                  <div class="closing-form__dni-row" [formGroupName]="i">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Detalle</mat-label>
-                      <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Monto</mat-label>
-                      <input matInput type="number"
-                      inputmode="decimal" formControlName="amount" />
-                    </mat-form-field>
+              @for (row of posnetAmounts.controls; track row; let i = $index) {
+                <div class="closing-form__posnet-row" [formGroupName]="i">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Nombre</mat-label>
+                    <input
+                      matInput
+                      formControlName="name"
+                      placeholder="ej. Caja 1"
+                      [readonly]="isConfiguredPosnet(i)"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Tipo</mat-label>
+                    <mat-select formControlName="type" [disabled]="isConfiguredPosnet(i)">
+                      @for (opt of posnetTypes; track opt.value) {
+                        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Monto</mat-label>
+                    <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                  </mat-form-field>
+                  @if (!isConfiguredPosnet(i)) {
                     <button
                       mat-icon-button
                       type="button"
                       class="closing-form__row-remove"
-                      aria-label="Quitar transferencia"
-                      (click)="removeDniTransfer(i)"
+                      aria-label="Quitar posnet"
+                      (click)="removePosnet(i)"
                     >
                       <mat-icon>delete</mat-icon>
                     </button>
-                  </div>
-                } @empty {
-                  <p class="closing-form__hint">Sin transferencias. Podés cargar Cuenta DNI a mano.</p>
+                  } @else {
+                    <span class="closing-form__posnet-spacer" aria-hidden="true"></span>
+                  }
+                </div>
+              } @empty {
+                <p class="closing-form__hint">
+                  Sin posnets configurados. Completá PVS y Mercado Pago a mano.
+                </p>
+              }
+              <div class="closing-form__fields closing-form__fields--derived">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>PVS{{ locksCard() ? ' (suma posnets)' : '' }}</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    inputmode="decimal"
+                    formControlName="cardAmount"
+                    [readonly]="locksCard()"
+                  />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>MercadoPago{{ locksMp() ? ' (suma posnets)' : '' }}</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    inputmode="decimal"
+                    formControlName="mercadoPagoAmount"
+                    [readonly]="locksMp()"
+                  />
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+
+          <div class="closing-form__block">
+            <div class="closing-form__block-head">
+              <h3>2. Efectivo</h3>
+            </div>
+            <div class="closing-form__block-body">
+              <div class="closing-form__fields closing-form__fields--main">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Efectivo</mat-label>
+                  <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Quién se lo lleva</mat-label>
+                  <mat-select
+                    formControlName="cashWithdrawnByUserId"
+                    (selectionChange)="onWithdrawnUserChange($event.value)"
+                  >
+                    <mat-option value="">— Sin asignar —</mat-option>
+                    @for (u of withdrawUsers(); track u.id) {
+                      <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                @if (needsWithdrawnAccountPick()) {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Cuenta destino del efectivo</mat-label>
+                    <mat-select formControlName="cashWithdrawnToAccountId">
+                      @for (acc of withdrawnAccountOptions(); track acc.id) {
+                        <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                } @else if (withdrawnAccountHint()) {
+                  <p class="closing-form__account-hint">{{ withdrawnAccountHint() }}</p>
                 }
               </div>
-            }
-          </section>
+            </div>
+          </div>
 
+          <div class="closing-form__block">
+            <div class="closing-form__block-head">
+              <h3>3. Cuenta DNI (transferencias)</h3>
+              <p>{{ dniPanelHint() }}</p>
+            </div>
+            <div class="closing-form__block-body" formArrayName="dniTransfers">
+              <div class="closing-panel__toolbar">
+                <button mat-stroked-button type="button" (click)="addDniTransfer()">
+                  <mat-icon>add</mat-icon>
+                  Agregar transferencia
+                </button>
+              </div>
+              @for (row of dniTransfers.controls; track row; let i = $index) {
+                <div class="closing-form__dni-row" [formGroupName]="i">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Detalle</mat-label>
+                    <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Monto</mat-label>
+                    <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                  </mat-form-field>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="closing-form__row-remove"
+                    aria-label="Quitar transferencia"
+                    (click)="removeDniTransfer(i)"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              } @empty {
+                <p class="closing-form__hint">
+                  Sin transferencias. Podés cargar el total de Cuenta DNI a mano.
+                </p>
+              }
+              <div class="closing-form__fields closing-form__fields--derived">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Cuenta DNI{{ locksDni() ? ' (suma transferencias)' : '' }}</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    inputmode="decimal"
+                    formControlName="accountDniAmount"
+                    [readonly]="locksDni()"
+                  />
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+
+          <div class="closing-form__block">
+            <div class="closing-form__block-head">
+              <h3>4. Caja (sistema)</h3>
+            </div>
+            <div class="closing-form__block-body">
+              <div class="closing-form__fields closing-form__fields--main">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Caja (sistema)</mat-label>
+                  <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+
+          <div class="closing-form__total-bar" aria-live="polite">
+            <span>5. Total</span>
+            <strong>{{ money(declaredTotal()) }}</strong>
+          </div>
+        </section>
+
+        <div class="closing-form__panels">
           <section class="closing-panel" [class.closing-panel--open]="panelOther()">
             <button
               type="button"
@@ -367,7 +381,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
               </span>
               <span class="closing-panel__text">
                 <strong>Otros cobros</strong>
-                <span>Mercado Pago, delivery y transferencias</span>
+                <span>Delivery y transferencias</span>
               </span>
               <mat-icon class="closing-panel__chevron">{{
                 panelOther() ? 'expand_less' : 'expand_more'
@@ -377,24 +391,12 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
               <div class="closing-panel__body">
                 <div class="closing-form__fields">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>MercadoPago{{ locksMp() ? ' (suma posnets)' : '' }}</mat-label>
-                    <input
-                      matInput
-                      type="number"
-                      inputmode="decimal"
-                      formControlName="mercadoPagoAmount"
-                      [readonly]="locksMp()"
-                    />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>PedidosYa / delivery</mat-label>
-                    <input matInput type="number"
-                      inputmode="decimal" formControlName="deliveryAppsAmount" />
+                    <input matInput type="number" inputmode="decimal" formControlName="deliveryAppsAmount" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Transferencia</mat-label>
-                    <input matInput type="number"
-                      inputmode="decimal" formControlName="transferAmount" />
+                    <input matInput type="number" inputmode="decimal" formControlName="transferAmount" />
                   </mat-form-field>
                 </div>
               </div>
@@ -425,31 +427,26 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   @if (shop()?.unitsLabel) {
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>{{ shop()?.unitsLabel }}</mat-label>
-                      <input matInput type="number"
-                      inputmode="numeric" pattern="[0-9]*" formControlName="unitsSold" />
+                      <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="unitsSold" />
                     </mat-form-field>
                   }
                   @if (shop()?.coversEnabled) {
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>Comensales</mat-label>
-                      <input matInput type="number"
-                      inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
+                      <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
                     </mat-form-field>
                   }
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Cambio en caja</mat-label>
-                    <input matInput type="number"
-                      inputmode="decimal" formControlName="cashLeftInRegister" />
+                    <input matInput type="number" inputmode="decimal" formControlName="cashLeftInRegister" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Efectivo retirado</mat-label>
-                    <input matInput type="number"
-                      inputmode="decimal" formControlName="cashWithdrawn" />
+                    <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Propinas</mat-label>
-                    <input matInput type="number"
-                      inputmode="decimal" formControlName="tipsAmount" />
+                    <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
                     <mat-label>Notas</mat-label>
@@ -495,8 +492,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                       </mat-form-field>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Monto</mat-label>
-                        <input matInput type="number"
-                      inputmode="decimal" formControlName="amount" />
+                        <input matInput type="number" inputmode="decimal" formControlName="amount" />
                       </mat-form-field>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-label>Categoría</mat-label>
@@ -626,6 +622,75 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
       .closing-form__fields--main {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .closing-form__fields--derived {
+        margin-top: 0.35rem;
+      }
+
+      .closing-form__block {
+        margin-top: 0.95rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 85%, transparent);
+      }
+
+      .closing-form__block:first-of-type {
+        margin-top: 0.65rem;
+      }
+
+      .closing-form__block-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.35rem 0.75rem;
+        margin-bottom: 0.55rem;
+      }
+
+      .closing-form__block-head h3 {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+
+      .closing-form__block-head p {
+        margin: 0;
+        font-size: 0.78rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .closing-form__block-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+
+      .closing-form__total-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 28%, var(--guy-border, #d7e0d9));
+        background:
+          linear-gradient(135deg,
+            color-mix(in srgb, var(--guy-accent, #2e7d32) 12%, #fff) 0%,
+            #fff 70%);
+      }
+
+      .closing-form__total-bar span {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+
+      .closing-form__total-bar strong {
+        font-size: 1.25rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--guy-navy, #003366);
       }
 
       .closing-form__panels {
@@ -916,7 +981,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
       @media (max-width: 560px) {
         .closing-form__fields,
-        .closing-form__fields--main {
+        .closing-form__fields--main,
+        .closing-form__fields--derived {
           grid-template-columns: 1fr;
         }
         .closing-totals__grid {
@@ -948,8 +1014,6 @@ export class ClosingsFormPage implements OnInit {
   readonly isLocked = () => this.status() === 'LOCKED';
   private closingId: string | null = null;
 
-  readonly panelPosnets = signal(false);
-  readonly panelDni = signal(false);
   readonly panelOther = signal(false);
   readonly panelWithdraw = signal(false);
   readonly panelExpenses = signal(false);
@@ -965,22 +1029,22 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
-  readonly form = this.fb.nonNullable.group({
+  readonly form = this.fb.group({
     businessDate: [null as Date | null, Validators.required],
-    posSystemAmount: [0],
-    cardAmount: [0],
-    cashAmount: [0],
-    mercadoPagoAmount: [0],
-    deliveryAppsAmount: [0],
-    transferAmount: [0],
-    accountDniAmount: [0],
-    unitsSold: [0 as number | null],
-    coversCount: [0 as number | null],
-    cashLeftInRegister: [0],
-    cashWithdrawn: [0],
+    posSystemAmount: [null as number | null],
+    cardAmount: [null as number | null],
+    cashAmount: [null as number | null],
+    mercadoPagoAmount: [null as number | null],
+    deliveryAppsAmount: [null as number | null],
+    transferAmount: [null as number | null],
+    accountDniAmount: [null as number | null],
+    unitsSold: [null as number | null],
+    coversCount: [null as number | null],
+    cashLeftInRegister: [null as number | null],
+    cashWithdrawn: [null as number | null],
     cashWithdrawnByUserId: [''],
     cashWithdrawnToAccountId: [''],
-    tipsAmount: [0],
+    tipsAmount: [null as number | null],
     notes: [''],
     expenses: this.fb.array([]),
     posnetAmounts: this.fb.array([]),
@@ -1070,13 +1134,13 @@ export class ClosingsFormPage implements OnInit {
 
   posnetsPanelHint(): string {
     const n = this.posnetAmounts.length;
-    if (!n) return 'Cargar o sumar terminales';
+    if (!n) return 'Sin terminales · PVS y MP a mano';
     return n === 1 ? '1 terminal' : `${n} terminales`;
   }
 
   dniPanelHint(): string {
     const n = this.dniTransfers.length;
-    if (!n) return 'Opcional';
+    if (!n) return 'Detalle opcional · total editable';
     return n === 1 ? '1 transferencia' : `${n} transferencias`;
   }
 
@@ -1092,10 +1156,8 @@ export class ClosingsFormPage implements OnInit {
     return n === 1 ? '1 egreso' : `${n} egresos`;
   }
 
-  togglePanel(panel: 'posnets' | 'dni' | 'other' | 'withdraw' | 'expenses'): void {
+  togglePanel(panel: 'other' | 'withdraw' | 'expenses'): void {
     const map = {
-      posnets: this.panelPosnets,
-      dni: this.panelDni,
       other: this.panelOther,
       withdraw: this.panelWithdraw,
       expenses: this.panelExpenses,
@@ -1105,11 +1167,7 @@ export class ClosingsFormPage implements OnInit {
 
   private syncPanelDefaults(): void {
     const v = this.form.getRawValue();
-    const configured = this.shop()?.posnets?.length ?? 0;
-    if (configured > 0 || this.posnetAmounts.length > 0) this.panelPosnets.set(true);
-    if (this.dniTransfers.length > 0) this.panelDni.set(true);
     if (
-      this.n(v.mercadoPagoAmount) > 0 ||
       this.n(v.deliveryAppsAmount) > 0 ||
       this.n(v.transferAmount) > 0
     ) {
@@ -1156,20 +1214,20 @@ export class ClosingsFormPage implements OnInit {
         }
         this.form.patchValue({
           businessDate: toDateInput(c.businessDate),
-          posSystemAmount: c.posSystemAmount,
-          cardAmount: c.cardAmount,
-          cashAmount: c.cashAmount,
-          mercadoPagoAmount: c.mercadoPagoAmount,
-          deliveryAppsAmount: c.deliveryAppsAmount,
-          transferAmount: c.transferAmount,
-          accountDniAmount: c.accountDniAmount,
-          unitsSold: c.unitsSold ?? null,
-          coversCount: c.coversCount ?? null,
-          cashLeftInRegister: c.cashLeftInRegister,
-          cashWithdrawn: c.cashWithdrawn,
+          posSystemAmount: this.emptyNum(c.posSystemAmount),
+          cardAmount: this.emptyNum(c.cardAmount),
+          cashAmount: this.emptyNum(c.cashAmount),
+          mercadoPagoAmount: this.emptyNum(c.mercadoPagoAmount),
+          deliveryAppsAmount: this.emptyNum(c.deliveryAppsAmount),
+          transferAmount: this.emptyNum(c.transferAmount),
+          accountDniAmount: this.emptyNum(c.accountDniAmount),
+          unitsSold: this.emptyNum(c.unitsSold),
+          coversCount: this.emptyNum(c.coversCount),
+          cashLeftInRegister: this.emptyNum(c.cashLeftInRegister),
+          cashWithdrawn: this.emptyNum(c.cashWithdrawn),
           cashWithdrawnByUserId: c.cashWithdrawnByUserId ?? '',
           cashWithdrawnToAccountId: c.cashWithdrawnToAccountId ?? '',
-          tipsAmount: c.tipsAmount,
+          tipsAmount: this.emptyNum(c.tipsAmount),
           notes: c.notes ?? '',
         });
         this.initPaymentLines(c.posnetAmounts);
@@ -1189,7 +1247,7 @@ export class ClosingsFormPage implements OnInit {
       const today = this.currentBusinessDate();
       this.form.patchValue({
         businessDate: toDateInput(today),
-        cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
+        cashLeftInRegister: this.emptyNum(this.shop()?.defaultChangeAmount),
       });
       this.initPaymentLines();
       this.syncPanelDefaults();
@@ -1203,6 +1261,14 @@ export class ClosingsFormPage implements OnInit {
   private n(v: unknown): number {
     const num = Number(v ?? 0);
     return Number.isFinite(num) ? num : 0;
+  }
+
+  /** Vacío en el input si no hay monto (evita el 0 adelante en móvil). */
+  private emptyNum(v: unknown): number | null {
+    if (v === null || v === undefined || v === '') return null;
+    const num = Number(v);
+    if (!Number.isFinite(num) || num === 0) return null;
+    return num;
   }
 
   private hasPosnetType(type: PosnetType): boolean {
@@ -1224,7 +1290,7 @@ export class ClosingsFormPage implements OnInit {
           posnetId: posnet.id,
           name: posnet.name,
           type: posnet.type,
-          amount: prev?.amount ?? 0,
+          amount: prev?.amount ?? null,
         }),
         { emitEvent: false },
       );
@@ -1249,20 +1315,25 @@ export class ClosingsFormPage implements OnInit {
     this.syncDerivedTotals();
   }
 
-  private buildPosnetAmountGroup(value: ClosingPosnetAmount) {
-    return this.fb.nonNullable.group({
+  private buildPosnetAmountGroup(value: {
+    posnetId: string;
+    name: string;
+    type: PosnetType | string;
+    amount?: number | null;
+  }) {
+    return this.fb.group({
       posnetId: [value.posnetId || newId()],
       name: [value.name || ''],
       type: [value.type || 'PVS'],
-      amount: [value.amount ?? 0],
+      amount: [this.emptyNum(value.amount)],
     });
   }
 
-  private buildDniTransferGroup(value: { id: string; label: string; amount: number }) {
-    return this.fb.nonNullable.group({
+  private buildDniTransferGroup(value: { id: string; label: string; amount?: number | null }) {
+    return this.fb.group({
       id: [value.id || newId()],
       label: [value.label || ''],
-      amount: [value.amount ?? 0],
+      amount: [this.emptyNum(value.amount)],
     });
   }
 
@@ -1293,23 +1364,24 @@ export class ClosingsFormPage implements OnInit {
 
     const dniFromTransfers = transfers.reduce((acc, t) => acc + this.n(t.amount), 0);
     const hasTransfers = transfers.length > 0;
-    const patch: Record<string, number> = {};
-    if (hasPvs) patch['cardAmount'] = card;
-    if (hasMp) patch['mercadoPagoAmount'] = mp;
-    if (hasDniPosnet || hasTransfers) patch['accountDniAmount'] = dniFromPosnets + dniFromTransfers;
+    const patch: Record<string, number | null> = {};
+    if (hasPvs) patch['cardAmount'] = this.emptyNum(card);
+    if (hasMp) patch['mercadoPagoAmount'] = this.emptyNum(mp);
+    if (hasDniPosnet || hasTransfers) {
+      patch['accountDniAmount'] = this.emptyNum(dniFromPosnets + dniFromTransfers);
+    }
     if (Object.keys(patch).length) {
       this.form.patchValue(patch, { emitEvent: true });
     }
   }
 
   addPosnet(): void {
-    this.panelPosnets.set(true);
     this.posnetAmounts.push(
       this.buildPosnetAmountGroup({
         posnetId: newId(),
         name: '',
         type: 'PVS',
-        amount: 0,
+        amount: null,
       }),
     );
   }
@@ -1326,12 +1398,11 @@ export class ClosingsFormPage implements OnInit {
   }
 
   addDniTransfer(): void {
-    this.panelDni.set(true);
     this.dniTransfers.push(
       this.buildDniTransferGroup({
         id: newId(),
         label: '',
-        amount: 0,
+        amount: null,
       }),
     );
   }
@@ -1442,6 +1513,16 @@ export class ClosingsFormPage implements OnInit {
     const body = {
       ...raw,
       businessDate: toDateString(raw.businessDate as Date | string | null),
+      posSystemAmount: this.n(raw.posSystemAmount),
+      cardAmount: this.n(raw.cardAmount),
+      cashAmount: this.n(raw.cashAmount),
+      mercadoPagoAmount: this.n(raw.mercadoPagoAmount),
+      deliveryAppsAmount: this.n(raw.deliveryAppsAmount),
+      transferAmount: this.n(raw.transferAmount),
+      accountDniAmount: this.n(raw.accountDniAmount),
+      cashLeftInRegister: this.n(raw.cashLeftInRegister),
+      cashWithdrawn: this.n(raw.cashWithdrawn),
+      tipsAmount: this.n(raw.tipsAmount),
       unitsSold: raw.unitsSold || null,
       coversCount: raw.coversCount || null,
       cashWithdrawnByUserId: userId,
@@ -1450,9 +1531,13 @@ export class ClosingsFormPage implements OnInit {
       cashWithdrawnToAccountId: accountId,
       declaredTotal: this.declaredTotal(),
       posnetAmounts: posnetAmounts.length ? posnetAmounts : [],
-      expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>).filter(
-        (e) => !!e.label && Number(e.amount) > 0,
-      ),
+      expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>)
+        .filter((e) => !!e.label && this.n(e.amount) > 0)
+        .map((e) => ({
+          label: e.label,
+          amount: this.n(e.amount),
+          category: e.category,
+        })),
     };
     // dniTransfers es solo UI; no lo mandamos al API
     delete (body as { dniTransfers?: unknown }).dniTransfers;
@@ -1544,20 +1629,20 @@ export class ClosingsFormPage implements OnInit {
     this.dniTransfers.clear();
     this.form.reset({
       businessDate: toDateInput(today),
-      posSystemAmount: 0,
-      cardAmount: 0,
-      cashAmount: 0,
-      mercadoPagoAmount: 0,
-      deliveryAppsAmount: 0,
-      transferAmount: 0,
-      accountDniAmount: 0,
+      posSystemAmount: null,
+      cardAmount: null,
+      cashAmount: null,
+      mercadoPagoAmount: null,
+      deliveryAppsAmount: null,
+      transferAmount: null,
+      accountDniAmount: null,
       unitsSold: null,
       coversCount: null,
-      cashLeftInRegister: this.shop()?.defaultChangeAmount ?? 0,
-      cashWithdrawn: 0,
+      cashLeftInRegister: this.emptyNum(this.shop()?.defaultChangeAmount),
+      cashWithdrawn: null,
       cashWithdrawnByUserId: '',
       cashWithdrawnToAccountId: '',
-      tipsAmount: 0,
+      tipsAmount: null,
       notes: '',
       expenses: [],
       posnetAmounts: [],
@@ -1566,17 +1651,17 @@ export class ClosingsFormPage implements OnInit {
     this.initPaymentLines();
   }
 
-  private buildExpenseGroup(value: { label: string; amount: number; category: string }) {
-    return this.fb.nonNullable.group({
-      label: [value.label],
-      amount: [value.amount],
-      category: [value.category],
+  private buildExpenseGroup(value: { label: string; amount?: number | null; category: string }) {
+    return this.fb.group({
+      label: [value.label || ''],
+      amount: [this.emptyNum(value.amount)],
+      category: [value.category || 'OTHER'],
     });
   }
 
   addExpense(): void {
     this.panelExpenses.set(true);
-    this.expenses.push(this.buildExpenseGroup({ label: '', amount: 0, category: 'OTHER' }));
+    this.expenses.push(this.buildExpenseGroup({ label: '', amount: null, category: 'OTHER' }));
   }
 
   removeExpense(index: number): void {

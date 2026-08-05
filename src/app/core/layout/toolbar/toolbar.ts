@@ -7,7 +7,6 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,7 +23,7 @@ import {
   notificationIcon,
   notificationToneClass,
 } from '../../../features/payments/notifications-api.service';
-import { interval, startWith, switchMap } from 'rxjs';
+import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 
 export interface ToolbarUser {
   email: string;
@@ -45,8 +44,8 @@ export class ToolbarComponent implements OnInit {
   readonly offline = inject(OfflineService);
   readonly shopContext = inject(ShopContextService);
   private readonly notificationsApi = inject(NotificationsApiService);
+  private readonly notifsInbox = inject(NotificationsInboxService);
   private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
 
   readonly user = input<ToolbarUser | null>(null);
   readonly isMobile = input(false);
@@ -54,21 +53,13 @@ export class ToolbarComponent implements OnInit {
   readonly menuToggle = output<void>();
   readonly logout = output<void>();
 
-  readonly unreadCount = signal(0);
+  readonly unreadCount = this.notifsInbox.unreadCount;
   readonly notifications = signal<AppNotification[]>([]);
   readonly loadingNotifs = signal(false);
 
   ngOnInit(): void {
-    interval(45000)
-      .pipe(
-        startWith(0),
-        switchMap(() => this.notificationsApi.unreadCount(this.shopContext.selectedShopId())),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe({
-        next: (r) => this.unreadCount.set(Math.max(0, Number(r?.count) || 0)),
-        error: () => this.unreadCount.set(0),
-      });
+    this.notifsInbox.ensureStarted();
+    this.notifsInbox.refresh();
   }
 
   badgeLabel(count: number): string {
@@ -121,8 +112,8 @@ export class ToolbarComponent implements OnInit {
   markAllRead(): void {
     this.notificationsApi.markAllRead(this.shopContext.selectedShopId()).subscribe({
       next: () => {
-        this.unreadCount.set(0);
         this.notifications.update((rows) => rows.map((n) => ({ ...n, read: true })));
+        this.notifsInbox.refresh();
       },
     });
   }
@@ -131,10 +122,10 @@ export class ToolbarComponent implements OnInit {
     if (!n.read) {
       this.notificationsApi.markRead(n.id).subscribe({
         next: () => {
-          this.unreadCount.update((c) => Math.max(0, c - 1));
           this.notifications.update((rows) =>
             rows.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
           );
+          this.notifsInbox.refresh();
         },
       });
     }
