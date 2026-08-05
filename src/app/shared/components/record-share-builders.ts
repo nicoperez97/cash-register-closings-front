@@ -117,33 +117,78 @@ export function closingSharePayload(
   opts?: { unitsLabel?: string | null },
 ): { title: string; text: string } {
   const date = formatDateAr(closing.businessDate);
-  const lines = [
-    `Cierre de caja — ${shopName}`,
-    `Fecha: ${date}`,
-    `Estado: ${closingStatusLabel(closing.status)}`,
-    `PVS: ${formatMoneyAr(closing.cardAmount)}`,
-    `Mercado Pago: ${formatMoneyAr(closing.mercadoPagoAmount)}`,
-    `Efectivo: ${formatMoneyAr(closing.cashAmount)}`,
-    `Cuenta DNI: ${formatMoneyAr(closing.accountDniAmount)}`,
-    `Delivery: ${formatMoneyAr(closing.deliveryAppsAmount)}`,
-    `Transferencia: ${formatMoneyAr(closing.transferAmount)}`,
-    `Otros: ${formatMoneyAr(closing.otherAmount)}`,
-    `Caja sistema: ${formatMoneyAr(closing.posSystemAmount)}`,
-    `Total declarado: ${formatMoneyAr(closing.declaredTotal)}`,
-    `Diferencia: ${formatMoneyAr(closing.difference)}`,
-  ];
+  const lines = [`Cierre de caja — ${shopName}`, `Fecha: ${date}`];
+
+  if (closing.status) {
+    lines.push(`Estado: ${closingStatusLabel(closing.status)}`);
+  }
+
+  // Resumen principal: siempre. El resto solo si tiene valor.
+  pushMoneyLine(lines, 'PVS', closing.cardAmount, true);
+  pushMoneyLine(lines, 'Mercado Pago', closing.mercadoPagoAmount);
+  pushMoneyLine(lines, 'Efectivo', closing.cashAmount, true);
+  pushMoneyLine(lines, 'Cuenta DNI', closing.accountDniAmount, true);
+  pushMoneyLine(lines, 'Delivery', closing.deliveryAppsAmount);
+  pushMoneyLine(lines, 'Transferencia', closing.transferAmount);
+  pushMoneyLine(lines, 'Otros', closing.otherAmount);
+  pushMoneyLine(lines, 'Propinas', closing.tipsAmount);
+  pushMoneyLine(lines, 'Caja sistema', closing.posSystemAmount, true);
+  pushMoneyLine(lines, 'Total declarado', closing.declaredTotal, true);
+  pushMoneyLine(lines, 'Diferencia', closing.difference, true);
+
+  const posnets = (closing.posnetAmounts ?? []).filter((p) => Number(p.amount || 0) !== 0);
+  if (posnets.length) {
+    lines.push('Posnets:');
+    for (const p of posnets) {
+      const name = String(p.name || '').trim() || 'Posnet';
+      lines.push(`· ${name}: ${formatMoneyAr(p.amount)}`);
+    }
+  }
+
+  const expenses = (closing.expenses ?? []).filter((e) => Number(e.amount || 0) !== 0);
+  if (expenses.length) {
+    lines.push('Egresos:');
+    for (const e of expenses) {
+      const label = String(e.label || '').trim() || 'Egreso';
+      lines.push(`· ${label}: ${formatMoneyAr(e.amount)}`);
+    }
+  }
+
+  if (closing.coversCount != null && Number(closing.coversCount) > 0) {
+    lines.push(`Cubiertos: ${Number(closing.coversCount)}`);
+  }
+  pushMoneyLine(lines, 'Cambio en caja', closing.cashLeftInRegister);
+  pushMoneyLine(lines, 'Efectivo retirado', closing.cashWithdrawn);
+
   appendClosingUnitsAndCarrier(lines, {
     unitsLabel: opts?.unitsLabel,
     unitsSold: closing.unitsSold,
     cashWithdrawnByName: closing.cashWithdrawnByName,
   });
+
+  if (closing.differenceReason?.trim()) {
+    lines.push(`Motivo diferencia: ${closing.differenceReason.trim()}`);
+  }
   if (closing.notes?.trim()) {
     lines.push(`Notas: ${closing.notes.trim()}`);
   }
+
   return {
     title: `Cierre · ${shopName}`,
     text: lines.join('\n'),
   };
+}
+
+/** Agrega una línea de monto solo si tiene valor (o si `always`). */
+function pushMoneyLine(
+  lines: string[],
+  label: string,
+  value: number | null | undefined,
+  always = false,
+): void {
+  const amount = Number(value || 0);
+  if (!always && amount === 0) return;
+  lines.push(`${label}: ${formatMoneyAr(amount)}`);
 }
 
 /** Unidades del local (ej. paninos) y quién se lleva el efectivo. */

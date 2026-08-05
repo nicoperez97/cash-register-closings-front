@@ -23,7 +23,10 @@ import {
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
 import { shareText } from '../../shared/utils/share-text';
-import { appendClosingUnitsAndCarrier } from '../../shared/components/record-share-builders';
+import {
+  closingSharePayload,
+} from '../../shared/components/record-share-builders';
+import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
 import { CashBillCounterDialogComponent } from './cash-bill-counter-dialog';
 
@@ -1317,6 +1320,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly shop = this.shops.selectedShop;
@@ -1794,31 +1798,32 @@ export class ClosingsFormPage implements OnInit {
   }
 
   async shareSummary(): Promise<void> {
-    const shopName = this.shop()?.name ?? 'Local';
-    const raw = this.form.getRawValue();
-    const userId = String(raw.cashWithdrawnByUserId ?? '');
-    const who =
-      this.users().find((u) => u.id === userId)?.fullName?.trim() ||
-      null;
-    const lines = [
-      `Cierre de caja — ${shopName}`,
-      `Fecha: ${this.summaryDate()}`,
-      `PVS: ${this.money(this.cardAmount())}`,
-      `Efectivo: ${this.money(this.cashAmount())}`,
-      `Cuenta DNI: ${this.money(this.accountDniAmount())}`,
-      `Caja sistema: ${this.money(this.posAmount())}`,
-      `Total: ${this.money(this.declaredTotal())}`,
-    ];
-    appendClosingUnitsAndCarrier(lines, {
-      unitsLabel: this.shop()?.unitsLabel,
-      unitsSold: raw.unitsSold,
-      cashWithdrawnByName: who,
-    });
+    const needsSave = !this.isEdit() || this.form.dirty;
+    if (needsSave) {
+      const saveFirst = await this.confirmDialog.confirm(
+        'Guardar antes de compartir',
+        'El cierre todavía no está guardado. ¿Querés guardarlo antes de compartir?',
+        {
+          confirmLabel: 'Sí, guardar',
+          cancelLabel: 'Compartir sin guardar',
+          confirmColor: 'primary',
+          icon: 'save',
+        },
+      );
+      if (saveFirst) {
+        await this.saveAndShare();
+        return;
+      }
+    }
+    await this.doShare();
+  }
 
-    const result = await shareText({
-      title: `Cierre ${shopName}`,
-      text: lines.join('\n'),
+  private async doShare(): Promise<void> {
+    const shopName = this.shop()?.name ?? 'Local';
+    const payload = closingSharePayload(this.buildShareClosing(), shopName, {
+      unitsLabel: this.shop()?.unitsLabel,
     });
+    const result = await shareText(payload);
     if (result === 'copied') {
       this.snack.open('Resumen copiado al portapapeles', 'OK', { duration: 2500 });
     } else if (result === 'failed') {
@@ -1826,19 +1831,44 @@ export class ClosingsFormPage implements OnInit {
     }
   }
 
-  save(): void {
+  /** Guarda y luego comparte. En alta abre el diálogo de confirmación. */
+  private async saveAndShare(): Promise<void> {
     if (this.isLocked() && !this.auth.isAdmin()) {
       this.snack.open('El cierre está bloqueado', 'OK', { duration: 2500 });
       return;
     }
+    const prepared = this.prepareSaveBody();
+    if (!prepared) return;
+
+    const { shopId, body } = prepared;
+    if (!this.isEdit()) {
+      void this.saveNewWithDialog(shopId, body, { shareAfterSave: true });
+      return;
+    }
+
+    this.api.update(shopId, this.closingId!, body).subscribe({
+      next: () => {
+        this.form.markAsPristine();
+        this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
+        void this.doShare();
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo guardar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  /** Arma el body de guardado o null si la validación falla. */
+  private prepareSaveBody(): { shopId: string; body: Partial<CashClosing> } | null {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      return;
+      return null;
     }
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
       this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
-      return;
+      return null;
     }
     this.syncDerivedTotals();
     const raw = this.form.getRawValue();
@@ -1848,7 +1878,7 @@ export class ClosingsFormPage implements OnInit {
     let accountId = raw.cashWithdrawnToAccountId || null;
     if (this.n(raw.cashAmount) > 0 && userId && withdrawnAccounts.length > 1 && !accountId) {
       this.snack.open('Seleccioná la cuenta destino del efectivo', 'OK', { duration: 3000 });
-      return;
+      return null;
     }
     if (withdrawnAccounts.length === 1) {
       accountId = withdrawnAccounts[0].id;
@@ -1874,7 +1904,7 @@ export class ClosingsFormPage implements OnInit {
       });
     }
 
-    const body = {
+    const body: Partial<CashClosing> = {
       ...raw,
       businessDate: toDateString(raw.businessDate as Date | string | null),
       posSystemAmount: this.n(raw.posSystemAmount),
@@ -1902,10 +1932,83 @@ export class ClosingsFormPage implements OnInit {
           amount: this.n(e.amount),
           category: e.category,
         })),
+      notes: String(raw.notes ?? '').trim() || null,
     };
     // dniTransfers es solo UI; no lo mandamos al API
     delete (body as { dniTransfers?: unknown }).dniTransfers;
+    return { shopId, body };
+  }
 
+  /** Snapshot del formulario como CashClosing para armar el texto de compartir. */
+  private buildShareClosing(): CashClosing {
+    const raw = this.form.getRawValue();
+    this.syncDerivedTotals();
+    const userId = String(raw.cashWithdrawnByUserId ?? '');
+    const who =
+      this.users().find((u) => u.id === userId)?.fullName?.trim() || null;
+    const declared = this.declaredTotal();
+    const pos = this.posAmount();
+
+    const posnetAmounts: ClosingPosnetAmount[] = [
+      ...((raw.posnetAmounts as ClosingPosnetAmount[]) ?? []),
+      ...((raw.dniTransfers as Array<{ id: string; label: string; amount: number }>) ?? []).map(
+        (t) => ({
+          posnetId: t.id,
+          name: String(t.label ?? '').trim() || 'Transferencia Cuenta DNI',
+          type: 'CUENTA_DNI' as const,
+          amount: this.n(t.amount),
+        }),
+      ),
+    ].filter((p) => this.n(p.amount) > 0);
+
+    const expenses = (
+      (raw.expenses as Array<{ label: string; amount: number; category?: string }>) ?? []
+    )
+      .filter((e) => !!e.label && this.n(e.amount) > 0)
+      .map((e) => ({
+        label: e.label,
+        amount: this.n(e.amount),
+        category: e.category,
+      }));
+
+    return {
+      id: this.closingId ?? '',
+      shopId: this.shops.selectedShopId() ?? '',
+      businessDate: toDateString(raw.businessDate as Date | string | null),
+      status: this.status() ?? 'OPEN',
+      posSystemAmount: pos,
+      cardAmount: this.n(raw.cardAmount),
+      cashAmount: this.n(raw.cashAmount),
+      mercadoPagoAmount: this.n(raw.mercadoPagoAmount),
+      deliveryAppsAmount: this.n(raw.deliveryAppsAmount),
+      transferAmount: this.n(raw.transferAmount),
+      accountDniAmount: this.n(raw.accountDniAmount),
+      otherAmount: 0,
+      tipsAmount: this.n(raw.tipsAmount),
+      cashLeftInRegister: this.n(raw.cashLeftInRegister),
+      cashPendingPickup: 0,
+      cashWithdrawn: this.n(raw.cashWithdrawn),
+      cashWithdrawnByName: who,
+      unitsSold: raw.unitsSold || null,
+      coversCount: raw.coversCount || null,
+      declaredTotal: declared,
+      calculatedTotal: declared,
+      difference: pos - declared,
+      notes: String(raw.notes ?? '').trim() || null,
+      posnetAmounts,
+      expenses,
+    };
+  }
+
+  save(): void {
+    if (this.isLocked() && !this.auth.isAdmin()) {
+      this.snack.open('El cierre está bloqueado', 'OK', { duration: 2500 });
+      return;
+    }
+    const prepared = this.prepareSaveBody();
+    if (!prepared) return;
+
+    const { shopId, body } = prepared;
     const wasCreate = !this.isEdit();
     if (wasCreate) {
       void this.saveNewWithDialog(shopId, body);
@@ -1926,7 +2029,22 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
-  private async saveNewWithDialog(shopId: string, body: Partial<CashClosing>): Promise<void> {
+  private async saveNewWithDialog(
+    shopId: string,
+    body: Partial<CashClosing>,
+    opts?: { shareAfterSave?: boolean },
+  ): Promise<void> {
+    const shopName = this.shop()?.name ?? 'Local';
+    const share = closingSharePayload(
+      {
+        ...this.buildShareClosing(),
+        ...body,
+        cashWithdrawnByName: body.cashWithdrawnByName ?? null,
+      } as CashClosing,
+      shopName,
+      { unitsLabel: this.shop()?.unitsLabel },
+    );
+
     const result = await firstValueFrom(
       this.dialogTitle
         .track(
@@ -1936,7 +2054,7 @@ export class ClosingsFormPage implements OnInit {
             panelClass: 'guy-dialog',
             disableClose: true,
             data: {
-              shopName: this.shop()?.name ?? 'Local',
+              shopName,
               date: this.summaryDate(),
               pvs: this.money(this.cardAmount()),
               cash: this.money(this.cashAmount()),
@@ -1946,6 +2064,9 @@ export class ClosingsFormPage implements OnInit {
               unitsLabel: this.shop()?.unitsLabel ?? null,
               unitsSold: body.unitsSold ?? null,
               cashWithdrawnByName: body.cashWithdrawnByName ?? null,
+              shareTitle: share.title,
+              shareText: share.text,
+              shareAfterSave: opts?.shareAfterSave === true,
               save$: () => this.api.create(shopId, body),
             },
           }),
