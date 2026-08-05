@@ -24,6 +24,8 @@ import {
   notificationToneClass,
 } from '../../../features/payments/notifications-api.service';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
+import { PushNotificationsService } from '../../../features/payments/push-notifications.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 export interface ToolbarUser {
   email: string;
@@ -34,7 +36,7 @@ export interface ToolbarUser {
 
 @Component({
   selector: 'app-toolbar',
-  imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule],
+  imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule, MatSnackBarModule],
   templateUrl: './toolbar.html',
   styleUrl: './toolbar.scss',
 })
@@ -45,6 +47,8 @@ export class ToolbarComponent implements OnInit {
   readonly shopContext = inject(ShopContextService);
   private readonly notificationsApi = inject(NotificationsApiService);
   private readonly notifsInbox = inject(NotificationsInboxService);
+  readonly push = inject(PushNotificationsService);
+  private readonly snack = inject(MatSnackBar);
   private readonly router = inject(Router);
 
   readonly user = input<ToolbarUser | null>(null);
@@ -60,6 +64,7 @@ export class ToolbarComponent implements OnInit {
   ngOnInit(): void {
     this.notifsInbox.ensureStarted();
     this.notifsInbox.refresh();
+    void this.push.refreshStatus();
   }
 
   badgeLabel(count: number): string {
@@ -97,6 +102,7 @@ export class ToolbarComponent implements OnInit {
 
   openNotifications(): void {
     this.loadingNotifs.set(true);
+    void this.push.refreshStatus();
     this.notificationsApi.list(this.shopContext.selectedShopId()).subscribe({
       next: (rows) => {
         this.notifications.set(rows);
@@ -107,6 +113,23 @@ export class ToolbarComponent implements OnInit {
         this.loadingNotifs.set(false);
       },
     });
+  }
+
+  async togglePush(): Promise<void> {
+    if (this.push.busy()) return;
+    if (this.push.subscribed()) {
+      await this.push.disable();
+      this.snack.open('Notificaciones push desactivadas', 'OK', { duration: 2500 });
+      return;
+    }
+    const ok = await this.push.enable();
+    if (ok) {
+      this.snack.open('Notificaciones push activadas', 'OK', { duration: 2500 });
+    } else {
+      this.snack.open(this.push.lastError() || 'No se pudo activar push', 'OK', {
+        duration: 4500,
+      });
+    }
   }
 
   markAllRead(): void {
@@ -135,6 +158,10 @@ export class ToolbarComponent implements OnInit {
     if (n.closingId || n.type === 'CLOSING_CREATED') {
       const path = n.closingId ? `/closings/${n.closingId}` : '/closings';
       void this.router.navigateByUrl(path);
+      return;
+    }
+    if (n.type === 'PRODUCTION_HOURS_LOGGED') {
+      void this.router.navigateByUrl('/production-attendance');
       return;
     }
     if (n.paymentId || n.type.startsWith('PAYMENT_')) {

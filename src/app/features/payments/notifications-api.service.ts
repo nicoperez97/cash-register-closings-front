@@ -7,7 +7,8 @@ export type NotificationType =
   | 'PAYMENT_PAY'
   | 'PAYMENT_REJECTED'
   | 'PAYMENT_PAID'
-  | 'CLOSING_CREATED';
+  | 'CLOSING_CREATED'
+  | 'PRODUCTION_HOURS_LOGGED';
 
 export interface AppNotification {
   id: string;
@@ -35,6 +36,8 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'check_circle';
     case 'CLOSING_CREATED':
       return 'point_of_sale';
+    case 'PRODUCTION_HOURS_LOGGED':
+      return 'restaurant';
     default:
       return 'notifications';
   }
@@ -53,6 +56,8 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--green';
     case 'CLOSING_CREATED':
       return 'notif-tone--navy';
+    case 'PRODUCTION_HOURS_LOGGED':
+      return 'notif-tone--green';
     default:
       return 'notif-tone--muted';
   }

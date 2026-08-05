@@ -12,6 +12,7 @@
   "start_url": "/",
   "id": "/",
   "categories": ["business", "finance", "productivity"],
+  "prefer_related_applications": false,
   "shortcuts": [
     {
       "name": "Reservas",

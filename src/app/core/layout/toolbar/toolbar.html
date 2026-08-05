@@ -58,6 +58,23 @@
             </button>
           }
         </div>
+        <div class="notif-panel__push">
+          @if (push.iosHomeScreenHint()) {
+            <p class="notif-panel__hint">
+              En iPhone: Compartir → <em>Agregar a pantalla de inicio</em> y abrí la app desde el ícono
+              para activar push.
+            </p>
+          }
+          <button
+            type="button"
+            class="notif-panel__push-btn"
+            [disabled]="push.busy() || push.permission() === 'unsupported'"
+            (click)="togglePush()"
+          >
+            <mat-icon>{{ push.subscribed() ? 'notifications_active' : 'notification_add' }}</mat-icon>
+            {{ push.subscribed() ? 'Push activado' : 'Activar notificaciones push' }}
+          </button>
+        </div>
         @if (loadingNotifs()) {
           <p class="notif-panel__empty">Cargando…</p>
         } @else if (!notifications().length) {
