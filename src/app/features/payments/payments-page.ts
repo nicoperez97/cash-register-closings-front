@@ -29,7 +29,7 @@ import {
   paymentPaidDialogData,
   paymentSharePayload,
 } from '../../shared/components/record-share-builders';
-import { shareText } from '../../shared/utils/share-text';
+import { copyText, shareText } from '../../shared/utils/share-text';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { SpinnerComponent } from '../../shared/components/spinner';
@@ -164,6 +164,41 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
               <strong>{{ p.accountName || '—' }}</strong>
             </div>
           </div>
+
+          @if (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED') {
+            <div class="pay-card__pay-data">
+              @if (isSupplierKind()) {
+                <div class="pay-card__pay-row">
+                  <div>
+                    <span class="pay-card__label">Alias / CBU</span>
+                    <code class="pay-card__code">{{ p.supplierBankAlias || '—' }}</code>
+                  </div>
+                  @if (p.status === 'VALIDATED' && p.supplierBankAlias) {
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="copyAlias(p)"
+                    >
+                      <mat-icon>content_copy</mat-icon>
+                      Copiar alias
+                    </button>
+                  }
+                </div>
+              }
+              <div class="pay-card__pay-row">
+                <div>
+                  <span class="pay-card__label">Monto</span>
+                  <strong class="pay-card__code">$ {{ formatAmount(p.amount) }}</strong>
+                </div>
+                @if (p.status === 'VALIDATED') {
+                  <button mat-stroked-button type="button" (click)="copyAmount(p)">
+                    <mat-icon>content_copy</mat-icon>
+                    Copiar monto
+                  </button>
+                }
+              </div>
+            </div>
+          }
 
           @if (p.notes) {
             <p class="pay-card__notes">{{ p.notes }}</p>
@@ -300,6 +335,31 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
         font-size: 0.88rem;
         color: var(--guy-muted, #5f6f76);
       }
+      .pay-card__pay-data {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        margin: 0 0 0.85rem;
+        padding: 0.65rem 0.75rem;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--guy-navy, #003366) 5%, white);
+      }
+      .pay-card__pay-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .pay-card__code {
+        display: block;
+        margin-top: 0.1rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        word-break: break-all;
+        color: var(--guy-navy, #003366);
+      }
       .pay-card__actions {
         display: flex;
         flex-wrap: wrap;
@@ -391,6 +451,30 @@ export class PaymentsPage {
   formatDate(iso: string | null | undefined): string {
     if (!iso) return '—';
     return formatIsoDateDisplay(iso);
+  }
+
+  formatAmount(amount: number | null | undefined): string {
+    return Number(amount || 0).toLocaleString('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  async copyAlias(p: ShopPayment): Promise<void> {
+    const text = (p.supplierBankAlias ?? '').trim();
+    if (!text) return;
+    const ok = await copyText(text);
+    this.snack.open(ok ? 'Alias / CBU copiado' : 'No se pudo copiar', 'OK', {
+      duration: ok ? 2000 : 2500,
+    });
+  }
+
+  async copyAmount(p: ShopPayment): Promise<void> {
+    const text = this.formatAmount(p.amount);
+    const ok = await copyText(text);
+    this.snack.open(ok ? 'Monto copiado' : 'No se pudo copiar', 'OK', {
+      duration: ok ? 2000 : 2500,
+    });
   }
 
   canValidate(p: ShopPayment): boolean {

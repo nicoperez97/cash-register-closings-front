@@ -24,6 +24,7 @@ export interface ShopPayment {
   accountName: string | null;
   supplierId: string | null;
   supplierName: string | null;
+  supplierBankAlias: string | null;
   employeeId: string | null;
   employeeName: string | null;
   status: PaymentStatus;
