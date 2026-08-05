@@ -44,6 +44,35 @@ interface ProdMonthResponse {
   employees: ProdEmployeeRow[];
 }
 
+interface ProdSummaryEmployee {
+  employeeId: string;
+  fullName: string;
+  hours: number;
+}
+
+interface ProdSummaryResponse {
+  shopId: string;
+  week: {
+    from: string;
+    to: string;
+    totalHours: number;
+    byEmployee: ProdSummaryEmployee[];
+  };
+  year: {
+    year: number;
+    totalHours: number;
+    byEmployee: ProdSummaryEmployee[];
+  };
+}
+
+interface ProdProducerTotalsRow {
+  employeeId: string;
+  fullName: string;
+  weekHours: number;
+  monthHours: number;
+  yearHours: number;
+}
+
 const MONTH_LABELS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -54,6 +83,12 @@ function localIsoDate(d = new Date()): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function formatIsoShort(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
 
 @Component({
@@ -136,6 +171,60 @@ function localIsoDate(d = new Date()): string {
               }
             </button>
           }
+        </div>
+      </div>
+    }
+
+    @if (shopId() && producerTotals().length) {
+      <div class="panel-card mb-3 prod-summary">
+        <div class="prod-summary__head">
+          <div>
+            <h2 class="prod-summary__title">Resumen por productor</h2>
+            <p class="prod-summary__subtitle">
+              @if (summary(); as s) {
+                Semana {{ weekRangeLabel(s.week.from, s.week.to) }}
+                · Mes {{ monthLabel() }}
+                · Año {{ year() }}
+              } @else {
+                Mes {{ monthLabel() }} · Año {{ year() }}
+              }
+            </p>
+          </div>
+          <div class="prod-summary__totals">
+            <span>Semana <strong>{{ formatHours(summary()?.week?.totalHours ?? 0) }} h</strong></span>
+            <span>Mes <strong>{{ formatHours(monthHoursTotal()) }} h</strong></span>
+            <span>Año <strong>{{ formatHours(summary()?.year?.totalHours ?? 0) }} h</strong></span>
+          </div>
+        </div>
+        <div class="prod-summary__table-wrap">
+          <table class="prod-summary__table">
+            <thead>
+              <tr>
+                <th>Productor</th>
+                <th>Semana</th>
+                <th>Mes</th>
+                <th>Año</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of producerTotals(); track row.employeeId) {
+                <tr>
+                  <td>{{ row.fullName }}</td>
+                  <td>{{ formatHours(row.weekHours) }} h</td>
+                  <td>{{ formatHours(row.monthHours) }} h</td>
+                  <td>{{ formatHours(row.yearHours) }} h</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Total</th>
+                <th>{{ formatHours(summary()?.week?.totalHours ?? 0) }} h</th>
+                <th>{{ formatHours(monthHoursTotal()) }} h</th>
+                <th>{{ formatHours(summary()?.year?.totalHours ?? 0) }} h</th>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
     }
@@ -278,6 +367,79 @@ function localIsoDate(d = new Date()): string {
   `,
   styles: [
     `
+      .prod-summary {
+        padding: 0.95rem 1.1rem 1.05rem;
+      }
+      .prod-summary__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 0.75rem 1.25rem;
+        margin-bottom: 0.85rem;
+      }
+      .prod-summary__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .prod-summary__subtitle {
+        margin: 0.2rem 0 0;
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5f6f76);
+        text-transform: capitalize;
+      }
+      .prod-summary__totals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem 1.1rem;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .prod-summary__totals strong {
+        color: var(--guy-navy, #003366);
+        font-weight: 800;
+      }
+      .prod-summary__table-wrap {
+        overflow-x: auto;
+      }
+      .prod-summary__table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 22rem;
+      }
+      .prod-summary__table th,
+      .prod-summary__table td {
+        padding: 0.45rem 0.55rem;
+        text-align: left;
+        border-bottom: 1px solid var(--guy-border, #d7e0d9);
+        font-size: 0.9rem;
+      }
+      .prod-summary__table th:not(:first-child),
+      .prod-summary__table td:not(:first-child),
+      .prod-summary__table tfoot th:not(:first-child) {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .prod-summary__table thead th {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--guy-muted, #5f6f76);
+        font-weight: 700;
+      }
+      .prod-summary__table tbody td:first-child {
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+      }
+      .prod-summary__table tfoot th {
+        border-bottom: none;
+        padding-top: 0.65rem;
+        color: var(--guy-navy, #003366);
+        font-weight: 800;
+      }
       .today-panel__head {
         display: flex;
         align-items: center;
@@ -485,6 +647,7 @@ export class ProductionAttendancePage {
   readonly year = signal(this.todayYear);
   readonly month = signal(this.todayMonth);
   readonly data = signal<ProdMonthResponse | null>(null);
+  readonly summary = signal<ProdSummaryResponse | null>(null);
   readonly loading = signal(true);
   readonly todayMarks = signal<Record<string, number>>({});
   readonly saving = signal(false);
@@ -494,17 +657,58 @@ export class ProductionAttendancePage {
 
   private monthLoadSeq = 0;
   private todayLoadSeq = 0;
+  private summaryLoadSeq = 0;
 
   readonly employees = computed(() => this.data()?.employees ?? []);
   readonly dayNumbers = computed(() => {
     const n = this.data()?.daysInMonth ?? 0;
     return Array.from({ length: n }, (_, i) => i + 1);
   });
+  readonly monthHoursTotal = computed(() =>
+    this.employees().reduce((sum, emp) => sum + this.monthTotal(emp), 0),
+  );
+  readonly monthLabel = computed(() => {
+    const m = this.months.find((x) => x.value === this.month())?.label ?? '';
+    return `${m} ${this.year()}`.trim();
+  });
+  readonly producerTotals = computed((): ProdProducerTotalsRow[] => {
+    const emps = this.employees();
+    const summary = this.summary();
+    const weekMap = new Map(
+      (summary?.week?.byEmployee ?? []).map((e) => [e.employeeId, Number(e.hours) || 0]),
+    );
+    const yearMap = new Map(
+      (summary?.year?.byEmployee ?? []).map((e) => [e.employeeId, Number(e.hours) || 0]),
+    );
+    const names = new Map<string, string>();
+    for (const e of emps) names.set(e.employeeId, e.fullName);
+    for (const e of summary?.week?.byEmployee ?? []) names.set(e.employeeId, e.fullName);
+    for (const e of summary?.year?.byEmployee ?? []) names.set(e.employeeId, e.fullName);
+
+    const ids = new Set<string>([
+      ...emps.map((e) => e.employeeId),
+      ...weekMap.keys(),
+      ...yearMap.keys(),
+    ]);
+    return [...ids]
+      .map((employeeId) => ({
+        employeeId,
+        fullName: names.get(employeeId) ?? 'Productor',
+        weekHours: weekMap.get(employeeId) ?? 0,
+        monthHours: (() => {
+          const emp = emps.find((e) => e.employeeId === employeeId);
+          return emp ? this.monthTotal(emp) : 0;
+        })(),
+        yearHours: yearMap.get(employeeId) ?? 0,
+      }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, 'es'));
+  });
 
   constructor() {
     usePageRefresh(() => {
       void this.reload();
       void this.loadTodayMarks();
+      void this.loadSummary();
     });
     effect(() => {
       const shopId = this.shopId();
@@ -512,12 +716,14 @@ export class ProductionAttendancePage {
       this.month();
       if (!shopId) {
         this.data.set(null);
+        this.summary.set(null);
         this.todayMarks.set({});
         this.loading.set(false);
         return;
       }
       void this.reload();
       void this.loadTodayMarks();
+      void this.loadSummary();
     });
   }
 
@@ -580,6 +786,7 @@ export class ProductionAttendancePage {
         if (ok) {
           void this.reload();
           void this.loadTodayMarks();
+          void this.loadSummary();
         }
       });
   }
@@ -631,6 +838,10 @@ export class ProductionAttendancePage {
   formatHours(h: number): string {
     const n = Number(h) || 0;
     return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  }
+
+  weekRangeLabel(from: string, to: string): string {
+    return `${formatIsoShort(from)} – ${formatIsoShort(to)}`;
   }
 
   onMonthChange(value: number): void {
@@ -790,6 +1001,7 @@ export class ProductionAttendancePage {
           if (this.year() === this.todayYear && this.month() === this.todayMonth) {
             void this.reload();
           }
+          void this.loadSummary();
           this.snack.open(`Productores marcados con ${this.formatHours(hours)} h`, 'OK', {
             duration: 2500,
           });
@@ -830,6 +1042,7 @@ export class ProductionAttendancePage {
           if (this.year() === this.todayYear && this.month() === this.todayMonth) {
             this.patchLocalDay(emp.employeeId, this.todayIso, Number(res.hours) || 0);
           }
+          void this.loadSummary();
         },
         error: (err) => {
           this.saving.set(false);
@@ -858,6 +1071,7 @@ export class ProductionAttendancePage {
           if (iso === this.todayIso) {
             this.todayMarks.update((m) => ({ ...m, [emp.employeeId]: h }));
           }
+          void this.loadSummary();
         },
         error: (err) => {
           this.saving.set(false);
@@ -961,6 +1175,34 @@ export class ProductionAttendancePage {
     } catch {
       if (seq !== this.todayLoadSeq) return;
       this.todayMarks.set({});
+    }
+  }
+
+  private async loadSummary(): Promise<void> {
+    const shopId = this.shopId();
+    if (!shopId) {
+      this.summary.set(null);
+      return;
+    }
+    const seq = ++this.summaryLoadSeq;
+    try {
+      const data = await firstValueFrom(
+        this.http.get<ProdSummaryResponse>(
+          `${environment.apiUrl}/shops/${shopId}/production-attendance/summary`,
+          {
+            params: {
+              year: String(this.year()),
+              _: String(Date.now()),
+            },
+            headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+          },
+        ),
+      );
+      if (seq !== this.summaryLoadSeq) return;
+      this.summary.set(data);
+    } catch {
+      if (seq !== this.summaryLoadSeq) return;
+      this.summary.set(null);
     }
   }
 

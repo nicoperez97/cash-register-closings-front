@@ -27,6 +27,7 @@ import { AuthService } from './core/auth/auth.service';
 import { BodyScrollLockService } from './shared/services/body-scroll-lock.service';
 import { AppUpdateDialogComponent } from './shared/components/app-update-dialog';
 import { NotificationsInboxService } from './features/payments/notifications-inbox.service';
+import { PushNotificationsService } from './features/payments/push-notifications.service';
 
 registerLocaleData(localeEsAr);
 
@@ -73,11 +74,13 @@ function watchAppUpdates(): void {
 async function refreshSession(): Promise<void> {
   const auth = inject(AuthService);
   const notifs = inject(NotificationsInboxService);
+  const push = inject(PushNotificationsService);
   if (!auth.isAuthenticated()) return;
   try {
     await auth.refreshMe();
     notifs.ensureStarted();
     notifs.refresh();
+    void push.refreshStatus();
   } catch {
     auth.logout();
   }
@@ -143,7 +146,7 @@ export const appConfig: ApplicationConfig = {
         panelClass: 'guy-snackbar',
       } satisfies MatSnackBarConfig,
     },
-    provideServiceWorker('ngsw-worker.js', {
+    provideServiceWorker('custom-sw.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
