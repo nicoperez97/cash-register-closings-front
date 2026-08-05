@@ -22,9 +22,11 @@ import { routes } from './app.routes';
 import { AppTitleStrategy } from './core/routing/app-title.strategy';
 import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { notificationsRefreshInterceptor } from './core/http/notifications-refresh.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { BodyScrollLockService } from './shared/services/body-scroll-lock.service';
 import { AppUpdateDialogComponent } from './shared/components/app-update-dialog';
+import { NotificationsInboxService } from './features/payments/notifications-inbox.service';
 
 registerLocaleData(localeEsAr);
 
@@ -70,9 +72,12 @@ function watchAppUpdates(): void {
 
 async function refreshSession(): Promise<void> {
   const auth = inject(AuthService);
+  const notifs = inject(NotificationsInboxService);
   if (!auth.isAuthenticated()) return;
   try {
     await auth.refreshMe();
+    notifs.ensureStarted();
+    notifs.refresh();
   } catch {
     auth.logout();
   }
@@ -122,7 +127,7 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
     provideRouter(routes, withPreloading(PreloadAllModules)),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, notificationsRefreshInterceptor])),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
     { provide: LOCALE_ID, useValue: 'es-AR' },
     provideNativeDateAdapter(),

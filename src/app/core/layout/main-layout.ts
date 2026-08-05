@@ -19,6 +19,7 @@ import {
   defaultHomeRoute,
   hasShopPermission,
   isCashierOnly,
+  isProducerOnly,
 } from '../auth/auth.models';
 import { ToolbarComponent } from './toolbar/toolbar';
 import { SidebarComponent, NavItem } from './sidebar/sidebar';
@@ -82,6 +83,9 @@ export class MainLayoutComponent {
     if (isCashierOnly(user, shopId)) {
       return [{ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' }];
     }
+    if (isProducerOnly(user, shopId)) {
+      return [{ label: 'Mis horas', route: '/my-production', icon: 'restaurant' }];
+    }
 
     const items: NavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
@@ -118,6 +122,12 @@ export class MainLayoutComponent {
           { label: 'Servicio', route: '/attendance', icon: 'storefront' },
           { label: 'Produccion', route: '/production-attendance', icon: 'restaurant' },
         ],
+      });
+    } else if (shopId && hasShopPermission(user, shopId, 'attendance.self')) {
+      items.push({
+        label: 'Mis horas',
+        route: '/my-production',
+        icon: 'restaurant',
       });
     }
 
@@ -220,6 +230,9 @@ export class MainLayoutComponent {
     if (isCashierOnly(user, shopId)) {
       return [{ label: 'Cierre', route: '/closings/new', icon: 'point_of_sale' }];
     }
+    if (isProducerOnly(user, shopId)) {
+      return [{ label: 'Mis horas', route: '/my-production', icon: 'restaurant' }];
+    }
     const items: BottomNavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
     ];
@@ -287,6 +300,12 @@ export class MainLayoutComponent {
       }
       if (isCashierOnly(user, shopId)) {
         if (path !== '/closings/new') {
+          void this.router.navigateByUrl(home);
+        }
+        return;
+      }
+      if (isProducerOnly(user, shopId)) {
+        if (path !== '/my-production') {
           void this.router.navigateByUrl(home);
         }
         return;
@@ -363,6 +382,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/movements')) {
       return hasShopPermission(user, shopId, 'movements.read');
+    }
+    if (path.startsWith('/my-production')) {
+      return hasShopPermission(user, shopId, 'attendance.self');
     }
     if (path.startsWith('/attendance') || path.startsWith('/production-attendance')) {
       return hasShopPermission(user, shopId, 'attendance.read');

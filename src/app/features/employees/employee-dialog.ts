@@ -98,6 +98,9 @@ function toDateString(value: Date | null): string | null {
               <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
             }
           </mat-select>
+          <mat-hint>
+            Para que cargue sus horas: vincular usuario + preset “Productor” en Usuarios
+          </mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">

@@ -18,6 +18,7 @@ export type Permission =
   | 'candidates.read'
   | 'attendance.manage'
   | 'attendance.read'
+  | 'attendance.self'
   | 'payroll.manage'
   | 'payroll.read'
   | 'commissions.manage'
@@ -50,6 +51,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'candidates.read',
   'attendance.manage',
   'attendance.read',
+  'attendance.self',
   'payroll.manage',
   'payroll.read',
   'commissions.manage',
@@ -189,9 +191,10 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Asistencia',
     icon: 'event_available',
     group: 'daily',
-    hint: 'Presentismo del día',
+    hint: 'Presentismo y horas de producción',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'self', label: 'Solo mis horas', short: 'Mías' },
       { value: 'read', label: 'Ver', short: 'Ver' },
       { value: 'manage', label: 'Gestionar', short: 'Todo' },
     ],
@@ -383,6 +386,13 @@ export const MODULE_PRESETS: Array<{
     description: 'Solo marca asistencia',
     icon: 'event_available',
     modules: { attendance: 'manage' },
+  },
+  {
+    id: 'producer-only',
+    label: 'Productor',
+    description: 'Carga sus horas de producción (día / semana / mes)',
+    icon: 'restaurant',
+    modules: { attendance: 'self' },
   },
   {
     id: 'receptionist',
@@ -594,6 +604,19 @@ export function isCashierOnly(user: AuthUser | null, shopId: string | null): boo
   return !perms.includes('closings.update') && !perms.includes('closings.lock');
 }
 
+/** Solo carga sus horas de producción. */
+export function isProducerOnly(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
+  const perms = permissionsForShop(user, shopId);
+  if (!perms.includes('attendance.self')) return false;
+  if (perms.includes('attendance.read') || perms.includes('attendance.manage')) return false;
+  const extra = perms.filter((p) => p !== 'attendance.self');
+  return extra.length === 0;
+}
+
 export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): string {
-  return isCashierOnly(user, shopId) ? '/closings/new' : '/';
+  if (isCashierOnly(user, shopId)) return '/closings/new';
+  if (isProducerOnly(user, shopId)) return '/my-production';
+  return '/';
 }
