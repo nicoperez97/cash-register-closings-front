@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { firstValueFrom, merge, startWith } from 'rxjs';
+import { firstValueFrom, map, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -25,6 +25,7 @@ import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOp
 import { shareText } from '../../shared/utils/share-text';
 import { appendClosingUnitsAndCarrier } from '../../shared/components/record-share-builders';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
+import { CashBillCounterDialogComponent } from './cash-bill-counter-dialog';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -167,7 +168,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
         <section class="closing-form__section closing-form__main">
           <h2>Cobros del día</h2>
-          <div class="closing-form__fields closing-form__fields--main">
+          <div class="closing-form__fields closing-form__fields--date">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Fecha</mat-label>
               <input matInput [matDatepicker]="closingDatePicker" formControlName="businessDate" />
@@ -181,61 +182,79 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
           <div class="closing-form__block">
             <div class="closing-form__block-head">
-              <h3>1. Posnets</h3>
-              <p>{{ posnetsPanelHint() }}</p>
-            </div>
-            <div class="closing-form__block-body" formArrayName="posnetAmounts">
-              <div class="closing-panel__toolbar">
-                <button mat-stroked-button type="button" (click)="addPosnet()">
-                  <mat-icon>add</mat-icon>
-                  Agregar posnet
-                </button>
+              <div class="closing-form__block-title">
+                <h3><span class="closing-form__step">1</span> Posnets</h3>
+                <span class="closing-form__meta">{{ posnetsPanelHint() }}</span>
               </div>
-              @for (row of posnetAmounts.controls; track row; let i = $index) {
-                <div class="closing-form__posnet-row" [formGroupName]="i">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Nombre</mat-label>
-                    <input
-                      matInput
-                      formControlName="name"
-                      placeholder="ej. Caja 1"
-                      [readonly]="isConfiguredPosnet(i)"
-                    />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Tipo</mat-label>
-                    <mat-select formControlName="type" [disabled]="isConfiguredPosnet(i)">
-                      @for (opt of posnetTypes; track opt.value) {
-                        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="addPosnet()">
+                <mat-icon>add</mat-icon>
+                Agregar
+              </button>
+            </div>
+            <div class="closing-form__block-body">
+              <div class="closing-form__stack" formArrayName="posnetAmounts">
+                @for (row of posnetAmounts.controls; track row; let i = $index) {
+                  <div class="closing-form__posnet-card" [formGroupName]="i">
+                    <div class="closing-form__posnet-card-head">
+                      <div class="closing-form__posnet-card-title">
+                        <span class="closing-form__posnet-index">{{ i + 1 }}</span>
+                        <div>
+                          <strong>{{ posnetRowTitle(i) }}</strong>
+                          <span>{{ posnetRowTypeLabel(i) }}</span>
+                        </div>
+                      </div>
+                      @if (!isConfiguredPosnet(i)) {
+                        <button
+                          mat-icon-button
+                          type="button"
+                          class="closing-form__row-remove"
+                          aria-label="Quitar posnet"
+                          (click)="removePosnet(i)"
+                        >
+                          <mat-icon>delete</mat-icon>
+                        </button>
                       }
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Monto</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                  </mat-form-field>
-                  @if (!isConfiguredPosnet(i)) {
-                    <button
-                      mat-icon-button
-                      type="button"
-                      class="closing-form__row-remove"
-                      aria-label="Quitar posnet"
-                      (click)="removePosnet(i)"
-                    >
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  } @else {
-                    <span class="closing-form__posnet-spacer" aria-hidden="true"></span>
-                  }
-                </div>
-              } @empty {
-                <p class="closing-form__hint">
-                  Sin posnets configurados. Completá PVS y Mercado Pago a mano.
-                </p>
-              }
-              <div class="closing-form__fields closing-form__fields--derived">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>PVS{{ locksCard() ? ' (suma posnets)' : '' }}</mat-label>
+                    </div>
+                    <div class="closing-form__posnet-row" [class.closing-form__posnet-row--amount-only]="isConfiguredPosnet(i)">
+                      @if (!isConfiguredPosnet(i)) {
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Nombre</mat-label>
+                          <input matInput formControlName="name" placeholder="ej. Caja 1" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Tipo</mat-label>
+                          <mat-select formControlName="type">
+                            @for (opt of posnetTypes; track opt.value) {
+                              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      }
+                      <mat-form-field
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                        floatLabel="always"
+                        class="closing-field--money"
+                      >
+                        <mat-label>Monto</mat-label>
+                        <span matTextPrefix class="closing-field__prefix">$</span>
+                        <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                      </mat-form-field>
+                    </div>
+                  </div>
+                } @empty {
+                  <p class="closing-form__hint">Sin terminales. Completá PVS y Mercado Pago abajo.</p>
+                }
+              </div>
+              <div class="closing-form__fields closing-form__fields--totals">
+                <mat-form-field
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                  floatLabel="always"
+                  class="closing-field--money"
+                >
+                  <mat-label>PVS{{ locksCard() ? ' (suma)' : '' }}</mat-label>
+                  <span matTextPrefix class="closing-field__prefix">$</span>
                   <input
                     matInput
                     type="number"
@@ -244,8 +263,14 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                     [readonly]="locksCard()"
                   />
                 </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>MercadoPago{{ locksMp() ? ' (suma posnets)' : '' }}</mat-label>
+                <mat-form-field
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                  floatLabel="always"
+                  class="closing-field--money"
+                >
+                  <mat-label>Mercado Pago{{ locksMp() ? ' (suma)' : '' }}</mat-label>
+                  <span matTextPrefix class="closing-field__prefix">$</span>
                   <input
                     matInput
                     type="number"
@@ -260,12 +285,30 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
           <div class="closing-form__block">
             <div class="closing-form__block-head">
-              <h3>2. Efectivo</h3>
+              <div class="closing-form__block-title">
+                <h3><span class="closing-form__step">2</span> Efectivo</h3>
+                <span class="closing-form__meta">Contá billetes o cargá el total</span>
+              </div>
+              <button
+                mat-stroked-button
+                type="button"
+                class="closing-form__add-btn"
+                (click)="openBillCounter()"
+              >
+                <mat-icon>payments</mat-icon>
+                Contar
+              </button>
             </div>
             <div class="closing-form__block-body">
-              <div class="closing-form__fields closing-form__fields--main">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <div class="closing-form__fields closing-form__fields--pair">
+                <mat-form-field
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                  floatLabel="always"
+                  class="closing-field--money"
+                >
                   <mat-label>Efectivo</mat-label>
+                  <span matTextPrefix class="closing-field__prefix">$</span>
                   <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -281,7 +324,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </mat-select>
                 </mat-form-field>
                 @if (needsWithdrawnAccountPick()) {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-2">
                     <mat-label>Cuenta destino del efectivo</mat-label>
                     <mat-select formControlName="cashWithdrawnToAccountId">
                       @for (acc of withdrawnAccountOptions(); track acc.id) {
@@ -298,44 +341,59 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
           <div class="closing-form__block">
             <div class="closing-form__block-head">
-              <h3>3. Cuenta DNI (transferencias)</h3>
-              <p>{{ dniPanelHint() }}</p>
-            </div>
-            <div class="closing-form__block-body" formArrayName="dniTransfers">
-              <div class="closing-panel__toolbar">
-                <button mat-stroked-button type="button" (click)="addDniTransfer()">
-                  <mat-icon>add</mat-icon>
-                  Agregar transferencia
-                </button>
+              <div class="closing-form__block-title">
+                <h3><span class="closing-form__step">3</span> Cuenta DNI</h3>
+                <span class="closing-form__meta">{{ dniPanelHint() }}</span>
               </div>
-              @for (row of dniTransfers.controls; track row; let i = $index) {
-                <div class="closing-form__dni-row" [formGroupName]="i">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Detalle</mat-label>
-                    <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Monto</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                  </mat-form-field>
-                  <button
-                    mat-icon-button
-                    type="button"
-                    class="closing-form__row-remove"
-                    aria-label="Quitar transferencia"
-                    (click)="removeDniTransfer(i)"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              } @empty {
-                <p class="closing-form__hint">
-                  Sin transferencias. Podés cargar el total de Cuenta DNI a mano.
-                </p>
-              }
-              <div class="closing-form__fields closing-form__fields--derived">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Cuenta DNI{{ locksDni() ? ' (suma transferencias)' : '' }}</mat-label>
+              <button
+                mat-stroked-button
+                type="button"
+                class="closing-form__add-btn"
+                (click)="addDniTransfer()"
+              >
+                <mat-icon>add</mat-icon>
+                Transferencia
+              </button>
+            </div>
+            <div class="closing-form__block-body">
+              <div class="closing-form__stack" formArrayName="dniTransfers">
+                @for (row of dniTransfers.controls; track row; let i = $index) {
+                  <div class="closing-form__dni-row" [formGroupName]="i">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Detalle</mat-label>
+                      <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
+                    </mat-form-field>
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      floatLabel="always"
+                      class="closing-field--money"
+                    >
+                      <mat-label>Monto</mat-label>
+                      <span matTextPrefix class="closing-field__prefix">$</span>
+                      <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                    </mat-form-field>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="closing-form__row-remove"
+                      aria-label="Quitar transferencia"
+                      (click)="removeDniTransfer(i)"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+              <div class="closing-form__fields closing-form__fields--single">
+                <mat-form-field
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                  floatLabel="always"
+                  class="closing-field--money"
+                >
+                  <mat-label>Cuenta DNI{{ locksDni() ? ' (suma)' : '' }}</mat-label>
+                  <span matTextPrefix class="closing-field__prefix">$</span>
                   <input
                     matInput
                     type="number"
@@ -350,12 +408,21 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
           <div class="closing-form__block">
             <div class="closing-form__block-head">
-              <h3>4. Caja (sistema)</h3>
+              <div class="closing-form__block-title">
+                <h3><span class="closing-form__step">4</span> Caja</h3>
+                <span class="closing-form__meta">Total del sistema</span>
+              </div>
             </div>
             <div class="closing-form__block-body">
-              <div class="closing-form__fields closing-form__fields--main">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <div class="closing-form__fields closing-form__fields--single">
+                <mat-form-field
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                  floatLabel="always"
+                  class="closing-field--money"
+                >
                   <mat-label>Caja (sistema)</mat-label>
+                  <span matTextPrefix class="closing-field__prefix">$</span>
                   <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
                 </mat-form-field>
               </div>
@@ -363,7 +430,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
           </div>
 
           <div class="closing-form__total-bar" aria-live="polite">
-            <span>5. Total</span>
+            <span><span class="closing-form__step closing-form__step--on-accent">5</span> Total</span>
             <strong>{{ money(declaredTotal()) }}</strong>
           </div>
         </section>
@@ -599,17 +666,17 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
       }
 
       .closing-form__section {
-        padding: 0.95rem 1rem 1.05rem;
+        padding: 1rem 1.05rem 1.1rem;
         border: 1px solid var(--guy-border, #d7e0d9);
-        border-radius: 14px;
-        background: color-mix(in srgb, var(--guy-card, #fff) 94%, var(--guy-surface, #f3f6f4));
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--guy-card, #fff) 96%, var(--guy-surface, #f3f6f4));
       }
 
       .closing-form__section h2 {
-        margin: 0 0 0.65rem;
+        margin: 0 0 0.75rem;
         font-size: 0.72rem;
         font-weight: 700;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
         color: var(--guy-muted, #5f6f76);
       }
@@ -617,47 +684,111 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
       .closing-form__fields {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.85rem 1rem;
+        gap: 0.65rem 0.85rem;
       }
 
-      .closing-form__fields--main {
+      .closing-form__fields--date,
+      .closing-form__fields--single {
+        grid-template-columns: minmax(0, 18rem);
+      }
+
+      .closing-form__fields--pair,
+      .closing-form__fields--totals {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .closing-form__fields--derived {
-        margin-top: 0.35rem;
+      .closing-form__fields--totals {
+        margin-top: 0.1rem;
+        padding: 0.7rem 0.75rem;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 72%, #fff);
+        border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 75%, transparent);
+      }
+
+      .closing-form__span-2 {
+        grid-column: 1 / -1;
       }
 
       .closing-form__block {
-        margin-top: 0.95rem;
-        padding-top: 0.85rem;
-        border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 85%, transparent);
+        margin-top: 0.7rem;
+        padding: 0.85rem 0.9rem 0.9rem;
+        border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 90%, transparent);
+        border-radius: 14px;
+        background: var(--guy-card, #fff);
       }
 
       .closing-form__block:first-of-type {
-        margin-top: 0.65rem;
+        margin-top: 0.55rem;
       }
 
       .closing-form__block-head {
         display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
+        align-items: center;
         justify-content: space-between;
-        gap: 0.35rem 0.75rem;
-        margin-bottom: 0.55rem;
+        gap: 0.65rem;
+        margin-bottom: 0.65rem;
+        min-height: 2.25rem;
+      }
+
+      .closing-form__block-title {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 0;
       }
 
       .closing-form__block-head h3 {
         margin: 0;
-        font-size: 0.92rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: var(--guy-navy, #003366);
+        line-height: 1.2;
       }
 
-      .closing-form__block-head p {
-        margin: 0;
-        font-size: 0.78rem;
+      .closing-form__step {
+        display: inline-grid;
+        place-items: center;
+        width: 1.45rem;
+        height: 1.45rem;
+        flex-shrink: 0;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0;
+        color: var(--guy-navy, #003366);
+        background: color-mix(in srgb, var(--guy-navy, #003366) 10%, #fff);
+        border: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 18%, transparent);
+      }
+
+      .closing-form__step--on-accent {
+        color: #fff;
+        background: var(--guy-accent, #2e7d32);
+        border-color: transparent;
+      }
+
+      .closing-form__meta {
+        margin-left: 1.95rem;
+        font-size: 0.75rem;
         color: var(--guy-muted, #5f6f76);
+        line-height: 1.2;
+      }
+
+      .closing-form__add-btn {
+        flex-shrink: 0;
+        min-height: 36px !important;
+        padding-inline: 0.75rem !important;
+        border-radius: 999px !important;
+        line-height: 1.2 !important;
+      }
+
+      .closing-form__add-btn mat-icon {
+        margin-right: 0.1rem;
+        font-size: 1.1rem;
+        width: 1.1rem;
+        height: 1.1rem;
       }
 
       .closing-form__block-body {
@@ -666,31 +797,44 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         gap: 0.55rem;
       }
 
+      .closing-form__stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+      }
+
+      .closing-form__stack:empty {
+        display: none;
+      }
+
       .closing-form__total-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.75rem;
-        margin-top: 1rem;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
+        margin-top: 0.75rem;
+        padding: 0.9rem 1rem;
+        border-radius: 14px;
         border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 28%, var(--guy-border, #d7e0d9));
         background:
           linear-gradient(135deg,
-            color-mix(in srgb, var(--guy-accent, #2e7d32) 12%, #fff) 0%,
-            #fff 70%);
+            color-mix(in srgb, var(--guy-accent, #2e7d32) 14%, #fff) 0%,
+            #fff 72%);
       }
 
-      .closing-form__total-bar span {
-        font-size: 0.92rem;
+      .closing-form__total-bar > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: var(--guy-navy, #003366);
       }
 
       .closing-form__total-bar strong {
-        font-size: 1.25rem;
+        font-size: 1.3rem;
         font-variant-numeric: tabular-nums;
-        color: var(--guy-navy, #003366);
+        color: var(--guy-accent, #2e7d32);
       }
 
       .closing-form__panels {
@@ -803,18 +947,83 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         color: var(--guy-muted, #5f6f76);
       }
 
+      .closing-form__posnet-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        padding: 0.75rem 0.8rem 0.85rem;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 42%, #fff);
+      }
+
+      .closing-form__posnet-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        min-height: 2rem;
+      }
+
+      .closing-form__posnet-card-title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+      }
+
+      .closing-form__posnet-card-title > div {
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        min-width: 0;
+      }
+
+      .closing-form__posnet-card-title strong {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .closing-form__posnet-card-title span:not(.closing-form__posnet-index) {
+        font-size: 0.72rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .closing-form__posnet-index {
+        display: inline-grid;
+        place-items: center;
+        width: 1.4rem;
+        height: 1.4rem;
+        flex-shrink: 0;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: var(--guy-navy, #003366);
+        background: color-mix(in srgb, var(--guy-navy, #003366) 10%, #fff);
+        border: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 16%, transparent);
+      }
+
       .closing-form__posnet-row {
         display: grid;
-        grid-template-columns: 1.2fr 0.9fr 0.8fr auto;
+        grid-template-columns: 1.2fr 0.9fr 0.85fr;
         gap: 0.55rem;
-        align-items: center;
+        align-items: start;
+      }
+
+      .closing-form__posnet-row--amount-only {
+        grid-template-columns: minmax(0, 14rem);
       }
 
       .closing-form__dni-row {
         display: grid;
         grid-template-columns: 1.4fr 0.8fr auto;
         gap: 0.55rem;
-        align-items: center;
+        align-items: start;
       }
 
       .closing-form__row-remove,
@@ -822,9 +1031,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         color: #c62828;
       }
 
-      .closing-form__posnet-spacer {
-        width: 40px;
-        height: 40px;
+      .closing-form__posnet-card-head .closing-form__row-remove {
+        margin: -0.25rem -0.35rem -0.25rem 0;
       }
 
       .closing-notes {
@@ -832,25 +1040,104 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
       }
 
       .closing-form__fields .mat-mdc-form-field,
-      .closing-panel__body .mat-mdc-form-field {
+      .closing-form__posnet-row .mat-mdc-form-field,
+      .closing-form__dni-row .mat-mdc-form-field,
+      .closing-panel__body .mat-mdc-form-field,
+      .expense-row .mat-mdc-form-field {
+        width: 100%;
         margin-bottom: 0 !important;
       }
 
+      .closing-field__prefix {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        padding: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      :host ::ng-deep .closing-field--money .mat-mdc-form-field-text-prefix,
+      :host ::ng-deep .closing-field--money .mat-mdc-form-field-icon-prefix {
+        align-self: center !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0 0.15rem 0 0.35rem !important;
+        top: 0 !important;
+        height: auto !important;
+      }
+
+      :host ::ng-deep .closing-field--money .mat-mdc-form-field-infix {
+        display: flex;
+        align-items: center;
+      }
+
+      :host ::ng-deep .closing-form__main .mat-mdc-text-field-wrapper {
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, #fff) !important;
+        border-radius: 12px !important;
+      }
+
+      :host ::ng-deep .closing-form__posnet-card .mat-mdc-text-field-wrapper {
+        background: #fff !important;
+      }
+
+      :host ::ng-deep .closing-form__main .mdc-notched-outline__leading,
+      :host ::ng-deep .closing-form__main .mdc-notched-outline__notch,
+      :host ::ng-deep .closing-form__main .mdc-notched-outline__trailing {
+        border-color: color-mix(in srgb, var(--guy-border, #d7e0d9) 92%, transparent) !important;
+      }
+
+      :host ::ng-deep .closing-form__main .mat-mdc-form-field:hover .mdc-notched-outline__leading,
+      :host ::ng-deep .closing-form__main .mat-mdc-form-field:hover .mdc-notched-outline__notch,
+      :host ::ng-deep .closing-form__main .mat-mdc-form-field:hover .mdc-notched-outline__trailing {
+        border-color: color-mix(in srgb, var(--guy-navy, #003366) 28%, var(--guy-border)) !important;
+      }
+
+      :host ::ng-deep .closing-form__main .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+      :host ::ng-deep .closing-form__main .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+      :host ::ng-deep .closing-form__main .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+        border-color: var(--guy-accent, #2e7d32) !important;
+        border-width: 1.5px !important;
+      }
+
+      :host ::ng-deep .closing-field--money input.mat-mdc-input-element {
+        text-align: right;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+      }
+
+      :host ::ng-deep .closing-form__fields--totals .mat-mdc-text-field-wrapper {
+        background: #fff !important;
+      }
+
       :host ::ng-deep .closing-form__fields .mat-mdc-form-field-subscript-wrapper,
+      :host ::ng-deep .closing-form__posnet-row .mat-mdc-form-field-subscript-wrapper,
+      :host ::ng-deep .closing-form__dni-row .mat-mdc-form-field-subscript-wrapper,
       :host ::ng-deep .closing-panel__body .mat-mdc-form-field-subscript-wrapper {
         display: none;
       }
 
+      :host ::ng-deep .closing-form__fields--date .mat-mdc-form-field-subscript-wrapper {
+        display: block;
+      }
+
       :host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix,
+      :host ::ng-deep .closing-form__posnet-row .mat-mdc-form-field-infix,
+      :host ::ng-deep .closing-form__dni-row .mat-mdc-form-field-infix,
       :host ::ng-deep .closing-panel__body .mat-mdc-form-field-infix {
-        min-height: 42px !important;
-        padding-top: 10px !important;
-        padding-bottom: 10px !important;
+        min-height: 44px !important;
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
       }
 
       :host ::ng-deep .closing-form__fields input[readonly],
       :host ::ng-deep .closing-panel__body input[readonly] {
         cursor: default;
+        color: var(--guy-navy, #003366);
       }
 
       .closing-form__expenses-list {
@@ -973,18 +1260,46 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 
       @media (max-width: 720px) {
         .expense-row,
-        .closing-form__posnet-row,
+        .closing-form__posnet-row:not(.closing-form__posnet-row--amount-only),
         .closing-form__dni-row {
           grid-template-columns: 1fr;
+        }
+
+        .closing-form__posnet-row--amount-only {
+          grid-template-columns: 1fr;
+        }
+
+        .closing-form__posnet-card {
+          padding: 0.7rem 0.7rem 0.75rem;
+        }
+
+        .closing-form__row-remove,
+        .expense-row__remove {
+          justify-self: end;
         }
       }
 
       @media (max-width: 560px) {
         .closing-form__fields,
-        .closing-form__fields--main,
-        .closing-form__fields--derived {
+        .closing-form__fields--pair,
+        .closing-form__fields--totals,
+        .closing-form__fields--date,
+        .closing-form__fields--single {
           grid-template-columns: 1fr;
         }
+
+        .closing-form__block {
+          padding: 0.75rem 0.8rem 0.8rem;
+        }
+
+        .closing-form__meta {
+          margin-left: 0;
+        }
+
+        .closing-form__block-head {
+          align-items: flex-start;
+        }
+
         .closing-totals__grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -1064,7 +1379,11 @@ export class ClosingsFormPage implements OnInit {
   }
 
   private readonly formValue = toSignal(
-    this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
+    this.form.valueChanges.pipe(
+      startWith(null),
+      // valueChanges omite controles disabled; usamos raw para posnets bloqueados.
+      map(() => this.form.getRawValue()),
+    ),
     { initialValue: this.form.getRawValue() },
   );
 
@@ -1140,7 +1459,7 @@ export class ClosingsFormPage implements OnInit {
 
   dniPanelHint(): string {
     const n = this.dniTransfers.length;
-    if (!n) return 'Detalle opcional · total editable';
+    if (!n) return 'Transferencias opcionales';
     return n === 1 ? '1 transferencia' : `${n} transferencias`;
   }
 
@@ -1286,12 +1605,15 @@ export class ClosingsFormPage implements OnInit {
     for (const posnet of configured) {
       const prev = byId.get(posnet.id);
       this.posnetAmounts.push(
-        this.buildPosnetAmountGroup({
-          posnetId: posnet.id,
-          name: posnet.name,
-          type: posnet.type,
-          amount: prev?.amount ?? null,
-        }),
+        this.buildPosnetAmountGroup(
+          {
+            posnetId: posnet.id,
+            name: posnet.name,
+            type: posnet.type,
+            amount: prev?.amount ?? null,
+          },
+          { lockIdentity: true },
+        ),
         { emitEvent: false },
       );
     }
@@ -1315,18 +1637,26 @@ export class ClosingsFormPage implements OnInit {
     this.syncDerivedTotals();
   }
 
-  private buildPosnetAmountGroup(value: {
-    posnetId: string;
-    name: string;
-    type: PosnetType | string;
-    amount?: number | null;
-  }) {
-    return this.fb.group({
+  private buildPosnetAmountGroup(
+    value: {
+      posnetId: string;
+      name: string;
+      type: PosnetType | string;
+      amount?: number | null;
+    },
+    opts?: { lockIdentity?: boolean },
+  ) {
+    const group = this.fb.group({
       posnetId: [value.posnetId || newId()],
       name: [value.name || ''],
       type: [value.type || 'PVS'],
       amount: [this.emptyNum(value.amount)],
     });
+    if (opts?.lockIdentity) {
+      group.controls.name.disable({ emitEvent: false });
+      group.controls.type.disable({ emitEvent: false });
+    }
+    return group;
   }
 
   private buildDniTransferGroup(value: { id: string; label: string; amount?: number | null }) {
@@ -1391,6 +1721,18 @@ export class ClosingsFormPage implements OnInit {
     return !!row?.posnetId && this.configuredPosnetIds.has(row.posnetId);
   }
 
+  posnetRowTitle(index: number): string {
+    const row = this.posnetAmounts.at(index)?.getRawValue() as ClosingPosnetAmount | undefined;
+    const name = String(row?.name ?? '').trim();
+    return name || `Terminal ${index + 1}`;
+  }
+
+  posnetRowTypeLabel(index: number): string {
+    const row = this.posnetAmounts.at(index)?.getRawValue() as ClosingPosnetAmount | undefined;
+    const type = String(row?.type ?? '');
+    return POSNET_TYPE_LABEL[type] ?? 'Posnet';
+  }
+
   removePosnet(index: number): void {
     if (this.isConfiguredPosnet(index)) return;
     this.posnetAmounts.removeAt(index);
@@ -1410,6 +1752,28 @@ export class ClosingsFormPage implements OnInit {
   removeDniTransfer(index: number): void {
     this.dniTransfers.removeAt(index);
     this.syncDerivedTotals();
+  }
+
+  openBillCounter(): void {
+    this.dialogTitle
+      .track(
+        this.dialog.open(CashBillCounterDialogComponent, {
+          width: '440px',
+          maxWidth: '96vw',
+          maxHeight: 'calc(100dvh - 4.5rem)',
+          autoFocus: 'dialog',
+          panelClass: 'guy-dialog',
+          data: {
+            initialTotal: this.form.controls.cashAmount.value,
+          },
+        }),
+        'Contar billetes',
+      )
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result || result.total <= 0) return;
+        this.form.patchValue({ cashAmount: result.total });
+      });
   }
 
   onWithdrawnUserChange(userId: string): void {
