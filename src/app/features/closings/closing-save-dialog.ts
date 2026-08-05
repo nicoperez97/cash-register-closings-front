@@ -19,6 +19,11 @@ export type ClosingSaveSummary = {
   unitsLabel?: string | null;
   unitsSold?: number | null;
   cashWithdrawnByName?: string | null;
+  /** Texto completo para compartir (incluye todos los datos del cierre). */
+  shareTitle?: string;
+  shareText?: string;
+  /** Tras guardar, dispara el share automáticamente. */
+  shareAfterSave?: boolean;
 };
 
 export type ClosingSaveDialogData = ClosingSaveSummary & {
@@ -202,6 +207,9 @@ export class ClosingSaveDialogComponent {
     this.data.save$().subscribe({
       next: () => {
         this.phase.set('saved');
+        if (this.data.shareAfterSave) {
+          void this.share();
+        }
       },
       error: (err: { error?: { message?: string | string[] } }) => {
         const msg = err?.error?.message ?? 'No se pudo guardar el cierre';
@@ -212,7 +220,7 @@ export class ClosingSaveDialogComponent {
   }
 
   async share(): Promise<void> {
-    const lines = [
+    const fallbackLines = [
       `Cierre de caja — ${this.data.shopName}`,
       `Fecha: ${this.data.date}`,
       `PVS: ${this.data.pvs}`,
@@ -221,7 +229,7 @@ export class ClosingSaveDialogComponent {
       `Caja sistema: ${this.data.posSystem}`,
       `Total: ${this.data.total}`,
     ];
-    appendClosingUnitsAndCarrier(lines, {
+    appendClosingUnitsAndCarrier(fallbackLines, {
       unitsLabel: this.data.unitsLabel,
       unitsSold: this.data.unitsSold,
       cashWithdrawnByName: this.data.cashWithdrawnByName,
@@ -229,8 +237,8 @@ export class ClosingSaveDialogComponent {
 
     this.sharing.set(true);
     const result = await shareText({
-      title: `Cierre ${this.data.shopName}`,
-      text: lines.join('\n'),
+      title: this.data.shareTitle || `Cierre ${this.data.shopName}`,
+      text: this.data.shareText || fallbackLines.join('\n'),
     });
     this.sharing.set(false);
 
