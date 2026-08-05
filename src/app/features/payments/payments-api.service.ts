@@ -40,6 +40,7 @@ export interface UpsertPaymentBody {
   notes?: string | null;
   amount?: number | null;
   dueDate?: string | null;
+  paidAt?: string | null;
   payerUserId?: string | null;
   validatorUserId?: string | null;
   accountId?: string | null;

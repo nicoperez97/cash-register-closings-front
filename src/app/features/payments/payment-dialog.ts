@@ -95,6 +95,16 @@ export type PaymentDialogData = {
           <mat-datepicker #duePicker />
         </mat-form-field>
 
+        @if (isPaidEdit) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Fecha de pago</mat-label>
+            <input matInput [matDatepicker]="paidPicker" formControlName="paidAt" />
+            <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
+            <mat-datepicker #paidPicker />
+            <mat-hint>Actualiza también el movimiento contable</mat-hint>
+          </mat-form-field>
+        }
+
         @if (isSupplierKind) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Proveedor</mat-label>
@@ -211,6 +221,8 @@ export class PaymentDialogComponent {
   readonly isEdit = this.data.mode === 'edit';
   readonly isDuplicate = this.data.mode === 'duplicate';
   readonly isSupplierKind = this.data.kind !== 'employee';
+  readonly isPaidEdit =
+    this.data.mode === 'edit' && this.data.payment.status === 'PAID';
   readonly seed: Partial<ShopPayment> | null =
     this.data.mode === 'edit' || this.data.mode === 'duplicate'
       ? this.data.payment
@@ -219,7 +231,9 @@ export class PaymentDialogComponent {
 
   readonly titleIcon = this.isEdit ? 'edit' : this.isDuplicate ? 'content_copy' : 'payments';
   readonly titleText = this.isEdit
-    ? 'Editar pago'
+    ? this.isPaidEdit
+      ? 'Editar pago abonado'
+      : 'Editar pago'
     : this.isDuplicate
       ? 'Duplicar pago'
       : 'Nuevo pago';
@@ -251,6 +265,7 @@ export class PaymentDialogComponent {
     title: [this.seed?.title ?? ''],
     amount: [this.seed?.amount ?? (null as number | null)],
     dueDate: [this.parseDate(this.seed?.dueDate) as Date | null],
+    paidAt: [this.parseDate(this.seed?.paidAt) as Date | null],
     supplierId: [
       this.isSupplierKind ? (this.seed?.supplierId ?? null) : (null as string | null),
     ],
@@ -302,6 +317,7 @@ export class PaymentDialogComponent {
       title: (raw.title ?? '').trim() || null,
       amount,
       dueDate: this.toIsoDate(raw.dueDate),
+      ...(this.isPaidEdit ? { paidAt: this.toIsoDate(raw.paidAt) } : {}),
       supplierId: this.isSupplierKind ? raw.supplierId || null : null,
       employeeId: this.isSupplierKind ? null : raw.employeeId || null,
       payerUserId: raw.payerUserId || null,
@@ -322,7 +338,9 @@ export class PaymentDialogComponent {
           wasValidated
             ? 'Pago actualizado · vuelve a pendiente de validación'
             : this.isEdit
-              ? 'Pago actualizado'
+              ? this.isPaidEdit
+                ? 'Pago abonado actualizado'
+                : 'Pago actualizado'
               : this.isDuplicate
                 ? 'Pago duplicado'
                 : 'Pago creado',

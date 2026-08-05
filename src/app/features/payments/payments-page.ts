@@ -198,11 +198,18 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
                 Duplicar
               </button>
             }
-            @if (canManage() && (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED')) {
+            @if (
+              canManage() &&
+              (p.status === 'PENDING_VALIDATION' ||
+                p.status === 'VALIDATED' ||
+                p.status === 'PAID')
+            ) {
               <button mat-stroked-button type="button" (click)="openEdit(p)">
                 <mat-icon>edit</mat-icon>
                 Editar
               </button>
+            }
+            @if (canManage() && (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED')) {
               <button mat-stroked-button type="button" (click)="cancel(p)">
                 <mat-icon>cancel</mat-icon>
                 Cancelar
