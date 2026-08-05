@@ -54,15 +54,23 @@ export class PaymentsApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
 
-  list(shopId: string, status?: string) {
+  list(shopId: string, status?: string | string[]) {
+    const params: Record<string, string> = {};
+    const statusParam = Array.isArray(status)
+      ? status.filter(Boolean).join(',')
+      : (status || '').trim();
+    if (statusParam) params['status'] = statusParam;
     return this.http.get<ShopPayment[]>(`${this.base}/shops/${shopId}/payments`, {
-      params: status ? { status } : {},
+      params,
     });
   }
 
-  exportExcel(shopId: string, status?: string, kind?: 'supplier' | 'employee') {
+  exportExcel(shopId: string, status?: string | string[], kind?: 'supplier' | 'employee') {
     const params: Record<string, string> = {};
-    if (status) params['status'] = status;
+    const statusParam = Array.isArray(status)
+      ? status.filter(Boolean).join(',')
+      : (status || '').trim();
+    if (statusParam) params['status'] = statusParam;
     if (kind) params['kind'] = kind;
     return this.http.get(`${this.base}/shops/${shopId}/payments/export.xlsx`, {
       params,
