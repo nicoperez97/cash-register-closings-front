@@ -185,6 +185,13 @@ export const routes: Routes = [
         title: 'Movimientos',
       },
       {
+        path: 'my-production',
+        canActivate: [permissionGuard('attendance.self')],
+        loadComponent: () =>
+          import('./features/attendance/my-production-page').then((m) => m.MyProductionPage),
+        title: 'Mis horas de producción',
+      },
+      {
         path: 'attendance',
         canActivate: [permissionGuard('attendance.read')],
         loadComponent: () =>
