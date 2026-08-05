@@ -56,6 +56,20 @@ function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
+/** Reparte `total` en `n` días (2 decimales); la suma coincide con el total. */
+function distributeHours(total: number, n: number): number[] {
+  if (n <= 0) return [];
+  const safe = Math.max(0, Number.isFinite(total) ? total : 0);
+  const cents = Math.round(safe * 100);
+  const base = Math.floor(cents / n);
+  let rem = cents - base * n;
+  return Array.from({ length: n }, () => {
+    const extra = rem > 0 ? 1 : 0;
+    if (rem > 0) rem -= 1;
+    return (base + extra) / 100;
+  });
+}
+
 @Component({
   selector: 'app-my-production-page',
   imports: [
@@ -123,6 +137,32 @@ function daysInMonth(year: number, month: number): number {
           <span class="my-prod-summary__label">Default del local</span>
           <strong>{{ defaultHours() }} h</strong>
         </div>
+        @if (mode() !== 'day') {
+          <div class="my-prod-summary__distribute">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="my-prod-summary__total-input">
+              <mat-label>{{ mode() === 'week' ? 'Total semanal' : 'Total mensual' }}</mat-label>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="0.5"
+                [ngModel]="distributeTotal()"
+                (ngModelChange)="onDistributeTotalChange($event)"
+                [disabled]="saving()"
+              />
+            </mat-form-field>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="saving() || !canDistribute()"
+              (click)="applyDistribute()"
+            >
+              <mat-icon>call_split</mat-icon>
+              Repartir en los días
+            </button>
+          </div>
+        }
       </div>
 
       <div class="my-prod-days">
@@ -206,6 +246,7 @@ function daysInMonth(year: number, month: number): number {
       .my-prod-summary {
         display: flex;
         flex-wrap: wrap;
+        align-items: flex-end;
         gap: 1.25rem 2rem;
         padding: 0.9rem 1rem;
       }
@@ -219,6 +260,16 @@ function daysInMonth(year: number, month: number): number {
       .my-prod-summary__value {
         font-size: 1.35rem;
         color: var(--guy-navy, #003366);
+      }
+      .my-prod-summary__distribute {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+      }
+      .my-prod-summary__total-input {
+        width: 9.5rem;
       }
       .my-prod-days {
         display: flex;
@@ -283,6 +334,8 @@ export class MyProductionPage {
   /** Borrador editable: iso → horas o null (vacío). */
   readonly draftHours = signal<Record<string, number | null>>({});
   readonly baseline = signal<Record<string, number | null>>({});
+  /** Total a repartir en semana/mes (input del productor). */
+  readonly distributeTotal = signal<number | null>(null);
 
   readonly todayIso = isoDate(new Date());
 
@@ -370,6 +423,11 @@ export class MyProductionPage {
     return false;
   });
 
+  readonly canDistribute = computed(() => {
+    const n = Number(this.distributeTotal());
+    return Number.isFinite(n) && n >= 0 && this.dayList().length > 0;
+  });
+
   constructor() {
     usePageRefresh(() => this.reload());
     effect(() => {
@@ -416,6 +474,32 @@ export class MyProductionPage {
     this.setDraft(iso, null);
   }
 
+  onDistributeTotalChange(value: number | string | null): void {
+    if (value === null || value === '' || value === undefined) {
+      this.distributeTotal.set(null);
+      return;
+    }
+    const n = Number(value);
+    this.distributeTotal.set(Number.isFinite(n) ? n : null);
+  }
+
+  applyDistribute(): void {
+    const total = Number(this.distributeTotal());
+    const days = this.dayList();
+    if (!Number.isFinite(total) || total < 0 || !days.length) return;
+    const parts = distributeHours(total, days.length);
+    const next: Record<string, number | null> = { ...this.draftHours() };
+    days.forEach((day, i) => {
+      const h = parts[i] ?? 0;
+      next[day.iso] = h > 0 ? h : null;
+    });
+    this.draftHours.set(next);
+    const period = this.mode() === 'week' ? 'la semana' : 'el mes';
+    this.snack.open(`Total de ${total} h repartido en ${days.length} días de ${period}`, 'OK', {
+      duration: 2800,
+    });
+  }
+
   reload(): void {
     const shopId = this.shopId();
     if (!shopId) {
@@ -444,6 +528,9 @@ export class MyProductionPage {
           }
           this.draftHours.set(draft);
           this.baseline.set({ ...draft });
+          this.distributeTotal.set(
+            Object.values(draft).reduce<number>((sum, v) => sum + (Number(v) || 0), 0) || null,
+          );
           this.loading.set(false);
         },
         error: (err) => {
