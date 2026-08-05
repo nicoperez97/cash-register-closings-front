@@ -1065,6 +1065,7 @@ button.mat-mdc-mini-fab mat-icon {
 .guy-filters__collapse {
   display: inline-flex;
   flex-shrink: 0;
+  position: relative;
   height: 36px;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -1077,6 +1078,23 @@ button.mat-mdc-mini-fab mat-icon {
   width: 18px;
   height: 18px;
   margin-right: 0.25rem;
+}
+
+.guy-filters__collapse-badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #c62828;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .guy-filters__body {

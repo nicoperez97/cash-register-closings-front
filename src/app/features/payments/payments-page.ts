@@ -75,7 +75,13 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
       <div class="guy-filters__head">
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
-          <p class="guy-filters__subtitle">Estado del pago</p>
+          <p class="guy-filters__subtitle">
+            @if (activeStatusFilterCount() > 0) {
+              {{ activeStatusFilterCount() }} estado{{ activeStatusFilterCount() === 1 ? '' : 's' }}
+            } @else {
+              Todos los estados
+            }
+          </p>
         </div>
         <div class="guy-filters__tools">
           <button
@@ -89,15 +95,15 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
           </button>
           <app-filters-collapse-btn
             [collapsed]="filtersCollapsed()"
+            [badgeCount]="activeStatusFilterCount()"
             (toggle)="toggleFilters()"
           />
         </div>
       </div>
       <div class="guy-filters__body">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="pay-status-filter">
         <mat-label>Estado</mat-label>
-        <mat-select [formControl]="statusFilter">
-          <mat-option value="">Todos</mat-option>
+        <mat-select [formControl]="statusFilter" multiple>
           @for (opt of statusOptions; track opt.value) {
             <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
           }
@@ -423,12 +429,22 @@ export class PaymentsPage {
   readonly accounts = signal<Array<{ id: string; name: string }>>([]);
   readonly suppliers = signal<ShopSupplier[]>([]);
   readonly employees = signal<Employee[]>([]);
-  readonly statusFilter = new FormControl('', { nonNullable: true });
+  readonly statusFilter = new FormControl<PaymentStatus[]>(
+    ['PENDING_VALIDATION', 'VALIDATED'],
+    { nonNullable: true },
+  );
   readonly exporting = signal(false);
 
   readonly statusOptions = (
     Object.entries(STATUS_LABEL) as Array<[PaymentStatus, string]>
   ).map(([value, label]) => ({ value, label }));
+
+  /** Señal del valor del filtro (para badge y subtítulo). */
+  private readonly statusFilterValue = toSignal(this.statusFilter.valueChanges, {
+    initialValue: this.statusFilter.value,
+  });
+
+  readonly activeStatusFilterCount = computed(() => this.statusFilterValue()?.length ?? 0);
 
   readonly shopId = computed(() => this.shops.selectedShopId());
 
@@ -543,7 +559,8 @@ export class PaymentsPage {
       this.loading.set(false);
       return;
     }
-    const status = this.statusFilter.value || undefined;
+    const statuses = this.statusFilter.value;
+    const status = statuses.length ? statuses : undefined;
     this.loading.set(true);
     this.api.list(shopId, status).subscribe({
       next: (rows) => {
@@ -566,7 +583,8 @@ export class PaymentsPage {
     const shopId = this.shopId();
     const shop = this.shops.selectedShop();
     if (!shopId || this.exporting()) return;
-    const status = this.statusFilter.value || undefined;
+    const statuses = this.statusFilter.value;
+    const status = statuses.length ? statuses : undefined;
     const kind = this.kind();
     this.exporting.set(true);
     this.api.exportExcel(shopId, status, kind).subscribe({
