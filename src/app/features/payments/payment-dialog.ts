@@ -323,41 +323,89 @@ export class PaymentDialogComponent {
       );
       return;
     }
-    const paidAtIso = this.isPaidEdit ? this.toIsoDate(raw.paidAt) : null;
-    const body = {
+
+    const next = {
       title: (raw.title ?? '').trim() || null,
       amount,
       dueDate: this.toIsoDate(raw.dueDate),
-      ...(paidAtIso ? { paidAt: paidAtIso } : {}),
+      paidAt: this.isPaidEdit ? this.toIsoDate(raw.paidAt) : null,
       supplierId: this.isSupplierKind ? raw.supplierId || null : null,
       employeeId: this.isSupplierKind ? null : raw.employeeId || null,
       payerUserId: raw.payerUserId || null,
       validatorUserId: raw.validatorUserId || null,
-      accountId: raw.accountId || null,
+      accountId: raw.accountId ? String(raw.accountId) : null,
       notes: (raw.notes ?? '').trim() || null,
     };
+
     this.busy.set(true);
-    const req =
-      this.isEdit && this.payment
-        ? this.api.update(this.data.shopId, this.payment.id, body)
-        : this.api.create(this.data.shopId, body);
-    req.subscribe({
+
+    if (this.isEdit && this.payment) {
+      const prev = this.payment;
+      const sameAmount = (a: number | null, b: number | null) =>
+        (a == null && b == null) || (a != null && b != null && Number(a) === Number(b));
+      const sameStr = (a: string | null | undefined, b: string | null | undefined) =>
+        (a || null) === (b || null);
+
+      const body: Record<string, string | number | null> = {};
+      if (!sameStr(next.title, prev.title)) body['title'] = next.title;
+      if (!sameAmount(next.amount, prev.amount ?? null)) body['amount'] = next.amount;
+      if (!sameStr(next.dueDate, prev.dueDate)) body['dueDate'] = next.dueDate;
+      if (this.isPaidEdit && next.paidAt && !sameStr(next.paidAt, prev.paidAt)) {
+        body['paidAt'] = next.paidAt;
+      }
+      if (this.isSupplierKind && !sameStr(next.supplierId, prev.supplierId)) {
+        body['supplierId'] = next.supplierId;
+      }
+      if (!this.isSupplierKind && !sameStr(next.employeeId, prev.employeeId)) {
+        body['employeeId'] = next.employeeId;
+      }
+      if (!sameStr(next.payerUserId, prev.payerUserId)) body['payerUserId'] = next.payerUserId;
+      if (!sameStr(next.validatorUserId, prev.validatorUserId)) {
+        body['validatorUserId'] = next.validatorUserId;
+      }
+      if (!sameStr(next.accountId, prev.accountId)) body['accountId'] = next.accountId;
+      if (!sameStr(next.notes, prev.notes)) body['notes'] = next.notes;
+
+      if (!Object.keys(body).length) {
+        this.busy.set(false);
+        this.snack.open('Sin cambios', 'OK', { duration: 2000 });
+        this.ref.close(false);
+        return;
+      }
+
+      this.api.update(this.data.shopId, this.payment.id, body).subscribe({
+        next: () => {
+          this.busy.set(false);
+          this.snack.open('Pago actualizado', 'OK', { duration: 2500 });
+          this.ref.close(true);
+        },
+        error: (err) => {
+          this.busy.set(false);
+          const msg = err?.error?.message ?? 'No se pudo guardar';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
+        },
+      });
+      return;
+    }
+
+    this.api
+      .create(this.data.shopId, {
+        title: next.title,
+        amount: next.amount,
+        dueDate: next.dueDate,
+        supplierId: next.supplierId,
+        employeeId: next.employeeId,
+        payerUserId: next.payerUserId,
+        validatorUserId: next.validatorUserId,
+        accountId: next.accountId,
+        notes: next.notes,
+      })
+      .subscribe({
       next: () => {
         this.busy.set(false);
-        const wasValidated = this.isEdit && this.payment?.status === 'VALIDATED';
-        this.snack.open(
-          wasValidated
-            ? 'Pago actualizado · vuelve a pendiente de validación'
-            : this.isEdit
-              ? this.isPaidEdit
-                ? 'Pago abonado actualizado'
-                : 'Pago actualizado'
-              : this.isDuplicate
-                ? 'Pago duplicado'
-                : 'Pago creado',
-          'OK',
-          { duration: 3200 },
-        );
+        this.snack.open(this.isDuplicate ? 'Pago duplicado' : 'Pago creado', 'OK', {
+          duration: 2500,
+        });
         this.ref.close(true);
       },
       error: (err) => {
