@@ -76,10 +76,12 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">
-            @if (activeStatusFilterCount() > 0) {
-              {{ activeStatusFilterCount() }} estado{{ activeStatusFilterCount() === 1 ? '' : 's' }}
+            @if (activeFilterCount() > 0) {
+              {{ activeFilterCount() }} filtro{{ activeFilterCount() === 1 ? '' : 's' }} activo{{
+                activeFilterCount() === 1 ? '' : 's'
+              }}
             } @else {
-              Todos los estados
+              Sin filtros
             }
           </p>
         </div>
@@ -95,20 +97,54 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
           </button>
           <app-filters-collapse-btn
             [collapsed]="filtersCollapsed()"
-            [badgeCount]="activeStatusFilterCount()"
+            [badgeCount]="activeFilterCount()"
             (toggle)="toggleFilters()"
           />
         </div>
       </div>
-      <div class="guy-filters__body">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="pay-status-filter">
-        <mat-label>Estado</mat-label>
-        <mat-select [formControl]="statusFilter" multiple>
-          @for (opt of statusOptions; track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+      <div class="guy-filters__body pay-filters">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Estado</mat-label>
+          <mat-select [formControl]="statusFilter" multiple>
+            @for (opt of statusOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Valida</mat-label>
+          <mat-select [formControl]="validatorFilter" multiple>
+            @if (currentUserId()) {
+              <mat-option [value]="currentUserId()">Yo</mat-option>
+            }
+            @for (u of filterUsers(); track u.id) {
+              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Paga</mat-label>
+          <mat-select [formControl]="payerFilter" multiple>
+            @if (currentUserId()) {
+              <mat-option [value]="currentUserId()">Yo</mat-option>
+            }
+            @for (u of filterUsers(); track u.id) {
+              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        @if (currentUserId()) {
+          <button
+            mat-stroked-button
+            type="button"
+            class="pay-filters__mine"
+            [class.pay-filters__mine--on]="mineOnly()"
+            (click)="filterMine()"
+          >
+            <mat-icon>person</mat-icon>
+            {{ mineOnly() ? 'Viendo solo míos' : 'Solo míos' }}
+          </button>
+        }
       </div>
     </div>
 
@@ -278,6 +314,29 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
   `,
   styles: [
     `
+      .pay-filters {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.65rem 0.85rem;
+        align-items: start;
+      }
+      @media (min-width: 720px) {
+        .pay-filters {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .pay-filters__mine {
+          grid-column: 1 / -1;
+          justify-self: start;
+        }
+      }
+      .pay-filters__mine {
+        height: 40px;
+        border-radius: 999px;
+      }
+      .pay-filters__mine--on {
+        border-color: var(--guy-green, #2e7d32);
+        color: var(--guy-green, #2e7d32);
+      }
       .pay-list {
         display: flex;
         flex-direction: column;
@@ -433,18 +492,42 @@ export class PaymentsPage {
     ['PENDING_VALIDATION', 'VALIDATED'],
     { nonNullable: true },
   );
+  readonly validatorFilter = new FormControl<string[]>([], { nonNullable: true });
+  readonly payerFilter = new FormControl<string[]>([], { nonNullable: true });
+  readonly mineOnly = signal(false);
   readonly exporting = signal(false);
 
   readonly statusOptions = (
     Object.entries(STATUS_LABEL) as Array<[PaymentStatus, string]>
   ).map(([value, label]) => ({ value, label }));
 
-  /** Señal del valor del filtro (para badge y subtítulo). */
   private readonly statusFilterValue = toSignal(this.statusFilter.valueChanges, {
     initialValue: this.statusFilter.value,
   });
+  private readonly validatorFilterValue = toSignal(this.validatorFilter.valueChanges, {
+    initialValue: this.validatorFilter.value,
+  });
+  private readonly payerFilterValue = toSignal(this.payerFilter.valueChanges, {
+    initialValue: this.payerFilter.value,
+  });
 
-  readonly activeStatusFilterCount = computed(() => this.statusFilterValue()?.length ?? 0);
+  readonly currentUserId = computed(() => this.auth.currentUser()?.id ?? '');
+
+  /** Usuarios del local sin duplicar la opción "Yo". */
+  readonly filterUsers = computed(() => {
+    const me = this.currentUserId();
+    return this.users().filter((u) => u.id !== me);
+  });
+
+  readonly activeFilterCount = computed(() => {
+    let n = this.statusFilterValue()?.length ?? 0;
+    if (this.mineOnly()) n += 1;
+    else {
+      n += this.validatorFilterValue()?.length ?? 0;
+      n += this.payerFilterValue()?.length ?? 0;
+    }
+    return n;
+  });
 
   readonly shopId = computed(() => this.shops.selectedShopId());
 
@@ -518,6 +601,44 @@ export class PaymentsPage {
       this.reload();
     });
     this.statusFilter.valueChanges.subscribe(() => this.reload());
+    this.validatorFilter.valueChanges.subscribe(() => {
+      if (this.validatorFilter.value.length) this.mineOnly.set(false);
+      this.reload();
+    });
+    this.payerFilter.valueChanges.subscribe(() => {
+      if (this.payerFilter.value.length) this.mineOnly.set(false);
+      this.reload();
+    });
+  }
+
+  filterMine(): void {
+    if (!this.currentUserId()) return;
+    if (this.mineOnly()) {
+      this.mineOnly.set(false);
+      this.reload();
+      return;
+    }
+    this.mineOnly.set(true);
+    this.validatorFilter.setValue([], { emitEvent: false });
+    this.payerFilter.setValue([], { emitEvent: false });
+    this.reload();
+  }
+
+  private listFilterOpts() {
+    const statuses = this.statusFilter.value;
+    if (this.mineOnly()) {
+      return {
+        status: statuses.length ? statuses : undefined,
+        mine: true as const,
+      };
+    }
+    const validators = this.validatorFilter.value;
+    const payers = this.payerFilter.value;
+    return {
+      status: statuses.length ? statuses : undefined,
+      validatorUserId: validators.length ? validators : undefined,
+      payerUserId: payers.length ? payers : undefined,
+    };
   }
 
   reloadMeta(shopId: string): void {
@@ -559,10 +680,9 @@ export class PaymentsPage {
       this.loading.set(false);
       return;
     }
-    const statuses = this.statusFilter.value;
-    const status = statuses.length ? statuses : undefined;
+    const opts = this.listFilterOpts();
     this.loading.set(true);
-    this.api.list(shopId, status).subscribe({
+    this.api.list(shopId, opts).subscribe({
       next: (rows) => {
         this.rows.set(rows);
         this.loading.set(false);
@@ -583,11 +703,10 @@ export class PaymentsPage {
     const shopId = this.shopId();
     const shop = this.shops.selectedShop();
     if (!shopId || this.exporting()) return;
-    const statuses = this.statusFilter.value;
-    const status = statuses.length ? statuses : undefined;
+    const opts = this.listFilterOpts();
     const kind = this.kind();
     this.exporting.set(true);
-    this.api.exportExcel(shopId, status, kind).subscribe({
+    this.api.exportExcel(shopId, { ...opts, kind }).subscribe({
       next: (blob) => {
         this.exporting.set(false);
         const url = URL.createObjectURL(blob);

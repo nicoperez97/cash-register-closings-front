@@ -54,24 +54,57 @@ export class PaymentsApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
 
-  list(shopId: string, status?: string | string[]) {
+  list(
+    shopId: string,
+    opts?: {
+      status?: string | string[];
+      payerUserId?: string | string[] | null;
+      validatorUserId?: string | string[] | null;
+      mine?: boolean;
+    },
+  ) {
     const params: Record<string, string> = {};
-    const statusParam = Array.isArray(status)
-      ? status.filter(Boolean).join(',')
-      : (status || '').trim();
+    const join = (v?: string | string[] | null) =>
+      Array.isArray(v) ? v.filter(Boolean).join(',') : (v || '').trim();
+    const statusParam = join(opts?.status);
     if (statusParam) params['status'] = statusParam;
+    if (opts?.mine) {
+      params['mine'] = '1';
+    } else {
+      const payer = join(opts?.payerUserId);
+      if (payer) params['payerUserId'] = payer;
+      const validator = join(opts?.validatorUserId);
+      if (validator) params['validatorUserId'] = validator;
+    }
     return this.http.get<ShopPayment[]>(`${this.base}/shops/${shopId}/payments`, {
       params,
     });
   }
 
-  exportExcel(shopId: string, status?: string | string[], kind?: 'supplier' | 'employee') {
+  exportExcel(
+    shopId: string,
+    opts?: {
+      status?: string | string[];
+      kind?: 'supplier' | 'employee';
+      payerUserId?: string | string[] | null;
+      validatorUserId?: string | string[] | null;
+      mine?: boolean;
+    },
+  ) {
     const params: Record<string, string> = {};
-    const statusParam = Array.isArray(status)
-      ? status.filter(Boolean).join(',')
-      : (status || '').trim();
+    const join = (v?: string | string[] | null) =>
+      Array.isArray(v) ? v.filter(Boolean).join(',') : (v || '').trim();
+    const statusParam = join(opts?.status);
     if (statusParam) params['status'] = statusParam;
-    if (kind) params['kind'] = kind;
+    if (opts?.kind) params['kind'] = opts.kind;
+    if (opts?.mine) {
+      params['mine'] = '1';
+    } else {
+      const payer = join(opts?.payerUserId);
+      if (payer) params['payerUserId'] = payer;
+      const validator = join(opts?.validatorUserId);
+      if (validator) params['validatorUserId'] = validator;
+    }
     return this.http.get(`${this.base}/shops/${shopId}/payments/export.xlsx`, {
       params,
       responseType: 'blob',
