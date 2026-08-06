@@ -6,6 +6,8 @@ export interface ShopSupplier {
   id: string;
   shopId: string;
   name: string;
+  legalName: string | null;
+  taxId: string | null;
   bankAlias: string | null;
   notes: string | null;
   accountId: string;
@@ -15,6 +17,8 @@ export interface ShopSupplier {
 
 export interface UpsertSupplierBody {
   name?: string;
+  legalName?: string | null;
+  taxId?: string | null;
   bankAlias?: string | null;
   notes?: string | null;
   active?: boolean;

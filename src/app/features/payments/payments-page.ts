@@ -1,11 +1,13 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -20,6 +22,7 @@ import { HttpClient } from '@angular/common/http';
 import { PaymentsApiService, PaymentStatus, ShopPayment } from './payments-api.service';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { PaymentDialogComponent } from './payment-dialog';
+import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -75,6 +78,8 @@ function daysUntilDue(iso: string | null | undefined): number | null {
     MatIconModule,
     MatSelectModule,
     MatFormFieldModule,
+    MatDatepickerModule,
+    MatInputModule,
     MatDialogModule,
     MatSnackBarModule,
     FiltersCollapseBtnComponent,
@@ -154,6 +159,75 @@ function daysUntilDue(iso: string | null | undefined): number | null {
               <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
             }
           </mat-select>
+        </mat-form-field>
+        <mat-form-field
+          appearance="outline"
+          class="pay-filters__range"
+          subscriptSizing="dynamic"
+        >
+          <mat-label>Vencimiento</mat-label>
+          <mat-date-range-input [formGroup]="dueRange" [rangePicker]="duePicker">
+            <input matStartDate formControlName="start" placeholder="Desde" />
+            <input matEndDate formControlName="end" placeholder="Hasta" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
+          <mat-date-range-picker #duePicker />
+        </mat-form-field>
+        <mat-form-field
+          appearance="outline"
+          class="pay-filters__range"
+          subscriptSizing="dynamic"
+        >
+          <mat-label>Realizado</mat-label>
+          <mat-date-range-input [formGroup]="paidRange" [rangePicker]="paidPicker">
+            <input matStartDate formControlName="start" placeholder="Desde" />
+            <input matEndDate formControlName="end" placeholder="Hasta" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
+          <mat-date-range-picker #paidPicker />
+        </mat-form-field>
+        @if (isSupplierKind()) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Proveedor</mat-label>
+            <mat-select [formControl]="supplierFilter" multiple>
+              @for (s of suppliers(); track s.id) {
+                <mat-option [value]="s.id">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        } @else {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Empleado</mat-label>
+            <mat-select [formControl]="employeeFilter" multiple>
+              @for (e of employees(); track e.id) {
+                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Monto desde</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            [formControl]="amountMinFilter"
+            placeholder="0"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Monto hasta</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            [formControl]="amountMaxFilter"
+            placeholder="Sin tope"
+          />
         </mat-form-field>
         @if (currentUserId()) {
           <button
@@ -280,6 +354,76 @@ function daysUntilDue(iso: string | null | undefined): number | null {
             <p class="pay-card__notes">{{ p.notes }}</p>
           }
 
+          @if (isSupplierKind() && hasInvoiceData(p)) {
+            <details class="pay-card__invoice">
+              <summary>
+                <mat-icon>receipt_long</mat-icon>
+                Datos de facturación
+                @if (p.invoiceNumber) {
+                  <span class="pay-card__invoice-num"
+                    >{{ p.invoiceType || '' }} {{ p.invoiceNumber }}</span
+                  >
+                }
+              </summary>
+              <div class="pay-card__invoice-grid">
+                @if (p.invoiceLegalName) {
+                  <div>
+                    <span class="pay-card__label">Razón social</span>
+                    <strong>{{ p.invoiceLegalName }}</strong>
+                  </div>
+                }
+                @if (p.invoiceTaxId) {
+                  <div>
+                    <span class="pay-card__label">CUIT</span>
+                    <strong>{{ p.invoiceTaxId }}</strong>
+                  </div>
+                }
+                @if (p.invoiceType) {
+                  <div>
+                    <span class="pay-card__label">Tipo</span>
+                    <strong>{{ p.invoiceType }}</strong>
+                  </div>
+                }
+                @if (p.invoiceNumber) {
+                  <div>
+                    <span class="pay-card__label">Nº factura</span>
+                    <strong>{{ p.invoiceNumber }}</strong>
+                  </div>
+                }
+                @if (p.invoiceNetAmount != null) {
+                  <div>
+                    <span class="pay-card__label">Monto neto</span>
+                    <strong>$ {{ formatAmount(p.invoiceNetAmount) }}</strong>
+                  </div>
+                }
+                @if (p.invoiceIvaAmount != null) {
+                  <div>
+                    <span class="pay-card__label">IVA</span>
+                    <strong>$ {{ formatAmount(p.invoiceIvaAmount) }}</strong>
+                  </div>
+                }
+                @if (p.invoicePerceptionsAmount != null) {
+                  <div>
+                    <span class="pay-card__label">Percepciones</span>
+                    <strong>$ {{ formatAmount(p.invoicePerceptionsAmount) }}</strong>
+                  </div>
+                }
+                @if (p.invoiceOtherTaxesAmount != null) {
+                  <div>
+                    <span class="pay-card__label">Otros impuestos</span>
+                    <strong>$ {{ formatAmount(p.invoiceOtherTaxesAmount) }}</strong>
+                  </div>
+                }
+              </div>
+              @if (p.hasInvoiceFile) {
+                <button mat-stroked-button type="button" (click)="viewInvoice(p)">
+                  <mat-icon>visibility</mat-icon>
+                  Ver factura
+                </button>
+              }
+            </details>
+          }
+
           <div class="pay-card__actions">
             @if (canValidate(p)) {
               <button mat-flat-button color="primary" type="button" (click)="validate(p)">
@@ -302,6 +446,23 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                 <mat-icon>share</mat-icon>
                 Compartir
               </button>
+              <input
+                #receiptInput
+                type="file"
+                accept="application/pdf,image/*"
+                hidden
+                (change)="onReceiptPicked($event, p)"
+              />
+              <button mat-stroked-button type="button" (click)="receiptInput.click()">
+                <mat-icon>attach_file</mat-icon>
+                {{ p.hasReceiptFile ? 'Cambiar comprobante' : 'Adjuntar comprobante' }}
+              </button>
+              @if (p.hasReceiptFile) {
+                <button mat-stroked-button type="button" (click)="viewReceipt(p)">
+                  <mat-icon>visibility</mat-icon>
+                  Ver comprobante
+                </button>
+              }
             }
             @if (canManage()) {
               <button mat-stroked-button type="button" (click)="openDuplicate(p)">
@@ -358,9 +519,13 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         .pay-filters {
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
+        .pay-filters__range {
+          grid-column: span 1;
+        }
         .pay-filters__mine {
           grid-column: 1 / -1;
           justify-self: start;
+          align-self: center;
         }
       }
       .pay-filters__mine {
@@ -459,6 +624,42 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         font-size: 0.88rem;
         color: var(--guy-muted, #5f6f76);
       }
+      .pay-card__invoice {
+        margin: 0 0 0.85rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 6%, white);
+        border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 18%, var(--guy-border, #d7e0d9));
+      }
+      .pay-card__invoice summary {
+        cursor: pointer;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+        list-style: none;
+      }
+      .pay-card__invoice summary::-webkit-details-marker {
+        display: none;
+      }
+      .pay-card__invoice summary mat-icon {
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+      }
+      .pay-card__invoice-num {
+        font-weight: 500;
+        color: var(--guy-muted, #5f6f76);
+        font-variant-numeric: tabular-nums;
+      }
+      .pay-card__invoice-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem 0.85rem;
+        margin: 0.65rem 0;
+      }
       .pay-card__pay-data {
         display: flex;
         flex-direction: column;
@@ -512,6 +713,7 @@ export class PaymentsPage {
   private readonly confirm = inject(ConfirmDialogService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly fb = inject(FormBuilder);
   readonly shops = inject(ShopContextService);
 
   private readonly routeData = toSignal(this.route.data, {
@@ -553,6 +755,18 @@ export class PaymentsPage {
   );
   readonly validatorFilter = new FormControl<string[]>([], { nonNullable: true });
   readonly payerFilter = new FormControl<string[]>([], { nonNullable: true });
+  readonly dueRange = this.fb.group({
+    start: this.fb.control<Date | null>(null),
+    end: this.fb.control<Date | null>(null),
+  });
+  readonly paidRange = this.fb.group({
+    start: this.fb.control<Date | null>(null),
+    end: this.fb.control<Date | null>(null),
+  });
+  readonly supplierFilter = new FormControl<string[]>([], { nonNullable: true });
+  readonly employeeFilter = new FormControl<string[]>([], { nonNullable: true });
+  readonly amountMinFilter = new FormControl<number | null>(null);
+  readonly amountMaxFilter = new FormControl<number | null>(null);
   readonly mineOnly = signal(false);
   readonly exporting = signal(false);
 
@@ -568,6 +782,24 @@ export class PaymentsPage {
   });
   private readonly payerFilterValue = toSignal(this.payerFilter.valueChanges, {
     initialValue: this.payerFilter.value,
+  });
+  private readonly dueRangeValue = toSignal(this.dueRange.valueChanges, {
+    initialValue: this.dueRange.getRawValue(),
+  });
+  private readonly paidRangeValue = toSignal(this.paidRange.valueChanges, {
+    initialValue: this.paidRange.getRawValue(),
+  });
+  private readonly supplierFilterValue = toSignal(this.supplierFilter.valueChanges, {
+    initialValue: this.supplierFilter.value,
+  });
+  private readonly employeeFilterValue = toSignal(this.employeeFilter.valueChanges, {
+    initialValue: this.employeeFilter.value,
+  });
+  private readonly amountMinFilterValue = toSignal(this.amountMinFilter.valueChanges, {
+    initialValue: this.amountMinFilter.value,
+  });
+  private readonly amountMaxFilterValue = toSignal(this.amountMaxFilter.valueChanges, {
+    initialValue: this.amountMaxFilter.value,
   });
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.id ?? '');
@@ -585,6 +817,16 @@ export class PaymentsPage {
       n += this.validatorFilterValue()?.length ?? 0;
       n += this.payerFilterValue()?.length ?? 0;
     }
+    const due = this.dueRangeValue();
+    if (due?.start || due?.end) n += 1;
+    const paid = this.paidRangeValue();
+    if (paid?.start || paid?.end) n += 1;
+    if (this.isSupplierKind()) n += this.supplierFilterValue()?.length ?? 0;
+    else n += this.employeeFilterValue()?.length ?? 0;
+    const min = this.amountMinFilterValue();
+    const max = this.amountMaxFilterValue();
+    if (min != null && min !== ('' as any) && Number.isFinite(Number(min))) n += 1;
+    if (max != null && max !== ('' as any) && Number.isFinite(Number(max))) n += 1;
     return n;
   });
 
@@ -629,6 +871,100 @@ export class PaymentsPage {
     return Number(amount || 0).toLocaleString('es-AR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
+    });
+  }
+
+  hasInvoiceData(p: ShopPayment): boolean {
+    return !!(
+      p.hasInvoiceFile ||
+      p.invoiceLegalName ||
+      p.invoiceTaxId ||
+      p.invoiceType ||
+      p.invoiceNumber ||
+      p.invoiceNetAmount != null ||
+      p.invoiceIvaAmount != null ||
+      p.invoicePerceptionsAmount != null ||
+      p.invoiceOtherTaxesAmount != null
+    );
+  }
+
+  private triggerDownload(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private openFilePreview(title: string, fileName: string, blob: Blob): void {
+    this.dialogTitle.track(
+      this.dialog.open(PaymentFilePreviewDialogComponent, {
+        width: '920px',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        panelClass: 'guy-dialog',
+        data: { title, fileName, blob },
+      }),
+      title,
+    );
+  }
+
+  viewInvoice(p: ShopPayment): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.api.downloadInvoiceFile(shopId, p.id).subscribe({
+      next: (blob) =>
+        this.openFilePreview('Factura', p.invoiceFileName || 'factura.pdf', blob),
+      error: (err) => this.showErr(err),
+    });
+  }
+
+  viewReceipt(p: ShopPayment): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.api.downloadReceiptFile(shopId, p.id).subscribe({
+      next: (blob) =>
+        this.openFilePreview(
+          'Comprobante de pago',
+          p.receiptFileName || 'comprobante.pdf',
+          blob,
+        ),
+      error: (err) => this.showErr(err),
+    });
+  }
+
+  downloadInvoice(p: ShopPayment): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.api.downloadInvoiceFile(shopId, p.id).subscribe({
+      next: (blob) => this.triggerDownload(blob, p.invoiceFileName || 'factura.pdf'),
+      error: (err) => this.showErr(err),
+    });
+  }
+
+  downloadReceipt(p: ShopPayment): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.api.downloadReceiptFile(shopId, p.id).subscribe({
+      next: (blob) => this.triggerDownload(blob, p.receiptFileName || 'comprobante.pdf'),
+      error: (err) => this.showErr(err),
+    });
+  }
+
+  onReceiptPicked(ev: Event, p: ShopPayment): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    input.value = '';
+    if (!file) return;
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.api.uploadReceiptFile(shopId, p.id, file).subscribe({
+      next: () => {
+        this.snack.open('Comprobante de pago guardado', 'OK', { duration: 2500 });
+        this.reload();
+      },
+      error: (err) => this.showErr(err),
     });
   }
 
@@ -682,6 +1018,27 @@ export class PaymentsPage {
       if (this.payerFilter.value.length) this.mineOnly.set(false);
       this.reload();
     });
+    this.dueRange.valueChanges.subscribe(() => this.reload());
+    this.paidRange.valueChanges.subscribe(() => this.reload());
+    this.supplierFilter.valueChanges.subscribe(() => this.reload());
+    this.employeeFilter.valueChanges.subscribe(() => this.reload());
+    this.amountMinFilter.valueChanges.subscribe(() => this.reload());
+    this.amountMaxFilter.valueChanges.subscribe(() => this.reload());
+  }
+
+  private toIsoDate(value: Date | string | null | undefined): string | null {
+    if (!value) return null;
+    if (typeof value === 'string') return value.slice(0, 10) || null;
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private amountOrUndefined(v: number | null | undefined): number | undefined {
+    if (v === null || v === undefined || (v as any) === '') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
   }
 
   filterMine(): void {
@@ -699,10 +1056,34 @@ export class PaymentsPage {
 
   private listFilterOpts() {
     const statuses = this.statusFilter.value;
+    const dates = {
+      dueFrom: this.toIsoDate(this.dueRange.controls.start.value) || undefined,
+      dueTo: this.toIsoDate(this.dueRange.controls.end.value) || undefined,
+      paidFrom: this.toIsoDate(this.paidRange.controls.start.value) || undefined,
+      paidTo: this.toIsoDate(this.paidRange.controls.end.value) || undefined,
+    };
+    const amounts = {
+      amountMin: this.amountOrUndefined(this.amountMinFilter.value),
+      amountMax: this.amountOrUndefined(this.amountMaxFilter.value),
+    };
+    const party = this.isSupplierKind()
+      ? {
+          supplierId: this.supplierFilter.value.length
+            ? this.supplierFilter.value
+            : undefined,
+        }
+      : {
+          employeeId: this.employeeFilter.value.length
+            ? this.employeeFilter.value
+            : undefined,
+        };
     if (this.mineOnly()) {
       return {
         status: statuses.length ? statuses : undefined,
         mine: true as const,
+        ...dates,
+        ...amounts,
+        ...party,
       };
     }
     const validators = this.validatorFilter.value;
@@ -711,6 +1092,9 @@ export class PaymentsPage {
       status: statuses.length ? statuses : undefined,
       validatorUserId: validators.length ? validators : undefined,
       payerUserId: payers.length ? payers : undefined,
+      ...dates,
+      ...amounts,
+      ...party,
     };
   }
 
@@ -918,9 +1302,36 @@ export class PaymentsPage {
           }),
           'Pago registrado',
         );
+        // Ofrece adjuntar comprobante de pago de inmediato
+        void this.promptReceiptAfterPay(paid);
       },
       error: (err) => this.showErr(err),
     });
+  }
+
+  private async promptReceiptAfterPay(paid: ShopPayment): Promise<void> {
+    const ok = await this.confirm.confirm(
+      'Comprobante de pago',
+      '¿Querés adjuntar el comprobante de pago ahora?',
+    );
+    if (!ok) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const shopId = this.shopId();
+      if (!shopId) return;
+      this.api.uploadReceiptFile(shopId, paid.id, file).subscribe({
+        next: () => {
+          this.snack.open('Comprobante de pago guardado', 'OK', { duration: 2500 });
+          this.reload();
+        },
+        error: (err) => this.showErr(err),
+      });
+    };
+    input.click();
   }
 
   async sharePayment(p: ShopPayment): Promise<void> {
