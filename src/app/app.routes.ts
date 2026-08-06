@@ -115,6 +115,13 @@ export const routes: Routes = [
         title: 'Proveedores',
       },
       {
+        path: 'stock',
+        canActivate: [permissionGuard('stock.read')],
+        loadComponent: () =>
+          import('./features/stock/stock-page').then((m) => m.StockPage),
+        title: 'Administración de stock',
+      },
+      {
         path: 'admin/shops',
         canActivate: [superAdminGuard],
         loadComponent: () =>

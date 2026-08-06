@@ -9,13 +9,23 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { forkJoin, Observable, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { Employee, EmployeeType, EmployeesApiService, ShopUserOption } from './employees-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+
+export type ProducerOption = {
+  id: string;
+  fullName: string;
+  supervisorEmployeeId?: string | null;
+};
 
 export type EmployeeDialogData = {
   shopId: string;
   shopName: string;
   users: ShopUserOption[];
+  /** Productores del local (excluye al editado en opciones de UI). */
+  producers: ProducerOption[];
 } & ({ mode: 'create' } | { mode: 'edit'; employee: Employee });
 
 function toDateInput(value?: string | null): Date | null {
@@ -89,6 +99,31 @@ function toDateString(value: Date | null): string | null {
           Produce comida (asistencia en producción)
         </mat-slide-toggle>
 
+        @if (form.controls.producesFood.value) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Su supervisor</mat-label>
+            <mat-icon matPrefix>supervisor_account</mat-icon>
+            <mat-select formControlName="supervisorEmployeeId">
+              <mat-option [value]="null">Sin supervisor</mat-option>
+              @for (p of peerOptions(); track p.id) {
+                <mat-option [value]="p.id">{{ p.fullName }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Quién puede cargar las horas de este productor</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Productores a cargo</mat-label>
+            <mat-icon matPrefix>group</mat-icon>
+            <mat-select formControlName="supervisedIds" multiple>
+              @for (p of peerOptions(); track p.id) {
+                <mat-option [value]="p.id">{{ p.fullName }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Podés elegir varios; este productor cargará sus horas</mat-hint>
+          </mat-form-field>
+        }
+
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Usuario vinculado (opcional)</mat-label>
           <mat-icon matPrefix>person</mat-icon>
@@ -117,7 +152,7 @@ function toDateString(value: Date | null): string | null {
           <textarea matInput rows="2" formControlName="notes"></textarea>
         </mat-form-field>
 
-          @if (isEdit) {
+        @if (isEdit) {
           <mat-slide-toggle formControlName="active">Empleado visible</mat-slide-toggle>
         }
       </form>
@@ -153,16 +188,31 @@ export class EmployeeDialogComponent {
   private readonly employee = this.data.mode === 'edit' ? this.data.employee : null;
   readonly busy = signal(false);
 
+  private readonly initialSupervisedIds = this.employee
+    ? (this.data.producers ?? [])
+        .filter((p) => p.supervisorEmployeeId === this.employee!.id)
+        .map((p) => p.id)
+    : [];
+
   readonly form = this.fb.nonNullable.group({
     fullName: [this.employee?.fullName ?? '', Validators.required],
     baseSalary: [this.employee?.baseSalary ?? 0, [Validators.required, Validators.min(0)]],
     type: this.fb.nonNullable.control<EmployeeType>(this.employee?.type ?? 'FIXED'),
     producesFood: [this.employee?.producesFood ?? false],
+    supervisorEmployeeId: this.fb.control<string | null>(
+      this.employee?.supervisorEmployeeId ?? null,
+    ),
+    supervisedIds: this.fb.nonNullable.control<string[]>([...this.initialSupervisedIds]),
     userId: this.fb.control<string | null>(this.employee?.userId ?? null),
     hireDate: this.fb.control<Date | null>(toDateInput(this.employee?.hireDate)),
     notes: [this.employee?.notes ?? ''],
     active: [this.employee?.active ?? true],
   });
+
+  peerOptions(): ProducerOption[] {
+    const selfId = this.employee?.id;
+    return (this.data.producers ?? []).filter((p) => p.id !== selfId);
+  }
 
   save(): void {
     if (this.form.invalid) {
@@ -171,35 +221,74 @@ export class EmployeeDialogComponent {
     }
     const shopId = this.data.shopId;
     const raw = this.form.getRawValue();
+    const producesFood = !!raw.producesFood;
     const body: Partial<Employee> = {
       fullName: raw.fullName.trim(),
       baseSalary: raw.baseSalary,
       type: raw.type,
-      producesFood: !!raw.producesFood,
+      producesFood,
+      supervisorEmployeeId: producesFood ? raw.supervisorEmployeeId || null : null,
       userId: raw.userId || null,
       hireDate: toDateString(raw.hireDate),
       notes: raw.notes.trim() || null,
     };
     this.busy.set(true);
 
-    const req =
+    const saveEmp$: Observable<Employee> =
       this.isEdit && this.employee
         ? this.api.update(shopId, this.employee.id, { ...body, active: raw.active })
         : this.api.create(shopId, body);
 
-    req.subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.snack.open(this.isEdit ? 'Empleado actualizado' : 'Empleado creado', 'OK', {
-          duration: 2500,
-        });
-        this.ref.close(true);
-      },
-      error: (err) => {
-        this.busy.set(false);
-        const msg = err?.error?.message ?? 'Error al guardar';
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
-      },
-    });
+    const desiredSupervised = producesFood ? raw.supervisedIds : [];
+
+    saveEmp$
+      .pipe(
+        switchMap((saved) => {
+          const patches = this.buildSupervisedPatches(
+            shopId,
+            saved.id,
+            this.initialSupervisedIds,
+            desiredSupervised,
+          );
+          if (!patches.length) return of(saved);
+          return forkJoin(patches).pipe(switchMap(() => of(saved)));
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.busy.set(false);
+          this.snack.open(this.isEdit ? 'Empleado actualizado' : 'Empleado creado', 'OK', {
+            duration: 2500,
+          });
+          this.ref.close(true);
+        },
+        error: (err) => {
+          this.busy.set(false);
+          const msg = err?.error?.message ?? 'Error al guardar';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+        },
+      });
+  }
+
+  private buildSupervisedPatches(
+    shopId: string,
+    supervisorId: string,
+    previousIds: string[],
+    desiredIds: string[],
+  ): Observable<Employee>[] {
+    const prev = new Set(previousIds);
+    const next = new Set(desiredIds);
+    const patches: Observable<Employee>[] = [];
+    for (const id of next) {
+      if (!prev.has(id) && id !== supervisorId) {
+        patches.push(this.api.update(shopId, id, { supervisorEmployeeId: supervisorId }));
+      }
+    }
+    for (const id of prev) {
+      if (!next.has(id)) {
+        patches.push(this.api.update(shopId, id, { supervisorEmployeeId: null }));
+      }
+    }
+    return patches;
   }
 }

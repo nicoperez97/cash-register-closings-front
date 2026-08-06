@@ -44,6 +44,28 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
   CANCELLED: 'Cancelado',
 };
 
+function dueTime(iso: string | null | undefined): number {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const t = Date.parse(`${String(iso).slice(0, 10)}T12:00:00`);
+  return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+}
+
+function compareDueDate(a: string | null | undefined, b: string | null | undefined): number {
+  return dueTime(a) - dueTime(b);
+}
+
+/** Días hasta el vencimiento (negativo = vencido). null si no hay fecha. */
+function daysUntilDue(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const due = Date.parse(`${String(iso).slice(0, 10)}T12:00:00`);
+  if (!Number.isFinite(due)) return null;
+  const now = new Date();
+  const today = Date.parse(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`,
+  );
+  return Math.round((due - today) / 86_400_000);
+}
+
 @Component({
   selector: 'app-payments-page',
   imports: [
@@ -159,13 +181,25 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
         </div>
       } @else {
         @for (p of visibleRows(); track p.id) {
-          <article class="panel-card pay-card" [attr.data-status]="p.status">
+          <article
+            class="panel-card pay-card"
+            [attr.data-status]="p.status"
+            [attr.data-due]="dueUrgency(p)"
+          >
             <div class="pay-card__top">
               <div>
                 <h3 class="pay-card__title">{{ p.title || 'Sin concepto' }}</h3>
-                <p class="pay-card__meta">
+                <p class="pay-card__meta" [class.pay-card__due--overdue]="dueUrgency(p) === 'overdue'" [class.pay-card__due--soon]="dueUrgency(p) === 'soon'">
                   @if (p.dueDate) {
-                    Vence {{ formatDate(p.dueDate) }}
+                    @if (dueUrgency(p) === 'overdue') {
+                      <mat-icon class="pay-card__due-icon">warning</mat-icon>
+                      Vencido {{ formatDate(p.dueDate) }}
+                    } @else if (dueUrgency(p) === 'soon') {
+                      <mat-icon class="pay-card__due-icon">schedule</mat-icon>
+                      Vence {{ formatDate(p.dueDate) }}
+                    } @else {
+                      Vence {{ formatDate(p.dueDate) }}
+                    }
                   } @else {
                     Sin fecha
                   }
@@ -358,6 +392,31 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
         margin: 0;
         font-size: 0.85rem;
         color: var(--guy-muted, #5f6f76);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.2rem 0.35rem;
+      }
+      .pay-card__due-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+      }
+      .pay-card__due--overdue {
+        color: #c62828;
+        font-weight: 700;
+      }
+      .pay-card__due--soon {
+        color: #e65100;
+        font-weight: 700;
+      }
+      .pay-card[data-due='overdue'] {
+        border-color: color-mix(in srgb, #c62828 55%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, #c62828 6%, var(--guy-surface, #fff));
+      }
+      .pay-card[data-due='soon'] {
+        border-color: color-mix(in srgb, #e65100 50%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, #e65100 6%, var(--guy-surface, #fff));
       }
       .pay-card__amount {
         font-size: 1.2rem;
@@ -531,9 +590,12 @@ export class PaymentsPage {
 
   readonly shopId = computed(() => this.shops.selectedShopId());
 
-  readonly visibleRows = computed(() =>
-    this.rows().filter((p) => (this.isSupplierKind() ? !!p.supplierId : !p.supplierId)),
-  );
+  readonly visibleRows = computed(() => {
+    const list = this.rows().filter((p) =>
+      this.isSupplierKind() ? !!p.supplierId : !p.supplierId,
+    );
+    return [...list].sort((a, b) => compareDueDate(a.dueDate, b.dueDate));
+  });
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'payments.manage');
@@ -545,6 +607,17 @@ export class PaymentsPage {
 
   statusLabel(status: PaymentStatus): string {
     return STATUS_LABEL[status] ?? status;
+  }
+
+  /** overdue | soon (≤3 días) | ok | none — solo para pagos abiertos. */
+  dueUrgency(p: ShopPayment): 'overdue' | 'soon' | 'ok' | 'none' {
+    if (!p.dueDate) return 'none';
+    if (p.status !== 'PENDING_VALIDATION' && p.status !== 'VALIDATED') return 'none';
+    const days = daysUntilDue(p.dueDate);
+    if (days == null) return 'none';
+    if (days < 0) return 'overdue';
+    if (days <= 3) return 'soon';
+    return 'ok';
   }
 
   formatDate(iso: string | null | undefined): string {

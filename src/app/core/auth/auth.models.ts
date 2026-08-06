@@ -34,7 +34,9 @@ export type Permission =
   | 'payments.read'
   | 'payments.manage'
   | 'suppliers.read'
-  | 'suppliers.manage';
+  | 'suppliers.manage'
+  | 'stock.read'
+  | 'stock.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -68,6 +70,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'payments.manage',
   'suppliers.read',
   'suppliers.manage',
+  'stock.read',
+  'stock.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -104,6 +108,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'payments.manage',
     'suppliers.read',
     'suppliers.manage',
+    'stock.read',
+    'stock.manage',
   ],
   CASHIER: ['closings.create', 'closings.read'],
   VIEWER: [
@@ -119,6 +125,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reservations.read',
     'payments.read',
     'suppliers.read',
+    'stock.read',
   ],
   PARTNER: [
     'closings.read',
@@ -145,6 +152,7 @@ export type ModuleKey =
   | 'waitingList'
   | 'payments'
   | 'suppliers'
+  | 'stock'
   | 'shop'
   | 'users';
 
@@ -330,6 +338,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'stock',
+    label: 'Stock',
+    icon: 'inventory',
+    group: 'daily',
+    hint: 'Administración de stock de productos',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
@@ -483,6 +503,16 @@ export interface ShopSummary {
   accentColor?: string | null;
   /** Color de énfasis / secundario del local. */
   accentSecondary?: string | null;
+  /** Email del local (remitente de notificaciones). */
+  email?: string | null;
+  /** Si el local tiene contraseña SMTP / de aplicación configurada. */
+  emailSmtpConfigured?: boolean;
+  /** Si es false, no se envían mails de este local. */
+  emailNotificationsEnabled?: boolean;
+  /** Tipos de mail; null = todos. */
+  emailNotificationTypes?: string[] | null;
+  /** Usuarios que reciben mail; null = todos. */
+  emailNotificationUserIds?: string[] | null;
   salesSystemId?: string | null;
   posnets?: ShopPosnet[];
   active?: boolean;
@@ -604,14 +634,15 @@ export function isCashierOnly(user: AuthUser | null, shopId: string | null): boo
   return !perms.includes('closings.update') && !perms.includes('closings.lock');
 }
 
-/** Solo carga sus horas de producción. */
+/** Solo carga sus horas de producción (y opcionalmente stock). */
 export function isProducerOnly(user: AuthUser | null, shopId: string | null): boolean {
   if (!user || !shopId) return false;
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
   const perms = permissionsForShop(user, shopId);
   if (!perms.includes('attendance.self')) return false;
   if (perms.includes('attendance.read') || perms.includes('attendance.manage')) return false;
-  const extra = perms.filter((p) => p !== 'attendance.self');
+  const allowedExtra = new Set<Permission>(['stock.read', 'stock.manage']);
+  const extra = perms.filter((p) => p !== 'attendance.self' && !allowedExtra.has(p));
   return extra.length === 0;
 }
 

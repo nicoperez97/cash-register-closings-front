@@ -8,7 +8,8 @@ export type NotificationType =
   | 'PAYMENT_REJECTED'
   | 'PAYMENT_PAID'
   | 'CLOSING_CREATED'
-  | 'PRODUCTION_HOURS_LOGGED';
+  | 'PRODUCTION_HOURS_LOGGED'
+  | 'STOCK_BELOW_MINIMUM';
 
 export interface AppNotification {
   id: string;
@@ -38,6 +39,8 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'point_of_sale';
     case 'PRODUCTION_HOURS_LOGGED':
       return 'restaurant';
+    case 'STOCK_BELOW_MINIMUM':
+      return 'inventory';
     default:
       return 'notifications';
   }
@@ -58,6 +61,8 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--navy';
     case 'PRODUCTION_HOURS_LOGGED':
       return 'notif-tone--green';
+    case 'STOCK_BELOW_MINIMUM':
+      return 'notif-tone--red';
     default:
       return 'notif-tone--muted';
   }

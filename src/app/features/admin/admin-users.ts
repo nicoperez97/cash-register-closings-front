@@ -90,7 +90,8 @@ export class AdminUsersPage implements OnInit {
   readonly rows = signal<AdminUserRow[]>([]);
   readonly loading = signal(true);
   readonly allShops = signal<Array<{ id: string; name: string }>>([]);
-  readonly scope = signal<'all' | 'shop'>('all');
+  /** Por defecto el local actual: flags como admin de stock son por local. */
+  readonly scope = signal<'all' | 'shop'>('shop');
   readonly always = () => true;
   readonly canRemoveRow = (row: AdminUserRow) =>
     row.id !== this.auth.currentUser()?.id;
@@ -141,6 +142,11 @@ export class AdminUsersPage implements OnInit {
         label: 'Retiro',
         format: (r) => (r['hideFromCashWithdraw'] ? 'Oculto' : 'Visible'),
       });
+      cols.push({
+        key: 'isStockAdmin',
+        label: 'Admin stock',
+        format: (r) => (r['isStockAdmin'] ? 'Sí' : 'No'),
+      });
     }
     cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });
     return cols;
@@ -185,10 +191,10 @@ export class AdminUsersPage implements OnInit {
       return;
     }
 
-    const opts =
-      this.auth.isAdmin() && this.scope() === 'all'
-        ? {}
-        : { params: { shopId: shopId! } };
+    // Flags por local (admin stock, ocultar retiro) solo vienen con shopId.
+    // “Todos los locales” es solo para super admin / multi-local.
+    const useAllShops = this.isSuperAdmin() && this.scope() === 'all';
+    const opts = useAllShops ? {} : { params: { shopId: shopId! } };
 
     this.loading.set(true);
     this.http.get<AdminUserRow[]>(`${environment.apiUrl}/users`, opts).subscribe({
@@ -288,29 +294,55 @@ export class AdminUsersPage implements OnInit {
         : mode.mode === 'edit'
           ? 'Editar usuario'
           : 'Nuevo usuario';
-    this.dialogTitle
-      .track(
-        this.dialog.open(AdminUserDialogComponent, {
-          width: mode.mode === 'roles' ? '640px' : '680px',
-          maxWidth: '96vw',
-          maxHeight: 'calc(100dvh - 4.5rem)',
-          autoFocus: 'dialog',
-          panelClass: 'guy-dialog',
-          data: {
+
+    const open = (resolved: typeof mode) => {
+      this.dialogTitle
+        .track(
+          this.dialog.open(AdminUserDialogComponent, {
+            width: mode.mode === 'roles' ? '640px' : '680px',
+            maxWidth: '96vw',
+            maxHeight: 'calc(100dvh - 4.5rem)',
+            autoFocus: 'dialog',
+            panelClass: 'guy-dialog',
+            data: {
+              ...resolved,
+              shopId,
+              shopName,
+              canAssignUsersModule: this.canAssignUsersModule(),
+              canAssignSuperAdmin: this.auth.isSuperAdmin(),
+              canAssignShops: this.auth.isAdmin(),
+              allShops: this.allShops(),
+            },
+          }),
+          title,
+        )
+        .afterClosed()
+        .subscribe((ok) => {
+          if (ok) this.reload();
+        });
+    };
+
+    if (mode.mode === 'create') {
+      open(mode);
+      return;
+    }
+
+    // Hidratar flags del local (isStockAdmin / hideFromCashWithdraw) por si el listado no los trae.
+    this.http
+      .get<AdminUserRow>(`${environment.apiUrl}/users/${mode.user.id}`, {
+        params: { shopId },
+      })
+      .subscribe({
+        next: (fresh) =>
+          open({
             ...mode,
-            shopId,
-            shopName,
-            canAssignUsersModule: this.canAssignUsersModule(),
-            canAssignSuperAdmin: this.auth.isSuperAdmin(),
-            canAssignShops: this.auth.isAdmin(),
-            allShops: this.allShops(),
-          },
-        }),
-        title,
-      )
-      .afterClosed()
-      .subscribe((ok) => {
-        if (ok) this.reload();
+            user: {
+              ...mode.user,
+              ...fresh,
+              shopIds: fresh.shopIds?.length ? fresh.shopIds : mode.user.shopIds,
+            },
+          }),
+        error: () => open(mode),
       });
   }
 }
