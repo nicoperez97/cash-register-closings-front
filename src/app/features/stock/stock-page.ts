@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,6 +20,7 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { StockApiService, StockCategory, StockProduct } from './stock-api.service';
 import { StockProductDialogComponent } from './stock-product-dialog';
 
@@ -28,6 +30,7 @@ import { StockProductDialogComponent } from './stock-product-dialog';
     DecimalPipe,
     FormsModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatIconModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -38,13 +41,14 @@ import { StockProductDialogComponent } from './stock-product-dialog';
     PageHeaderComponent,
     SpinnerComponent,
     FiltersCollapseBtnComponent,
+    BusyLabelComponent,
   ],
   template: `
     <app-page-header
       title="Administración de stock"
       [subtitle]="shops.selectedShop()?.name ?? 'Local'"
       [actionLabel]="canManage() ? 'Nuevo producto' : ''"
-      [actionDisabled]="!canManage()"
+      [actionDisabled]="!canManage() || restockMode()"
       actionIcon="add"
       [actionLarge]="true"
       (action)="openCreate()"
@@ -96,6 +100,48 @@ import { StockProductDialogComponent } from './stock-product-dialog';
       </div>
     </div>
 
+    @if (canManage()) {
+      <div class="stock-toolbar mb-3">
+        @if (!restockMode()) {
+          <button mat-stroked-button type="button" (click)="enterRestockMode()">
+            <mat-icon>replay</mat-icon>
+            Reponer
+          </button>
+        } @else {
+          <div class="stock-toolbar__restock">
+            <span class="stock-toolbar__hint">
+              Seleccioná productos para llevarlos a su stock máximo
+              @if (selectedCount() > 0) {
+                ({{ selectedCount() }})
+              }
+            </span>
+            <div class="stock-toolbar__actions">
+              <button
+                mat-button
+                type="button"
+                [disabled]="restocking()"
+                (click)="cancelRestockMode()"
+              >
+                Cancelar
+              </button>
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="restocking() || selectedCount() === 0"
+                (click)="confirmRestock()"
+              >
+                <app-busy-label [busy]="restocking()" busyLabel="Reponiendo…">
+                  <mat-icon>replay</mat-icon>
+                  Reponer
+                </app-busy-label>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
     <div class="stock-list">
       @if (loading()) {
         <div
@@ -132,13 +178,31 @@ import { StockProductDialogComponent } from './stock-product-dialog';
             class="panel-card stock-card"
             [class.stock-card--low]="row.belowMinimum"
             [class.stock-card--hidden]="!row.active"
+            [class.stock-card--select]="restockMode()"
+            (click)="restockMode() ? toggleSelect(row) : null"
           >
+            @if (restockMode()) {
+              <mat-checkbox
+                [checked]="isSelected(row.id)"
+                [disabled]="!canRestock(row) || restocking()"
+                (click)="$event.stopPropagation()"
+                (change)="toggleSelect(row)"
+                [matTooltip]="
+                  canRestock(row)
+                    ? 'Reponer a ' + (row.maxQuantity | number: '1.0-2')
+                    : 'Configurá un stock máximo mayor a 0'
+                "
+              />
+            }
             <div class="stock-card__main">
               <div>
                 <h3 class="stock-card__name">{{ row.name }}</h3>
                 <p class="stock-card__meta">
                   {{ row.categoryName || 'Sin categoría' }}
                   · mín. {{ row.minQuantity | number: '1.0-2' }}
+                  @if (row.maxQuantity > 0) {
+                    · máx. {{ row.maxQuantity | number: '1.0-2' }}
+                  }
                   @if (!row.active) {
                     · Oculto
                   }
@@ -147,7 +211,7 @@ import { StockProductDialogComponent } from './stock-product-dialog';
                   }
                 </p>
               </div>
-              @if (canManage()) {
+              @if (canManage() && !restockMode()) {
                 <div class="stock-card__actions">
                   <button mat-icon-button type="button" matTooltip="Editar" (click)="openEdit(row)">
                     <mat-icon>edit</mat-icon>
@@ -164,32 +228,43 @@ import { StockProductDialogComponent } from './stock-product-dialog';
               }
             </div>
 
-            <div class="stock-card__qty">
-              <button
-                mat-icon-button
-                type="button"
-                [disabled]="!canManage() || adjustingId() === row.id || row.quantity <= 0"
-                (click)="adjust(row, -1)"
-                aria-label="Restar"
-              >
-                <mat-icon>remove</mat-icon>
-              </button>
-              <strong
-                class="stock-card__qty-value"
-                [class.stock-card__qty-value--low]="row.belowMinimum"
-              >
-                {{ row.quantity | number: '1.0-2' }}
-              </strong>
-              <button
-                mat-icon-button
-                type="button"
-                [disabled]="!canManage() || adjustingId() === row.id"
-                (click)="adjust(row, 1)"
-                aria-label="Sumar"
-              >
-                <mat-icon>add</mat-icon>
-              </button>
-            </div>
+            @if (!restockMode()) {
+              <div class="stock-card__qty">
+                <button
+                  mat-icon-button
+                  type="button"
+                  [disabled]="!canManage() || adjustingId() === row.id || row.quantity <= 0"
+                  (click)="adjust(row, -1)"
+                  aria-label="Restar"
+                >
+                  <mat-icon>remove</mat-icon>
+                </button>
+                <strong
+                  class="stock-card__qty-value"
+                  [class.stock-card__qty-value--low]="row.belowMinimum"
+                >
+                  {{ row.quantity | number: '1.0-2' }}
+                </strong>
+                <button
+                  mat-icon-button
+                  type="button"
+                  [disabled]="!canManage() || adjustingId() === row.id"
+                  (click)="adjust(row, 1)"
+                  aria-label="Sumar"
+                >
+                  <mat-icon>add</mat-icon>
+                </button>
+              </div>
+            } @else {
+              <div class="stock-card__qty stock-card__qty--readonly">
+                <span class="small">Actual</span>
+                <strong>{{ row.quantity | number: '1.0-2' }}</strong>
+                @if (canRestock(row)) {
+                  <mat-icon class="stock-card__arrow">arrow_forward</mat-icon>
+                  <strong>{{ row.maxQuantity | number: '1.0-2' }}</strong>
+                }
+              </div>
+            }
           </article>
         }
       }
@@ -197,6 +272,33 @@ import { StockProductDialogComponent } from './stock-product-dialog';
   `,
   styles: [
     `
+      .stock-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .stock-toolbar__restock {
+        display: flex;
+        flex: 1;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--guy-navy, #003366) 4%, var(--guy-surface, #fff));
+      }
+      .stock-toolbar__hint {
+        font-size: 0.9rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .stock-toolbar__actions {
+        display: flex;
+        gap: 0.35rem;
+        align-items: center;
+      }
       .stock-list {
         display: flex;
         flex-direction: column;
@@ -209,6 +311,9 @@ import { StockProductDialogComponent } from './stock-product-dialog';
         justify-content: space-between;
         gap: 0.75rem;
         padding: 0.85rem 1rem;
+      }
+      .stock-card--select {
+        cursor: pointer;
       }
       .stock-card--low {
         border-color: color-mix(in srgb, #c62828 55%, var(--guy-border, #d7e0d9));
@@ -244,6 +349,16 @@ import { StockProductDialogComponent } from './stock-product-dialog';
         align-items: center;
         gap: 0.25rem;
       }
+      .stock-card__qty--readonly {
+        gap: 0.4rem;
+        color: var(--guy-navy, #003366);
+      }
+      .stock-card__arrow {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+        color: var(--guy-muted, #5f6f76);
+      }
       .stock-card__qty-value {
         min-width: 3.5rem;
         text-align: center;
@@ -275,6 +390,9 @@ export class StockPage {
   readonly includeInactive = signal(false);
   readonly categoryFilter = signal<string[]>([]);
   readonly adjustingId = signal<string | null>(null);
+  readonly restockMode = signal(false);
+  readonly selectedIds = signal<Set<string>>(new Set());
+  readonly restocking = signal(false);
 
   readonly rows = computed(() => {
     const cats = this.categoryFilter();
@@ -283,6 +401,8 @@ export class StockPage {
     const set = new Set(cats);
     return list.filter((r) => set.has(r.categoryId));
   });
+
+  readonly selectedCount = computed(() => this.selectedIds().size);
 
   readonly activeFilterCount = computed(() => {
     let n = 0;
@@ -300,9 +420,11 @@ export class StockPage {
         this.categories.set([]);
         this.categoryFilter.set([]);
         this.loading.set(false);
+        this.cancelRestockMode();
         return;
       }
       this.categoryFilter.set([]);
+      this.cancelRestockMode();
       this.reload();
     });
   }
@@ -313,6 +435,70 @@ export class StockPage {
       this.shops.selectedShopId(),
       'stock.manage',
     );
+  }
+
+  canRestock(row: StockProduct): boolean {
+    return row.active && Number(row.maxQuantity) > 0;
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedIds().has(id);
+  }
+
+  enterRestockMode(): void {
+    this.restockMode.set(true);
+    this.selectedIds.set(new Set());
+  }
+
+  cancelRestockMode(): void {
+    this.restockMode.set(false);
+    this.selectedIds.set(new Set());
+    this.restocking.set(false);
+  }
+
+  toggleSelect(row: StockProduct): void {
+    if (!this.canRestock(row) || this.restocking()) return;
+    this.selectedIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
+      return next;
+    });
+  }
+
+  async confirmRestock(): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    const ids = [...this.selectedIds()];
+    if (!shopId || !ids.length) return;
+
+    const names = this.products()
+      .filter((p) => ids.includes(p.id))
+      .map((p) => p.name);
+    const ok = await this.confirmDialog.confirm(
+      'Reponer stock',
+      `¿Llevar ${names.length === 1 ? `"${names[0]}"` : `${names.length} productos`} a su stock máximo?`,
+    );
+    if (!ok) return;
+
+    this.restocking.set(true);
+    this.api.restock(shopId, ids).subscribe({
+      next: (res) => {
+        this.restocking.set(false);
+        const updatedMap = new Map(res.products.map((p) => [p.id, p]));
+        this.products.update((list) => list.map((r) => updatedMap.get(r.id) ?? r));
+        const msg =
+          res.skipped?.length > 0
+            ? `Repuestos ${res.products.length}. Omitidos: ${res.skipped.join(', ')}`
+            : `Repuestos ${res.products.length} producto${res.products.length === 1 ? '' : 's'}`;
+        this.snack.open(msg, 'OK', { duration: 3500 });
+        this.cancelRestockMode();
+      },
+      error: (err) => {
+        this.restocking.set(false);
+        const msg = err?.error?.message ?? 'No se pudo reponer';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
   }
 
   onToggleInactive(value: boolean): void {

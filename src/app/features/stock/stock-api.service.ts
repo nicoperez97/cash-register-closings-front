@@ -6,7 +6,6 @@ export interface StockCategory {
   id: string;
   shopId: string;
   name: string;
-  minQuantity: number;
   active: boolean;
 }
 
@@ -16,6 +15,7 @@ export interface StockProduct {
   categoryId: string;
   categoryName?: string | null;
   minQuantity: number;
+  maxQuantity: number;
   name: string;
   quantity: number;
   belowMinimum: boolean;
@@ -33,7 +33,7 @@ export class StockApiService {
     });
   }
 
-  createCategory(shopId: string, body: { name: string; minQuantity?: number }) {
+  createCategory(shopId: string, body: { name: string }) {
     return this.http.post<StockCategory>(
       `${this.base}/shops/${shopId}/stock/categories`,
       body,
@@ -43,7 +43,7 @@ export class StockApiService {
   updateCategory(
     shopId: string,
     id: string,
-    body: Partial<{ name: string; minQuantity: number; active: boolean }>,
+    body: Partial<{ name: string; active: boolean }>,
   ) {
     return this.http.patch<StockCategory>(
       `${this.base}/shops/${shopId}/stock/categories/${id}`,
@@ -62,8 +62,10 @@ export class StockApiService {
     body: {
       name: string;
       categoryId?: string | null;
-      newCategory?: { name: string; minQuantity?: number } | null;
+      newCategory?: { name: string } | null;
       quantity?: number;
+      minQuantity?: number;
+      maxQuantity?: number;
     },
   ) {
     return this.http.post<StockProduct>(`${this.base}/shops/${shopId}/stock/products`, body);
@@ -75,8 +77,10 @@ export class StockApiService {
     body: {
       name?: string;
       categoryId?: string | null;
-      newCategory?: { name: string; minQuantity?: number } | null;
+      newCategory?: { name: string } | null;
       quantity?: number;
+      minQuantity?: number;
+      maxQuantity?: number;
       active?: boolean;
     },
   ) {
@@ -90,6 +94,13 @@ export class StockApiService {
     return this.http.post<StockProduct>(
       `${this.base}/shops/${shopId}/stock/products/${id}/adjust`,
       { delta },
+    );
+  }
+
+  restock(shopId: string, productIds: string[]) {
+    return this.http.post<{ products: StockProduct[]; skipped: string[] }>(
+      `${this.base}/shops/${shopId}/stock/products/restock`,
+      { productIds },
     );
   }
 
