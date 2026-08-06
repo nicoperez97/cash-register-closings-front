@@ -1,4 +1,5 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import { AuthService } from './auth/auth.service';
 
 const MIN_SPINNER_MS = 500;
 
@@ -45,5 +46,9 @@ export class PageRefreshService {
 export function usePageRefresh(handler: () => void | Promise<void>): void {
   const svc = inject(PageRefreshService);
   const destroyRef = inject(DestroyRef);
-  svc.register(handler, destroyRef);
+  const auth = inject(AuthService);
+  svc.register(async () => {
+    await Promise.resolve(handler());
+    void auth.refreshMe().catch(() => undefined);
+  }, destroyRef);
 }

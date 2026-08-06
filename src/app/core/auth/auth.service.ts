@@ -15,6 +15,14 @@ export class AuthService {
 
   readonly currentUser = signal<AuthUser | null>(this.readUser());
 
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private refreshInFlight: Promise<void> | null = null;
+  private visibilityHooked = false;
+
+  constructor() {
+    this.hookVisibilityRefresh();
+  }
+
   isAuthenticated(): boolean {
     return !!this.getToken() && !!this.currentUser();
   }
@@ -35,6 +43,18 @@ export class AuthService {
 
   hasPermission(permission: string): boolean {
     return !!this.currentUser()?.permissions?.includes(permission);
+  }
+
+  /**
+   * Revalida /auth/me con debounce (p.ej. tras cargas/actualizaciones vía interceptor).
+   */
+  scheduleRefreshMe(delayMs = 400): void {
+    if (!this.getToken()) return;
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      void this.refreshMe().catch(() => undefined);
+    }, delayMs);
   }
 
   async login(email: string, password: string): Promise<boolean> {
@@ -67,11 +87,19 @@ export class AuthService {
 
   async refreshMe(): Promise<void> {
     if (!this.getToken()) return;
-    const me = await firstValueFrom(this.http.get<any>(`${environment.apiUrl}/auth/me`));
-    const user = this.mapMe(me);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    this.currentUser.set(user);
-    this.shopContext.setShops(user.shops, user.favoriteShopId);
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = (async () => {
+      try {
+        const me = await firstValueFrom(this.http.get<any>(`${environment.apiUrl}/auth/me`));
+        const user = this.mapMe(me);
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+        this.currentUser.set(user);
+        this.shopContext.setShops(user.shops, user.favoriteShopId);
+      } finally {
+        this.refreshInFlight = null;
+      }
+    })();
+    return this.refreshInFlight;
   }
 
   async setFavoriteShop(shopId: string | null): Promise<void> {
@@ -85,10 +113,25 @@ export class AuthService {
   }
 
   logout(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.refreshInFlight = null;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this.currentUser.set(null);
     this.shopContext.clear();
+  }
+
+  private hookVisibilityRefresh(): void {
+    if (this.visibilityHooked || typeof document === 'undefined') return;
+    this.visibilityHooked = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.getToken()) {
+        this.scheduleRefreshMe(0);
+      }
+    });
   }
 
   private mapMe(me: any): AuthUser {
