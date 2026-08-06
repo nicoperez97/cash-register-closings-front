@@ -92,6 +92,10 @@ export class AuthService {
       try {
         const me = await firstValueFrom(this.http.get<any>(`${environment.apiUrl}/auth/me`));
         const user = this.mapMe(me);
+        const prev = this.currentUser();
+        if (prev && this.userFingerprint(prev) === this.userFingerprint(user)) {
+          return;
+        }
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         this.currentUser.set(user);
         this.shopContext.setShops(user.shops, user.favoriteShopId);
@@ -131,6 +135,34 @@ export class AuthService {
       if (document.visibilityState === 'visible' && this.getToken()) {
         this.scheduleRefreshMe(0);
       }
+    });
+  }
+
+  private userFingerprint(u: AuthUser): string {
+    return JSON.stringify({
+      id: u.id,
+      globalRole: u.globalRole,
+      permissions: u.permissions ?? [],
+      shopIds: u.shopIds ?? [],
+      shopRoles: u.shopRoles ?? {},
+      shopPermissions: u.shopPermissions ?? {},
+      shopModulePermissions: u.shopModulePermissions ?? {},
+      shopAccountIds: u.shopAccountIds ?? {},
+      favoriteShopId: u.favoriteShopId ?? null,
+      shops: (u.shops ?? []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        active: s.active,
+        logoUrl: s.logoUrl ?? null,
+        accentColor: s.accentColor ?? null,
+        accentSecondary: s.accentSecondary ?? null,
+        email: s.email ?? null,
+        emailNotificationsEnabled: s.emailNotificationsEnabled,
+        coversEnabled: s.coversEnabled,
+        reservationsEnabled: s.reservationsEnabled,
+        waitingListEnabled: s.waitingListEnabled,
+      })),
     });
   }
 

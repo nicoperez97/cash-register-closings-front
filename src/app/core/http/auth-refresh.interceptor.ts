@@ -6,17 +6,19 @@ import { AuthService } from '../auth/auth.service';
 
 function shouldRefreshAuth(url: string, method: string): boolean {
   if (!url.startsWith(environment.apiUrl)) return false;
-  if (method === 'OPTIONS' || method === 'HEAD') return false;
-  // Evitar bucle / ruido con el propio /auth/me y login.
+  // Solo tras cambios: un GET que dispare /auth/me re-ejecuta effects y genera loops.
+  const m = method.toUpperCase();
+  if (m !== 'POST' && m !== 'PUT' && m !== 'PATCH' && m !== 'DELETE') return false;
   if (url.includes('/auth/me')) return false;
   if (url.includes('/auth/login')) return false;
   if (url.includes('/auth/refresh')) return false;
+  if (url.includes('/auth/favorite-shop')) return false;
   return true;
 }
 
 /**
- * Tras cualquier respuesta OK a la API, revalida roles/permisos del usuario
- * (debounce en AuthService para no spamear /auth/me).
+ * Tras mutaciones OK a la API, revalida roles/permisos del usuario
+ * (debounce en AuthService).
  */
 export const authRefreshInterceptor: HttpInterceptorFn = (req, next) => {
   const injector = inject(Injector);
