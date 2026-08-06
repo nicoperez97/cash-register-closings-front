@@ -1500,9 +1500,17 @@ export class ClosingsFormPage implements OnInit {
   });
 
   readonly pendingWithdrawHint = computed(() => {
+    const v = this.formValue();
+    const userId = String(v.cashWithdrawnByUserId ?? '');
+    if (userId) return '';
     const amount = this.pendingWithdrawAmount();
-    if (amount <= 0) return '';
-    return `Quedará en A Retirar (${this.money(amount)}).`;
+    if (amount > 0) {
+      return `Quedará en A Retirar (${this.money(amount)}).`;
+    }
+    const cash = this.n(v.cashAmount);
+    if (cash <= 0) return '';
+    // Sin asignar pero no hay monto a retirar (todo queda en caja / egresos).
+    return 'Sin asignar: para que vaya a A Retirar, «Se deja en caja» tiene que ser menor que el efectivo (menos egresos).';
   });
 
   posnetsPanelHint(): string {
