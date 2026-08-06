@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -93,16 +93,6 @@ export type AdminPosProductDialogData = {
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Subrubro</mat-label>
-          <mat-select formControlName="subcategoryId">
-            <mat-option [value]="null">Sin subrubro</mat-option>
-            @for (s of filteredSubs(); track s.id) {
-              <mat-option [value]="s.id">{{ s.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
         <mat-slide-toggle formControlName="active" color="primary">Activo</mat-slide-toggle>
       </form>
     </mat-dialog-content>
@@ -123,7 +113,6 @@ export class AdminPosProductDialogComponent {
   private readonly fb = inject(FormBuilder);
 
   saving = false;
-  readonly filteredSubs = signal<AdminPosSubcategoryRow[]>([]);
 
   readonly form = this.fb.nonNullable.group({
     productName: [this.data.product.productName ?? '', Validators.required],
@@ -132,16 +121,9 @@ export class AdminPosProductDialogComponent {
     active: [this.data.product.active],
   });
 
-  constructor() {
-    this.onCategoryChange(false);
-  }
-
-  onCategoryChange(clearSub = true): void {
-    const catId = this.form.controls.categoryId.value;
-    this.filteredSubs.set(
-      this.data.subcategories.filter((s) => !catId || s.categoryId === catId),
-    );
-    if (clearSub) this.form.controls.subcategoryId.setValue(null);
+  onCategoryChange(): void {
+    // Al cambiar rubro, limpiamos subrubro (campo oculto por ahora).
+    this.form.controls.subcategoryId.setValue(null);
   }
 
   save(): void {

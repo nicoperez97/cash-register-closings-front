@@ -25,12 +25,8 @@ import {
   AdminPosCategoryRow,
   AdminPosProductDialogComponent,
   AdminPosProductRow,
-  AdminPosSubcategoryRow,
 } from './admin-pos-product-dialog';
-import {
-  AdminPosCategoryDialogComponent,
-  AdminPosSubcategoryDialogComponent,
-} from './admin-pos-catalog-dialogs';
+import { AdminPosCategoryDialogComponent } from './admin-pos-catalog-dialogs';
 
 @Component({
   selector: 'app-admin-pos-products',
@@ -49,7 +45,7 @@ import {
   ],
   template: `
     <app-page-header
-      title="Platos, rubros y subrubros"
+      title="Platos y rubros"
       subtitle="Catálogo POS · comisiones usan el rubro (COMIDA, PIZZA…)"
       [actionLabel]="canManage() ? 'Cargar desde reporte' : ''"
       actionIcon="upload_file"
@@ -82,7 +78,7 @@ import {
             <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
               <mat-label>Buscar</mat-label>
               <mat-icon matPrefix>search</mat-icon>
-              <input matInput [formControl]="q" placeholder="Código, nombre, rubro o subrubro" />
+              <input matInput [formControl]="q" placeholder="Código, nombre o rubro" />
             </mat-form-field>
             <div class="guy-filters__actions">
               <button mat-flat-button color="primary" type="button" (click)="loadProducts()">
@@ -132,32 +128,6 @@ import {
           </div>
         </div>
       </mat-tab>
-
-      <mat-tab label="Subrubros">
-        <div class="mt-3">
-          <app-page-header
-            title="Subrubros"
-            subtitle="Desglose interno (Pastas, Postres, Cervezas…)"
-            [actionLabel]="canManage() ? 'Nuevo subrubro' : ''"
-            actionIcon="add"
-            [actionLarge]="true"
-            (action)="openCreateSubcategory()"
-          />
-          <div class="panel-card panel-card--flush">
-            <div class="panel-card__body">
-              <app-data-table
-                [columns]="subcategoryColumns"
-                [rows]="subcategories()"
-                [sortable]="true"
-                [showActions]="canManage()"
-                [canRemove]="canManageFn"
-                (edit)="openEditSubcategory($event)"
-                (remove)="onRemoveSubcategory($event)"
-              />
-            </div>
-          </div>
-        </div>
-      </mat-tab>
     </mat-tab-group>
   `,
   styles: `
@@ -185,25 +155,16 @@ export class AdminPosProductsPage implements OnInit {
   readonly q = new FormControl('', { nonNullable: true });
   readonly products = signal<AdminPosProductRow[]>([]);
   readonly categories = signal<AdminPosCategoryRow[]>([]);
-  readonly subcategories = signal<AdminPosSubcategoryRow[]>([]);
 
   readonly productColumns: DataTableColumn[] = [
     { key: 'productCode', label: 'Código' },
     { key: 'productName', label: 'Plato' },
     { key: 'category', label: 'Rubro', format: (r) => String(r['category'] || '—') },
-    { key: 'subcategory', label: 'Subrubro', format: (r) => String(r['subcategory'] || '—') },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
 
   readonly categoryColumns: DataTableColumn[] = [
     { key: 'name', label: 'Rubro' },
-    { key: 'sortOrder', label: 'Orden' },
-    { key: 'notes', label: 'Notas' },
-  ];
-
-  readonly subcategoryColumns: DataTableColumn[] = [
-    { key: 'categoryName', label: 'Rubro' },
-    { key: 'name', label: 'Subrubro' },
     { key: 'sortOrder', label: 'Orden' },
     { key: 'notes', label: 'Notas' },
   ];
@@ -228,7 +189,6 @@ export class AdminPosProductsPage implements OnInit {
   reloadAll(): void {
     this.loadProducts();
     this.loadCategories();
-    this.loadSubcategories();
   }
 
   loadProducts(): void {
@@ -256,17 +216,6 @@ export class AdminPosProductsPage implements OnInit {
       });
   }
 
-  loadSubcategories(): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.http
-      .get<AdminPosSubcategoryRow[]>(`${environment.apiUrl}/shops/${shopId}/pos-subcategories`)
-      .subscribe({
-        next: (rows) => this.subcategories.set(rows),
-        error: () => this.subcategories.set([]),
-      });
-  }
-
   seedFromReport(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
@@ -280,7 +229,7 @@ export class AdminPosProductsPage implements OnInit {
       .subscribe({
         next: (r) => {
           this.snack.open(
-            `Catálogo cargado: ${r.categories} rubros, ${r.subcategories} subrubros, ${r.productsAssigned} platos asignados`,
+            `Catálogo cargado: ${r.categories} rubros, ${r.productsAssigned} platos asignados`,
             'OK',
             { duration: 4500 },
           );
@@ -304,7 +253,7 @@ export class AdminPosProductsPage implements OnInit {
             shopId,
             product,
             categories: this.categories(),
-            subcategories: this.subcategories(),
+            subcategories: [],
           },
         }),
         'Editar plato',
@@ -363,61 +312,5 @@ export class AdminPosProductsPage implements OnInit {
       },
       error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3000 }),
     });
-  }
-
-  openCreateSubcategory(): void {
-    this.openSubcategoryDialog({ mode: 'create' });
-  }
-
-  openEditSubcategory(row: Record<string, unknown>): void {
-    this.openSubcategoryDialog({
-      mode: 'edit',
-      subcategory: row as unknown as AdminPosSubcategoryRow,
-    });
-  }
-
-  private openSubcategoryDialog(
-    mode: { mode: 'create' } | { mode: 'edit'; subcategory: AdminPosSubcategoryRow },
-  ): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    if (!this.categories().length) {
-      this.snack.open('Primero creá o cargá rubros', 'OK', { duration: 3000 });
-      return;
-    }
-    this.dialogTitle
-      .track(
-        this.dialog.open(AdminPosSubcategoryDialogComponent, {
-          width: '480px',
-          maxWidth: '96vw',
-          panelClass: 'guy-dialog',
-          data: { shopId, categories: this.categories(), ...mode },
-        }),
-        mode.mode === 'edit' ? 'Editar subrubro' : 'Nuevo subrubro',
-      )
-      .afterClosed()
-      .subscribe((ok) => {
-        if (ok) {
-          this.loadSubcategories();
-          this.loadProducts();
-        }
-      });
-  }
-
-  async onRemoveSubcategory(row: Record<string, unknown>): Promise<void> {
-    const shopId = this.shops.selectedShopId();
-    const sub = row as unknown as AdminPosSubcategoryRow;
-    if (!shopId || !sub.id) return;
-    const ok = await this.confirm.confirm('Eliminar subrubro', `¿Quitar "${sub.name}"?`);
-    if (!ok) return;
-    this.http
-      .delete(`${environment.apiUrl}/shops/${shopId}/pos-subcategories/${sub.id}`)
-      .subscribe({
-        next: () => {
-          this.snack.open('Subrubro eliminado', 'OK', { duration: 2500 });
-          this.loadSubcategories();
-        },
-        error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3000 }),
-      });
   }
 }
