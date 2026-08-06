@@ -57,19 +57,29 @@ export class ShopContextService {
     preferredId?: string | null,
     forcePreferred = false,
   ): void {
-    this.shopsSignal.set(shops);
+    const prev = this.shopsSignal();
+    const sameList =
+      prev.length === shops.length &&
+      prev.every((s, i) => s.id === shops[i]?.id && JSON.stringify(s) === JSON.stringify(shops[i]));
+    if (!sameList) {
+      this.shopsSignal.set(shops);
+    }
     if (preferredId !== undefined) {
-      this.favoriteId.set(
-        preferredId && shops.some((s) => s.id === preferredId) ? preferredId : null,
-      );
+      const nextFav =
+        preferredId && shops.some((s) => s.id === preferredId) ? preferredId : null;
+      if (this.favoriteId() !== nextFav) {
+        this.favoriteId.set(nextFav);
+      }
     }
 
     const preferred =
       preferredId && shops.some((s) => s.id === preferredId) ? preferredId : null;
 
     if (forcePreferred && preferred) {
-      this.selectedId.set(preferred);
-      localStorage.setItem(SHOP_KEY, preferred);
+      if (this.selectedId() !== preferred) {
+        this.selectedId.set(preferred);
+        localStorage.setItem(SHOP_KEY, preferred);
+      }
       return;
     }
 

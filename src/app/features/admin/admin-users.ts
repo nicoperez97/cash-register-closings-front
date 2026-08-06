@@ -1,4 +1,4 @@
-import { Component, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal, untracked } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -156,13 +156,19 @@ export class AdminUsersPage implements OnInit {
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
+      const scope = this.scope();
+      // untracked: refreshMe actualiza currentUser y no debe re-disparar el listado.
+      const canManage = untracked(
+        () => this.auth.isAdmin() || canManageShopUsers(this.auth.currentUser(), shopId),
+      );
+      if (!canManage) {
         void this.router.navigate(['/']);
         return;
       }
-      if (!shopId && !this.auth.isAdmin()) return;
-      if (!shopId && this.scope() === 'shop') {
+      if (!shopId && !untracked(() => this.auth.isAdmin())) return;
+      if (!shopId && scope === 'shop') {
         this.scope.set('all');
+        return;
       }
       this.reload();
     });
