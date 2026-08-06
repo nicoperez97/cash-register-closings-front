@@ -63,27 +63,13 @@ export type StockProductDialogData = {
             <mat-icon matPrefix>category</mat-icon>
             <input matInput formControlName="newCategoryName" />
           </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Mínimo requerido</mat-label>
-            <mat-icon matPrefix>warning</mat-icon>
-            <input
-              matInput
-              type="number"
-              min="0"
-              step="1"
-              inputmode="decimal"
-              formControlName="newCategoryMin"
-            />
-          </mat-form-field>
         } @else {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Categoría</mat-label>
             <mat-icon matPrefix>category</mat-icon>
             <mat-select formControlName="categoryId">
               @for (c of data.categories; track c.id) {
-                <mat-option [value]="c.id">
-                  {{ c.name }} (mín. {{ c.minQuantity }})
-                </mat-option>
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -103,6 +89,33 @@ export type StockProductDialogData = {
             />
           </mat-form-field>
         }
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Stock mínimo</mat-label>
+          <mat-icon matPrefix>warning</mat-icon>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="1"
+            inputmode="decimal"
+            formControlName="minQuantity"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Stock máximo</mat-label>
+          <mat-icon matPrefix>vertical_align_top</mat-icon>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="1"
+            inputmode="decimal"
+            formControlName="maxQuantity"
+          />
+          <mat-hint>Usado al reponer. La cantidad puede superar este valor con +/-.</mat-hint>
+        </mat-form-field>
 
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Producto visible</mat-slide-toggle>
@@ -145,8 +158,9 @@ export class StockProductDialogComponent {
     createCategory: [false],
     categoryId: [this.product?.categoryId ?? (this.data.categories[0]?.id ?? '')],
     newCategoryName: [''],
-    newCategoryMin: [0],
     quantity: [this.product?.quantity ?? 0],
+    minQuantity: [this.product?.minQuantity ?? 0],
+    maxQuantity: [this.product?.maxQuantity ?? 0],
     active: [this.product?.active ?? true],
   });
 
@@ -166,12 +180,11 @@ export class StockProductDialogComponent {
     const raw = this.form.getRawValue();
     const body = {
       name: raw.name.trim(),
+      minQuantity: Number(raw.minQuantity) || 0,
+      maxQuantity: Number(raw.maxQuantity) || 0,
       ...(raw.createCategory
         ? {
-            newCategory: {
-              name: raw.newCategoryName.trim(),
-              minQuantity: Number(raw.newCategoryMin) || 0,
-            },
+            newCategory: { name: raw.newCategoryName.trim() },
             categoryId: null,
           }
         : { categoryId: raw.categoryId }),
