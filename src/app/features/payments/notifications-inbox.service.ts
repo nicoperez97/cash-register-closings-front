@@ -13,9 +13,10 @@ import {
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { NotificationsApiService } from './notifications-api.service';
+import { syncAppBadge } from '../../shared/utils/app-badge';
 
 /**
- * Estado compartido de notificaciones (badge toolbar + badge por local).
+ * Estado compartido de notificaciones (badge toolbar + badge por local + ícono PWA).
  * Se refresca con polling, al cambiar de local y tras cualquier llamada a la API.
  */
 @Injectable({ providedIn: 'root' })
@@ -52,6 +53,10 @@ export class NotificationsInboxService {
             byShop: this.api.unreadCountsByShop().pipe(
               catchError(() => of({ counts: {} as Record<string, number> })),
             ),
+            // Total global para el número del ícono en el celular (todos los locales).
+            total: this.api.unreadCount().pipe(
+              catchError(() => of({ count: 0 })),
+            ),
           });
         }),
       )
@@ -59,6 +64,7 @@ export class NotificationsInboxService {
         if (!res) return;
         this.unreadCount.set(Math.max(0, Number(res.count?.count) || 0));
         this.unreadByShop.set(res.byShop?.counts ?? {});
+        void syncAppBadge(Math.max(0, Number(res.total?.count) || 0));
       });
 
     toObservable(this.shops.selectedShopId, { injector: this.injector }).subscribe(() => {
@@ -93,5 +99,6 @@ export class NotificationsInboxService {
   clear(): void {
     this.unreadCount.set(0);
     this.unreadByShop.set({});
+    void syncAppBadge(0);
   }
 }

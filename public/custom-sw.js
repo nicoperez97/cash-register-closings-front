@@ -8,6 +8,7 @@ self.addEventListener('push', (event) => {
     body: 'Tenés una notificación nueva',
     url: '/',
     tag: 'crc-notification',
+    unreadCount: null,
   };
   try {
     if (event.data) {
@@ -23,20 +24,31 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Cierres de caja', {
-      body: data.body || '',
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
-      tag: data.tag || 'crc-notification',
-      renotify: true,
-      data: {
-        url: data.url || '/',
-        shopId: data.shopId || null,
-        notificationId: data.notificationId || null,
-      },
-    }),
-  );
+  const parsedUnread = Number(data.unreadCount);
+  const badgeCount =
+    Number.isFinite(parsedUnread) && parsedUnread > 0
+      ? Math.floor(parsedUnread)
+      : 1;
+
+  const show = self.registration.showNotification(data.title || 'Cierres de caja', {
+    body: data.body || '',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    tag: data.tag || 'crc-notification',
+    renotify: true,
+    data: {
+      url: data.url || '/',
+      shopId: data.shopId || null,
+      notificationId: data.notificationId || null,
+    },
+  });
+
+  const setBadge =
+    typeof self.registration.setAppBadge === 'function'
+      ? self.registration.setAppBadge(badgeCount).catch(() => undefined)
+      : Promise.resolve();
+
+  event.waitUntil(Promise.all([show, setBadge]));
 });
 
 self.addEventListener('notificationclick', (event) => {
