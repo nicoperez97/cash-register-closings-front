@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -34,6 +35,25 @@ const POSNET_TYPE_OPTIONS = [
   { value: 'MERCADO_PAGO', label: 'Mercado Pago' },
   { value: 'CUENTA_DNI', label: 'Cuenta DNI' },
 ] as const;
+
+const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
+  { value: 'PAYMENT_VALIDATE', label: 'Pagos · pendiente de validar' },
+  { value: 'PAYMENT_PAY', label: 'Pagos · pendiente de abonar' },
+  { value: 'PAYMENT_REJECTED', label: 'Pagos · rechazados' },
+  { value: 'PAYMENT_PAID', label: 'Pagos · abonados' },
+  { value: 'CLOSING_CREATED', label: 'Cierres creados' },
+  { value: 'PRODUCTION_HOURS_LOGGED', label: 'Horas de producción cargadas' },
+  { value: 'STOCK_BELOW_MINIMUM', label: 'Stock bajo el mínimo' },
+] as const;
+
+const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);
+
+interface ShopUserOption {
+  id: string;
+  fullName: string;
+  email: string;
+  active?: boolean;
+}
 
 /** Campos del cierre → medio vinculado a cuenta canal. */
 const CLOSING_DEPOSIT_FIELDS = [
@@ -66,6 +86,7 @@ const WEEKDAY_OPTIONS = [
     MatButtonModule,
     MatSelectModule,
     MatSlideToggleModule,
+    MatCheckboxModule,
     MatSnackBarModule,
     MatIconModule,
     MatDialogModule,
@@ -136,7 +157,100 @@ const WEEKDAY_OPTIONS = [
               <input matInput formControlName="slug" />
               <mat-hint>Solo minúsculas, números y guiones</mat-hint>
             </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Email del local (Gmail)</mat-label>
+              <input
+                matInput
+                type="email"
+                formControlName="email"
+                placeholder="local@gmail.com"
+                autocomplete="email"
+              />
+              <mat-hint>Remitente y usuario SMTP de las notificaciones</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Contraseña de aplicación</mat-label>
+              <input
+                matInput
+                type="password"
+                formControlName="emailSmtpPassword"
+                autocomplete="new-password"
+                [placeholder]="emailSmtpConfigured() ? '•••••••• (dejar vacío para no cambiar)' : 'Contraseña de app de Gmail'"
+              />
+              <mat-hint>
+                @if (emailSmtpConfigured()) {
+                  Ya hay una contraseña guardada. Completá solo si querés cambiarla.
+                } @else {
+                  Gmail → verificación en 2 pasos → contraseña de aplicación
+                }
+              </mat-hint>
+            </mat-form-field>
+            @if (emailSmtpConfigured()) {
+              <div class="shop-admin__smtp-actions">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="markClearSmtpPassword()"
+                >
+                  <mat-icon>link_off</mat-icon>
+                  Quitar contraseña SMTP
+                </button>
+              </div>
+            }
           </div>
+        </section>
+
+        <section class="panel-card">
+          <h2 class="guy-section-title">Notificaciones por correo</h2>
+          <p class="text-muted small mb-3">
+            Activá el envío de mails, elegí qué avisos se mandan y a qué usuarios del local.
+            Por defecto todos los tipos y todos los usuarios están chequeados.
+          </p>
+
+          <mat-slide-toggle formControlName="emailNotificationsEnabled" class="mb-3">
+            Enviar notificaciones por correo
+          </mat-slide-toggle>
+
+          @if (form.controls.emailNotificationsEnabled.value) {
+            <div class="shop-admin__email-grid">
+              <div>
+                <h3 class="shop-admin__op-title">Qué mails se envían</h3>
+                <div class="shop-admin__check-list">
+                  <button mat-stroked-button type="button" class="mb-2" (click)="toggleAllEmailTypes()">
+                    {{ allEmailTypesSelected() ? 'Desmarcar todos' : 'Marcar todos' }}
+                  </button>
+                  @for (t of emailTypeOptions; track t.value) {
+                    <mat-checkbox
+                      [checked]="isEmailTypeSelected(t.value)"
+                      (change)="toggleEmailType(t.value)"
+                    >
+                      {{ t.label }}
+                    </mat-checkbox>
+                  }
+                </div>
+              </div>
+              <div>
+                <h3 class="shop-admin__op-title">A quién</h3>
+                <div class="shop-admin__check-list">
+                  <button mat-stroked-button type="button" class="mb-2" (click)="toggleAllEmailUsers()">
+                    {{ allEmailUsersSelected() ? 'Desmarcar todos' : 'Marcar todos' }}
+                  </button>
+                  @if (!shopUsers().length) {
+                    <p class="text-muted small">No hay usuarios en este local.</p>
+                  }
+                  @for (u of shopUsers(); track u.id) {
+                    <mat-checkbox
+                      [checked]="isEmailUserSelected(u.id)"
+                      (change)="toggleEmailUser(u.id)"
+                    >
+                      {{ u.fullName }}
+                      <span class="text-muted small"> · {{ u.email }}</span>
+                    </mat-checkbox>
+                  }
+                </div>
+              </div>
+            </div>
+          }
         </section>
 
         <section class="panel-card shop-admin__appearance">
@@ -862,6 +976,24 @@ const WEEKDAY_OPTIONS = [
         flex-direction: column;
         gap: 0.55rem;
       }
+      .shop-admin__email-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.25rem;
+      }
+      .shop-admin__smtp-actions {
+        margin-top: 0.15rem;
+      }
+      @media (max-width: 800px) {
+        .shop-admin__email-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .shop-admin__check-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
       .shop-admin__weekday-chips {
         display: flex;
         flex-wrap: wrap;
@@ -922,10 +1054,14 @@ export class AdminShopPage implements OnInit {
 
   readonly salesSystems = signal<SalesSystemOption[]>([]);
   readonly accounts = signal<AdminAccountRow[]>([]);
+  readonly shopUsers = signal<ShopUserOption[]>([]);
   readonly saving = signal(false);
   readonly depositSaving = signal(false);
   readonly backupBusy = signal(false);
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
+  readonly emailTypeOptions = EMAIL_NOTIFICATION_TYPE_OPTIONS;
+  readonly emailSmtpConfigured = signal(false);
+  readonly clearSmtpPasswordOnSave = signal(false);
   readonly closingDepositFields = CLOSING_DEPOSIT_FIELDS;
 
   readonly depositForm = this.fb.nonNullable.group({
@@ -972,6 +1108,11 @@ export class AdminShopPage implements OnInit {
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
     slug: ['', Validators.required],
+    email: [''],
+    emailSmtpPassword: [''],
+    emailNotificationsEnabled: [true],
+    emailNotificationTypes: this.fb.nonNullable.control<string[]>([...ALL_EMAIL_NOTIFICATION_TYPES]),
+    emailNotificationUserIds: this.fb.nonNullable.control<string[]>([]),
     logoUrl: [''],
     accentColor: ['#2E7D32'],
     accentSecondary: ['#F9A825'],
@@ -1041,6 +1182,9 @@ export class AdminShopPage implements OnInit {
     this.form.patchValue({
       name: shop.name,
       slug: shop.slug,
+      email: shop.email ?? '',
+      emailSmtpPassword: '',
+      emailNotificationsEnabled: shop.emailNotificationsEnabled !== false,
       logoUrl: shop.logoUrl ?? '',
       accentColor: shop.accentColor ?? '#2E7D32',
       accentSecondary: shop.accentSecondary ?? '#F9A825',
@@ -1056,31 +1200,44 @@ export class AdminShopPage implements OnInit {
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
+    this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
-    this.http.get<any>(`${environment.apiUrl}/shops/${shopId}`).subscribe({
-      next: (s) => {
-        this.form.patchValue({
-          salesSystemId: s.salesSystemId ?? null,
-          name: s.name,
-          slug: s.slug,
-          logoUrl: s.logoUrl ?? '',
-          accentColor: s.accentColor ?? '#2E7D32',
-          accentSecondary: s.accentSecondary ?? '#F9A825',
-          unitsLabel: s.unitsLabel ?? '',
-          currency: s.currency ?? 'ARS',
-          defaultChangeAmount: s.defaultChangeAmount ?? 0,
-          openingTime: s.openingTime ?? '10:00',
-          productionDefaultHours: s.productionDefaultHours ?? 8,
-          closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
-          coversEnabled: !!s.coversEnabled,
-          reservationsEnabled: !!s.reservationsEnabled,
-          waitingListEnabled: !!s.waitingListEnabled,
-          active: !!s.active,
-        });
-        this.setPosnets(s.posnets ?? []);
-        this.shops.upsertShop(s);
-      },
-    });
+    this.emailSmtpConfigured.set(!!shop.emailSmtpConfigured);
+    this.clearSmtpPasswordOnSave.set(false);
+    if (shopId) {
+      this.loadShopUsers(shopId, shop.emailNotificationUserIds ?? null);
+      this.http.get<any>(`${environment.apiUrl}/shops/${shopId}`).subscribe({
+        next: (s) => {
+          this.form.patchValue({
+            salesSystemId: s.salesSystemId ?? null,
+            name: s.name,
+            slug: s.slug,
+            email: s.email ?? '',
+            emailSmtpPassword: '',
+            emailNotificationsEnabled: s.emailNotificationsEnabled !== false,
+            logoUrl: s.logoUrl ?? '',
+            accentColor: s.accentColor ?? '#2E7D32',
+            accentSecondary: s.accentSecondary ?? '#F9A825',
+            unitsLabel: s.unitsLabel ?? '',
+            currency: s.currency ?? 'ARS',
+            defaultChangeAmount: s.defaultChangeAmount ?? 0,
+            openingTime: s.openingTime ?? '10:00',
+            productionDefaultHours: s.productionDefaultHours ?? 8,
+            closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
+            coversEnabled: !!s.coversEnabled,
+            reservationsEnabled: !!s.reservationsEnabled,
+            waitingListEnabled: !!s.waitingListEnabled,
+            active: !!s.active,
+          });
+          this.emailSmtpConfigured.set(!!s.emailSmtpConfigured);
+          this.clearSmtpPasswordOnSave.set(false);
+          this.applyEmailLists(s.emailNotificationTypes, s.emailNotificationUserIds);
+          this.setPosnets(s.posnets ?? []);
+          this.shops.upsertShop(s);
+          this.loadShopUsers(shopId, s.emailNotificationUserIds ?? null);
+        },
+      });
+    }
   }
 
   colorPickerValue(): string {
@@ -1109,6 +1266,87 @@ export class AdminShopPage implements OnInit {
     const cur = this.form.controls.closedWeekdays.value;
     const next = cur.includes(day) ? cur.filter((d) => d !== day) : [...cur, day];
     this.form.controls.closedWeekdays.setValue(next.sort((a, b) => a - b));
+  }
+
+  private applyEmailLists(
+    types: string[] | null | undefined,
+    userIds: string[] | null | undefined,
+  ): void {
+    this.form.controls.emailNotificationTypes.setValue(
+      Array.isArray(types)
+        ? types.filter((t) =>
+            ALL_EMAIL_NOTIFICATION_TYPES.includes(
+              t as (typeof ALL_EMAIL_NOTIFICATION_TYPES)[number],
+            ),
+          )
+        : [...ALL_EMAIL_NOTIFICATION_TYPES],
+    );
+    if (Array.isArray(userIds)) {
+      this.form.controls.emailNotificationUserIds.setValue([...userIds]);
+    }
+  }
+
+  private loadShopUsers(shopId: string, savedUserIds: string[] | null): void {
+    this.http.get<ShopUserOption[]>(`${environment.apiUrl}/users`, { params: { shopId } }).subscribe({
+      next: (users) => {
+        const active = (users ?? []).filter((u) => u.active !== false);
+        this.shopUsers.set(active);
+        // null = todos chequeados por defecto; [] = ninguno
+        if (savedUserIds === null || savedUserIds === undefined) {
+          this.form.controls.emailNotificationUserIds.setValue(active.map((u) => u.id));
+        } else {
+          const ids = new Set(active.map((u) => u.id));
+          this.form.controls.emailNotificationUserIds.setValue(
+            savedUserIds.filter((id) => ids.has(id)),
+          );
+        }
+      },
+      error: () => this.shopUsers.set([]),
+    });
+  }
+
+  isEmailTypeSelected(type: string): boolean {
+    return this.form.controls.emailNotificationTypes.value.includes(type);
+  }
+
+  toggleEmailType(type: string): void {
+    const cur = this.form.controls.emailNotificationTypes.value;
+    const next = cur.includes(type) ? cur.filter((t) => t !== type) : [...cur, type];
+    this.form.controls.emailNotificationTypes.setValue(next);
+  }
+
+  allEmailTypesSelected(): boolean {
+    return ALL_EMAIL_NOTIFICATION_TYPES.every((t) =>
+      this.form.controls.emailNotificationTypes.value.includes(t),
+    );
+  }
+
+  toggleAllEmailTypes(): void {
+    this.form.controls.emailNotificationTypes.setValue(
+      this.allEmailTypesSelected() ? [] : [...ALL_EMAIL_NOTIFICATION_TYPES],
+    );
+  }
+
+  isEmailUserSelected(userId: string): boolean {
+    return this.form.controls.emailNotificationUserIds.value.includes(userId);
+  }
+
+  toggleEmailUser(userId: string): void {
+    const cur = this.form.controls.emailNotificationUserIds.value;
+    const next = cur.includes(userId) ? cur.filter((id) => id !== userId) : [...cur, userId];
+    this.form.controls.emailNotificationUserIds.setValue(next);
+  }
+
+  allEmailUsersSelected(): boolean {
+    const users = this.shopUsers();
+    if (!users.length) return true;
+    return users.every((u) => this.form.controls.emailNotificationUserIds.value.includes(u.id));
+  }
+
+  toggleAllEmailUsers(): void {
+    this.form.controls.emailNotificationUserIds.setValue(
+      this.allEmailUsersSelected() ? [] : this.shopUsers().map((u) => u.id),
+    );
   }
 
   addPosnet(): void {
@@ -1269,59 +1507,81 @@ export class AdminShopPage implements OnInit {
       });
   }
 
+  markClearSmtpPassword(): void {
+    this.clearSmtpPasswordOnSave.set(true);
+    this.form.controls.emailSmtpPassword.setValue('');
+    this.snack.open('Se quitará la contraseña al guardar', 'OK', { duration: 2500 });
+  }
+
   save(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.form.invalid || this.saving()) return;
     const raw = this.form.getRawValue();
     this.saving.set(true);
-    this.http
-      .patch<any>(`${environment.apiUrl}/shops/${shopId}`, {
-        name: raw.name,
-        slug: raw.slug,
-        logoUrl: raw.logoUrl.trim() || '',
-        accentColor: raw.accentColor.trim() || null,
-        accentSecondary: raw.accentSecondary.trim() || null,
-        unitsLabel: raw.unitsLabel.trim() || null,
-        currency: raw.currency || 'ARS',
-        defaultChangeAmount: raw.defaultChangeAmount,
-        openingTime: raw.openingTime || '10:00',
-        productionDefaultHours: raw.productionDefaultHours ?? 8,
-        closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
-        coversEnabled: raw.coversEnabled,
-        reservationsEnabled: raw.reservationsEnabled,
-        waitingListEnabled: raw.waitingListEnabled,
-        active: raw.active,
-        salesSystemId: raw.salesSystemId || null,
-        posnets: (raw.posnets as ShopPosnet[])
-          .map((p) => ({
-            id: p.id,
-            name: String(p.name ?? '').trim(),
-            type: p.type,
-          }))
-          .filter((p) => !!p.name),
-      })
-      .subscribe({
-        next: (shop) => {
-          const scrollY = window.scrollY;
-          this.saving.set(false);
-          if (shop.active === false) {
-            this.shops.setShops(this.shops.shops().filter((s) => s.id !== shop.id));
-          } else {
-            this.shops.upsertShop(shop);
-          }
-          void this.auth.refreshMe().finally(() => {
-            requestAnimationFrame(() => {
-              window.scrollTo({ top: scrollY, left: 0, behavior: 'instant' as ScrollBehavior });
-            });
+    const body: Record<string, unknown> = {
+      name: raw.name,
+      slug: raw.slug,
+      email: raw.email.trim() || null,
+      emailNotificationsEnabled: !!raw.emailNotificationsEnabled,
+      emailNotificationTypes: this.allEmailTypesSelected()
+        ? null
+        : [...raw.emailNotificationTypes],
+      emailNotificationUserIds: this.allEmailUsersSelected()
+        ? null
+        : [...raw.emailNotificationUserIds],
+      logoUrl: raw.logoUrl.trim() || '',
+      accentColor: raw.accentColor.trim() || null,
+      accentSecondary: raw.accentSecondary.trim() || null,
+      unitsLabel: raw.unitsLabel.trim() || null,
+      currency: raw.currency || 'ARS',
+      defaultChangeAmount: raw.defaultChangeAmount,
+      openingTime: raw.openingTime || '10:00',
+      productionDefaultHours: raw.productionDefaultHours ?? 8,
+      closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
+      coversEnabled: raw.coversEnabled,
+      reservationsEnabled: raw.reservationsEnabled,
+      waitingListEnabled: raw.waitingListEnabled,
+      active: raw.active,
+      salesSystemId: raw.salesSystemId || null,
+      posnets: (raw.posnets as ShopPosnet[])
+        .map((p) => ({
+          id: p.id,
+          name: String(p.name ?? '').trim(),
+          type: p.type,
+        }))
+        .filter((p) => !!p.name),
+    };
+    const smtpPass = String(raw.emailSmtpPassword ?? '').trim();
+    if (this.clearSmtpPasswordOnSave()) {
+      body['emailSmtpPassword'] = null;
+    } else if (smtpPass) {
+      body['emailSmtpPassword'] = smtpPass;
+    }
+    this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, body).subscribe({
+      next: (shop) => {
+        const scrollY = window.scrollY;
+        this.saving.set(false);
+        this.emailSmtpConfigured.set(!!shop.emailSmtpConfigured);
+        this.clearSmtpPasswordOnSave.set(false);
+        this.form.controls.emailSmtpPassword.setValue('');
+        if (shop.active === false) {
+          this.shops.setShops(this.shops.shops().filter((s) => s.id !== shop.id));
+        } else {
+          this.shops.upsertShop(shop);
+        }
+        void this.auth.refreshMe().finally(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, left: 0, behavior: 'instant' as ScrollBehavior });
           });
-          this.snack.open('Local actualizado', 'OK', { duration: 2500 });
-        },
-        error: (err) => {
-          this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
-        },
-      });
+        });
+        this.snack.open('Local actualizado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        this.saving.set(false);
+        const msg = err?.error?.message ?? 'No se pudo guardar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
   }
 
   downloadBackup(): void {

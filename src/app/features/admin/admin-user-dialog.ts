@@ -33,6 +33,7 @@ export interface AdminUserRow {
   ledgerAccountId?: string | null;
   ledgerAccountName?: string | null;
   hideFromCashWithdraw?: boolean;
+  isStockAdmin?: boolean;
 }
 
 export type AdminUserDialogData = {
@@ -582,6 +583,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             No aparece en el selector de retiro de efectivo de este local.
           </p>
+          <mat-slide-toggle formControlName="isStockAdmin">
+            Administrador de stock
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones cuando un producto baja del mínimo requerido.
+          </p>
         }
 
         @if (!isRolesOnly && data.canAssignShops && (data.allShops?.length ?? 0) > 0) {
@@ -624,6 +631,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
             No aparece en el selector de retiro de efectivo de este local.
+          </p>
+          <mat-slide-toggle formControlName="isStockAdmin">
+            Administrador de stock
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones cuando un producto baja del mínimo requerido.
           </p>
         }
       </form>
@@ -742,6 +755,7 @@ export class AdminUserDialogComponent implements OnInit {
       waitingList: [this.initialModules.waitingList],
       payments: [this.initialModules.payments],
       suppliers: [this.initialModules.suppliers],
+      stock: [this.initialModules.stock],
       accounts: [this.initialModules.accounts],
       concepts: [this.initialModules.concepts],
       shop: [this.initialModules.shop],
@@ -750,6 +764,7 @@ export class AdminUserDialogComponent implements OnInit {
     ledgerAccountIds: this.fb.nonNullable.control<string[]>(this.initialAccountIds()),
     active: [this.user?.active ?? true],
     hideFromCashWithdraw: [this.user?.hideFromCashWithdraw ?? false],
+    isStockAdmin: [this.user?.isStockAdmin ?? false],
   });
 
   readonly enabledSummary = computed(() => {
@@ -879,6 +894,7 @@ export class AdminUserDialogComponent implements OnInit {
           shopRole: globalRole,
           modulePermissions,
           hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+          isStockAdmin: !!raw.isStockAdmin,
         })
         .subscribe({
           next: () => {
@@ -906,6 +922,7 @@ export class AdminUserDialogComponent implements OnInit {
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+        isStockAdmin: !!raw.isStockAdmin,
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -940,6 +957,7 @@ export class AdminUserDialogComponent implements OnInit {
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+        isStockAdmin: !!raw.isStockAdmin,
       })
       .subscribe({
         next: () => {

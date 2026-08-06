@@ -84,7 +84,13 @@ export class MainLayoutComponent {
       return [{ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' }];
     }
     if (isProducerOnly(user, shopId)) {
-      return [{ label: 'Mis horas', route: '/my-production', icon: 'restaurant' }];
+      const items: NavItem[] = [
+        { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
+      ];
+      if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
+        items.push({ label: 'Stock', route: '/stock', icon: 'inventory' });
+      }
+      return items;
     }
 
     const items: NavItem[] = [
@@ -103,6 +109,9 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
       operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
+      operacion.push({ label: 'Stock', route: '/stock', icon: 'inventory' });
     }
     if (operacion.length) {
       items.push({
@@ -231,7 +240,13 @@ export class MainLayoutComponent {
       return [{ label: 'Cierre', route: '/closings/new', icon: 'point_of_sale' }];
     }
     if (isProducerOnly(user, shopId)) {
-      return [{ label: 'Mis horas', route: '/my-production', icon: 'restaurant' }];
+      const items: BottomNavItem[] = [
+        { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
+      ];
+      if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
+        items.push({ label: 'Stock', route: '/stock', icon: 'inventory' });
+      }
+      return items;
     }
     const items: BottomNavItem[] = [
       { label: 'Inicio', route: '/', icon: 'home', exact: true },
@@ -305,7 +320,10 @@ export class MainLayoutComponent {
         return;
       }
       if (isProducerOnly(user, shopId)) {
-        if (path !== '/my-production') {
+        const allowed =
+          path === '/my-production' ||
+          (path.startsWith('/stock') && hasShopPermission(user, shopId, 'stock.read'));
+        if (!allowed) {
           void this.router.navigateByUrl(home);
         }
         return;
@@ -404,6 +422,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/suppliers')) {
       return hasShopPermission(user, shopId, 'suppliers.read');
+    }
+    if (path.startsWith('/stock')) {
+      return hasShopPermission(user, shopId, 'stock.read');
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');

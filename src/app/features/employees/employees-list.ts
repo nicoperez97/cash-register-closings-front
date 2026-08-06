@@ -115,6 +115,25 @@ export class EmployeesListPage {
       format: (r) => (r['producesFood'] ? 'Sí' : 'No'),
     },
     {
+      key: 'supervisorEmployeeId',
+      label: 'Supervisor',
+      format: (r) => {
+        const id = r['supervisorEmployeeId'] as string | null | undefined;
+        if (!id) return '—';
+        const found = this.rows().find((e) => e.id === id);
+        return found?.fullName ?? '—';
+      },
+    },
+    {
+      key: 'id',
+      label: 'A cargo',
+      format: (r) => {
+        const id = String(r['id'] ?? '');
+        const n = this.rows().filter((e) => e.supervisorEmployeeId === id).length;
+        return n > 0 ? String(n) : '—';
+      },
+    },
+    {
       key: 'baseSalary',
       label: 'Sueldo base',
       format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
@@ -234,6 +253,13 @@ export class EmployeesListPage {
             shopId,
             shopName,
             users: this.users(),
+            producers: this.rows()
+              .filter((e) => !!e.producesFood && e.active)
+              .map((e) => ({
+                id: e.id,
+                fullName: e.fullName,
+                supervisorEmployeeId: e.supervisorEmployeeId ?? null,
+              })),
           },
         }),
         mode.mode === 'edit' ? 'Editar empleado' : 'Nuevo empleado',

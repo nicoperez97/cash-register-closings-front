@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -15,6 +16,7 @@ import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
 type ViewMode = 'day' | 'week' | 'month';
+type ScopeMode = 'self' | 'team';
 
 interface MyProdRangeResponse {
   shopId: string;
@@ -24,6 +26,11 @@ interface MyProdRangeResponse {
   employee: { employeeId: string; fullName: string };
   days: Record<string, { id?: string; hours: number; isPresent: boolean }>;
   totalHours: number;
+}
+
+interface TeamResponse {
+  supervisor: { employeeId: string; fullName: string };
+  team: Array<{ employeeId: string; fullName: string }>;
 }
 
 function isoDate(d: Date): string {
@@ -80,6 +87,7 @@ function distributeHours(total: number, n: number): number[] {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     MatSnackBarModule,
     PageHeaderComponent,
     LoadingStateComponent,
@@ -89,6 +97,32 @@ function distributeHours(total: number, n: number): number[] {
       title="Mis horas de producción"
       [subtitle]="subtitle()"
     />
+
+    @if (team().length) {
+      <div class="panel-card mb-3 my-prod-scope">
+        <mat-button-toggle-group
+          [value]="scope()"
+          (change)="onScope($event.value)"
+          aria-label="Alcance"
+        >
+          <mat-button-toggle value="self">Mis horas</mat-button-toggle>
+          <mat-button-toggle value="team">Mi equipo</mat-button-toggle>
+        </mat-button-toggle-group>
+        @if (scope() === 'team') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="my-prod-scope__select">
+            <mat-label>Productor</mat-label>
+            <mat-select
+              [ngModel]="selectedTeamId()"
+              (ngModelChange)="onTeamMember($event)"
+            >
+              @for (m of team(); track m.employeeId) {
+                <mat-option [value]="m.employeeId">{{ m.fullName }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+      </div>
+    }
 
     <div class="panel-card mb-3 my-prod-toolbar">
       <mat-button-toggle-group
@@ -223,6 +257,17 @@ function distributeHours(total: number, n: number): number[] {
   `,
   styles: [
     `
+      .my-prod-scope {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.85rem 1rem;
+      }
+      .my-prod-scope__select {
+        min-width: 14rem;
+        flex: 1;
+      }
       .my-prod-toolbar {
         display: flex;
         flex-wrap: wrap;
@@ -326,6 +371,9 @@ export class MyProductionPage {
   readonly shops = inject(ShopContextService);
 
   readonly mode = signal<ViewMode>('week');
+  readonly scope = signal<ScopeMode>('self');
+  readonly team = signal<Array<{ employeeId: string; fullName: string }>>([]);
+  readonly selectedTeamId = signal<string | null>(null);
   readonly anchor = signal(new Date());
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -344,6 +392,7 @@ export class MyProductionPage {
   readonly subtitle = computed(() => {
     const name = this.data()?.employee?.fullName;
     const shop = this.shops.selectedShop()?.name ?? 'Local';
+    if (this.scope() === 'team' && name) return `${shop} · Equipo · ${name}`;
     return name ? `${shop} · ${name}` : shop;
   });
 
@@ -431,8 +480,31 @@ export class MyProductionPage {
   constructor() {
     usePageRefresh(() => this.reload());
     effect(() => {
+      const shopId = this.shopId();
+      if (!shopId) {
+        this.team.set([]);
+        return;
+      }
+      this.http
+        .get<TeamResponse>(`${environment.apiUrl}/shops/${shopId}/production-attendance/me/team`)
+        .subscribe({
+          next: (res) => {
+            this.team.set(res.team ?? []);
+            if (!(res.team ?? []).length && this.scope() === 'team') {
+              this.scope.set('self');
+              this.selectedTeamId.set(null);
+            } else if ((res.team ?? []).length && !this.selectedTeamId()) {
+              this.selectedTeamId.set(res.team[0].employeeId);
+            }
+          },
+          error: () => this.team.set([]),
+        });
+    });
+    effect(() => {
       this.shopId();
       this.range();
+      this.scope();
+      this.selectedTeamId();
       this.reload();
     });
   }
@@ -440,6 +512,18 @@ export class MyProductionPage {
   onMode(value: ViewMode): void {
     if (!value) return;
     this.mode.set(value);
+  }
+
+  onScope(value: ScopeMode): void {
+    if (!value) return;
+    this.scope.set(value);
+    if (value === 'team' && !this.selectedTeamId() && this.team().length) {
+      this.selectedTeamId.set(this.team()[0].employeeId);
+    }
+  }
+
+  onTeamMember(employeeId: string): void {
+    this.selectedTeamId.set(employeeId || null);
   }
 
   goToday(): void {
@@ -508,10 +592,20 @@ export class MyProductionPage {
       return;
     }
     const { from, to } = this.range();
+    const teamId = this.selectedTeamId();
+    if (this.scope() === 'team' && !teamId) {
+      this.loading.set(false);
+      this.error.set('Seleccioná un productor del equipo.');
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
+    const url =
+      this.scope() === 'team' && teamId
+        ? `${environment.apiUrl}/shops/${shopId}/production-attendance/me/team/${teamId}`
+        : `${environment.apiUrl}/shops/${shopId}/production-attendance/me`;
     this.http
-      .get<MyProdRangeResponse>(`${environment.apiUrl}/shops/${shopId}/production-attendance/me`, {
+      .get<MyProdRangeResponse>(url, {
         params: { from, to },
       })
       .subscribe({
@@ -545,6 +639,8 @@ export class MyProductionPage {
   save(): void {
     const shopId = this.shopId();
     if (!shopId || this.saving()) return;
+    const teamId = this.selectedTeamId();
+    if (this.scope() === 'team' && !teamId) return;
     const draft = this.draftHours();
     const base = this.baseline();
     const items: Array<{ date: string; hours: number }> = [];
@@ -557,8 +653,12 @@ export class MyProductionPage {
     }
     if (!items.length) return;
     this.saving.set(true);
+    const url =
+      this.scope() === 'team' && teamId
+        ? `${environment.apiUrl}/shops/${shopId}/production-attendance/me/team/${teamId}/bulk`
+        : `${environment.apiUrl}/shops/${shopId}/production-attendance/me/bulk`;
     this.http
-      .post(`${environment.apiUrl}/shops/${shopId}/production-attendance/me/bulk`, { items })
+      .post(url, { items })
       .subscribe({
         next: () => {
           this.saving.set(false);

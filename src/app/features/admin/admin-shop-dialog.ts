@@ -26,6 +26,7 @@ export interface AdminShopRow {
   logoUrl?: string | null;
   accentColor?: string | null;
   accentSecondary?: string | null;
+  email?: string | null;
   active: boolean;
 }
 
@@ -87,6 +88,13 @@ function slugify(raw: string): string {
           @if (form.controls.slug.touched && form.controls.slug.hasError('required')) {
             <mat-error>Ingresá un slug</mat-error>
           }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Email del local</mat-label>
+          <mat-icon matPrefix>email</mat-icon>
+          <input matInput type="email" formControlName="email" placeholder="local@restaurante.com" />
+          <mat-hint>Remitente de las notificaciones por correo</mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -191,6 +199,7 @@ export class AdminShopDialogComponent {
   readonly form = this.fb.nonNullable.group({
     name: [this.shop?.name ?? '', Validators.required],
     slug: [this.shop?.slug ?? '', Validators.required],
+    email: [this.shop?.email ?? ''],
     unitsLabel: [this.shop?.unitsLabel ?? ''],
     currency: [this.shop?.currency ?? 'ARS'],
     defaultChangeAmount: [this.shop?.defaultChangeAmount ?? 0],
@@ -224,6 +233,7 @@ export class AdminShopDialogComponent {
     const body: Record<string, unknown> = {
       name: raw.name.trim(),
       slug: slugify(raw.slug) || raw.slug.trim(),
+      email: raw.email.trim() || null,
       unitsLabel: raw.unitsLabel.trim() || null,
       currency: raw.currency || 'ARS',
       defaultChangeAmount: Number(raw.defaultChangeAmount) || 0,
