@@ -42,6 +42,7 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'PAYMENT_REJECTED', label: 'Pagos · rechazados' },
   { value: 'PAYMENT_PAID', label: 'Pagos · abonados' },
   { value: 'CLOSING_CREATED', label: 'Cierres creados' },
+  { value: 'CASH_WITHDRAWAL_PICKED', label: 'Retiros de efectivo' },
   { value: 'PRODUCTION_HOURS_LOGGED', label: 'Horas de producción cargadas' },
   { value: 'STOCK_BELOW_MINIMUM', label: 'Stock bajo el mínimo' },
 ] as const;

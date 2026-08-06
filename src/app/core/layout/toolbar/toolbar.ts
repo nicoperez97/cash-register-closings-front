@@ -160,6 +160,10 @@ export class ToolbarComponent implements OnInit {
       void this.router.navigateByUrl(path);
       return;
     }
+    if (n.type === 'CASH_WITHDRAWAL_PICKED') {
+      void this.router.navigateByUrl('/cash-withdrawals');
+      return;
+    }
     if (n.type === 'PRODUCTION_HOURS_LOGGED') {
       void this.router.navigateByUrl('/production-attendance');
       return;

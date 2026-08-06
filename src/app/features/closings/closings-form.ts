@@ -22,6 +22,7 @@ import {
 } from '../../core/shop/business-date';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { shareText } from '../../shared/utils/share-text';
 import {
   closingSharePayload,
@@ -290,7 +291,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             <div class="closing-form__block-head">
               <div class="closing-form__block-title">
                 <h3><span class="closing-form__step">2</span> Efectivo</h3>
-                <span class="closing-form__meta">Contá billetes o cargá el total</span>
+                <span class="closing-form__meta">Contá billetes, dejá cambio y quién se lo lleva</span>
               </div>
               <button
                 mat-stroked-button
@@ -303,7 +304,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
               </button>
             </div>
             <div class="closing-form__block-body">
-              <div class="closing-form__fields closing-form__fields--pair">
+              <div class="closing-form__fields closing-form__fields--cash">
                 <mat-form-field
                   appearance="outline"
                   subscriptSizing="dynamic"
@@ -313,6 +314,21 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   <mat-label>Efectivo</mat-label>
                   <span matTextPrefix class="closing-field__prefix">$</span>
                   <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
+                </mat-form-field>
+                <mat-form-field
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                  floatLabel="always"
+                  class="closing-field--money"
+                >
+                  <mat-label>Se deja en caja</mat-label>
+                  <span matTextPrefix class="closing-field__prefix">$</span>
+                  <input
+                    matInput
+                    type="number"
+                    inputmode="decimal"
+                    formControlName="cashLeftInRegister"
+                  />
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-label>Quién se lo lleva</mat-label>
@@ -327,7 +343,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </mat-select>
                 </mat-form-field>
                 @if (needsWithdrawnAccountPick()) {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-2">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
                     <mat-label>Cuenta destino del efectivo</mat-label>
                     <mat-select formControlName="cashWithdrawnToAccountId">
                       @for (acc of withdrawnAccountOptions(); track acc.id) {
@@ -336,7 +352,12 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                     </mat-select>
                   </mat-form-field>
                 } @else if (withdrawnAccountHint()) {
-                  <p class="closing-form__account-hint">{{ withdrawnAccountHint() }}</p>
+                  <p class="closing-form__account-hint closing-form__span-all">{{ withdrawnAccountHint() }}</p>
+                }
+                @if (pendingWithdrawHint()) {
+                  <p class="closing-form__account-hint closing-form__span-all closing-form__pending-hint">
+                    {{ pendingWithdrawHint() }}
+                  </p>
                 }
               </div>
             </div>
@@ -506,10 +527,6 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                       <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
                     </mat-form-field>
                   }
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Cambio en caja</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="cashLeftInRegister" />
-                  </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Efectivo retirado</mat-label>
                     <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
@@ -700,6 +717,10 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .closing-form__fields--cash {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
       .closing-form__fields--totals {
         margin-top: 0.1rem;
         padding: 0.7rem 0.75rem;
@@ -709,6 +730,10 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
       }
 
       .closing-form__span-2 {
+        grid-column: 1 / -1;
+      }
+
+      .closing-form__span-all {
         grid-column: 1 / -1;
       }
 
@@ -948,6 +973,11 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         margin: 0;
         font-size: 0.78rem;
         color: var(--guy-muted, #5f6f76);
+      }
+
+      .closing-form__pending-hint {
+        color: color-mix(in srgb, var(--guy-accent, #2e7d32) 70%, #334);
+        font-weight: 500;
       }
 
       .closing-form__posnet-card {
@@ -1285,6 +1315,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
       @media (max-width: 560px) {
         .closing-form__fields,
         .closing-form__fields--pair,
+        .closing-form__fields--cash,
         .closing-form__fields--totals,
         .closing-form__fields--date,
         .closing-form__fields--single {
@@ -1313,6 +1344,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
 export class ClosingsFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ClosingsApiService);
+  private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
   private readonly shops = inject(ShopContextService);
   readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
@@ -1455,6 +1487,24 @@ export class ClosingsFormPage implements OnInit {
     return '';
   });
 
+  /** Monto a retirar si no hay destinatario (queda en A Retirar). */
+  readonly pendingWithdrawAmount = computed(() => {
+    const v = this.formValue();
+    const userId = String(v.cashWithdrawnByUserId ?? '');
+    if (userId) return 0;
+    const explicit = this.n(v.cashWithdrawn);
+    if (explicit > 0) return explicit;
+    const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
+    const expensesTotal = expenses.reduce((s, e) => s + this.n(e?.amount), 0);
+    return Math.max(0, this.n(v.cashAmount) - this.n(v.cashLeftInRegister) - expensesTotal);
+  });
+
+  readonly pendingWithdrawHint = computed(() => {
+    const amount = this.pendingWithdrawAmount();
+    if (amount <= 0) return '';
+    return `Quedará en A Retirar (${this.money(amount)}).`;
+  });
+
   posnetsPanelHint(): string {
     const n = this.posnetAmounts.length;
     if (!n) return 'Sin terminales · PVS y MP a mano';
@@ -1470,7 +1520,7 @@ export class ClosingsFormPage implements OnInit {
   withdrawPanelHint(): string {
     const amount = this.n(this.formValue().cashWithdrawn);
     if (amount > 0) return this.money(amount);
-    return 'Cambio, retiro y notas';
+    return 'Retiro, propinas y notas';
   }
 
   expensesPanelHint(): string {
@@ -1849,6 +1899,7 @@ export class ClosingsFormPage implements OnInit {
     this.api.update(shopId, this.closingId!, body).subscribe({
       next: () => {
         this.form.markAsPristine();
+        this.cashWithdrawalsInbox.refresh();
         this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
         void this.doShare();
       },
@@ -1923,6 +1974,21 @@ export class ClosingsFormPage implements OnInit {
       cashWithdrawnByEmployeeId: null,
       cashWithdrawnByName: selected?.fullName ?? null,
       cashWithdrawnToAccountId: accountId,
+      cashPendingPickup: userId
+        ? 0
+        : (() => {
+            const explicit = this.n(raw.cashWithdrawn);
+            if (explicit > 0) return explicit;
+            const expensesTotal = (
+              raw.expenses as Array<{ label: string; amount: number }>
+            )
+              .filter((e) => !!e.label && this.n(e.amount) > 0)
+              .reduce((s, e) => s + this.n(e.amount), 0);
+            return Math.max(
+              0,
+              this.n(raw.cashAmount) - this.n(raw.cashLeftInRegister) - expensesTotal,
+            );
+          })(),
       declaredTotal: this.declaredTotal(),
       posnetAmounts: posnetAmounts.length ? posnetAmounts : [],
       expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>)
@@ -2017,6 +2083,7 @@ export class ClosingsFormPage implements OnInit {
 
     this.api.update(shopId, this.closingId!, body).subscribe({
       next: () => {
+        this.cashWithdrawalsInbox.refresh();
         this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
         void this.router.navigateByUrl(
           defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
@@ -2076,6 +2143,8 @@ export class ClosingsFormPage implements OnInit {
     );
 
     if (result !== 'saved') return;
+
+    this.cashWithdrawalsInbox.refresh();
 
     if (this.cashierOnly()) {
       this.resetForNextClosing();

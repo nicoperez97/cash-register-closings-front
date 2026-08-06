@@ -11,6 +11,7 @@ import { AuthService } from '../../auth/auth.service';
 import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl } from '../../utils/drive-url';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
+import { PageRefreshService } from '../../page-refresh.service';
 
 export interface NavChild {
   label: string;
@@ -48,6 +49,7 @@ export class SidebarComponent {
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
   private readonly notifsInbox = inject(NotificationsInboxService);
+  readonly pageRefresh = inject(PageRefreshService);
   readonly navItems = input.required<NavItem[]>();
   readonly isMobile = input(false);
   readonly navigate = output<void>();
@@ -199,6 +201,11 @@ export class SidebarComponent {
 
   onLogoError(): void {
     this.logoBroken.set(true);
+  }
+
+  onLogoRefresh(): void {
+    if (!this.pageRefresh.hasHandler() || this.pageRefresh.refreshing()) return;
+    void this.pageRefresh.refresh();
   }
 
   badgeLabel(count: number): string {
