@@ -122,6 +122,22 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
                 }
               </div>
             </div>
+            @if (row.legalName || row.taxId) {
+              <div class="supplier-card__alias">
+                <span class="supplier-card__label">Datos fiscales</span>
+                <div class="supplier-card__value">
+                  @if (row.legalName) {
+                    {{ row.legalName }}
+                  }
+                  @if (row.legalName && row.taxId) {
+                    ·
+                  }
+                  @if (row.taxId) {
+                    CUIT {{ row.taxId }}
+                  }
+                </div>
+              </div>
+            }
           </article>
         } @empty {
           <div class="panel-card guy-empty">

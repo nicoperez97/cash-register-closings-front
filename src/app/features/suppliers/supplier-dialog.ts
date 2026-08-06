@@ -48,6 +48,18 @@ export type SupplierDialogData = {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Razón social</mat-label>
+          <mat-icon matPrefix>badge</mat-icon>
+          <input matInput formControlName="legalName" autocomplete="organization" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>CUIT</mat-label>
+          <mat-icon matPrefix>pin</mat-icon>
+          <input matInput formControlName="taxId" placeholder="XX-XXXXXXXX-X" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Alias / CBU</mat-label>
           <mat-icon matPrefix>account_balance</mat-icon>
           <input matInput formControlName="bankAlias" autocomplete="off" />
@@ -105,6 +117,8 @@ export class SupplierDialogComponent {
 
   readonly form = this.fb.nonNullable.group({
     name: [this.supplier?.name ?? '', Validators.required],
+    legalName: [this.supplier?.legalName ?? ''],
+    taxId: [this.supplier?.taxId ?? ''],
     bankAlias: [this.supplier?.bankAlias ?? ''],
     notes: [this.supplier?.notes ?? ''],
     active: [this.supplier?.active ?? true],
@@ -118,6 +132,8 @@ export class SupplierDialogComponent {
     const raw = this.form.getRawValue();
     const body = {
       name: raw.name.trim(),
+      legalName: raw.legalName.trim() || null,
+      taxId: raw.taxId.trim() || null,
       bankAlias: raw.bankAlias.trim() || null,
       notes: raw.notes.trim() || null,
     };

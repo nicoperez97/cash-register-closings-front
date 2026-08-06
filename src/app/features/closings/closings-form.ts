@@ -1993,7 +1993,7 @@ export class ClosingsFormPage implements OnInit {
       coversCount: raw.coversCount || null,
       declaredTotal: declared,
       calculatedTotal: declared,
-      difference: pos - declared,
+      difference: declared - pos,
       notes: String(raw.notes ?? '').trim() || null,
       posnetAmounts,
       expenses,

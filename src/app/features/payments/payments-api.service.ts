@@ -25,6 +25,8 @@ export interface ShopPayment {
   supplierId: string | null;
   supplierName: string | null;
   supplierBankAlias: string | null;
+  supplierLegalName?: string | null;
+  supplierTaxId?: string | null;
   employeeId: string | null;
   employeeName: string | null;
   status: PaymentStatus;
@@ -33,6 +35,18 @@ export interface ShopPayment {
   validatedByUserId: string | null;
   createdByUserId: string | null;
   movementId: string | null;
+  invoiceLegalName?: string | null;
+  invoiceTaxId?: string | null;
+  invoiceType?: string | null;
+  invoiceNumber?: string | null;
+  invoiceNetAmount?: number | null;
+  invoiceIvaAmount?: number | null;
+  invoicePerceptionsAmount?: number | null;
+  invoiceOtherTaxesAmount?: number | null;
+  hasInvoiceFile?: boolean;
+  invoiceFileName?: string | null;
+  hasReceiptFile?: boolean;
+  receiptFileName?: string | null;
   createdAt: string;
 }
 
@@ -47,6 +61,27 @@ export interface UpsertPaymentBody {
   accountId?: string | null;
   supplierId?: string | null;
   employeeId?: string | null;
+  invoiceLegalName?: string | null;
+  invoiceTaxId?: string | null;
+  invoiceType?: string | null;
+  invoiceNumber?: string | null;
+  invoiceNetAmount?: number | null;
+  invoiceIvaAmount?: number | null;
+  invoicePerceptionsAmount?: number | null;
+  invoiceOtherTaxesAmount?: number | null;
+}
+
+export interface ParsedInvoice {
+  legalName: string | null;
+  taxId: string | null;
+  invoiceType: string | null;
+  invoiceNumber: string | null;
+  netAmount: number | null;
+  ivaAmount: number | null;
+  perceptionsAmount: number | null;
+  otherTaxesAmount: number | null;
+  totalAmount: number | null;
+  rawText: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -61,6 +96,14 @@ export class PaymentsApiService {
       payerUserId?: string | string[] | null;
       validatorUserId?: string | string[] | null;
       mine?: boolean;
+      dueFrom?: string | null;
+      dueTo?: string | null;
+      paidFrom?: string | null;
+      paidTo?: string | null;
+      supplierId?: string | string[] | null;
+      employeeId?: string | string[] | null;
+      amountMin?: number | null;
+      amountMax?: number | null;
     },
   ) {
     const params: Record<string, string> = {};
@@ -76,6 +119,20 @@ export class PaymentsApiService {
       const validator = join(opts?.validatorUserId);
       if (validator) params['validatorUserId'] = validator;
     }
+    if (opts?.dueFrom) params['dueFrom'] = opts.dueFrom;
+    if (opts?.dueTo) params['dueTo'] = opts.dueTo;
+    if (opts?.paidFrom) params['paidFrom'] = opts.paidFrom;
+    if (opts?.paidTo) params['paidTo'] = opts.paidTo;
+    const suppliers = join(opts?.supplierId);
+    if (suppliers) params['supplierId'] = suppliers;
+    const employees = join(opts?.employeeId);
+    if (employees) params['employeeId'] = employees;
+    if (opts?.amountMin != null && Number.isFinite(opts.amountMin)) {
+      params['amountMin'] = String(opts.amountMin);
+    }
+    if (opts?.amountMax != null && Number.isFinite(opts.amountMax)) {
+      params['amountMax'] = String(opts.amountMax);
+    }
     return this.http.get<ShopPayment[]>(`${this.base}/shops/${shopId}/payments`, {
       params,
     });
@@ -89,6 +146,14 @@ export class PaymentsApiService {
       payerUserId?: string | string[] | null;
       validatorUserId?: string | string[] | null;
       mine?: boolean;
+      dueFrom?: string | null;
+      dueTo?: string | null;
+      paidFrom?: string | null;
+      paidTo?: string | null;
+      supplierId?: string | string[] | null;
+      employeeId?: string | string[] | null;
+      amountMin?: number | null;
+      amountMax?: number | null;
     },
   ) {
     const params: Record<string, string> = {};
@@ -105,6 +170,20 @@ export class PaymentsApiService {
       const validator = join(opts?.validatorUserId);
       if (validator) params['validatorUserId'] = validator;
     }
+    if (opts?.dueFrom) params['dueFrom'] = opts.dueFrom;
+    if (opts?.dueTo) params['dueTo'] = opts.dueTo;
+    if (opts?.paidFrom) params['paidFrom'] = opts.paidFrom;
+    if (opts?.paidTo) params['paidTo'] = opts.paidTo;
+    const suppliers = join(opts?.supplierId);
+    if (suppliers) params['supplierId'] = suppliers;
+    const employees = join(opts?.employeeId);
+    if (employees) params['employeeId'] = employees;
+    if (opts?.amountMin != null && Number.isFinite(opts.amountMin)) {
+      params['amountMin'] = String(opts.amountMin);
+    }
+    if (opts?.amountMax != null && Number.isFinite(opts.amountMax)) {
+      params['amountMax'] = String(opts.amountMax);
+    }
     return this.http.get(`${this.base}/shops/${shopId}/payments/export.xlsx`, {
       params,
       responseType: 'blob',
@@ -117,6 +196,46 @@ export class PaymentsApiService {
 
   update(shopId: string, id: string, body: Partial<UpsertPaymentBody>) {
     return this.http.patch<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}`, body);
+  }
+
+  parseInvoice(shopId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<ParsedInvoice>(
+      `${this.base}/shops/${shopId}/payments/parse-invoice`,
+      form,
+    );
+  }
+
+  uploadInvoiceFile(shopId: string, id: string, file: File, applyParsed = true) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('applyParsed', applyParsed ? '1' : '0');
+    return this.http.post<ShopPayment>(
+      `${this.base}/shops/${shopId}/payments/${id}/invoice-file`,
+      form,
+    );
+  }
+
+  uploadReceiptFile(shopId: string, id: string, file: File) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<ShopPayment>(
+      `${this.base}/shops/${shopId}/payments/${id}/receipt-file`,
+      form,
+    );
+  }
+
+  downloadInvoiceFile(shopId: string, id: string) {
+    return this.http.get(`${this.base}/shops/${shopId}/payments/${id}/invoice-file`, {
+      responseType: 'blob',
+    });
+  }
+
+  downloadReceiptFile(shopId: string, id: string) {
+    return this.http.get(`${this.base}/shops/${shopId}/payments/${id}/receipt-file`, {
+      responseType: 'blob',
+    });
   }
 
   validate(shopId: string, id: string) {
