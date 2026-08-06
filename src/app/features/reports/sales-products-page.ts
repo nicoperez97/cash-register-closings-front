@@ -9,6 +9,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
@@ -32,6 +33,20 @@ import { PosSalesImportDialogComponent } from './pos-sales-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { parseIsoDateParts } from '../../core/shop/business-date';
+
+/** Fecha corta es-AR: mié. 18 mar. */
+function formatDayLabelEs(isoDate: string): string {
+  const p = parseIsoDateParts(String(isoDate ?? ''));
+  if (!p) return String(isoDate ?? '');
+  const dt = new Date(Date.UTC(p.year, p.month - 1, p.day, 12, 0, 0));
+  return new Intl.DateTimeFormat('es-AR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(dt);
+}
 
 @Component({
   selector: 'app-sales-products-page',
@@ -46,6 +61,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     MatTabsModule,
     MatSnackBarModule,
     MatDialogModule,
+    MatTooltipModule,
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
@@ -72,7 +88,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">
-            Ventas POS: platos, rubros, subrubros (ej. Pinot Noir dentro de VINOS) y evolución diaria
+            Ventas POS: platos, rubros y evolución diaria
           </p>
         </div>
         <div class="guy-filters__tools">
@@ -110,16 +126,6 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Subrubro</mat-label>
-          <mat-select formControlName="subcategory">
-            <mat-option value="">Todos</mat-option>
-            @for (s of subcategoryOptions(); track s) {
-              <mat-option [value]="s">{{ s }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Forma de pago POS</mat-label>
           <mat-select formControlName="paymentCode">
             <mat-option value="">Todas</mat-option>
@@ -148,7 +154,12 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
           Actualizar
         </button>
         @if (canExport()) {
-          <button mat-stroked-button type="button" (click)="openPosSalesImport()">
+          <button
+            mat-stroked-button
+            type="button"
+            matTooltip="Solo estadísticas de platos y mesas. No afecta movimientos, cuentas ni cierres."
+            (click)="openPosSalesImport()"
+          >
             <mat-icon>upload_file</mat-icon>
             Importar Restosoft / POS
           </button>
@@ -176,12 +187,6 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
         subtitle="Por importe"
         [items]="topProductSlices()"
         [maxItems]="10"
-      />
-      <app-hbar-chart
-        title="Por subrubro"
-        [subtitle]="subcategoryChartSubtitle()"
-        [items]="subcategorySlices()"
-        [maxItems]="12"
       />
       <app-donut-chart
         title="Forma de pago"
@@ -229,25 +234,6 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
             <app-data-table
               [columns]="categoryColumns"
               [rows]="categories()"
-              [sortable]="true"
-              [showActions]="false"
-              [canRemove]="never"
-            />
-          </div>
-        </mat-tab>
-        <mat-tab label="Por subrubro">
-          <div class="panel-card__body">
-            <div class="guy-list-head">
-              <div>
-                <h2 class="guy-list-head__title">Ventas por subrubro</h2>
-                <p class="guy-list-head__meta">
-                  Desglose interno · en VINOS: Pinot Noir, Malbec, Blend, I Vini…
-                </p>
-              </div>
-            </div>
-            <app-data-table
-              [columns]="subcategoryColumns"
-              [rows]="subcategories()"
               [sortable]="true"
               [showActions]="false"
               [canRemove]="never"
@@ -352,14 +338,14 @@ export class SalesProductsPage {
 
   readonly dayAmountPoints = computed<ChartPoint[]>(() =>
     this.byDay().map((r) => ({
-      label: String(r['date'] ?? ''),
+      label: formatDayLabelEs(String(r['date'] ?? '')),
       value: Number(r['amount'] ?? 0),
     })),
   );
 
   readonly dayTicketPoints = computed<ChartPoint[]>(() =>
     this.byDay().map((r) => ({
-      label: String(r['date'] ?? ''),
+      label: formatDayLabelEs(String(r['date'] ?? '')),
       value: Number(r['ticketCount'] ?? 0),
     })),
   );
@@ -406,11 +392,6 @@ export class SalesProductsPage {
       key: 'category',
       label: 'Rubro',
       format: (r) => String(r['category'] || 'Sin rubro'),
-    },
-    {
-      key: 'subcategory',
-      label: 'Subrubro',
-      format: (r) => String(r['subcategory'] || 'Sin subrubro'),
     },
     {
       key: 'qty',
@@ -477,7 +458,11 @@ export class SalesProductsPage {
   ];
 
   readonly dayColumns: DataTableColumn[] = [
-    { key: 'date', label: 'Fecha' },
+    {
+      key: 'date',
+      label: 'Fecha',
+      format: (r) => formatDayLabelEs(String(r['date'] ?? '')),
+    },
     {
       key: 'qty',
       label: 'Cantidad',
@@ -498,11 +483,6 @@ export class SalesProductsPage {
       if (!shopId) return;
       this.load();
     });
-  }
-
-  subcategoryChartSubtitle(): string {
-    const cat = this.selectedCategory();
-    return cat ? `Dentro de ${cat}` : 'Todos los rubros · tip: filtrá VINOS';
   }
 
   onCategoryChange(): void {
@@ -589,7 +569,7 @@ export class SalesProductsPage {
       from,
       to,
       category: f.category || null,
-      subcategory: f.subcategory || null,
+      subcategory: null,
       paymentCode: f.paymentCode || null,
       q: f.q || null,
     };

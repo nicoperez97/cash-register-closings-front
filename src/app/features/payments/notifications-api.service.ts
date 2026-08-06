@@ -8,6 +8,7 @@ export type NotificationType =
   | 'PAYMENT_REJECTED'
   | 'PAYMENT_PAID'
   | 'CLOSING_CREATED'
+  | 'CASH_WITHDRAWAL_PICKED'
   | 'PRODUCTION_HOURS_LOGGED'
   | 'STOCK_BELOW_MINIMUM';
 
@@ -37,6 +38,8 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'check_circle';
     case 'CLOSING_CREATED':
       return 'point_of_sale';
+    case 'CASH_WITHDRAWAL_PICKED':
+      return 'payments';
     case 'PRODUCTION_HOURS_LOGGED':
       return 'restaurant';
     case 'STOCK_BELOW_MINIMUM':
@@ -59,6 +62,8 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--green';
     case 'CLOSING_CREATED':
       return 'notif-tone--navy';
+    case 'CASH_WITHDRAWAL_PICKED':
+      return 'notif-tone--green';
     case 'PRODUCTION_HOURS_LOGGED':
       return 'notif-tone--green';
     case 'STOCK_BELOW_MINIMUM':

@@ -45,6 +45,15 @@ export const routes: Routes = [
         title: 'Cierres',
       },
       {
+        path: 'cash-withdrawals',
+        canActivate: [permissionGuard('closings.read')],
+        loadComponent: () =>
+          import('./features/cash-withdrawals/cash-withdrawals-page').then(
+            (m) => m.CashWithdrawalsPage,
+          ),
+        title: 'A Retirar',
+      },
+      {
         path: 'closings/new',
         canActivate: [permissionGuard('closings.create')],
         loadComponent: () =>

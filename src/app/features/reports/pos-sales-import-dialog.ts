@@ -40,7 +40,8 @@ export interface PosSalesImportDialogData {
     <mat-dialog-content>
       <p class="text-muted mb-3">
         Subí el reporte del sistema de ventas (Restosoft .xls / WeMenu .pdf).
-        Se actualizan tickets, platos y totales diarios de ventas. No crea ni modifica cierres de caja.
+        Solo alimenta estadísticas de platos vendidos y mesas (cubiertos) en Ventas POS.
+        No crea ni modifica movimientos, cuentas ni cierres de caja.
       </p>
 
       <div class="xl-actions mb-3">

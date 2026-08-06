@@ -1,13 +1,27 @@
 <div class="sidebar">
   <div class="sidebar-brand-block">
-    <div
+    <button
+      type="button"
       class="sidebar-logo-wrap"
       [class.sidebar-logo-wrap--app]="isAppLogo() && !logoBroken()"
       [class.sidebar-logo-wrap--fallback]="logoBroken() || !logoSrc()"
+      [class.sidebar-logo-wrap--refreshing]="pageRefresh.refreshing()"
+      [disabled]="pageRefresh.refreshing()"
       [style.--shop-accent]="shopContext.selectedShop()?.accentColor || null"
       [style.--shop-accent-secondary]="shopContext.selectedShop()?.accentSecondary || null"
-      role="img"
-      [attr.aria-label]="logoAlt()"
+      [attr.aria-label]="
+        pageRefresh.hasHandler()
+          ? 'Actualizar pantalla · ' + logoAlt()
+          : logoAlt()
+      "
+      [matTooltip]="
+        pageRefresh.refreshing()
+          ? 'Actualizando…'
+          : pageRefresh.hasHandler()
+            ? 'Tocar para actualizar'
+            : logoAlt()
+      "
+      (click)="onLogoRefresh()"
     >
       @if (!logoBroken() && logoSrc()) {
         <img
@@ -22,7 +36,7 @@
       } @else {
         <span class="sidebar-logo-fallback">{{ shopInitial(logoAlt()) }}</span>
       }
-    </div>
+    </button>
     @if (isMobile()) {
       <button
         mat-icon-button
