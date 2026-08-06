@@ -9,6 +9,7 @@ import {
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -37,13 +38,35 @@ type CategoryTab = {
   lowCount: number;
 };
 
-type StockSectionId = 'low' | 'at' | 'ok';
-
-type StockSection = {
-  id: StockSectionId;
-  label: string;
+type LetterGroup = {
+  key: string;
+  letter: string | null;
   items: StockProduct[];
 };
+
+type SortMode = 'name' | 'qty';
+
+const SORT_KEY = 'crc_stock_sort';
+
+function letterOf(name: string): string {
+  const raw = String(name ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .charAt(0)
+    .toUpperCase();
+  if (!raw) return '#';
+  return /[A-Z]/.test(raw) ? raw : '#';
+}
+
+function loadSortMode(): SortMode {
+  try {
+    const v = localStorage.getItem(SORT_KEY);
+    return v === 'qty' || v === 'name' ? v : 'name';
+  } catch {
+    return 'name';
+  }
+}
 
 @Component({
   selector: 'app-stock-page',
@@ -51,6 +74,7 @@ type StockSection = {
     DecimalPipe,
     FormsModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatCheckboxModule,
     MatIconModule,
     MatDialogModule,
@@ -103,237 +127,253 @@ type StockSection = {
           </mat-slide-toggle>
         </div>
       </div>
+    </div>
 
-      @if (sections().length > 1) {
-        <nav class="stock-jump" aria-label="Ir a sección de stock">
-          @for (sec of sections(); track sec.id) {
+    @if (canManage() || rows().length) {
+      <div class="stock-toolbar mb-3">
+        <mat-button-toggle-group
+          class="stock-sort"
+          [value]="sortMode()"
+          (change)="onSortMode($event.value)"
+          aria-label="Ordenar productos"
+        >
+          <mat-button-toggle value="name" matTooltip="Orden alfabético">
+            <mat-icon>sort_by_alpha</mat-icon>
+            Nombre
+          </mat-button-toggle>
+          <mat-button-toggle value="qty" matTooltip="Más cerca del mínimo primero">
+            <mat-icon>trending_down</mat-icon>
+            Menor stock
+          </mat-button-toggle>
+        </mat-button-toggle-group>
+
+        @if (canManage()) {
+          @if (!restockMode()) {
+            <button mat-stroked-button type="button" (click)="enterRestockMode()">
+              <mat-icon>replay</mat-icon>
+              Reponer
+            </button>
+            <span class="stock-toolbar__meta"
+              >{{ rows().length }} producto{{ rows().length === 1 ? '' : 's' }}</span
+            >
+          } @else {
+            <div class="stock-toolbar__restock">
+              <span class="stock-toolbar__hint">
+                Seleccioná productos para llevarlos a su stock máximo
+                @if (selectedCount() > 0) {
+                  ({{ selectedCount() }})
+                }
+              </span>
+              <div class="stock-toolbar__actions">
+                <button
+                  mat-button
+                  type="button"
+                  [disabled]="restocking()"
+                  (click)="cancelRestockMode()"
+                >
+                  Cancelar
+                </button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  [disabled]="restocking() || selectedCount() === 0"
+                  (click)="confirmRestock()"
+                >
+                  <app-busy-label [busy]="restocking()" busyLabel="Reponiendo…">
+                    <mat-icon>replay</mat-icon>
+                    Reponer
+                  </app-busy-label>
+                </button>
+              </div>
+            </div>
+          }
+        } @else {
+          <span class="stock-toolbar__meta"
+            >{{ rows().length }} producto{{ rows().length === 1 ? '' : 's' }}</span
+          >
+        }
+      </div>
+    }
+
+    <div class="stock-body">
+      <div class="stock-list">
+        @if (loading()) {
+          <div
+            class="panel-card guy-empty guy-empty--loading"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <app-spinner [size]="28" tone="accent" />
+            <div>
+              <strong>Cargando…</strong>
+              <div class="small">Obteniendo stock</div>
+            </div>
+          </div>
+        } @else if (!products().length) {
+          <div class="panel-card guy-empty">
+            <mat-icon>inventory_2</mat-icon>
+            <div>
+              <strong>Sin productos</strong>
+              <div class="small">
+                @if (canManage()) {
+                  Creá el primero con “Nuevo producto”.
+                } @else {
+                  No hay productos cargados.
+                }
+              </div>
+            </div>
+          </div>
+        } @else if (!rows().length) {
+          <div class="panel-card guy-empty">
+            <mat-icon>category</mat-icon>
+            <div>
+              <strong>Sin productos en esta categoría</strong>
+              <div class="small">Probá otra pestaña o “Todos”.</div>
+            </div>
+          </div>
+        } @else {
+          @for (group of displayGroups(); track group.key) {
+            <section
+              class="stock-letter"
+              [attr.id]="group.letter ? 'stock-letter-' + group.letter : null"
+            >
+              @if (group.letter) {
+                <header class="stock-letter__head">{{ group.letter }}</header>
+              }
+              <div class="stock-letter__list">
+                @for (row of group.items; track row.id) {
+                  <article
+                    class="panel-card stock-card"
+                    [class.stock-card--low]="row.belowMinimum"
+                    [class.stock-card--hidden]="!row.active"
+                    [class.stock-card--select]="restockMode()"
+                    (click)="restockMode() ? toggleSelect(row) : null"
+                  >
+                    @if (restockMode()) {
+                      <mat-checkbox
+                        [checked]="isSelected(row.id)"
+                        [disabled]="!canRestock(row) || restocking()"
+                        (click)="$event.stopPropagation()"
+                        (change)="toggleSelect(row)"
+                        [matTooltip]="
+                          canRestock(row)
+                            ? 'Reponer a ' + (row.maxQuantity | number: '1.0-2')
+                            : 'Configurá un stock máximo mayor a 0'
+                        "
+                      />
+                    }
+                    <div class="stock-card__main">
+                      <div>
+                        <h3 class="stock-card__name">{{ row.name }}</h3>
+                        <p class="stock-card__meta">
+                          @if (selectedTab() === TAB_ALL) {
+                            {{ row.categoryName || 'Sin categoría' }} ·
+                          }
+                          mín. {{ row.minQuantity | number: '1.0-2' }}
+                          @if (row.maxQuantity > 0) {
+                            · máx. {{ row.maxQuantity | number: '1.0-2' }}
+                          }
+                          @if (!row.active) {
+                            · Oculto
+                          }
+                          @if (row.belowMinimum) {
+                            · Bajo mínimo
+                          }
+                        </p>
+                      </div>
+                      @if (canManage() && !restockMode()) {
+                        <div class="stock-card__actions">
+                          <button
+                            mat-icon-button
+                            type="button"
+                            matTooltip="Editar"
+                            (click)="openEdit(row)"
+                          >
+                            <mat-icon>edit</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            [matTooltip]="row.active ? 'Ocultar' : 'Mostrar'"
+                            (click)="onToggleVisibility(row)"
+                          >
+                            <mat-icon>{{
+                              row.active ? 'visibility_off' : 'visibility'
+                            }}</mat-icon>
+                          </button>
+                        </div>
+                      }
+                    </div>
+
+                    @if (!restockMode()) {
+                      <div class="stock-card__qty">
+                        <button
+                          mat-icon-button
+                          type="button"
+                          [disabled]="
+                            !canManage() || adjustingId() === row.id || row.quantity <= 0
+                          "
+                          (click)="adjust(row, -1)"
+                          aria-label="Restar"
+                        >
+                          <mat-icon>remove</mat-icon>
+                        </button>
+                        <strong
+                          class="stock-card__qty-value"
+                          [class.stock-card__qty-value--low]="row.belowMinimum"
+                        >
+                          {{ row.quantity | number: '1.0-2' }}
+                        </strong>
+                        <button
+                          mat-icon-button
+                          type="button"
+                          [disabled]="!canManage() || adjustingId() === row.id"
+                          (click)="adjust(row, 1)"
+                          aria-label="Sumar"
+                        >
+                          <mat-icon>add</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <div class="stock-card__qty stock-card__qty--readonly">
+                        <span class="small">Actual</span>
+                        <strong>{{ row.quantity | number: '1.0-2' }}</strong>
+                        @if (canRestock(row)) {
+                          <mat-icon class="stock-card__arrow">arrow_forward</mat-icon>
+                          <strong>{{ row.maxQuantity | number: '1.0-2' }}</strong>
+                        }
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+            </section>
+          }
+        }
+      </div>
+
+      @if (sortMode() === 'name' && indexLetters().length > 1) {
+        <nav
+          class="stock-index"
+          aria-label="Índice alfabético"
+          (pointermove)="onIndexPointer($event)"
+          (pointerdown)="onIndexPointer($event)"
+        >
+          @for (letter of indexLetters(); track letter) {
             <button
               type="button"
-              class="stock-jump__btn"
-              [class.stock-jump__btn--low]="sec.id === 'low'"
-              (click)="scrollToSection(sec.id)"
+              class="stock-index__letter"
+              [class.stock-index__letter--active]="activeLetter() === letter"
+              (click)="jumpToLetter(letter)"
             >
-              {{ sec.label }}
-              <span>{{ sec.items.length }}</span>
+              {{ letter }}
             </button>
           }
         </nav>
       }
     </div>
-
-    @if (canManage()) {
-      <div class="stock-toolbar mb-3">
-        @if (!restockMode()) {
-          <button mat-stroked-button type="button" (click)="enterRestockMode()">
-            <mat-icon>replay</mat-icon>
-            Reponer
-          </button>
-          <span class="stock-toolbar__meta"
-            >{{ rows().length }} producto{{ rows().length === 1 ? '' : 's' }}</span
-          >
-        } @else {
-          <div class="stock-toolbar__restock">
-            <span class="stock-toolbar__hint">
-              Seleccioná productos para llevarlos a su stock máximo
-              @if (selectedCount() > 0) {
-                ({{ selectedCount() }})
-              }
-            </span>
-            <div class="stock-toolbar__actions">
-              <button
-                mat-button
-                type="button"
-                [disabled]="restocking()"
-                (click)="cancelRestockMode()"
-              >
-                Cancelar
-              </button>
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="restocking() || selectedCount() === 0"
-                (click)="confirmRestock()"
-              >
-                <app-busy-label [busy]="restocking()" busyLabel="Reponiendo…">
-                  <mat-icon>replay</mat-icon>
-                  Reponer
-                </app-busy-label>
-              </button>
-            </div>
-          </div>
-        }
-      </div>
-    }
-
-    <div class="stock-list">
-      @if (loading()) {
-        <div
-          class="panel-card guy-empty guy-empty--loading"
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <app-spinner [size]="28" tone="accent" />
-          <div>
-            <strong>Cargando…</strong>
-            <div class="small">Obteniendo stock</div>
-          </div>
-        </div>
-      } @else if (!products().length) {
-        <div class="panel-card guy-empty">
-          <mat-icon>inventory_2</mat-icon>
-          <div>
-            <strong>Sin productos</strong>
-            <div class="small">
-              @if (canManage()) {
-                Creá el primero con “Nuevo producto”.
-              } @else {
-                No hay productos cargados.
-              }
-            </div>
-          </div>
-        </div>
-      } @else if (!rows().length) {
-        <div class="panel-card guy-empty">
-          <mat-icon>category</mat-icon>
-          <div>
-            <strong>Sin productos en esta categoría</strong>
-            <div class="small">Probá otra pestaña o “Todos”.</div>
-          </div>
-        </div>
-      } @else {
-        @for (sec of sections(); track sec.id) {
-          <section class="stock-section" [attr.id]="'stock-sec-' + sec.id">
-            <header class="stock-section__head" [attr.data-tone]="sec.id">
-              <strong>{{ sec.label }}</strong>
-              <span>{{ sec.items.length }}</span>
-            </header>
-            <div class="stock-section__list">
-              @for (row of sec.items; track row.id) {
-                <article
-                  class="panel-card stock-card"
-                  [class.stock-card--low]="row.belowMinimum"
-                  [class.stock-card--hidden]="!row.active"
-                  [class.stock-card--select]="restockMode()"
-                  (click)="restockMode() ? toggleSelect(row) : null"
-                >
-                  @if (restockMode()) {
-                    <mat-checkbox
-                      [checked]="isSelected(row.id)"
-                      [disabled]="!canRestock(row) || restocking()"
-                      (click)="$event.stopPropagation()"
-                      (change)="toggleSelect(row)"
-                      [matTooltip]="
-                        canRestock(row)
-                          ? 'Reponer a ' + (row.maxQuantity | number: '1.0-2')
-                          : 'Configurá un stock máximo mayor a 0'
-                      "
-                    />
-                  }
-                  <div class="stock-card__main">
-                    <div>
-                      <h3 class="stock-card__name">{{ row.name }}</h3>
-                      <p class="stock-card__meta">
-                        @if (selectedTab() === TAB_ALL) {
-                          {{ row.categoryName || 'Sin categoría' }} ·
-                        }
-                        mín. {{ row.minQuantity | number: '1.0-2' }}
-                        @if (row.maxQuantity > 0) {
-                          · máx. {{ row.maxQuantity | number: '1.0-2' }}
-                        }
-                        @if (!row.active) {
-                          · Oculto
-                        }
-                      </p>
-                    </div>
-                    @if (canManage() && !restockMode()) {
-                      <div class="stock-card__actions">
-                        <button
-                          mat-icon-button
-                          type="button"
-                          matTooltip="Editar"
-                          (click)="openEdit(row)"
-                        >
-                          <mat-icon>edit</mat-icon>
-                        </button>
-                        <button
-                          mat-icon-button
-                          type="button"
-                          [matTooltip]="row.active ? 'Ocultar' : 'Mostrar'"
-                          (click)="onToggleVisibility(row)"
-                        >
-                          <mat-icon>{{ row.active ? 'visibility_off' : 'visibility' }}</mat-icon>
-                        </button>
-                      </div>
-                    }
-                  </div>
-
-                  @if (!restockMode()) {
-                    <div class="stock-card__qty">
-                      <button
-                        mat-icon-button
-                        type="button"
-                        [disabled]="!canManage() || adjustingId() === row.id || row.quantity <= 0"
-                        (click)="adjust(row, -1)"
-                        aria-label="Restar"
-                      >
-                        <mat-icon>remove</mat-icon>
-                      </button>
-                      <strong
-                        class="stock-card__qty-value"
-                        [class.stock-card__qty-value--low]="row.belowMinimum"
-                      >
-                        {{ row.quantity | number: '1.0-2' }}
-                      </strong>
-                      <button
-                        mat-icon-button
-                        type="button"
-                        [disabled]="!canManage() || adjustingId() === row.id"
-                        (click)="adjust(row, 1)"
-                        aria-label="Sumar"
-                      >
-                        <mat-icon>add</mat-icon>
-                      </button>
-                    </div>
-                  } @else {
-                    <div class="stock-card__qty stock-card__qty--readonly">
-                      <span class="small">Actual</span>
-                      <strong>{{ row.quantity | number: '1.0-2' }}</strong>
-                      @if (canRestock(row)) {
-                        <mat-icon class="stock-card__arrow">arrow_forward</mat-icon>
-                        <strong>{{ row.maxQuantity | number: '1.0-2' }}</strong>
-                      }
-                    </div>
-                  }
-                </article>
-              }
-            </div>
-          </section>
-        }
-      }
-    </div>
-
-    @if (showScrollFab()) {
-      <div class="stock-fabs" aria-label="Navegación rápida">
-        <button
-          type="button"
-          class="stock-fab"
-          matTooltip="Ir arriba"
-          (click)="scrollToTop()"
-        >
-          <mat-icon>keyboard_arrow_up</mat-icon>
-        </button>
-        <button
-          type="button"
-          class="stock-fab"
-          matTooltip="Ir abajo"
-          (click)="scrollToBottom()"
-        >
-          <mat-icon>keyboard_arrow_down</mat-icon>
-        </button>
-      </div>
-    }
   `,
   styles: [
     `
@@ -341,9 +381,6 @@ type StockSection = {
         position: sticky;
         top: 0;
         z-index: 5;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
         margin-bottom: 0.85rem;
         padding-bottom: 0.15rem;
         background: linear-gradient(
@@ -420,38 +457,24 @@ type StockSection = {
       .stock-tabs-bar__tools {
         flex: 0 0 auto;
       }
-      .stock-jump {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-      }
-      .stock-jump__btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        border: 1px dashed var(--guy-border, #d7e0d9);
-        background: color-mix(in srgb, var(--guy-surface, #fff) 88%, var(--guy-bg, #f3f6f4));
-        color: var(--guy-navy, #003366);
-        border-radius: 8px;
-        padding: 0.35rem 0.65rem;
-        font: inherit;
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .stock-jump__btn span {
-        font-size: 0.72rem;
-        color: var(--guy-muted, #5f6f76);
-      }
-      .stock-jump__btn--low {
-        border-color: color-mix(in srgb, #c62828 40%, var(--guy-border, #d7e0d9));
-        color: #c62828;
-      }
       .stock-toolbar {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 0.75rem;
+      }
+      .stock-sort {
+        flex: 0 0 auto;
+      }
+      .stock-sort .mat-button-toggle {
+        font-size: 0.82rem;
+      }
+      .stock-sort mat-icon {
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+        margin-right: 0.15rem;
+        vertical-align: middle;
       }
       .stock-toolbar__meta {
         font-size: 0.85rem;
@@ -478,42 +501,73 @@ type StockSection = {
         gap: 0.35rem;
         align-items: center;
       }
+      .stock-body {
+        position: relative;
+        display: flex;
+        gap: 0.25rem;
+        align-items: flex-start;
+      }
       .stock-list {
         display: flex;
+        flex: 1;
         flex-direction: column;
-        gap: 1rem;
-        padding-bottom: 4.5rem;
+        gap: 0.85rem;
+        min-width: 0;
       }
-      .stock-section__head {
+      .stock-body:has(.stock-index) .stock-list {
+        padding-right: 1.35rem;
+      }
+      .stock-letter__head {
         position: sticky;
-        top: 5.5rem;
+        top: 4.75rem;
         z-index: 3;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        margin-bottom: 0.45rem;
-        padding: 0.4rem 0.65rem;
+        margin-bottom: 0.4rem;
+        padding: 0.25rem 0.55rem;
+        width: fit-content;
+        min-width: 1.75rem;
+        text-align: center;
         border-radius: 8px;
-        font-size: 0.82rem;
-        background: color-mix(in srgb, var(--guy-navy, #003366) 6%, var(--guy-bg, #f3f6f4));
+        font-size: 0.95rem;
+        font-weight: 800;
         color: var(--guy-navy, #003366);
-        border: 1px solid var(--guy-border, #d7e0d9);
+        background: color-mix(in srgb, var(--guy-accent, #2e7d32) 12%, #fff);
+        border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 30%, var(--guy-border, #d7e0d9));
       }
-      .stock-section__head[data-tone='low'] {
-        background: #fdecea;
-        border-color: color-mix(in srgb, #c62828 35%, #fdecea);
-        color: #c62828;
-      }
-      .stock-section__head[data-tone='at'] {
-        background: #fff8e1;
-        border-color: color-mix(in srgb, #f9a825 35%, #fff8e1);
-        color: #f57f17;
-      }
-      .stock-section__list {
+      .stock-letter__list {
         display: flex;
         flex-direction: column;
         gap: 0.65rem;
+      }
+      .stock-index {
+        position: sticky;
+        top: 5.5rem;
+        align-self: flex-start;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        padding: 0.2rem 0;
+        max-height: calc(100vh - 8rem);
+        overflow: hidden;
+        user-select: none;
+        touch-action: none;
+        z-index: 6;
+      }
+      .stock-index__letter {
+        border: 0;
+        background: transparent;
+        color: var(--guy-muted, #5f6f76);
+        font: inherit;
+        font-size: 0.68rem;
+        font-weight: 700;
+        line-height: 1.15;
+        padding: 0.05rem 0.2rem;
+        cursor: pointer;
+        min-width: 1.1rem;
+      }
+      .stock-index__letter--active,
+      .stock-index__letter:hover {
+        color: var(--guy-accent, #2e7d32);
       }
       .stock-card {
         display: flex;
@@ -579,41 +633,9 @@ type StockSection = {
       .stock-card__qty-value--low {
         color: #c62828;
       }
-      .stock-fabs {
-        position: fixed;
-        right: 1rem;
-        bottom: 5.5rem;
-        z-index: 20;
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-      }
-      .stock-fab {
-        width: 2.6rem;
-        height: 2.6rem;
-        border: 1px solid var(--guy-border, #d7e0d9);
-        border-radius: 999px;
-        background: var(--guy-surface, #fff);
-        color: var(--guy-navy, #003366);
-        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.14);
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .stock-fab mat-icon {
-        font-size: 1.4rem;
-        width: 1.4rem;
-        height: 1.4rem;
-      }
       .small {
         font-size: 0.85rem;
         color: var(--guy-muted, #5f6f76);
-      }
-      @media (min-width: 961px) {
-        .stock-fabs {
-          bottom: 1.5rem;
-        }
       }
     `,
   ],
@@ -639,7 +661,8 @@ export class StockPage {
   readonly restockMode = signal(false);
   readonly selectedIds = signal<Set<string>>(new Set());
   readonly restocking = signal(false);
-  readonly showScrollFab = signal(false);
+  readonly activeLetter = signal<string | null>(null);
+  readonly sortMode = signal<SortMode>(loadSortMode());
 
   readonly categoryTabs = computed((): CategoryTab[] => {
     const products = this.products();
@@ -689,6 +712,7 @@ export class StockPage {
     return tabs;
   });
 
+  /** Orden según sortMode: nombre A–Z o margen vs mínimo (menor primero). */
   readonly rows = computed(() => {
     const tab = this.selectedTab();
     const list = this.products();
@@ -697,31 +721,46 @@ export class StockPage {
     else if (tab === TAB_UNCATEGORIZED) filtered = list.filter((r) => !r.categoryId);
     else filtered = list.filter((r) => r.categoryId === tab);
 
+    const mode = this.sortMode();
     return filtered.sort((a, b) => {
+      if (mode === 'qty') {
+        const marginA = Number(a.quantity) - Number(a.minQuantity);
+        const marginB = Number(b.quantity) - Number(b.minQuantity);
+        if (marginA !== marginB) return marginA - marginB;
+        return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+      }
+      const byName = a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+      if (byName !== 0) return byName;
       const marginA = Number(a.quantity) - Number(a.minQuantity);
       const marginB = Number(b.quantity) - Number(b.minQuantity);
-      if (marginA !== marginB) return marginA - marginB;
-      return a.name.localeCompare(b.name, 'es');
+      return marginA - marginB;
     });
   });
 
-  readonly sections = computed((): StockSection[] => {
-    const low: StockProduct[] = [];
-    const at: StockProduct[] = [];
-    const ok: StockProduct[] = [];
+  readonly letterGroups = computed((): LetterGroup[] => {
+    const map = new Map<string, StockProduct[]>();
     for (const row of this.rows()) {
-      const qty = Number(row.quantity);
-      const min = Number(row.minQuantity);
-      if (qty < min) low.push(row);
-      else if (qty === min) at.push(row);
-      else ok.push(row);
+      const letter = letterOf(row.name);
+      const bucket = map.get(letter);
+      if (bucket) bucket.push(row);
+      else map.set(letter, [row]);
     }
-    const out: StockSection[] = [];
-    if (low.length) out.push({ id: 'low', label: 'Bajo mínimo', items: low });
-    if (at.length) out.push({ id: 'at', label: 'En el mínimo', items: at });
-    if (ok.length) out.push({ id: 'ok', label: 'Con holgura', items: ok });
-    return out;
+    const letters = [...map.keys()].sort((a, b) => {
+      if (a === '#') return 1;
+      if (b === '#') return -1;
+      return a.localeCompare(b, 'es');
+    });
+    return letters.map((letter) => ({ key: letter, letter, items: map.get(letter)! }));
   });
+
+  readonly displayGroups = computed((): LetterGroup[] => {
+    if (this.sortMode() === 'name') return this.letterGroups();
+    return [{ key: 'qty', letter: null, items: this.rows() }];
+  });
+
+  readonly indexLetters = computed(() =>
+    this.sortMode() === 'name' ? this.letterGroups().map((g) => g.letter!).filter(Boolean) : [],
+  );
 
   readonly selectedCount = computed(() => this.selectedIds().size);
 
@@ -742,7 +781,7 @@ export class StockPage {
       this.reload();
     });
 
-    const onScroll = () => this.showScrollFab.set(this.scrollTop() > 280);
+    const onScroll = () => this.syncActiveLetterFromScroll();
     const root = this.scrollRoot();
     root.addEventListener('scroll', onScroll, { passive: true });
     this.destroyRef.onDestroy(() => root.removeEventListener('scroll', onScroll));
@@ -751,20 +790,55 @@ export class StockPage {
   selectTab(id: string): void {
     this.selectedTab.set(id);
     if (this.restockMode()) this.selectedIds.set(new Set());
+    this.activeLetter.set(null);
   }
 
-  scrollToSection(id: StockSectionId): void {
-    const el = document.getElementById(`stock-sec-${id}`);
+  onSortMode(value: SortMode | null | undefined): void {
+    const mode: SortMode = value === 'qty' ? 'qty' : 'name';
+    this.sortMode.set(mode);
+    this.activeLetter.set(null);
+    try {
+      localStorage.setItem(SORT_KEY, mode);
+    } catch {
+      // ignore
+    }
+  }
+
+  jumpToLetter(letter: string): void {
+    this.activeLetter.set(letter);
+    const el = document.getElementById(`stock-letter-${letter}`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  scrollToTop(): void {
-    this.scrollRoot().scrollTo({ top: 0, behavior: 'smooth' });
+  onIndexPointer(event: PointerEvent): void {
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const btn = target?.closest('.stock-index__letter') as HTMLElement | null;
+    const letter = btn?.textContent?.trim();
+    if (!letter) return;
+    if (this.activeLetter() === letter) return;
+    this.jumpToLetter(letter);
   }
 
-  scrollToBottom(): void {
-    const root = this.scrollRoot();
-    root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' });
+  private syncActiveLetterFromScroll(): void {
+    if (this.sortMode() !== 'name') {
+      this.activeLetter.set(null);
+      return;
+    }
+    const groups = this.letterGroups();
+    if (!groups.length) {
+      this.activeLetter.set(null);
+      return;
+    }
+    const stickyOffset = 120;
+    let current = groups[0].letter!;
+    for (const g of groups) {
+      const el = document.getElementById(`stock-letter-${g.letter}`);
+      if (!el) continue;
+      const top = el.getBoundingClientRect().top;
+      if (top <= stickyOffset) current = g.letter!;
+      else break;
+    }
+    this.activeLetter.set(current);
   }
 
   private scrollRoot(): HTMLElement {
@@ -773,13 +847,6 @@ export class StockPage {
       (document.scrollingElement as HTMLElement) ??
       document.documentElement
     );
-  }
-
-  private scrollTop(): number {
-    const root = this.scrollRoot();
-    return root === document.documentElement || root === document.body
-      ? window.scrollY || document.documentElement.scrollTop
-      : root.scrollTop;
   }
 
   canManage(): boolean {
