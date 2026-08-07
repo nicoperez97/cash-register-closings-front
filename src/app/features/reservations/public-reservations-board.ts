@@ -81,6 +81,13 @@ import { BoardPwaService } from './board-pwa.service';
           [accent]="accent()"
         />
 
+        @if (b.notice) {
+          <section class="board__notice" aria-label="Aviso del día">
+            <p class="board__notice-label">Aviso</p>
+            <p class="board__notice-text">{{ b.notice }}</p>
+          </section>
+        }
+
         <section class="board__totals" aria-label="Totales">
           <div class="board__total">
             <strong>{{ b.totals.guests }}</strong>
@@ -374,6 +381,35 @@ import { BoardPwaService } from './board-pwa.service';
         width: 100%;
         margin: 0 auto 1rem;
         box-sizing: border-box;
+      }
+
+      .board__notice {
+        max-width: 52rem;
+        width: 100%;
+        margin: 0 auto 1rem;
+        padding: 0.95rem 1.1rem;
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--accent, #3dba6e) 18%, rgba(0, 0, 0, 0.35));
+        border: 1px solid color-mix(in srgb, var(--accent, #3dba6e) 45%, transparent);
+        box-sizing: border-box;
+      }
+
+      .board__notice-label {
+        margin: 0 0 0.35rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: color-mix(in srgb, var(--accent, #3dba6e) 80%, #fff);
+      }
+
+      .board__notice-text {
+        margin: 0;
+        white-space: pre-line;
+        line-height: 1.45;
+        font-size: clamp(1rem, 2.6vw, 1.2rem);
+        font-weight: 600;
+        color: #f3fff7;
       }
 
       .board__total {

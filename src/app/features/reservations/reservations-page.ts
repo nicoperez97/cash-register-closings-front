@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -89,6 +89,7 @@ interface CalendarCell {
 @Component({
   selector: 'app-reservations-page',
   imports: [
+    FormsModule,
     ReactiveFormsModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -282,6 +283,49 @@ interface CalendarCell {
           </button>
         </form>
       }
+
+      <div class="floor-notice">
+        <div class="floor-notice__head">
+          <mat-icon>campaign</mat-icon>
+          <div>
+            <strong>Aviso del día</strong>
+            <span class="text-muted small">Se muestra en la pantalla pública</span>
+          </div>
+        </div>
+        @if (canManage()) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-notice__field">
+            <mat-label>Mensaje para la web pública</mat-label>
+            <textarea
+              matInput
+              rows="2"
+              [ngModel]="noticeDraft()"
+              (ngModelChange)="noticeDraft.set($event)"
+              maxlength="2000"
+              placeholder="Ej: Hoy solo menú del día · Terraza cerrada por lluvia"
+            ></textarea>
+          </mat-form-field>
+          <div class="floor-notice__actions">
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="savingNotice() || !noticeDirty()"
+              (click)="saveNotice()"
+            >
+              <mat-icon>save</mat-icon>
+              {{ noticeDraft().trim() ? 'Guardar aviso' : 'Quitar aviso' }}
+            </button>
+            @if (savedNotice()) {
+              <button mat-button type="button" [disabled]="savingNotice()" (click)="clearNotice()">
+                Limpiar
+              </button>
+            }
+          </div>
+        } @else if (savedNotice()) {
+          <p class="floor-notice__preview">{{ savedNotice() }}</p>
+        } @else {
+          <p class="floor-notice__empty text-muted small">Sin aviso para este día</p>
+        }
+      </div>
 
       <div class="floor-stats">
         <div class="floor-stat">
@@ -725,6 +769,56 @@ interface CalendarCell {
         margin-bottom: 0.85rem;
       }
 
+      .floor-notice {
+        margin: 0.85rem 0 1rem;
+        padding: 0.85rem 0.9rem;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 85%, transparent);
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, var(--guy-card, #fff));
+      }
+
+      .floor-notice__head {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        margin-bottom: 0.65rem;
+      }
+
+      .floor-notice__head mat-icon {
+        color: var(--guy-primary, #1d65a0);
+        margin-top: 0.1rem;
+      }
+
+      .floor-notice__head strong {
+        display: block;
+        font-size: 0.95rem;
+      }
+
+      .floor-notice__head span {
+        display: block;
+      }
+
+      .floor-notice__field {
+        width: 100%;
+      }
+
+      .floor-notice__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.15rem;
+      }
+
+      .floor-notice__preview {
+        margin: 0;
+        white-space: pre-line;
+        line-height: 1.45;
+      }
+
+      .floor-notice__empty {
+        margin: 0;
+      }
+
       .floor-stat {
         display: flex;
         flex-direction: column;
@@ -826,6 +920,13 @@ export class ReservationsPage implements OnInit {
   readonly showCalendar = signal(false);
   readonly calendarMonth = signal(monthKeyFromIso(this.defaultDate()));
   readonly todayIso = signal(this.defaultDate());
+  readonly noticeDraft = signal('');
+  readonly savedNotice = signal<string | null>(null);
+  readonly savingNotice = signal(false);
+
+  readonly noticeDirty = computed(
+    () => this.noticeDraft().trim() !== (this.savedNotice() ?? '').trim(),
+  );
 
   readonly selectedDay = computed(() => toDateInput(this.businessDate()));
 
@@ -1091,9 +1192,46 @@ export class ReservationsPage implements OnInit {
         const date = String(res.businessDate ?? this.businessDate()).slice(0, 10);
         this.businessDate.set(date);
         this.reservations.set(res.reservations ?? []);
+        const notice = String(res.notice ?? '').trim() || null;
+        this.savedNotice.set(notice);
+        this.noticeDraft.set(notice ?? '');
       },
       error: () => this.snack.open('No se pudieron cargar las reservas', 'OK', { duration: 3000 }),
     });
+  }
+
+  saveNotice(): void {
+    if (!this.canManage() || this.savingNotice()) return;
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const message = this.noticeDraft().trim();
+    this.savingNotice.set(true);
+    this.api
+      .upsertDayNotice(shopId, {
+        businessDate: this.businessDate(),
+        message,
+      })
+      .subscribe({
+        next: (res) => {
+          this.savingNotice.set(false);
+          const notice = String(res.notice ?? '').trim() || null;
+          this.savedNotice.set(notice);
+          this.noticeDraft.set(notice ?? '');
+          this.snack.open(notice ? 'Aviso guardado' : 'Aviso quitado', 'OK', {
+            duration: 2200,
+          });
+        },
+        error: (err) => {
+          this.savingNotice.set(false);
+          const msg = err?.error?.message ?? 'No se pudo guardar el aviso';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  clearNotice(): void {
+    this.noticeDraft.set('');
+    this.saveNotice();
   }
 
   saveReservation(): void {
