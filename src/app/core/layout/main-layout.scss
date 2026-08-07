@@ -3,6 +3,15 @@
   min-height: 100%;
 }
 
+.layout-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.layout-root--mobile {
+  --guy-bottom-nav-height: 56px;
+}
+
 .layout-container {
   min-height: 100vh;
   min-height: 100dvh;
@@ -110,6 +119,12 @@
   overflow: visible !important;
   min-height: 100vh;
   min-height: 100dvh;
+}
+
+/* Mobile + mode=over: Material a veces deja transform residual en el content
+   y cualquier fixed hijo (o banners) se desancora del viewport. */
+:host ::ng-deep .mat-drawer-content.layout-shell--mobile {
+  transform: none !important;
 }
 
 :host ::ng-deep .mat-sidenav-container.layout-container {

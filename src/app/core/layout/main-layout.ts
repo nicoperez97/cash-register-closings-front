@@ -120,6 +120,7 @@ export class MainLayoutComponent {
         route: '/reservations',
         icon: 'table_restaurant',
         badge: this.reservationsInbox.todayGuests() || null,
+        badgeInGroup: false,
       });
     }
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {

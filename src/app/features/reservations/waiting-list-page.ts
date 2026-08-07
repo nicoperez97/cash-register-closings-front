@@ -10,6 +10,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { normalizeLogoUrl } from '../../core/utils/drive-url';
+import { usePageRefresh } from '../../core/page-refresh.service';
 import {
   ReservationArea,
   ReservationsApiService,
@@ -80,7 +81,7 @@ import {
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="wait-compose__phone">
               <mat-label>Teléfono</mat-label>
-              <input matInput formControlName="phone" placeholder="59899…" inputmode="tel" autocomplete="tel" />
+              <input matInput formControlName="phone" placeholder="Opcional" inputmode="tel" autocomplete="tel" />
             </mat-form-field>
             <mat-button-toggle-group
               formControlName="area"
@@ -549,7 +550,7 @@ export class WaitingListPage implements OnInit {
 
   readonly waitingForm = this.fb.nonNullable.group({
     guestName: ['', Validators.required],
-    partySize: [2, [Validators.required, Validators.min(1)]],
+    partySize: [2, [Validators.required, Validators.min(1), Validators.max(99)]],
     phone: [''],
     area: this.fb.nonNullable.control<ReservationArea>('INSIDE'),
   });
@@ -578,6 +579,10 @@ export class WaitingListPage implements OnInit {
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'waitingList.manage');
+  }
+
+  constructor() {
+    usePageRefresh(() => this.loadWaiting());
   }
 
   ngOnInit(): void {
@@ -631,11 +636,16 @@ export class WaitingListPage implements OnInit {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     const raw = this.waitingForm.getRawValue();
+    const phone = String(raw.phone ?? '').trim();
+    if (phone && !this.hasPhone(phone)) {
+      this.snack.open('Teléfono inválido', 'OK', { duration: 2500 });
+      return;
+    }
     this.api
       .createWaiting(shopId, {
         guestName: raw.guestName.trim(),
         partySize: Number(raw.partySize),
-        phone: raw.phone.trim(),
+        phone: phone || undefined,
         area: raw.area,
       })
       .subscribe({

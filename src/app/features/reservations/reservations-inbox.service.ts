@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import {
   catchError,
+  combineLatest,
   distinctUntilChanged,
   interval,
   map,
@@ -14,6 +15,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ReservationsApiService } from './reservations-api.service';
+import { isActiveReservationStatus } from './reservation-status';
 
 /** Comensales del día actual para badge de menú «Reservas». */
 @Injectable({ providedIn: 'root' })
@@ -26,22 +28,33 @@ export class ReservationsInboxService {
   readonly todayGuests = signal(0);
 
   constructor() {
-    toObservable(this.shops.selectedShopId)
+    combineLatest([
+      toObservable(this.shops.selectedShopId),
+      toObservable(this.shops.selectedShop),
+      toObservable(this.auth.currentUser),
+    ])
       .pipe(
-        switchMap((shopId) => {
-          const user = this.auth.currentUser();
-          const shop = this.shops.selectedShop();
-          if (
-            !shopId ||
-            !shop?.reservationsEnabled ||
-            !hasShopPermission(user, shopId, 'reservations.read')
-          ) {
+        map(([shopId, shop, user]) => ({
+          shopId,
+          enabled: !!shop?.reservationsEnabled,
+          allowed: !!shopId && hasShopPermission(user, shopId, 'reservations.read'),
+          timezone: shop?.timezone ?? null,
+        })),
+        distinctUntilChanged(
+          (a, b) =>
+            a.shopId === b.shopId &&
+            a.enabled === b.enabled &&
+            a.allowed === b.allowed &&
+            a.timezone === b.timezone,
+        ),
+        switchMap(({ shopId, enabled, allowed, timezone }) => {
+          if (!shopId || !enabled || !allowed) {
             this.todayGuests.set(0);
             return of(0);
           }
           return interval(45000).pipe(
             startWith(0),
-            switchMap(() => this.fetchTodayGuests(shopId)),
+            switchMap(() => this.fetchTodayGuests(shopId, timezone)),
           );
         }),
         distinctUntilChanged(),
@@ -61,20 +74,17 @@ export class ReservationsInboxService {
       this.todayGuests.set(0);
       return;
     }
-    this.fetchTodayGuests(shopId).subscribe((count) => this.todayGuests.set(count));
+    this.fetchTodayGuests(shopId, shop.timezone).subscribe((count) =>
+      this.todayGuests.set(count),
+    );
   }
 
-  private todayIso(): string {
-    const shop = this.shops.selectedShop();
-    return resolveShopCalendarDate(new Date(), { timezone: shop?.timezone });
-  }
-
-  private fetchTodayGuests(shopId: string) {
-    const today = this.todayIso();
+  private fetchTodayGuests(shopId: string, timezone?: string | null) {
+    const today = resolveShopCalendarDate(new Date(), { timezone });
     return this.api.listReservations(shopId, today).pipe(
       map((res) =>
         (res.reservations ?? [])
-          .filter((r) => r.status !== 'CANCELLED')
+          .filter((r) => isActiveReservationStatus(r.status))
           .reduce((s, r) => s + Number(r.partySize || 0), 0),
       ),
       catchError(() => of(0)),

@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import {
   permissionGuard,
+  shopFeatureGuard,
   shopUsersGuard,
   superAdminGuard,
 } from './core/guards/permission.guard';
@@ -83,14 +84,20 @@ export const routes: Routes = [
       },
       {
         path: 'reservations',
-        canActivate: [permissionGuard('reservations.read')],
+        canActivate: [
+          permissionGuard('reservations.read'),
+          shopFeatureGuard('reservations'),
+        ],
         loadComponent: () =>
           import('./features/reservations/reservations-page').then((m) => m.ReservationsPage),
         title: 'Reservas',
       },
       {
         path: 'waiting-list',
-        canActivate: [permissionGuard('waitingList.read')],
+        canActivate: [
+          permissionGuard('waitingList.read'),
+          shopFeatureGuard('waitingList'),
+        ],
         loadComponent: () =>
           import('./features/reservations/waiting-list-page').then((m) => m.WaitingListPage),
         title: 'Lista de espera',

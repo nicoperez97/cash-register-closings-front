@@ -16,6 +16,7 @@ import {
   formatIsoDateDisplay,
   resolveShopCalendarDate,
 } from '../../core/shop/business-date';
+import { usePageRefresh } from '../../core/page-refresh.service';
 import {
   ReservationArea,
   ReservationRow,
@@ -23,6 +24,7 @@ import {
   ReservationsDaySummary,
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
+import { isActiveReservationStatus } from './reservation-status';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -80,10 +82,8 @@ interface CalendarCell {
   iso: string | null;
   dayNum: number | null;
   guests: number;
-  parties: number;
   isToday: boolean;
   isSelected: boolean;
-  muted: boolean;
 }
 
 @Component({
@@ -299,7 +299,7 @@ interface CalendarCell {
       </div>
 
       <ul class="floor-list">
-        @for (r of reservations(); track r.id) {
+        @for (r of activeReservations(); track r.id) {
           <li class="floor-card" [class.floor-card--out]="r.area === 'OUTSIDE'">
             <div class="floor-card__main">
               <strong>{{ r.guestName || 'Reserva' }}</strong>
@@ -831,7 +831,11 @@ export class ReservationsPage implements OnInit {
 
   readonly reservationForm = this.fb.group({
     guestName: this.fb.nonNullable.control(''),
-    partySize: this.fb.nonNullable.control(2, [Validators.required, Validators.min(1)]),
+    partySize: this.fb.nonNullable.control(2, [
+      Validators.required,
+      Validators.min(1),
+      Validators.max(99),
+    ]),
     area: this.fb.nonNullable.control<ReservationArea>('INSIDE'),
     reservationTime: this.fb.control<Date | null>(null),
   });
@@ -841,17 +845,21 @@ export class ReservationsPage implements OnInit {
   readonly dateLabel = computed(() => formatIsoDateDisplay(this.businessDate()));
 
   readonly reservationGuests = computed(() =>
-    this.reservations().reduce((s, r) => s + Number(r.partySize || 0), 0),
+    this.activeReservations().reduce((s, r) => s + Number(r.partySize || 0), 0),
   );
   readonly reservationInside = computed(() =>
-    this.reservations()
+    this.activeReservations()
       .filter((r) => r.area !== 'OUTSIDE')
       .reduce((s, r) => s + Number(r.partySize || 0), 0),
   );
   readonly reservationOutside = computed(() =>
-    this.reservations()
+    this.activeReservations()
       .filter((r) => r.area === 'OUTSIDE')
       .reduce((s, r) => s + Number(r.partySize || 0), 0),
+  );
+
+  readonly activeReservations = computed(() =>
+    this.reservations().filter((r) => isActiveReservationStatus(r.status)),
   );
 
   readonly weekDays = computed((): WeekDayChip[] => {
@@ -896,10 +904,8 @@ export class ReservationsPage implements OnInit {
         iso: null,
         dayNum: null,
         guests: 0,
-        parties: 0,
         isToday: false,
         isSelected: false,
-        muted: true,
       });
     }
 
@@ -910,10 +916,8 @@ export class ReservationsPage implements OnInit {
         iso,
         dayNum: day,
         guests: s?.guests ?? 0,
-        parties: s?.parties ?? 0,
         isToday: iso === today,
         isSelected: iso === selected,
-        muted: false,
       });
     }
 
@@ -922,15 +926,21 @@ export class ReservationsPage implements OnInit {
         iso: null,
         dayNum: null,
         guests: 0,
-        parties: 0,
         isToday: false,
         isSelected: false,
-        muted: true,
       });
     }
 
     return cells;
   });
+
+  constructor() {
+    usePageRefresh(() => {
+      this.loadReservations();
+      this.loadSummary();
+      this.inbox.refresh();
+    });
+  }
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reservations.manage');

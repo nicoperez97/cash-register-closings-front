@@ -45,6 +45,7 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'CASH_WITHDRAWAL_PICKED', label: 'Retiros de efectivo' },
   { value: 'PRODUCTION_HOURS_LOGGED', label: 'Horas de producción cargadas' },
   { value: 'STOCK_BELOW_MINIMUM', label: 'Stock bajo el mínimo' },
+  { value: 'STOCK_SHARED', label: 'Stock compartido' },
 ] as const;
 
 const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);
@@ -76,6 +77,13 @@ const WEEKDAY_OPTIONS = [
   { value: 5, label: 'Vie' },
   { value: 6, label: 'Sáb' },
   { value: 0, label: 'Dom' },
+] as const;
+
+const TIMEZONE_OPTIONS = [
+  { value: 'America/Argentina/Buenos_Aires', label: 'Argentina (Buenos Aires)' },
+  { value: 'America/Montevideo', label: 'Uruguay (Montevideo)' },
+  { value: 'America/Sao_Paulo', label: 'Brasil (São Paulo)' },
+  { value: 'UTC', label: 'UTC' },
 ] as const;
 
 @Component({
@@ -364,6 +372,15 @@ const WEEKDAY_OPTIONS = [
                 <mat-label>Hora de apertura</mat-label>
                 <input matInput type="time" formControlName="openingTime" />
                 <mat-hint>El día del cierre corre hasta esta hora del día siguiente</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Zona horaria</mat-label>
+                <mat-select formControlName="timezone">
+                  @for (tz of timezoneOptions; track tz.value) {
+                    <mat-option [value]="tz.value">{{ tz.label }}</mat-option>
+                  }
+                </mat-select>
+                <mat-hint>Día calendario de reservas y pantallas públicas</mat-hint>
               </mat-form-field>
             </div>
             <div class="shop-admin__toggle-list">
@@ -1121,6 +1138,7 @@ export class AdminShopPage implements OnInit {
     currency: ['ARS'],
     defaultChangeAmount: [0],
     openingTime: ['10:00'],
+    timezone: ['America/Argentina/Buenos_Aires'],
     productionDefaultHours: [8],
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
@@ -1132,6 +1150,7 @@ export class AdminShopPage implements OnInit {
   });
 
   readonly weekdayOptions = WEEKDAY_OPTIONS;
+  readonly timezoneOptions = TIMEZONE_OPTIONS;
 
   get posnets(): FormArray {
     return this.form.get('posnets') as FormArray;
@@ -1193,6 +1212,7 @@ export class AdminShopPage implements OnInit {
       currency: shop.currency ?? 'ARS',
       defaultChangeAmount: shop.defaultChangeAmount ?? 0,
       openingTime: shop.openingTime ?? '10:00',
+      timezone: shop.timezone ?? 'America/Argentina/Buenos_Aires',
       productionDefaultHours: shop.productionDefaultHours ?? 8,
       closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
@@ -1223,6 +1243,7 @@ export class AdminShopPage implements OnInit {
             currency: s.currency ?? 'ARS',
             defaultChangeAmount: s.defaultChangeAmount ?? 0,
             openingTime: s.openingTime ?? '10:00',
+            timezone: s.timezone ?? 'America/Argentina/Buenos_Aires',
             productionDefaultHours: s.productionDefaultHours ?? 8,
             closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
             coversEnabled: !!s.coversEnabled,
@@ -1537,6 +1558,7 @@ export class AdminShopPage implements OnInit {
       currency: raw.currency || 'ARS',
       defaultChangeAmount: raw.defaultChangeAmount,
       openingTime: raw.openingTime || '10:00',
+      timezone: raw.timezone || 'America/Argentina/Buenos_Aires',
       productionDefaultHours: raw.productionDefaultHours ?? 8,
       closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
       coversEnabled: raw.coversEnabled,

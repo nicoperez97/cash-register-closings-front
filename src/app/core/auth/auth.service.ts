@@ -162,6 +162,8 @@ export class AuthService {
         coversEnabled: s.coversEnabled,
         reservationsEnabled: s.reservationsEnabled,
         waitingListEnabled: s.waitingListEnabled,
+        timezone: s.timezone ?? null,
+        openingTime: s.openingTime ?? null,
       })),
     });
   }
