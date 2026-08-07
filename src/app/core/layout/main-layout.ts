@@ -31,6 +31,7 @@ import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
 import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
 import { CashWithdrawalsInboxService } from '../../features/cash-withdrawals/cash-withdrawals-inbox.service';
+import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -59,6 +60,7 @@ export class MainLayoutComponent {
   private readonly bodyLock = inject(BodyScrollLockService);
   private readonly paymentsInbox = inject(PaymentsInboxService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
+  private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
   readonly pageRefresh = inject(PageRefreshService);
 
@@ -113,7 +115,12 @@ export class MainLayoutComponent {
       operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
     }
     if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
-      operacion.push({ label: 'Reservas', route: '/reservations', icon: 'table_restaurant' });
+      operacion.push({
+        label: 'Reservas',
+        route: '/reservations',
+        icon: 'table_restaurant',
+        badge: this.reservationsInbox.todayGuests() || null,
+      });
     }
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
       operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
