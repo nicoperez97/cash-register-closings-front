@@ -34,6 +34,7 @@ export interface WaitingListRow {
 export interface ReservationsDayResponse {
   shopId: string;
   businessDate: string;
+  notice?: string | null;
   reservations: ReservationRow[];
 }
 
@@ -60,6 +61,7 @@ export interface PublicReservationsBoard {
     accentColor?: string | null;
   };
   businessDate: string;
+  notice?: string | null;
   totals: {
     parties: number;
     guests: number;
@@ -144,6 +146,13 @@ export class ReservationsApiService {
 
   removeReservation(shopId: string, id: string) {
     return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/reservations/${id}`);
+  }
+
+  upsertDayNotice(shopId: string, body: { businessDate: string; message: string }) {
+    return this.http.put<{ shopId: string; businessDate: string; notice: string | null }>(
+      `${this.base}/shops/${shopId}/reservation-day-notices`,
+      body,
+    );
   }
 
   listWaiting(shopId: string, includeDone = false) {
