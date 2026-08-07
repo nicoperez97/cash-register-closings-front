@@ -1,8 +1,4 @@
-<nav
-  class="bottom-nav"
-  [class.bottom-nav--hidden]="sidenavOpen()"
-  aria-label="Navegación principal"
->
+<nav class="bottom-nav" aria-label="Navegación principal">
   @for (item of items(); track item.route) {
     <a
       class="bottom-nav__item"

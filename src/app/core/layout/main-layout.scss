@@ -125,6 +125,10 @@
    y cualquier fixed hijo (o banners) se desancora del viewport. */
 :host ::ng-deep .mat-drawer-content.layout-shell--mobile {
   transform: none !important;
+  filter: none !important;
+  perspective: none !important;
+  contain: none !important;
+  will-change: auto !important;
 }
 
 :host ::ng-deep .mat-sidenav-container.layout-container {
@@ -132,6 +136,11 @@
   min-height: 100vh;
   min-height: 100dvh;
   overflow: visible !important;
+}
+
+/* Evitar containing-block por transform residual del container en mobile. */
+:host ::ng-deep .layout-root--mobile .mat-sidenav-container.layout-container {
+  transform: none !important;
 }
 
 @media (max-width: 960px) {
