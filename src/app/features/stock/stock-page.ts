@@ -6,8 +6,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -25,7 +27,14 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import { StockApiService, StockCategory, StockProduct } from './stock-api.service';
+import {
+  StockApiService,
+  StockCategory,
+  StockKind,
+  StockProduct,
+  stockKindLabel,
+  stockManagePermission,
+} from './stock-api.service';
 import { StockProductDialogComponent } from './stock-product-dialog';
 import { StockShareDialogComponent } from './stock-share-dialog';
 import { shareText } from '../../shared/utils/share-text';
@@ -89,7 +98,7 @@ function loadSortMode(): SortMode {
   ],
   template: `
     <app-page-header
-      title="Administración de stock"
+      [title]="pageTitle()"
       [subtitle]="shops.selectedShop()?.name ?? 'Local'"
       [actionLabel]="canManage() ? 'Nuevo producto' : ''"
       [actionDisabled]="!canManage() || restockMode()"
@@ -226,7 +235,7 @@ function loadSortMode(): SortMode {
             <app-spinner [size]="28" tone="accent" />
             <div>
               <strong>Cargando…</strong>
-              <div class="small">Obteniendo stock</div>
+              <div class="small">Obteniendo stock de {{ kindLabel() }}</div>
             </div>
           </div>
         } @else if (!products().length) {
@@ -664,11 +673,24 @@ export class StockPage {
   private readonly api = inject(StockApiService);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly destroyRef = inject(DestroyRef);
+
+  private readonly routeData = toSignal(this.route.data, {
+    initialValue: this.route.snapshot.data,
+  });
+
+  readonly kind = computed<StockKind>(() =>
+    this.routeData()['stockKind'] === 'beverage' ? 'beverage' : 'food',
+  );
+  readonly kindLabel = computed(() => stockKindLabel(this.kind()));
+  readonly pageTitle = computed(() =>
+    this.kind() === 'beverage' ? 'Stock bebidas' : 'Stock alimentos',
+  );
 
   readonly products = signal<StockProduct[]>([]);
   readonly categories = signal<StockCategory[]>([]);
@@ -786,6 +808,7 @@ export class StockPage {
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
+      this.kind(); // recargar al cambiar food/beverage (misma página reutilizada)
       if (!shopId) {
         this.products.set([]);
         this.categories.set([]);
@@ -871,7 +894,7 @@ export class StockPage {
     return hasShopPermission(
       this.auth.currentUser(),
       this.shops.selectedShopId(),
-      'stock.manage',
+      stockManagePermission(this.kind()),
     );
   }
 
@@ -919,7 +942,7 @@ export class StockPage {
     if (!ok) return;
 
     this.restocking.set(true);
-    this.api.restock(shopId, ids).subscribe({
+    this.api.restock(shopId, this.kind(), ids).subscribe({
       next: (res) => {
         this.restocking.set(false);
         const updatedMap = new Map(res.products.map((p) => [p.id, p]));
@@ -950,18 +973,21 @@ export class StockPage {
       this.loading.set(false);
       return;
     }
+    const kind = this.kind();
     this.loading.set(true);
-    this.api.listProducts(shopId, this.includeInactive()).subscribe({
+    this.api.listProducts(shopId, kind, this.includeInactive()).subscribe({
       next: (rows) => {
         this.products.set(rows);
         this.loading.set(false);
       },
       error: () => {
         this.loading.set(false);
-        this.snack.open('No se pudo cargar el stock', 'OK', { duration: 3000 });
+        this.snack.open(`No se pudo cargar el stock de ${stockKindLabel(kind)}`, 'OK', {
+          duration: 3000,
+        });
       },
     });
-    this.api.listCategories(shopId).subscribe({
+    this.api.listCategories(shopId, kind).subscribe({
       next: (cats) => this.categories.set(cats),
       error: () => this.categories.set([]),
     });
@@ -982,7 +1008,7 @@ export class StockPage {
     this.dialog
       .open(StockShareDialogComponent, {
         width: 'min(440px, 96vw)',
-        data: { shopId, shopName: shop.name },
+        data: { shopId, shopName: shop.name, kind: this.kind() },
       })
       .afterClosed()
       .subscribe((res) => {
@@ -1017,12 +1043,21 @@ export class StockPage {
       });
     const actor = this.auth.currentUser()?.fullName?.trim() || 'Alguien';
     const below = products.filter((p) => p.belowMinimum);
-    const title = `Stock actual · ${shopName}`;
-    const header = `${actor} compartió el stock de ${shopName}`;
+    const kindLabel = this.kindLabel();
+    const title = `Stock de ${kindLabel} · ${shopName}`;
+    const header = `${actor} compartió el stock de ${kindLabel} de ${shopName}`;
     const summary = `${products.length} producto${products.length === 1 ? '' : 's'}${
       below.length ? ` · ${below.length} bajo mínimo` : ''
     }`;
-    const lines = products.map((p) => {
+    const sorted = [...products].sort((a, b) => {
+      const qtyDiff = Number(a.quantity) - Number(b.quantity);
+      if (qtyDiff !== 0) return qtyDiff;
+      const marginA = Number(a.quantity) - Number(a.minQuantity);
+      const marginB = Number(b.quantity) - Number(b.minQuantity);
+      if (marginA !== marginB) return marginA - marginB;
+      return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    });
+    const lines = sorted.map((p) => {
       const cat = p.categoryName ? ` (${p.categoryName})` : '';
       const low = p.belowMinimum ? ' ⚠' : '';
       return `• ${p.name}${cat}: ${fmt(p.quantity)} (mín. ${fmt(p.minQuantity)})${low}`;
@@ -1049,7 +1084,7 @@ export class StockPage {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManage()) return;
     this.adjustingId.set(row.id);
-    this.api.adjust(shopId, row.id, delta).subscribe({
+    this.api.adjust(shopId, this.kind(), row.id, delta).subscribe({
       next: (updated) => {
         this.adjustingId.set(null);
         this.products.update((list) => list.map((r) => (r.id === updated.id ? updated : r)));
@@ -1068,10 +1103,10 @@ export class StockPage {
     if (row.active) {
       const ok = await this.confirmDialog.confirm(
         'Ocultar producto',
-        `¿Ocultar "${row.name}" del stock?`,
+        `¿Ocultar "${row.name}" del stock de ${this.kindLabel()}?`,
       );
       if (!ok) return;
-      this.api.removeProduct(shopId, row.id).subscribe({
+      this.api.removeProduct(shopId, this.kind(), row.id).subscribe({
         next: () => {
           this.snack.open('Producto oculto', 'OK', { duration: 2500 });
           this.reload();
@@ -1080,7 +1115,7 @@ export class StockPage {
       });
       return;
     }
-    this.api.updateProduct(shopId, row.id, { active: true }).subscribe({
+    this.api.updateProduct(shopId, this.kind(), row.id, { active: true }).subscribe({
       next: () => {
         this.snack.open('Producto visible de nuevo', 'OK', { duration: 2500 });
         this.reload();
@@ -1105,6 +1140,7 @@ export class StockPage {
             ...mode,
             shopId,
             shopName,
+            kind: this.kind(),
             categories: this.categories(),
           },
         }),

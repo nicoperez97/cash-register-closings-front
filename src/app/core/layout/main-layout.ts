@@ -91,8 +91,20 @@ export class MainLayoutComponent {
       const items: NavItem[] = [
         { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
       ];
+      const stockChildren: NonNullable<NavItem['children']> = [];
       if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
-        items.push({ label: 'Stock', route: '/stock', icon: 'inventory' });
+        stockChildren.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
+      }
+      if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
+        stockChildren.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
+      }
+      if (stockChildren.length) {
+        items.push({
+          label: 'Stock',
+          route: '__group_stock',
+          icon: 'inventory_2',
+          children: stockChildren,
+        });
       }
       return items;
     }
@@ -126,15 +138,28 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
       operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
     }
-    if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
-      operacion.push({ label: 'Stock', route: '/stock', icon: 'inventory' });
-    }
     if (operacion.length) {
       items.push({
         label: 'Operación',
         route: '__group_operacion',
         icon: 'today',
         children: operacion,
+      });
+    }
+
+    const stockChildren: NonNullable<NavItem['children']> = [];
+    if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
+      stockChildren.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
+      stockChildren.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
+    }
+    if (stockChildren.length) {
+      items.push({
+        label: 'Stock',
+        route: '__group_stock',
+        icon: 'inventory_2',
+        children: stockChildren,
       });
     }
 
@@ -260,7 +285,10 @@ export class MainLayoutComponent {
         { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
       ];
       if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
-        items.push({ label: 'Stock', route: '/stock', icon: 'inventory' });
+        items.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
+      }
+      if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
+        items.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
       }
       return items;
     }
@@ -338,7 +366,9 @@ export class MainLayoutComponent {
       if (isProducerOnly(user, shopId)) {
         const allowed =
           path === '/my-production' ||
-          (path.startsWith('/stock') && hasShopPermission(user, shopId, 'stock.read'));
+          (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
+          (path === '/beverage-stock' &&
+            hasShopPermission(user, shopId, 'beverageStock.read'));
         if (!allowed) {
           void this.router.navigateByUrl(home);
         }
@@ -442,8 +472,11 @@ export class MainLayoutComponent {
     if (path.startsWith('/suppliers')) {
       return hasShopPermission(user, shopId, 'suppliers.read');
     }
-    if (path.startsWith('/stock')) {
+    if (path === '/stock' || path.startsWith('/stock/')) {
       return hasShopPermission(user, shopId, 'stock.read');
+    }
+    if (path === '/beverage-stock' || path.startsWith('/beverage-stock/')) {
+      return hasShopPermission(user, shopId, 'beverageStock.read');
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');

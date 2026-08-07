@@ -8,13 +8,16 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import {
   StockApiService,
+  StockKind,
   StockShareAdmin,
   StockShareResult,
+  stockKindLabel,
 } from './stock-api.service';
 
 export type StockShareDialogData = {
   shopId: string;
   shopName: string;
+  kind: StockKind;
 };
 
 @Component({
@@ -41,16 +44,16 @@ export type StockShareDialogData = {
 
     <mat-dialog-content>
       <p class="share-hint">
-        Se envía una notificación y un mail a los administradores de stock
-        seleccionados, con un botón para abrir el inventario en la app.
+        Se envía una notificación y un mail a los administradores de stock de
+        {{ kindLabel }} seleccionados, con un botón para abrir el inventario en la app.
       </p>
 
       @if (loading()) {
         <app-spinner label="Cargando administradores…" />
       } @else if (!admins().length) {
         <p class="share-empty">
-          No hay administradores de stock en este local. Marcá la opción
-          «Admin de stock» en Usuarios.
+          No hay administradores de stock de {{ kindLabel }} en este local. Marcá la opción
+          «Admin de stock {{ kindLabel }}» en Usuarios.
         </p>
       } @else {
         <div class="share-toolbar">
@@ -142,13 +145,14 @@ export class StockShareDialogComponent implements OnInit {
   private readonly api = inject(StockApiService);
   private readonly snack = inject(MatSnackBar);
 
+  readonly kindLabel = stockKindLabel(this.data.kind);
   readonly loading = signal(true);
   readonly sending = signal(false);
   readonly admins = signal<StockShareAdmin[]>([]);
   readonly selectedIds = signal<Set<string>>(new Set());
 
   ngOnInit(): void {
-    this.api.listStockAdmins(this.data.shopId).subscribe({
+    this.api.listStockAdmins(this.data.shopId, this.data.kind).subscribe({
       next: (rows) => {
         this.admins.set(rows);
         this.selectedIds.set(new Set(rows.map((r) => r.id)));
@@ -195,7 +199,7 @@ export class StockShareDialogComponent implements OnInit {
     const ids = [...this.selectedIds()];
     if (!ids.length) return;
     this.sending.set(true);
-    this.api.shareStock(this.data.shopId, ids).subscribe({
+    this.api.shareStock(this.data.shopId, this.data.kind, ids).subscribe({
       next: (res) => {
         this.sending.set(false);
         this.ref.close(res);

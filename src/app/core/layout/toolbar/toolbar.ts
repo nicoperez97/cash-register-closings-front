@@ -172,6 +172,13 @@ export class ToolbarComponent implements OnInit {
       void this.router.navigateByUrl('/stock');
       return;
     }
+    if (
+      n.type === 'BEVERAGE_STOCK_BELOW_MINIMUM' ||
+      n.type === 'BEVERAGE_STOCK_SHARED'
+    ) {
+      void this.router.navigateByUrl('/beverage-stock');
+      return;
+    }
     if (n.paymentId || n.type.startsWith('PAYMENT_')) {
       void this.router.navigateByUrl('/payments/suppliers');
     }

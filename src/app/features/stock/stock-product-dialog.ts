@@ -9,11 +9,17 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import { StockApiService, StockCategory, StockProduct } from './stock-api.service';
+import {
+  StockApiService,
+  StockCategory,
+  StockKind,
+  StockProduct,
+} from './stock-api.service';
 
 export type StockProductDialogData = {
   shopId: string;
   shopName: string;
+  kind: StockKind;
   categories: StockCategory[];
 } & ({ mode: 'create' } | { mode: 'edit'; product: StockProduct });
 
@@ -177,6 +183,7 @@ export class StockProductDialogComponent {
       return;
     }
     const shopId = this.data.shopId;
+    const kind = this.data.kind;
     const raw = this.form.getRawValue();
     const body = {
       name: raw.name.trim(),
@@ -194,8 +201,8 @@ export class StockProductDialogComponent {
 
     const req =
       this.isEdit && this.product
-        ? this.api.updateProduct(shopId, this.product.id, { ...body, active: raw.active })
-        : this.api.createProduct(shopId, body);
+        ? this.api.updateProduct(shopId, kind, this.product.id, { ...body, active: raw.active })
+        : this.api.createProduct(shopId, kind, body);
 
     req.subscribe({
       next: () => {
