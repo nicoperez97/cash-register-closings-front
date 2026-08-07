@@ -22,6 +22,19 @@ export interface StockProduct {
   active: boolean;
 }
 
+export interface StockShareAdmin {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
+export interface StockShareResult {
+  ok: boolean;
+  notified: number;
+  title: string;
+  shareText: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class StockApiService {
   private readonly http = inject(HttpClient);
@@ -102,6 +115,16 @@ export class StockApiService {
       `${this.base}/shops/${shopId}/stock/products/restock`,
       { productIds },
     );
+  }
+
+  listStockAdmins(shopId: string) {
+    return this.http.get<StockShareAdmin[]>(`${this.base}/shops/${shopId}/stock/admins`);
+  }
+
+  shareStock(shopId: string, recipientUserIds: string[]) {
+    return this.http.post<StockShareResult>(`${this.base}/shops/${shopId}/stock/share`, {
+      recipientUserIds,
+    });
   }
 
   removeProduct(shopId: string, id: string) {

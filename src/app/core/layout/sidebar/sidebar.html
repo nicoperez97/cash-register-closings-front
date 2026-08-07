@@ -219,7 +219,7 @@
             <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
             <span class="nav-group__label">{{ item.label }}</span>
             @if (groupBadge(item); as gb) {
-              <span class="nav-badge nav-badge--group" aria-label="{{ gb }} pendientes">
+              <span class="nav-badge nav-badge--group" aria-label="{{ gb }}">
                 {{ badgeLabel(gb) }}
               </span>
             }
@@ -249,7 +249,7 @@
                     <mat-icon class="nav-icon nav-icon--child">{{ child.icon }}</mat-icon>
                     <span class="nav-child__label">{{ child.label }}</span>
                     @if (child.badge && child.badge > 0) {
-                      <span class="nav-badge" aria-label="{{ child.badge }} pendientes">
+                      <span class="nav-badge" aria-label="{{ child.badge }}">
                         {{ badgeLabel(child.badge) }}
                       </span>
                     }
@@ -270,7 +270,7 @@
           <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
           <span>{{ item.label }}</span>
           @if (item.badge && item.badge > 0) {
-            <span class="nav-badge" aria-label="{{ item.badge }} pendientes">
+            <span class="nav-badge" aria-label="{{ item.badge }}">
               {{ badgeLabel(item.badge) }}
             </span>
           }

@@ -27,6 +27,8 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { StockApiService, StockCategory, StockProduct } from './stock-api.service';
 import { StockProductDialogComponent } from './stock-product-dialog';
+import { StockShareDialogComponent } from './stock-share-dialog';
+import { shareText } from '../../shared/utils/share-text';
 
 const TAB_ALL = '__all__';
 const TAB_UNCATEGORIZED = '__none__';
@@ -149,6 +151,14 @@ function loadSortMode(): SortMode {
 
         @if (canManage()) {
           @if (!restockMode()) {
+            <button mat-stroked-button type="button" (click)="openSendStock()">
+              <mat-icon>send</mat-icon>
+              Enviar stock
+            </button>
+            <button mat-stroked-button type="button" (click)="shareStock()">
+              <mat-icon>share</mat-icon>
+              Compartir stock
+            </button>
             <button mat-stroked-button type="button" (click)="enterRestockMode()">
               <mat-icon>replay</mat-icon>
               Reponer
@@ -189,6 +199,14 @@ function loadSortMode(): SortMode {
             </div>
           }
         } @else {
+          <button mat-stroked-button type="button" (click)="openSendStock()">
+            <mat-icon>send</mat-icon>
+            Enviar stock
+          </button>
+          <button mat-stroked-button type="button" (click)="shareStock()">
+            <mat-icon>share</mat-icon>
+            Compartir stock
+          </button>
           <span class="stock-toolbar__meta"
             >{{ rows().length }} producto{{ rows().length === 1 ? '' : 's' }}</span
           >
@@ -951,6 +969,76 @@ export class StockPage {
 
   openCreate(): void {
     this.openDialog({ mode: 'create' });
+  }
+
+  openSendStock(): void {
+    const shopId = this.shops.selectedShopId();
+    const shop = this.shops.selectedShop();
+    if (!shopId || !shop) return;
+    if (!this.products().length) {
+      this.snack.open('No hay productos para enviar', 'OK', { duration: 3000 });
+      return;
+    }
+    this.dialog
+      .open(StockShareDialogComponent, {
+        width: 'min(440px, 96vw)',
+        data: { shopId, shopName: shop.name },
+      })
+      .afterClosed()
+      .subscribe((res) => {
+        if (!res || !res.ok) return;
+        this.snack.open(
+          `Notificación enviada a ${res.notified} administrador${res.notified === 1 ? '' : 'es'}`,
+          'OK',
+          { duration: 3500 },
+        );
+      });
+  }
+
+  shareStock(): void {
+    const shop = this.shops.selectedShop();
+    const products = this.products().filter((p) => p.active !== false);
+    if (!shop || !products.length) {
+      this.snack.open('No hay productos para compartir', 'OK', { duration: 3000 });
+      return;
+    }
+    const { title, text } = this.buildShareText(shop.name, products);
+    void this.shareNative(title, text);
+  }
+
+  private buildShareText(
+    shopName: string,
+    products: StockProduct[],
+  ): { title: string; text: string } {
+    const fmt = (v: number) =>
+      Number(v).toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      });
+    const actor = this.auth.currentUser()?.fullName?.trim() || 'Alguien';
+    const below = products.filter((p) => p.belowMinimum);
+    const title = `Stock actual · ${shopName}`;
+    const header = `${actor} compartió el stock de ${shopName}`;
+    const summary = `${products.length} producto${products.length === 1 ? '' : 's'}${
+      below.length ? ` · ${below.length} bajo mínimo` : ''
+    }`;
+    const lines = products.map((p) => {
+      const cat = p.categoryName ? ` (${p.categoryName})` : '';
+      const low = p.belowMinimum ? ' ⚠' : '';
+      return `• ${p.name}${cat}: ${fmt(p.quantity)} (mín. ${fmt(p.minQuantity)})${low}`;
+    });
+    return { title, text: [header, summary, '', ...lines].join('\n') };
+  }
+
+  private async shareNative(title: string, text: string): Promise<void> {
+    const result = await shareText({ title, text });
+    if (result === 'copied') {
+      this.snack.open('Listado copiado al portapapeles', 'OK', { duration: 3000 });
+      return;
+    }
+    if (result === 'failed') {
+      this.snack.open('No se pudo copiar el listado', 'OK', { duration: 3500 });
+    }
   }
 
   openEdit(row: StockProduct): void {

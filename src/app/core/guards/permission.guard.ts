@@ -91,3 +91,27 @@ export const shopUsersGuard: CanActivateFn = () => {
   }
   return true;
 };
+
+/** Feature flag del local (reservas / lista de espera). Combinar con permissionGuard. */
+export const shopFeatureGuard = (
+  feature: 'reservations' | 'waitingList',
+): CanActivateFn => {
+  return () => {
+    const auth = inject(AuthService);
+    const shops = inject(ShopContextService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) {
+      return router.createUrlTree(['/login']);
+    }
+    const shopId = shops.selectedShopId();
+    const shop = shops.selectedShop();
+    const enabled =
+      feature === 'reservations'
+        ? !!shop?.reservationsEnabled
+        : !!shop?.waitingListEnabled;
+    if (!shopId || !enabled) {
+      return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
+    }
+    return true;
+  };
+};

@@ -159,7 +159,7 @@ export class ReservationsApiService {
     body: {
       guestName: string;
       partySize: number;
-      phone: string;
+      phone?: string;
       area?: ReservationArea;
       notes?: string;
     },
@@ -178,12 +178,9 @@ export class ReservationsApiService {
     return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/waiting-list/${id}`);
   }
 
-  publicBoard(slug: string, date?: string) {
-    let params = new HttpParams();
-    if (date) params = params.set('date', date);
+  publicBoard(slug: string) {
     return this.http.get<PublicReservationsBoard>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/reservations`,
-      { params },
     );
   }
 

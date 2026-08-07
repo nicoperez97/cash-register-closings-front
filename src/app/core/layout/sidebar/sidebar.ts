@@ -18,6 +18,8 @@ export interface NavChild {
   route: string;
   icon: string;
   badge?: number | null;
+  /** Si false, el badge no se suma al del grupo (p. ej. comensales ≠ pendientes). */
+  badgeInGroup?: boolean;
 }
 
 export interface NavItem {
@@ -27,6 +29,7 @@ export interface NavItem {
   children?: NavChild[];
   exact?: boolean;
   badge?: number | null;
+  badgeInGroup?: boolean;
 }
 
 @Component({
@@ -214,13 +217,13 @@ export class SidebarComponent {
     return String(n);
   }
 
-  /** Suma badges de hijos (p. ej. Operación → Pagos). */
+  /** Suma badges de hijos (p. ej. Operación → Pagos). Excluye badgeInGroup === false. */
   groupBadge(item: NavItem): number {
-    const fromItem = Number(item.badge) || 0;
-    const fromChildren = (item.children ?? []).reduce(
-      (sum, c) => sum + (Number(c.badge) || 0),
-      0,
-    );
+    const fromItem = item.badgeInGroup === false ? 0 : Number(item.badge) || 0;
+    const fromChildren = (item.children ?? []).reduce((sum, c) => {
+      if (c.badgeInGroup === false) return sum;
+      return sum + (Number(c.badge) || 0);
+    }, 0);
     return fromItem + fromChildren;
   }
 

@@ -18,6 +18,8 @@ export interface BottomNavItem {
 export class BottomNavComponent {
   readonly items = input.required<BottomNavItem[]>();
   readonly moreActive = input(false);
+  /** Oculta la barra mientras el drawer está abierto (evita pelear con el overlay). */
+  readonly sidenavOpen = input(false);
   readonly navigate = output<void>();
   readonly openMore = output<void>();
 
