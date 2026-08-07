@@ -37,6 +37,21 @@ export interface ReservationsDayResponse {
   reservations: ReservationRow[];
 }
 
+export interface ReservationsDaySummary {
+  businessDate: string;
+  parties: number;
+  guests: number;
+  inside: number;
+  outside: number;
+}
+
+export interface ReservationsSummaryResponse {
+  shopId: string;
+  from: string;
+  to: string;
+  days: ReservationsDaySummary[];
+}
+
 export interface PublicReservationsBoard {
   shop: {
     name: string;
@@ -94,6 +109,14 @@ export class ReservationsApiService {
     if (date) params = params.set('date', date);
     return this.http.get<ReservationsDayResponse>(
       `${this.base}/shops/${shopId}/reservations`,
+      { params },
+    );
+  }
+
+  reservationsSummary(shopId: string, from: string, to: string) {
+    const params = new HttpParams().set('from', from).set('to', to);
+    return this.http.get<ReservationsSummaryResponse>(
+      `${this.base}/shops/${shopId}/reservations/summary`,
       { params },
     );
   }

@@ -20,7 +20,9 @@ import {
   ReservationArea,
   ReservationRow,
   ReservationsApiService,
+  ReservationsDaySummary,
 } from './reservations-api.service';
+import { ReservationsInboxService } from './reservations-inbox.service';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -41,6 +43,47 @@ function toTimeString(value: Date | null): string | undefined {
   const h = String(value.getHours()).padStart(2, '0');
   const m = String(value.getMinutes()).padStart(2, '0');
   return `${h}:${m}`;
+}
+
+function addDaysIso(iso: string, delta: number): string {
+  const d = toDateInput(iso);
+  d.setDate(d.getDate() + delta);
+  return toDateString(d);
+}
+
+function startOfWeekIso(iso: string): string {
+  const d = toDateInput(iso);
+  const day = d.getDay(); // 0=dom
+  const diff = day === 0 ? -6 : 1 - day; // lunes
+  d.setDate(d.getDate() + diff);
+  return toDateString(d);
+}
+
+function monthKeyFromIso(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+interface WeekDayChip {
+  iso: string;
+  label: string;
+  dayNum: number;
+  guests: number;
+  isToday: boolean;
+  isSelected: boolean;
+}
+
+interface CalendarCell {
+  iso: string | null;
+  dayNum: number | null;
+  guests: number;
+  parties: number;
+  isToday: boolean;
+  isSelected: boolean;
+  muted: boolean;
 }
 
 @Component({
@@ -86,18 +129,115 @@ function toTimeString(value: Date | null): string | undefined {
             }
           </div>
         </div>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-date">
-          <mat-label>Fecha</mat-label>
-          <input
-            matInput
-            [matDatepicker]="dayPicker"
-            [value]="selectedDay()"
-            (dateChange)="onDayPicked($event.value)"
-          />
-          <mat-datepicker-toggle matIconSuffix [for]="dayPicker" />
-          <mat-datepicker #dayPicker />
-        </mat-form-field>
+        <div class="floor-head-tools">
+          <button
+            mat-stroked-button
+            type="button"
+            class="floor-cal-toggle"
+            [class.floor-cal-toggle--on]="showCalendar()"
+            (click)="toggleCalendar()"
+          >
+            <mat-icon>calendar_month</mat-icon>
+            Calendario
+          </button>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-date">
+            <mat-label>Fecha</mat-label>
+            <input
+              matInput
+              [matDatepicker]="dayPicker"
+              [value]="selectedDay()"
+              (dateChange)="onDayPicked($event.value)"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="dayPicker" />
+            <mat-datepicker #dayPicker />
+          </mat-form-field>
+        </div>
       </div>
+
+      <div class="floor-week" aria-label="Días de la semana">
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Semana anterior"
+          (click)="shiftWeek(-1)"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <div class="floor-week__days">
+          @for (d of weekDays(); track d.iso) {
+            <button
+              type="button"
+              class="floor-week__day"
+              [class.floor-week__day--selected]="d.isSelected"
+              [class.floor-week__day--today]="d.isToday"
+              [class.floor-week__day--busy]="d.guests > 0"
+              (click)="selectIso(d.iso)"
+            >
+              <span class="floor-week__label">{{ d.label }}</span>
+              <strong class="floor-week__num">{{ d.dayNum }}</strong>
+              @if (d.guests > 0) {
+                <span class="floor-week__guests">{{ d.guests }}</span>
+              } @else {
+                <span class="floor-week__guests floor-week__guests--empty">·</span>
+              }
+            </button>
+          }
+        </div>
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Semana siguiente"
+          (click)="shiftWeek(1)"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <button mat-stroked-button type="button" class="floor-week__today" (click)="goToday()">
+          Hoy
+        </button>
+      </div>
+
+      @if (showCalendar()) {
+        <div class="floor-cal" aria-label="Calendario de reservas">
+          <div class="floor-cal__nav">
+            <button mat-icon-button type="button" aria-label="Mes anterior" (click)="shiftMonth(-1)">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <strong>{{ calendarMonthLabel() }}</strong>
+            <button mat-icon-button type="button" aria-label="Mes siguiente" (click)="shiftMonth(1)">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+          <div class="floor-cal__weekdays">
+            @for (w of weekdayHeaders; track w) {
+              <span>{{ w }}</span>
+            }
+          </div>
+          <div class="floor-cal__grid">
+            @for (cell of calendarCells(); track $index) {
+              @if (cell.iso) {
+                <button
+                  type="button"
+                  class="floor-cal__cell"
+                  [class.floor-cal__cell--selected]="cell.isSelected"
+                  [class.floor-cal__cell--today]="cell.isToday"
+                  [class.floor-cal__cell--busy]="cell.guests > 0"
+                  (click)="selectIso(cell.iso)"
+                >
+                  <span class="floor-cal__day">{{ cell.dayNum }}</span>
+                  @if (cell.guests > 0) {
+                    <span class="floor-cal__count">{{ cell.guests }}</span>
+                  }
+                </button>
+              } @else {
+                <div class="floor-cal__cell floor-cal__cell--empty"></div>
+              }
+            }
+          </div>
+          <p class="floor-cal__hint text-muted small">
+            Tocá un día para ver las reservas. El número indica comensales.
+          </p>
+        </div>
+      }
 
       @if (canManage()) {
         <form
@@ -199,6 +339,24 @@ function toTimeString(value: Date | null): string | undefined {
         margin-bottom: 0.85rem;
       }
 
+      .floor-head-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: flex-end;
+        gap: 0.55rem;
+      }
+
+      .floor-cal-toggle {
+        min-height: 2.75rem;
+      }
+
+      .floor-cal-toggle--on {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, #fff);
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, transparent);
+        color: var(--guy-primary, #1d65a0);
+      }
+
       .floor-date {
         width: 11.5rem;
         flex-shrink: 0;
@@ -265,6 +423,220 @@ function toTimeString(value: Date | null): string | undefined {
         border-color: color-mix(in srgb, var(--guy-navy, #003366) 45%, transparent);
       }
 
+      .floor-week {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .floor-week__days {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.35rem;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .floor-week__day {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        min-height: 4.1rem;
+        padding: 0.4rem 0.2rem;
+        border-radius: 12px;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: #fff;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        transition:
+          background 140ms ease,
+          border-color 140ms ease,
+          transform 140ms ease;
+      }
+
+      .floor-week__day:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 35%, var(--guy-border, #d7e0d9));
+      }
+
+      .floor-week__day--today {
+        border-color: color-mix(in srgb, var(--guy-accent-secondary, #2e7d32) 45%, var(--guy-border, #d7e0d9));
+      }
+
+      .floor-week__day--selected {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff);
+        border-color: var(--guy-primary, #1d65a0);
+        box-shadow: inset 0 0 0 1px var(--guy-primary, #1d65a0);
+      }
+
+      .floor-week__day--busy .floor-week__guests {
+        background: color-mix(in srgb, var(--guy-accent-secondary, #2e7d32) 88%, #0f2a1a);
+        color: #fff;
+      }
+
+      .floor-week__label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .floor-week__num {
+        font-size: 1.05rem;
+        line-height: 1.1;
+        color: var(--guy-text, #1b2a33);
+      }
+
+      .floor-week__guests {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.35rem;
+        height: 1.15rem;
+        padding: 0 0.35rem;
+        margin-top: 0.15rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--guy-accent-secondary, #2e7d32) 88%, #0f2a1a);
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .floor-week__guests--empty {
+        background: transparent;
+        color: var(--guy-muted, #5f6f76);
+        opacity: 0.35;
+        font-weight: 500;
+        min-width: 0;
+        height: 1.15rem;
+        padding: 0;
+      }
+
+      .floor-week__today {
+        flex-shrink: 0;
+        margin-left: 0.15rem;
+      }
+
+      .floor-cal {
+        margin-bottom: 0.95rem;
+        padding: 0.75rem 0.8rem 0.65rem;
+        border-radius: 14px;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 70%, #fff);
+      }
+
+      .floor-cal__nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.55rem;
+      }
+
+      .floor-cal__nav strong {
+        text-transform: capitalize;
+        color: var(--guy-navy, #003366);
+      }
+
+      .floor-cal__weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.3rem;
+        margin-bottom: 0.3rem;
+      }
+
+      .floor-cal__weekdays span {
+        text-align: center;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+        letter-spacing: 0.02em;
+      }
+
+      .floor-cal__grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.3rem;
+      }
+
+      .floor-cal__cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.1rem;
+        min-height: 3.15rem;
+        padding: 0.3rem 0.15rem;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        background: #fff;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        transition:
+          background 140ms ease,
+          border-color 140ms ease;
+      }
+
+      .floor-cal__cell--empty {
+        background: transparent;
+        cursor: default;
+        min-height: 3.15rem;
+      }
+
+      .floor-cal__cell:hover:not(.floor-cal__cell--empty) {
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 30%, transparent);
+      }
+
+      .floor-cal__cell--today {
+        border-color: color-mix(in srgb, var(--guy-accent-secondary, #2e7d32) 40%, transparent);
+      }
+
+      .floor-cal__cell--selected {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, #fff);
+        border-color: var(--guy-primary, #1d65a0);
+      }
+
+      .floor-cal__cell--busy .floor-cal__count {
+        background: color-mix(in srgb, var(--guy-accent-secondary, #2e7d32) 88%, #0f2a1a);
+        color: #fff;
+      }
+
+      .floor-cal__day {
+        font-size: 0.92rem;
+        font-weight: 600;
+        line-height: 1.1;
+        color: var(--guy-text, #1b2a33);
+      }
+
+      .floor-cal__count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.25rem;
+        height: 1.05rem;
+        padding: 0 0.3rem;
+        margin-top: 0.12rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--guy-accent-secondary, #2e7d32) 88%, #0f2a1a);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .floor-cal__hint {
+        margin: 0.55rem 0 0;
+      }
+
       .floor-form {
         display: grid;
         grid-template-columns: 1fr 5.5rem 8rem auto auto;
@@ -273,7 +645,37 @@ function toTimeString(value: Date | null): string | undefined {
         margin-bottom: 0.85rem;
       }
 
+      @media (max-width: 860px) {
+        .floor-week {
+          flex-wrap: wrap;
+        }
+
+        .floor-week__days {
+          order: 3;
+          width: 100%;
+          flex: 1 1 100%;
+        }
+
+        .floor-week__today {
+          margin-left: auto;
+        }
+      }
+
       @media (max-width: 720px) {
+        .floor-panel__head {
+          flex-direction: column;
+        }
+
+        .floor-head-tools {
+          width: 100%;
+          justify-content: stretch;
+        }
+
+        .floor-date {
+          flex: 1;
+          width: auto;
+        }
+
         .floor-form {
           grid-template-columns: 1fr 1fr;
         }
@@ -282,6 +684,15 @@ function toTimeString(value: Date | null): string | undefined {
         .floor-form button[type='submit'],
         .floor-area-toggle {
           grid-column: 1 / -1;
+        }
+
+        .floor-week__day {
+          min-height: 3.6rem;
+          padding: 0.3rem 0.1rem;
+        }
+
+        .floor-week__label {
+          font-size: 0.62rem;
         }
       }
 
@@ -382,21 +793,39 @@ function toTimeString(value: Date | null): string | undefined {
         list-style: none;
       }
 
-      :host-context(html[data-theme='dark']) .floor-card {
+      :host-context(html[data-theme='dark']) .floor-card,
+      :host-context(html[data-theme='dark']) .floor-week__day,
+      :host-context(html[data-theme='dark']) .floor-cal__cell:not(.floor-cal__cell--empty) {
         background: var(--guy-card, #1a1f1c);
+      }
+
+      :host-context(html[data-theme='dark']) .floor-cal {
+        background: color-mix(in srgb, var(--guy-card, #1a1f1c) 80%, #000);
+      }
+
+      :host-context(html[data-theme='dark']) .floor-week__day--selected,
+      :host-context(html[data-theme='dark']) .floor-cal__cell--selected {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 22%, var(--guy-card, #1a1f1c));
       }
     `,
   ],
 })
 export class ReservationsPage implements OnInit {
   private readonly api = inject(ReservationsApiService);
+  private readonly inbox = inject(ReservationsInboxService);
   private readonly fb = inject(FormBuilder);
   private readonly snack = inject(MatSnackBar);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
 
+  readonly weekdayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
   readonly businessDate = signal(this.defaultDate());
   readonly reservations = signal<ReservationRow[]>([]);
+  readonly daySummary = signal<Record<string, ReservationsDaySummary>>({});
+  readonly showCalendar = signal(false);
+  readonly calendarMonth = signal(monthKeyFromIso(this.defaultDate()));
+  readonly todayIso = signal(this.defaultDate());
 
   readonly selectedDay = computed(() => toDateInput(this.businessDate()));
 
@@ -425,12 +854,92 @@ export class ReservationsPage implements OnInit {
       .reduce((s, r) => s + Number(r.partySize || 0), 0),
   );
 
+  readonly weekDays = computed((): WeekDayChip[] => {
+    const selected = this.businessDate();
+    const today = this.todayIso();
+    const start = startOfWeekIso(selected);
+    const summary = this.daySummary();
+    return Array.from({ length: 7 }, (_, i) => {
+      const iso = addDaysIso(start, i);
+      const d = toDateInput(iso);
+      return {
+        iso,
+        label: d.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', ''),
+        dayNum: d.getDate(),
+        guests: summary[iso]?.guests ?? 0,
+        isToday: iso === today,
+        isSelected: iso === selected,
+      };
+    });
+  });
+
+  readonly calendarMonthLabel = computed(() => {
+    const [y, m] = this.calendarMonth().split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  });
+
+  readonly calendarCells = computed((): CalendarCell[] => {
+    const [y, m] = this.calendarMonth().split('-').map(Number);
+    const monthIndex = m - 1;
+    const first = new Date(y, monthIndex, 1);
+    const jsDay = first.getDay(); // 0=dom
+    const offset = jsDay === 0 ? 6 : jsDay - 1; // lunes=0
+    const totalDays = daysInMonth(y, monthIndex);
+    const selected = this.businessDate();
+    const today = this.todayIso();
+    const summary = this.daySummary();
+    const cells: CalendarCell[] = [];
+
+    for (let i = 0; i < offset; i++) {
+      cells.push({
+        iso: null,
+        dayNum: null,
+        guests: 0,
+        parties: 0,
+        isToday: false,
+        isSelected: false,
+        muted: true,
+      });
+    }
+
+    for (let day = 1; day <= totalDays; day++) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const s = summary[iso];
+      cells.push({
+        iso,
+        dayNum: day,
+        guests: s?.guests ?? 0,
+        parties: s?.parties ?? 0,
+        isToday: iso === today,
+        isSelected: iso === selected,
+        muted: false,
+      });
+    }
+
+    while (cells.length % 7 !== 0) {
+      cells.push({
+        iso: null,
+        dayNum: null,
+        guests: 0,
+        parties: 0,
+        isToday: false,
+        isSelected: false,
+        muted: true,
+      });
+    }
+
+    return cells;
+  });
+
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reservations.manage');
   }
 
   ngOnInit(): void {
+    this.calendarMonth.set(monthKeyFromIso(this.businessDate()));
     this.loadReservations();
+    this.loadSummary();
   }
 
   private defaultDate(): string {
@@ -466,8 +975,44 @@ export class ReservationsPage implements OnInit {
 
   onDayPicked(value: Date | null): void {
     if (!value) return;
-    this.businessDate.set(toDateString(value));
+    this.selectIso(toDateString(value));
+  }
+
+  selectIso(iso: string): void {
+    if (!iso || iso === this.businessDate()) {
+      this.calendarMonth.set(monthKeyFromIso(iso || this.businessDate()));
+      return;
+    }
+    this.businessDate.set(iso);
+    this.calendarMonth.set(monthKeyFromIso(iso));
     this.loadReservations();
+    this.loadSummary();
+  }
+
+  goToday(): void {
+    this.todayIso.set(this.defaultDate());
+    this.selectIso(this.todayIso());
+  }
+
+  shiftWeek(dir: -1 | 1): void {
+    this.selectIso(addDaysIso(this.businessDate(), dir * 7));
+  }
+
+  shiftMonth(dir: -1 | 1): void {
+    const [y, m] = this.calendarMonth().split('-').map(Number);
+    const d = new Date(y, m - 1 + dir, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    this.calendarMonth.set(key);
+    this.loadSummary();
+  }
+
+  toggleCalendar(): void {
+    const next = !this.showCalendar();
+    this.showCalendar.set(next);
+    if (next) {
+      this.calendarMonth.set(monthKeyFromIso(this.businessDate()));
+      this.loadSummary();
+    }
   }
 
   focusReservationForm(): void {
@@ -477,11 +1022,54 @@ export class ReservationsPage implements OnInit {
     }
     const form = document.getElementById('reservation-compose');
     form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Esperar el scroll / layout antes de enfocar
     requestAnimationFrame(() => {
       const input = document.getElementById('reservation-guest-name') as HTMLInputElement | null;
       input?.focus();
       input?.select();
+    });
+  }
+
+  private summaryRange(): { from: string; to: string } {
+    const selected = this.businessDate();
+    const weekStart = startOfWeekIso(selected);
+    const weekEnd = addDaysIso(weekStart, 6);
+
+    if (!this.showCalendar()) {
+      return { from: weekStart, to: weekEnd };
+    }
+
+    const [y, m] = this.calendarMonth().split('-').map(Number);
+    const monthFrom = `${y}-${String(m).padStart(2, '0')}-01`;
+    const monthTo = `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth(y, m - 1)).padStart(2, '0')}`;
+    const from = weekStart < monthFrom ? weekStart : monthFrom;
+    const to = weekEnd > monthTo ? weekEnd : monthTo;
+    return { from, to };
+  }
+
+  private loadSummary(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const { from, to } = this.summaryRange();
+    this.api.reservationsSummary(shopId, from, to).subscribe({
+      next: (res) => {
+        const map: Record<string, ReservationsDaySummary> = {};
+        for (const day of res.days ?? []) {
+          const key = String(day.businessDate ?? '').slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+          map[key] = {
+            ...day,
+            businessDate: key,
+            parties: Number(day.parties) || 0,
+            guests: Number(day.guests) || 0,
+            inside: Number(day.inside) || 0,
+            outside: Number(day.outside) || 0,
+          };
+        }
+        this.daySummary.set(map);
+      },
+      error: () => {
+        /* no pisar totales del calendario si falla el resumen */
+      },
     });
   }
 
@@ -490,7 +1078,8 @@ export class ReservationsPage implements OnInit {
     if (!shopId) return;
     this.api.listReservations(shopId, this.businessDate()).subscribe({
       next: (res) => {
-        this.businessDate.set(res.businessDate);
+        const date = String(res.businessDate ?? this.businessDate()).slice(0, 10);
+        this.businessDate.set(date);
         this.reservations.set(res.reservations ?? []);
       },
       error: () => this.snack.open('No se pudieron cargar las reservas', 'OK', { duration: 3000 }),
@@ -519,6 +1108,8 @@ export class ReservationsPage implements OnInit {
             reservationTime: null,
           });
           this.loadReservations();
+          this.loadSummary();
+          this.inbox.refresh();
           this.snack.open('Reserva agregada', 'OK', { duration: 2000 });
         },
         error: (err) => {
@@ -534,6 +1125,8 @@ export class ReservationsPage implements OnInit {
     this.api.removeReservation(shopId, row.id).subscribe({
       next: () => {
         this.loadReservations();
+        this.loadSummary();
+        this.inbox.refresh();
         this.snack.open('Reserva eliminada', 'OK', { duration: 2000 });
       },
       error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3000 }),
