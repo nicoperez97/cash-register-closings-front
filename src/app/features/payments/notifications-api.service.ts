@@ -11,7 +11,9 @@ export type NotificationType =
   | 'CASH_WITHDRAWAL_PICKED'
   | 'PRODUCTION_HOURS_LOGGED'
   | 'STOCK_BELOW_MINIMUM'
-  | 'STOCK_SHARED';
+  | 'STOCK_SHARED'
+  | 'BEVERAGE_STOCK_BELOW_MINIMUM'
+  | 'BEVERAGE_STOCK_SHARED';
 
 export interface AppNotification {
   id: string;
@@ -44,8 +46,10 @@ export function notificationIcon(type: NotificationType | string): string {
     case 'PRODUCTION_HOURS_LOGGED':
       return 'restaurant';
     case 'STOCK_BELOW_MINIMUM':
+    case 'BEVERAGE_STOCK_BELOW_MINIMUM':
       return 'inventory';
     case 'STOCK_SHARED':
+    case 'BEVERAGE_STOCK_SHARED':
       return 'share';
     default:
       return 'notifications';
@@ -70,8 +74,10 @@ export function notificationToneClass(type: NotificationType | string): string {
     case 'PRODUCTION_HOURS_LOGGED':
       return 'notif-tone--green';
     case 'STOCK_BELOW_MINIMUM':
+    case 'BEVERAGE_STOCK_BELOW_MINIMUM':
       return 'notif-tone--red';
     case 'STOCK_SHARED':
+    case 'BEVERAGE_STOCK_SHARED':
       return 'notif-tone--green';
     default:
       return 'notif-tone--muted';

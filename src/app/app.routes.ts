@@ -133,9 +133,18 @@ export const routes: Routes = [
       {
         path: 'stock',
         canActivate: [permissionGuard('stock.read')],
+        data: { stockKind: 'food' },
         loadComponent: () =>
           import('./features/stock/stock-page').then((m) => m.StockPage),
-        title: 'Administración de stock',
+        title: 'Stock alimentos',
+      },
+      {
+        path: 'beverage-stock',
+        canActivate: [permissionGuard('beverageStock.read')],
+        data: { stockKind: 'beverage' },
+        loadComponent: () =>
+          import('./features/stock/stock-page').then((m) => m.StockPage),
+        title: 'Stock bebidas',
       },
       {
         path: 'admin/shops',

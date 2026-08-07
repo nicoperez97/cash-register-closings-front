@@ -1,12 +1,15 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+
+export type StockKind = 'food' | 'beverage';
 
 export interface StockCategory {
   id: string;
   shopId: string;
   name: string;
   active: boolean;
+  kind?: StockKind;
 }
 
 export interface StockProduct {
@@ -20,6 +23,7 @@ export interface StockProduct {
   quantity: number;
   belowMinimum: boolean;
   active: boolean;
+  kind?: StockKind;
 }
 
 export interface StockShareAdmin {
@@ -35,43 +39,67 @@ export interface StockShareResult {
   shareText: string;
 }
 
+export function stockKindLabel(kind: StockKind): string {
+  return kind === 'beverage' ? 'bebidas' : 'alimentos';
+}
+
+export function stockManagePermission(kind: StockKind): 'stock.manage' | 'beverageStock.manage' {
+  return kind === 'beverage' ? 'beverageStock.manage' : 'stock.manage';
+}
+
+export function stockReadPermission(kind: StockKind): 'stock.read' | 'beverageStock.read' {
+  return kind === 'beverage' ? 'beverageStock.read' : 'stock.read';
+}
+
 @Injectable({ providedIn: 'root' })
 export class StockApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
 
-  listCategories(shopId: string, includeInactive = false) {
+  private params(kind: StockKind, extra?: Record<string, string>): HttpParams {
+    let p = new HttpParams().set('kind', kind);
+    if (extra) {
+      for (const [k, v] of Object.entries(extra)) p = p.set(k, v);
+    }
+    return p;
+  }
+
+  listCategories(shopId: string, kind: StockKind, includeInactive = false) {
     return this.http.get<StockCategory[]>(`${this.base}/shops/${shopId}/stock/categories`, {
-      params: includeInactive ? { includeInactive: 'true' } : {},
+      params: this.params(kind, includeInactive ? { includeInactive: 'true' } : undefined),
     });
   }
 
-  createCategory(shopId: string, body: { name: string }) {
+  createCategory(shopId: string, kind: StockKind, body: { name: string }) {
     return this.http.post<StockCategory>(
       `${this.base}/shops/${shopId}/stock/categories`,
       body,
+      { params: this.params(kind) },
     );
   }
 
   updateCategory(
     shopId: string,
+    kind: StockKind,
     id: string,
     body: Partial<{ name: string; active: boolean }>,
   ) {
     return this.http.patch<StockCategory>(
       `${this.base}/shops/${shopId}/stock/categories/${id}`,
       body,
+      { params: this.params(kind) },
     );
   }
 
-  listProducts(shopId: string, includeInactive = false) {
+  listProducts(shopId: string, kind: StockKind, includeInactive = false) {
     return this.http.get<StockProduct[]>(`${this.base}/shops/${shopId}/stock/products`, {
-      params: includeInactive ? { includeInactive: 'true' } : {},
+      params: this.params(kind, includeInactive ? { includeInactive: 'true' } : undefined),
     });
   }
 
   createProduct(
     shopId: string,
+    kind: StockKind,
     body: {
       name: string;
       categoryId?: string | null;
@@ -81,11 +109,14 @@ export class StockApiService {
       maxQuantity?: number;
     },
   ) {
-    return this.http.post<StockProduct>(`${this.base}/shops/${shopId}/stock/products`, body);
+    return this.http.post<StockProduct>(`${this.base}/shops/${shopId}/stock/products`, body, {
+      params: this.params(kind),
+    });
   }
 
   updateProduct(
     shopId: string,
+    kind: StockKind,
     id: string,
     body: {
       name?: string;
@@ -100,36 +131,44 @@ export class StockApiService {
     return this.http.patch<StockProduct>(
       `${this.base}/shops/${shopId}/stock/products/${id}`,
       body,
+      { params: this.params(kind) },
     );
   }
 
-  adjust(shopId: string, id: string, delta: 1 | -1) {
+  adjust(shopId: string, kind: StockKind, id: string, delta: 1 | -1) {
     return this.http.post<StockProduct>(
       `${this.base}/shops/${shopId}/stock/products/${id}/adjust`,
       { delta },
+      { params: this.params(kind) },
     );
   }
 
-  restock(shopId: string, productIds: string[]) {
+  restock(shopId: string, kind: StockKind, productIds: string[]) {
     return this.http.post<{ products: StockProduct[]; skipped: string[] }>(
       `${this.base}/shops/${shopId}/stock/products/restock`,
       { productIds },
+      { params: this.params(kind) },
     );
   }
 
-  listStockAdmins(shopId: string) {
-    return this.http.get<StockShareAdmin[]>(`${this.base}/shops/${shopId}/stock/admins`);
-  }
-
-  shareStock(shopId: string, recipientUserIds: string[]) {
-    return this.http.post<StockShareResult>(`${this.base}/shops/${shopId}/stock/share`, {
-      recipientUserIds,
+  listStockAdmins(shopId: string, kind: StockKind) {
+    return this.http.get<StockShareAdmin[]>(`${this.base}/shops/${shopId}/stock/admins`, {
+      params: this.params(kind),
     });
   }
 
-  removeProduct(shopId: string, id: string) {
+  shareStock(shopId: string, kind: StockKind, recipientUserIds: string[]) {
+    return this.http.post<StockShareResult>(
+      `${this.base}/shops/${shopId}/stock/share`,
+      { recipientUserIds },
+      { params: this.params(kind) },
+    );
+  }
+
+  removeProduct(shopId: string, kind: StockKind, id: string) {
     return this.http.delete<{ ok: boolean }>(
       `${this.base}/shops/${shopId}/stock/products/${id}`,
+      { params: this.params(kind) },
     );
   }
 }

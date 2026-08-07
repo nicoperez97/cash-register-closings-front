@@ -34,6 +34,7 @@ export interface AdminUserRow {
   ledgerAccountName?: string | null;
   hideFromCashWithdraw?: boolean;
   isStockAdmin?: boolean;
+  isBeverageStockAdmin?: boolean;
 }
 
 export type AdminUserDialogData = {
@@ -584,10 +585,16 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             No aparece en el selector de retiro de efectivo de este local.
           </p>
           <mat-slide-toggle formControlName="isStockAdmin">
-            Administrador de stock
+            Administrador de stock de alimentos
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando un producto baja del mínimo requerido.
+            Recibe notificaciones cuando un alimento baja del mínimo requerido.
+          </p>
+          <mat-slide-toggle formControlName="isBeverageStockAdmin">
+            Administrador de stock de bebidas
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones cuando una bebida baja del mínimo requerido.
           </p>
         }
 
@@ -633,10 +640,16 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             No aparece en el selector de retiro de efectivo de este local.
           </p>
           <mat-slide-toggle formControlName="isStockAdmin">
-            Administrador de stock
+            Administrador de stock de alimentos
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando un producto baja del mínimo requerido.
+            Recibe notificaciones cuando un alimento baja del mínimo requerido.
+          </p>
+          <mat-slide-toggle formControlName="isBeverageStockAdmin">
+            Administrador de stock de bebidas
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones cuando una bebida baja del mínimo requerido.
           </p>
         }
       </form>
@@ -756,6 +769,7 @@ export class AdminUserDialogComponent implements OnInit {
       payments: [this.initialModules.payments],
       suppliers: [this.initialModules.suppliers],
       stock: [this.initialModules.stock],
+      beverageStock: [this.initialModules.beverageStock],
       accounts: [this.initialModules.accounts],
       concepts: [this.initialModules.concepts],
       shop: [this.initialModules.shop],
@@ -765,6 +779,7 @@ export class AdminUserDialogComponent implements OnInit {
     active: [this.user?.active ?? true],
     hideFromCashWithdraw: [this.user?.hideFromCashWithdraw ?? false],
     isStockAdmin: [this.user?.isStockAdmin ?? false],
+    isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
   });
 
   readonly enabledSummary = computed(() => {
@@ -895,6 +910,7 @@ export class AdminUserDialogComponent implements OnInit {
           modulePermissions,
           hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
           isStockAdmin: !!raw.isStockAdmin,
+          isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         })
         .subscribe({
           next: () => {
@@ -923,6 +939,7 @@ export class AdminUserDialogComponent implements OnInit {
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
         isStockAdmin: !!raw.isStockAdmin,
+        isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -958,6 +975,7 @@ export class AdminUserDialogComponent implements OnInit {
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
         isStockAdmin: !!raw.isStockAdmin,
+        isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
       })
       .subscribe({
         next: () => {

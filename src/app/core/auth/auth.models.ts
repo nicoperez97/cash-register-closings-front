@@ -36,7 +36,9 @@ export type Permission =
   | 'suppliers.read'
   | 'suppliers.manage'
   | 'stock.read'
-  | 'stock.manage';
+  | 'stock.manage'
+  | 'beverageStock.read'
+  | 'beverageStock.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -72,6 +74,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'suppliers.manage',
   'stock.read',
   'stock.manage',
+  'beverageStock.read',
+  'beverageStock.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -110,6 +114,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'suppliers.manage',
     'stock.read',
     'stock.manage',
+    'beverageStock.read',
+    'beverageStock.manage',
   ],
   CASHIER: ['closings.create', 'closings.read'],
   VIEWER: [
@@ -126,6 +132,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'payments.read',
     'suppliers.read',
     'stock.read',
+    'beverageStock.read',
   ],
   PARTNER: [
     'closings.read',
@@ -153,6 +160,7 @@ export type ModuleKey =
   | 'payments'
   | 'suppliers'
   | 'stock'
+  | 'beverageStock'
   | 'shop'
   | 'users';
 
@@ -339,10 +347,22 @@ export const MODULE_DEFS: ModuleDef[] = [
   },
   {
     key: 'stock',
-    label: 'Stock',
+    label: 'Stock alimentos',
     icon: 'inventory',
     group: 'daily',
-    hint: 'Administración de stock de productos',
+    hint: 'Administración de stock de alimentos',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'beverageStock',
+    label: 'Stock bebidas',
+    icon: 'local_bar',
+    group: 'daily',
+    hint: 'Administración de stock de bebidas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -641,7 +661,12 @@ export function isProducerOnly(user: AuthUser | null, shopId: string | null): bo
   const perms = permissionsForShop(user, shopId);
   if (!perms.includes('attendance.self')) return false;
   if (perms.includes('attendance.read') || perms.includes('attendance.manage')) return false;
-  const allowedExtra = new Set<Permission>(['stock.read', 'stock.manage']);
+  const allowedExtra = new Set<Permission>([
+    'stock.read',
+    'stock.manage',
+    'beverageStock.read',
+    'beverageStock.manage',
+  ]);
   const extra = perms.filter((p) => p !== 'attendance.self' && !allowedExtra.has(p));
   return extra.length === 0;
 }

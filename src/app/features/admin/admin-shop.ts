@@ -44,8 +44,10 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'CLOSING_CREATED', label: 'Cierres creados' },
   { value: 'CASH_WITHDRAWAL_PICKED', label: 'Retiros de efectivo' },
   { value: 'PRODUCTION_HOURS_LOGGED', label: 'Horas de producción cargadas' },
-  { value: 'STOCK_BELOW_MINIMUM', label: 'Stock bajo el mínimo' },
-  { value: 'STOCK_SHARED', label: 'Stock compartido' },
+  { value: 'STOCK_BELOW_MINIMUM', label: 'Stock alimentos · bajo el mínimo' },
+  { value: 'STOCK_SHARED', label: 'Stock alimentos · compartido' },
+  { value: 'BEVERAGE_STOCK_BELOW_MINIMUM', label: 'Stock bebidas · bajo el mínimo' },
+  { value: 'BEVERAGE_STOCK_SHARED', label: 'Stock bebidas · compartido' },
 ] as const;
 
 const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);

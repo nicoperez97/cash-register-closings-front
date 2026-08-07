@@ -144,8 +144,13 @@ export class AdminUsersPage implements OnInit {
       });
       cols.push({
         key: 'isStockAdmin',
-        label: 'Admin stock',
+        label: 'Admin stock alimentos',
         format: (r) => (r['isStockAdmin'] ? 'Sí' : 'No'),
+      });
+      cols.push({
+        key: 'isBeverageStockAdmin',
+        label: 'Admin stock bebidas',
+        format: (r) => (r['isBeverageStockAdmin'] ? 'Sí' : 'No'),
       });
     }
     cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });
@@ -333,7 +338,7 @@ export class AdminUsersPage implements OnInit {
       return;
     }
 
-    // Hidratar flags del local (isStockAdmin / hideFromCashWithdraw) por si el listado no los trae.
+    // Hidratar flags del local (isStockAdmin / isBeverageStockAdmin / hideFromCashWithdraw) por si el listado no los trae.
     this.http
       .get<AdminUserRow>(`${environment.apiUrl}/users/${mode.user.id}`, {
         params: { shopId },
