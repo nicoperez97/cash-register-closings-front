@@ -76,6 +76,7 @@ export interface PublicReservationsBoard {
     partySize: number;
     area: ReservationArea;
     reservationTime?: string | null;
+    notes?: string | null;
     status: ReservationStatus;
     number?: number;
     createdAt?: string;

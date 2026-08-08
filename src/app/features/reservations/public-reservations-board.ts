@@ -132,6 +132,9 @@ import { BoardPwaService } from './board-pwa.service';
                       <span class="board__badge board__badge--removed">Liberada</span>
                     }
                   </span>
+                  @if (r.notes?.trim()) {
+                    <span class="board__note">{{ r.notes }}</span>
+                  }
                   <span class="board__meta">
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
@@ -180,6 +183,9 @@ import { BoardPwaService } from './board-pwa.service';
                       <span class="board__badge board__badge--removed">Liberada</span>
                     }
                   </span>
+                  @if (r.notes?.trim()) {
+                    <span class="board__note">{{ r.notes }}</span>
+                  }
                   <span class="board__meta">
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
@@ -652,6 +658,24 @@ import { BoardPwaService } from './board-pwa.service';
         flex-wrap: wrap;
         align-items: center;
         gap: 0.35rem 0.45rem;
+      }
+
+      .board__note {
+        display: block;
+        margin: 0.15rem 0 0.05rem;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        font-weight: 500;
+        color: color-mix(in srgb, #f4efe6 78%, var(--accent));
+        white-space: pre-wrap;
+      }
+
+      .board__item--removed .board__note {
+        color: #fecaca;
+      }
+
+      .board__item--seated .board__note {
+        color: #fef08a;
       }
 
       .board__num {
