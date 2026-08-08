@@ -990,7 +990,9 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.api.publicSeatReservation(this.slug, r.id).subscribe({
       next: (res) => {
         this.seating = false;
-        this.patchLocalStatus(r.id, res.status);
+        if (res.status === 'CONFIRMED' || res.status === 'SEATED') {
+          this.patchLocalStatus(r.id, res.status);
+        }
       },
       error: () => {
         this.seating = false;
