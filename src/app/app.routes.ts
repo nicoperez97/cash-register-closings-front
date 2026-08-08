@@ -147,6 +147,13 @@ export const routes: Routes = [
         title: 'Stock bebidas',
       },
       {
+        path: 'shortages',
+        canActivate: [permissionGuard('shortages.read')],
+        loadComponent: () =>
+          import('./features/shortages/shortages-page').then((m) => m.ShortagesPage),
+        title: 'Faltantes',
+      },
+      {
         path: 'admin/shops',
         canActivate: [superAdminGuard],
         loadComponent: () =>

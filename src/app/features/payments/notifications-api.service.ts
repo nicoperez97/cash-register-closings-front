@@ -13,7 +13,10 @@ export type NotificationType =
   | 'STOCK_BELOW_MINIMUM'
   | 'STOCK_SHARED'
   | 'BEVERAGE_STOCK_BELOW_MINIMUM'
-  | 'BEVERAGE_STOCK_SHARED';
+  | 'BEVERAGE_STOCK_SHARED'
+  | 'SHORTAGE_CREATED'
+  | 'SHORTAGE_LEVEL_LOW'
+  | 'SHORTAGE_RESOLVED';
 
 export interface AppNotification {
   id: string;
@@ -51,6 +54,11 @@ export function notificationIcon(type: NotificationType | string): string {
     case 'STOCK_SHARED':
     case 'BEVERAGE_STOCK_SHARED':
       return 'share';
+    case 'SHORTAGE_CREATED':
+    case 'SHORTAGE_LEVEL_LOW':
+      return 'report';
+    case 'SHORTAGE_RESOLVED':
+      return 'check_circle';
     default:
       return 'notifications';
   }
@@ -78,6 +86,11 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--red';
     case 'STOCK_SHARED':
     case 'BEVERAGE_STOCK_SHARED':
+      return 'notif-tone--green';
+    case 'SHORTAGE_CREATED':
+    case 'SHORTAGE_LEVEL_LOW':
+      return 'notif-tone--red';
+    case 'SHORTAGE_RESOLVED':
       return 'notif-tone--green';
     default:
       return 'notif-tone--muted';

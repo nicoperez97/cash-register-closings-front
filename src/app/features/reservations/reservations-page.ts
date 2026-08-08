@@ -344,9 +344,21 @@ interface CalendarCell {
 
       <ul class="floor-list">
         @for (r of activeReservations(); track r.id) {
-          <li class="floor-card" [class.floor-card--out]="r.area === 'OUTSIDE'">
+          <li
+            class="floor-card"
+            [class.floor-card--out]="r.area === 'OUTSIDE'"
+            [class.floor-card--seated]="r.status === 'SEATED'"
+          >
             <div class="floor-card__main">
-              <strong>{{ r.guestName || 'Reserva' }}</strong>
+              <strong>
+                @if (r.number) {
+                  <span class="floor-num">#{{ r.number }}</span>
+                }
+                {{ r.guestName || 'Reserva' }}
+                @if (r.status === 'SEATED') {
+                  <span class="floor-badge">En mesa</span>
+                }
+              </strong>
               <span>
                 {{ r.partySize }} pers.
                 · {{ r.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
@@ -357,6 +369,11 @@ interface CalendarCell {
             </div>
             @if (canManage()) {
               <div class="floor-card__actions">
+                @if (r.status === 'CONFIRMED') {
+                  <button mat-stroked-button type="button" (click)="seatReservation(r)">
+                    Sentar
+                  </button>
+                }
                 <button mat-icon-button type="button" aria-label="Eliminar" (click)="deleteReservation(r)">
                   <mat-icon>delete</mat-icon>
                 </button>
@@ -863,6 +880,39 @@ interface CalendarCell {
         background: color-mix(in srgb, #ef6c00 6%, #fff);
       }
 
+      .floor-card--seated {
+        opacity: 0.78;
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 40%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+      }
+
+      .floor-num {
+        color: var(--guy-primary, #1d65a0);
+        margin-right: 0.25rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .floor-badge {
+        display: inline-block;
+        margin-left: 0.4rem;
+        padding: 0.1rem 0.4rem;
+        border-radius: 999px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--guy-primary, #1d65a0);
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff);
+        vertical-align: middle;
+      }
+
+      .floor-card__actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
       .floor-card__main {
         display: flex;
         flex-direction: column;
@@ -1278,6 +1328,19 @@ export class ReservationsPage implements OnInit {
         this.snack.open('Reserva eliminada', 'OK', { duration: 2000 });
       },
       error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3000 }),
+    });
+  }
+
+  seatReservation(row: ReservationRow): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canManage() || row.status !== 'CONFIRMED') return;
+    this.api.updateReservation(shopId, row.id, { status: 'SEATED' }).subscribe({
+      next: () => {
+        this.loadReservations();
+        this.inbox.refresh();
+        this.snack.open(`${row.guestName || 'Reserva'} en mesa`, 'OK', { duration: 2000 });
+      },
+      error: () => this.snack.open('No se pudo sentar', 'OK', { duration: 3000 }),
     });
   }
 }

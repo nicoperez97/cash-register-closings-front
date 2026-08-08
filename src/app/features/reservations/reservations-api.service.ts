@@ -16,6 +16,8 @@ export interface ReservationRow {
   notes?: string | null;
   status: ReservationStatus;
   reservationTime?: string | null;
+  number?: number;
+  createdAt?: string;
 }
 
 export interface WaitingListRow {
@@ -75,6 +77,9 @@ export interface PublicReservationsBoard {
     area: ReservationArea;
     reservationTime?: string | null;
     status: ReservationStatus;
+    number?: number;
+    createdAt?: string;
+    removedAfterSeated?: boolean;
   }>;
 }
 
@@ -191,6 +196,16 @@ export class ReservationsApiService {
     return this.http.get<PublicReservationsBoard>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/reservations`,
     );
+  }
+
+  publicSeatReservation(slug: string, id: string) {
+    return this.http.post<{
+      id: string;
+      status: ReservationStatus;
+      guestName: string;
+      partySize: number;
+      area: ReservationArea;
+    }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/reservations/${id}/seat`, {});
   }
 
   publicWaitingBoard(slug: string) {

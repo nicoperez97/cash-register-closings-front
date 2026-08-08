@@ -48,6 +48,9 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'STOCK_SHARED', label: 'Stock alimentos · compartido' },
   { value: 'BEVERAGE_STOCK_BELOW_MINIMUM', label: 'Stock bebidas · bajo el mínimo' },
   { value: 'BEVERAGE_STOCK_SHARED', label: 'Stock bebidas · compartido' },
+  { value: 'SHORTAGE_CREATED', label: 'Faltantes · crítico cargado' },
+  { value: 'SHORTAGE_LEVEL_LOW', label: 'Faltantes · bajó a crítico' },
+  { value: 'SHORTAGE_RESOLVED', label: 'Faltantes · resuelto' },
 ] as const;
 
 const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);

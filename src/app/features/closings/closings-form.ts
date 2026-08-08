@@ -11,6 +11,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom, map, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatStepperModule } from '@angular/material/stepper';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
@@ -90,6 +92,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatSnackBarModule,
     MatDialogModule,
     MatDatepickerModule,
+    MatStepperModule,
   ],
   host: {
     class: 'closing-form-page',
@@ -131,45 +134,6 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         (ngSubmit)="save()"
         [class.closing-form--locked]="isLocked() && !auth.isAdmin()"
       >
-        <div class="closing-totals closing-totals--hero">
-          <div class="closing-totals__head">
-            <div>
-              <h2>Resumen</h2>
-              <p class="closing-totals__sub">Lo que importa del día</p>
-            </div>
-            <button mat-stroked-button type="button" (click)="shareSummary()">
-              <mat-icon>share</mat-icon>
-              Compartir
-            </button>
-          </div>
-          <div class="closing-totals__grid">
-            <div class="closing-totals__item">
-              <span>Fecha</span>
-              <strong>{{ summaryDate() }}</strong>
-            </div>
-            <div class="closing-totals__item">
-              <span>PVS</span>
-              <strong>{{ money(cardAmount()) }}</strong>
-            </div>
-            <div class="closing-totals__item">
-              <span>Efectivo</span>
-              <strong>{{ money(cashAmount()) }}</strong>
-            </div>
-            <div class="closing-totals__item">
-              <span>Cuenta DNI</span>
-              <strong>{{ money(accountDniAmount()) }}</strong>
-            </div>
-            <div class="closing-totals__item">
-              <span>Caja sistema</span>
-              <strong>{{ money(posAmount()) }}</strong>
-            </div>
-            <div class="closing-totals__item closing-totals__item--total">
-              <span>Total</span>
-              <strong>{{ money(declaredTotal()) }}</strong>
-            </div>
-          </div>
-        </div>
-
         <section class="closing-form__section closing-form__main">
           <h2>Cobros del día</h2>
           <div class="closing-form__fields closing-form__fields--date">
@@ -184,208 +148,94 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             </mat-form-field>
           </div>
 
-          <div class="closing-form__block">
-            <div class="closing-form__block-head">
-              <div class="closing-form__block-title">
-                <h3><span class="closing-form__step">1</span> Posnets</h3>
-                <span class="closing-form__meta">{{ posnetsPanelHint() }}</span>
-              </div>
-              <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="addPosnet()">
-                <mat-icon>add</mat-icon>
-                Agregar
-              </button>
-            </div>
-            <div class="closing-form__block-body">
-              <div class="closing-form__stack" formArrayName="posnetAmounts">
-                @for (row of posnetAmounts.controls; track row; let i = $index) {
-                  <div class="closing-form__posnet-card" [formGroupName]="i">
-                    <div class="closing-form__posnet-card-head">
-                      <div class="closing-form__posnet-card-title">
-                        <span class="closing-form__posnet-index">{{ i + 1 }}</span>
-                        <div>
-                          <strong>{{ posnetRowTitle(i) }}</strong>
-                          <span>{{ posnetRowTypeLabel(i) }}</span>
+          <mat-stepper
+            class="closing-stepper"
+            [orientation]="isMobile() ? 'vertical' : 'horizontal'"
+            [linear]="false"
+          >
+            <mat-step label="Posnets">
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Posnets</h3>
+                    <span class="closing-form__meta">{{ posnetsPanelHint() }}</span>
+                  </div>
+                  <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="addPosnet()">
+                    <mat-icon>add</mat-icon>
+                    Agregar
+                  </button>
+                </div>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__stack" formArrayName="posnetAmounts">
+                    @for (row of posnetAmounts.controls; track row; let i = $index) {
+                      <div class="closing-form__posnet-card" [formGroupName]="i">
+                        <div class="closing-form__posnet-card-head">
+                          <div class="closing-form__posnet-card-title">
+                            <span class="closing-form__posnet-index">{{ i + 1 }}</span>
+                            <div>
+                              <strong>{{ posnetRowTitle(i) }}</strong>
+                              <span>{{ posnetRowTypeLabel(i) }}</span>
+                            </div>
+                          </div>
+                          @if (!isConfiguredPosnet(i)) {
+                            <button
+                              mat-icon-button
+                              type="button"
+                              class="closing-form__row-remove"
+                              aria-label="Quitar posnet"
+                              (click)="removePosnet(i)"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          }
+                        </div>
+                        <div class="closing-form__posnet-row" [class.closing-form__posnet-row--amount-only]="isConfiguredPosnet(i)">
+                          @if (!isConfiguredPosnet(i)) {
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                              <mat-label>Nombre</mat-label>
+                              <input matInput formControlName="name" placeholder="ej. Caja 1" />
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                              <mat-label>Tipo</mat-label>
+                              <mat-select formControlName="type">
+                                @for (opt of posnetTypes; track opt.value) {
+                                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                                }
+                              </mat-select>
+                            </mat-form-field>
+                          }
+                          <mat-form-field
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                            floatLabel="always"
+                            class="closing-field--money"
+                          >
+                            <mat-label>Monto</mat-label>
+                            <span matTextPrefix class="closing-field__prefix">$</span>
+                            <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                          </mat-form-field>
                         </div>
                       </div>
-                      @if (!isConfiguredPosnet(i)) {
-                        <button
-                          mat-icon-button
-                          type="button"
-                          class="closing-form__row-remove"
-                          aria-label="Quitar posnet"
-                          (click)="removePosnet(i)"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      }
-                    </div>
-                    <div class="closing-form__posnet-row" [class.closing-form__posnet-row--amount-only]="isConfiguredPosnet(i)">
-                      @if (!isConfiguredPosnet(i)) {
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Nombre</mat-label>
-                          <input matInput formControlName="name" placeholder="ej. Caja 1" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Tipo</mat-label>
-                          <mat-select formControlName="type">
-                            @for (opt of posnetTypes; track opt.value) {
-                              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                            }
-                          </mat-select>
-                        </mat-form-field>
-                      }
-                      <mat-form-field
-                        appearance="outline"
-                        subscriptSizing="dynamic"
-                        floatLabel="always"
-                        class="closing-field--money"
-                      >
-                        <mat-label>Monto</mat-label>
-                        <span matTextPrefix class="closing-field__prefix">$</span>
-                        <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                      </mat-form-field>
-                    </div>
-                  </div>
-                } @empty {
-                  <p class="closing-form__hint">Sin terminales. Completá PVS y Mercado Pago abajo.</p>
-                }
-              </div>
-              <div class="closing-form__fields closing-form__fields--totals">
-                <mat-form-field
-                  appearance="outline"
-                  subscriptSizing="dynamic"
-                  floatLabel="always"
-                  class="closing-field--money"
-                >
-                  <mat-label>PVS{{ locksCard() ? ' (suma)' : '' }}</mat-label>
-                  <span matTextPrefix class="closing-field__prefix">$</span>
-                  <input
-                    matInput
-                    type="number"
-                    inputmode="decimal"
-                    formControlName="cardAmount"
-                    [readonly]="locksCard()"
-                  />
-                </mat-form-field>
-                <mat-form-field
-                  appearance="outline"
-                  subscriptSizing="dynamic"
-                  floatLabel="always"
-                  class="closing-field--money"
-                >
-                  <mat-label>Mercado Pago{{ locksMp() ? ' (suma)' : '' }}</mat-label>
-                  <span matTextPrefix class="closing-field__prefix">$</span>
-                  <input
-                    matInput
-                    type="number"
-                    inputmode="decimal"
-                    formControlName="mercadoPagoAmount"
-                    [readonly]="locksMp()"
-                  />
-                </mat-form-field>
-              </div>
-            </div>
-          </div>
-
-          <div class="closing-form__block">
-            <div class="closing-form__block-head">
-              <div class="closing-form__block-title">
-                <h3><span class="closing-form__step">2</span> Efectivo</h3>
-                <span class="closing-form__meta">Contá billetes, dejá cambio y quién se lo lleva</span>
-              </div>
-              <button
-                mat-stroked-button
-                type="button"
-                class="closing-form__add-btn"
-                (click)="openBillCounter()"
-              >
-                <mat-icon>payments</mat-icon>
-                Contar
-              </button>
-            </div>
-            <div class="closing-form__block-body">
-              <div class="closing-form__fields closing-form__fields--cash">
-                <mat-form-field
-                  appearance="outline"
-                  subscriptSizing="dynamic"
-                  floatLabel="always"
-                  class="closing-field--money"
-                >
-                  <mat-label>Efectivo</mat-label>
-                  <span matTextPrefix class="closing-field__prefix">$</span>
-                  <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
-                </mat-form-field>
-                <mat-form-field
-                  appearance="outline"
-                  subscriptSizing="dynamic"
-                  floatLabel="always"
-                  class="closing-field--money"
-                >
-                  <mat-label>Se deja en caja</mat-label>
-                  <span matTextPrefix class="closing-field__prefix">$</span>
-                  <input
-                    matInput
-                    type="number"
-                    inputmode="decimal"
-                    formControlName="cashLeftInRegister"
-                  />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Quién se lo lleva</mat-label>
-                  <mat-select
-                    formControlName="cashWithdrawnByUserId"
-                    (selectionChange)="onWithdrawnUserChange($event.value)"
-                  >
-                    <mat-option value="">— Sin asignar —</mat-option>
-                    @for (u of withdrawUsers(); track u.id) {
-                      <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                    } @empty {
+                      <p class="closing-form__hint">Sin terminales. Completá PVS y Mercado Pago abajo.</p>
                     }
-                  </mat-select>
-                </mat-form-field>
-                @if (needsWithdrawnAccountPick()) {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
-                    <mat-label>Cuenta destino del efectivo</mat-label>
-                    <mat-select formControlName="cashWithdrawnToAccountId">
-                      @for (acc of withdrawnAccountOptions(); track acc.id) {
-                        <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                } @else if (withdrawnAccountHint()) {
-                  <p class="closing-form__account-hint closing-form__span-all">{{ withdrawnAccountHint() }}</p>
-                }
-                @if (pendingWithdrawHint()) {
-                  <p class="closing-form__account-hint closing-form__span-all closing-form__pending-hint">
-                    {{ pendingWithdrawHint() }}
-                  </p>
-                }
-              </div>
-            </div>
-          </div>
-
-          <div class="closing-form__block">
-            <div class="closing-form__block-head">
-              <div class="closing-form__block-title">
-                <h3><span class="closing-form__step">3</span> Cuenta DNI</h3>
-                <span class="closing-form__meta">{{ dniPanelHint() }}</span>
-              </div>
-              <button
-                mat-stroked-button
-                type="button"
-                class="closing-form__add-btn"
-                (click)="addDniTransfer()"
-              >
-                <mat-icon>add</mat-icon>
-                Transferencia
-              </button>
-            </div>
-            <div class="closing-form__block-body">
-              <div class="closing-form__stack" formArrayName="dniTransfers">
-                @for (row of dniTransfers.controls; track row; let i = $index) {
-                  <div class="closing-form__dni-row" [formGroupName]="i">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Detalle</mat-label>
-                      <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
+                  </div>
+                  <div class="closing-form__fields closing-form__fields--totals">
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      floatLabel="always"
+                      class="closing-field--money"
+                    >
+                      <mat-label>PVS{{ locksCard() ? ' (suma)' : '' }}</mat-label>
+                      <span matTextPrefix class="closing-field__prefix">$</span>
+                      <input
+                        matInput
+                        type="number"
+                        inputmode="decimal"
+                        formControlName="cardAmount"
+                        [readonly]="locksCard()"
+                      />
                     </mat-form-field>
                     <mat-form-field
                       appearance="outline"
@@ -393,220 +243,376 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                       floatLabel="always"
                       class="closing-field--money"
                     >
-                      <mat-label>Monto</mat-label>
+                      <mat-label>Mercado Pago{{ locksMp() ? ' (suma)' : '' }}</mat-label>
                       <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                      <input
+                        matInput
+                        type="number"
+                        inputmode="decimal"
+                        formControlName="mercadoPagoAmount"
+                        [readonly]="locksMp()"
+                      />
                     </mat-form-field>
-                    <button
-                      mat-icon-button
-                      type="button"
-                      class="closing-form__row-remove"
-                      aria-label="Quitar transferencia"
-                      (click)="removeDniTransfer(i)"
-                    >
-                      <mat-icon>delete</mat-icon>
-                    </button>
                   </div>
-                }
-              </div>
-              <div class="closing-form__fields closing-form__fields--single">
-                <mat-form-field
-                  appearance="outline"
-                  subscriptSizing="dynamic"
-                  floatLabel="always"
-                  class="closing-field--money"
-                >
-                  <mat-label>Cuenta DNI{{ locksDni() ? ' (suma)' : '' }}</mat-label>
-                  <span matTextPrefix class="closing-field__prefix">$</span>
-                  <input
-                    matInput
-                    type="number"
-                    inputmode="decimal"
-                    formControlName="accountDniAmount"
-                    [readonly]="locksDni()"
-                  />
-                </mat-form-field>
-              </div>
-            </div>
-          </div>
-
-          <div class="closing-form__block">
-            <div class="closing-form__block-head">
-              <div class="closing-form__block-title">
-                <h3><span class="closing-form__step">4</span> Caja</h3>
-                <span class="closing-form__meta">Total del sistema</span>
-              </div>
-            </div>
-            <div class="closing-form__block-body">
-              <div class="closing-form__fields closing-form__fields--single">
-                <mat-form-field
-                  appearance="outline"
-                  subscriptSizing="dynamic"
-                  floatLabel="always"
-                  class="closing-field--money"
-                >
-                  <mat-label>Caja (sistema)</mat-label>
-                  <span matTextPrefix class="closing-field__prefix">$</span>
-                  <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
-                </mat-form-field>
-              </div>
-            </div>
-          </div>
-
-          <div class="closing-form__total-bar" aria-live="polite">
-            <span><span class="closing-form__step closing-form__step--on-accent">5</span> Total</span>
-            <strong>{{ money(declaredTotal()) }}</strong>
-          </div>
-        </section>
-
-        <div class="closing-form__panels">
-          <section class="closing-panel" [class.closing-panel--open]="panelOther()">
-            <button
-              type="button"
-              class="closing-panel__toggle"
-              (click)="togglePanel('other')"
-              [attr.aria-expanded]="panelOther()"
-            >
-              <span class="closing-panel__icon" aria-hidden="true">
-                <mat-icon>more_horiz</mat-icon>
-              </span>
-              <span class="closing-panel__text">
-                <strong>Otros cobros</strong>
-                <span>Delivery y transferencias</span>
-              </span>
-              <mat-icon class="closing-panel__chevron">{{
-                panelOther() ? 'expand_less' : 'expand_more'
-              }}</mat-icon>
-            </button>
-            @if (panelOther()) {
-              <div class="closing-panel__body">
-                <div class="closing-form__fields">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>PedidosYa / delivery</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="deliveryAppsAmount" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Transferencia</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="transferAmount" />
-                  </mat-form-field>
                 </div>
               </div>
-            }
-          </section>
-
-          <section class="closing-panel" [class.closing-panel--open]="panelWithdraw()">
-            <button
-              type="button"
-              class="closing-panel__toggle"
-              (click)="togglePanel('withdraw')"
-              [attr.aria-expanded]="panelWithdraw()"
-            >
-              <span class="closing-panel__icon" aria-hidden="true">
-                <mat-icon>payments</mat-icon>
-              </span>
-              <span class="closing-panel__text">
-                <strong>Retiro y extras</strong>
-                <span>{{ withdrawPanelHint() }}</span>
-              </span>
-              <mat-icon class="closing-panel__chevron">{{
-                panelWithdraw() ? 'expand_less' : 'expand_more'
-              }}</mat-icon>
-            </button>
-            @if (panelWithdraw()) {
-              <div class="closing-panel__body">
-                <div class="closing-form__fields">
-                  @if (shop()?.unitsLabel) {
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>{{ shop()?.unitsLabel }}</mat-label>
-                      <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="unitsSold" />
-                    </mat-form-field>
-                  }
-                  @if (shop()?.coversEnabled) {
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Comensales</mat-label>
-                      <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
-                    </mat-form-field>
-                  }
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Efectivo retirado</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Propinas</mat-label>
-                    <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
-                    <mat-label>Notas</mat-label>
-                    <textarea matInput rows="2" formControlName="notes"></textarea>
-                  </mat-form-field>
-                </div>
+              <div class="closing-stepper__nav">
+                <span></span>
+                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
               </div>
-            }
-          </section>
+            </mat-step>
 
-          <section class="closing-panel" [class.closing-panel--open]="panelExpenses()">
-            <button
-              type="button"
-              class="closing-panel__toggle"
-              (click)="togglePanel('expenses')"
-              [attr.aria-expanded]="panelExpenses()"
-            >
-              <span class="closing-panel__icon" aria-hidden="true">
-                <mat-icon>receipt_long</mat-icon>
-              </span>
-              <span class="closing-panel__text">
-                <strong>Egresos del día</strong>
-                <span>{{ expensesPanelHint() }}</span>
-              </span>
-              <mat-icon class="closing-panel__chevron">{{
-                panelExpenses() ? 'expand_less' : 'expand_more'
-              }}</mat-icon>
-            </button>
-            @if (panelExpenses()) {
-              <div class="closing-panel__body">
-                <div class="closing-panel__toolbar">
-                  <button mat-stroked-button type="button" (click)="addExpense()">
-                    <mat-icon>add</mat-icon>
-                    Agregar egreso
+            <mat-step label="Efectivo">
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Efectivo</h3>
+                    <span class="closing-form__meta">Contá billetes, dejá cambio y quién se lo lleva</span>
+                  </div>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="closing-form__add-btn"
+                    (click)="openBillCounter()"
+                  >
+                    <mat-icon>payments</mat-icon>
+                    Contar
                   </button>
                 </div>
-                <div class="closing-form__expenses-list" formArrayName="expenses">
-                  @for (row of expenses.controls; track row; let i = $index) {
-                    <div class="expense-row" [formGroupName]="i">
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Concepto</mat-label>
-                        <input matInput formControlName="label" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Monto</mat-label>
-                        <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Categoría</mat-label>
-                        <mat-select formControlName="category">
-                          @for (opt of expenseCategories; track opt.value) {
-                            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__fields closing-form__fields--cash">
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      floatLabel="always"
+                      class="closing-field--money"
+                    >
+                      <mat-label>Efectivo</mat-label>
+                      <span matTextPrefix class="closing-field__prefix">$</span>
+                      <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
+                    </mat-form-field>
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      floatLabel="always"
+                      class="closing-field--money"
+                    >
+                      <mat-label>Se deja en caja</mat-label>
+                      <span matTextPrefix class="closing-field__prefix">$</span>
+                      <input
+                        matInput
+                        type="number"
+                        inputmode="decimal"
+                        formControlName="cashLeftInRegister"
+                      />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Quién se lo lleva</mat-label>
+                      <mat-select
+                        formControlName="cashWithdrawnByUserId"
+                        (selectionChange)="onWithdrawnUserChange($event.value)"
+                      >
+                        <mat-option value="">— Sin asignar —</mat-option>
+                        @for (u of withdrawUsers(); track u.id) {
+                          <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    @if (needsWithdrawnAccountPick()) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
+                        <mat-label>Cuenta destino del efectivo</mat-label>
+                        <mat-select formControlName="cashWithdrawnToAccountId">
+                          @for (acc of withdrawnAccountOptions(); track acc.id) {
+                            <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
                           }
                         </mat-select>
                       </mat-form-field>
-                      <button
-                        mat-icon-button
-                        type="button"
-                        class="expense-row__remove"
-                        aria-label="Quitar egreso"
-                        (click)="removeExpense(i)"
-                      >
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    </div>
-                  } @empty {
-                    <p class="closing-form__hint">No hay egresos cargados.</p>
-                  }
+                    } @else if (withdrawnAccountHint()) {
+                      <p class="closing-form__account-hint closing-form__span-all">{{ withdrawnAccountHint() }}</p>
+                    }
+                    @if (pendingWithdrawHint()) {
+                      <p class="closing-form__account-hint closing-form__span-all closing-form__pending-hint">
+                        {{ pendingWithdrawHint() }}
+                      </p>
+                    }
+                  </div>
                 </div>
               </div>
-            }
-          </section>
-        </div>
+              <div class="closing-stepper__nav">
+                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
+                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
+              </div>
+            </mat-step>
+
+            <mat-step label="Cuenta DNI">
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Cuenta DNI</h3>
+                    <span class="closing-form__meta">{{ dniPanelHint() }}</span>
+                  </div>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="closing-form__add-btn"
+                    (click)="addDniTransfer()"
+                  >
+                    <mat-icon>add</mat-icon>
+                    Transferencia
+                  </button>
+                </div>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__stack" formArrayName="dniTransfers">
+                    @for (row of dniTransfers.controls; track row; let i = $index) {
+                      <div class="closing-form__dni-row" [formGroupName]="i">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Detalle</mat-label>
+                          <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
+                        </mat-form-field>
+                        <mat-form-field
+                          appearance="outline"
+                          subscriptSizing="dynamic"
+                          floatLabel="always"
+                          class="closing-field--money"
+                        >
+                          <mat-label>Monto</mat-label>
+                          <span matTextPrefix class="closing-field__prefix">$</span>
+                          <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                        </mat-form-field>
+                        <button
+                          mat-icon-button
+                          type="button"
+                          class="closing-form__row-remove"
+                          aria-label="Quitar transferencia"
+                          (click)="removeDniTransfer(i)"
+                        >
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                  <div class="closing-form__fields closing-form__fields--single">
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      floatLabel="always"
+                      class="closing-field--money"
+                    >
+                      <mat-label>Cuenta DNI{{ locksDni() ? ' (suma)' : '' }}</mat-label>
+                      <span matTextPrefix class="closing-field__prefix">$</span>
+                      <input
+                        matInput
+                        type="number"
+                        inputmode="decimal"
+                        formControlName="accountDniAmount"
+                        [readonly]="locksDni()"
+                      />
+                    </mat-form-field>
+                  </div>
+                </div>
+              </div>
+              <div class="closing-stepper__nav">
+                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
+                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
+              </div>
+            </mat-step>
+
+            <mat-step label="Caja y otros">
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Caja</h3>
+                    <span class="closing-form__meta">Total del sistema</span>
+                  </div>
+                </div>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__fields closing-form__fields--single">
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      floatLabel="always"
+                      class="closing-field--money"
+                    >
+                      <mat-label>Caja (sistema)</mat-label>
+                      <span matTextPrefix class="closing-field__prefix">$</span>
+                      <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
+                    </mat-form-field>
+                  </div>
+                </div>
+              </div>
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Otros cobros</h3>
+                    <span class="closing-form__meta">Delivery y transferencias</span>
+                  </div>
+                </div>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__fields">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>PedidosYa / delivery</mat-label>
+                      <input matInput type="number" inputmode="decimal" formControlName="deliveryAppsAmount" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Transferencia</mat-label>
+                      <input matInput type="number" inputmode="decimal" formControlName="transferAmount" />
+                    </mat-form-field>
+                  </div>
+                </div>
+              </div>
+              <div class="closing-stepper__nav">
+                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
+                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
+              </div>
+            </mat-step>
+
+            <mat-step label="Retiro y egresos">
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Retiro y extras</h3>
+                    <span class="closing-form__meta">{{ withdrawPanelHint() }}</span>
+                  </div>
+                </div>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__fields">
+                    @if (shop()?.unitsLabel) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>{{ shop()?.unitsLabel }}</mat-label>
+                        <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="unitsSold" />
+                      </mat-form-field>
+                    }
+                    @if (shop()?.coversEnabled) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Comensales</mat-label>
+                        <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
+                      </mat-form-field>
+                    }
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Efectivo retirado</mat-label>
+                      <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Propinas</mat-label>
+                      <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
+                      <mat-label>Notas</mat-label>
+                      <textarea matInput rows="2" formControlName="notes"></textarea>
+                    </mat-form-field>
+                  </div>
+                </div>
+              </div>
+              <div class="closing-form__block">
+                <div class="closing-form__block-head">
+                  <div class="closing-form__block-title">
+                    <h3>Egresos del día</h3>
+                    <span class="closing-form__meta">{{ expensesPanelHint() }}</span>
+                  </div>
+                  <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="addExpense()">
+                    <mat-icon>add</mat-icon>
+                    Agregar
+                  </button>
+                </div>
+                <div class="closing-form__block-body">
+                  <div class="closing-form__expenses-list" formArrayName="expenses">
+                    @for (row of expenses.controls; track row; let i = $index) {
+                      <div class="expense-row" [formGroupName]="i">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Concepto</mat-label>
+                          <input matInput formControlName="label" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Monto</mat-label>
+                          <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Categoría</mat-label>
+                          <mat-select formControlName="category">
+                            @for (opt of expenseCategories; track opt.value) {
+                              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                        <button
+                          mat-icon-button
+                          type="button"
+                          class="expense-row__remove"
+                          aria-label="Quitar egreso"
+                          (click)="removeExpense(i)"
+                        >
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </div>
+                    } @empty {
+                      <p class="closing-form__hint">No hay egresos cargados.</p>
+                    }
+                  </div>
+                </div>
+              </div>
+              <div class="closing-stepper__nav">
+                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
+                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
+              </div>
+            </mat-step>
+
+            <mat-step label="Resumen">
+              <div class="closing-totals closing-totals--hero">
+                <div class="closing-totals__head">
+                  <div>
+                    <h2>Resumen</h2>
+                    <p class="closing-totals__sub">Lo que importa del día</p>
+                  </div>
+                  <button mat-stroked-button type="button" (click)="shareSummary()">
+                    <mat-icon>share</mat-icon>
+                    Compartir
+                  </button>
+                </div>
+                <div class="closing-totals__grid">
+                  <div class="closing-totals__item">
+                    <span>Fecha</span>
+                    <strong>{{ summaryDate() }}</strong>
+                  </div>
+                  <div class="closing-totals__item">
+                    <span>PVS</span>
+                    <strong>{{ money(cardAmount()) }}</strong>
+                  </div>
+                  <div class="closing-totals__item">
+                    <span>Efectivo</span>
+                    <strong>{{ money(cashAmount()) }}</strong>
+                  </div>
+                  <div class="closing-totals__item">
+                    <span>Cuenta DNI</span>
+                    <strong>{{ money(accountDniAmount()) }}</strong>
+                  </div>
+                  <div class="closing-totals__item">
+                    <span>Caja sistema</span>
+                    <strong>{{ money(posAmount()) }}</strong>
+                  </div>
+                  <div class="closing-totals__item closing-totals__item--total">
+                    <span>Total</span>
+                    <strong>{{ money(declaredTotal()) }}</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="closing-form__total-bar" aria-live="polite">
+                <span>Total declarado</span>
+                <strong>{{ money(declaredTotal()) }}</strong>
+              </div>
+              <div class="closing-stepper__nav closing-stepper__nav--final">
+                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="isLocked() && !auth.isAdmin()"
+                >
+                  Guardar cierre
+                </button>
+              </div>
+            </mat-step>
+          </mat-stepper>
+        </section>
       </form>
 
       <div class="closing-form-actions closing-form-actions--sticky" aria-label="Acciones del cierre">
@@ -745,8 +751,12 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         background: var(--guy-card, #fff);
       }
 
-      .closing-form__block:first-of-type {
-        margin-top: 0.55rem;
+      .closing-stepper .closing-form__block {
+        margin-top: 0;
+      }
+
+      .closing-stepper .closing-form__block + .closing-form__block {
+        margin-top: 0.7rem;
       }
 
       .closing-form__block-head {
@@ -776,32 +786,56 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
         line-height: 1.2;
       }
 
-      .closing-form__step {
-        display: inline-grid;
-        place-items: center;
-        width: 1.45rem;
-        height: 1.45rem;
-        flex-shrink: 0;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0;
-        color: var(--guy-navy, #003366);
-        background: color-mix(in srgb, var(--guy-navy, #003366) 10%, #fff);
-        border: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 18%, transparent);
-      }
-
-      .closing-form__step--on-accent {
-        color: #fff;
-        background: var(--guy-accent, #2e7d32);
-        border-color: transparent;
-      }
-
       .closing-form__meta {
-        margin-left: 1.95rem;
         font-size: 0.75rem;
         color: var(--guy-muted, #5f6f76);
         line-height: 1.2;
+      }
+
+      .closing-stepper {
+        margin-top: 0.85rem;
+        background: transparent;
+      }
+
+      .closing-stepper__nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        margin-top: 0.85rem;
+        padding-top: 0.15rem;
+      }
+
+      .closing-stepper__nav--final {
+        margin-top: 1rem;
+      }
+
+      :host ::ng-deep .closing-stepper.mat-stepper-horizontal,
+      :host ::ng-deep .closing-stepper.mat-stepper-vertical {
+        background: transparent;
+      }
+
+      :host ::ng-deep .closing-stepper .mat-horizontal-stepper-header-container {
+        margin-bottom: 0.35rem;
+      }
+
+      :host ::ng-deep .closing-stepper .mat-step-header {
+        pointer-events: auto;
+      }
+
+      :host ::ng-deep .closing-stepper .mat-step-label {
+        font-weight: 600;
+      }
+
+      :host ::ng-deep .closing-stepper .mat-step-icon {
+        background-color: color-mix(in srgb, var(--guy-navy, #003366) 12%, #fff);
+        color: var(--guy-navy, #003366);
+      }
+
+      :host ::ng-deep .closing-stepper .mat-step-icon-selected,
+      :host ::ng-deep .closing-stepper .mat-step-icon-state-edit {
+        background-color: var(--guy-accent, #2e7d32);
+        color: #fff;
       }
 
       .closing-form__add-btn {
@@ -1354,6 +1388,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly breakpointObserver = inject(BreakpointObserver);
 
   readonly shop = this.shops.selectedShop;
   readonly isEdit = signal(false);
@@ -1363,6 +1398,10 @@ export class ClosingsFormPage implements OnInit {
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
   readonly isLocked = () => this.status() === 'LOCKED';
+  readonly isMobile = toSignal(
+    this.breakpointObserver.observe('(max-width: 720px)').pipe(map((r) => r.matches)),
+    { initialValue: false },
+  );
   private closingId: string | null = null;
 
   readonly panelOther = signal(false);

@@ -39,13 +39,20 @@ export class BottomNavComponent implements OnDestroy {
   readonly openMore = output<void>();
 
   constructor() {
-    // Montar en <body>: ningún ancestro con transform (Material sidenav) puede
-    // convertir position:fixed en “flotante” a mitad de pantalla.
+    // Montar en <body> una sola vez: ningún ancestro con transform (Material sidenav)
+    // puede convertir position:fixed en “flotante” a mitad de pantalla.
     afterNextRender(() => {
       const el = this.host.nativeElement;
+      if (!el.isConnected) return;
       if (el.parentElement !== document.body) {
         document.body.appendChild(el);
       }
+      // Evitar duplicados si el layout se re-crea sin destroy limpio.
+      document.querySelectorAll('app-bottom-nav.bottom-nav-host').forEach((node) => {
+        if (node !== el && node.parentElement === document.body) {
+          node.remove();
+        }
+      });
     });
   }
 

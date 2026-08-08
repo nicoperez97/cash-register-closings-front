@@ -1,10 +1,12 @@
 import {
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
@@ -18,6 +20,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -56,8 +60,13 @@ type LetterGroup = {
 };
 
 type SortMode = 'name' | 'qty';
+type ViewMode = 'cards' | 'list';
 
 const SORT_KEY = 'crc_stock_sort';
+
+function viewStorageKey(kind: StockKind): string {
+  return `crc_stock_view_${kind}`;
+}
 
 function letterOf(name: string): string {
   const raw = String(name ?? '')
@@ -79,6 +88,15 @@ function loadSortMode(): SortMode {
   }
 }
 
+function loadViewMode(kind: StockKind): ViewMode {
+  try {
+    const v = localStorage.getItem(viewStorageKey(kind));
+    return v === 'list' || v === 'cards' ? v : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
+
 @Component({
   selector: 'app-stock-page',
   imports: [
@@ -92,6 +110,8 @@ function loadSortMode(): SortMode {
     MatSlideToggleModule,
     MatSnackBarModule,
     MatTooltipModule,
+    MatFormFieldModule,
+    MatInputModule,
     PageHeaderComponent,
     SpinnerComponent,
     BusyLabelComponent,
@@ -108,24 +128,79 @@ function loadSortMode(): SortMode {
     />
 
     <div class="stock-sticky">
+      <div class="stock-search panel-card">
+        <mat-form-field appearance="outline" class="stock-search__field" subscriptSizing="dynamic">
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            matInput
+            type="search"
+            [ngModel]="searchQuery()"
+            (ngModelChange)="onSearch($event)"
+            [placeholder]="'Buscar ' + kindLabel() + '…'"
+            autocomplete="off"
+          />
+          @if (searchQuery()) {
+            <button
+              matSuffix
+              mat-icon-button
+              type="button"
+              aria-label="Limpiar búsqueda"
+              (click)="onSearch('')"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+        </mat-form-field>
+      </div>
+
       <div class="stock-tabs-bar panel-card">
-        <div class="stock-tabs" role="tablist" aria-label="Categorías de stock">
-          @for (tab of categoryTabs(); track tab.id) {
+        <div class="stock-tabs-row">
+          @if (tabsOverflow()) {
             <button
               type="button"
-              role="tab"
-              class="stock-tab"
-              [class.stock-tab--active]="selectedTab() === tab.id"
-              [attr.aria-selected]="selectedTab() === tab.id"
-              (click)="selectTab(tab.id)"
+              class="stock-tabs-arrow"
+              [disabled]="!tabsCanPrev()"
+              (click)="scrollTabs(-1)"
+              aria-label="Categorías anteriores"
             >
-              <span class="stock-tab__label">{{ tab.label }}</span>
-              <span class="stock-tab__count">{{ tab.count }}</span>
-              @if (tab.lowCount > 0) {
-                <span class="stock-tab__low" [matTooltip]="tab.lowCount + ' bajo mínimo'">
-                  {{ tab.lowCount }}
-                </span>
-              }
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+          }
+          <div
+            class="stock-tabs"
+            #tabsScroller
+            role="tablist"
+            aria-label="Categorías de stock"
+            (scroll)="syncTabsScrollState()"
+          >
+            @for (tab of categoryTabs(); track tab.id) {
+              <button
+                type="button"
+                role="tab"
+                class="stock-tab"
+                [class.stock-tab--active]="selectedTab() === tab.id"
+                [attr.aria-selected]="selectedTab() === tab.id"
+                (click)="selectTab(tab.id)"
+              >
+                <span class="stock-tab__label">{{ tab.label }}</span>
+                <span class="stock-tab__count">{{ tab.count }}</span>
+                @if (tab.lowCount > 0) {
+                  <span class="stock-tab__low" [matTooltip]="tab.lowCount + ' bajo mínimo'">
+                    {{ tab.lowCount }}
+                  </span>
+                }
+              </button>
+            }
+          </div>
+          @if (tabsOverflow()) {
+            <button
+              type="button"
+              class="stock-tabs-arrow"
+              [disabled]="!tabsCanNext()"
+              (click)="scrollTabs(1)"
+              aria-label="Categorías siguientes"
+            >
+              <mat-icon>chevron_right</mat-icon>
             </button>
           }
         </div>
@@ -140,7 +215,7 @@ function loadSortMode(): SortMode {
       </div>
     </div>
 
-    @if (canManage() || rows().length) {
+    @if (canManage() || rows().length || products().length) {
       <div class="stock-toolbar mb-3">
         <mat-button-toggle-group
           class="stock-sort"
@@ -155,6 +230,20 @@ function loadSortMode(): SortMode {
           <mat-button-toggle value="qty" matTooltip="Más cerca del mínimo primero">
             <mat-icon>trending_down</mat-icon>
             Menor stock
+          </mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <mat-button-toggle-group
+          class="stock-view"
+          [value]="viewMode()"
+          (change)="onViewMode($event.value)"
+          aria-label="Vista de productos"
+        >
+          <mat-button-toggle value="cards" matTooltip="Vista tarjetas">
+            <mat-icon>grid_view</mat-icon>
+          </mat-button-toggle>
+          <mat-button-toggle value="list" matTooltip="Vista lista">
+            <mat-icon>view_list</mat-icon>
           </mat-button-toggle>
         </mat-button-toggle-group>
 
@@ -254,10 +343,18 @@ function loadSortMode(): SortMode {
           </div>
         } @else if (!rows().length) {
           <div class="panel-card guy-empty">
-            <mat-icon>category</mat-icon>
+            <mat-icon>{{ searchQuery() ? 'search_off' : 'category' }}</mat-icon>
             <div>
-              <strong>Sin productos en esta categoría</strong>
-              <div class="small">Probá otra pestaña o “Todos”.</div>
+              <strong>{{
+                searchQuery() ? 'Sin resultados' : 'Sin productos en esta categoría'
+              }}</strong>
+              <div class="small">
+                @if (searchQuery()) {
+                  Probá otro nombre o limpiá la búsqueda.
+                } @else {
+                  Probá otra pestaña o “Todos”.
+                }
+              </div>
             </div>
           </div>
         } @else {
@@ -266,13 +363,17 @@ function loadSortMode(): SortMode {
               class="stock-letter"
               [attr.id]="group.letter ? 'stock-letter-' + group.letter : null"
             >
-              @if (group.letter) {
+              @if (group.letter && viewMode() === 'cards') {
                 <header class="stock-letter__head">{{ group.letter }}</header>
               }
-              <div class="stock-letter__list">
+              <div
+                class="stock-letter__list"
+                [class.stock-letter__list--compact]="viewMode() === 'list'"
+              >
                 @for (row of group.items; track row.id) {
                   <article
                     class="panel-card stock-card"
+                    [class.stock-card--list]="viewMode() === 'list'"
                     [class.stock-card--low]="row.belowMinimum"
                     [class.stock-card--hidden]="!row.active"
                     [class.stock-card--select]="restockMode()"
@@ -294,23 +395,35 @@ function loadSortMode(): SortMode {
                     <div class="stock-card__main">
                       <div>
                         <h3 class="stock-card__name">{{ row.name }}</h3>
-                        <p class="stock-card__meta">
-                          @if (selectedTab() === TAB_ALL) {
-                            {{ row.categoryName || 'Sin categoría' }} ·
-                          }
-                          mín. {{ row.minQuantity | number: '1.0-2' }}
-                          @if (row.maxQuantity > 0) {
-                            · máx. {{ row.maxQuantity | number: '1.0-2' }}
-                          }
-                          @if (!row.active) {
-                            · Oculto
-                          }
-                          @if (row.belowMinimum) {
-                            · Bajo mínimo
-                          }
-                        </p>
+                        @if (viewMode() === 'cards') {
+                          <p class="stock-card__meta">
+                            @if (selectedTab() === TAB_ALL) {
+                              {{ row.categoryName || 'Sin categoría' }} ·
+                            }
+                            mín. {{ row.minQuantity | number: '1.0-2' }}
+                            @if (row.maxQuantity > 0) {
+                              · máx. {{ row.maxQuantity | number: '1.0-2' }}
+                            }
+                            @if (!row.active) {
+                              · Oculto
+                            }
+                            @if (row.belowMinimum) {
+                              · Bajo mínimo
+                            }
+                          </p>
+                        } @else {
+                          <p class="stock-card__meta stock-card__meta--list">
+                            mín. {{ row.minQuantity | number: '1.0-2' }}
+                            @if (selectedTab() === TAB_ALL && row.categoryName) {
+                              · {{ row.categoryName }}
+                            }
+                            @if (row.belowMinimum) {
+                              · Bajo mínimo
+                            }
+                          </p>
+                        }
                       </div>
-                      @if (canManage() && !restockMode()) {
+                      @if (canManage() && !restockMode() && viewMode() === 'cards') {
                         <div class="stock-card__actions">
                           <button
                             mat-icon-button
@@ -363,6 +476,28 @@ function loadSortMode(): SortMode {
                           <mat-icon>add</mat-icon>
                         </button>
                       </div>
+                      @if (canManage() && viewMode() === 'list') {
+                        <div class="stock-card__actions stock-card__actions--list">
+                          <button
+                            mat-icon-button
+                            type="button"
+                            matTooltip="Editar"
+                            (click)="openEdit(row)"
+                          >
+                            <mat-icon>edit</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            [matTooltip]="row.active ? 'Ocultar' : 'Mostrar'"
+                            (click)="onToggleVisibility(row)"
+                          >
+                            <mat-icon>{{
+                              row.active ? 'visibility_off' : 'visibility'
+                            }}</mat-icon>
+                          </button>
+                        </div>
+                      }
                     } @else {
                       <div class="stock-card__qty stock-card__qty--readonly">
                         <span class="small">Actual</span>
@@ -381,7 +516,7 @@ function loadSortMode(): SortMode {
         }
       </div>
 
-      @if (sortMode() === 'name' && indexLetters().length > 1) {
+      @if (sortMode() === 'name' && viewMode() === 'cards' && indexLetters().length > 1) {
         <nav
           class="stock-index"
           aria-label="Índice alfabético"
@@ -410,11 +545,21 @@ function loadSortMode(): SortMode {
         z-index: 5;
         margin-bottom: 0.85rem;
         padding-bottom: 0.15rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
         background: linear-gradient(
           to bottom,
           var(--guy-bg, #f3f6f4) 70%,
           color-mix(in srgb, var(--guy-bg, #f3f6f4) 0%, transparent)
         );
+      }
+      .stock-search {
+        padding: 0.55rem 0.75rem;
+        margin: 0;
+      }
+      .stock-search__field {
+        width: 100%;
       }
       .stock-tabs-bar {
         display: flex;
@@ -423,6 +568,13 @@ function loadSortMode(): SortMode {
         gap: 0.75rem 1rem;
         padding: 0.75rem 0.9rem;
         margin: 0;
+      }
+      .stock-tabs-row {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: 0.25rem;
+        min-width: 0;
       }
       .stock-tabs {
         display: flex;
@@ -433,6 +585,32 @@ function loadSortMode(): SortMode {
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
         min-width: 0;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: 0.25rem;
+        overscroll-behavior-x: contain;
+      }
+      .stock-tabs-arrow {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 999px;
+        background: var(--guy-surface, #fff);
+        color: var(--guy-navy, #003366);
+        cursor: pointer;
+        padding: 0;
+      }
+      .stock-tabs-arrow:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .stock-tabs-arrow mat-icon {
+        font-size: 1.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
       }
       .stock-tab {
         display: inline-flex;
@@ -448,6 +626,7 @@ function loadSortMode(): SortMode {
         font-size: 0.88rem;
         font-weight: 600;
         cursor: pointer;
+        scroll-snap-align: start;
       }
       .stock-tab--active {
         background: color-mix(in srgb, var(--guy-accent, #2e7d32) 12%, #fff);
@@ -490,18 +669,24 @@ function loadSortMode(): SortMode {
         align-items: center;
         gap: 0.75rem;
       }
-      .stock-sort {
+      .stock-sort,
+      .stock-view {
         flex: 0 0 auto;
       }
-      .stock-sort .mat-button-toggle {
+      .stock-sort .mat-button-toggle,
+      .stock-view .mat-button-toggle {
         font-size: 0.82rem;
       }
-      .stock-sort mat-icon {
+      .stock-sort mat-icon,
+      .stock-view mat-icon {
         font-size: 1.05rem;
         width: 1.05rem;
         height: 1.05rem;
         margin-right: 0.15rem;
         vertical-align: middle;
+      }
+      .stock-view mat-icon {
+        margin-right: 0;
       }
       .stock-toolbar__meta {
         font-size: 0.85rem;
@@ -546,7 +731,7 @@ function loadSortMode(): SortMode {
       }
       .stock-letter__head {
         position: sticky;
-        top: 4.75rem;
+        top: 8.5rem;
         z-index: 3;
         margin-bottom: 0.4rem;
         padding: 0.25rem 0.55rem;
@@ -565,9 +750,12 @@ function loadSortMode(): SortMode {
         flex-direction: column;
         gap: 0.65rem;
       }
+      .stock-letter__list--compact {
+        gap: 0.35rem;
+      }
       .stock-index {
         position: sticky;
-        top: 5.5rem;
+        top: 9.25rem;
         align-self: flex-start;
         display: flex;
         flex-direction: column;
@@ -604,6 +792,29 @@ function loadSortMode(): SortMode {
         gap: 0.75rem;
         padding: 0.85rem 1rem;
       }
+      .stock-card--list {
+        flex-wrap: nowrap;
+        gap: 0.5rem 0.65rem;
+        padding: 0.45rem 0.65rem;
+      }
+      .stock-card--list .stock-card__main {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      .stock-card--list .stock-card__name {
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .stock-card--list .stock-card__meta--list {
+        margin-top: 0.05rem;
+        font-size: 0.78rem;
+      }
+      .stock-card--list .stock-card__qty-value {
+        min-width: 2.75rem;
+        font-size: 1.05rem;
+      }
       .stock-card--select {
         cursor: pointer;
       }
@@ -635,6 +846,9 @@ function loadSortMode(): SortMode {
       .stock-card__actions {
         display: flex;
         gap: 0.15rem;
+      }
+      .stock-card__actions--list {
+        flex: 0 0 auto;
       }
       .stock-card__qty {
         display: flex;
@@ -679,6 +893,7 @@ export class StockPage {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly tabsScroller = viewChild<ElementRef<HTMLElement>>('tabsScroller');
 
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -703,6 +918,11 @@ export class StockPage {
   readonly restocking = signal(false);
   readonly activeLetter = signal<string | null>(null);
   readonly sortMode = signal<SortMode>(loadSortMode());
+  readonly viewMode = signal<ViewMode>('cards');
+  readonly searchQuery = signal('');
+  readonly tabsOverflow = signal(false);
+  readonly tabsCanPrev = signal(false);
+  readonly tabsCanNext = signal(false);
 
   readonly categoryTabs = computed((): CategoryTab[] => {
     const products = this.products();
@@ -761,6 +981,13 @@ export class StockPage {
     else if (tab === TAB_UNCATEGORIZED) filtered = list.filter((r) => !r.categoryId);
     else filtered = list.filter((r) => r.categoryId === tab);
 
+    const q = this.searchQuery().trim().toLocaleLowerCase('es');
+    if (q) {
+      filtered = filtered.filter((r) =>
+        r.name.toLocaleLowerCase('es').includes(q),
+      );
+    }
+
     const mode = this.sortMode();
     return filtered.sort((a, b) => {
       if (mode === 'qty') {
@@ -808,7 +1035,9 @@ export class StockPage {
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      this.kind(); // recargar al cambiar food/beverage (misma página reutilizada)
+      const kind = this.kind(); // recargar al cambiar food/beverage (misma página reutilizada)
+      this.viewMode.set(loadViewMode(kind));
+      this.searchQuery.set('');
       if (!shopId) {
         this.products.set([]);
         this.categories.set([]);
@@ -822,15 +1051,31 @@ export class StockPage {
       this.reload();
     });
 
+    effect(() => {
+      this.categoryTabs();
+      this.tabsScroller();
+      queueMicrotask(() => this.syncTabsScrollState());
+    });
+
     const onScroll = () => this.syncActiveLetterFromScroll();
+    const onResize = () => this.syncTabsScrollState();
     const root = this.scrollRoot();
     root.addEventListener('scroll', onScroll, { passive: true });
-    this.destroyRef.onDestroy(() => root.removeEventListener('scroll', onScroll));
+    window.addEventListener('resize', onResize, { passive: true });
+    this.destroyRef.onDestroy(() => {
+      root.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    });
   }
 
   selectTab(id: string): void {
     this.selectedTab.set(id);
     if (this.restockMode()) this.selectedIds.set(new Set());
+    this.activeLetter.set(null);
+  }
+
+  onSearch(value: string): void {
+    this.searchQuery.set(value ?? '');
     this.activeLetter.set(null);
   }
 
@@ -843,6 +1088,39 @@ export class StockPage {
     } catch {
       // ignore
     }
+  }
+
+  onViewMode(value: ViewMode | null | undefined): void {
+    const mode: ViewMode = value === 'list' ? 'list' : 'cards';
+    this.viewMode.set(mode);
+    this.activeLetter.set(null);
+    try {
+      localStorage.setItem(viewStorageKey(this.kind()), mode);
+    } catch {
+      // ignore
+    }
+  }
+
+  scrollTabs(dir: -1 | 1): void {
+    const el = this.tabsScroller()?.nativeElement;
+    if (!el) return;
+    const delta = Math.max(140, Math.round(el.clientWidth * 0.65)) * dir;
+    el.scrollBy({ left: delta, behavior: 'smooth' });
+  }
+
+  syncTabsScrollState(): void {
+    const el = this.tabsScroller()?.nativeElement;
+    if (!el) {
+      this.tabsOverflow.set(false);
+      this.tabsCanPrev.set(false);
+      this.tabsCanNext.set(false);
+      return;
+    }
+    const max = el.scrollWidth - el.clientWidth;
+    const overflow = max > 4;
+    this.tabsOverflow.set(overflow);
+    this.tabsCanPrev.set(overflow && el.scrollLeft > 2);
+    this.tabsCanNext.set(overflow && max - el.scrollLeft > 2);
   }
 
   jumpToLetter(letter: string): void {

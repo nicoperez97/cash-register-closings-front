@@ -38,7 +38,9 @@ export type Permission =
   | 'stock.read'
   | 'stock.manage'
   | 'beverageStock.read'
-  | 'beverageStock.manage';
+  | 'beverageStock.manage'
+  | 'shortages.read'
+  | 'shortages.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -76,6 +78,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'stock.manage',
   'beverageStock.read',
   'beverageStock.manage',
+  'shortages.read',
+  'shortages.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -116,6 +120,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'stock.manage',
     'beverageStock.read',
     'beverageStock.manage',
+    'shortages.read',
+    'shortages.manage',
   ],
   CASHIER: ['closings.create', 'closings.read'],
   VIEWER: [
@@ -133,6 +139,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'suppliers.read',
     'stock.read',
     'beverageStock.read',
+    'shortages.read',
   ],
   PARTNER: [
     'closings.read',
@@ -161,6 +168,7 @@ export type ModuleKey =
   | 'suppliers'
   | 'stock'
   | 'beverageStock'
+  | 'shortages'
   | 'shop'
   | 'users';
 
@@ -363,6 +371,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     icon: 'local_bar',
     group: 'daily',
     hint: 'Administración de stock de bebidas',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'shortages',
+    label: 'Faltantes',
+    icon: 'report',
+    group: 'daily',
+    hint: 'Qué falta o está bajo en el local',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
