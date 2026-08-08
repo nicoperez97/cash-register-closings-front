@@ -69,6 +69,13 @@ export const routes: Routes = [
         title: 'Editar cierre',
       },
       {
+        path: 'reports/stats',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reports/stats-page').then((m) => m.StatsPage),
+        title: 'Estadísticas',
+      },
+      {
         path: 'reports/products',
         canActivate: [permissionGuard('reports.view')],
         loadComponent: () =>
