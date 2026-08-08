@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -9,7 +9,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
@@ -81,7 +83,9 @@ function daysUntilDue(iso: string | null | undefined): number | null {
     MatDatepickerModule,
     MatInputModule,
     MatDialogModule,
+    MatMenuModule,
     MatSnackBarModule,
+    MatTooltipModule,
     FiltersCollapseBtnComponent,
     SpinnerComponent,
   ],
@@ -325,12 +329,13 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                   </div>
                   @if (p.status === 'VALIDATED' && p.supplierBankAlias) {
                     <button
-                      mat-stroked-button
+                      mat-icon-button
                       type="button"
+                      matTooltip="Copiar alias"
+                      aria-label="Copiar alias"
                       (click)="copyAlias(p)"
                     >
                       <mat-icon>content_copy</mat-icon>
-                      Copiar alias
                     </button>
                   }
                 </div>
@@ -341,9 +346,14 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                   <strong class="pay-card__code">$ {{ formatAmount(p.amount) }}</strong>
                 </div>
                 @if (p.status === 'VALIDATED') {
-                  <button mat-stroked-button type="button" (click)="copyAmount(p)">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Copiar monto"
+                    aria-label="Copiar monto"
+                    (click)="copyAmount(p)"
+                  >
                     <mat-icon>content_copy</mat-icon>
-                    Copiar monto
                   </button>
                 }
               </div>
@@ -430,10 +440,6 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                 <mat-icon>verified</mat-icon>
                 Validar
               </button>
-              <button mat-stroked-button type="button" (click)="reject(p)">
-                <mat-icon>block</mat-icon>
-                Rechazar
-              </button>
             }
             @if (canPay(p)) {
               <button mat-flat-button color="primary" type="button" (click)="pay(p)">
@@ -441,75 +447,88 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                 Marcar pagado
               </button>
             }
-            @if (canManage() && p.status === 'VALIDATED') {
-              <button mat-stroked-button type="button" (click)="revertStatus(p)">
-                <mat-icon>undo</mat-icon>
-                Volver a validar
+
+            @if (hasMoreActions(p)) {
+              <button
+                mat-stroked-button
+                type="button"
+                [matMenuTriggerFor]="payMoreMenu"
+                aria-label="Más acciones"
+              >
+                Más
+                <mat-icon iconPositionEnd>expand_more</mat-icon>
               </button>
-            }
-            @if (canManage() && p.status === 'PAID') {
-              <button mat-stroked-button type="button" (click)="revertStatus(p)">
-                <mat-icon>undo</mat-icon>
-                Marcar no pagado
-              </button>
-            }
-            @if (p.status === 'PAID') {
-              <button mat-stroked-button type="button" (click)="sharePayment(p)">
-                <mat-icon>share</mat-icon>
-                Compartir
-              </button>
-              <input
-                #receiptInput
-                type="file"
-                accept="application/pdf,image/*"
-                hidden
-                (change)="onReceiptPicked($event, p)"
-              />
-              <button mat-stroked-button type="button" (click)="receiptInput.click()">
-                <mat-icon>attach_file</mat-icon>
-                {{ p.hasReceiptFile ? 'Cambiar comprobante' : 'Adjuntar comprobante' }}
-              </button>
-              @if (p.hasReceiptFile) {
-                <button mat-stroked-button type="button" (click)="viewReceipt(p)">
-                  <mat-icon>visibility</mat-icon>
-                  Ver comprobante
-                </button>
-              }
-            }
-            @if (canResendNotification(p)) {
-              <button mat-stroked-button type="button" (click)="resendNotification(p)">
-                <mat-icon>notifications_active</mat-icon>
-                Reenviar aviso
-              </button>
-            }
-            @if (canManage()) {
-              <button mat-stroked-button type="button" (click)="openDuplicate(p)">
-                <mat-icon>content_copy</mat-icon>
-                Duplicar
-              </button>
-            }
-            @if (
-              canManage() &&
-              (p.status === 'PENDING_VALIDATION' ||
-                p.status === 'VALIDATED' ||
-                p.status === 'PAID')
-            ) {
-              <button mat-stroked-button type="button" (click)="openEdit(p)">
-                <mat-icon>edit</mat-icon>
-                Editar
-              </button>
-            }
-            @if (canManage() && (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED')) {
-              <button mat-stroked-button type="button" (click)="cancel(p)">
-                <mat-icon>cancel</mat-icon>
-                Cancelar
-              </button>
-            }
-            @if (canManage() && p.status !== 'PAID') {
-              <button mat-button type="button" class="pay-card__danger" (click)="remove(p)">
-                <mat-icon>delete</mat-icon>
-                Eliminar
-              </button>
+              <mat-menu #payMoreMenu="matMenu" class="pay-card__more-menu">
+                @if (canValidate(p)) {
+                  <button mat-menu-item type="button" (click)="reject(p)">
+                    <mat-icon>block</mat-icon>
+                    <span>Rechazar</span>
+                  </button>
+                }
+                @if (canManage() && p.status === 'VALIDATED') {
+                  <button mat-menu-item type="button" (click)="revertStatus(p)">
+                    <mat-icon>undo</mat-icon>
+                    <span>Volver a validar</span>
+                  </button>
+                }
+                @if (canManage() && p.status === 'PAID') {
+                  <button mat-menu-item type="button" (click)="revertStatus(p)">
+                    <mat-icon>undo</mat-icon>
+                    <span>Marcar no pagado</span>
+                  </button>
+                }
+                @if (p.status === 'PAID') {
+                  <button mat-menu-item type="button" (click)="sharePayment(p)">
+                    <mat-icon>share</mat-icon>
+                    <span>Compartir</span>
+                  </button>
+                  <button mat-menu-item type="button" (click)="startReceiptPick(p)">
+                    <mat-icon>attach_file</mat-icon>
+                    <span>{{ p.hasReceiptFile ? 'Cambiar comprobante' : 'Adjuntar comprobante' }}</span>
+                  </button>
+                  @if (p.hasReceiptFile) {
+                    <button mat-menu-item type="button" (click)="viewReceipt(p)">
+                      <mat-icon>visibility</mat-icon>
+                      <span>Ver comprobante</span>
+                    </button>
+                  }
+                }
+                @if (canResendNotification(p)) {
+                  <button mat-menu-item type="button" (click)="resendNotification(p)">
+                    <mat-icon>notifications_active</mat-icon>
+                    <span>Reenviar aviso</span>
+                  </button>
+                }
+                @if (canManage()) {
+                  <button mat-menu-item type="button" (click)="openDuplicate(p)">
+                    <mat-icon>content_copy</mat-icon>
+                    <span>Duplicar</span>
+                  </button>
+                }
+                @if (
+                  canManage() &&
+                  (p.status === 'PENDING_VALIDATION' ||
+                    p.status === 'VALIDATED' ||
+                    p.status === 'PAID')
+                ) {
+                  <button mat-menu-item type="button" (click)="openEdit(p)">
+                    <mat-icon>edit</mat-icon>
+                    <span>Editar</span>
+                  </button>
+                }
+                @if (canManage() && (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED')) {
+                  <button mat-menu-item type="button" (click)="cancel(p)">
+                    <mat-icon>cancel</mat-icon>
+                    <span>Cancelar</span>
+                  </button>
+                }
+                @if (canManage() && p.status !== 'PAID') {
+                  <button mat-menu-item type="button" class="pay-card__danger" (click)="remove(p)">
+                    <mat-icon>delete</mat-icon>
+                    <span>Eliminar</span>
+                  </button>
+                }
+              </mat-menu>
             }
           </div>
         </article>
@@ -524,6 +543,14 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       }
       }
     </div>
+
+    <input
+      #receiptPicker
+      type="file"
+      accept="application/pdf,image/*"
+      hidden
+      (change)="onSharedReceiptPicked($event)"
+    />
   `,
   styles: [
     `
@@ -706,9 +733,13 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       .pay-card__actions {
         display: flex;
         flex-wrap: wrap;
+        align-items: center;
         gap: 0.45rem;
       }
       .pay-card__danger {
+        color: #c62828;
+      }
+      :host ::ng-deep .pay-card__more-menu .pay-card__danger {
         color: #c62828;
       }
     `,
@@ -1021,6 +1052,33 @@ export class PaymentsPage {
     if (p.status !== 'VALIDATED') return false;
     const uid = this.auth.currentUser()?.id;
     return this.canManage() || !p.payerUserId || uid === p.payerUserId;
+  }
+
+  hasMoreActions(p: ShopPayment): boolean {
+    if (this.canValidate(p)) return true;
+    if (this.canManage() && (p.status === 'VALIDATED' || p.status === 'PAID')) return true;
+    if (p.status === 'PAID') return true;
+    if (this.canResendNotification(p)) return true;
+    if (this.canManage()) return true;
+    return false;
+  }
+
+  private readonly receiptPicker = viewChild<ElementRef<HTMLInputElement>>('receiptPicker');
+  private pendingReceiptPayment: ShopPayment | null = null;
+
+  startReceiptPick(p: ShopPayment): void {
+    this.pendingReceiptPayment = p;
+    const input = this.receiptPicker()?.nativeElement;
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }
+
+  onSharedReceiptPicked(ev: Event): void {
+    const p = this.pendingReceiptPayment;
+    this.pendingReceiptPayment = null;
+    if (!p) return;
+    this.onReceiptPicked(ev, p);
   }
 
   constructor() {
