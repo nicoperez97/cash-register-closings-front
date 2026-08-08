@@ -441,6 +441,18 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                 Marcar pagado
               </button>
             }
+            @if (canManage() && p.status === 'VALIDATED') {
+              <button mat-stroked-button type="button" (click)="revertStatus(p)">
+                <mat-icon>undo</mat-icon>
+                Volver a validar
+              </button>
+            }
+            @if (canManage() && p.status === 'PAID') {
+              <button mat-stroked-button type="button" (click)="revertStatus(p)">
+                <mat-icon>undo</mat-icon>
+                Marcar no pagado
+              </button>
+            }
             @if (p.status === 'PAID') {
               <button mat-stroked-button type="button" (click)="sharePayment(p)">
                 <mat-icon>share</mat-icon>
@@ -1334,6 +1346,31 @@ export class PaymentsPage {
         );
         // Ofrece adjuntar comprobante de pago de inmediato
         void this.promptReceiptAfterPay(paid);
+      },
+      error: (err) => this.showErr(err),
+    });
+  }
+
+  async revertStatus(p: ShopPayment): Promise<void> {
+    if (!this.canManage()) return;
+    const shopId = this.shopId();
+    if (!shopId) return;
+    const goingBackToValidate = p.status === 'VALIDATED';
+    const ok = await this.confirm.confirm(
+      goingBackToValidate ? 'Volver a validar' : 'Marcar no pagado',
+      goingBackToValidate
+        ? `¿Devolver "${p.title}" a pendiente de validación?`
+        : `¿Marcar "${p.title}" como no pagado? Se anula el movimiento contable asociado.`,
+    );
+    if (!ok) return;
+    this.api.revertStatus(shopId, p.id).subscribe({
+      next: () => {
+        this.snack.open(
+          goingBackToValidate ? 'Volvió a pendiente de validar' : 'Marcado como no pagado',
+          'OK',
+          { duration: 2500 },
+        );
+        this.reload();
       },
       error: (err) => this.showErr(err),
     });
