@@ -464,6 +464,12 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                 </button>
               }
             }
+            @if (canResendNotification(p)) {
+              <button mat-stroked-button type="button" (click)="resendNotification(p)">
+                <mat-icon>notifications_active</mat-icon>
+                Reenviar aviso
+              </button>
+            }
             @if (canManage()) {
               <button mat-stroked-button type="button" (click)="openDuplicate(p)">
                 <mat-icon>content_copy</mat-icon>
@@ -841,6 +847,14 @@ export class PaymentsPage {
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'payments.manage');
+  }
+
+  /** Reenviar aviso: validar (pendiente) o abonar (validado), con destinatario asignado. */
+  canResendNotification(p: ShopPayment): boolean {
+    if (!this.canManage()) return false;
+    if (p.status === 'PENDING_VALIDATION') return !!p.validatorUserId;
+    if (p.status === 'VALIDATED') return !!p.payerUserId;
+    return false;
   }
 
   canManageSuppliers(): boolean {
@@ -1262,6 +1276,22 @@ export class PaymentsPage {
       next: () => {
         this.snack.open('Pago validado', 'OK', { duration: 2500 });
         this.reload();
+      },
+      error: (err) => this.showErr(err),
+    });
+  }
+
+  resendNotification(p: ShopPayment): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.canResendNotification(p)) return;
+    const kind = p.status === 'PENDING_VALIDATION' ? 'VALIDATE' : 'PAY';
+    const label =
+      kind === 'VALIDATE'
+        ? `aviso de validación a ${p.validatorName || 'quien valida'}`
+        : `aviso de pago a ${p.payerName || 'quien paga'}`;
+    this.api.resendNotification(shopId, p.id, kind).subscribe({
+      next: () => {
+        this.snack.open(`Reenviado: ${label}`, 'OK', { duration: 3000 });
       },
       error: (err) => this.showErr(err),
     });

@@ -112,8 +112,26 @@ import { BoardPwaService } from './board-pwa.service';
             <h2>Adentro <span>{{ inside().length }}</span></h2>
             <ul>
               @for (r of inside(); track r.id) {
-                <li [class.board__item--new]="isNew(r.id)">
-                  <span class="board__name">{{ r.guestName || 'Reserva' }}</span>
+                <li
+                  class="board__item"
+                  [class.board__item--new]="isNew(r.id)"
+                  [class.board__item--seated]="r.status === 'SEATED' && !r.removedAfterSeated"
+                  [class.board__item--removed]="!!r.removedAfterSeated"
+                  [class.board__item--tappable]="canSeat(r)"
+                  (click)="onItemTap(r)"
+                >
+                  <span class="board__name">
+                    @if (r.number) {
+                      <span class="board__num">#{{ r.number }}</span>
+                    }
+                    {{ r.guestName || 'Reserva' }}
+                    @if (r.status === 'SEATED' && !r.removedAfterSeated) {
+                      <span class="board__badge">En mesa</span>
+                    }
+                    @if (r.removedAfterSeated) {
+                      <span class="board__badge board__badge--muted">Liberada</span>
+                    }
+                  </span>
                   <span class="board__meta">
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
@@ -132,8 +150,26 @@ import { BoardPwaService } from './board-pwa.service';
             <h2>Afuera <span>{{ outside().length }}</span></h2>
             <ul>
               @for (r of outside(); track r.id) {
-                <li [class.board__item--new]="isNew(r.id)">
-                  <span class="board__name">{{ r.guestName || 'Reserva' }}</span>
+                <li
+                  class="board__item"
+                  [class.board__item--new]="isNew(r.id)"
+                  [class.board__item--seated]="r.status === 'SEATED' && !r.removedAfterSeated"
+                  [class.board__item--removed]="!!r.removedAfterSeated"
+                  [class.board__item--tappable]="canSeat(r)"
+                  (click)="onItemTap(r)"
+                >
+                  <span class="board__name">
+                    @if (r.number) {
+                      <span class="board__num">#{{ r.number }}</span>
+                    }
+                    {{ r.guestName || 'Reserva' }}
+                    @if (r.status === 'SEATED' && !r.removedAfterSeated) {
+                      <span class="board__badge">En mesa</span>
+                    }
+                    @if (r.removedAfterSeated) {
+                      <span class="board__badge board__badge--muted">Liberada</span>
+                    }
+                  </span>
                   <span class="board__meta">
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
@@ -503,6 +539,26 @@ import { BoardPwaService } from './board-pwa.service';
         background: rgba(0, 0, 0, 0.22);
       }
 
+      .board__item--tappable {
+        cursor: pointer;
+        transition: background 160ms ease;
+      }
+
+      .board__item--tappable:active {
+        background: color-mix(in srgb, var(--accent) 18%, rgba(0, 0, 0, 0.22));
+      }
+
+      .board__item--seated {
+        opacity: 0.72;
+        border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+
+      .board__item--removed {
+        opacity: 0.45;
+        text-decoration: line-through;
+        text-decoration-thickness: 1px;
+      }
+
       .board__item--new {
         outline: 1px solid color-mix(in srgb, #3dba6e 55%, transparent);
         background: color-mix(in srgb, #3dba6e 12%, rgba(0, 0, 0, 0.22));
@@ -522,6 +578,33 @@ import { BoardPwaService } from './board-pwa.service';
         font-size: 1rem;
         font-weight: 650;
         letter-spacing: -0.01em;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem 0.45rem;
+      }
+
+      .board__num {
+        font-variant-numeric: tabular-nums;
+        color: color-mix(in srgb, var(--accent) 85%, #fff);
+        font-weight: 750;
+      }
+
+      .board__badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-decoration: none;
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 28%, transparent);
+        color: #f8f0e8;
+      }
+
+      .board__badge--muted {
+        background: rgba(255, 255, 255, 0.1);
+        color: #cfc6ba;
       }
 
       .board__meta {
@@ -715,9 +798,11 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   private readonly refresh$ = new Subject<void>();
   private pollSub: Subscription | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
   private knownIds = new Set<string>();
   private hasLoadedOnce = false;
   private highlightIds = new Set<string>();
+  private seating = false;
 
   readonly board = signal<PublicReservationsBoard | null>(null);
   readonly error = signal('');
@@ -739,11 +824,15 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
 
   readonly inside = computed(() => {
     this.highlightTick();
-    return (this.board()?.reservations ?? []).filter((r) => r.area !== 'OUTSIDE');
+    return this.sortColumn(
+      (this.board()?.reservations ?? []).filter((r) => r.area !== 'OUTSIDE'),
+    );
   });
   readonly outside = computed(() => {
     this.highlightTick();
-    return (this.board()?.reservations ?? []).filter((r) => r.area === 'OUTSIDE');
+    return this.sortColumn(
+      (this.board()?.reservations ?? []).filter((r) => r.area === 'OUTSIDE'),
+    );
   });
 
   ngOnInit(): void {
@@ -756,7 +845,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.boardPwa.prime('reservations', this.slug);
     void this.ensureNotificationPermission();
 
-    this.pollSub = merge(interval(60_000).pipe(startWith(0)), this.refresh$)
+    this.pollSub = merge(interval(15_000).pipe(startWith(0)), this.refresh$)
       .pipe(
         tap(() => this.refreshing.set(true)),
         switchMap(() => this.api.publicBoard(this.slug)),
@@ -780,6 +869,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.pollSub = null;
     this.refresh$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    if (this.highlightTimer) clearTimeout(this.highlightTimer);
     this.boardPwa.restore();
   }
 
@@ -805,19 +895,76 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     return this.highlightIds.has(id);
   }
 
+  canSeat(r: {
+    status: string;
+    removedAfterSeated?: boolean;
+  }): boolean {
+    return r.status === 'CONFIRMED' && !r.removedAfterSeated;
+  }
+
+  onItemTap(r: {
+    id: string;
+    guestName: string;
+    partySize: number;
+    status: string;
+    removedAfterSeated?: boolean;
+  }): void {
+    if (!this.canSeat(r) || this.seating) return;
+    const label = r.guestName?.trim() || 'Reserva';
+    if (!confirm(`¿Marcar mesa lista para ${label} (${r.partySize} pers.)?`)) return;
+    this.seating = true;
+    this.api.publicSeatReservation(this.slug, r.id).subscribe({
+      next: () => {
+        this.seating = false;
+        this.showToast(`Mesa lista: ${label}`);
+        this.refresh$.next();
+      },
+      error: () => {
+        this.seating = false;
+        this.showToast('No se pudo sentar la reserva');
+      },
+    });
+  }
+
+  private sortColumn<
+    T extends { removedAfterSeated?: boolean; number?: number; createdAt?: string },
+  >(rows: T[]): T[] {
+    return [...rows].sort((a, b) => {
+      const ar = a.removedAfterSeated ? 1 : 0;
+      const br = b.removedAfterSeated ? 1 : 0;
+      if (ar !== br) return ar - br;
+      const an = a.number ?? 0;
+      const bn = b.number ?? 0;
+      if (an && bn && an !== bn) return an - bn;
+      return String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+    });
+  }
+
   private applyBoard(b: PublicReservationsBoard): void {
     const nextIds = new Set((b.reservations ?? []).map((r) => r.id));
     if (this.hasLoadedOnce) {
-      const newcomers = (b.reservations ?? []).filter((r) => !this.knownIds.has(r.id));
+      const newcomers = (b.reservations ?? []).filter(
+        (r) => !this.knownIds.has(r.id) && !r.removedAfterSeated,
+      );
       if (newcomers.length) {
-        this.highlightIds = new Set(newcomers.map((r) => r.id));
+        for (const r of newcomers) this.highlightIds.add(r.id);
         this.highlightTick.update((n) => n + 1);
+        this.scheduleHighlightClear();
         this.notifyNew(newcomers);
       }
     }
     this.knownIds = nextIds;
     this.hasLoadedOnce = true;
     this.board.set(b);
+  }
+
+  private scheduleHighlightClear(): void {
+    if (this.highlightTimer) clearTimeout(this.highlightTimer);
+    this.highlightTimer = setTimeout(() => {
+      this.highlightIds = new Set();
+      this.highlightTick.update((n) => n + 1);
+      this.highlightTimer = null;
+    }, 25_000);
   }
 
   private notifyNew(
@@ -855,8 +1002,6 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => {
       this.toast.set('');
-      this.highlightIds = new Set();
-      this.highlightTick.update((n) => n + 1);
       this.toastTimer = null;
     }, 5500);
   }

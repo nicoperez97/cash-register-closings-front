@@ -770,6 +770,7 @@ export class AdminUserDialogComponent implements OnInit {
       suppliers: [this.initialModules.suppliers],
       stock: [this.initialModules.stock],
       beverageStock: [this.initialModules.beverageStock],
+      shortages: [this.initialModules.shortages],
       accounts: [this.initialModules.accounts],
       concepts: [this.initialModules.concepts],
       shop: [this.initialModules.shop],

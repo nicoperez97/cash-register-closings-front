@@ -162,6 +162,9 @@ export class MainLayoutComponent {
         children: stockChildren,
       });
     }
+    if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
+      items.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+    }
 
     if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
       items.push({
@@ -477,6 +480,9 @@ export class MainLayoutComponent {
     }
     if (path === '/beverage-stock' || path.startsWith('/beverage-stock/')) {
       return hasShopPermission(user, shopId, 'beverageStock.read');
+    }
+    if (path.startsWith('/shortages')) {
+      return hasShopPermission(user, shopId, 'shortages.read');
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');

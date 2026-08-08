@@ -179,6 +179,14 @@ export class ToolbarComponent implements OnInit {
       void this.router.navigateByUrl('/beverage-stock');
       return;
     }
+    if (
+      n.type === 'SHORTAGE_CREATED' ||
+      n.type === 'SHORTAGE_LEVEL_LOW' ||
+      n.type === 'SHORTAGE_RESOLVED'
+    ) {
+      void this.router.navigateByUrl('/shortages');
+      return;
+    }
     if (n.paymentId || n.type.startsWith('PAYMENT_')) {
       void this.router.navigateByUrl('/payments/suppliers');
     }
