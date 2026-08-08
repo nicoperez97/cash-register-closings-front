@@ -566,7 +566,7 @@ export class ShortagesPage {
         this.snack.open('Faltante eliminado', 'OK', { duration: 2500 });
         this.reload();
       },
-      error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3500 });
+      error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3500 }),
     });
   }
 
