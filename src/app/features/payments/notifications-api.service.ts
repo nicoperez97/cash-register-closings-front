@@ -22,6 +22,8 @@ export interface AppNotification {
   id: string;
   userId: string;
   shopId: string | null;
+  shopName?: string | null;
+  shopLogoUrl?: string | null;
   type: NotificationType;
   title: string;
   body: string;

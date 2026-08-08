@@ -32,13 +32,14 @@ self.addEventListener('push', (event) => {
 
   const show = self.registration.showNotification(data.title || 'Cierres de caja', {
     body: data.body || '',
-    icon: '/icons/icon-192x192.png',
+    icon: data.icon || '/icons/icon-192x192.png',
     badge: '/icons/icon-192x192.png',
     tag: data.tag || 'crc-notification',
     renotify: true,
     data: {
       url: data.url || '/',
       shopId: data.shopId || null,
+      shopName: data.shopName || null,
       notificationId: data.notificationId || null,
     },
   });

@@ -224,6 +224,14 @@
   display: grid;
   place-items: center;
   margin-top: 0.05rem;
+  overflow: hidden;
+}
+
+.notif-item__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .notif-item__icon mat-icon {
@@ -235,6 +243,16 @@
 .notif-item__content {
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.notif-item__shop {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--guy-muted, #5f6f76);
+  margin-bottom: 0.1rem;
 }
 
 .notif-tone--amber {
