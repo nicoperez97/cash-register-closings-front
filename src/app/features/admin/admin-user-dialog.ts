@@ -35,6 +35,7 @@ export interface AdminUserRow {
   hideFromCashWithdraw?: boolean;
   isStockAdmin?: boolean;
   isBeverageStockAdmin?: boolean;
+  isShortageAdmin?: boolean;
 }
 
 export type AdminUserDialogData = {
@@ -596,6 +597,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones cuando una bebida baja del mínimo requerido.
           </p>
+          <mat-slide-toggle formControlName="isShortageAdmin">
+            Administrador de faltantes
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones y mails cuando hay faltantes críticos o resueltos.
+          </p>
         }
 
         @if (!isRolesOnly && data.canAssignShops && (data.allShops?.length ?? 0) > 0) {
@@ -650,6 +657,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones cuando una bebida baja del mínimo requerido.
+          </p>
+          <mat-slide-toggle formControlName="isShortageAdmin">
+            Administrador de faltantes
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones y mails cuando hay faltantes críticos o resueltos.
           </p>
         }
       </form>
@@ -781,6 +794,7 @@ export class AdminUserDialogComponent implements OnInit {
     hideFromCashWithdraw: [this.user?.hideFromCashWithdraw ?? false],
     isStockAdmin: [this.user?.isStockAdmin ?? false],
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
+    isShortageAdmin: [this.user?.isShortageAdmin ?? false],
   });
 
   readonly enabledSummary = computed(() => {
@@ -912,6 +926,7 @@ export class AdminUserDialogComponent implements OnInit {
           hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
           isStockAdmin: !!raw.isStockAdmin,
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
+          isShortageAdmin: !!raw.isShortageAdmin,
         })
         .subscribe({
           next: () => {
@@ -941,6 +956,7 @@ export class AdminUserDialogComponent implements OnInit {
         hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
+        isShortageAdmin: !!raw.isShortageAdmin,
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -977,6 +993,7 @@ export class AdminUserDialogComponent implements OnInit {
         hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
+        isShortageAdmin: !!raw.isShortageAdmin,
       })
       .subscribe({
         next: () => {
