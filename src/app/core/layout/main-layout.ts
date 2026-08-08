@@ -222,6 +222,7 @@ export class MainLayoutComponent {
         children: [
           { label: 'Cierres', route: '/reports', icon: 'insights' },
           { label: 'Ventas POS', route: '/reports/products', icon: 'restaurant_menu' },
+          { label: 'Estadísticas', route: '/reports/stats', icon: 'analytics' },
         ],
       });
     }

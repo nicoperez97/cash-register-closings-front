@@ -103,6 +103,12 @@ export class ClosingsApiService {
     });
   }
 
+  reportsDashboard(shopId: string, filters: { from: string; to: string }) {
+    return this.http.get<ReportsDashboard>(`${this.base}/shops/${shopId}/reports/dashboard`, {
+      params: { from: filters.from, to: filters.to },
+    });
+  }
+
   exportExcel(shopId: string, filters: ClosingQueryFilters) {
     return this.http.get(`${this.base}/shops/${shopId}/reports/export.xlsx`, {
       params: closingFiltersToParams(filters),
@@ -189,6 +195,63 @@ export class ClosingsApiService {
       responseType: 'blob',
     });
   }
+}
+
+export interface ReportsDashboard {
+  shopId: string;
+  from: string | null;
+  to: string | null;
+  closings: {
+    count: number;
+    totals: {
+      declared: number;
+      cash: number;
+      withdrawn: number;
+      covers: number;
+      units: number;
+      difference: number;
+    };
+    byDay: Array<{
+      businessDate: string;
+      declaredTotal: number;
+      cashAmount: number;
+      cashWithdrawn: number;
+      status: string;
+    }>;
+  } | null;
+  pos: {
+    totals: {
+      amount: number;
+      qty: number;
+      ticketCount: number;
+      productCount: number;
+      avgTicketAmount: number;
+    };
+    byDay: Array<{
+      businessDate: string;
+      amount: number;
+      qty: number;
+      ticketCount: number;
+    }>;
+  } | null;
+  reservations: {
+    enabled: boolean;
+    from: string;
+    to: string;
+    totals: {
+      parties: number;
+      guests: number;
+      inside: number;
+      outside: number;
+    };
+    byDay: Array<{
+      businessDate: string;
+      parties: number;
+      guests: number;
+      inside: number;
+      outside: number;
+    }>;
+  } | null;
 }
 
 export interface SalesProductsFilters {
