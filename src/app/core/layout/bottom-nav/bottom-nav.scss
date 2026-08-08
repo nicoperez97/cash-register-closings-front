@@ -3,6 +3,7 @@
   position: fixed !important;
   left: 0 !important;
   right: 0 !important;
+  /* top/bottom los fija JS con visualViewport (iOS PWA) */
   bottom: 0 !important;
   top: auto !important;
   width: 100% !important;
@@ -17,6 +18,9 @@
   opacity: 1;
   visibility: visible;
   transition: opacity 220ms ease, visibility 220ms ease;
+  /* Evita glitches de compositing al scrollear en WebKit */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 :host.bottom-nav-host--hidden {

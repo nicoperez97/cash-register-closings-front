@@ -53,7 +53,22 @@ function watchAppUpdates(): void {
       panelClass: ['guy-dialog', 'app-update-dialog-panel'],
       backdropClass: 'app-update-dialog-backdrop',
       data: {
-        activate: () => updates.activateUpdate().then(() => document.location.reload()),
+        activate: async () => {
+          // Limpiar locks de dialog antes del reload (PWA iOS a veces conserva estilos).
+          document.documentElement.classList.remove(
+            'guy-body-scroll-lock',
+            'guy-dialog-scroll-lock',
+          );
+          document.body.classList.remove('guy-body-scroll-lock', 'guy-dialog-scroll-lock');
+          document.body.style.position = '';
+          document.body.style.top = '';
+          document.body.style.overflow = '';
+          await updates.activateUpdate();
+          // Hard reload: evita viewport/fixed “pegados” del ciclo anterior en standalone.
+          const url = new URL(window.location.href);
+          url.searchParams.set('_sw', String(Date.now()));
+          window.location.replace(url.toString());
+        },
       },
     });
   };
