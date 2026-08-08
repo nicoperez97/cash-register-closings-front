@@ -252,6 +252,10 @@ export class PaymentsApiService {
     return this.http.post<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}/pay`, body ?? {});
   }
 
+  revertStatus(shopId: string, id: string) {
+    return this.http.post<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}/revert`, {});
+  }
+
   resendNotification(shopId: string, id: string, kind: 'VALIDATE' | 'PAY') {
     return this.http.post<{ ok: boolean; kind: 'VALIDATE' | 'PAY'; notifiedUserId: string }>(
       `${this.base}/shops/${shopId}/payments/${id}/resend-notification`,
