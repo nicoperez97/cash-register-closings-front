@@ -1,5 +1,6 @@
 /* Custom SW: Angular ngsw + Web Push (iOS PWA / Android / desktop). */
 /* global self, clients, registration */
+/* rev: shop-logo-icon-v2 */
 importScripts('./ngsw-worker.js');
 
 self.addEventListener('push', (event) => {
@@ -9,6 +10,8 @@ self.addEventListener('push', (event) => {
     url: '/',
     tag: 'crc-notification',
     unreadCount: null,
+    icon: null,
+    image: null,
   };
   try {
     if (event.data) {
@@ -30,9 +33,10 @@ self.addEventListener('push', (event) => {
       ? Math.floor(parsedUnread)
       : 1;
 
-  const show = self.registration.showNotification(data.title || 'Cierres de caja', {
+  const icon = data.icon || '/icons/icon-192x192.png';
+  const options = {
     body: data.body || '',
-    icon: data.icon || '/icons/icon-192x192.png',
+    icon: icon,
     badge: '/icons/icon-192x192.png',
     tag: data.tag || 'crc-notification',
     renotify: true,
@@ -42,7 +46,15 @@ self.addEventListener('push', (event) => {
       shopName: data.shopName || null,
       notificationId: data.notificationId || null,
     },
-  });
+  };
+  if (data.image) {
+    options.image = data.image;
+  }
+
+  const show = self.registration.showNotification(
+    data.title || 'Cierres de caja',
+    options,
+  );
 
   const setBadge =
     typeof self.registration.setAppBadge === 'function'
