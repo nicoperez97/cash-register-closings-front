@@ -7,6 +7,7 @@ import {
   inject,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,8 +26,8 @@ export interface BottomNavItem {
   styleUrl: './bottom-nav.scss',
   host: {
     class: 'bottom-nav-host',
-    '[class.bottom-nav-host--hidden]': 'sidenavOpen()',
-    '[attr.aria-hidden]': 'sidenavOpen() ? "true" : null',
+    '[class.bottom-nav-host--hidden]': 'sidenavOpen() || keyboardOpen()',
+    '[attr.aria-hidden]': 'sidenavOpen() || keyboardOpen() ? "true" : null',
   },
 })
 export class BottomNavComponent implements OnDestroy {
@@ -40,21 +41,24 @@ export class BottomNavComponent implements OnDestroy {
   readonly navigate = output<void>();
   readonly openMore = output<void>();
 
-  private readonly onPin = () => this.pinToVisualViewport();
-  private pinRaf = 0;
+  /** iOS/Android: teclado abierto → ocultar (evita la barra flotando a mitad de pantalla). */
+  readonly keyboardOpen = signal(false);
+
+  private syncRaf = 0;
 
   constructor() {
     // Montar en <body>: ningún ancestro con transform (Material sidenav)
     // puede convertir position:fixed en “flotante” a mitad de pantalla.
     afterNextRender(() => {
       this.ensureOnBody();
-      this.pinToVisualViewport();
-      this.bindViewportPin();
+      this.clearInlinePin();
+      this.syncKeyboardState();
+      this.bindListeners();
     });
 
     this.destroyRef.onDestroy(() => {
-      this.unbindViewportPin();
-      if (this.pinRaf) cancelAnimationFrame(this.pinRaf);
+      this.unbindListeners();
+      if (this.syncRaf) cancelAnimationFrame(this.syncRaf);
     });
   }
 
@@ -76,7 +80,6 @@ export class BottomNavComponent implements OnDestroy {
     if (el.parentElement !== document.body) {
       document.body.appendChild(el);
     }
-    // Evitar duplicados si el layout se re-crea sin destroy limpio.
     document.querySelectorAll('app-bottom-nav.bottom-nav-host').forEach((node) => {
       if (node !== el && node.parentElement === document.body) {
         node.remove();
@@ -84,66 +87,67 @@ export class BottomNavComponent implements OnDestroy {
     });
   }
 
-  /**
-   * iOS/PWA: tras update + scroll, fixed+bottom:0 queda desfasado del viewport visible.
-   * Anclamos al borde inferior del visualViewport (no al layout viewport).
-   */
-  private pinToVisualViewport(): void {
+  /** Quita el pin JS viejo (top calculado) que dejaba la barra trabada. */
+  private clearInlinePin(): void {
     const el = this.host.nativeElement;
-    if (!el.isConnected) return;
-
-    el.style.setProperty('position', 'fixed', 'important');
-    el.style.setProperty('left', '0px', 'important');
-    el.style.setProperty('right', '0px', 'important');
-    el.style.setProperty('width', '100%', 'important');
-    el.style.setProperty('transform', 'none', 'important');
-    el.style.setProperty('margin', '0', 'important');
-
-    const vv = window.visualViewport;
-    if (!vv) {
-      el.style.setProperty('top', 'auto', 'important');
-      el.style.setProperty('bottom', '0px', 'important');
-      return;
-    }
-
-    const height = el.getBoundingClientRect().height || 56;
-    const top = Math.round(vv.offsetTop + vv.height - height);
-    el.style.setProperty('bottom', 'auto', 'important');
-    el.style.setProperty('top', `${top}px`, 'important');
+    el.style.removeProperty('top');
+    el.style.removeProperty('bottom');
+    el.style.removeProperty('left');
+    el.style.removeProperty('right');
+    el.style.removeProperty('width');
+    el.style.removeProperty('position');
+    el.style.removeProperty('transform');
+    el.style.removeProperty('margin');
   }
 
-  private schedulePin(): void {
-    if (this.pinRaf) cancelAnimationFrame(this.pinRaf);
-    this.pinRaf = requestAnimationFrame(() => {
-      this.pinRaf = 0;
+  private syncKeyboardState(): void {
+    const vv = window.visualViewport;
+    if (!vv) {
+      this.keyboardOpen.set(false);
+      return;
+    }
+    // Cuando el teclado abre, el visualViewport se achica respecto al layout.
+    const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    this.keyboardOpen.set(covered > 100);
+  }
+
+  private scheduleSync(): void {
+    if (this.syncRaf) cancelAnimationFrame(this.syncRaf);
+    this.syncRaf = requestAnimationFrame(() => {
+      this.syncRaf = 0;
       this.ensureOnBody();
-      this.pinToVisualViewport();
+      this.clearInlinePin();
+      this.syncKeyboardState();
     });
   }
 
-  private bindViewportPin(): void {
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', this.onPin);
-    vv?.addEventListener('scroll', this.onPin);
-    window.addEventListener('resize', this.onPin);
-    window.addEventListener('orientationchange', this.onPin);
-    window.addEventListener('scroll', this.onPin, { passive: true, capture: true });
-    window.addEventListener('pageshow', this.onPin);
-    document.addEventListener('visibilitychange', this.onVisibility);
-  }
-
-  private unbindViewportPin(): void {
-    const vv = window.visualViewport;
-    vv?.removeEventListener('resize', this.onPin);
-    vv?.removeEventListener('scroll', this.onPin);
-    window.removeEventListener('resize', this.onPin);
-    window.removeEventListener('orientationchange', this.onPin);
-    window.removeEventListener('scroll', this.onPin, true);
-    window.removeEventListener('pageshow', this.onPin);
-    document.removeEventListener('visibilitychange', this.onVisibility);
-  }
+  private readonly onViewport = (): void => this.scheduleSync();
 
   private readonly onVisibility = (): void => {
-    if (document.visibilityState === 'visible') this.schedulePin();
+    if (document.visibilityState === 'visible') this.scheduleSync();
   };
+
+  private bindListeners(): void {
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', this.onViewport);
+    vv?.addEventListener('scroll', this.onViewport);
+    window.addEventListener('resize', this.onViewport);
+    window.addEventListener('orientationchange', this.onViewport);
+    window.addEventListener('pageshow', this.onViewport);
+    document.addEventListener('visibilitychange', this.onVisibility);
+    window.addEventListener('focusin', this.onViewport);
+    window.addEventListener('focusout', this.onViewport);
+  }
+
+  private unbindListeners(): void {
+    const vv = window.visualViewport;
+    vv?.removeEventListener('resize', this.onViewport);
+    vv?.removeEventListener('scroll', this.onViewport);
+    window.removeEventListener('resize', this.onViewport);
+    window.removeEventListener('orientationchange', this.onViewport);
+    window.removeEventListener('pageshow', this.onViewport);
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('focusin', this.onViewport);
+    window.removeEventListener('focusout', this.onViewport);
+  }
 }
