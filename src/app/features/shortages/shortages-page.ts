@@ -196,6 +196,7 @@ export class ShortageDialogComponent {
   imports: [
     FormsModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatIconModule,
     MatDialogModule,
     MatSlideToggleModule,
@@ -247,14 +248,17 @@ export class ShortageDialogComponent {
           <article
             class="panel-card shortage-card"
             [class.shortage-card--critical]="isCritical(row.level)"
+            [attr.data-level]="row.level"
           >
             <div class="shortage-card__main">
               <div class="shortage-card__info">
                 <div class="shortage-card__title-row">
                   <h3 class="shortage-card__name">{{ row.name }}</h3>
-                  <span class="level-chip" [attr.data-level]="row.level">
-                    {{ levelLabel(row.level) }}
-                  </span>
+                  @if (!canManage()) {
+                    <span class="level-chip" [attr.data-level]="row.level">
+                      {{ levelLabel(row.level) }}
+                    </span>
+                  }
                 </div>
                 @if (row.notes) {
                   <p class="shortage-card__notes">{{ row.notes }}</p>
@@ -276,6 +280,23 @@ export class ShortageDialogComponent {
                 </div>
               }
             </div>
+            @if (canManage()) {
+              <div class="shortage-card__level">
+                <mat-button-toggle-group
+                  class="level-toggle"
+                  [attr.data-level]="row.level"
+                  [ngModel]="row.level"
+                  [disabled]="updatingId() === row.id"
+                  hideSingleSelectionIndicator
+                  [attr.aria-label]="'Nivel de ' + row.name"
+                  (ngModelChange)="onLevelChange(row, $event)"
+                >
+                  @for (opt of levelOptions; track opt.value) {
+                    <mat-button-toggle [value]="opt.value">{{ opt.label }}</mat-button-toggle>
+                  }
+                </mat-button-toggle-group>
+              </div>
+            }
           </article>
         } @empty {
           <div class="panel-card guy-empty">
@@ -318,6 +339,11 @@ export class ShortageDialogComponent {
         flex-direction: column;
         gap: 0.65rem;
       }
+      .shortage-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+      }
       .shortage-card__main {
         display: flex;
         align-items: flex-start;
@@ -351,8 +377,36 @@ export class ShortageDialogComponent {
         gap: 0.1rem;
         flex-shrink: 0;
       }
+      .shortage-card__level {
+        width: 100%;
+      }
       .shortage-card--critical {
         border-left: 4px solid #c62828;
+      }
+      .level-toggle {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .level-toggle .mat-button-toggle-button {
+        width: 100%;
+      }
+      .level-toggle .mat-button-toggle-label-content {
+        width: 100%;
+        text-align: center;
+        padding: 0.4rem 0.25rem !important;
+        font-size: 0.82rem;
+        font-weight: 650;
+      }
+      .level-toggle[data-level='NONE'] .mat-button-toggle-checked {
+        background: color-mix(in srgb, #c62828 16%, #fff) !important;
+        color: #b71c1c;
+      }
+      .level-toggle[data-level='LOW'] .mat-button-toggle-checked {
+        background: color-mix(in srgb, #f59e0b 20%, #fff) !important;
+        color: #b45309;
       }
       .level-chip {
         display: inline-flex;
@@ -398,6 +452,8 @@ export class ShortagesPage {
   readonly rows = signal<Shortage[]>([]);
   readonly loading = signal(true);
   readonly criticalOnly = signal(false);
+  readonly updatingId = signal<string | null>(null);
+  readonly levelOptions = SHORTAGE_LEVEL_OPTIONS;
 
   readonly filteredRows = computed(() => {
     const all = this.rows();
@@ -453,6 +509,42 @@ export class ShortagesPage {
     });
   }
 
+  onLevelChange(row: Shortage, level: ShortageLevel): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canManage() || level === row.level || this.updatingId()) return;
+
+    const previous = row.level;
+    this.rows.update((list) =>
+      list.map((r) => (r.id === row.id ? { ...r, level, levelLabel: shortageLevelLabel(level) } : r)),
+    );
+    this.updatingId.set(row.id);
+
+    this.api.update(shopId, row.id, { level }).subscribe({
+      next: (updated) => {
+        this.updatingId.set(null);
+        this.rows.update((list) => list.map((r) => (r.id === updated.id ? updated : r)));
+        if (isCriticalShortageLevel(level) && !isCriticalShortageLevel(previous)) {
+          this.snack.open('Nivel actualizado · se avisó a los administradores', 'OK', {
+            duration: 2800,
+          });
+        } else {
+          this.snack.open('Nivel actualizado', 'OK', { duration: 1800 });
+        }
+      },
+      error: () => {
+        this.updatingId.set(null);
+        this.rows.update((list) =>
+          list.map((r) =>
+            r.id === row.id
+              ? { ...r, level: previous, levelLabel: shortageLevelLabel(previous) }
+              : r,
+          ),
+        );
+        this.snack.open('No se pudo actualizar el nivel', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
   openCreate(): void {
     this.openDialog({ mode: 'create' });
   }
@@ -474,7 +566,7 @@ export class ShortagesPage {
         this.snack.open('Faltante eliminado', 'OK', { duration: 2500 });
         this.reload();
       },
-      error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3500 }),
+      error: () => this.snack.open('No se pudo eliminar', 'OK', { duration: 3500 });
     });
   }
 

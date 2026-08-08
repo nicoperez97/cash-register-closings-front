@@ -356,7 +356,7 @@ interface CalendarCell {
                 }
                 {{ r.guestName || 'Reserva' }}
                 @if (r.status === 'SEATED') {
-                  <span class="floor-badge">En mesa</span>
+                  <span class="floor-badge">Marcada</span>
                 }
               </strong>
               <span>
@@ -370,8 +370,13 @@ interface CalendarCell {
             @if (canManage()) {
               <div class="floor-card__actions">
                 @if (r.status === 'CONFIRMED') {
-                  <button mat-stroked-button type="button" (click)="seatReservation(r)">
-                    Sentar
+                  <button mat-stroked-button type="button" (click)="markReservation(r, true)">
+                    Marcar
+                  </button>
+                }
+                @if (r.status === 'SEATED') {
+                  <button mat-stroked-button type="button" (click)="markReservation(r, false)">
+                    Desmarcar
                   </button>
                 }
                 <button mat-icon-button type="button" aria-label="Eliminar" (click)="deleteReservation(r)">
@@ -1331,16 +1336,23 @@ export class ReservationsPage implements OnInit {
     });
   }
 
-  seatReservation(row: ReservationRow): void {
+  markReservation(row: ReservationRow, marked: boolean): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId || !this.canManage() || row.status !== 'CONFIRMED') return;
-    this.api.updateReservation(shopId, row.id, { status: 'SEATED' }).subscribe({
+    if (!shopId || !this.canManage()) return;
+    const status = marked ? 'SEATED' : 'CONFIRMED';
+    this.api.updateReservation(shopId, row.id, { status }).subscribe({
       next: () => {
         this.loadReservations();
         this.inbox.refresh();
-        this.snack.open(`${row.guestName || 'Reserva'} en mesa`, 'OK', { duration: 2000 });
+        this.snack.open(
+          marked
+            ? `${row.guestName || 'Reserva'} marcada`
+            : `${row.guestName || 'Reserva'} desmarcada`,
+          'OK',
+          { duration: 2000 },
+        );
       },
-      error: () => this.snack.open('No se pudo sentar', 'OK', { duration: 3000 }),
+      error: () => this.snack.open('No se pudo actualizar', 'OK', { duration: 3000 }),
     });
   }
 }

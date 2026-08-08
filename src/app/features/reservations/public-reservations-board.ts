@@ -50,7 +50,7 @@ import { BoardPwaService } from './board-pwa.service';
           <div class="board__live-row">
             <p class="board__live">
               <span class="board__pulse" aria-hidden="true"></span>
-              <span class="board__live-text">Auto · 1 min</span>
+              <span class="board__live-text">Auto · 30 s</span>
             </p>
             <button
               type="button"
@@ -117,7 +117,7 @@ import { BoardPwaService } from './board-pwa.service';
                   [class.board__item--new]="isNew(r.id)"
                   [class.board__item--seated]="r.status === 'SEATED' && !r.removedAfterSeated"
                   [class.board__item--removed]="!!r.removedAfterSeated"
-                  [class.board__item--tappable]="canSeat(r)"
+                  [class.board__item--tappable]="canToggleSeat(r)"
                   (click)="onItemTap(r)"
                 >
                   <span class="board__name">
@@ -126,10 +126,10 @@ import { BoardPwaService } from './board-pwa.service';
                     }
                     {{ r.guestName || 'Reserva' }}
                     @if (r.status === 'SEATED' && !r.removedAfterSeated) {
-                      <span class="board__badge">En mesa</span>
+                      <span class="board__badge board__badge--seated">Marcada</span>
                     }
                     @if (r.removedAfterSeated) {
-                      <span class="board__badge board__badge--muted">Liberada</span>
+                      <span class="board__badge board__badge--removed">Liberada</span>
                     }
                   </span>
                   <span class="board__meta">
@@ -139,6 +139,16 @@ import { BoardPwaService } from './board-pwa.service';
                     <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
                       <strong>{{ r.partySize }}</strong><span>p</span>
                     </span>
+                    @if (r.removedAfterSeated) {
+                      <button
+                        type="button"
+                        class="board__dismiss"
+                        aria-label="Quitar de la vista"
+                        (click)="dismissRemoved($event, r)"
+                      >
+                        ✕
+                      </button>
+                    }
                   </span>
                 </li>
               } @empty {
@@ -155,7 +165,7 @@ import { BoardPwaService } from './board-pwa.service';
                   [class.board__item--new]="isNew(r.id)"
                   [class.board__item--seated]="r.status === 'SEATED' && !r.removedAfterSeated"
                   [class.board__item--removed]="!!r.removedAfterSeated"
-                  [class.board__item--tappable]="canSeat(r)"
+                  [class.board__item--tappable]="canToggleSeat(r)"
                   (click)="onItemTap(r)"
                 >
                   <span class="board__name">
@@ -164,10 +174,10 @@ import { BoardPwaService } from './board-pwa.service';
                     }
                     {{ r.guestName || 'Reserva' }}
                     @if (r.status === 'SEATED' && !r.removedAfterSeated) {
-                      <span class="board__badge">En mesa</span>
+                      <span class="board__badge board__badge--seated">Marcada</span>
                     }
                     @if (r.removedAfterSeated) {
-                      <span class="board__badge board__badge--muted">Liberada</span>
+                      <span class="board__badge board__badge--removed">Liberada</span>
                     }
                   </span>
                   <span class="board__meta">
@@ -177,6 +187,16 @@ import { BoardPwaService } from './board-pwa.service';
                     <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
                       <strong>{{ r.partySize }}</strong><span>p</span>
                     </span>
+                    @if (r.removedAfterSeated) {
+                      <button
+                        type="button"
+                        class="board__dismiss"
+                        aria-label="Quitar de la vista"
+                        (click)="dismissRemoved($event, r)"
+                      >
+                        ✕
+                      </button>
+                    }
                   </span>
                 </li>
               } @empty {
@@ -549,14 +569,64 @@ import { BoardPwaService } from './board-pwa.service';
       }
 
       .board__item--seated {
-        opacity: 0.72;
-        border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+        opacity: 1;
+        border: 1px solid color-mix(in srgb, #eab308 70%, transparent);
+        background: color-mix(in srgb, #eab308 22%, rgba(0, 0, 0, 0.28));
+        color: #fef9c3;
+        box-shadow: 0 0 0 1px color-mix(in srgb, #facc15 25%, transparent);
+      }
+
+      .board__item--seated .board__num {
+        color: #fde047;
+      }
+
+      .board__item--seated .board__pax {
+        background: color-mix(in srgb, #eab308 35%, transparent);
+        color: #fef08a;
+      }
+
+      .board__badge--seated {
+        background: color-mix(in srgb, #eab308 45%, transparent);
+        color: #fef9c3;
+      }
+
+      .board__dismiss {
+        margin-left: auto;
+        border: 0;
+        border-radius: 999px;
+        width: 1.65rem;
+        height: 1.65rem;
+        display: inline-grid;
+        place-items: center;
+        cursor: pointer;
+        font-size: 0.85rem;
+        line-height: 1;
+        color: #fecaca;
+        background: color-mix(in srgb, #ef4444 35%, transparent);
+        flex-shrink: 0;
+      }
+
+      .board__dismiss:active {
+        transform: scale(0.94);
       }
 
       .board__item--removed {
-        opacity: 0.45;
+        opacity: 1;
         text-decoration: line-through;
-        text-decoration-thickness: 1px;
+        text-decoration-thickness: 1.5px;
+        text-decoration-color: color-mix(in srgb, #ef4444 75%, #fff);
+        border: 1px solid color-mix(in srgb, #ef4444 55%, transparent);
+        background: color-mix(in srgb, #ef4444 18%, rgba(0, 0, 0, 0.28));
+        color: #fecaca;
+      }
+
+      .board__item--removed .board__num {
+        color: #f87171;
+      }
+
+      .board__item--removed .board__pax {
+        background: color-mix(in srgb, #ef4444 28%, transparent);
+        color: #fecaca;
       }
 
       .board__item--new {
@@ -602,9 +672,10 @@ import { BoardPwaService } from './board-pwa.service';
         color: #f8f0e8;
       }
 
-      .board__badge--muted {
-        background: rgba(255, 255, 255, 0.1);
-        color: #cfc6ba;
+      .board__badge--removed {
+        background: color-mix(in srgb, #ef4444 42%, transparent);
+        color: #fee2e2;
+        text-decoration: none;
       }
 
       .board__meta {
@@ -845,7 +916,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.boardPwa.prime('reservations', this.slug);
     void this.ensureNotificationPermission();
 
-    this.pollSub = merge(interval(15_000).pipe(startWith(0)), this.refresh$)
+    this.pollSub = merge(interval(30_000).pipe(startWith(0)), this.refresh$)
       .pipe(
         tap(() => this.refreshing.set(true)),
         switchMap(() => this.api.publicBoard(this.slug)),
@@ -895,11 +966,14 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     return this.highlightIds.has(id);
   }
 
-  canSeat(r: {
+  canToggleSeat(r: {
     status: string;
     removedAfterSeated?: boolean;
   }): boolean {
-    return r.status === 'CONFIRMED' && !r.removedAfterSeated;
+    return (
+      !r.removedAfterSeated &&
+      (r.status === 'CONFIRMED' || r.status === 'SEATED')
+    );
   }
 
   onItemTap(r: {
@@ -909,20 +983,58 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     status: string;
     removedAfterSeated?: boolean;
   }): void {
-    if (!this.canSeat(r) || this.seating) return;
-    const label = r.guestName?.trim() || 'Reserva';
-    if (!confirm(`¿Marcar mesa lista para ${label} (${r.partySize} pers.)?`)) return;
+    if (!this.canToggleSeat(r) || this.seating) return;
+    const nextStatus = r.status === 'SEATED' ? 'CONFIRMED' : 'SEATED';
     this.seating = true;
+    this.patchLocalStatus(r.id, nextStatus as 'CONFIRMED' | 'SEATED');
     this.api.publicSeatReservation(this.slug, r.id).subscribe({
-      next: () => {
+      next: (res) => {
         this.seating = false;
-        this.showToast(`Mesa lista: ${label}`);
-        this.refresh$.next();
+        this.patchLocalStatus(r.id, res.status);
       },
       error: () => {
         this.seating = false;
-        this.showToast('No se pudo sentar la reserva');
+        this.patchLocalStatus(r.id, r.status as 'CONFIRMED' | 'SEATED');
+        this.showToast('No se pudo marcar la mesa');
       },
+    });
+  }
+
+  dismissRemoved(
+    event: Event,
+    r: { id: string; guestName: string; removedAfterSeated?: boolean },
+  ): void {
+    event.stopPropagation();
+    if (!r.removedAfterSeated || this.seating) return;
+    this.seating = true;
+    const prev = this.board();
+    if (prev) {
+      this.board.set({
+        ...prev,
+        reservations: prev.reservations.filter((x) => x.id !== r.id),
+      });
+    }
+    this.api.publicDismissRemovedReservation(this.slug, r.id).subscribe({
+      next: () => {
+        this.seating = false;
+        this.showToast(`Quitada: ${r.guestName?.trim() || 'Reserva'}`);
+      },
+      error: () => {
+        this.seating = false;
+        if (prev) this.board.set(prev);
+        this.showToast('No se pudo quitar de la vista');
+      },
+    });
+  }
+
+  private patchLocalStatus(id: string, status: 'CONFIRMED' | 'SEATED'): void {
+    const prev = this.board();
+    if (!prev) return;
+    this.board.set({
+      ...prev,
+      reservations: prev.reservations.map((r) =>
+        r.id === id ? { ...r, status, removedAfterSeated: false } : r,
+      ),
     });
   }
 

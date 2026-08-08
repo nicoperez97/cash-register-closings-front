@@ -379,10 +379,10 @@ export const MODULE_DEFS: ModuleDef[] = [
   },
   {
     key: 'shortages',
-    label: 'Faltantes',
+    label: 'Stock faltantes',
     icon: 'report',
     group: 'daily',
-    hint: 'Qué falta o está bajo en el local',
+    hint: 'Administración de faltantes del local (Nada / Poco / Normal / Mucho)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -674,7 +674,7 @@ export function isCashierOnly(user: AuthUser | null, shopId: string | null): boo
   return !perms.includes('closings.update') && !perms.includes('closings.lock');
 }
 
-/** Solo carga sus horas de producción (y opcionalmente stock). */
+/** Solo carga sus horas de producción (y opcionalmente stock / faltantes). */
 export function isProducerOnly(user: AuthUser | null, shopId: string | null): boolean {
   if (!user || !shopId) return false;
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
@@ -686,6 +686,8 @@ export function isProducerOnly(user: AuthUser | null, shopId: string | null): bo
     'stock.manage',
     'beverageStock.read',
     'beverageStock.manage',
+    'shortages.read',
+    'shortages.manage',
   ]);
   const extra = perms.filter((p) => p !== 'attendance.self' && !allowedExtra.has(p));
   return extra.length === 0;
