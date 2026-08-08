@@ -208,6 +208,12 @@ export class ReservationsApiService {
     }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/reservations/${id}/seat`, {});
   }
 
+  publicDismissRemovedReservation(slug: string, id: string) {
+    return this.http.delete<{ ok: boolean }>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/reservations/${id}/dismiss`,
+    );
+  }
+
   publicWaitingBoard(slug: string) {
     return this.http.get<PublicWaitingBoard>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiting-list`,

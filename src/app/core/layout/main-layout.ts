@@ -98,6 +98,9 @@ export class MainLayoutComponent {
       if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
         stockChildren.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
       }
+      if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
+        stockChildren.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+      }
       if (stockChildren.length) {
         items.push({
           label: 'Stock',
@@ -154,6 +157,9 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
       stockChildren.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
     }
+    if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
+      stockChildren.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+    }
     if (stockChildren.length) {
       items.push({
         label: 'Stock',
@@ -161,9 +167,6 @@ export class MainLayoutComponent {
         icon: 'inventory_2',
         children: stockChildren,
       });
-    }
-    if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
-      items.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
     }
 
     if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
@@ -293,6 +296,9 @@ export class MainLayoutComponent {
       if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
         items.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
       }
+      if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
+        items.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+      }
       return items;
     }
     const items: BottomNavItem[] = [
@@ -371,7 +377,9 @@ export class MainLayoutComponent {
           path === '/my-production' ||
           (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
           (path === '/beverage-stock' &&
-            hasShopPermission(user, shopId, 'beverageStock.read'));
+            hasShopPermission(user, shopId, 'beverageStock.read')) ||
+          (path.startsWith('/shortages') &&
+            hasShopPermission(user, shopId, 'shortages.read'));
         if (!allowed) {
           void this.router.navigateByUrl(home);
         }
