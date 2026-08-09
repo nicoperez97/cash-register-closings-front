@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import {
@@ -16,11 +17,14 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { MovementsApiService } from '../movements/movements-api.service';
+import { QuickExpenseDialogComponent } from '../movements/quick-expense-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { forkJoin } from 'rxjs';
 
 interface AttendanceEmployee {
   employeeId: string;
@@ -48,6 +52,7 @@ interface BalanceRowExt extends BalanceAccountRow {
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
     KpiStripComponent,
     BalancesTableComponent,
@@ -102,6 +107,18 @@ interface BalanceRowExt extends BalanceAccountRow {
           <mat-icon>hourglass_top</mat-icon>
           Lista de espera
         </a>
+      }
+      @if (canManageMovements()) {
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="quickExpenseBusy()"
+          (click)="openQuickExpense()"
+        >
+          <mat-icon>payments</mat-icon>
+          Gasto rápido
+        </button>
       }
       @if (canViewPayments()) {
         <a mat-stroked-button routerLink="/payments/suppliers">
@@ -278,7 +295,10 @@ export class HomePageComponent {
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
   private readonly router = inject(Router);
+  readonly quickExpenseBusy = signal(false);
 
   private readonly reportSummary = signal<any>(null);
   private readonly refreshTick = signal(0);
@@ -492,6 +512,48 @@ export class HomePageComponent {
   canViewBalances(): boolean {
     const shopId = this.shopContext.selectedShopId();
     return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'movements.read');
+  }
+
+  canManageMovements(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'movements.manage');
+  }
+
+  openQuickExpense(): void {
+    const shopId = this.shopContext.selectedShopId();
+    if (!shopId || !this.canManageMovements() || this.quickExpenseBusy()) return;
+    this.quickExpenseBusy.set(true);
+    forkJoin({
+      accounts: this.movementsApi.accounts(shopId),
+      concepts: this.movementsApi.concepts(shopId),
+    }).subscribe({
+      next: ({ accounts, concepts }) => {
+        this.quickExpenseBusy.set(false);
+        this.dialogTitle
+          .track(
+            this.dialog.open(QuickExpenseDialogComponent, {
+              width: '440px',
+              maxWidth: '96vw',
+              panelClass: 'guy-dialog',
+              data: {
+                shopId,
+                shopName: this.shopContext.selectedShop()?.name ?? 'Local',
+                accounts: accounts ?? [],
+                concepts: concepts ?? [],
+              },
+            }),
+            'Gasto rápido',
+          )
+          .afterClosed()
+          .subscribe((saved) => {
+            if (saved) this.refreshTick.update((n) => n + 1);
+          });
+      },
+      error: () => {
+        this.quickExpenseBusy.set(false);
+        this.snack.open('No se pudieron cargar cuentas/conceptos', 'OK', { duration: 3500 });
+      },
+    });
   }
 
   canViewPayments(): boolean {

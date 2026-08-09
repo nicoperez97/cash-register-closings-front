@@ -63,18 +63,4 @@
       <app-main-pwa-install-banner />
     </mat-sidenav-content>
   </mat-sidenav-container>
-
-  <!--
-    Fuera de mat-sidenav-content: Material aplica transform al drawer content
-    y position:fixed queda anclado al contenido (barra “flotando” a mitad de pantalla).
-  -->
-  @if (isMobile()) {
-    <app-bottom-nav
-      [items]="bottomNavItems()"
-      [moreActive]="moreActive()"
-      [sidenavOpen]="sidenavOpen()"
-      (navigate)="closeSidenavOnNavigate()"
-      (openMore)="openMore()"
-    />
-  }
 </div>

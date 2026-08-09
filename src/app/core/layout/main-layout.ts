@@ -23,7 +23,6 @@ import {
 } from '../auth/auth.models';
 import { ToolbarComponent } from './toolbar/toolbar';
 import { SidebarComponent, NavItem } from './sidebar/sidebar';
-import { BottomNavComponent, BottomNavItem } from './bottom-nav/bottom-nav';
 import { ShopContextService } from '../shop/shop-context.service';
 import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
@@ -43,7 +42,6 @@ import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
     MatProgressBarModule,
     ToolbarComponent,
     SidebarComponent,
-    BottomNavComponent,
     PullToRefreshComponent,
     LoadingStateComponent,
     MainPwaInstallBannerComponent,
@@ -281,45 +279,6 @@ export class MainLayoutComponent {
     return items;
   });
 
-  readonly bottomNavItems = computed((): BottomNavItem[] => {
-    const user = this.auth.currentUser();
-    const shopId = this.shopContext.selectedShopId();
-    if (isCashierOnly(user, shopId)) {
-      return [{ label: 'Cierre', route: '/closings/new', icon: 'point_of_sale' }];
-    }
-    if (isProducerOnly(user, shopId)) {
-      const items: BottomNavItem[] = [
-        { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
-      ];
-      if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
-        items.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
-      }
-      if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
-        items.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
-      }
-      if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
-        items.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
-      }
-      return items;
-    }
-    const items: BottomNavItem[] = [
-      { label: 'Inicio', route: '/', icon: 'home', exact: true },
-    ];
-    if (shopId && hasShopPermission(user, shopId, 'closings.read')) {
-      items.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
-    }
-    if (shopId && hasShopPermission(user, shopId, 'reports.view')) {
-      items.push({ label: 'Reportes', route: '/reports', icon: 'insights' });
-    }
-    return items;
-  });
-
-  readonly moreActive = computed(() => {
-    const path = this.currentUrl().split('?')[0];
-    const allowed = this.bottomNavItems().map((i) => i.route);
-    return !allowed.some((route) => path === route || (route !== '/' && path.startsWith(route + '/')));
-  });
-
   readonly isCashierLayout = computed(() =>
     isCashierOnly(this.auth.currentUser(), this.shopContext.selectedShopId()),
   );
@@ -514,10 +473,6 @@ export class MainLayoutComponent {
     if (this.isMobile()) {
       this.sidenavOpen.set(false);
     }
-  }
-
-  openMore(): void {
-    this.sidenavOpen.set(true);
   }
 
   private shopFeature(feature: 'reservations' | 'waitingList'): boolean {

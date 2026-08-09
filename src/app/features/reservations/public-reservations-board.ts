@@ -88,6 +88,18 @@ import { BoardPwaService } from './board-pwa.service';
           </section>
         }
 
+        @if ((b.waiting?.guests ?? 0) > 0) {
+          <section class="board__waiting" aria-label="Lista de espera">
+            <p class="board__waiting-label">Lista de espera</p>
+            <p class="board__waiting-count">
+              <strong>{{ b.waiting!.guests }}</strong>
+              <span>
+                {{ b.waiting!.guests === 1 ? 'persona' : 'personas' }}
+              </span>
+            </p>
+          </section>
+        }
+
         <section class="board__totals" aria-label="Totales">
           <div class="board__total">
             <strong>{{ b.totals.guests }}</strong>
@@ -472,6 +484,49 @@ import { BoardPwaService } from './board-pwa.service';
         font-size: clamp(1rem, 2.6vw, 1.2rem);
         font-weight: 600;
         color: #f3fff7;
+      }
+
+      .board__waiting {
+        max-width: 52rem;
+        width: 100%;
+        margin: 0 auto 1rem;
+        padding: 0.95rem 1.1rem;
+        border-radius: 16px;
+        background: color-mix(in srgb, #f59e0b 22%, rgba(0, 0, 0, 0.4));
+        border: 1px solid color-mix(in srgb, #f59e0b 50%, transparent);
+        box-sizing: border-box;
+        text-align: center;
+      }
+
+      .board__waiting-label {
+        margin: 0 0 0.35rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #ffd89a;
+      }
+
+      .board__waiting-count {
+        margin: 0;
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 0.55rem;
+        flex-wrap: wrap;
+        color: #fff8eb;
+      }
+
+      .board__waiting-count strong {
+        font-size: clamp(1.8rem, 6vw, 2.6rem);
+        line-height: 1;
+        font-weight: 800;
+      }
+
+      .board__waiting-count span {
+        font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+        font-weight: 600;
+        opacity: 0.92;
       }
 
       .board__total {

@@ -1,0 +1,200 @@
+import { Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { resolveShopCalendarDate } from '../../core/shop/business-date';
+import { ShopContextService } from '../../core/shop/shop-context.service';
+import {
+  Concept,
+  LedgerAccount,
+  Movement,
+  MovementsApiService,
+} from './movements-api.service';
+
+export type QuickExpenseDialogData = {
+  shopId: string;
+  shopName: string;
+  accounts: LedgerAccount[];
+  concepts: Concept[];
+};
+
+function todayIso(timezone?: string | null): string {
+  return resolveShopCalendarDate(new Date(), { timezone: timezone ?? undefined });
+}
+
+@Component({
+  selector: 'app-quick-expense-dialog',
+  imports: [
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatIconModule,
+    MatSnackBarModule,
+    BusyLabelComponent,
+  ],
+  template: `
+    <h2 mat-dialog-title>
+      <span class="guy-dialog__title-icon" aria-hidden="true">
+        <mat-icon>payments</mat-icon>
+      </span>
+      <span class="guy-dialog__title-text">
+        <strong>Gasto rápido</strong>
+        <span>{{ data.shopName }}</span>
+      </span>
+    </h2>
+
+    <mat-dialog-content>
+      <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Monto</mat-label>
+          <mat-icon matPrefix>attach_money</mat-icon>
+          <input matInput type="number" inputmode="decimal" formControlName="amountUyu" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto</mat-label>
+          <mat-icon matPrefix>sell</mat-icon>
+          <mat-select formControlName="conceptId">
+            @for (c of expenseConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Sale de</mat-label>
+          <mat-icon matPrefix>account_balance_wallet</mat-icon>
+          <mat-select formControlName="fromAccountId">
+            @for (a of fromAccounts(); track a.id) {
+              <mat-option [value]="a.id">{{ a.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Descripción (opcional)</mat-label>
+          <mat-icon matPrefix>notes</mat-icon>
+          <input matInput formControlName="description" autocomplete="off" />
+        </mat-form-field>
+      </form>
+    </mat-dialog-content>
+
+    <mat-dialog-actions align="end">
+      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
+        Cancelar
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="form.invalid || busy() || !egresoAccountId()"
+        (click)="save()"
+      >
+        <app-busy-label [busy]="busy()" busyLabel="Guardando…">
+          <mat-icon>check</mat-icon>
+          Registrar gasto
+        </app-busy-label>
+      </button>
+    </mat-dialog-actions>
+  `,
+})
+export class QuickExpenseDialogComponent {
+  readonly data = inject<QuickExpenseDialogData>(MAT_DIALOG_DATA);
+  readonly ref = inject(MatDialogRef<QuickExpenseDialogComponent, Movement | boolean>);
+  private readonly fb = inject(FormBuilder);
+  private readonly api = inject(MovementsApiService);
+  private readonly snack = inject(MatSnackBar);
+  private readonly shops = inject(ShopContextService);
+
+  readonly busy = signal(false);
+
+  readonly egresoAccountId = computed(() => {
+    const hit = this.data.accounts.find(
+      (a) =>
+        a.active !== false &&
+        (a.code?.toUpperCase() === 'EGRESO' ||
+          a.name.toLowerCase().includes('egreso')),
+    );
+    return hit?.id ?? null;
+  });
+
+  readonly expenseConcepts = computed(() =>
+    this.data.concepts.filter((c) => c.active !== false && c.kind === 'EXPENSE'),
+  );
+
+  readonly fromAccounts = computed(() =>
+    this.data.accounts.filter(
+      (a) =>
+        a.active !== false &&
+        a.id !== this.egresoAccountId() &&
+        (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
+    ),
+  );
+
+  readonly form = this.fb.nonNullable.group({
+    amountUyu: [null as number | null, [Validators.required, Validators.min(0.01)]],
+    conceptId: ['', Validators.required],
+    fromAccountId: ['', Validators.required],
+    description: [''],
+  });
+
+  constructor() {
+    const concepts = this.expenseConcepts();
+    const preferred =
+      concepts.find((c) => /otros/i.test(c.name))?.id ?? concepts[0]?.id ?? '';
+    const from =
+      this.fromAccounts().find((a) => /caja|efectivo|cash/i.test(a.name))?.id ??
+      this.fromAccounts()[0]?.id ??
+      '';
+    this.form.patchValue({
+      conceptId: preferred,
+      fromAccountId: from,
+    });
+  }
+
+  save(): void {
+    if (this.form.invalid || !this.egresoAccountId()) {
+      this.form.markAllAsTouched();
+      if (!this.egresoAccountId()) {
+        this.snack.open('No hay cuenta de Egreso configurada', 'OK', { duration: 3500 });
+      }
+      return;
+    }
+    const raw = this.form.getRawValue();
+    const tz = this.shops.selectedShop()?.timezone;
+    this.busy.set(true);
+    this.api
+      .create(this.data.shopId, {
+        businessDate: todayIso(tz),
+        fromAccountId: raw.fromAccountId,
+        toAccountId: this.egresoAccountId()!,
+        conceptId: raw.conceptId,
+        description: raw.description.trim() || null,
+        amountUyu: Number(raw.amountUyu),
+        invoiced: false,
+      })
+      .subscribe({
+        next: (saved) => {
+          this.busy.set(false);
+          this.snack.open('Gasto registrado', 'OK', { duration: 2500 });
+          this.ref.close(saved);
+        },
+        error: (err) => {
+          this.busy.set(false);
+          const msg = err?.error?.message ?? 'No se pudo registrar el gasto';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
+            duration: 4000,
+          });
+        },
+      });
+  }
+}

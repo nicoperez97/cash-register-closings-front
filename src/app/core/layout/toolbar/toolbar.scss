@@ -5,7 +5,7 @@
 .toolbar {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -14,7 +14,10 @@
   padding: 0.35rem 0.75rem 0.35rem 0.35rem;
   background: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
   border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
-  box-shadow: none;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--guy-border, #d7e0d9) 55%, transparent);
+  /* Evita que el contenido “pase” por debajo al scrollear en mobile */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .toolbar-menu {

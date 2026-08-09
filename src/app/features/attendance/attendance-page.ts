@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,6 +17,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { AttendanceExcelImportDialogComponent } from './attendance-excel-import-dialog';
+import { AttendanceOvertimeDialogComponent } from './attendance-overtime-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
@@ -57,6 +59,7 @@ const MONTH_LABELS = [
     FormsModule,
     MatFormFieldModule,
     MatSelectModule,
+    MatInputModule,
     MatIconModule,
     MatTooltipModule,
     MatButtonModule,
@@ -109,18 +112,38 @@ const MONTH_LABELS = [
         </div>
         <div class="today-panel__chips">
           @for (emp of employees(); track emp.employeeId) {
-            <button
-              type="button"
-              class="today-chip"
-              [class.today-chip--present]="isPresentToday(emp)"
-              [class.today-chip--rotating]="emp.type === 'ROTATING'"
-              [disabled]="!canManage() || saving()"
-              [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
-              (click)="togglePresentToday(emp)"
+            <div
+              class="today-chip-row"
+              [class.today-chip-row--present]="isPresentToday(emp)"
+              [class.today-chip-row--rotating]="emp.type === 'ROTATING'"
             >
-              <mat-icon>{{ isPresentToday(emp) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-              {{ emp.fullName }}
-            </button>
+              <button
+                type="button"
+                class="today-chip"
+                [class.today-chip--present]="isPresentToday(emp)"
+                [class.today-chip--rotating]="emp.type === 'ROTATING'"
+                [disabled]="!canManage() || saving()"
+                [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
+                (click)="togglePresentToday(emp)"
+              >
+                <mat-icon>{{ isPresentToday(emp) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                {{ emp.fullName }}
+              </button>
+              <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving()">
+                <span>HS extra</span>
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.5"
+                  [disabled]="!canManage() || saving()"
+                  [ngModel]="overtimeToday(emp)"
+                  (ngModelChange)="onOvertimeTodayChange(emp, $event)"
+                  (click)="$event.stopPropagation()"
+                  aria-label="Horas extra de servicio"
+                />
+              </label>
+            </div>
           }
         </div>
       </div>
@@ -221,30 +244,53 @@ const MONTH_LABELS = [
                         [class.att-table__day--today]="isTodayColumn(d)"
                         [class.att-table__day--closed]="isClosedDay(d)"
                       >
-                        <button
-                          type="button"
-                          class="att-cell"
-                          [class.att-cell--present]="isPresent(emp, d)"
-                          [class.att-cell--holiday]="isHoliday(emp, d)"
-                          [class.att-cell--closed]="isClosedDay(d)"
-                          [class.att-cell--today]="isTodayColumn(d)"
-                          [disabled]="!canManage() || saving() || isClosedDay(d)"
-                          [matTooltip]="cellTooltip(emp, d)"
-                          (click)="onCellClick(emp, d)"
-                          (contextmenu)="toggleHoliday($event, emp, d)"
-                          (pointerdown)="onPressStart($event, () => toggleHoliday($event, emp, d))"
-                          (pointerup)="onPressEnd()"
-                          (pointerleave)="onPressEnd()"
-                          (pointercancel)="onPressEnd()"
-                        >
-                          @if (isClosedDay(d)) {
-                            <mat-icon class="att-cell__icon">hotel</mat-icon>
-                          } @else if (isHoliday(emp, d)) {
-                            <mat-icon class="att-cell__icon">star</mat-icon>
-                          } @else if (isPresent(emp, d)) {
-                            <mat-icon class="att-cell__icon">check</mat-icon>
+                        <div class="att-cell-wrap">
+                          <button
+                            type="button"
+                            class="att-cell"
+                            [class.att-cell--present]="isPresent(emp, d)"
+                            [class.att-cell--holiday]="isHoliday(emp, d)"
+                            [class.att-cell--closed]="isClosedDay(d)"
+                            [class.att-cell--today]="isTodayColumn(d)"
+                            [class.att-cell--ot]="overtimeHours(emp, d) > 0"
+                            [disabled]="!canManage() || saving() || isClosedDay(d)"
+                            [matTooltip]="cellTooltip(emp, d)"
+                            (click)="onCellClick(emp, d)"
+                            (contextmenu)="toggleHoliday($event, emp, d)"
+                            (pointerdown)="onPressStart($event, () => toggleHoliday($event, emp, d))"
+                            (pointerup)="onPressEnd()"
+                            (pointerleave)="onPressEnd()"
+                            (pointercancel)="onPressEnd()"
+                          >
+                            @if (isClosedDay(d)) {
+                              <mat-icon class="att-cell__icon">hotel</mat-icon>
+                            } @else if (isHoliday(emp, d)) {
+                              <mat-icon class="att-cell__icon">star</mat-icon>
+                            } @else if (isPresent(emp, d)) {
+                              <mat-icon class="att-cell__icon">check</mat-icon>
+                            }
+                          </button>
+                          @if (canManage() && !isClosedDay(d)) {
+                            <button
+                              type="button"
+                              class="att-ot-btn"
+                              [class.att-ot-btn--set]="overtimeHours(emp, d) > 0"
+                              [disabled]="saving()"
+                              [matTooltip]="'Horas extra' + (overtimeHours(emp, d) > 0 ? ': ' + overtimeHours(emp, d) + 'h' : '')"
+                              (click)="openOvertimeEditor($event, emp, d)"
+                            >
+                              @if (overtimeHours(emp, d) > 0) {
+                                +{{ overtimeHours(emp, d) }}h
+                              } @else {
+                                hs
+                              }
+                            </button>
+                          } @else if (overtimeHours(emp, d) > 0) {
+                            <span class="att-ot-btn att-ot-btn--set att-ot-btn--ro"
+                              >+{{ overtimeHours(emp, d) }}h</span
+                            >
                           }
-                        </button>
+                        </div>
                       </td>
                     }
                   </tr>
@@ -267,10 +313,10 @@ const MONTH_LABELS = [
               <span class="att-legend__today-swatch"></span> Hoy
             </span>
             <span class="att-legend__hint">
-              Toque: presente/ausente · Mantener pulsado: feriado
+              Toque: presente/ausente · Mantener: feriado · «hs»: horas extra
             </span>
             <span class="att-legend__hint att-legend__hint--desk">
-              En PC: click derecho también marca feriado
+              En PC: click derecho = feriado · botón hs = horas extra
             </span>
           </p>
         </div>
@@ -498,14 +544,31 @@ const MONTH_LABELS = [
         flex-wrap: wrap;
         gap: 0.5rem;
       }
-      .today-chip {
+      .today-chip-row {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
         border: 1px solid var(--guy-border, #d7e0d9);
         background: #fff;
         border-radius: 999px;
-        padding: 0.45rem 0.85rem;
+        padding-right: 0.35rem;
+      }
+      .today-chip-row--present {
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, transparent);
+        border-color: var(--guy-green, #2e7d32);
+      }
+      .today-chip-row--rotating:not(.today-chip-row--present) {
+        border-style: dashed;
+        opacity: 0.92;
+      }
+      .today-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 0;
+        background: transparent;
+        border-radius: 999px;
+        padding: 0.45rem 0.55rem 0.45rem 0.75rem;
         font-size: 0.9rem;
         font-weight: 600;
         color: var(--guy-navy, #003366);
@@ -517,15 +580,65 @@ const MONTH_LABELS = [
         height: 1.15rem;
       }
       .today-chip--present {
-        background: color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
-        border-color: var(--guy-green, #2e7d32);
-      }
-      .today-chip--rotating:not(.today-chip--present) {
-        border-style: dashed;
-        opacity: 0.92;
+        /* color comes from row */
       }
       .today-chip:disabled {
         opacity: 0.7;
+        cursor: default;
+      }
+      .today-ot {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+        padding-right: 0.2rem;
+      }
+      .today-ot input {
+        width: 3.1rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 8px;
+        padding: 0.2rem 0.3rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+        background: #fff;
+      }
+      .today-ot--disabled {
+        opacity: 0.65;
+      }
+      .att-cell-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+        min-width: 2.4rem;
+      }
+      .att-ot-btn {
+        border: 0;
+        background: color-mix(in srgb, var(--guy-muted, #5f6f76) 10%, #fff);
+        color: var(--guy-muted, #5f6f76);
+        border-radius: 6px;
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        padding: 0.08rem 0.28rem;
+        line-height: 1.2;
+        cursor: pointer;
+        text-transform: lowercase;
+      }
+      .att-ot-btn--set {
+        background: color-mix(in srgb, #ef6c00 18%, #fff);
+        color: #e65100;
+      }
+      .att-ot-btn--ro {
+        cursor: default;
+      }
+      .att-ot-btn:disabled {
+        opacity: 0.6;
         cursor: default;
       }
     `,
@@ -559,7 +672,10 @@ export class AttendancePage {
   private monthLoadSeq = 0;
   private todayLoadSeq = 0;
   /** Estado rápido de hoy (independiente del mes en pantalla). */
-  readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
+  readonly todayMarks = signal<
+    Record<string, { isPresent: boolean; isHoliday: boolean; overtimeHours: number }>
+  >({});
+  private overtimeSaveTimers = new Map<string, number>();
 
   readonly employees = computed(() => this.data()?.employees ?? []);
   readonly dayNumbers = computed(() =>
@@ -737,6 +853,7 @@ export class AttendancePage {
             next[e.employeeId] = {
               isPresent: true,
               isHoliday: next[e.employeeId]?.isHoliday ?? false,
+              overtimeHours: next[e.employeeId]?.overtimeHours ?? 0,
             };
           }
           this.todayMarks.set(next);
@@ -779,12 +896,16 @@ export class AttendancePage {
     )
       .then((data) => {
         if (seq !== this.todayLoadSeq) return;
-        const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
+        const marks: Record<
+          string,
+          { isPresent: boolean; isHoliday: boolean; overtimeHours: number }
+        > = {};
         for (const e of data.employees ?? []) {
           const cell = e.days[this.todayIso];
           marks[e.employeeId] = {
             isPresent: !!cell?.isPresent,
             isHoliday: !!cell?.isHoliday,
+            overtimeHours: Number(cell?.overtimeHours ?? 0),
           };
         }
         this.todayMarks.set(marks);
@@ -797,7 +918,7 @@ export class AttendancePage {
 
   private upsertToday(
     emp: AttendanceEmployeeRow,
-    patch: { isPresent?: boolean; isHoliday?: boolean },
+    patch: { isPresent?: boolean; isHoliday?: boolean; overtimeHours?: number },
   ): void {
     const shopId = this.shopId();
     if (!shopId) return;
@@ -819,6 +940,7 @@ export class AttendancePage {
             [emp.employeeId]: {
               isPresent: !!result.isPresent,
               isHoliday: !!result.isHoliday,
+              overtimeHours: Number(result.overtimeHours ?? 0),
             },
           }));
           if (this.year() === this.todayYear && this.month() === this.todayMonth) {
@@ -945,6 +1067,66 @@ export class AttendancePage {
     return this.cellFor(emp, day).isHoliday;
   }
 
+  overtimeHours(emp: AttendanceEmployeeRow, day: number): number {
+    return Number(this.cellFor(emp, day).overtimeHours ?? 0);
+  }
+
+  overtimeToday(emp: AttendanceEmployeeRow): number {
+    const mark = this.todayMarks()[emp.employeeId];
+    if (mark) return Number(mark.overtimeHours ?? 0);
+    if (this.year() === this.todayYear && this.month() === this.todayMonth) {
+      return this.overtimeHours(emp, this.todayDay);
+    }
+    return 0;
+  }
+
+  onOvertimeTodayChange(emp: AttendanceEmployeeRow, raw: number | string): void {
+    if (!this.canManage()) return;
+    const n = Number(raw);
+    const hours = Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
+    this.todayMarks.update((m) => ({
+      ...m,
+      [emp.employeeId]: {
+        isPresent: !!m[emp.employeeId]?.isPresent,
+        isHoliday: !!m[emp.employeeId]?.isHoliday,
+        overtimeHours: hours,
+      },
+    }));
+    const prev = this.overtimeSaveTimers.get(emp.employeeId);
+    if (prev != null) window.clearTimeout(prev);
+    const timer = window.setTimeout(() => {
+      this.overtimeSaveTimers.delete(emp.employeeId);
+      this.upsertToday(emp, { overtimeHours: hours });
+    }, 450);
+    this.overtimeSaveTimers.set(emp.employeeId, timer);
+  }
+
+  openOvertimeEditor(event: Event, emp: AttendanceEmployeeRow, day: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.canManage() || this.isClosedDay(day) || this.saving()) return;
+    const current = this.overtimeHours(emp, day);
+    this.dialogTitle
+      .track(
+        this.dialog.open(AttendanceOvertimeDialogComponent, {
+          width: '360px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            employeeName: emp.fullName,
+            dateLabel: this.dateFor(day),
+            overtimeHours: current,
+          },
+        }),
+        'Horas extra',
+      )
+      .afterClosed()
+      .subscribe((hours) => {
+        if (hours == null || hours === current) return;
+        this.upsert(emp, day, { overtimeHours: hours });
+      });
+  }
+
   isClosedDay(day: number): boolean {
     const closed = this.shops.selectedShop()?.closedWeekdays ?? [];
     if (!closed.length) return false;
@@ -957,7 +1139,8 @@ export class AttendancePage {
     const cell = this.cellFor(emp, day);
     const parts = [cell.isPresent ? 'Presente' : 'Ausente'];
     if (cell.isHoliday) parts.push('Feriado');
-    parts.push('Toque: presente · Mantener: feriado');
+    if (Number(cell.overtimeHours) > 0) parts.push(`${cell.overtimeHours} hs extra`);
+    parts.push('Toque: presente · Mantener: feriado · hs: horas extra');
     return parts.join(' · ');
   }
 
@@ -1021,7 +1204,7 @@ export class AttendancePage {
   private upsert(
     emp: AttendanceEmployeeRow,
     day: number,
-    patch: { isPresent?: boolean; isHoliday?: boolean },
+    patch: { isPresent?: boolean; isHoliday?: boolean; overtimeHours?: number },
   ): void {
     const shopId = this.shopId();
     if (!shopId) return;
@@ -1053,6 +1236,7 @@ export class AttendancePage {
               [emp.employeeId]: {
                 isPresent: !!result.isPresent,
                 isHoliday: !!result.isHoliday,
+                overtimeHours: Number(result.overtimeHours ?? m[emp.employeeId]?.overtimeHours ?? 0),
               },
             }));
           }
