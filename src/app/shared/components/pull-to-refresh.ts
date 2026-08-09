@@ -213,6 +213,8 @@ export class PullToRefreshComponent implements OnInit {
   }
 
   private scrollTop(): number {
+    const mainScroll = document.querySelector('.layout-main-scroll') as HTMLElement | null;
+    if (mainScroll) return mainScroll.scrollTop || 0;
     return (
       window.scrollY ||
       document.documentElement.scrollTop ||

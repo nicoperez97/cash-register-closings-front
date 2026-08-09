@@ -15,8 +15,8 @@
 .layout-container {
   min-height: 100vh;
   min-height: 100dvh;
-  height: auto !important;
-  overflow: visible !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
   background: var(--guy-surface, #f3f6f4);
 }
 
@@ -114,9 +114,22 @@
 :host ::ng-deep .mat-drawer-content.layout-shell {
   background: transparent;
   max-width: 100%;
-  overflow: visible !important;
-  min-height: 100vh;
-  min-height: 100dvh;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.layout-main-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: clip;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* Mobile + mode=over: Material a veces deja transform residual en el content
@@ -130,10 +143,10 @@
 }
 
 :host ::ng-deep .mat-sidenav-container.layout-container {
-  height: auto !important;
-  min-height: 100vh;
+  height: 100vh !important;
+  height: 100dvh !important;
   min-height: 100dvh;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 /* Evitar containing-block por transform residual del container en mobile. */
