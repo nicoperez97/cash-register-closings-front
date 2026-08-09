@@ -52,11 +52,29 @@
           return false;
         }
 
-        if (needsLegacy()) {
-          // Preferir same-origin /ipad/ (public/ + proxy). Evita depender de :3000
-          // y de redirects cross-port que en Safari viejo fallan o entran en bucle.
-          location.replace('/ipad/');
+        if (!needsLegacy()) return;
+
+        // Tableros públicos → tablero ES5 (no la app de cierres /ipad/)
+        // Usamos board-*.html?slug= (archivo estático) para no depender de rewrite.
+        // También existe /ipad/r/:slug y /ipad/w/:slug en la API.
+        var boardR = path.match(/^\/r\/([^\/]+)\/?$/);
+        if (boardR) {
+          location.replace(
+            '/ipad/board-r.html?slug=' + encodeURIComponent(boardR[1]),
+          );
+          return;
         }
+        var boardW = path.match(/^\/w\/([^\/]+)\/?$/);
+        if (boardW) {
+          location.replace(
+            '/ipad/board-w.html?slug=' + encodeURIComponent(boardW[1]),
+          );
+          return;
+        }
+
+        // Preferir same-origin /ipad/ (public/ + proxy). Evita depender de :3000
+        // y de redirects cross-port que en Safari viejo fallan o entran en bucle.
+        location.replace('/ipad/');
       })();
     </script>
     <title>Cierres de caja</title>
