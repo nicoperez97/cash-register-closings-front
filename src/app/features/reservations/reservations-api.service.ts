@@ -64,6 +64,11 @@ export interface PublicReservationsBoard {
   };
   businessDate: string;
   notice?: string | null;
+  waiting?: {
+    enabled: boolean;
+    parties: number;
+    guests: number;
+  };
   totals: {
     parties: number;
     guests: number;

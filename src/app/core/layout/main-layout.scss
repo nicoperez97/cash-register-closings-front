@@ -9,7 +9,7 @@
 }
 
 .layout-root--mobile {
-  --guy-bottom-nav-height: 56px;
+  --guy-bottom-nav-height: 0px;
 }
 
 .layout-container {
@@ -89,7 +89,7 @@
 }
 
 .layout-shell--mobile {
-  --guy-bottom-nav-height: 56px;
+  --guy-bottom-nav-height: 0px;
 }
 
 .layout-content {
@@ -108,9 +108,7 @@
 }
 
 .layout-shell--mobile .layout-content {
-  padding-bottom: calc(
-    1.25rem + var(--guy-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)
-  ) !important;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 :host ::ng-deep .mat-drawer-content.layout-shell {

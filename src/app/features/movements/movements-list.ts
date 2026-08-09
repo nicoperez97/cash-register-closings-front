@@ -33,6 +33,7 @@ import {
   MovementEmployeeOption,
   MovementUserOption,
 } from './movement-dialog';
+import { QuickExpenseDialogComponent } from './quick-expense-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
@@ -75,6 +76,10 @@ import { shareText } from '../../shared/utils/share-text';
     @if (shopId()) {
       <div class="xl-toolbar mb-3">
         @if (canManage()) {
+          <button mat-flat-button color="primary" type="button" (click)="openQuickExpense()">
+            <mat-icon>payments</mat-icon>
+            Gasto rápido
+          </button>
           <button mat-stroked-button type="button" (click)="openExcelImport()">
             <mat-icon>upload_file</mat-icon>
             Importar Excel
@@ -322,6 +327,30 @@ export class MovementsListPage {
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'movements.manage');
+  }
+
+  openQuickExpense(): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.canManage()) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(QuickExpenseDialogComponent, {
+          width: '440px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            shopName: this.shops.selectedShop()?.name ?? 'Local',
+            accounts: this.accounts(),
+            concepts: this.concepts(),
+          },
+        }),
+        'Gasto rápido',
+      )
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) this.load();
+      });
   }
 
   exportExcel(): void {

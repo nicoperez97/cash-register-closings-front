@@ -7,6 +7,7 @@ import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angu
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -197,6 +198,9 @@ export class ShortageDialogComponent {
     FormsModule,
     MatButtonModule,
     MatButtonToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
     MatIconModule,
     MatDialogModule,
     MatSlideToggleModule,
@@ -217,6 +221,40 @@ export class ShortageDialogComponent {
     />
 
     <div class="panel-card shortages-toolbar mb-3">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shortages-search">
+        <mat-label>Buscar</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input
+          matInput
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          placeholder="Nombre o notas"
+          autocomplete="off"
+        />
+        @if (searchQuery().trim()) {
+          <button
+            matSuffix
+            mat-icon-button
+            type="button"
+            aria-label="Limpiar búsqueda"
+            (click)="searchQuery.set('')"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shortages-sort">
+        <mat-label>Ordenar</mat-label>
+        <mat-icon matPrefix>sort</mat-icon>
+        <mat-select [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event)">
+          <mat-option value="level-asc">Nivel (crítico → mucho)</mat-option>
+          <mat-option value="level-desc">Nivel (mucho → crítico)</mat-option>
+          <mat-option value="name-asc">Nombre A–Z</mat-option>
+          <mat-option value="name-desc">Nombre Z–A</mat-option>
+        </mat-select>
+      </mat-form-field>
+
       <mat-slide-toggle [ngModel]="criticalOnly()" (ngModelChange)="criticalOnly.set($event)">
         Solo críticos
       </mat-slide-toggle>
@@ -326,13 +364,24 @@ export class ShortageDialogComponent {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        justify-content: space-between;
         gap: 0.75rem;
         padding: 0.85rem 1rem;
+      }
+      .shortages-search {
+        flex: 1 1 12rem;
+        min-width: 10rem;
+        max-width: 22rem;
+        margin: 0;
+      }
+      .shortages-sort {
+        flex: 0 1 14rem;
+        min-width: 11rem;
+        margin: 0;
       }
       .shortages-toolbar__meta {
         font-size: 0.85rem;
         color: var(--guy-muted, #5f6f76);
+        margin-left: auto;
       }
       .shortage-list {
         display: flex;
@@ -452,13 +501,42 @@ export class ShortagesPage {
   readonly rows = signal<Shortage[]>([]);
   readonly loading = signal(true);
   readonly criticalOnly = signal(false);
+  readonly searchQuery = signal('');
+  readonly sortBy = signal<'level-asc' | 'level-desc' | 'name-asc' | 'name-desc'>('level-asc');
   readonly updatingId = signal<string | null>(null);
   readonly levelOptions = SHORTAGE_LEVEL_OPTIONS;
 
+  private readonly levelRank: Record<ShortageLevel, number> = {
+    NONE: 0,
+    LOW: 1,
+    NORMAL: 2,
+    HIGH: 3,
+  };
+
   readonly filteredRows = computed(() => {
-    const all = this.rows();
-    if (!this.criticalOnly()) return all;
-    return all.filter((r) => isCriticalShortageLevel(r.level));
+    const q = this.searchQuery().trim().toLowerCase();
+    let list = this.rows();
+    if (this.criticalOnly()) {
+      list = list.filter((r) => isCriticalShortageLevel(r.level));
+    }
+    if (q) {
+      list = list.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          (r.notes ?? '').toLowerCase().includes(q) ||
+          shortageLevelLabel(r.level).toLowerCase().includes(q),
+      );
+    }
+    const sort = this.sortBy();
+    const ranked = [...list];
+    ranked.sort((a, b) => {
+      if (sort === 'name-asc') return a.name.localeCompare(b.name, 'es');
+      if (sort === 'name-desc') return b.name.localeCompare(a.name, 'es');
+      const diff = this.levelRank[a.level] - this.levelRank[b.level];
+      if (sort === 'level-desc') return -diff || a.name.localeCompare(b.name, 'es');
+      return diff || a.name.localeCompare(b.name, 'es');
+    });
+    return ranked;
   });
 
   constructor() {
