@@ -31,36 +31,38 @@
         (logout)="logout()"
       />
 
-      <main
-        class="layout-content container-fluid guy-page-enter"
-        [class.py-4]="!isCashierLayout()"
-        [class.py-2]="isCashierLayout()"
-        [class.layout-content--cashier]="isCashierLayout()"
-      >
-        @if (isMobile() && pageRefresh.hasHandler()) {
-          <app-pull-to-refresh
-            [enabled]="!sidenavOpen()"
-            [disabled]="sidenavOpen()"
-            [refreshing]="pageRefresh.refreshing()"
-            (refresh)="pageRefresh.refresh()"
-          />
-        }
-        @if (routeLoading()) {
-          <div class="route-loading" role="status" aria-live="polite" aria-busy="true">
-            <mat-progress-bar mode="indeterminate" class="guy-progress route-loading__bar" />
-            <app-loading-state
-              [loading]="true"
-              title="Cargando…"
-              message="Preparando la pantalla"
+      <div class="layout-main-scroll">
+        <main
+          class="layout-content container-fluid guy-page-enter"
+          [class.py-4]="!isCashierLayout()"
+          [class.py-2]="isCashierLayout()"
+          [class.layout-content--cashier]="isCashierLayout()"
+        >
+          @if (isMobile() && pageRefresh.hasHandler()) {
+            <app-pull-to-refresh
+              [enabled]="!sidenavOpen()"
+              [disabled]="sidenavOpen()"
+              [refreshing]="pageRefresh.refreshing()"
+              (refresh)="pageRefresh.refresh()"
             />
+          }
+          @if (routeLoading()) {
+            <div class="route-loading" role="status" aria-live="polite" aria-busy="true">
+              <mat-progress-bar mode="indeterminate" class="guy-progress route-loading__bar" />
+              <app-loading-state
+                [loading]="true"
+                title="Cargando…"
+                message="Preparando la pantalla"
+              />
+            </div>
+          }
+          <div class="route-outlet" [class.route-outlet--hidden]="routeLoading()">
+            <router-outlet />
           </div>
-        }
-        <div class="route-outlet" [class.route-outlet--hidden]="routeLoading()">
-          <router-outlet />
-        </div>
-      </main>
+        </main>
 
-      <app-main-pwa-install-banner />
+        <app-main-pwa-install-banner />
+      </div>
     </mat-sidenav-content>
   </mat-sidenav-container>
 </div>

@@ -11,13 +11,120 @@
   </button>
 
   <div class="toolbar-context">
-    <span class="toolbar-eyebrow">{{ brand.company }}</span>
-    <span class="toolbar-title">{{ brand.productName }} · {{ brand.tagline }}</span>
+    <button
+      type="button"
+      class="toolbar-context__btn"
+      [disabled]="pageRefresh.refreshing()"
+      [matTooltip]="
+        pageRefresh.refreshing()
+          ? 'Actualizando…'
+          : pageRefresh.hasHandler()
+            ? 'Tocar para actualizar'
+            : brand.productName
+      "
+      [attr.aria-label]="
+        pageRefresh.hasHandler()
+          ? 'Actualizar pantalla · ' + brand.productName
+          : brand.productName
+      "
+      (click)="onLogoRefresh()"
+    >
+      <span class="toolbar-eyebrow">{{ brand.company }}</span>
+      <span class="toolbar-title">{{ brand.productName }} · {{ brand.tagline }}</span>
+    </button>
   </div>
 
   @if (isMobile()) {
-    <div class="toolbar-brand" aria-hidden="true">
-      <img [src]="logoSrc()" alt="" class="toolbar-brand-logo" referrerpolicy="no-referrer" />
+    <button
+      type="button"
+      class="toolbar-brand"
+      [class.toolbar-brand--refreshing]="pageRefresh.refreshing()"
+      [disabled]="pageRefresh.refreshing()"
+      [matTooltip]="
+        pageRefresh.refreshing()
+          ? 'Actualizando…'
+          : pageRefresh.hasHandler()
+            ? 'Tocar para actualizar'
+            : logoAlt()
+      "
+      [attr.aria-label]="
+        pageRefresh.hasHandler() ? 'Actualizar pantalla · ' + logoAlt() : logoAlt()
+      "
+      (click)="onLogoRefresh()"
+    >
+      <img
+        [src]="logoSrc()"
+        [alt]="logoAlt()"
+        class="toolbar-brand-logo"
+        referrerpolicy="no-referrer"
+      />
+    </button>
+  }
+
+  @if (quickActions().length) {
+    <div class="toolbar-quick" role="navigation" aria-label="Accesos rápidos">
+      @for (item of inlineQuickActions(); track item.id; let i = $index) {
+        @if (item.kind === 'route') {
+          <a
+            class="tb-btn"
+            [style.--tb-i]="i"
+            [routerLink]="item.route"
+            [matTooltip]="item.label"
+            [attr.aria-label]="item.label"
+          >
+            <mat-icon>{{ item.icon }}</mat-icon>
+          </a>
+        } @else {
+          <button
+            type="button"
+            class="tb-btn"
+            [style.--tb-i]="i"
+            [disabled]="item.id === 'quick-expense' && quickExpenseBusy()"
+            [matTooltip]="item.label"
+            [attr.aria-label]="item.label"
+            (click)="onQuickAction(item)"
+          >
+            <mat-icon>{{ item.icon }}</mat-icon>
+          </button>
+        }
+      }
+
+      @if (menuQuickActions().length) {
+        <button
+          type="button"
+          class="tb-btn tb-btn--more"
+          [style.--tb-i]="inlineQuickActions().length"
+          [matMenuTriggerFor]="quickMenu"
+          [matTooltip]="inlineQuickActions().length ? 'Más accesos' : 'Accesos rápidos'"
+          [attr.aria-label]="inlineQuickActions().length ? 'Más accesos' : 'Accesos rápidos'"
+        >
+          <mat-icon>{{ inlineQuickActions().length ? 'more_horiz' : 'apps' }}</mat-icon>
+        </button>
+
+        <mat-menu #quickMenu="matMenu" class="toolbar-quick-menu" xPosition="after">
+          <div class="toolbar-quick-menu__head" (click)="$event.stopPropagation()">
+            Accesos rápidos
+          </div>
+          @for (item of menuQuickActions(); track item.id) {
+            @if (item.kind === 'route') {
+              <a mat-menu-item [routerLink]="item.route">
+                <mat-icon>{{ item.icon }}</mat-icon>
+                <span>{{ item.label }}</span>
+              </a>
+            } @else {
+              <button
+                mat-menu-item
+                type="button"
+                [disabled]="item.id === 'quick-expense' && quickExpenseBusy()"
+                (click)="onQuickAction(item)"
+              >
+                <mat-icon>{{ item.icon }}</mat-icon>
+                <span>{{ item.label }}</span>
+              </button>
+            }
+          }
+        </mat-menu>
+      }
     </div>
   }
 
@@ -34,9 +141,8 @@
     }
 
     <button
-      mat-icon-button
       type="button"
-      class="notif-btn"
+      class="tb-btn notif-btn"
       [matMenuTriggerFor]="notifMenu"
       matTooltip="Notificaciones"
       aria-label="Notificaciones"
@@ -113,9 +219,8 @@
 
     @if (theme.themeSwitcherEnabled) {
       <button
-        mat-icon-button
         type="button"
-        class="theme-btn"
+        class="tb-btn"
         [matMenuTriggerFor]="themeMenu"
         [matTooltip]="'Tema: ' + theme.modeLabel()"
         [attr.aria-label]="'Tema: ' + theme.modeLabel()"
@@ -172,17 +277,27 @@
     }
 
     @if (user(); as u) {
-      <button
-        type="button"
-        class="user-chip"
-        [matMenuTriggerFor]="userMenu"
-        [attr.aria-label]="'Usuario: ' + displayName(u)"
-      >
-        <mat-icon>account_circle</mat-icon>
-        @if (!isMobile()) {
+      @if (isMobile()) {
+        <button
+          type="button"
+          class="tb-btn"
+          [matMenuTriggerFor]="userMenu"
+          [attr.aria-label]="'Usuario: ' + displayName(u)"
+          [matTooltip]="displayName(u)"
+        >
+          <mat-icon>account_circle</mat-icon>
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="user-chip"
+          [matMenuTriggerFor]="userMenu"
+          [attr.aria-label]="'Usuario: ' + displayName(u)"
+        >
+          <mat-icon>account_circle</mat-icon>
           <span class="user-email">{{ u.email }}</span>
-        }
-      </button>
+        </button>
+      }
 
       <mat-menu #userMenu="matMenu" class="user-popover-panel" xPosition="before" [hasBackdrop]="true">
         <div class="user-popover" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
@@ -200,22 +315,14 @@
       </mat-menu>
     }
 
-    @if (isMobile()) {
-      <button
-        mat-icon-button
-        type="button"
-        class="logout-btn logout-btn--icon"
-        matTooltip="Salir"
-        aria-label="Salir"
-        (click)="logout.emit()"
-      >
-        <mat-icon>logout</mat-icon>
-      </button>
-    } @else {
-      <button mat-stroked-button type="button" class="logout-btn" (click)="logout.emit()">
-        <mat-icon>logout</mat-icon>
-        <span>Salir</span>
-      </button>
-    }
+    <button
+      type="button"
+      class="tb-btn"
+      matTooltip="Salir"
+      aria-label="Salir"
+      (click)="logout.emit()"
+    >
+      <mat-icon>logout</mat-icon>
+    </button>
   </div>
 </header>
