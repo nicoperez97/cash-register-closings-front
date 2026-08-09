@@ -805,6 +805,7 @@ import { BoardPwaService } from './board-pwa.service';
         font-size: 0.85rem;
       }
 
+      /* Teléfono: layout compacto */
       @media (max-width: 720px) {
         .board {
           padding: 0.55rem 0.6rem 0.7rem;
@@ -860,6 +861,12 @@ import { BoardPwaService } from './board-pwa.service';
         .board__refresh {
           padding: 0.35rem 0.65rem;
           font-size: 0.75rem;
+        }
+
+        .board__notice,
+        .board__waiting {
+          flex-shrink: 0;
+          margin-bottom: 0.55rem;
         }
 
         .board__totals {
@@ -928,11 +935,135 @@ import { BoardPwaService } from './board-pwa.service';
         }
       }
 
+      /* Desktop con mouse */
       @media (min-width: 721px) {
         .board {
           display: flex;
           flex-direction: column;
           align-items: stretch;
+        }
+      }
+
+      /*
+       * iPad / tablet táctil: misma composición que desktop
+       * (hero centrado, logo grande, 2 columnas) pero a pantalla completa.
+       */
+      @media (min-width: 721px) and (hover: none) and (pointer: coarse) {
+        .board {
+          height: 100dvh;
+          max-height: 100dvh;
+          overflow: hidden;
+          padding: calc(0.85rem + env(safe-area-inset-top, 0px)) 1.35rem
+            calc(1.1rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        .board__hero {
+          flex-shrink: 0;
+          max-width: none;
+          padding: 0.65rem 0.35rem 0.9rem;
+        }
+
+        .board__identity {
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .board__logo {
+          width: 5rem;
+          height: 5rem;
+          border-radius: 16px;
+        }
+
+        .board__brand {
+          font-size: clamp(2rem, 3.6vw, 2.85rem);
+        }
+
+        .board__date {
+          font-size: 1rem;
+        }
+
+        .board__live-row {
+          justify-content: center;
+        }
+
+        .board__notice,
+        .board__waiting,
+        .board__totals,
+        .board__lists {
+          max-width: none;
+          width: 100%;
+        }
+
+        .board__notice,
+        .board__waiting {
+          flex-shrink: 0;
+          margin-bottom: 0.85rem;
+        }
+
+        .board__totals {
+          flex-shrink: 0;
+          gap: 0.65rem;
+          margin-bottom: 0.85rem;
+        }
+
+        .board__total {
+          padding: 0.85rem 0.5rem;
+        }
+
+        .board__total strong {
+          font-size: clamp(1.45rem, 2.8vw, 1.95rem);
+        }
+
+        .board__total span {
+          font-size: 0.72rem;
+        }
+
+        .board__lists {
+          flex: 1 1 auto;
+          min-height: 0;
+          gap: 1rem;
+        }
+
+        .board__col {
+          height: 100%;
+          min-height: 0;
+          padding: 0.9rem 0.95rem 1rem;
+          border-radius: 18px;
+        }
+
+        .board__col h2 {
+          font-size: 0.82rem;
+          margin-bottom: 0.65rem;
+        }
+
+        .board__col ul {
+          gap: 0.5rem;
+        }
+
+        .board__col li {
+          padding: 0.7rem 0.8rem;
+          border-radius: 14px;
+        }
+
+        .board__name {
+          font-size: 1.12rem;
+        }
+
+        .board__note {
+          font-size: 0.9rem;
+        }
+
+        .board__time {
+          font-size: 0.85rem;
+        }
+
+        .board__pax strong {
+          font-size: 1.25rem;
+        }
+
+        .board__item--tappable {
+          min-height: 3.1rem;
         }
       }
     `,
