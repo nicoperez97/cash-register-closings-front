@@ -9,6 +9,20 @@ export type PaymentStatus =
   | 'PAID'
   | 'CANCELLED';
 
+export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other';
+
+export const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
+  { value: 'cash', label: 'Efectivo' },
+  { value: 'transfer', label: 'Transferencia' },
+  { value: 'card', label: 'Tarjeta' },
+  { value: 'other', label: 'Otra' },
+];
+
+export function paymentMethodLabel(method: PaymentMethod | string | null | undefined): string {
+  if (!method) return '—';
+  return PAYMENT_METHOD_OPTIONS.find((o) => o.value === method)?.label ?? method;
+}
+
 export interface ShopPayment {
   id: string;
   shopId: string;
@@ -22,6 +36,7 @@ export interface ShopPayment {
   validatorName: string | null;
   accountId: string | null;
   accountName: string | null;
+  paymentMethod: PaymentMethod | null;
   supplierId: string | null;
   supplierName: string | null;
   supplierBankAlias: string | null;
@@ -60,6 +75,7 @@ export interface UpsertPaymentBody {
   payerUserId?: string | null;
   validatorUserId?: string | null;
   accountId?: string | null;
+  paymentMethod?: PaymentMethod | null;
   supplierId?: string | null;
   employeeId?: string | null;
   invoiceLegalName?: string | null;
@@ -253,7 +269,11 @@ export class PaymentsApiService {
     });
   }
 
-  pay(shopId: string, id: string, body?: { paidAt?: string; accountId?: string }) {
+  pay(
+    shopId: string,
+    id: string,
+    body?: { paidAt?: string; accountId?: string; paymentMethod?: PaymentMethod },
+  ) {
     return this.http.post<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}/pay`, body ?? {});
   }
 
