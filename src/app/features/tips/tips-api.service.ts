@@ -20,6 +20,7 @@ export interface TipDay {
   cashAmount: number;
   transferAmount: number;
   ticketsAmount: number;
+  receipts?: number[];
   totalAmount: number;
   notes: string | null;
   closingId: string | null;
@@ -40,6 +41,7 @@ export interface UpsertTipDayBody {
   cashAmount?: number;
   transferAmount?: number;
   ticketsAmount?: number;
+  receipts?: number[];
   notes?: string | null;
   closingId?: string | null;
   allocations?: TipAllocationInput[];

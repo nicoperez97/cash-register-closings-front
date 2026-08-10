@@ -180,7 +180,11 @@ export class SidebarComponent {
   }
 
   shopLogo(url?: string | null, shopId?: string | null): string | null {
-    return resolveShopLogoSrc(url, shopId) || normalizeLogoUrl(url) || null;
+    return (
+      resolveShopLogoSrc(url, shopId, this.shopContext.logoRevision()) ||
+      normalizeLogoUrl(url) ||
+      null
+    );
   }
 
   /** Logo para el avatar del switcher; null si no hay URL o falló la carga. */

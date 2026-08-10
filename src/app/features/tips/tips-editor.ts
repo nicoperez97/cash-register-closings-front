@@ -14,13 +14,19 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Employee } from '../employees/employees-api.service';
 import { TipAllocation, TipAllocationInput } from './tips-api.service';
 import { TipsApiService } from './tips-api.service';
+import { CashBillCounterDialogComponent } from '../closings/cash-bill-counter-dialog';
 
 export interface TipsEditorState {
   cashAmount: number;
+  /** Montos de recibos (sin filas vacías). */
+  receipts: number[];
+  /** @deprecated suma de recibos; se mantiene por compat. */
   transferAmount: number;
+  /** @deprecated siempre 0 en UI nueva. */
   ticketsAmount: number;
   notes: string;
   allocations: Array<{
@@ -41,6 +47,30 @@ function n(v: unknown): number {
   return Number.isFinite(x) ? x : 0;
 }
 
+/** Filas de UI: recibos con valor + una fila vacía al final para cargar el siguiente. */
+function withTrailingEmpty(receipts: number[]): number[] {
+  const filled = receipts.map((v) => round2(Math.max(0, n(v)))).filter((v) => v > 0);
+  return [...filled, 0];
+}
+
+function filledReceipts(rows: number[]): number[] {
+  return rows.map((v) => round2(Math.max(0, n(v)))).filter((v) => v > 0);
+}
+
+function receiptsFromLegacy(
+  receipts?: number[] | null,
+  transfer = 0,
+  tickets = 0,
+): number[] {
+  if (Array.isArray(receipts) && receipts.some((v) => n(v) > 0)) {
+    return filledReceipts(receipts);
+  }
+  const out: number[] = [];
+  if (transfer > 0) out.push(round2(transfer));
+  if (tickets > 0) out.push(round2(tickets));
+  return out;
+}
+
 @Component({
   selector: 'app-tips-editor',
   imports: [
@@ -51,43 +81,53 @@ function n(v: unknown): number {
     MatIconModule,
     MatCheckboxModule,
     MatSnackBarModule,
+    MatDialogModule,
   ],
   template: `
     <div class="tips-editor" [class.tips-editor--readonly]="readonly()">
       <div class="tips-editor__amounts">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Efectivo</mat-label>
-          <input
-            matInput
-            type="number"
-            inputmode="decimal"
-            [ngModel]="cashAmount()"
-            (ngModelChange)="onCash($event)"
-            [disabled]="readonly()"
-          />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Transferencia</mat-label>
-          <input
-            matInput
-            type="number"
-            inputmode="decimal"
-            [ngModel]="transferAmount()"
-            (ngModelChange)="onTransfer($event)"
-            [disabled]="readonly()"
-          />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Tickets</mat-label>
-          <input
-            matInput
-            type="number"
-            inputmode="decimal"
-            [ngModel]="ticketsAmount()"
-            (ngModelChange)="onTickets($event)"
-            [disabled]="readonly()"
-          />
-        </mat-form-field>
+        <div class="tips-editor__cash">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="tips-editor__cash-field">
+            <mat-label>Efectivo</mat-label>
+            <input
+              matInput
+              type="number"
+              inputmode="decimal"
+              [ngModel]="cashAmount()"
+              (ngModelChange)="onCash($event)"
+              [disabled]="readonly()"
+            />
+          </mat-form-field>
+          @if (!readonly()) {
+            <button mat-stroked-button type="button" (click)="openBillCounter()">
+              <mat-icon>payments</mat-icon>
+              Contar billetes
+            </button>
+          }
+        </div>
+
+        <div class="tips-editor__receipts">
+          <div class="tips-editor__receipts-head">
+            <span class="tips-editor__receipts-title">Recibos</span>
+            <span class="tips-editor__receipts-sum">{{ formatMoney(receiptsSum()) }}</span>
+          </div>
+          <div class="tips-editor__receipt-list">
+            @for (row of receiptRows(); track $index; let i = $index; let last = $last) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ last ? 'Nuevo recibo' : 'Recibo ' + (i + 1) }}</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  inputmode="decimal"
+                  [ngModel]="row || null"
+                  (ngModelChange)="onReceipt(i, $event)"
+                  [disabled]="readonly()"
+                />
+              </mat-form-field>
+            }
+          </div>
+        </div>
+
         <div class="tips-editor__total">
           <span class="tips-editor__total-label">Total</span>
           <strong>{{ formatMoney(total()) }}</strong>
@@ -195,9 +235,54 @@ function n(v: unknown): number {
       }
       .tips-editor__amounts {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
-        gap: 0.65rem;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) auto;
+        gap: 0.85rem;
         align-items: start;
+      }
+      .tips-editor__cash {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .tips-editor__cash-field {
+        width: 100%;
+      }
+      .tips-editor__cash button {
+        align-self: flex-start;
+      }
+      .tips-editor__receipts {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        min-width: 0;
+      }
+      .tips-editor__receipts-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0 0.15rem;
+      }
+      .tips-editor__receipts-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5a6b5e);
+      }
+      .tips-editor__receipts-sum {
+        font-size: 0.85rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--guy-navy, #003366);
+      }
+      .tips-editor__receipt-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+      .tips-editor__receipt-list mat-form-field {
+        width: 100%;
       }
       .tips-editor__total {
         display: flex;
@@ -300,7 +385,7 @@ function n(v: unknown): number {
       }
       @media (max-width: 720px) {
         .tips-editor__amounts {
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
         }
         .tips-editor__total {
           grid-column: 1 / -1;
@@ -319,6 +404,7 @@ function n(v: unknown): number {
 export class TipsEditorComponent {
   private readonly api = inject(TipsApiService);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   readonly employees = input<Employee[]>([]);
   readonly readonly = input(false);
@@ -332,15 +418,17 @@ export class TipsEditorComponent {
   readonly deliveredChange = output<void>();
 
   readonly cashAmount = signal(0);
-  readonly transferAmount = signal(0);
-  readonly ticketsAmount = signal(0);
+  /** Filas de UI (incluye vacía al final). */
+  readonly receiptRows = signal<number[]>([0]);
   readonly notes = signal('');
   readonly allocations = signal<TipsEditorState['allocations']>([]);
   readonly deliveryBusy = signal<string | null>(null);
 
-  readonly total = computed(() =>
-    round2(this.cashAmount() + this.transferAmount() + this.ticketsAmount()),
+  readonly receiptsSum = computed(() =>
+    round2(filledReceipts(this.receiptRows()).reduce((s, v) => s + v, 0)),
   );
+
+  readonly total = computed(() => round2(this.cashAmount() + this.receiptsSum()));
 
   readonly selectedEmployeeIds = computed(() =>
     this.allocations().map((a) => a.employeeId),
@@ -372,8 +460,11 @@ export class TipsEditorComponent {
       if (!v) return;
       this.applyingExternal = true;
       this.cashAmount.set(n(v.cashAmount));
-      this.transferAmount.set(n(v.transferAmount));
-      this.ticketsAmount.set(n(v.ticketsAmount));
+      this.receiptRows.set(
+        withTrailingEmpty(
+          receiptsFromLegacy(v.receipts, n(v.transferAmount), n(v.ticketsAmount)),
+        ),
+      );
       this.notes.set(v.notes ?? '');
       this.allocations.set(
         (v.allocations ?? []).map((a) => ({
@@ -414,18 +505,34 @@ export class TipsEditorComponent {
     }).format(value);
   }
 
+  openBillCounter(): void {
+    this.dialog
+      .open(CashBillCounterDialogComponent, {
+        width: '440px',
+        maxWidth: '96vw',
+        maxHeight: 'calc(100dvh - 4.5rem)',
+        autoFocus: 'dialog',
+        panelClass: 'guy-dialog',
+        data: { initialTotal: this.cashAmount() },
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result || result.total <= 0) return;
+        this.cashAmount.set(result.total);
+        this.emit();
+      });
+  }
+
   onCash(v: unknown) {
     this.cashAmount.set(Math.max(0, n(v)));
     this.emit();
   }
 
-  onTransfer(v: unknown) {
-    this.transferAmount.set(Math.max(0, n(v)));
-    this.emit();
-  }
-
-  onTickets(v: unknown) {
-    this.ticketsAmount.set(Math.max(0, n(v)));
+  onReceipt(index: number, raw: unknown) {
+    const value = Math.max(0, n(raw));
+    const next = [...this.receiptRows()];
+    next[index] = value;
+    this.receiptRows.set(withTrailingEmpty(next));
     this.emit();
   }
 
@@ -541,6 +648,7 @@ export class TipsEditorComponent {
     cashAmount: number;
     transferAmount: number;
     ticketsAmount: number;
+    receipts: number[];
     notes: string | null;
     allocations: TipAllocationInput[];
   } | null {
@@ -550,6 +658,7 @@ export class TipsEditorComponent {
       cashAmount: s.cashAmount,
       transferAmount: s.transferAmount,
       ticketsAmount: s.ticketsAmount,
+      receipts: s.receipts,
       notes: s.notes.trim() || null,
       allocations: s.allocations.map((a) => ({
         employeeId: a.employeeId,
@@ -560,10 +669,12 @@ export class TipsEditorComponent {
   }
 
   private currentState(): TipsEditorState {
+    const receipts = filledReceipts(this.receiptRows());
     return {
       cashAmount: this.cashAmount(),
-      transferAmount: this.transferAmount(),
-      ticketsAmount: this.ticketsAmount(),
+      receipts,
+      transferAmount: round2(receipts.reduce((s, v) => s + v, 0)),
+      ticketsAmount: 0,
       notes: this.notes(),
       allocations: this.allocations().map((a) => ({ ...a })),
     };
@@ -579,13 +690,16 @@ export function tipDayToEditorState(day: {
   cashAmount: number;
   transferAmount: number;
   ticketsAmount: number;
+  receipts?: number[] | null;
   notes?: string | null;
   allocations?: TipAllocation[];
 }): TipsEditorState {
+  const receipts = receiptsFromLegacy(day.receipts, n(day.transferAmount), n(day.ticketsAmount));
   return {
     cashAmount: n(day.cashAmount),
-    transferAmount: n(day.transferAmount),
-    ticketsAmount: n(day.ticketsAmount),
+    receipts,
+    transferAmount: round2(receipts.reduce((s, v) => s + v, 0)),
+    ticketsAmount: 0,
     notes: day.notes ?? '',
     allocations: (day.allocations ?? []).map((a) => ({
       employeeId: a.employeeId,
