@@ -12,9 +12,12 @@ export class ShopContextService {
   private readonly shopsSignal = signal<ShopSummary[]>([]);
   private readonly selectedId = signal<string | null>(localStorage.getItem(SHOP_KEY));
   private readonly favoriteId = signal<string | null>(null);
+  /** Fuerza recarga de logos subidos (mismo path, archivo nuevo). */
+  private readonly logoRevisionSignal = signal(Date.now());
 
   readonly shops = this.shopsSignal.asReadonly();
   readonly favoriteShopId = this.favoriteId.asReadonly();
+  readonly logoRevision = this.logoRevisionSignal.asReadonly();
   readonly selectedShopId = computed(() => {
     const id = this.selectedId();
     const list = this.shopsSignal();
@@ -31,7 +34,9 @@ export class ShopContextService {
   /** Logo del local activo, o fallback de la app. */
   readonly logoUrl = computed(() => {
     const shop = this.selectedShop();
-    const url = resolveShopLogoSrc(shop?.logoUrl, shop?.id) || normalizeLogoUrl(shop?.logoUrl);
+    const rev = this.logoRevisionSignal();
+    const url =
+      resolveShopLogoSrc(shop?.logoUrl, shop?.id, rev) || normalizeLogoUrl(shop?.logoUrl);
     return url || APP_BRAND.defaultLogoUrl;
   });
 
@@ -98,15 +103,29 @@ export class ShopContextService {
     this.favoriteId.set(shopId && list.some((s) => s.id === shopId) ? shopId : null);
   }
 
-  /** Actualiza un shop en memoria (p.ej. tras editar logo). */
-  upsertShop(shop: ShopSummary): void {
+  /**
+   * Actualiza un shop en memoria (p.ej. tras editar logo).
+   * @param bustLogo fuerza recarga aunque el path del logo no cambie (re-subida de archivo).
+   */
+  upsertShop(shop: ShopSummary, opts?: { bustLogo?: boolean }): void {
+    let logoChanged = !!opts?.bustLogo;
     this.shopsSignal.update((list) => {
       const idx = list.findIndex((s) => s.id === shop.id);
-      if (idx < 0) return [...list, shop];
+      if (idx < 0) {
+        logoChanged = true;
+        return [...list, shop];
+      }
+      const prev = list[idx];
+      if ((shop.logoUrl ?? null) !== (prev.logoUrl ?? null)) {
+        logoChanged = true;
+      }
       const next = [...list];
-      next[idx] = { ...next[idx], ...shop };
+      next[idx] = { ...prev, ...shop };
       return next;
     });
+    if (logoChanged) {
+      this.logoRevisionSignal.set(Date.now());
+    }
   }
 
   selectShop(shopId: string): boolean {

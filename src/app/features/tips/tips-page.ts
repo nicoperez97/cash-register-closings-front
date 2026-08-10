@@ -75,7 +75,7 @@ function formatMoney(value: number): string {
           <div>
             <h2 class="guy-list-head__title">Caja del día</h2>
             <p class="guy-list-head__meta">
-              {{ dateLabel() }} · efectivo, transferencia y tickets
+              {{ dateLabel() }} · efectivo y recibos
             </p>
           </div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -242,13 +242,11 @@ export class TipsPage {
     },
     {
       key: 'transferAmount',
-      label: 'Transfer.',
-      format: (r) => formatMoney(Number(r['transferAmount'] ?? 0)),
-    },
-    {
-      key: 'ticketsAmount',
-      label: 'Tickets',
-      format: (r) => formatMoney(Number(r['ticketsAmount'] ?? 0)),
+      label: 'Recibos',
+      format: (r) =>
+        formatMoney(
+          Number(r['transferAmount'] ?? 0) + Number(r['ticketsAmount'] ?? 0),
+        ),
     },
     { key: 'employeeCount', label: 'Empleados' },
     { key: 'pendingCount', label: 'Pendientes' },
@@ -305,6 +303,7 @@ export class TipsPage {
     } catch {
       this.editorValue.set({
         cashAmount: 0,
+        receipts: [],
         transferAmount: 0,
         ticketsAmount: 0,
         notes: '',
