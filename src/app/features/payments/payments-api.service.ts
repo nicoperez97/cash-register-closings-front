@@ -34,6 +34,7 @@ export interface ShopPayment {
   validatedAt: string | null;
   validatedByUserId: string | null;
   createdByUserId: string | null;
+  createdByName: string | null;
   movementId: string | null;
   invoiceLegalName?: string | null;
   invoiceTaxId?: string | null;

@@ -23,6 +23,7 @@ import { ExcelImportDialogComponent } from './excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { isUserVisible } from '../../shared/user-visibility';
 import { closingSharePayload } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
 import {
@@ -298,7 +299,8 @@ export class ClosingsListPage {
         return;
       }
       this.api.shopUsers(id).subscribe({
-        next: (rows) => this.users.set(rows),
+        next: (rows) =>
+          this.users.set(rows.filter((u) => isUserVisible(u, 'closingsFilters'))),
         error: () => this.users.set([]),
       });
       this.load();

@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -20,6 +21,11 @@ import {
   emptyModuleLevels,
 } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import {
+  USER_VISIBILITY_OPTIONS,
+  UserVisibility,
+  normalizeUserVisibility,
+} from '../../shared/user-visibility';
 
 export interface AdminUserRow {
   id: string;
@@ -33,6 +39,7 @@ export interface AdminUserRow {
   ledgerAccountId?: string | null;
   ledgerAccountName?: string | null;
   hideFromCashWithdraw?: boolean;
+  visibility?: Partial<UserVisibility> | null;
   isStockAdmin?: boolean;
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
@@ -92,6 +99,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
+    MatCheckboxModule,
     MatIconModule,
     MatSnackBarModule,
     MatTooltipModule,
@@ -406,6 +414,22 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         background: var(--guy-border, #d7e0d9);
         margin: 0.35rem 0 0.9rem;
       }
+      .visibility-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .visibility-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+      .visibility-row__hint {
+        margin: 0 0 0 2rem;
+        font-size: 0.75rem;
+        color: var(--guy-muted, #5f6f76);
+        line-height: 1.3;
+      }
     `,
   ],
   template: `
@@ -579,12 +603,18 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
 
         @if (isRolesOnly) {
           <div class="divider"></div>
-          <mat-slide-toggle formControlName="hideFromCashWithdraw">
-            Ocultar en «Quién se lo lleva»
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            No aparece en el selector de retiro de efectivo de este local.
-          </p>
+          <div class="section" formGroupName="visibility">
+            <p class="section__title">Se muestra en</p>
+            <p class="section__hint">Marcado = visible · Sin marcar = oculto en ese lugar de este local.</p>
+            <div class="visibility-list">
+              @for (opt of visibilityOptions; track opt.key) {
+                <div class="visibility-row">
+                  <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
+                  <p class="visibility-row__hint">{{ opt.hint }}</p>
+                </div>
+              }
+            </div>
+          </div>
           <mat-slide-toggle formControlName="isStockAdmin">
             Administrador de stock de alimentos
           </mat-slide-toggle>
@@ -640,12 +670,18 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </p>
           }
 
-          <mat-slide-toggle formControlName="hideFromCashWithdraw">
-            Ocultar en «Quién se lo lleva»
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            No aparece en el selector de retiro de efectivo de este local.
-          </p>
+          <div class="section" formGroupName="visibility">
+            <p class="section__title">Se muestra en</p>
+            <p class="section__hint">Marcado = visible · Sin marcar = oculto en ese lugar de este local.</p>
+            <div class="visibility-list">
+              @for (opt of visibilityOptions; track opt.key) {
+                <div class="visibility-row">
+                  <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
+                  <p class="visibility-row__hint">{{ opt.hint }}</p>
+                </div>
+              }
+            </div>
+          </div>
           <mat-slide-toggle formControlName="isStockAdmin">
             Administrador de stock de alimentos
           </mat-slide-toggle>
@@ -746,6 +782,10 @@ export class AdminUserDialogComponent implements OnInit {
   }
 
   private initialModules = levelsFromUser(this.user);
+  readonly visibilityOptions = USER_VISIBILITY_OPTIONS;
+  private readonly initialVisibility = normalizeUserVisibility(this.user?.visibility, {
+    hideFromCashWithdraw: !!this.user?.hideFromCashWithdraw,
+  });
 
   readonly form = this.fb.nonNullable.group({
     fullName: [
@@ -791,7 +831,14 @@ export class AdminUserDialogComponent implements OnInit {
     }),
     ledgerAccountIds: this.fb.nonNullable.control<string[]>(this.initialAccountIds()),
     active: [this.user?.active ?? true],
-    hideFromCashWithdraw: [this.user?.hideFromCashWithdraw ?? false],
+    visibility: this.fb.nonNullable.group({
+      cashWithdraw: [this.initialVisibility.cashWithdraw],
+      closingsFilters: [this.initialVisibility.closingsFilters],
+      payments: [this.initialVisibility.payments],
+      movements: [this.initialVisibility.movements],
+      employeeLink: [this.initialVisibility.employeeLink],
+      usersList: [this.initialVisibility.usersList],
+    }),
     isStockAdmin: [this.user?.isStockAdmin ?? false],
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
@@ -923,7 +970,7 @@ export class AdminUserDialogComponent implements OnInit {
           globalRole,
           shopRole: globalRole,
           modulePermissions,
-          hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+          visibility: raw.visibility,
           isStockAdmin: !!raw.isStockAdmin,
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
@@ -953,7 +1000,7 @@ export class AdminUserDialogComponent implements OnInit {
         shopRole: globalRole,
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
-        hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+        visibility: raw.visibility,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
@@ -990,7 +1037,7 @@ export class AdminUserDialogComponent implements OnInit {
         shopRole: globalRole,
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
-        hideFromCashWithdraw: !!raw.hideFromCashWithdraw,
+        visibility: raw.visibility,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,

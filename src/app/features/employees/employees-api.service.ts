@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import type { UserVisibility } from '../../shared/user-visibility';
 
 export type EmployeeType = 'FIXED' | 'ROTATING';
 
@@ -25,6 +26,8 @@ export interface ShopUserOption {
   id: string;
   fullName: string;
   email: string;
+  visibility?: Partial<UserVisibility> | null;
+  hideFromCashWithdraw?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -32,6 +32,7 @@ import {
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
 import { CashBillCounterDialogComponent } from './cash-bill-counter-dialog';
+import { isUserVisible } from '../../shared/user-visibility';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -1518,7 +1519,7 @@ export class ClosingsFormPage implements OnInit {
   readonly withdrawUsers = computed(() => {
     const selected = String(this.formValue().cashWithdrawnByUserId ?? '');
     return this.users().filter(
-      (u) => !u.hideFromCashWithdraw || u.id === selected,
+      (u) => isUserVisible(u, 'cashWithdraw') || u.id === selected,
     );
   });
 
