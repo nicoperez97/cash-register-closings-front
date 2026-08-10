@@ -26,6 +26,7 @@ import {
   PendingCashWithdrawal,
 } from './cash-withdrawals-api.service';
 import { CashWithdrawalsInboxService } from './cash-withdrawals-inbox.service';
+import { isUserVisible } from '../../shared/user-visibility';
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat('es-AR', {
@@ -300,7 +301,7 @@ export class CashWithdrawalsPage {
   );
 
   readonly withdrawUsers = computed(() =>
-    this.users().filter((u) => !u.hideFromCashWithdraw),
+    this.users().filter((u) => isUserVisible(u, 'cashWithdraw')),
   );
 
   readonly accountOptions = computed((): ShopUserAccountOption[] => {

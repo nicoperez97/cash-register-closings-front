@@ -27,6 +27,7 @@ import {
 } from '../closings/closing-filters';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { isUserVisible } from '../../shared/user-visibility';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
 @Component({
@@ -333,7 +334,8 @@ export class ReportsPage {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;
       this.api.shopUsers(shopId).subscribe({
-        next: (rows) => this.users.set(rows),
+        next: (rows) =>
+          this.users.set(rows.filter((u) => isUserVisible(u, 'closingsFilters'))),
         error: () => this.users.set([]),
       });
       this.load();

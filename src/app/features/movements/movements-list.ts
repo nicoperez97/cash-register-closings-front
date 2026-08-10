@@ -21,6 +21,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
+import { isUserVisible } from '../../shared/user-visibility';
 import {
   Concept,
   LedgerAccount,
@@ -317,6 +318,8 @@ export class MovementsListPage {
               fullName: u.fullName,
               email: u.email,
               ledgerAccounts: u.ledgerAccounts ?? [],
+              visibility: u.visibility,
+              hideFromCashWithdraw: u.hideFromCashWithdraw,
             })),
           ),
         error: () => this.users.set([]),
@@ -502,6 +505,11 @@ export class MovementsListPage {
     const shopId = this.shopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const keepIds = new Set(
+      mode.mode === 'edit'
+        ? [mode.movement.fromUserId, mode.movement.toUserId].filter(Boolean)
+        : [],
+    );
     this.dialogTitle
       .track(
         this.dialog.open(MovementDialogComponent, {
@@ -516,7 +524,9 @@ export class MovementsListPage {
             accounts: this.accounts(),
             concepts: this.concepts(),
             employees: this.employees(),
-            users: this.users(),
+            users: this.users().filter(
+              (u) => isUserVisible(u, 'movements') || keepIds.has(u.id),
+            ),
           },
         }),
         mode.mode === 'edit' ? 'Editar movimiento' : 'Nuevo movimiento',
@@ -539,6 +549,8 @@ export class MovementsListPage {
                 fullName: u.fullName,
                 email: u.email,
                 ledgerAccounts: u.ledgerAccounts ?? [],
+                visibility: u.visibility,
+                hideFromCashWithdraw: u.hideFromCashWithdraw,
               })),
             ),
           error: () => undefined,

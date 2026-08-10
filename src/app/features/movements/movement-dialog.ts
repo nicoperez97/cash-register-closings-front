@@ -15,6 +15,7 @@ import { Concept, LedgerAccount, Movement, MovementsApiService } from './movemen
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import type { UserVisibility } from '../../shared/user-visibility';
 
 export interface MovementEmployeeOption {
   id: string;
@@ -32,6 +33,8 @@ export interface MovementUserOption {
   fullName: string;
   email?: string;
   ledgerAccounts?: MovementUserAccountOption[];
+  visibility?: Partial<UserVisibility> | null;
+  hideFromCashWithdraw?: boolean;
 }
 
 export type MovementDialogData = {
