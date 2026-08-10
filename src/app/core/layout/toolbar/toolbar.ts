@@ -280,7 +280,7 @@ export class ToolbarComponent implements OnInit {
   ngOnInit(): void {
     this.notifsInbox.ensureStarted();
     this.notifsInbox.refresh();
-    void this.push.refreshStatus();
+    void this.push.refreshStatus().then(() => this.push.promptEnableIfNeeded());
   }
 
   private bindQuickSpaceObserver(): void {
