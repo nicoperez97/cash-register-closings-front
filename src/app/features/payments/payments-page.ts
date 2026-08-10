@@ -1,7 +1,7 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
@@ -31,6 +31,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import {
+  paymentDeepLink,
   paymentPaidDialogData,
   paymentSharePayload,
 } from '../../shared/components/record-share-builders';
@@ -120,11 +121,15 @@ function daysUntilDue(iso: string | null | undefined): number | null {
           <button
             mat-stroked-button
             type="button"
+            class="pay-export-btn"
             [disabled]="!shopId() || exporting()"
             (click)="exportExcel()"
           >
             <mat-icon>download</mat-icon>
-            {{ exporting() ? 'Descargando…' : 'Descargar Excel' }}
+            <span class="pay-export-btn__full">{{
+              exporting() ? 'Descargando…' : 'Descargar Excel'
+            }}</span>
+            <span class="pay-export-btn__short">{{ exporting() ? '…' : 'Excel' }}</span>
           </button>
           <app-filters-collapse-btn
             [collapsed]="filtersCollapsed()"
@@ -261,8 +266,10 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         @for (p of visibleRows(); track p.id) {
           <article
             class="panel-card pay-card"
+            [attr.id]="'payment-' + p.id"
             [attr.data-status]="p.status"
             [attr.data-due]="dueUrgency(p)"
+            [class.pay-card--focus]="focusedPaymentId() === p.id"
           >
             <div class="pay-card__top">
               <div>
@@ -478,10 +485,6 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                   </button>
                 }
                 @if (p.status === 'PAID') {
-                  <button mat-menu-item type="button" (click)="sharePayment(p)">
-                    <mat-icon>share</mat-icon>
-                    <span>Compartir</span>
-                  </button>
                   <button mat-menu-item type="button" (click)="startReceiptPick(p)">
                     <mat-icon>attach_file</mat-icon>
                     <span>{{ p.hasReceiptFile ? 'Cambiar comprobante' : 'Adjuntar comprobante' }}</span>
@@ -493,6 +496,10 @@ function daysUntilDue(iso: string | null | undefined): number | null {
                     </button>
                   }
                 }
+                <button mat-menu-item type="button" (click)="sharePayment(p)">
+                  <mat-icon>share</mat-icon>
+                  <span>Compartir</span>
+                </button>
                 @if (canResendNotification(p)) {
                   <button mat-menu-item type="button" (click)="resendNotification(p)">
                     <mat-icon>notifications_active</mat-icon>
@@ -560,6 +567,17 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         gap: 0.65rem 0.85rem;
         align-items: start;
       }
+      .pay-export-btn__short {
+        display: none;
+      }
+      @media (max-width: 560px) {
+        .pay-export-btn__full {
+          display: none;
+        }
+        .pay-export-btn__short {
+          display: inline;
+        }
+      }
       @media (min-width: 720px) {
         .pay-filters {
           grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -585,6 +603,13 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         display: flex;
         flex-direction: column;
         gap: 0.85rem;
+      }
+      .pay-card--focus {
+        outline: 2px solid color-mix(in srgb, var(--guy-primary, #003366) 55%, transparent);
+        box-shadow:
+          0 0 0 4px color-mix(in srgb, var(--guy-primary, #003366) 12%, transparent),
+          var(--guy-shadow, 0 1px 3px rgba(0, 0, 0, 0.08));
+        scroll-margin-top: 5.5rem;
       }
       .pay-card__top {
         display: flex;
@@ -762,8 +787,14 @@ export class PaymentsPage {
   private readonly confirm = inject(ConfirmDialogService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   readonly shops = inject(ShopContextService);
+
+  /** Pago resaltado al abrir un enlace directo (?payment=…). */
+  readonly focusedPaymentId = signal<string | null>(null);
+  private deepLinkHandled = false;
+  private focusClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -1054,13 +1085,9 @@ export class PaymentsPage {
     return this.canManage() || !p.payerUserId || uid === p.payerUserId;
   }
 
-  hasMoreActions(p: ShopPayment): boolean {
-    if (this.canValidate(p)) return true;
-    if (this.canManage() && (p.status === 'VALIDATED' || p.status === 'PAID')) return true;
-    if (p.status === 'PAID') return true;
-    if (this.canResendNotification(p)) return true;
-    if (this.canManage()) return true;
-    return false;
+  hasMoreActions(_p: ShopPayment): boolean {
+    // Siempre hay al menos "Compartir".
+    return true;
   }
 
   private readonly receiptPicker = viewChild<ElementRef<HTMLInputElement>>('receiptPicker');
@@ -1108,6 +1135,17 @@ export class PaymentsPage {
     this.employeeFilter.valueChanges.subscribe(() => this.reload());
     this.amountMinFilter.valueChanges.subscribe(() => this.reload());
     this.amountMaxFilter.valueChanges.subscribe(() => this.reload());
+
+    // Enlace profundo: /payments/...?payment=id&shop=shopId
+    const qp = this.route.snapshot.queryParamMap;
+    const paymentId = (qp.get('payment') || '').trim();
+    const shopFromLink = (qp.get('shop') || '').trim();
+    if (paymentId) {
+      this.focusedPaymentId.set(paymentId);
+      if (shopFromLink && shopFromLink !== this.shopId()) {
+        this.shops.selectShop(shopFromLink);
+      }
+    }
   }
 
   private toIsoDate(value: Date | string | null | undefined): string | null {
@@ -1228,11 +1266,104 @@ export class PaymentsPage {
         this.rows.set(rows);
         this.loading.set(false);
         this.paymentsInbox.refresh();
+        void this.afterListLoaded();
       },
       error: () => {
         this.loading.set(false);
         this.snack.open('No se pudieron cargar los pagos', 'OK', { duration: 3000 });
       },
+    });
+  }
+
+  private async afterListLoaded(): Promise<void> {
+    const focusId = this.focusedPaymentId();
+    if (!focusId || this.deepLinkHandled) {
+      if (focusId) this.scrollToFocusedPayment();
+      return;
+    }
+    await this.ensureFocusedPaymentVisible();
+  }
+
+  /** Si el pago del enlace no está en la lista (filtros), abre filtros y lo busca. */
+  private ensureFocusedPaymentVisible(): void {
+    const focusId = this.focusedPaymentId();
+    const shopId = this.shopId();
+    if (!focusId || !shopId || this.deepLinkHandled) return;
+
+    if (this.visibleRows().some((p) => p.id === focusId)) {
+      this.deepLinkHandled = true;
+      this.scrollToFocusedPayment();
+      this.clearDeepLinkQuery();
+      return;
+    }
+
+    this.api.get(shopId, focusId).subscribe({
+      next: (p) => {
+        // Ajustar sección si el link apunta al otro tipo.
+        const wantsSupplier = !!p.supplierId;
+        if (wantsSupplier !== this.isSupplierKind()) {
+          const path = wantsSupplier ? '/payments/suppliers' : '/payments/employees';
+          void this.router.navigate([path], {
+            queryParams: { payment: p.id, shop: p.shopId },
+            replaceUrl: true,
+          });
+          return;
+        }
+
+        // Limpiar filtros que lo ocultan y volver a listar.
+        this.mineOnly.set(false);
+        this.validatorFilter.setValue([], { emitEvent: false });
+        this.payerFilter.setValue([], { emitEvent: false });
+        this.supplierFilter.setValue([], { emitEvent: false });
+        this.employeeFilter.setValue([], { emitEvent: false });
+        this.amountMinFilter.setValue(null, { emitEvent: false });
+        this.amountMaxFilter.setValue(null, { emitEvent: false });
+        this.dueRange.reset({ start: null, end: null }, { emitEvent: false });
+        this.paidRange.reset({ start: null, end: null }, { emitEvent: false });
+        this.statusFilter.setValue([p.status], { emitEvent: false });
+        this.filtersCollapsed.set(false);
+        this.deepLinkHandled = true;
+        this.loading.set(true);
+        this.api.list(shopId, this.listFilterOpts()).subscribe({
+          next: (rows) => {
+            this.rows.set(rows);
+            this.loading.set(false);
+            this.scrollToFocusedPayment();
+            this.clearDeepLinkQuery();
+          },
+          error: () => {
+            this.loading.set(false);
+            this.snack.open('No se pudo abrir el pago del enlace', 'OK', { duration: 3500 });
+          },
+        });
+      },
+      error: () => {
+        this.deepLinkHandled = true;
+        this.snack.open('No se encontró el pago del enlace', 'OK', { duration: 3500 });
+        this.clearDeepLinkQuery();
+      },
+    });
+  }
+
+  private scrollToFocusedPayment(): void {
+    const id = this.focusedPaymentId();
+    if (!id) return;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`payment-${id}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    if (this.focusClearTimer) clearTimeout(this.focusClearTimer);
+    this.focusClearTimer = setTimeout(() => {
+      if (this.focusedPaymentId() === id) this.focusedPaymentId.set(null);
+    }, 8000);
+  }
+
+  private clearDeepLinkQuery(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { payment: null, shop: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 
@@ -1461,7 +1592,7 @@ export class PaymentsPage {
 
   async sharePayment(p: ShopPayment): Promise<void> {
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const payload = paymentSharePayload(p, shopName);
+    const payload = paymentSharePayload(p, shopName, { link: paymentDeepLink(p) });
     const result = await shareText(payload);
     if (result === 'copied') {
       this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });

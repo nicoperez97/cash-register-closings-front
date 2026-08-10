@@ -11,7 +11,18 @@ export function closingStatusLabel(status?: string | null): string {
 
 export function expenseCategoryLabel(category?: string | null): string {
   const map: Record<string, string> = {
-    SUPPLIES: 'Insumos',
+    VEGETABLES: 'Verdulería',
+    CHEESE: 'Quesería',
+    MEAT: 'Carnicería',
+    FISH: 'Pescadería',
+    BAKERY: 'Panadería',
+    DELI: 'Fiambrería',
+    GROCERY: 'Almacén / secos',
+    DAIRY: 'Lácteos',
+    BEVERAGES: 'Bebidas',
+    BAR: 'Cerveza y bar',
+    COFFEE: 'Café',
+    SUPPLIES: 'Insumos cocina',
     SERVICES: 'Servicios',
     TRANSFER_SHOP: 'Transferencia entre locales',
     OTHER: 'Otros',

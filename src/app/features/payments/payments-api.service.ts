@@ -138,6 +138,10 @@ export class PaymentsApiService {
     });
   }
 
+  get(shopId: string, id: string) {
+    return this.http.get<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}`);
+  }
+
   exportExcel(
     shopId: string,
     opts?: {
