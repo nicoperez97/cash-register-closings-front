@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { ClosingQueryFilters, closingFiltersToParams } from './closing-filters';
+import type { UserVisibility } from '../../shared/user-visibility';
 
 export interface ClosingPosnetAmount {
   posnetId: string;
@@ -55,6 +56,7 @@ export interface ShopUserOption {
   fullName: string;
   email: string;
   hideFromCashWithdraw?: boolean;
+  visibility?: Partial<UserVisibility> | null;
   ledgerAccounts?: ShopUserAccountOption[];
 }
 

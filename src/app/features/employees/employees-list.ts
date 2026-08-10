@@ -18,6 +18,7 @@ import { EmployeeDialogComponent } from './employee-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { isUserVisible } from '../../shared/user-visibility';
 
 @Component({
   selector: 'app-employees-list',
@@ -242,6 +243,7 @@ export class EmployeesListPage {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const linkedUserId = mode.mode === 'edit' ? mode.employee.userId : null;
     this.dialogTitle
       .track(
         this.dialog.open(EmployeeDialogComponent, {
@@ -252,7 +254,9 @@ export class EmployeesListPage {
             ...mode,
             shopId,
             shopName,
-            users: this.users(),
+            users: this.users().filter(
+              (u) => isUserVisible(u, 'employeeLink') || u.id === linkedUserId,
+            ),
             producers: this.rows()
               .filter((e) => !!e.producesFood && e.active)
               .map((e) => ({

@@ -15,6 +15,7 @@ import { canManageShopUsers, userRoleLabel } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { isUserVisible } from '../../shared/user-visibility';
 
 function accountTypeLabel(row: Record<string, unknown>): string {
   const role = String(row['globalRole'] ?? '');
@@ -138,11 +139,6 @@ export class AdminUsersPage implements OnInit {
         format: (r) => String(r['ledgerAccountName'] ?? '—'),
       });
       cols.push({
-        key: 'hideFromCashWithdraw',
-        label: 'Retiro',
-        format: (r) => (r['hideFromCashWithdraw'] ? 'Oculto' : 'Visible'),
-      });
-      cols.push({
         key: 'isStockAdmin',
         label: 'Admin stock alimentos',
         format: (r) => (r['isStockAdmin'] ? 'Sí' : 'No'),
@@ -215,7 +211,10 @@ export class AdminUsersPage implements OnInit {
     this.loading.set(true);
     this.http.get<AdminUserRow[]>(`${environment.apiUrl}/users`, opts).subscribe({
       next: (rows) => {
-        this.rows.set(rows);
+        const visible = this.auth.isSuperAdmin()
+          ? rows
+          : rows.filter((u) => isUserVisible(u, 'usersList'));
+        this.rows.set(visible);
         this.loading.set(false);
       },
       error: () => {

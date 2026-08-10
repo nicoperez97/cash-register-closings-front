@@ -23,6 +23,8 @@ import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { PaymentsApiService, PaymentStatus, ShopPayment } from './payments-api.service';
 import { PaymentsInboxService } from './payments-inbox.service';
+import { isUserVisible } from '../../shared/user-visibility';
+import type { UserVisibility } from '../../shared/user-visibility';
 import { PaymentDialogComponent } from './payment-dialog';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
@@ -319,6 +321,10 @@ function daysUntilDue(iso: string | null | undefined): number | null {
             <div>
               <span class="pay-card__label">Valida</span>
               <strong>{{ p.validatorName || '—' }}</strong>
+            </div>
+            <div>
+              <span class="pay-card__label">Creado por</span>
+              <strong>{{ p.createdByName || '—' }}</strong>
             </div>
             <div>
               <span class="pay-card__label">Cuenta que paga</span>
@@ -825,7 +831,14 @@ export class PaymentsPage {
 
   readonly rows = signal<ShopPayment[]>([]);
   readonly loading = signal(true);
-  readonly users = signal<Array<{ id: string; fullName: string }>>([]);
+  readonly users = signal<
+    Array<{
+      id: string;
+      fullName: string;
+      visibility?: Partial<UserVisibility> | null;
+      hideFromCashWithdraw?: boolean;
+    }>
+  >([]);
   readonly accounts = signal<Array<{ id: string; name: string }>>([]);
   readonly suppliers = signal<ShopSupplier[]>([]);
   readonly employees = signal<Employee[]>([]);
@@ -887,7 +900,9 @@ export class PaymentsPage {
   /** Usuarios del local sin duplicar la opción "Yo". */
   readonly filterUsers = computed(() => {
     const me = this.currentUserId();
-    return this.users().filter((u) => u.id !== me);
+    return this.users().filter(
+      (u) => u.id !== me && isUserVisible(u, 'payments'),
+    );
   });
 
   readonly activeFilterCount = computed(() => {
@@ -1222,7 +1237,15 @@ export class PaymentsPage {
 
   reloadMeta(shopId: string): void {
     this.closingsApi.shopUsers(shopId).subscribe({
-      next: (rows) => this.users.set(rows.map((u) => ({ id: u.id, fullName: u.fullName }))),
+      next: (rows) =>
+        this.users.set(
+          rows.map((u) => ({
+            id: u.id,
+            fullName: u.fullName,
+            visibility: u.visibility,
+            hideFromCashWithdraw: u.hideFromCashWithdraw,
+          })),
+        ),
       error: () => this.users.set([]),
     });
     this.http
@@ -1450,7 +1473,12 @@ export class PaymentsPage {
             kind,
             shopId,
             shopName: shop.name,
-            users: this.users(),
+            users: this.users().filter(
+              (u) =>
+                isUserVisible(u, 'payments') ||
+                u.id === payment?.payerUserId ||
+                u.id === payment?.validatorUserId,
+            ),
             accounts,
             suppliers: this.suppliers(),
             employees: this.employees(),
