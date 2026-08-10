@@ -110,6 +110,13 @@ export const routes: Routes = [
         title: 'Lista de espera',
       },
       {
+        path: 'tips',
+        canActivate: [permissionGuard('tips.read'), shopFeatureGuard('tips')],
+        loadComponent: () =>
+          import('./features/tips/tips-page').then((m) => m.TipsPage),
+        title: 'Propinas',
+      },
+      {
         path: 'payments',
         pathMatch: 'full',
         redirectTo: 'payments/suppliers',

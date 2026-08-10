@@ -9,7 +9,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
-import { normalizeLogoUrl } from '../../core/utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import {
   ReservationArea,
@@ -559,8 +559,9 @@ export class WaitingListPage implements OnInit {
   readonly shopSlug = computed(() => this.shops.selectedShop()?.slug ?? '');
 
   readonly logoUrl = computed(() => {
-    const raw = this.shops.selectedShop()?.logoUrl;
-    return normalizeLogoUrl(raw) || raw?.trim() || null;
+    const shop = this.shops.selectedShop();
+    const raw = shop?.logoUrl;
+    return resolveShopLogoSrc(raw, shop?.id) || normalizeLogoUrl(raw) || raw?.trim() || null;
   });
 
   readonly totalGuests = computed(() =>

@@ -108,6 +108,12 @@ interface BalanceRowExt extends BalanceAccountRow {
           Lista de espera
         </a>
       }
+      @if (canOpenTips()) {
+        <a mat-stroked-button routerLink="/tips">
+          <mat-icon>volunteer_activism</mat-icon>
+          Propinas
+        </a>
+      }
       @if (canManageMovements()) {
         <button
           mat-flat-button
@@ -607,6 +613,16 @@ export class HomePageComponent {
       !!shopId &&
       !!shop?.waitingListEnabled &&
       hasShopPermission(this.auth.currentUser(), shopId, 'waitingList.read')
+    );
+  }
+
+  canOpenTips(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    const shop = this.shopContext.selectedShop();
+    return (
+      !!shopId &&
+      !!shop?.tipsEnabled &&
+      hasShopPermission(this.auth.currentUser(), shopId, 'tips.read')
     );
   }
 

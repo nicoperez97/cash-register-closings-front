@@ -212,6 +212,9 @@ export interface ReportsDashboard {
       covers: number;
       units: number;
       difference: number;
+      avgTicket?: number | null;
+      differenceDayCount?: number;
+      differenceAbsSum?: number;
     };
     byDay: Array<{
       businessDate: string;
@@ -219,6 +222,7 @@ export interface ReportsDashboard {
       cashAmount: number;
       cashWithdrawn: number;
       status: string;
+      tipsAmount?: number;
     }>;
   } | null;
   pos: {
@@ -254,6 +258,65 @@ export interface ReportsDashboard {
       outside: number;
     }>;
   } | null;
+  tips?: {
+    enabled: boolean;
+    totals: {
+      cash: number;
+      transfer: number;
+      tickets: number;
+      total: number;
+      pendingCount: number;
+      allocationCount: number;
+      avgPerEmployee: number;
+      tipsToBoxRatio?: number | null;
+      tipsToPosRatio?: number | null;
+    };
+    byDay: Array<{
+      businessDate: string;
+      cashAmount: number;
+      transferAmount: number;
+      ticketsAmount: number;
+      totalAmount: number;
+      pendingCount: number;
+      employeeCount: number;
+    }>;
+    byEmployee: Array<{
+      employeeId: string;
+      employeeName: string;
+      amount: number;
+      pendingAmount: number;
+    }>;
+  } | null;
+  paymentMix?: {
+    cash: number;
+    card: number;
+    mercadoPago: number;
+    transfer: number;
+    accountDni: number;
+    deliveryApps: number;
+    other: number;
+  } | null;
+  weekday?: Array<{
+    day: number;
+    label: string;
+    amount: number;
+    avgAmount: number;
+    count: number;
+  }> | null;
+  comparison?: {
+    previousFrom: string;
+    previousTo: string;
+    posAmountDeltaPct: number | null;
+    boxDeclaredDeltaPct: number | null;
+    coversDeltaPct: number | null;
+    tipsDeltaPct: number | null;
+    previous: {
+      posAmount: number;
+      boxDeclared: number;
+      covers: number;
+      tipsTotal: number;
+    };
+  } | null;
 }
 
 export interface SalesProductsFilters {
@@ -279,6 +342,11 @@ export interface SalesProductsSummary {
     subcategoryCount?: number;
     ticketCount: number;
     avgTicketAmount: number;
+    maxTicketAmount?: number;
+    minTicketAmount?: number;
+    dishesPerTicket?: number;
+    top10Share?: number;
+    amountDeltaPct?: number | null;
   };
   products: Array<{
     productCode: string | null;
@@ -290,6 +358,8 @@ export interface SalesProductsSummary {
     ticketCount: number;
     share: number;
     avgTicketAmount: number;
+    ticketContribution?: number;
+    trendPct?: number | null;
   }>;
   categories: Array<{
     category: string;
@@ -320,6 +390,15 @@ export interface SalesProductsSummary {
     amount: number;
     ticketCount: number;
     share: number;
+  }>;
+  pareto?: Array<{ label: string; amount: number; cumulativeShare: number }>;
+  categoryByDay?: Array<{ date: string; category: string; amount: number }>;
+  sameWeekdayCompare?: Array<{
+    date: string;
+    amount: number;
+    previousDate: string;
+    previousAmount: number;
+    deltaPct: number | null;
   }>;
   filterOptions: {
     categories: string[];

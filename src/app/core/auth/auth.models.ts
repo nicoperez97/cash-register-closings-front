@@ -40,7 +40,10 @@ export type Permission =
   | 'beverageStock.read'
   | 'beverageStock.manage'
   | 'shortages.read'
-  | 'shortages.manage';
+  | 'shortages.manage'
+  | 'tips.read'
+  | 'tips.create'
+  | 'tips.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -80,6 +83,9 @@ const ALL_PERMISSIONS: Permission[] = [
   'beverageStock.manage',
   'shortages.read',
   'shortages.manage',
+  'tips.read',
+  'tips.create',
+  'tips.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -122,8 +128,11 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'beverageStock.manage',
     'shortages.read',
     'shortages.manage',
+    'tips.read',
+    'tips.create',
+    'tips.manage',
   ],
-  CASHIER: ['closings.create', 'closings.read'],
+  CASHIER: ['closings.create', 'closings.read', 'tips.create', 'tips.read'],
   VIEWER: [
     'closings.read',
     'reports.view',
@@ -140,6 +149,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'stock.read',
     'beverageStock.read',
     'shortages.read',
+    'tips.read',
   ],
   PARTNER: [
     'closings.read',
@@ -169,6 +179,7 @@ export type ModuleKey =
   | 'stock'
   | 'beverageStock'
   | 'shortages'
+  | 'tips'
   | 'shop'
   | 'users';
 
@@ -390,6 +401,19 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'tips',
+    label: 'Propinas',
+    icon: 'volunteer_activism',
+    group: 'daily',
+    hint: 'Caja diaria de propinas y reparto por empleado',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'create', label: 'Cargar', short: 'Cargar' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
@@ -530,6 +554,8 @@ export interface ShopSummary {
   reservationsEnabled?: boolean;
   /** Si es false, lista de espera no está disponible en este local. */
   waitingListEnabled?: boolean;
+  /** Si es false, módulo de propinas no está disponible en este local. */
+  tipsEnabled?: boolean;
   defaultChangeAmount: number;
   currency: string;
   timezone?: string;
@@ -662,12 +688,18 @@ export function isCashierOnly(user: AuthUser | null, shopId: string | null): boo
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
   const perms = permissionsForShop(user, shopId);
   if (!perms.includes('closings.create')) return false;
+  const allowedExtra = new Set<Permission>([
+    'tips.read',
+    'tips.create',
+    'tips.manage',
+  ]);
   const extra = perms.filter(
     (p) =>
       p !== 'closings.create' &&
       p !== 'closings.read' &&
       p !== 'closings.update' &&
-      p !== 'closings.lock',
+      p !== 'closings.lock' &&
+      !allowedExtra.has(p),
   );
   // Si solo tiene create (+read opcional) y nada más → layout cajero
   if (extra.length) return false;

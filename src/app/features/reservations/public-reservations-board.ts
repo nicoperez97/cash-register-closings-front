@@ -9,7 +9,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, interval, merge, startWith, switchMap, tap } from 'rxjs';
 import { formatIsoDateLong } from '../../core/shop/business-date';
-import { normalizeLogoUrl } from '../../core/utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicReservationsBoard,
   ReservationsApiService,
@@ -1095,7 +1095,8 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
 
   readonly logoUrl = computed(() => {
     const raw = this.board()?.shop.logoUrl;
-    return normalizeLogoUrl(raw) || raw?.trim() || null;
+    const shopId = this.board()?.shop?.id;
+    return resolveShopLogoSrc(raw, shopId) || normalizeLogoUrl(raw) || raw?.trim() || null;
   });
 
   readonly dateLabel = computed(() => {
