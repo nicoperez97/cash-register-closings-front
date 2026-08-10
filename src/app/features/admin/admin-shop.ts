@@ -1734,7 +1734,7 @@ export class AdminShopPage implements OnInit {
     if (!shopId) return;
     this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, { logoUrl: '' }).subscribe({
       next: (s) => {
-        this.shops.upsertShop(s);
+        this.shops.upsertShop(s, { bustLogo: true });
         this.snack.open('Logo quitado', 'OK', { duration: 2000 });
       },
       error: () => {
@@ -1764,7 +1764,7 @@ export class AdminShopPage implements OnInit {
       next: (s) => {
         this.logoUploading.set(false);
         this.applyLogoFromShop(s.logoUrl);
-        this.shops.upsertShop(s);
+        this.shops.upsertShop(s, { bustLogo: true });
         this.snack.open('Logo subido', 'OK', { duration: 2200 });
       },
       error: (err) => {

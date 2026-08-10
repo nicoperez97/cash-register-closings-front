@@ -1767,6 +1767,7 @@ export class ClosingsFormPage implements OnInit {
         const tips = this.n(this.form.getRawValue().tipsAmount);
         const state: TipsEditorState = {
           cashAmount: tips,
+          receipts: [],
           transferAmount: 0,
           ticketsAmount: 0,
           notes: '',
@@ -1801,6 +1802,7 @@ export class ClosingsFormPage implements OnInit {
       tipCashAmount: Number(d.cashAmount || 0),
       tipTransferAmount: Number(d.transferAmount || 0),
       tipTicketsAmount: Number(d.ticketsAmount || 0),
+      tipReceipts: d.receipts ?? [],
       tipNotes: d.notes?.trim() || null,
       tipAllocations: d.allocations.map((a) => ({
         employeeId: a.employeeId,
