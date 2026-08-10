@@ -15,7 +15,7 @@ import { DataTableComponent, DataTableColumn } from '../../shared/components/dat
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
-import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
@@ -274,17 +274,27 @@ const TIMEZONE_OPTIONS = [
           </p>
 
           <div class="shop-admin__logo-block">
+            @if (uploadedLogoPath()) {
+              <div class="shop-admin__logo-file">
+                <mat-icon>image</mat-icon>
+                <div>
+                  <strong>Logo desde archivo</strong>
+                  <p class="text-muted small mb-0">
+                    Subido al servidor. Si pegás un link abajo, reemplaza este archivo al guardar.
+                  </p>
+                </div>
+              </div>
+            }
             <mat-form-field appearance="outline" class="shop-admin__logo-field" subscriptSizing="dynamic">
-              <mat-label>URL del logo</mat-label>
+              <mat-label>URL del logo (opcional)</mat-label>
               <input
                 matInput
                 formControlName="logoUrl"
                 placeholder="Pegá el vínculo de Drive o una URL directa"
               />
               <mat-hint>
-                Podés subir un archivo o pegar un link (Drive con “Cualquiera con el enlace”, o URL
-                directa). Se muestra en la app y tableros; la instalación PWA usa los íconos del sitio
-                (Chrome exige PNG 192 y 512 same-origin).
+                Usá <strong>una</strong> opción: subir archivo o pegar un link (Drive con “Cualquiera
+                con el enlace”, o URL directa). No pongas rutas internas.
               </mat-hint>
             </mat-form-field>
             <div class="shop-admin__logo-actions">
@@ -304,7 +314,7 @@ const TIMEZONE_OPTIONS = [
                 <mat-icon>upload</mat-icon>
                 {{ logoUploading() ? 'Subiendo…' : 'Subir desde archivos' }}
               </button>
-              @if (form.controls.logoUrl.value) {
+              @if (hasLogo()) {
                 <button mat-stroked-button type="button" (click)="clearLogo()">
                   <mat-icon>hide_image</mat-icon>
                   Quitar logo
@@ -837,6 +847,23 @@ const TIMEZONE_OPTIONS = [
         gap: 0.5rem;
         align-items: center;
       }
+      .shop-admin__logo-file {
+        display: flex;
+        gap: 0.65rem;
+        align-items: flex-start;
+        padding: 0.7rem 0.85rem;
+        border-radius: 10px;
+        border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 30%, var(--guy-border, #ddd));
+        background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, transparent);
+      }
+      .shop-admin__logo-file mat-icon {
+        color: var(--guy-accent, #2e7d32);
+        flex-shrink: 0;
+      }
+      .shop-admin__logo-file strong {
+        display: block;
+        font-size: 0.9rem;
+      }
       .shop-admin__colors {
         display: flex;
         flex-direction: column;
@@ -1133,6 +1160,8 @@ export class AdminShopPage implements OnInit {
   readonly backupBusy = signal(false);
   readonly logoUploading = signal(false);
   readonly logoCacheBust = signal(Date.now());
+  /** Path relativo del logo subido (`shops/{id}/logo.png`); no se muestra en el input de URL. */
+  readonly uploadedLogoPath = signal<string | null>(null);
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
   readonly emailTypeOptions = EMAIL_NOTIFICATION_TYPE_OPTIONS;
   readonly emailSmtpConfigured = signal(false);
@@ -1229,14 +1258,37 @@ export class AdminShopPage implements OnInit {
     const v = this.formValue()?.accentSecondary?.trim() || this.liveAccent();
     return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : this.liveAccent();
   });
+  readonly hasLogo = computed(
+    () => !!(this.uploadedLogoPath() || (this.formValue()?.logoUrl ?? '').trim()),
+  );
+
   readonly previewUrl = computed(() => {
-    const raw = this.formValue()?.logoUrl ?? '';
+    const raw = this.effectiveLogoRaw();
     return (
       resolveShopLogoSrc(raw, this.shops.selectedShopId(), this.logoCacheBust()) ||
       normalizeLogoUrl(raw) ||
       ''
     );
   });
+
+  /** Link pegado gana sobre archivo subido; si no hay link, usa el path subido. */
+  private effectiveLogoRaw(): string {
+    const link = (this.formValue()?.logoUrl ?? '').trim();
+    if (link && !isUploadedShopLogoPath(link)) return link;
+    return this.uploadedLogoPath() ?? '';
+  }
+
+  private applyLogoFromShop(logoUrl?: string | null): void {
+    const raw = (logoUrl ?? '').trim();
+    if (isUploadedShopLogoPath(raw)) {
+      this.uploadedLogoPath.set(raw);
+      this.form.patchValue({ logoUrl: '' });
+    } else {
+      this.uploadedLogoPath.set(null);
+      this.form.patchValue({ logoUrl: raw });
+    }
+    this.logoCacheBust.set(Date.now());
+  }
 
   constructor() {
     usePageRefresh(() => this.reloadAccounts());
@@ -1268,7 +1320,6 @@ export class AdminShopPage implements OnInit {
       email: shop.email ?? '',
       emailSmtpPassword: '',
       emailNotificationsEnabled: shop.emailNotificationsEnabled !== false,
-      logoUrl: shop.logoUrl ?? '',
       accentColor: shop.accentColor ?? '#2E7D32',
       accentSecondary: shop.accentSecondary ?? '#F9A825',
       unitsLabel: shop.unitsLabel ?? '',
@@ -1285,6 +1336,7 @@ export class AdminShopPage implements OnInit {
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
+    this.applyLogoFromShop(shop.logoUrl);
     this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
     this.emailSmtpConfigured.set(!!shop.emailSmtpConfigured);
@@ -1300,7 +1352,6 @@ export class AdminShopPage implements OnInit {
             email: s.email ?? '',
             emailSmtpPassword: '',
             emailNotificationsEnabled: s.emailNotificationsEnabled !== false,
-            logoUrl: s.logoUrl ?? '',
             accentColor: s.accentColor ?? '#2E7D32',
             accentSecondary: s.accentSecondary ?? '#F9A825',
             unitsLabel: s.unitsLabel ?? '',
@@ -1316,6 +1367,7 @@ export class AdminShopPage implements OnInit {
             tipsEnabled: !!s.tipsEnabled,
             active: !!s.active,
           });
+          this.applyLogoFromShop(s.logoUrl);
           this.emailSmtpConfigured.set(!!s.emailSmtpConfigured);
           this.clearSmtpPasswordOnSave.set(false);
           this.applyEmailLists(s.emailNotificationTypes, s.emailNotificationUserIds);
@@ -1616,7 +1668,7 @@ export class AdminShopPage implements OnInit {
       emailNotificationUserIds: this.allEmailUsersSelected()
         ? null
         : [...raw.emailNotificationUserIds],
-      logoUrl: raw.logoUrl.trim() || '',
+      logoUrl: this.effectiveLogoRaw(),
       accentColor: raw.accentColor.trim() || null,
       accentSecondary: raw.accentSecondary.trim() || null,
       unitsLabel: raw.unitsLabel.trim() || null,
@@ -1653,6 +1705,7 @@ export class AdminShopPage implements OnInit {
         this.emailSmtpConfigured.set(!!shop.emailSmtpConfigured);
         this.clearSmtpPasswordOnSave.set(false);
         this.form.controls.emailSmtpPassword.setValue('');
+        this.applyLogoFromShop(shop.logoUrl);
         if (shop.active === false) {
           this.shops.setShops(this.shops.shops().filter((s) => s.id !== shop.id));
         } else {
@@ -1675,6 +1728,7 @@ export class AdminShopPage implements OnInit {
 
   clearLogo(): void {
     const shopId = this.shops.selectedShopId();
+    this.uploadedLogoPath.set(null);
     this.form.patchValue({ logoUrl: '' });
     this.logoCacheBust.set(Date.now());
     if (!shopId) return;
@@ -1709,8 +1763,7 @@ export class AdminShopPage implements OnInit {
     this.http.post<any>(`${environment.apiUrl}/shops/${shopId}/logo`, body).subscribe({
       next: (s) => {
         this.logoUploading.set(false);
-        this.form.patchValue({ logoUrl: s.logoUrl ?? '' });
-        this.logoCacheBust.set(Date.now());
+        this.applyLogoFromShop(s.logoUrl);
         this.shops.upsertShop(s);
         this.snack.open('Logo subido', 'OK', { duration: 2200 });
       },
