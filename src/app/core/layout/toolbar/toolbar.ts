@@ -227,6 +227,15 @@ export class ToolbarComponent implements OnInit {
         route: '/waiting-list',
       });
     }
+    if (shop?.tipsEnabled && hasShopPermission(user, shopId, 'tips.read')) {
+      items.push({
+        id: 'tips',
+        kind: 'route',
+        label: 'Propinas',
+        icon: 'volunteer_activism',
+        route: '/tips',
+      });
+    }
     return items;
   });
 

@@ -15,7 +15,7 @@ import { DataTableComponent, DataTableColumn } from '../../shared/components/dat
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
-import { normalizeLogoUrl } from '../../core/utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
@@ -273,19 +273,45 @@ const TIMEZONE_OPTIONS = [
             Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
           </p>
 
-          <mat-form-field appearance="outline" class="shop-admin__logo-field" subscriptSizing="dynamic">
-            <mat-label>URL del logo</mat-label>
-            <input
-              matInput
-              formControlName="logoUrl"
-              placeholder="Pegá el vínculo de Drive (Copiar vínculo)"
-            />
-            <mat-hint>
-              Google Drive con permiso “Cualquiera con el enlace”, o una URL directa. Se muestra en
-              el tablero; la instalación PWA usa los íconos del sitio (Chrome exige PNG 192 y 512
-              same-origin).
-            </mat-hint>
-          </mat-form-field>
+          <div class="shop-admin__logo-block">
+            <mat-form-field appearance="outline" class="shop-admin__logo-field" subscriptSizing="dynamic">
+              <mat-label>URL del logo</mat-label>
+              <input
+                matInput
+                formControlName="logoUrl"
+                placeholder="Pegá el vínculo de Drive o una URL directa"
+              />
+              <mat-hint>
+                Podés subir un archivo o pegar un link (Drive con “Cualquiera con el enlace”, o URL
+                directa). Se muestra en la app y tableros; la instalación PWA usa los íconos del sitio
+                (Chrome exige PNG 192 y 512 same-origin).
+              </mat-hint>
+            </mat-form-field>
+            <div class="shop-admin__logo-actions">
+              <input
+                #logoFile
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/*"
+                hidden
+                (change)="onLogoFile($event)"
+              />
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="logoUploading() || !shops.selectedShopId()"
+                (click)="logoFile.click()"
+              >
+                <mat-icon>upload</mat-icon>
+                {{ logoUploading() ? 'Subiendo…' : 'Subir desde archivos' }}
+              </button>
+              @if (form.controls.logoUrl.value) {
+                <button mat-stroked-button type="button" (click)="clearLogo()">
+                  <mat-icon>hide_image</mat-icon>
+                  Quitar logo
+                </button>
+              }
+            </div>
+          </div>
 
           <div class="shop-admin__colors">
             <div class="shop-admin__color-row">
@@ -466,6 +492,18 @@ const TIMEZONE_OPTIONS = [
                 <mat-slide-toggle
                   formControlName="waitingListEnabled"
                   aria-label="Lista de espera habilitada"
+                />
+              </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Propinas</strong>
+                  <p class="text-muted small mb-0">
+                    Caja diaria de propinas y reparto por empleado.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="tipsEnabled"
+                  aria-label="Propinas habilitadas"
                 />
               </div>
             </div>
@@ -787,6 +825,18 @@ const TIMEZONE_OPTIONS = [
         width: 100%;
         margin-bottom: 0.35rem;
       }
+      .shop-admin__logo-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        margin-bottom: 0.35rem;
+      }
+      .shop-admin__logo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
       .shop-admin__colors {
         display: flex;
         flex-direction: column;
@@ -1081,6 +1131,8 @@ export class AdminShopPage implements OnInit {
   readonly saving = signal(false);
   readonly depositSaving = signal(false);
   readonly backupBusy = signal(false);
+  readonly logoUploading = signal(false);
+  readonly logoCacheBust = signal(Date.now());
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
   readonly emailTypeOptions = EMAIL_NOTIFICATION_TYPE_OPTIONS;
   readonly emailSmtpConfigured = signal(false);
@@ -1149,6 +1201,7 @@ export class AdminShopPage implements OnInit {
     coversEnabled: [false],
     reservationsEnabled: [true],
     waitingListEnabled: [true],
+    tipsEnabled: [false],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
     posnets: this.fb.array([]),
@@ -1176,9 +1229,14 @@ export class AdminShopPage implements OnInit {
     const v = this.formValue()?.accentSecondary?.trim() || this.liveAccent();
     return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : this.liveAccent();
   });
-  readonly previewUrl = computed(
-    () => normalizeLogoUrl(this.formValue()?.logoUrl ?? '') ?? '',
-  );
+  readonly previewUrl = computed(() => {
+    const raw = this.formValue()?.logoUrl ?? '';
+    return (
+      resolveShopLogoSrc(raw, this.shops.selectedShopId(), this.logoCacheBust()) ||
+      normalizeLogoUrl(raw) ||
+      ''
+    );
+  });
 
   constructor() {
     usePageRefresh(() => this.reloadAccounts());
@@ -1223,6 +1281,7 @@ export class AdminShopPage implements OnInit {
       coversEnabled: !!shop.coversEnabled,
       reservationsEnabled: !!shop.reservationsEnabled,
       waitingListEnabled: !!shop.waitingListEnabled,
+      tipsEnabled: !!shop.tipsEnabled,
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
@@ -1254,6 +1313,7 @@ export class AdminShopPage implements OnInit {
             coversEnabled: !!s.coversEnabled,
             reservationsEnabled: !!s.reservationsEnabled,
             waitingListEnabled: !!s.waitingListEnabled,
+            tipsEnabled: !!s.tipsEnabled,
             active: !!s.active,
           });
           this.emailSmtpConfigured.set(!!s.emailSmtpConfigured);
@@ -1569,6 +1629,7 @@ export class AdminShopPage implements OnInit {
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,
       waitingListEnabled: raw.waitingListEnabled,
+      tipsEnabled: raw.tipsEnabled,
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
       posnets: (raw.posnets as ShopPosnet[])
@@ -1607,6 +1668,55 @@ export class AdminShopPage implements OnInit {
       error: (err) => {
         this.saving.set(false);
         const msg = err?.error?.message ?? 'No se pudo guardar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  clearLogo(): void {
+    const shopId = this.shops.selectedShopId();
+    this.form.patchValue({ logoUrl: '' });
+    this.logoCacheBust.set(Date.now());
+    if (!shopId) return;
+    this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, { logoUrl: '' }).subscribe({
+      next: (s) => {
+        this.shops.upsertShop(s);
+        this.snack.open('Logo quitado', 'OK', { duration: 2000 });
+      },
+      error: () => {
+        // El campo ya quedó vacío; se persistirá al guardar el formulario.
+      },
+    });
+  }
+
+  onLogoFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    const shopId = this.shops.selectedShopId();
+    if (!file || !shopId) return;
+    if (!file.type.startsWith('image/')) {
+      this.snack.open('Elegí una imagen (PNG, JPG, WEBP…)', 'OK', { duration: 3000 });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this.snack.open('La imagen no puede superar 5 MB', 'OK', { duration: 3000 });
+      return;
+    }
+    const body = new FormData();
+    body.append('file', file);
+    this.logoUploading.set(true);
+    this.http.post<any>(`${environment.apiUrl}/shops/${shopId}/logo`, body).subscribe({
+      next: (s) => {
+        this.logoUploading.set(false);
+        this.form.patchValue({ logoUrl: s.logoUrl ?? '' });
+        this.logoCacheBust.set(Date.now());
+        this.shops.upsertShop(s);
+        this.snack.open('Logo subido', 'OK', { duration: 2200 });
+      },
+      error: (err) => {
+        this.logoUploading.set(false);
+        const msg = err?.error?.message ?? 'No se pudo subir el logo';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

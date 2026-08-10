@@ -9,7 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
-import { LineChartComponent, ChartPoint } from '../../shared/components/sales-charts';
+import { LineChartComponent, ChartPoint, HBarChartComponent, DonutChartComponent, ChartSlice } from '../../shared/components/sales-charts';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
   ClosingsApiService,
@@ -32,6 +32,12 @@ function formatDayLabelEs(isoDate: string): string {
   }).format(dt);
 }
 
+function formatDelta(pct: number | null | undefined): string {
+  if (pct == null || !Number.isFinite(pct)) return '—';
+  const sign = pct > 0 ? '+' : '';
+  return `${sign}${pct.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
+}
+
 @Component({
   selector: 'app-stats-page',
   imports: [
@@ -46,6 +52,8 @@ function formatDayLabelEs(isoDate: string): string {
     KpiStripComponent,
     DataTableComponent,
     LineChartComponent,
+    HBarChartComponent,
+    DonutChartComponent,
     FiltersCollapseBtnComponent,
   ],
   template: `
@@ -62,7 +70,7 @@ function formatDayLabelEs(isoDate: string): string {
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">
-            Vista mixta: reservas, ventas POS y cierres de caja
+            Vista mixta: reservas, ventas POS, caja y propinas
           </p>
         </div>
         <div class="guy-filters__tools">
@@ -108,6 +116,9 @@ function formatDayLabelEs(isoDate: string): string {
     <p class="hint mb-3">
       Las ventas POS vienen del import Restosoft/POS; no modifican cierres ni saldos.
       Los totales de caja salen de los cierres cargados por separado.
+      @if (comparisonHint()) {
+        <span> · {{ comparisonHint() }}</span>
+      }
     </p>
 
     <app-kpi-strip class="mb-3" [items]="kpis()" />
@@ -141,7 +152,50 @@ function formatDayLabelEs(isoDate: string): string {
         subtitle="Total declarado (caja)"
         [points]="closingAmountPoints()"
       />
+      @if (tipsEnabled()) {
+        <app-line-chart
+          class="charts-grid__wide"
+          title="Propinas por día"
+          subtitle="Total caja de propinas"
+          [points]="tipsAmountPoints()"
+        />
+        <app-hbar-chart
+          title="Ranking propinas"
+          subtitle="Por empleado en el período"
+          [items]="tipsEmployeeBars()"
+        />
+      }
+      <app-donut-chart
+        title="Mix medios de pago (caja)"
+        subtitle="Suma de cierres del período"
+        [items]="paymentMixSlices()"
+      />
+      <app-hbar-chart
+        title="Volumen por día de semana"
+        subtitle="Ventas POS (promedio / día)"
+        [items]="weekdayBars()"
+      />
     </div>
+
+    @if (tipsEnabled() && tipEmployeeRows().length) {
+      <div class="panel-card panel-card--flush mb-3">
+        <div class="panel-card__body">
+          <div class="guy-list-head">
+            <div>
+              <h2 class="guy-list-head__title">Propinas por empleado</h2>
+              <p class="guy-list-head__meta">Recibido vs pendiente de entrega</p>
+            </div>
+          </div>
+          <app-data-table
+            [columns]="tipEmployeeColumns"
+            [rows]="tipEmployeeRows()"
+            [sortable]="true"
+            [showActions]="false"
+            [canRemove]="never"
+          />
+        </div>
+      </div>
+    }
 
     <div class="panel-card panel-card--flush mb-3">
       <div class="panel-card__body">
@@ -149,7 +203,7 @@ function formatDayLabelEs(isoDate: string): string {
           <div>
             <h2 class="guy-list-head__title">Detalle diario</h2>
             <p class="guy-list-head__meta">
-              Cruce reservas · POS · caja en el período
+              Cruce reservas · POS · caja · propinas
             </p>
           </div>
         </div>
@@ -246,6 +300,71 @@ export class StatsPage {
     })),
   );
 
+  readonly tipsEnabled = computed(() => !!this.dashboard()?.tips?.enabled);
+
+  readonly tipsAmountPoints = computed<ChartPoint[]>(() =>
+    (this.dashboard()?.tips?.byDay ?? []).map((d) => ({
+      label: formatDayLabelEs(d.businessDate),
+      value: d.totalAmount,
+    })),
+  );
+
+  readonly tipsEmployeeBars = computed(() =>
+    (this.dashboard()?.tips?.byEmployee ?? []).slice(0, 12).map((e) => ({
+      label: e.employeeName,
+      value: e.amount,
+    })),
+  );
+
+  readonly paymentMixSlices = computed<ChartSlice[]>(() => {
+    const mix = this.dashboard()?.paymentMix;
+    if (!mix) return [];
+    return [
+      { label: 'Efectivo', value: mix.cash },
+      { label: 'Tarjeta', value: mix.card },
+      { label: 'Mercado Pago', value: mix.mercadoPago },
+      { label: 'Transferencia', value: mix.transfer },
+      { label: 'Cuenta DNI', value: mix.accountDni },
+      { label: 'Delivery', value: mix.deliveryApps },
+      { label: 'Otros', value: mix.other },
+    ].filter((s) => s.value > 0);
+  });
+
+  readonly weekdayBars = computed(() =>
+    (this.dashboard()?.weekday ?? []).map((w) => ({
+      label: w.label,
+      value: w.avgAmount,
+    })),
+  );
+
+  readonly comparisonHint = computed(() => {
+    const c = this.dashboard()?.comparison;
+    if (!c) return '';
+    return `Vs período anterior: POS ${formatDelta(c.posAmountDeltaPct)} · Caja ${formatDelta(c.boxDeclaredDeltaPct)} · Covers ${formatDelta(c.coversDeltaPct)}${this.tipsEnabled() ? ` · Propinas ${formatDelta(c.tipsDeltaPct)}` : ''}`;
+  });
+
+  readonly tipEmployeeRows = computed(() =>
+    (this.dashboard()?.tips?.byEmployee ?? []).map((e) => ({
+      employeeName: e.employeeName,
+      amount: e.amount,
+      pendingAmount: e.pendingAmount,
+    })),
+  );
+
+  readonly tipEmployeeColumns: DataTableColumn[] = [
+    { key: 'employeeName', label: 'Empleado' },
+    {
+      key: 'amount',
+      label: 'Total',
+      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+    },
+    {
+      key: 'pendingAmount',
+      label: 'Pendiente',
+      format: (r) => `$ ${Number(r['pendingAmount'] ?? 0).toLocaleString('es-AR')}`,
+    },
+  ];
+
   readonly mergedDays = computed<Record<string, unknown>[]>(() => {
     const data = this.dashboard();
     if (!data) return [];
@@ -260,6 +379,7 @@ export class StatsPage {
           posAmount: 0,
           posTickets: 0,
           declaredTotal: 0,
+          tipsAmount: 0,
           closingStatus: '—',
         };
         map.set(date, row);
@@ -280,6 +400,11 @@ export class StatsPage {
       const row = ensure(d.businessDate);
       row['declaredTotal'] = d.declaredTotal;
       row['closingStatus'] = d.status;
+      row['tipsAmount'] = d.tipsAmount ?? 0;
+    }
+    for (const d of data.tips?.byDay ?? []) {
+      const row = ensure(d.businessDate);
+      row['tipsAmount'] = d.totalAmount;
     }
     return [...map.values()].sort((a, b) =>
       String(a['businessDate']).localeCompare(String(b['businessDate'])),
@@ -304,6 +429,11 @@ export class StatsPage {
       key: 'declaredTotal',
       label: 'Caja $',
       format: (r) => `$ ${Number(r['declaredTotal'] ?? 0).toLocaleString('es-AR')}`,
+    },
+    {
+      key: 'tipsAmount',
+      label: 'Propinas $',
+      format: (r) => `$ ${Number(r['tipsAmount'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'closingStatus', label: 'Estado caja' },
   ];
@@ -349,6 +479,8 @@ export class StatsPage {
         const res = data.reservations?.totals;
         const pos = data.pos?.totals;
         const box = data.closings?.totals;
+        const tips = data.tips?.totals;
+        const cmp = data.comparison;
         const items: KpiItem[] = [
           {
             label: 'Reservas (grupos)',
@@ -361,6 +493,7 @@ export class StatsPage {
           {
             label: 'Ventas POS',
             value: `$ ${Number(pos?.amount ?? 0).toLocaleString('es-AR')}`,
+            hint: cmp ? formatDelta(cmp.posAmountDeltaPct) : undefined,
           },
           {
             label: 'Tickets POS',
@@ -369,15 +502,49 @@ export class StatsPage {
           {
             label: 'Caja declarada',
             value: `$ ${Number(box?.declared ?? 0).toLocaleString('es-AR')}`,
+            hint: cmp ? formatDelta(cmp.boxDeclaredDeltaPct) : undefined,
+          },
+          {
+            label: 'Ticket prom. caja',
+            value:
+              box?.avgTicket != null
+                ? `$ ${Number(box.avgTicket).toLocaleString('es-AR')}`
+                : '—',
           },
           {
             label: 'Comensales caja',
             value: Number(box?.covers ?? 0).toLocaleString('es-AR'),
+            hint: cmp ? formatDelta(cmp.coversDeltaPct) : undefined,
+          },
+          {
+            label: 'Días c/ diferencia',
+            value: `${Number(box?.differenceDayCount ?? 0)} · $ ${Number(box?.differenceAbsSum ?? 0).toLocaleString('es-AR')}`,
           },
         ];
         if (data.reservations && !data.reservations.enabled) {
           items[0] = { label: 'Reservas', value: 'Deshabilitado' };
           items[1] = { label: 'Covers reservados', value: '—' };
+        }
+        if (data.tips?.enabled) {
+          items.push(
+            {
+              label: 'Propinas',
+              value: `$ ${Number(tips?.total ?? 0).toLocaleString('es-AR')}`,
+              hint: cmp ? formatDelta(cmp.tipsDeltaPct) : undefined,
+            },
+            {
+              label: 'Tips / empleado',
+              value: `$ ${Number(tips?.avgPerEmployee ?? 0).toLocaleString('es-AR')}`,
+            },
+            {
+              label: 'Pendientes entrega',
+              value: Number(tips?.pendingCount ?? 0).toLocaleString('es-AR'),
+            },
+            {
+              label: 'Tips/caja · Tips/POS',
+              value: `${tips?.tipsToBoxRatio != null ? tips.tipsToBoxRatio + '%' : '—'} · ${tips?.tipsToPosRatio != null ? tips.tipsToPosRatio + '%' : '—'}`,
+            },
+          );
         }
         this.kpis.set(items);
       },

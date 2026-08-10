@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { ShopSummary } from '../auth/auth.models';
 import { APP_BRAND } from '../config/app-brand';
 import { ThemeService } from '../theme/theme.service';
-import { normalizeLogoUrl } from '../utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../utils/drive-url';
 
 const SHOP_KEY = 'crc_selected_shop';
 
@@ -31,7 +31,7 @@ export class ShopContextService {
   /** Logo del local activo, o fallback de la app. */
   readonly logoUrl = computed(() => {
     const shop = this.selectedShop();
-    const url = normalizeLogoUrl(shop?.logoUrl) || shop?.logoUrl?.trim();
+    const url = resolveShopLogoSrc(shop?.logoUrl, shop?.id) || normalizeLogoUrl(shop?.logoUrl);
     return url || APP_BRAND.defaultLogoUrl;
   });
 

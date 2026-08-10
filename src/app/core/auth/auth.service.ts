@@ -162,6 +162,7 @@ export class AuthService {
         coversEnabled: s.coversEnabled,
         reservationsEnabled: s.reservationsEnabled,
         waitingListEnabled: s.waitingListEnabled,
+        tipsEnabled: s.tipsEnabled,
         timezone: s.timezone ?? null,
         openingTime: s.openingTime ?? null,
       })),
