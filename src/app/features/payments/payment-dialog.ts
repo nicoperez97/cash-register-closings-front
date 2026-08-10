@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import { PaymentsApiService, ShopPayment } from './payments-api.service';
+import { PaymentsApiService, PAYMENT_METHOD_OPTIONS, PaymentMethod, ShopPayment } from './payments-api.service';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
 import { Employee } from '../employees/employees-api.service';
@@ -335,6 +335,16 @@ export type PaymentDialogData = {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Forma de pago</mat-label>
+          <mat-select formControlName="paymentMethod">
+            <mat-option [value]="null">Sin asignar</mat-option>
+            @for (opt of paymentMethods; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Notas</mat-label>
           <textarea matInput rows="2" formControlName="notes"></textarea>
         </mat-form-field>
@@ -372,6 +382,7 @@ export class PaymentDialogComponent {
   readonly isSupplierKind = this.data.kind !== 'employee';
   readonly isPaidEdit =
     this.data.mode === 'edit' && this.data.payment.status === 'PAID';
+  readonly paymentMethods = PAYMENT_METHOD_OPTIONS;
   readonly seed: Partial<ShopPayment> | null =
     this.data.mode === 'edit' || this.data.mode === 'duplicate'
       ? this.data.payment
@@ -442,6 +453,7 @@ export class PaymentDialogComponent {
     payerUserId: [this.seed?.payerUserId ?? (null as string | null)],
     validatorUserId: [this.seed?.validatorUserId ?? (null as string | null)],
     accountId: [this.seed?.accountId ?? (null as string | null)],
+    paymentMethod: [this.seed?.paymentMethod ?? (null as PaymentMethod | null)],
     notes: [this.seed?.notes ?? ''],
     invoiceLegalName: [this.seed?.invoiceLegalName ?? ''],
     invoiceTaxId: [this.seed?.invoiceTaxId ?? ''],
@@ -692,11 +704,13 @@ export class PaymentDialogComponent {
       amountRaw === null || amountRaw === undefined || (amountRaw as any) === ''
         ? null
         : Number(amountRaw);
-    if (this.isPaidEdit && (!(amount != null && amount > 0) || !raw.accountId)) {
+    if (this.isPaidEdit && (!(amount != null && amount > 0) || !raw.accountId || !raw.paymentMethod)) {
       this.snack.open(
         !raw.accountId
           ? 'Indicá la cuenta que paga'
-          : 'Un pago abonado necesita un monto mayor a 0',
+          : !raw.paymentMethod
+            ? 'Indicá la forma de pago'
+            : 'Un pago abonado necesita un monto mayor a 0',
         'OK',
         { duration: 3500 },
       );
@@ -731,6 +745,7 @@ export class PaymentDialogComponent {
             payerUserId: raw.payerUserId || null,
             validatorUserId: raw.validatorUserId || null,
             accountId: raw.accountId ? String(raw.accountId) : null,
+            paymentMethod: (raw.paymentMethod as PaymentMethod | null) || null,
             notes: (raw.notes ?? '').trim() || null,
             ...invoice,
           };
@@ -760,6 +775,9 @@ export class PaymentDialogComponent {
               body['validatorUserId'] = next.validatorUserId;
             }
             if (!sameStr(next.accountId, prev.accountId)) body['accountId'] = next.accountId;
+            if (!sameStr(next.paymentMethod, prev.paymentMethod)) {
+              body['paymentMethod'] = next.paymentMethod;
+            }
             if (!sameStr(next.notes, prev.notes)) body['notes'] = next.notes;
             if (this.isSupplierKind) {
               if (!sameStr(next.invoiceLegalName, prev.invoiceLegalName)) {
@@ -822,6 +840,7 @@ export class PaymentDialogComponent {
               payerUserId: next.payerUserId,
               validatorUserId: next.validatorUserId,
               accountId: next.accountId,
+              paymentMethod: next.paymentMethod,
               notes: next.notes,
               ...invoice,
             })

@@ -166,6 +166,15 @@ interface BalanceRowExt extends BalanceAccountRow {
             }
             @if (canManageAttendance() && !isTodayClosed()) {
               <button
+                mat-stroked-button
+                type="button"
+                [disabled]="attendanceBusy() || !attendanceEmployees().length"
+                (click)="markAllHolidayToday()"
+              >
+                <mat-icon>star</mat-icon>
+                Todos feriado
+              </button>
+              <button
                 mat-flat-button
                 color="primary"
                 type="button"
@@ -314,6 +323,8 @@ export class HomePageComponent {
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
   readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
   readonly paymentsPending = signal<number | null>(null);
+  readonly paymentsToValidateMine = signal<number | null>(null);
+  readonly paymentsToPayMine = signal<number | null>(null);
 
   private readonly todayIso = this.toIso(new Date());
 
@@ -387,10 +398,19 @@ export class HomePageComponent {
 
     if (this.canViewPayments()) {
       const pending = this.paymentsPending();
+      const toValidate = this.paymentsToValidateMine();
+      const toPay = this.paymentsToPayMine();
       items.push({
         label: 'Pagos pendientes',
         value: pending != null ? pending : '—',
-        hint: pending === 0 ? 'Al día' : 'Validar / abonar',
+        hint: pending === 0 ? 'Al día' : undefined,
+        details:
+          pending != null && pending > 0
+            ? [
+                { label: 'A validar (vos)', value: toValidate ?? 0 },
+                { label: 'A pagar (vos)', value: toPay ?? 0 },
+              ]
+            : undefined,
         icon: 'payments',
         route: '/payments/suppliers',
         tone: pending != null && pending > 0 ? 'warn' : pending === 0 ? 'ok' : 'default',
@@ -457,15 +477,37 @@ export class HomePageComponent {
 
       if (!shopId || !this.canViewPayments()) {
         this.paymentsPending.set(null);
+        this.paymentsToValidateMine.set(null);
+        this.paymentsToPayMine.set(null);
       } else {
         this.paymentsApi.list(shopId).subscribe({
           next: (rows) => {
-            const n = rows.filter(
+            const uid = this.auth.currentUser()?.id ?? null;
+            const pending = rows.filter(
               (p) => p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED',
-            ).length;
-            this.paymentsPending.set(n);
+            );
+            this.paymentsPending.set(pending.length);
+            this.paymentsToValidateMine.set(
+              uid
+                ? pending.filter(
+                    (p) =>
+                      p.status === 'PENDING_VALIDATION' && p.validatorUserId === uid,
+                  ).length
+                : 0,
+            );
+            this.paymentsToPayMine.set(
+              uid
+                ? pending.filter(
+                    (p) => p.status === 'VALIDATED' && p.payerUserId === uid,
+                  ).length
+                : 0,
+            );
           },
-          error: () => this.paymentsPending.set(null),
+          error: () => {
+            this.paymentsPending.set(null);
+            this.paymentsToValidateMine.set(null);
+            this.paymentsToPayMine.set(null);
+          },
         });
       }
     });
@@ -673,16 +715,22 @@ export class HomePageComponent {
     if (!this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed()) return;
     const shopId = this.shopContext.selectedShopId();
     if (!shopId) return;
+    const cur = this.todayMarks()[emp.employeeId];
     const nextPresent = !this.isPresentToday(emp.employeeId);
+    const dayIsHoliday = Object.values(this.todayMarks()).some((m) => m.isHoliday);
+    const body: { employeeId: string; date: string; isPresent: boolean; isHoliday?: boolean } = {
+      employeeId: emp.employeeId,
+      date: this.todayIso,
+      isPresent: nextPresent,
+    };
+    if (nextPresent && (!!cur?.isHoliday || dayIsHoliday)) {
+      body.isHoliday = true;
+    }
     this.attendanceBusy.set(true);
     this.http
       .post<{ isPresent: boolean; isHoliday: boolean }>(
         `${environment.apiUrl}/shops/${shopId}/attendance`,
-        {
-          employeeId: emp.employeeId,
-          date: this.todayIso,
-          isPresent: nextPresent,
-        },
+        body,
       )
       .subscribe({
         next: (result) => {
@@ -713,10 +761,12 @@ export class HomePageComponent {
       return;
     }
     this.attendanceBusy.set(true);
+    const holiday = Object.values(this.todayMarks()).some((m) => m.isHoliday);
     const items = fixed.map((e) => ({
       employeeId: e.employeeId,
       date: this.todayIso,
       isPresent: true,
+      ...(holiday ? { isHoliday: true } : {}),
     }));
     this.http.post(`${environment.apiUrl}/shops/${shopId}/attendance/bulk`, { items }).subscribe({
       next: () => {
@@ -725,7 +775,7 @@ export class HomePageComponent {
         for (const e of fixed) {
           next[e.employeeId] = {
             isPresent: true,
-            isHoliday: next[e.employeeId]?.isHoliday ?? false,
+            isHoliday: holiday ? true : (next[e.employeeId]?.isHoliday ?? false),
           };
         }
         this.todayMarks.set(next);
@@ -733,7 +783,9 @@ export class HomePageComponent {
         this.snack.open(
           skipped
             ? `Fijos marcados presentes (${skipped} rotativo${skipped === 1 ? '' : 's'} omitido${skipped === 1 ? '' : 's'})`
-            : 'Todos marcados presentes hoy',
+            : holiday
+              ? 'Todos presentes (feriado)'
+              : 'Todos marcados presentes hoy',
           'OK',
           { duration: 2500 },
         );
@@ -741,6 +793,45 @@ export class HomePageComponent {
       error: (err) => {
         this.attendanceBusy.set(false);
         const msg = err?.error?.message ?? 'No se pudo marcar el presentismo';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  markAllHolidayToday(): void {
+    const shopId = this.shopContext.selectedShopId();
+    if (!shopId || !this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed())
+      return;
+    const emps = this.attendanceEmployees();
+    if (!emps.length) return;
+    const allHoliday = emps.every((e) => !!this.todayMarks()[e.employeeId]?.isHoliday);
+    const nextHoliday = !allHoliday;
+    const items = emps.map((e) => ({
+      employeeId: e.employeeId,
+      date: this.todayIso,
+      isHoliday: nextHoliday,
+    }));
+    this.attendanceBusy.set(true);
+    this.http.post(`${environment.apiUrl}/shops/${shopId}/attendance/bulk`, { items }).subscribe({
+      next: () => {
+        this.attendanceBusy.set(false);
+        const next = { ...this.todayMarks() };
+        for (const e of emps) {
+          next[e.employeeId] = {
+            isPresent: next[e.employeeId]?.isPresent ?? false,
+            isHoliday: nextHoliday,
+          };
+        }
+        this.todayMarks.set(next);
+        this.snack.open(
+          nextHoliday ? 'Todos marcados feriado hoy' : 'Feriado quitado a todos',
+          'OK',
+          { duration: 2500 },
+        );
+      },
+      error: (err) => {
+        this.attendanceBusy.set(false);
+        const msg = err?.error?.message ?? 'No se pudo marcar el feriado';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

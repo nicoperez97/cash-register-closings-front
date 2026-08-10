@@ -21,11 +21,17 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { PaymentsApiService, PaymentStatus, ShopPayment } from './payments-api.service';
+import {
+  PaymentsApiService,
+  PaymentStatus,
+  ShopPayment,
+  paymentMethodLabel as formatPaymentMethod,
+} from './payments-api.service';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
 import { PaymentDialogComponent } from './payment-dialog';
+import { PaymentPayDialogComponent } from './payment-pay-dialog';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
@@ -41,6 +47,7 @@ import { copyText, shareText } from '../../shared/utils/share-text';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { SpinnerComponent } from '../../shared/components/spinner';
+import { firstValueFrom } from 'rxjs';
 
 type PaymentKind = 'supplier' | 'employee';
 
@@ -329,6 +336,10 @@ function daysUntilDue(iso: string | null | undefined): number | null {
             <div>
               <span class="pay-card__label">Cuenta que paga</span>
               <strong>{{ p.accountName || '—' }}</strong>
+            </div>
+            <div>
+              <span class="pay-card__label">Forma de pago</span>
+              <strong>{{ paymentMethodLabel(p.paymentMethod) }}</strong>
             </div>
           </div>
 
@@ -954,6 +965,10 @@ export class PaymentsPage {
     return STATUS_LABEL[status] ?? status;
   }
 
+  paymentMethodLabel(method: ShopPayment['paymentMethod']): string {
+    return formatPaymentMethod(method);
+  }
+
   /** overdue | soon (≤3 días) | ok | none — solo para pagos abiertos. */
   dueUrgency(p: ShopPayment): 'overdue' | 'soon' | 'ok' | 'none' {
     if (!p.dueDate) return 'none';
@@ -1541,15 +1556,24 @@ export class PaymentsPage {
   }
 
   async pay(p: ShopPayment): Promise<void> {
-    const ok = await this.confirm.confirm(
-      'Marcar como pagado',
-      `¿Confirmás el pago de "${p.title}" por $${p.amount.toLocaleString('es-AR')}? Se crea un movimiento contable.`,
+    const result = await firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(PaymentPayDialogComponent, {
+            width: '420px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            data: { payment: p },
+          }),
+          'Marcar como pagado',
+        )
+        .afterClosed(),
     );
-    if (!ok) return;
+    if (!result?.paymentMethod) return;
     const shopId = this.shopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    this.api.pay(shopId, p.id).subscribe({
+    this.api.pay(shopId, p.id, { paymentMethod: result.paymentMethod }).subscribe({
       next: (paid) => {
         this.reload();
         this.dialogTitle.track(

@@ -1,5 +1,5 @@
 import { Movement } from '../../features/movements/movements-api.service';
-import { ShopPayment } from '../../features/payments/payments-api.service';
+import { ShopPayment, paymentMethodLabel } from '../../features/payments/payments-api.service';
 import { CashClosing } from '../../features/closings/closings-api.service';
 import { closingStatusLabel } from '../../core/i18n/labels';
 import { formatDateAr, formatMoneyAr } from '../utils/share-text';
@@ -61,6 +61,7 @@ export function paymentPaidDialogData(
     { label: 'Concepto', value: title },
     { label: targetLabel, value: target },
     { label: 'Cuenta', value: account },
+    { label: 'Forma de pago', value: paymentMethodLabel(payment.paymentMethod) },
     { label: 'Fecha de pago', value: paidAt },
     { label: 'Monto', value: amount, emphasize: true },
   ];
@@ -122,6 +123,9 @@ export function buildPaymentShareLines(
   }
   if (payment.accountName?.trim()) {
     lines.push(`Cuenta que paga: ${payment.accountName.trim()}`);
+  }
+  if (payment.paymentMethod) {
+    lines.push(`Forma de pago: ${paymentMethodLabel(payment.paymentMethod)}`);
   }
   if (payment.dueDate) {
     lines.push(`Vencimiento: ${formatDateAr(payment.dueDate)}`);

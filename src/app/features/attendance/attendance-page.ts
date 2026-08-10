@@ -83,8 +83,39 @@ const MONTH_LABELS = [
       <div class="panel-card mb-3 today-panel">
         <div class="today-panel__head">
           <div>
-            <h2 class="today-panel__title">Hoy</h2>
-            <p class="today-panel__date">{{ todayLabel() }}</p>
+            <h2 class="today-panel__title">{{ isQuickDayToday() ? 'Hoy' : 'Día' }}</h2>
+            <p class="today-panel__date">{{ quickDayLabel() }}</p>
+            <div class="today-panel__day-nav">
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Día anterior"
+                (click)="shiftQuickDay(-1)"
+              >
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <input
+                class="today-panel__day-input"
+                type="date"
+                [ngModel]="quickDayIso()"
+                (ngModelChange)="onQuickDayChange($event)"
+                aria-label="Fecha de asistencia"
+              />
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Día siguiente"
+                (click)="shiftQuickDay(1)"
+              >
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+              @if (!isQuickDayToday()) {
+                <button mat-stroked-button type="button" (click)="goQuickDayToday()">
+                  <mat-icon>today</mat-icon>
+                  Hoy
+                </button>
+              }
+            </div>
           </div>
           <div class="today-panel__actions">
             <button
@@ -96,7 +127,7 @@ const MONTH_LABELS = [
               <mat-icon>share</mat-icon>
               Compartir
             </button>
-            @if (canManage()) {
+            @if (canManage() && !isQuickDayClosed()) {
               <button
                 mat-flat-button
                 color="primary"
@@ -107,45 +138,72 @@ const MONTH_LABELS = [
                 <mat-icon>done_all</mat-icon>
                 Todos presentes
               </button>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="saving()"
+                (click)="markAllHolidayToday()"
+              >
+                <mat-icon>star</mat-icon>
+                Todos feriado
+              </button>
             }
           </div>
         </div>
-        <div class="today-panel__chips">
-          @for (emp of employees(); track emp.employeeId) {
-            <div
-              class="today-chip-row"
-              [class.today-chip-row--present]="isPresentToday(emp)"
-              [class.today-chip-row--rotating]="emp.type === 'ROTATING'"
-            >
-              <button
-                type="button"
-                class="today-chip"
-                [class.today-chip--present]="isPresentToday(emp)"
-                [class.today-chip--rotating]="emp.type === 'ROTATING'"
-                [disabled]="!canManage() || saving()"
-                [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
-                (click)="togglePresentToday(emp)"
+        @if (isQuickDayClosed()) {
+          <p class="today-panel__closed">Franco del local. No se marca asistencia ese día.</p>
+        } @else {
+          <div class="today-panel__chips">
+            @for (emp of employees(); track emp.employeeId) {
+              <div
+                class="today-chip-row"
+                [class.today-chip-row--present]="isPresentToday(emp)"
+                [class.today-chip-row--holiday]="isHolidayToday(emp)"
+                [class.today-chip-row--rotating]="emp.type === 'ROTATING'"
               >
-                <mat-icon>{{ isPresentToday(emp) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                {{ emp.fullName }}
-              </button>
-              <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving()">
-                <span>HS extra</span>
-                <input
-                  type="number"
-                  inputmode="decimal"
-                  min="0"
-                  step="0.5"
+                <button
+                  type="button"
+                  class="today-chip"
+                  [class.today-chip--present]="isPresentToday(emp)"
+                  [class.today-chip--holiday]="isHolidayToday(emp)"
+                  [class.today-chip--rotating]="emp.type === 'ROTATING'"
                   [disabled]="!canManage() || saving()"
-                  [ngModel]="overtimeToday(emp)"
-                  (ngModelChange)="onOvertimeTodayChange(emp, $event)"
-                  (click)="$event.stopPropagation()"
-                  aria-label="Horas extra de servicio"
-                />
-              </label>
-            </div>
-          }
-        </div>
+                  [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
+                  (click)="togglePresentToday(emp)"
+                  (contextmenu)="toggleHolidayToday($event, emp)"
+                  (pointerdown)="onPressStart($event, () => toggleHolidayToday($event, emp))"
+                  (pointermove)="onPressMove($event)"
+                  (pointerup)="onPressEnd()"
+                  (pointerleave)="onPressEnd()"
+                  (pointercancel)="onPressEnd()"
+                >
+                  <mat-icon>{{
+                    isHolidayToday(emp)
+                      ? 'star'
+                      : isPresentToday(emp)
+                        ? 'check_circle'
+                        : 'radio_button_unchecked'
+                  }}</mat-icon>
+                  {{ emp.fullName }}
+                </button>
+                <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving()">
+                  <span>HS extra</span>
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="0.5"
+                    [disabled]="!canManage() || saving()"
+                    [ngModel]="overtimeToday(emp)"
+                    (ngModelChange)="onOvertimeTodayChange(emp, $event)"
+                    (click)="$event.stopPropagation()"
+                    aria-label="Horas extra de servicio"
+                  />
+                </label>
+              </div>
+            }
+          </div>
+        }
       </div>
     }
 
@@ -212,7 +270,40 @@ const MONTH_LABELS = [
     } @else {
       <div class="panel-card panel-card--flush">
         <div class="panel-card__body">
-          <div class="att-table-wrap" #tableWrap>
+          <div class="att-board__head">
+            <div>
+              <h2 class="att-board__title">Tablero del mes</h2>
+              <p class="att-board__meta">
+                {{ months.find((m) => m.value === month())?.label }} {{ year() }}
+              </p>
+            </div>
+            @if (canManage()) {
+              <div class="att-board__actions">
+                @if (!markingUnlocked()) {
+                  <button mat-flat-button color="primary" type="button" (click)="unlockMarking()">
+                    <mat-icon>edit</mat-icon>
+                    Editar tablero
+                  </button>
+                } @else {
+                  <button mat-stroked-button type="button" (click)="lockMarking()">
+                    <mat-icon>lock</mat-icon>
+                    Listo
+                  </button>
+                }
+              </div>
+            }
+          </div>
+          @if (canManage() && !markingUnlocked()) {
+            <p class="att-board__lock-hint">
+              Activá <strong>Editar tablero</strong> para marcar celdas (viene bloqueado). Cada
+              guardado pide confirmación.
+            </p>
+          }
+          <div
+            class="att-table-wrap"
+            [class.att-table-wrap--locked]="canManage() && !markingUnlocked()"
+            #tableWrap
+          >
             <table class="att-table">
               <thead>
                 <tr>
@@ -222,12 +313,25 @@ const MONTH_LABELS = [
                       class="att-table__day"
                       [class.att-table__day--today]="isTodayColumn(d)"
                       [class.att-table__day--closed]="isClosedDay(d)"
+                      [class.att-table__day--holiday]="isDayHoliday(d)"
+                      [class.att-table__day--action]="canManage() && markingUnlocked() && !isClosedDay(d)"
                       [attr.data-day]="d"
-                      [attr.title]="isClosedDay(d) ? 'Franco' : isTodayColumn(d) ? 'Hoy' : null"
+                      [attr.title]="
+                        isClosedDay(d)
+                          ? 'Franco'
+                          : isTodayColumn(d)
+                            ? 'Hoy'
+                            : canManage() && markingUnlocked()
+                              ? 'Tocar para marcar/quitar feriado a todos'
+                              : null
+                      "
+                      (click)="onDayHeaderClick(d)"
                     >
                       <span class="att-table__day-num">{{ d }}</span>
                       @if (isClosedDay(d)) {
                         <span class="att-table__day-label">Franco</span>
+                      } @else if (isDayHoliday(d)) {
+                        <span class="att-table__day-label att-table__day-label--holiday">Feriado</span>
                       } @else if (isTodayColumn(d)) {
                         <span class="att-table__day-label">Hoy</span>
                       }
@@ -253,11 +357,12 @@ const MONTH_LABELS = [
                             [class.att-cell--closed]="isClosedDay(d)"
                             [class.att-cell--today]="isTodayColumn(d)"
                             [class.att-cell--ot]="overtimeHours(emp, d) > 0"
-                            [disabled]="!canManage() || saving() || isClosedDay(d)"
+                            [disabled]="!canManage() || saving() || isClosedDay(d) || !markingUnlocked()"
                             [matTooltip]="cellTooltip(emp, d)"
                             (click)="onCellClick(emp, d)"
                             (contextmenu)="toggleHoliday($event, emp, d)"
                             (pointerdown)="onPressStart($event, () => toggleHoliday($event, emp, d))"
+                            (pointermove)="onPressMove($event)"
                             (pointerup)="onPressEnd()"
                             (pointerleave)="onPressEnd()"
                             (pointercancel)="onPressEnd()"
@@ -270,7 +375,7 @@ const MONTH_LABELS = [
                               <mat-icon class="att-cell__icon">check</mat-icon>
                             }
                           </button>
-                          @if (canManage() && !isClosedDay(d)) {
+                          @if (canManage() && !isClosedDay(d) && markingUnlocked()) {
                             <button
                               type="button"
                               class="att-ot-btn"
@@ -313,10 +418,10 @@ const MONTH_LABELS = [
               <span class="att-legend__today-swatch"></span> Hoy
             </span>
             <span class="att-legend__hint">
-              Toque: presente/ausente · Mantener: feriado · «hs»: horas extra
+              Tablero: Editar → marcar · Mantener: feriado · Encabezado del día: feriado a todos
             </span>
             <span class="att-legend__hint att-legend__hint--desk">
-              En PC: click derecho = feriado · botón hs = horas extra
+              En PC: click = presente · click derecho / encabezado = feriado · hs = horas extra
             </span>
           </p>
         </div>
@@ -327,7 +432,49 @@ const MONTH_LABELS = [
     `
       .att-table-wrap {
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
         scroll-behavior: smooth;
+        touch-action: pan-x pan-y;
+      }
+      .att-table-wrap--locked {
+        opacity: 0.92;
+      }
+      /* Sin edición: no capturar touch en celdas/encabezados para poder scrollear */
+      .att-table-wrap--locked .att-cell,
+      .att-table-wrap--locked .att-ot-btn,
+      .att-table-wrap--locked .att-table__day {
+        pointer-events: none;
+        touch-action: pan-x pan-y;
+      }
+      .att-board__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.65rem;
+      }
+      .att-board__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .att-board__meta {
+        margin: 0.15rem 0 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .att-board__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .att-board__lock-hint {
+        margin: 0 0 0.75rem;
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5f6f76);
       }
       .att-table {
         border-collapse: collapse;
@@ -380,6 +527,18 @@ const MONTH_LABELS = [
         color: #fff;
         background: var(--guy-primary, #1d65a0);
       }
+      .att-table__day-label--holiday {
+        background: #e65100;
+      }
+      .att-table__day--holiday:not(.att-table__day--closed) .att-table__day-num {
+        color: #e65100;
+      }
+      .att-table__day--action {
+        cursor: pointer;
+      }
+      .att-table__day--action:hover {
+        background: color-mix(in srgb, #e65100 10%, #fff);
+      }
       .att-table__name {
         text-align: left;
         white-space: nowrap;
@@ -394,8 +553,8 @@ const MONTH_LABELS = [
         z-index: 1;
       }
       .att-cell {
-        width: 1.9rem;
-        height: 1.9rem;
+        width: 2.35rem;
+        height: 2.35rem;
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 8px;
         background: linear-gradient(
@@ -533,6 +692,29 @@ const MONTH_LABELS = [
         font-size: 0.85rem;
         color: var(--guy-muted, #5f6f76);
       }
+      .today-panel__day-nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.15rem;
+        margin-top: 0.45rem;
+      }
+      .today-panel__day-input {
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 10px;
+        padding: 0.35rem 0.55rem;
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+        background: #fff;
+        min-height: 40px;
+      }
+      .today-panel__closed {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--guy-muted, #5f6f76);
+      }
       .today-panel__actions {
         display: flex;
         flex-wrap: wrap;
@@ -557,7 +739,11 @@ const MONTH_LABELS = [
         background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, transparent);
         border-color: var(--guy-green, #2e7d32);
       }
-      .today-chip-row--rotating:not(.today-chip-row--present) {
+      .today-chip-row--holiday {
+        background: color-mix(in srgb, #e65100 12%, transparent);
+        border-color: #e65100;
+      }
+      .today-chip-row--rotating:not(.today-chip-row--present):not(.today-chip-row--holiday) {
         border-style: dashed;
         opacity: 0.92;
       }
@@ -568,7 +754,8 @@ const MONTH_LABELS = [
         border: 0;
         background: transparent;
         border-radius: 999px;
-        padding: 0.45rem 0.55rem 0.45rem 0.75rem;
+        padding: 0.55rem 0.65rem 0.55rem 0.85rem;
+        min-height: 44px;
         font-size: 0.9rem;
         font-weight: 600;
         color: var(--guy-navy, #003366);
@@ -579,8 +766,8 @@ const MONTH_LABELS = [
         width: 1.15rem;
         height: 1.15rem;
       }
-      .today-chip--present {
-        /* color comes from row */
+      .today-chip--holiday {
+        color: #e65100;
       }
       .today-chip:disabled {
         opacity: 0.7;
@@ -599,6 +786,7 @@ const MONTH_LABELS = [
       }
       .today-ot input {
         width: 3.1rem;
+        min-height: 36px;
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 8px;
         padding: 0.2rem 0.3rem;
@@ -614,8 +802,9 @@ const MONTH_LABELS = [
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.15rem;
-        min-width: 2.4rem;
+        gap: 0.28rem;
+        min-width: 2.6rem;
+        padding: 0.15rem 0;
       }
       .att-ot-btn {
         border: 0;
@@ -625,10 +814,12 @@ const MONTH_LABELS = [
         font-size: 0.58rem;
         font-weight: 800;
         letter-spacing: 0.02em;
-        padding: 0.08rem 0.28rem;
+        padding: 0.2rem 0.35rem;
+        min-height: 28px;
         line-height: 1.2;
         cursor: pointer;
         text-transform: lowercase;
+        touch-action: manipulation;
       }
       .att-ot-btn--set {
         background: color-mix(in srgb, #ef6c00 18%, #fff);
@@ -668,13 +859,20 @@ export class AttendancePage {
   readonly saving = signal(false);
   readonly exporting = signal(false);
   readonly sharing = signal(false);
+  /**
+   * Solo el tablero del mes: siempre bloqueado por defecto.
+   * La sección Hoy no usa este candado.
+   */
+  readonly markingUnlocked = signal(false);
   /** Evita que respuestas viejas pisen datos más nuevos al cambiar mes/refresco. */
   private monthLoadSeq = 0;
   private todayLoadSeq = 0;
-  /** Estado rápido de hoy (independiente del mes en pantalla). */
+  /** Estado del panel rápido (día seleccionado). */
   readonly todayMarks = signal<
     Record<string, { isPresent: boolean; isHoliday: boolean; overtimeHours: number }>
   >({});
+  /** Día seleccionado en el panel rápido (por defecto hoy). */
+  readonly quickDayIso = signal(this.toIsoDate(new Date()));
   private overtimeSaveTimers = new Map<string, number>();
 
   readonly employees = computed(() => this.data()?.employees ?? []);
@@ -682,17 +880,50 @@ export class AttendancePage {
     Array.from({ length: this.data()?.daysInMonth ?? 0 }, (_, i) => i + 1),
   );
 
+  /** Calendario “hoy” real (resaltado en el tablero). */
   readonly todayIso = this.toIsoDate(new Date());
   readonly todayDay = new Date().getDate();
   readonly todayYear = new Date().getFullYear();
   readonly todayMonth = new Date().getMonth() + 1;
 
-  todayLabel(): string {
-    return new Date().toLocaleDateString('es-AR', {
+  isQuickDayToday(): boolean {
+    return this.quickDayIso() === this.todayIso;
+  }
+
+  quickDayLabel(): string {
+    const [y, m, d] = this.quickDayIso().split('-').map(Number);
+    if (!y || !m || !d) return this.quickDayIso();
+    return new Date(y, m - 1, d).toLocaleDateString('es-AR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     });
+  }
+
+  onQuickDayChange(raw: string): void {
+    const next = String(raw ?? '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return;
+    if (next === this.quickDayIso()) return;
+    this.quickDayIso.set(next);
+  }
+
+  shiftQuickDay(delta: number): void {
+    const [y, m, d] = this.quickDayIso().split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + delta);
+    this.quickDayIso.set(this.toIsoDate(dt));
+  }
+
+  goQuickDayToday(): void {
+    this.quickDayIso.set(this.todayIso);
+  }
+
+  isQuickDayClosed(): boolean {
+    const closed = this.shops.selectedShop()?.closedWeekdays ?? [];
+    if (!closed.length) return false;
+    const [y, m, d] = this.quickDayIso().split('-').map(Number);
+    if (!y || !m || !d) return false;
+    return closed.includes(new Date(y, m - 1, d).getDay());
   }
 
   async shareToday(): Promise<void> {
@@ -700,7 +931,7 @@ export class AttendancePage {
     const marks = this.todayMarks();
     const payload = attendanceDaySharePayload({
       shopName,
-      dateLabel: this.todayLabel(),
+      dateLabel: this.quickDayLabel(),
       kind: 'servicio',
       employees: this.employees().map((emp) => {
         const m = marks[emp.employeeId];
@@ -731,16 +962,57 @@ export class AttendancePage {
       this.month();
       if (!shopId) {
         this.data.set(null);
-        this.todayMarks.set({});
         return;
       }
       void this.reload();
+    });
+    effect(() => {
+      const shopId = this.shopId();
+      this.quickDayIso();
+      if (!shopId) {
+        this.todayMarks.set({});
+        return;
+      }
       void this.loadTodayMarks();
     });
   }
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'attendance.manage');
+  }
+
+  unlockMarking(): void {
+    const ok = window.confirm(
+      '¿Editar el tablero del mes?\n\nCada cambio te va a pedir confirmación antes de guardarse.',
+    );
+    if (!ok) return;
+    this.markingUnlocked.set(true);
+    this.snack.open('Tablero en edición. Tocá Listo cuando termines.', 'OK', {
+      duration: 2200,
+    });
+  }
+
+  lockMarking(): void {
+    this.markingUnlocked.set(false);
+  }
+
+  /** Confirmación obligatoria antes de guardar un cambio del tablero. */
+  private confirmBoardSave(summary: string): boolean {
+    if (!this.markingUnlocked()) return false;
+    return window.confirm(`${summary}\n\n¿Confirmás guardar este cambio?`);
+  }
+
+  isHolidayToday(emp: AttendanceEmployeeRow): boolean {
+    return !!this.todayMarks()[emp.employeeId]?.isHoliday;
+  }
+
+  isDayHoliday(day: number): boolean {
+    if (this.isClosedDay(day)) return false;
+    return this.employees().some((e) => this.isHoliday(e, day));
+  }
+
+  isTodayHolidayDay(): boolean {
+    return Object.values(this.todayMarks()).some((m) => m.isHoliday);
   }
 
   exportExcel(): void {
@@ -821,22 +1093,44 @@ export class AttendancePage {
   }
 
   togglePresentToday(emp: AttendanceEmployeeRow): void {
-    if (!this.canManage()) return;
+    if (!this.canManage() || this.isQuickDayClosed()) return;
+    if (this.consumeLongPressClick()) return;
     const cur = this.todayMarks()[emp.employeeId] ?? {
       isPresent: false,
       isHoliday: false,
+      overtimeHours: 0,
     };
-    this.upsertToday(emp, { isPresent: !cur.isPresent });
+    const nextPresent = !cur.isPresent;
+    const patch: { isPresent: boolean; isHoliday?: boolean } = { isPresent: nextPresent };
+    if (nextPresent && (cur.isHoliday || this.isTodayHolidayDay())) {
+      patch.isHoliday = true;
+    }
+    this.upsertToday(emp, patch);
+  }
+
+  toggleHolidayToday(event: Event, emp: AttendanceEmployeeRow): void {
+    event.preventDefault();
+    this.clearPressTimer();
+    if (!this.canManage() || this.isQuickDayClosed()) return;
+    const cur = this.todayMarks()[emp.employeeId] ?? {
+      isPresent: false,
+      isHoliday: false,
+      overtimeHours: 0,
+    };
+    this.upsertToday(emp, { isHoliday: !cur.isHoliday });
   }
 
   markAllPresentToday(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage()) return;
+    if (!shopId || !this.canManage() || this.isQuickDayClosed()) return;
     const fixed = this.employees().filter((e) => e.type !== 'ROTATING');
+    const holiday = this.isTodayHolidayDay();
+    const date = this.quickDayIso();
     const items = fixed.map((e) => ({
       employeeId: e.employeeId,
-      date: this.todayIso,
+      date,
       isPresent: true,
+      ...(holiday ? { isHoliday: true } : {}),
     }));
     if (!items.length) {
       this.snack.open('No hay empleados fijos para marcar', 'OK', { duration: 2500 });
@@ -852,19 +1146,19 @@ export class AttendancePage {
           for (const e of fixed) {
             next[e.employeeId] = {
               isPresent: true,
-              isHoliday: next[e.employeeId]?.isHoliday ?? false,
+              isHoliday: holiday ? true : (next[e.employeeId]?.isHoliday ?? false),
               overtimeHours: next[e.employeeId]?.overtimeHours ?? 0,
             };
           }
           this.todayMarks.set(next);
-          if (this.year() === this.todayYear && this.month() === this.todayMonth) {
-            void this.reload();
-          }
+          this.syncBoardFromQuickDay(date);
           const skipped = this.employees().length - fixed.length;
           this.snack.open(
             skipped
               ? `Fijos marcados presentes (${skipped} rotativo${skipped === 1 ? '' : 's'} omitido${skipped === 1 ? '' : 's'})`
-              : 'Todos marcados presentes hoy',
+              : holiday
+                ? 'Todos presentes (feriado)'
+                : 'Todos marcados presentes',
             'OK',
             { duration: 2500 },
           );
@@ -877,15 +1171,143 @@ export class AttendancePage {
       });
   }
 
+  markAllHolidayToday(): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.canManage() || this.isQuickDayClosed()) return;
+    const emps = this.employees();
+    if (!emps.length) return;
+    const allHoliday = emps.every((e) => this.isHolidayToday(e));
+    const nextHoliday = !allHoliday;
+    const date = this.quickDayIso();
+    const items = emps.map((e) => ({
+      employeeId: e.employeeId,
+      date,
+      isHoliday: nextHoliday,
+    }));
+    this.saving.set(true);
+    this.http
+      .post(`${environment.apiUrl}/shops/${shopId}/attendance/bulk`, { items })
+      .subscribe({
+        next: () => {
+          this.saving.set(false);
+          const next = { ...this.todayMarks() };
+          for (const e of emps) {
+            next[e.employeeId] = {
+              isPresent: next[e.employeeId]?.isPresent ?? false,
+              isHoliday: nextHoliday,
+              overtimeHours: next[e.employeeId]?.overtimeHours ?? 0,
+            };
+          }
+          this.todayMarks.set(next);
+          this.syncBoardFromQuickDay(date);
+          this.snack.open(
+            nextHoliday ? 'Todos marcados feriado' : 'Feriado quitado a todos',
+            'OK',
+            { duration: 2500 },
+          );
+        },
+        error: (err) => {
+          this.saving.set(false);
+          const msg = err?.error?.message ?? 'No se pudo marcar el feriado';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  onDayHeaderClick(day: number): void {
+    if (!this.canManage() || !this.markingUnlocked() || this.isClosedDay(day) || this.saving()) {
+      return;
+    }
+    this.markHolidayForDay(day);
+  }
+
+  markHolidayForDay(day: number): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    const emps = this.employees();
+    if (!emps.length) return;
+    const allHoliday = emps.every((e) => this.isHoliday(e, day));
+    const nextHoliday = !allHoliday;
+    if (
+      !this.confirmBoardSave(
+        nextHoliday
+          ? `Marcar feriado el día ${day} para todos`
+          : `Quitar feriado el día ${day} a todos`,
+      )
+    ) {
+      return;
+    }
+    const date = this.dateFor(day);
+    const items = emps.map((e) => ({
+      employeeId: e.employeeId,
+      date,
+      isHoliday: nextHoliday,
+    }));
+    this.saving.set(true);
+    this.http
+      .post(`${environment.apiUrl}/shops/${shopId}/attendance/bulk`, { items })
+      .subscribe({
+        next: () => {
+          this.saving.set(false);
+          this.data.update((current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              employees: current.employees.map((e) => {
+                const prev = e.days[date] ?? {
+                  isPresent: false,
+                  isHoliday: false,
+                  overtimeHours: 0,
+                };
+                return {
+                  ...e,
+                  days: {
+                    ...e.days,
+                    [date]: { ...prev, isHoliday: nextHoliday },
+                  },
+                };
+              }),
+            };
+          });
+          if (date === this.quickDayIso()) {
+            const next = { ...this.todayMarks() };
+            for (const e of emps) {
+              next[e.employeeId] = {
+                isPresent: next[e.employeeId]?.isPresent ?? false,
+                isHoliday: nextHoliday,
+                overtimeHours: next[e.employeeId]?.overtimeHours ?? 0,
+              };
+            }
+            this.todayMarks.set(next);
+          }
+          this.snack.open(
+            nextHoliday
+              ? `Feriado marcado el día ${day} para todos`
+              : `Feriado quitado el día ${day}`,
+            'OK',
+            { duration: 2500 },
+          );
+        },
+        error: (err) => {
+          this.saving.set(false);
+          const msg = err?.error?.message ?? 'No se pudo marcar el feriado';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
+      });
+  }
+
   private loadTodayMarks(): Promise<void> {
     const shopId = this.shopId();
     if (!shopId) return Promise.resolve();
+    const iso = this.quickDayIso();
+    const [y, m] = iso.split('-').map(Number);
+    if (!y || !m) return Promise.resolve();
     const seq = ++this.todayLoadSeq;
     return firstValueFrom(
       this.http.get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
         params: {
-          year: String(this.todayYear),
-          month: String(this.todayMonth),
+          year: String(y),
+          month: String(m),
           _: String(Date.now()),
         },
         headers: {
@@ -901,7 +1323,7 @@ export class AttendancePage {
           { isPresent: boolean; isHoliday: boolean; overtimeHours: number }
         > = {};
         for (const e of data.employees ?? []) {
-          const cell = e.days[this.todayIso];
+          const cell = e.days[iso];
           marks[e.employeeId] = {
             isPresent: !!cell?.isPresent,
             isHoliday: !!cell?.isHoliday,
@@ -921,14 +1343,15 @@ export class AttendancePage {
     patch: { isPresent?: boolean; isHoliday?: boolean; overtimeHours?: number },
   ): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || this.isQuickDayClosed()) return;
+    const date = this.quickDayIso();
     this.saving.set(true);
     this.http
       .post<{ isPresent: boolean; isHoliday: boolean; overtimeHours: number }>(
         `${environment.apiUrl}/shops/${shopId}/attendance`,
         {
           employeeId: emp.employeeId,
-          date: this.todayIso,
+          date,
           ...patch,
         },
       )
@@ -943,29 +1366,11 @@ export class AttendancePage {
               overtimeHours: Number(result.overtimeHours ?? 0),
             },
           }));
-          if (this.year() === this.todayYear && this.month() === this.todayMonth) {
-            this.data.update((current) => {
-              if (!current) return current;
-              return {
-                ...current,
-                employees: current.employees.map((e) =>
-                  e.employeeId === emp.employeeId
-                    ? {
-                        ...e,
-                        days: {
-                          ...e.days,
-                          [this.todayIso]: {
-                            isPresent: !!result.isPresent,
-                            isHoliday: !!result.isHoliday,
-                            overtimeHours: result.overtimeHours ?? 0,
-                          },
-                        },
-                      }
-                    : e,
-                ),
-              };
-            });
-          }
+          this.patchBoardDay(emp.employeeId, date, {
+            isPresent: !!result.isPresent,
+            isHoliday: !!result.isHoliday,
+            overtimeHours: result.overtimeHours ?? 0,
+          });
         },
         error: (err) => {
           this.saving.set(false);
@@ -973,6 +1378,33 @@ export class AttendancePage {
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
+  }
+
+  private syncBoardFromQuickDay(date: string): void {
+    const [y, m] = date.split('-').map(Number);
+    if (this.year() === y && this.month() === m) {
+      void this.reload();
+    }
+  }
+
+  private patchBoardDay(
+    employeeId: string,
+    date: string,
+    cell: AttendanceDayCell,
+  ): void {
+    const [y, m] = date.split('-').map(Number);
+    if (this.year() !== y || this.month() !== m) return;
+    this.data.update((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        employees: current.employees.map((e) =>
+          e.employeeId === employeeId
+            ? { ...e, days: { ...e.days, [date]: cell } }
+            : e,
+        ),
+      };
+    });
   }
 
   private toIsoDate(d: Date): string {
@@ -1074,14 +1506,16 @@ export class AttendancePage {
   overtimeToday(emp: AttendanceEmployeeRow): number {
     const mark = this.todayMarks()[emp.employeeId];
     if (mark) return Number(mark.overtimeHours ?? 0);
-    if (this.year() === this.todayYear && this.month() === this.todayMonth) {
-      return this.overtimeHours(emp, this.todayDay);
+    const iso = this.quickDayIso();
+    const [y, m, d] = iso.split('-').map(Number);
+    if (this.year() === y && this.month() === m && d) {
+      return this.overtimeHours(emp, d);
     }
     return 0;
   }
 
   onOvertimeTodayChange(emp: AttendanceEmployeeRow, raw: number | string): void {
-    if (!this.canManage()) return;
+    if (!this.canManage() || this.isQuickDayClosed()) return;
     const n = Number(raw);
     const hours = Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
     this.todayMarks.update((m) => ({
@@ -1123,7 +1557,14 @@ export class AttendancePage {
       .afterClosed()
       .subscribe((hours) => {
         if (hours == null || hours === current) return;
-        this.upsert(emp, day, { overtimeHours: hours });
+        if (
+          !this.confirmBoardSave(
+            `Horas extra de ${emp.fullName} el ${this.dateFor(day)}: ${hours}h`,
+          )
+        ) {
+          return;
+        }
+        this.upsert(emp, day, { overtimeHours: hours }, true);
       });
   }
 
@@ -1136,11 +1577,12 @@ export class AttendancePage {
 
   cellTooltip(emp: AttendanceEmployeeRow, day: number): string {
     if (this.isClosedDay(day)) return 'Franco del local';
+    if (!this.markingUnlocked()) return 'Activá Editar tablero para marcar celdas';
     const cell = this.cellFor(emp, day);
     const parts = [cell.isPresent ? 'Presente' : 'Ausente'];
     if (cell.isHoliday) parts.push('Feriado');
     if (Number(cell.overtimeHours) > 0) parts.push(`${cell.overtimeHours} hs extra`);
-    parts.push('Toque: presente · Mantener: feriado · hs: horas extra');
+    parts.push('Toque: presente · Mantener: feriado · Encabezado: feriado a todos');
     return parts.join(' · ');
   }
 
@@ -1150,11 +1592,14 @@ export class AttendancePage {
   }
 
   onPressStart(event: PointerEvent, onLongPress: () => void): void {
-    if (!this.canManage()) return;
+    if (!this.canManage() || !this.markingUnlocked()) return;
     if (event.pointerType === 'mouse') return;
+    this.pressMoved = false;
+    this.pressOrigin = { x: event.clientX, y: event.clientY };
     this.clearPressTimer();
     this.pressTimer = window.setTimeout(() => {
       this.pressTimer = null;
+      if (this.pressMoved) return;
       this.skipNextClick = true;
       try {
         if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -1164,29 +1609,64 @@ export class AttendancePage {
         // ignore
       }
       onLongPress();
-    }, 480);
+    }, 550);
+  }
+
+  onPressMove(event: PointerEvent): void {
+    if (!this.pressOrigin) return;
+    const dx = event.clientX - this.pressOrigin.x;
+    const dy = event.clientY - this.pressOrigin.y;
+    if (dx * dx + dy * dy > 144) {
+      this.pressMoved = true;
+      this.skipNextClick = true;
+      this.clearPressTimer();
+    }
   }
 
   onPressEnd(): void {
     this.clearPressTimer();
+    this.pressOrigin = null;
   }
 
   togglePresent(emp: AttendanceEmployeeRow, day: number): void {
-    if (!this.canManage() || this.isClosedDay(day)) return;
+    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
     const cell = this.cellFor(emp, day);
-    this.upsert(emp, day, { isPresent: !cell.isPresent });
+    const nextPresent = !cell.isPresent;
+    const patch: { isPresent: boolean; isHoliday?: boolean } = { isPresent: nextPresent };
+    if (nextPresent && (cell.isHoliday || this.isDayHoliday(day))) {
+      patch.isHoliday = true;
+    }
+    const label = nextPresent ? 'presente' : 'ausente';
+    if (
+      !this.confirmBoardSave(
+        `${emp.fullName} · día ${day}: marcar ${label}${patch.isHoliday ? ' (feriado)' : ''}`,
+      )
+    ) {
+      return;
+    }
+    this.upsert(emp, day, patch, true);
   }
 
   toggleHoliday(event: Event, emp: AttendanceEmployeeRow, day: number): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage() || this.isClosedDay(day)) return;
+    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
     const cell = this.cellFor(emp, day);
-    this.upsert(emp, day, { isHoliday: !cell.isHoliday });
+    const next = !cell.isHoliday;
+    if (
+      !this.confirmBoardSave(
+        `${emp.fullName} · día ${day}: ${next ? 'marcar feriado' : 'quitar feriado'}`,
+      )
+    ) {
+      return;
+    }
+    this.upsert(emp, day, { isHoliday: next }, true);
   }
 
   private pressTimer: number | null = null;
   private skipNextClick = false;
+  private pressOrigin: { x: number; y: number } | null = null;
+  private pressMoved = false;
 
   private clearPressTimer(): void {
     if (this.pressTimer != null) {
@@ -1196,8 +1676,9 @@ export class AttendancePage {
   }
 
   private consumeLongPressClick(): boolean {
-    if (!this.skipNextClick) return false;
+    if (!this.skipNextClick && !this.pressMoved) return false;
     this.skipNextClick = false;
+    this.pressMoved = false;
     return true;
   }
 
@@ -1205,9 +1686,11 @@ export class AttendancePage {
     emp: AttendanceEmployeeRow,
     day: number,
     patch: { isPresent?: boolean; isHoliday?: boolean; overtimeHours?: number },
+    alreadyConfirmed = false,
   ): void {
     const shopId = this.shopId();
     if (!shopId) return;
+    if (!alreadyConfirmed && !this.confirmBoardSave(`${emp.fullName} · día ${day}`)) return;
     const date = this.dateFor(day);
     this.saving.set(true);
     this.http
@@ -1230,7 +1713,7 @@ export class AttendancePage {
               ),
             };
           });
-          if (date === this.todayIso) {
+          if (date === this.quickDayIso()) {
             this.todayMarks.update((m) => ({
               ...m,
               [emp.employeeId]: {
