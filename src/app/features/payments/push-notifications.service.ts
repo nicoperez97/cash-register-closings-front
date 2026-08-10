@@ -1,12 +1,22 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, isDevMode } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SwPush } from '@angular/service-worker';
+import { MatDialog } from '@angular/material/dialog';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { NotificationsInboxService } from './notifications-inbox.service';
+import {
+  PushEnableDialogComponent,
+  PushEnableDialogResult,
+} from './push-enable-dialog';
 
 type VapidResponse = { publicKey: string | null; enabled: boolean };
+
+const PUSH_PROMPT_SNOOZE_KEY = 'crc_push_prompt_snooze_until';
+/** No volver a pedir por 7 días si el usuario elige “Ahora no”. */
+const PUSH_PROMPT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 
 @Injectable({ providedIn: 'root' })
 export class PushNotificationsService {
@@ -14,6 +24,8 @@ export class PushNotificationsService {
   private readonly swPush = inject(SwPush);
   private readonly auth = inject(AuthService);
   private readonly inbox = inject(NotificationsInboxService);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
 
   readonly supported = signal(this.detectSupport());
   readonly permission = signal<NotificationPermission | 'unsupported'>(
@@ -25,6 +37,8 @@ export class PushNotificationsService {
   readonly iosHomeScreenHint = signal(this.isIos() && !this.isStandalone());
 
   private listening = false;
+  private promptInFlight: Promise<void> | null = null;
+  private promptedThisSession = false;
 
   /** Escucha push en foreground para refrescar el badge. */
   ensureListening(): void {
@@ -183,6 +197,96 @@ export class PushNotificationsService {
     } finally {
       this.busy.set(false);
       await this.refreshStatus();
+    }
+  }
+
+  /**
+   * Si el usuario está logueado y no tiene push activo, muestra un modal
+   * pidiendo activarlas (con snooze de 7 días si dice “Ahora no”).
+   */
+  async promptEnableIfNeeded(): Promise<void> {
+    if (this.promptInFlight) return this.promptInFlight;
+    this.promptInFlight = this.runPromptEnableIfNeeded().finally(() => {
+      this.promptInFlight = null;
+    });
+    return this.promptInFlight;
+  }
+
+  private async runPromptEnableIfNeeded(): Promise<void> {
+    if (!this.auth.isAuthenticated()) return;
+    if (this.promptedThisSession) return;
+    if (this.isSnoozed()) return;
+
+    await this.refreshStatus();
+    if (this.subscribed()) return;
+
+    const iosHint = this.iosHomeScreenHint();
+    const permission = this.permission();
+    const canEnableNow =
+      this.detectSupport() && this.swPush.isEnabled && permission !== 'unsupported';
+
+    // En ng serve / sin SW no tiene sentido pedir push (salvo iOS “agregar a inicio”).
+    if (!canEnableNow && !iosHint) {
+      if (isDevMode()) return;
+      if (permission === 'unsupported') return;
+    }
+
+    this.promptedThisSession = true;
+
+    const result = await firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(PushEnableDialogComponent, {
+            width: '420px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            autoFocus: 'dialog',
+            data: {
+              iosHomeScreen: iosHint,
+              permissionDenied: permission === 'denied',
+            },
+          }),
+          'Notificaciones push',
+        )
+        .afterClosed(),
+    ) as PushEnableDialogResult;
+
+    if (result === 'enabled') {
+      this.clearSnooze();
+      return;
+    }
+    // dismissed / cerrar: snooze (también en iOS / denied para no molestar cada refresh)
+    this.setSnooze();
+  }
+
+  private isSnoozed(): boolean {
+    try {
+      const raw = localStorage.getItem(PUSH_PROMPT_SNOOZE_KEY);
+      if (!raw) return false;
+      const until = Number(raw);
+      if (!Number.isFinite(until)) return false;
+      return Date.now() < until;
+    } catch {
+      return false;
+    }
+  }
+
+  private setSnooze(): void {
+    try {
+      localStorage.setItem(
+        PUSH_PROMPT_SNOOZE_KEY,
+        String(Date.now() + PUSH_PROMPT_SNOOZE_MS),
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  private clearSnooze(): void {
+    try {
+      localStorage.removeItem(PUSH_PROMPT_SNOOZE_KEY);
+    } catch {
+      // ignore
     }
   }
 }
