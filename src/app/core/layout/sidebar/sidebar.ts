@@ -9,7 +9,7 @@ import { APP_BRAND } from '../../config/app-brand';
 import { ShopContextService } from '../../shop/shop-context.service';
 import { AuthService } from '../../auth/auth.service';
 import { defaultHomeRoute } from '../../auth/auth.models';
-import { normalizeLogoUrl } from '../../utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../../utils/drive-url';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PageRefreshService } from '../../page-refresh.service';
 
@@ -179,14 +179,14 @@ export class SidebarComponent {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
-  shopLogo(url?: string | null): string | null {
-    return normalizeLogoUrl(url) || url?.trim() || null;
+  shopLogo(url?: string | null, shopId?: string | null): string | null {
+    return resolveShopLogoSrc(url, shopId) || normalizeLogoUrl(url) || null;
   }
 
   /** Logo para el avatar del switcher; null si no hay URL o falló la carga. */
   shopAvatarSrc(shopId: string, logoUrl?: string | null): string | null {
     if (this.brokenShopLogos().has(shopId)) return null;
-    return this.shopLogo(logoUrl);
+    return this.shopLogo(logoUrl, shopId);
   }
 
   logoSrc(): string {
