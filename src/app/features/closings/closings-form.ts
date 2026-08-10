@@ -33,6 +33,13 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
 import { CashBillCounterDialogComponent } from './cash-bill-counter-dialog';
 import { isUserVisible } from '../../shared/user-visibility';
+import { EmployeesApiService, Employee } from '../employees/employees-api.service';
+import { TipsApiService } from '../tips/tips-api.service';
+import {
+  TipsEditorComponent,
+  TipsEditorState,
+  tipDayToEditorState,
+} from '../tips/tips-editor';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -105,6 +112,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatDialogModule,
     MatDatepickerModule,
     MatStepperModule,
+    TipsEditorComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -504,15 +512,29 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                       <mat-label>Efectivo retirado</mat-label>
                       <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
                     </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Propinas</mat-label>
-                      <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
-                    </mat-form-field>
+                    @if (!tipsEnabled()) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Propinas</mat-label>
+                        <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
+                      </mat-form-field>
+                    }
                     <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
                       <mat-label>Notas</mat-label>
                       <textarea matInput rows="2" formControlName="notes"></textarea>
                     </mat-form-field>
                   </div>
+                  @if (tipsEnabled()) {
+                    <div class="closing-form__tips">
+                      <h4 class="closing-form__tips-title">Propinas del día</h4>
+                      <app-tips-editor
+                        [employees]="tipEmployees()"
+                        [value]="tipEditorValue()"
+                        [readonly]="isLocked() && !auth.isAdmin()"
+                        [showDelivery]="false"
+                        (valueChange)="onTipEditorChange($event)"
+                      />
+                    </div>
+                  }
                 </div>
               </div>
               <div class="closing-form__block">
@@ -1391,6 +1413,8 @@ export class ClosingsFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ClosingsApiService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
+  private readonly tipsApi = inject(TipsApiService);
+  private readonly employeesApi = inject(EmployeesApiService);
   private readonly shops = inject(ShopContextService);
   readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
@@ -1403,6 +1427,10 @@ export class ClosingsFormPage implements OnInit {
   private readonly breakpointObserver = inject(BreakpointObserver);
 
   readonly shop = this.shops.selectedShop;
+  readonly tipsEnabled = computed(() => !!this.shop()?.tipsEnabled);
+  readonly tipEmployees = signal<Employee[]>([]);
+  readonly tipEditorValue = signal<TipsEditorState | null>(null);
+  private tipDraft: TipsEditorState | null = null;
   readonly isEdit = signal(false);
   readonly status = signal<string | null>(null);
   readonly users = signal<ShopUserOption[]>([]);
@@ -1629,6 +1657,12 @@ export class ClosingsFormPage implements OnInit {
             duration: 3000,
           }),
       });
+      if (this.tipsEnabled()) {
+        this.employeesApi.list(shopId).subscribe({
+          next: (rows) => this.tipEmployees.set(rows.filter((e) => e.active)),
+          error: () => this.tipEmployees.set([]),
+        });
+      }
     }
 
     merge(this.posnetAmounts.valueChanges, this.dniTransfers.valueChanges)
@@ -1674,6 +1708,7 @@ export class ClosingsFormPage implements OnInit {
           );
         }
         this.syncPanelDefaults();
+        this.loadTipDay(c.businessDate);
       });
     } else {
       const today = this.currentBusinessDate();
@@ -1683,7 +1718,97 @@ export class ClosingsFormPage implements OnInit {
       });
       this.initPaymentLines();
       this.syncPanelDefaults();
+      this.loadTipDay(today);
     }
+
+    this.form
+      .get('businessDate')
+      ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((v) => {
+        const date = toDateString(v as Date | string | null);
+        if (date) this.loadTipDay(date);
+      });
+  }
+
+  onTipEditorChange(state: TipsEditorState) {
+    this.tipDraft = state;
+    const total =
+      Math.round(
+        (Number(state.cashAmount || 0) +
+          Number(state.transferAmount || 0) +
+          Number(state.ticketsAmount || 0)) *
+          100,
+      ) / 100;
+    this.form.patchValue({ tipsAmount: total || null }, { emitEvent: false });
+  }
+
+  private loadTipDay(businessDate: string) {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.tipsEnabled() || !/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+      return;
+    }
+    this.tipsApi.getByDate(shopId, businessDate).subscribe({
+      next: (day) => {
+        const state = tipDayToEditorState(day);
+        if (!day.id && this.n(this.form.getRawValue().tipsAmount) > 0 && !state.cashAmount) {
+          state.cashAmount = this.n(this.form.getRawValue().tipsAmount);
+        }
+        this.tipEditorValue.set(state);
+        this.tipDraft = state;
+        const total =
+          Math.round(
+            (state.cashAmount + state.transferAmount + state.ticketsAmount) * 100,
+          ) / 100;
+        if (total > 0) {
+          this.form.patchValue({ tipsAmount: total }, { emitEvent: false });
+        }
+      },
+      error: () => {
+        const tips = this.n(this.form.getRawValue().tipsAmount);
+        const state: TipsEditorState = {
+          cashAmount: tips,
+          transferAmount: 0,
+          ticketsAmount: 0,
+          notes: '',
+          allocations: [],
+        };
+        this.tipEditorValue.set(state);
+        this.tipDraft = state;
+      },
+    });
+  }
+
+  private tipPayloadForClosing(): Record<string, unknown> {
+    if (!this.tipsEnabled() || !this.tipDraft) return {};
+    const d = this.tipDraft;
+    const allocSum = Math.round(
+      d.allocations.reduce((s, a) => s + Number(a.amount || 0), 0) * 100,
+    ) / 100;
+    const total =
+      Math.round(
+        (Number(d.cashAmount || 0) +
+          Number(d.transferAmount || 0) +
+          Number(d.ticketsAmount || 0)) *
+          100,
+      ) / 100;
+    if (d.allocations.length && Math.abs(allocSum - total) > 0.02) {
+      this.snack.open('El reparto de propinas debe sumar el total', 'OK', {
+        duration: 3000,
+      });
+      return { __tipsInvalid: true };
+    }
+    return {
+      tipCashAmount: Number(d.cashAmount || 0),
+      tipTransferAmount: Number(d.transferAmount || 0),
+      tipTicketsAmount: Number(d.ticketsAmount || 0),
+      tipNotes: d.notes?.trim() || null,
+      tipAllocations: d.allocations.map((a) => ({
+        employeeId: a.employeeId,
+        amount: Number(a.amount || 0),
+        delivered: !!a.delivered,
+      })),
+      tipsAmount: total,
+    };
   }
 
   money(value: number): string {
@@ -2014,7 +2139,7 @@ export class ClosingsFormPage implements OnInit {
       });
     }
 
-    const body: Partial<CashClosing> = {
+    const body: Partial<CashClosing> & Record<string, unknown> = {
       ...raw,
       businessDate: toDateString(raw.businessDate as Date | string | null),
       posSystemAmount: this.n(raw.posSystemAmount),
@@ -2058,7 +2183,10 @@ export class ClosingsFormPage implements OnInit {
           category: e.category,
         })),
       notes: String(raw.notes ?? '').trim() || null,
+      ...this.tipPayloadForClosing(),
     };
+    if (body['__tipsInvalid']) return null;
+    delete body['__tipsInvalid'];
     // dniTransfers es solo UI; no lo mandamos al API
     delete (body as { dniTransfers?: unknown }).dniTransfers;
     return { shopId, body };

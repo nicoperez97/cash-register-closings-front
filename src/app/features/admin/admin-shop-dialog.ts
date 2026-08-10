@@ -21,6 +21,7 @@ export interface AdminShopRow {
   coversEnabled?: boolean;
   reservationsEnabled?: boolean;
   waitingListEnabled?: boolean;
+  tipsEnabled?: boolean;
   defaultChangeAmount?: number;
   openingTime?: string;
   logoUrl?: string | null;
@@ -145,6 +146,7 @@ function slugify(raw: string): string {
         <mat-slide-toggle formControlName="coversEnabled">Comensales habilitados</mat-slide-toggle>
         <mat-slide-toggle formControlName="reservationsEnabled">Reservas habilitadas</mat-slide-toggle>
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
+        <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>
 
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Local habilitado</mat-slide-toggle>
@@ -209,6 +211,7 @@ export class AdminShopDialogComponent {
     coversEnabled: [this.shop?.coversEnabled ?? false],
     reservationsEnabled: [this.shop ? !!this.shop.reservationsEnabled : true],
     waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
+    tipsEnabled: [this.shop ? !!this.shop.tipsEnabled : false],
     active: [this.shop?.active ?? true],
   });
 
@@ -243,6 +246,7 @@ export class AdminShopDialogComponent {
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,
       waitingListEnabled: raw.waitingListEnabled,
+      tipsEnabled: raw.tipsEnabled,
     };
     this.busy.set(true);
 

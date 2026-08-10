@@ -198,6 +198,18 @@ function formatDayLabelEs(isoDate: string): string {
         subtitle="Cantidad de tickets"
         [points]="dayTicketPoints()"
       />
+      <app-hbar-chart
+        title="Pareto 80/20"
+        subtitle="Acumulado de platos por importe"
+        [items]="paretoSlices()"
+        [maxItems]="15"
+      />
+      <app-line-chart
+        class="charts-grid__wide"
+        title="Vs mismo día semana anterior"
+        subtitle="Δ % importe"
+        [points]="weekdayDeltaPoints()"
+      />
     </div>
 
     <div class="panel-card panel-card--flush mb-3">
@@ -385,6 +397,20 @@ export class SalesProductsPage {
     })),
   );
 
+  readonly paretoSlices = computed<ChartSlice[]>(() =>
+    (this.summary()?.pareto ?? []).map((p) => ({
+      label: `${p.label} (${(p.cumulativeShare * 100).toFixed(0)}%)`,
+      value: p.amount,
+    })),
+  );
+
+  readonly weekdayDeltaPoints = computed<ChartPoint[]>(() =>
+    (this.summary()?.sameWeekdayCompare ?? []).map((d) => ({
+      label: formatDayLabelEs(d.date),
+      value: d.deltaPct ?? 0,
+    })),
+  );
+
   readonly productColumns: DataTableColumn[] = [
     { key: 'productCode', label: 'Código' },
     { key: 'productName', label: 'Plato' },
@@ -409,6 +435,24 @@ export class SalesProductsPage {
       label: '%',
       format: (r) =>
         `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
+    },
+    {
+      key: 'ticketContribution',
+      label: '$/ticket',
+      format: (r) =>
+        `$ ${Number(r['ticketContribution'] ?? 0).toLocaleString('es-AR', {
+          maximumFractionDigits: 0,
+        })}`,
+    },
+    {
+      key: 'trendPct',
+      label: 'Tendencia',
+      format: (r) => {
+        const v = r['trendPct'];
+        if (v == null || !Number.isFinite(Number(v))) return '—';
+        const n = Number(v);
+        return `${n > 0 ? '+' : ''}${n.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
+      },
     },
   ];
 
@@ -592,8 +636,18 @@ export class SalesProductsPage {
         this.allSubcategoryOptions.set(s.filterOptions?.subcategories ?? []);
         this.paymentOptions.set(s.filterOptions?.paymentCodes ?? []);
         const t = s.totals;
+        const delta =
+          t.amountDeltaPct != null && Number.isFinite(t.amountDeltaPct)
+            ? `${t.amountDeltaPct > 0 ? '+' : ''}${t.amountDeltaPct.toLocaleString('es-AR', {
+                maximumFractionDigits: 1,
+              })}%`
+            : undefined;
         this.kpis.set([
-          { label: 'Importe total', value: `$ ${Number(t.amount).toLocaleString('es-AR')}` },
+          {
+            label: 'Importe total',
+            value: `$ ${Number(t.amount).toLocaleString('es-AR')}`,
+            hint: delta,
+          },
           {
             label: 'Unidades',
             value: Number(t.qty).toLocaleString('es-AR', { maximumFractionDigits: 1 }),
@@ -606,6 +660,26 @@ export class SalesProductsPage {
             value: `$ ${Number(t.avgTicketAmount).toLocaleString('es-AR', {
               maximumFractionDigits: 0,
             })}`,
+          },
+          {
+            label: 'Ticket máx / mín',
+            value: `$ ${Number(t.maxTicketAmount ?? 0).toLocaleString('es-AR', {
+              maximumFractionDigits: 0,
+            })} / $ ${Number(t.minTicketAmount ?? 0).toLocaleString('es-AR', {
+              maximumFractionDigits: 0,
+            })}`,
+          },
+          {
+            label: 'Platos / ticket',
+            value: Number(t.dishesPerTicket ?? 0).toLocaleString('es-AR', {
+              maximumFractionDigits: 2,
+            }),
+          },
+          {
+            label: '% top 10',
+            value: `${((t.top10Share ?? 0) * 100).toLocaleString('es-AR', {
+              maximumFractionDigits: 1,
+            })}%`,
           },
         ]);
       },

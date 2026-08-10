@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, interval, merge, startWith, switchMap, tap } from 'rxjs';
-import { normalizeLogoUrl } from '../../core/utils/drive-url';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicWaitingBoard,
   ReservationsApiService,
@@ -669,7 +669,8 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
 
   readonly logoUrl = computed(() => {
     const raw = this.board()?.shop.logoUrl;
-    return normalizeLogoUrl(raw) || raw?.trim() || null;
+    const shopId = this.board()?.shop?.id;
+    return resolveShopLogoSrc(raw, shopId) || normalizeLogoUrl(raw) || raw?.trim() || null;
   });
 
   readonly inside = computed(() => {

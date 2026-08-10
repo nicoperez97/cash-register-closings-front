@@ -31,6 +31,7 @@ import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.se
 import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
 import { CashWithdrawalsInboxService } from '../../features/cash-withdrawals/cash-withdrawals-inbox.service';
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
+import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -59,6 +60,7 @@ export class MainLayoutComponent {
   private readonly paymentsInbox = inject(PaymentsInboxService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
+  private readonly tipsInbox = inject(TipsInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
   readonly pageRefresh = inject(PageRefreshService);
 
@@ -83,7 +85,18 @@ export class MainLayoutComponent {
     const user = this.auth.currentUser();
     const shopId = this.shopContext.selectedShopId();
     if (isCashierOnly(user, shopId)) {
-      return [{ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' }];
+      const items: NavItem[] = [
+        { label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' },
+      ];
+      if (shopId && hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips')) {
+        items.push({
+          label: 'Propinas',
+          route: '/tips',
+          icon: 'volunteer_activism',
+          badge: this.tipsInbox.pendingCount() || null,
+        });
+      }
+      return items;
     }
     if (isProducerOnly(user, shopId)) {
       const items: NavItem[] = [
@@ -138,6 +151,15 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
       operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips')) {
+      operacion.push({
+        label: 'Propinas',
+        route: '/tips',
+        icon: 'volunteer_activism',
+        badge: this.tipsInbox.pendingCount() || null,
+        badgeInGroup: false,
+      });
     }
     if (operacion.length) {
       items.push({
@@ -437,6 +459,9 @@ export class MainLayoutComponent {
         hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')
       );
     }
+    if (path.startsWith('/tips')) {
+      return hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips');
+    }
     if (path.startsWith('/payments')) {
       return hasShopPermission(user, shopId, 'payments.read');
     }
@@ -475,11 +500,12 @@ export class MainLayoutComponent {
     }
   }
 
-  private shopFeature(feature: 'reservations' | 'waitingList'): boolean {
+  private shopFeature(feature: 'reservations' | 'waitingList' | 'tips'): boolean {
     const shop = this.shopContext.selectedShop();
     if (!shop) return false;
     if (feature === 'reservations') return !!shop.reservationsEnabled;
-    return !!shop.waitingListEnabled;
+    if (feature === 'waitingList') return !!shop.waitingListEnabled;
+    return !!shop.tipsEnabled;
   }
 
   logout(): void {

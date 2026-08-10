@@ -57,6 +57,7 @@ export interface ReservationsSummaryResponse {
 
 export interface PublicReservationsBoard {
   shop: {
+    id?: string;
     name: string;
     slug: string;
     logoUrl?: string | null;
@@ -91,6 +92,7 @@ export interface PublicReservationsBoard {
 
 export interface PublicWaitingBoard {
   shop: {
+    id?: string;
     name: string;
     slug: string;
     logoUrl?: string | null;
