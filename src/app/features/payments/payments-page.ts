@@ -812,6 +812,8 @@ export class PaymentsPage {
   readonly focusedPaymentId = signal<string | null>(null);
   private deepLinkHandled = false;
   private focusClearTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Scroll a restaurar tras un reload suave (validar/pagar/etc.). */
+  private pendingScrollY: number | null = null;
 
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -1080,7 +1082,7 @@ export class PaymentsPage {
     this.api.uploadReceiptFile(shopId, p.id, file).subscribe({
       next: () => {
         this.snack.open('Comprobante de pago guardado', 'OK', { duration: 2500 });
-        this.reload();
+        this.reload({ preserveScroll: true });
       },
       error: (err) => this.showErr(err),
     });
@@ -1291,25 +1293,46 @@ export class PaymentsPage {
     });
   }
 
-  reload(): void {
+  reload(opts?: { preserveScroll?: boolean }): void {
     const shopId = this.shopId();
     if (!shopId) {
       this.loading.set(false);
       return;
     }
-    const opts = this.listFilterOpts();
-    this.loading.set(true);
-    this.api.list(shopId, opts).subscribe({
+    if (opts?.preserveScroll) {
+      this.pendingScrollY =
+        typeof window !== 'undefined'
+          ? window.scrollY || document.documentElement.scrollTop || 0
+          : 0;
+    } else {
+      this.pendingScrollY = null;
+    }
+    const optsList = this.listFilterOpts();
+    // Si ya hay filas, no reemplazar la lista por el spinner (salta al top).
+    const soft = this.rows().length > 0;
+    if (!soft) this.loading.set(true);
+    this.api.list(shopId, optsList).subscribe({
       next: (rows) => {
         this.rows.set(rows);
         this.loading.set(false);
         this.paymentsInbox.refresh();
         void this.afterListLoaded();
+        this.restoreScrollIfNeeded();
       },
       error: () => {
         this.loading.set(false);
+        this.pendingScrollY = null;
         this.snack.open('No se pudieron cargar los pagos', 'OK', { duration: 3000 });
       },
+    });
+  }
+
+  private restoreScrollIfNeeded(): void {
+    const y = this.pendingScrollY;
+    this.pendingScrollY = null;
+    if (y == null || typeof window === 'undefined') return;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: y, left: 0, behavior: 'instant' as ScrollBehavior });
     });
   }
 
@@ -1507,7 +1530,7 @@ export class PaymentsPage {
       .afterClosed()
       .subscribe((ok) => {
         if (ok) {
-          this.reload();
+          this.reload({ preserveScroll: true });
           this.reloadMeta(shopId);
         }
       });
@@ -1519,7 +1542,7 @@ export class PaymentsPage {
     this.api.validate(shopId, p.id).subscribe({
       next: () => {
         this.snack.open('Pago validado', 'OK', { duration: 2500 });
-        this.reload();
+        this.reload({ preserveScroll: true });
       },
       error: (err) => this.showErr(err),
     });
@@ -1549,7 +1572,7 @@ export class PaymentsPage {
     this.api.reject(shopId, p.id).subscribe({
       next: () => {
         this.snack.open('Pago rechazado', 'OK', { duration: 2500 });
-        this.reload();
+        this.reload({ preserveScroll: true });
       },
       error: (err) => this.showErr(err),
     });
@@ -1575,7 +1598,7 @@ export class PaymentsPage {
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     this.api.pay(shopId, p.id, { paymentMethod: result.paymentMethod }).subscribe({
       next: (paid) => {
-        this.reload();
+        this.reload({ preserveScroll: true });
         this.dialogTitle.track(
           this.dialog.open(RecordSavedDialogComponent, {
             width: '440px',
@@ -1611,7 +1634,7 @@ export class PaymentsPage {
           'OK',
           { duration: 2500 },
         );
-        this.reload();
+        this.reload({ preserveScroll: true });
       },
       error: (err) => this.showErr(err),
     });
@@ -1634,7 +1657,7 @@ export class PaymentsPage {
       this.api.uploadReceiptFile(shopId, paid.id, file).subscribe({
         next: () => {
           this.snack.open('Comprobante de pago guardado', 'OK', { duration: 2500 });
-          this.reload();
+          this.reload({ preserveScroll: true });
         },
         error: (err) => this.showErr(err),
       });
@@ -1661,7 +1684,7 @@ export class PaymentsPage {
     this.api.cancel(shopId, p.id).subscribe({
       next: () => {
         this.snack.open('Pago cancelado', 'OK', { duration: 2500 });
-        this.reload();
+        this.reload({ preserveScroll: true });
       },
       error: (err) => this.showErr(err),
     });
@@ -1675,7 +1698,7 @@ export class PaymentsPage {
     this.api.remove(shopId, p.id).subscribe({
       next: () => {
         this.snack.open('Pago eliminado', 'OK', { duration: 2500 });
-        this.reload();
+        this.reload({ preserveScroll: true });
       },
       error: (err) => this.showErr(err),
     });

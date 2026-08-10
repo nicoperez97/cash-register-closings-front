@@ -322,9 +322,12 @@ export class HomePageComponent {
   readonly sharingAttendance = signal(false);
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
   readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
-  readonly paymentsPending = signal<number | null>(null);
-  readonly paymentsToValidateMine = signal<number | null>(null);
-  readonly paymentsToPayMine = signal<number | null>(null);
+  readonly supplierPaymentsPending = signal<number | null>(null);
+  readonly supplierPaymentsToValidateMine = signal<number | null>(null);
+  readonly supplierPaymentsToPayMine = signal<number | null>(null);
+  readonly employeePaymentsPending = signal<number | null>(null);
+  readonly employeePaymentsToValidateMine = signal<number | null>(null);
+  readonly employeePaymentsToPayMine = signal<number | null>(null);
 
   private readonly todayIso = this.toIso(new Date());
 
@@ -397,24 +400,47 @@ export class HomePageComponent {
     }
 
     if (this.canViewPayments()) {
-      const pending = this.paymentsPending();
-      const toValidate = this.paymentsToValidateMine();
-      const toPay = this.paymentsToPayMine();
-      items.push({
-        label: 'Pagos pendientes',
-        value: pending != null ? pending : '—',
-        hint: pending === 0 ? 'Al día' : undefined,
-        details:
-          pending != null && pending > 0
-            ? [
-                { label: 'A validar (vos)', value: toValidate ?? 0 },
-                { label: 'A pagar (vos)', value: toPay ?? 0 },
-              ]
-            : undefined,
-        icon: 'payments',
-        route: '/payments/suppliers',
-        tone: pending != null && pending > 0 ? 'warn' : pending === 0 ? 'ok' : 'default',
-      });
+      const pushPaymentKpi = (
+        label: string,
+        pending: number | null,
+        toValidate: number | null,
+        toPay: number | null,
+        route: string,
+        icon: string,
+      ) => {
+        items.push({
+          label,
+          value: pending != null ? pending : '—',
+          hint: pending === 0 ? 'Al día' : undefined,
+          details:
+            pending != null && pending > 0
+              ? [
+                  { label: 'A validar (vos)', value: toValidate ?? 0 },
+                  { label: 'A pagar (vos)', value: toPay ?? 0 },
+                ]
+              : undefined,
+          icon,
+          route,
+          tone: pending != null && pending > 0 ? 'warn' : pending === 0 ? 'ok' : 'default',
+        });
+      };
+
+      pushPaymentKpi(
+        'Pagos proveedores',
+        this.supplierPaymentsPending(),
+        this.supplierPaymentsToValidateMine(),
+        this.supplierPaymentsToPayMine(),
+        '/payments/suppliers',
+        'storefront',
+      );
+      pushPaymentKpi(
+        'Pagos empleados',
+        this.employeePaymentsPending(),
+        this.employeePaymentsToValidateMine(),
+        this.employeePaymentsToPayMine(),
+        '/payments/employees',
+        'badge',
+      );
     }
 
     if (this.canViewBalances()) {
@@ -476,9 +502,12 @@ export class HomePageComponent {
       }
 
       if (!shopId || !this.canViewPayments()) {
-        this.paymentsPending.set(null);
-        this.paymentsToValidateMine.set(null);
-        this.paymentsToPayMine.set(null);
+        this.supplierPaymentsPending.set(null);
+        this.supplierPaymentsToValidateMine.set(null);
+        this.supplierPaymentsToPayMine.set(null);
+        this.employeePaymentsPending.set(null);
+        this.employeePaymentsToValidateMine.set(null);
+        this.employeePaymentsToPayMine.set(null);
       } else {
         this.paymentsApi.list(shopId).subscribe({
           next: (rows) => {
@@ -486,27 +515,36 @@ export class HomePageComponent {
             const pending = rows.filter(
               (p) => p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED',
             );
-            this.paymentsPending.set(pending.length);
-            this.paymentsToValidateMine.set(
+            const suppliers = pending.filter((p) => !!p.supplierId);
+            const employees = pending.filter((p) => !!p.employeeId);
+
+            const mineValidate = (list: typeof pending) =>
               uid
-                ? pending.filter(
+                ? list.filter(
                     (p) =>
                       p.status === 'PENDING_VALIDATION' && p.validatorUserId === uid,
                   ).length
-                : 0,
-            );
-            this.paymentsToPayMine.set(
+                : 0;
+            const minePay = (list: typeof pending) =>
               uid
-                ? pending.filter(
-                    (p) => p.status === 'VALIDATED' && p.payerUserId === uid,
-                  ).length
-                : 0,
-            );
+                ? list.filter((p) => p.status === 'VALIDATED' && p.payerUserId === uid)
+                    .length
+                : 0;
+
+            this.supplierPaymentsPending.set(suppliers.length);
+            this.supplierPaymentsToValidateMine.set(mineValidate(suppliers));
+            this.supplierPaymentsToPayMine.set(minePay(suppliers));
+            this.employeePaymentsPending.set(employees.length);
+            this.employeePaymentsToValidateMine.set(mineValidate(employees));
+            this.employeePaymentsToPayMine.set(minePay(employees));
           },
           error: () => {
-            this.paymentsPending.set(null);
-            this.paymentsToValidateMine.set(null);
-            this.paymentsToPayMine.set(null);
+            this.supplierPaymentsPending.set(null);
+            this.supplierPaymentsToValidateMine.set(null);
+            this.supplierPaymentsToPayMine.set(null);
+            this.employeePaymentsPending.set(null);
+            this.employeePaymentsToValidateMine.set(null);
+            this.employeePaymentsToPayMine.set(null);
           },
         });
       }
