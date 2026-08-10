@@ -72,17 +72,7 @@ export function paymentPaidDialogData(
     });
   }
 
-  const shareText = [
-    `Pago realizado — ${shopName}`,
-    `Concepto: ${title}`,
-    `${targetLabel}: ${target}`,
-    `Cuenta: ${account}`,
-    `Fecha: ${paidAt}`,
-    `Monto: ${amount}`,
-    payment.movementId ? 'Movimiento contable: creado' : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const shareText = buildPaymentShareLines(payment, shopName).join('\n');
 
   return {
     title: 'Pago registrado',
@@ -95,12 +85,100 @@ export function paymentPaidDialogData(
   };
 }
 
-export function paymentSharePayload(payment: ShopPayment, shopName: string): {
+const PAYMENT_STATUS_SHARE_LABEL: Record<string, string> = {
+  PENDING_VALIDATION: 'Pendiente de validar',
+  VALIDATED: 'Validado · por pagar',
+  REJECTED: 'Rechazado',
+  PAID: 'Pagado',
+  CANCELLED: 'Cancelado',
+};
+
+/** Texto completo para compartir un pago (datos + enlace opcional). */
+export function buildPaymentShareLines(
+  payment: ShopPayment,
+  shopName: string,
+  link?: string | null,
+): string[] {
+  const title = payment.title?.trim() || 'Sin concepto';
+  const amount = formatMoneyAr(payment.amount);
+  const target = payment.supplierName || payment.employeeName || '—';
+  const targetLabel = payment.supplierId ? 'Proveedor' : 'Empleado';
+  const lines = [
+    `Pago — ${shopName}`,
+    `Concepto: ${title}`,
+    `Estado: ${PAYMENT_STATUS_SHARE_LABEL[payment.status] ?? payment.status}`,
+    `Monto: ${amount}`,
+    `${targetLabel}: ${target}`,
+  ];
+
+  if (payment.supplierBankAlias?.trim()) {
+    lines.push(`Alias / CBU: ${payment.supplierBankAlias.trim()}`);
+  }
+  if (payment.payerName?.trim()) {
+    lines.push(`Paga: ${payment.payerName.trim()}`);
+  }
+  if (payment.validatorName?.trim()) {
+    lines.push(`Valida: ${payment.validatorName.trim()}`);
+  }
+  if (payment.accountName?.trim()) {
+    lines.push(`Cuenta que paga: ${payment.accountName.trim()}`);
+  }
+  if (payment.dueDate) {
+    lines.push(`Vencimiento: ${formatDateAr(payment.dueDate)}`);
+  }
+  if (payment.paidAt) {
+    lines.push(`Pagado: ${formatDateAr(payment.paidAt)}`);
+  }
+  if (payment.notes?.trim()) {
+    lines.push(`Notas: ${payment.notes.trim()}`);
+  }
+  if (payment.invoiceLegalName?.trim() || payment.invoiceNumber?.trim()) {
+    const inv = [
+      payment.invoiceType?.trim(),
+      payment.invoiceNumber?.trim(),
+      payment.invoiceLegalName?.trim(),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    if (inv) lines.push(`Factura: ${inv}`);
+  }
+  if (payment.supplierTaxId?.trim() || payment.invoiceTaxId?.trim()) {
+    lines.push(`CUIT/CUIL: ${(payment.invoiceTaxId || payment.supplierTaxId || '').trim()}`);
+  }
+
+  const url = String(link || '').trim();
+  if (url) {
+    lines.push('', `Abrir pago: ${url}`);
+  }
+
+  return lines;
+}
+
+export function paymentSharePayload(
+  payment: ShopPayment,
+  shopName: string,
+  opts?: { link?: string | null },
+): {
   title: string;
   text: string;
 } {
-  const data = paymentPaidDialogData(payment, shopName);
-  return { title: data.shareTitle, text: data.shareText || data.shareTitle };
+  return {
+    title: `Pago · ${shopName}`,
+    text: buildPaymentShareLines(payment, shopName, opts?.link).join('\n'),
+  };
+}
+
+/** URL directa al pago en la app (mismo origen). */
+export function paymentDeepLink(payment: ShopPayment): string {
+  if (typeof window === 'undefined' || !window.location?.origin) {
+    const kind = payment.supplierId ? 'suppliers' : 'employees';
+    return `/payments/${kind}?payment=${encodeURIComponent(payment.id)}`;
+  }
+  const kind = payment.supplierId ? 'suppliers' : 'employees';
+  const url = new URL(`/payments/${kind}`, window.location.origin);
+  url.searchParams.set('payment', payment.id);
+  if (payment.shopId) url.searchParams.set('shop', payment.shopId);
+  return url.toString();
 }
 
 export function movementSharePayload(movement: Movement, shopName: string): {
