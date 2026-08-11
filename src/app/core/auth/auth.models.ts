@@ -321,7 +321,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Reservas',
     icon: 'table_restaurant',
     group: 'daily',
-    hint: 'Reservas del día (adentro / afuera)',
+    hint: 'Reservas del día, solicitudes web y confirmar mesas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -479,6 +479,15 @@ export const MODULE_PRESETS: Array<{
     modules: { attendance: 'self' },
   },
   {
+    id: 'reservations-only',
+    label: 'Reservas',
+    description: 'Solo toma y confirma reservas',
+    icon: 'table_restaurant',
+    modules: {
+      reservations: 'manage',
+    },
+  },
+  {
     id: 'receptionist',
     label: 'Recepcionista',
     description: 'Reservas y lista de espera',
@@ -552,6 +561,12 @@ export interface ShopSummary {
   coversEnabled: boolean;
   /** Si es false, reservas no están disponibles en este local. */
   reservationsEnabled?: boolean;
+  /** Si es false, el formulario público de reservas está cerrado. */
+  reservationSignupEnabled?: boolean;
+  /** Si es false, no se toman reservas adentro. */
+  reservationInsideEnabled?: boolean;
+  /** Si es false, no se toman reservas afuera. */
+  reservationOutsideEnabled?: boolean;
   /** Si es false, lista de espera no está disponible en este local. */
   waitingListEnabled?: boolean;
   /** Si es false, módulo de propinas no está disponible en este local. */
@@ -571,6 +586,10 @@ export interface ShopSummary {
   accentSecondary?: string | null;
   /** Email del local (remitente de notificaciones). */
   email?: string | null;
+  /** Usuario de Instagram del local (sin @). */
+  instagramHandle?: string | null;
+  /** Teléfono del local (WhatsApp a futuro). */
+  phone?: string | null;
   /** Si el local tiene contraseña SMTP / de aplicación configurada. */
   emailSmtpConfigured?: boolean;
   /** Si es false, no se envían mails de este local. */

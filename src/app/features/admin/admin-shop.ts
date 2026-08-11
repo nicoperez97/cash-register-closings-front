@@ -51,6 +51,7 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'SHORTAGE_CREATED', label: 'Faltantes · crítico cargado' },
   { value: 'SHORTAGE_LEVEL_LOW', label: 'Faltantes · bajó a crítico' },
   { value: 'SHORTAGE_RESOLVED', label: 'Faltantes · resuelto' },
+  { value: 'RESERVATION_REQUEST', label: 'Reservas · solicitud nueva' },
 ] as const;
 
 const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);
@@ -181,6 +182,28 @@ const TIMEZONE_OPTIONS = [
                 autocomplete="email"
               />
               <mat-hint>Remitente y usuario SMTP de las notificaciones</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Instagram</mat-label>
+              <span matPrefix class="shop-admin__ig-prefix">@</span>
+              <input
+                matInput
+                formControlName="instagramHandle"
+                placeholder="tuttopassa"
+                autocomplete="off"
+              />
+              <mat-hint>Se muestra si el formulario público está cerrado</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Teléfono / WhatsApp</mat-label>
+              <input
+                matInput
+                type="tel"
+                formControlName="phone"
+                placeholder="+598 99 123 456"
+                autocomplete="tel"
+              />
+              <mat-hint>Con código de país. Lo usamos después para avisos por WhatsApp</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Contraseña de aplicación</mat-label>
@@ -490,6 +513,42 @@ const TIMEZONE_OPTIONS = [
                 <mat-slide-toggle
                   formControlName="reservationsEnabled"
                   aria-label="Reservas habilitadas"
+                />
+              </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Formulario público de reservas</strong>
+                  <p class="text-muted small mb-0">
+                    Link para que la gente pida mesa. Se puede apagar desde Reservas.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="reservationSignupEnabled"
+                  aria-label="Formulario público de reservas"
+                />
+              </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Sector adentro</strong>
+                  <p class="text-muted small mb-0">
+                    Pedidos de mesa en el salón.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="reservationInsideEnabled"
+                  aria-label="Sector adentro"
+                />
+              </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Sector afuera</strong>
+                  <p class="text-muted small mb-0">
+                    Pedidos de mesa en la vereda / patio.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="reservationOutsideEnabled"
+                  aria-label="Sector afuera"
                 />
               </div>
               <div class="shop-admin__toggle">
@@ -1084,6 +1143,11 @@ const TIMEZONE_OPTIONS = [
       .shop-admin__smtp-actions {
         margin-top: 0.15rem;
       }
+      .shop-admin__ig-prefix {
+        margin-right: 0.15rem;
+        font-weight: 700;
+        opacity: 0.7;
+      }
       @media (max-width: 800px) {
         .shop-admin__email-grid {
           grid-template-columns: 1fr;
@@ -1213,6 +1277,8 @@ export class AdminShopPage implements OnInit {
     name: ['', Validators.required],
     slug: ['', Validators.required],
     email: [''],
+    instagramHandle: [''],
+    phone: [''],
     emailSmtpPassword: [''],
     emailNotificationsEnabled: [true],
     emailNotificationTypes: this.fb.nonNullable.control<string[]>([...ALL_EMAIL_NOTIFICATION_TYPES]),
@@ -1229,6 +1295,9 @@ export class AdminShopPage implements OnInit {
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
     reservationsEnabled: [true],
+    reservationSignupEnabled: [true],
+    reservationInsideEnabled: [true],
+    reservationOutsideEnabled: [true],
     waitingListEnabled: [true],
     tipsEnabled: [false],
     active: [true],
@@ -1318,6 +1387,8 @@ export class AdminShopPage implements OnInit {
       name: shop.name,
       slug: shop.slug,
       email: shop.email ?? '',
+      instagramHandle: shop.instagramHandle ?? '',
+      phone: shop.phone ?? '',
       emailSmtpPassword: '',
       emailNotificationsEnabled: shop.emailNotificationsEnabled !== false,
       accentColor: shop.accentColor ?? '#2E7D32',
@@ -1331,6 +1402,9 @@ export class AdminShopPage implements OnInit {
       closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
       reservationsEnabled: !!shop.reservationsEnabled,
+      reservationSignupEnabled: shop.reservationSignupEnabled !== false,
+      reservationInsideEnabled: shop.reservationInsideEnabled !== false,
+      reservationOutsideEnabled: shop.reservationOutsideEnabled !== false,
       waitingListEnabled: !!shop.waitingListEnabled,
       tipsEnabled: !!shop.tipsEnabled,
       active: shop.active ?? true,
@@ -1350,6 +1424,8 @@ export class AdminShopPage implements OnInit {
             name: s.name,
             slug: s.slug,
             email: s.email ?? '',
+            instagramHandle: s.instagramHandle ?? '',
+            phone: s.phone ?? '',
             emailSmtpPassword: '',
             emailNotificationsEnabled: s.emailNotificationsEnabled !== false,
             accentColor: s.accentColor ?? '#2E7D32',
@@ -1363,6 +1439,9 @@ export class AdminShopPage implements OnInit {
             closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
             coversEnabled: !!s.coversEnabled,
             reservationsEnabled: !!s.reservationsEnabled,
+            reservationSignupEnabled: s.reservationSignupEnabled !== false,
+            reservationInsideEnabled: s.reservationInsideEnabled !== false,
+            reservationOutsideEnabled: s.reservationOutsideEnabled !== false,
             waitingListEnabled: !!s.waitingListEnabled,
             tipsEnabled: !!s.tipsEnabled,
             active: !!s.active,
@@ -1661,6 +1740,8 @@ export class AdminShopPage implements OnInit {
       name: raw.name,
       slug: raw.slug,
       email: raw.email.trim() || null,
+      instagramHandle: raw.instagramHandle.trim().replace(/^@+/, '') || null,
+      phone: raw.phone.trim() || null,
       emailNotificationsEnabled: !!raw.emailNotificationsEnabled,
       emailNotificationTypes: this.allEmailTypesSelected()
         ? null
@@ -1680,6 +1761,9 @@ export class AdminShopPage implements OnInit {
       closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,
+      reservationSignupEnabled: raw.reservationSignupEnabled,
+      reservationInsideEnabled: raw.reservationInsideEnabled,
+      reservationOutsideEnabled: raw.reservationOutsideEnabled,
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
       active: raw.active,

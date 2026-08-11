@@ -28,6 +28,14 @@ export const routes: Routes = [
     title: 'Lista de espera',
   },
   {
+    path: 'reservar/:slug',
+    loadComponent: () =>
+      import('./features/reservations/public-reservation-signup').then(
+        (m) => m.PublicReservationSignupComponent,
+      ),
+    title: 'Reservar',
+  },
+  {
     path: '',
     component: MainLayoutComponent,
     canActivate: [authGuard],

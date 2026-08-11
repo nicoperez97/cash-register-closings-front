@@ -43,6 +43,7 @@ export interface AdminUserRow {
   isStockAdmin?: boolean;
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
+  isReservationAdmin?: boolean;
 }
 
 export type AdminUserDialogData = {
@@ -633,6 +634,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones y mails cuando hay faltantes críticos o resueltos.
           </p>
+          <mat-slide-toggle formControlName="isReservationAdmin">
+            Administrador de reservas
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones y mails de todas las solicitudes de reserva.
+          </p>
         }
 
         @if (!isRolesOnly && data.canAssignShops && (data.allShops?.length ?? 0) > 0) {
@@ -699,6 +706,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones y mails cuando hay faltantes críticos o resueltos.
+          </p>
+          <mat-slide-toggle formControlName="isReservationAdmin">
+            Administrador de reservas
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones y mails de todas las solicitudes de reserva.
           </p>
         }
       </form>
@@ -842,6 +855,7 @@ export class AdminUserDialogComponent implements OnInit {
     isStockAdmin: [this.user?.isStockAdmin ?? false],
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
+    isReservationAdmin: [this.user?.isReservationAdmin ?? false],
   });
 
   readonly enabledSummary = computed(() => {
@@ -906,6 +920,9 @@ export class AdminUserDialogComponent implements OnInit {
     this.form.controls.modules.patchValue(next);
     this.activePreset.set(presetId);
     this.modulesTick.update((n) => n + 1);
+    if (preset.modules.reservations === 'manage') {
+      this.form.controls.isReservationAdmin.setValue(true);
+    }
   }
 
   private syncActivePreset(): void {
@@ -974,6 +991,7 @@ export class AdminUserDialogComponent implements OnInit {
           isStockAdmin: !!raw.isStockAdmin,
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
+          isReservationAdmin: !!raw.isReservationAdmin,
         })
         .subscribe({
           next: () => {
@@ -1004,6 +1022,7 @@ export class AdminUserDialogComponent implements OnInit {
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
+        isReservationAdmin: !!raw.isReservationAdmin,
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -1041,6 +1060,7 @@ export class AdminUserDialogComponent implements OnInit {
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
+        isReservationAdmin: !!raw.isReservationAdmin,
       })
       .subscribe({
         next: () => {

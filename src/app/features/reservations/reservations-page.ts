@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -10,6 +10,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -23,6 +24,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import {
   ReservationArea,
+  ReservationRequestRow,
   ReservationRow,
   ReservationsApiService,
   ReservationsDaySummary,
@@ -200,6 +202,7 @@ interface CalendarCell {
     MatDatepickerModule,
     MatTimepickerModule,
     MatTooltipModule,
+    MatSlideToggleModule,
     PageHeaderComponent,
   ],
   template: `
@@ -211,7 +214,170 @@ interface CalendarCell {
       (action)="focusReservationForm()"
     />
 
-    <section class="panel-card floor-panel">
+    @if (canManage()) {
+      <section class="panel-card req-panel" [class.req-panel--closed]="!signupOpen()">
+        <div class="req-panel__head">
+          <div>
+            <h2 class="guy-section-title">Solicitudes web</h2>
+            <p class="text-muted small req-panel__lead">
+              @if (signupOpen()) {
+                @if (pendingRequests().length) {
+                  {{ pendingRequests().length }} para aceptar o rechazar · aviso por mail
+                } @else {
+                  Cuando alguien reserve desde el link, aparece acá
+                }
+              } @else {
+                Cerrado · ingreso por orden de llegada
+                @if (pendingRequests().length) {
+                  · {{ pendingRequests().length }} pendiente{{ pendingRequests().length === 1 ? '' : 's' }} por resolver
+                }
+              }
+            </p>
+          </div>
+          <div class="req-panel__tools">
+            <mat-slide-toggle
+              color="primary"
+              [checked]="signupOpen()"
+              [disabled]="signupBusy()"
+              (change)="toggleSignup($event.checked)"
+            >
+              {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
+            </mat-slide-toggle>
+            <div class="req-areas">
+              <mat-slide-toggle
+                color="primary"
+                [checked]="insideOpen()"
+                [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
+                (change)="toggleArea('INSIDE', $event.checked)"
+              >
+                Adentro
+              </mat-slide-toggle>
+              <mat-slide-toggle
+                color="primary"
+                [checked]="outsideOpen()"
+                [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
+                (change)="toggleArea('OUTSIDE', $event.checked)"
+              >
+                Afuera
+              </mat-slide-toggle>
+            </div>
+            @if (shopSlug()) {
+              <div class="floor-public-actions">
+                <a
+                  class="floor-public-btn"
+                  [href]="signupUrl()"
+                  target="_blank"
+                  rel="noopener"
+                  matTooltip="Formulario público"
+                >
+                  <mat-icon>link</mat-icon>
+                  <span class="req-panel__btn-label">Formulario público</span>
+                </a>
+                <button
+                  type="button"
+                  class="floor-public-btn floor-public-btn--ghost"
+                  (click)="copySignupUrl()"
+                  matTooltip="Copiar link"
+                >
+                  <mat-icon>content_copy</mat-icon>
+                  <span class="req-panel__btn-label">Copiar link</span>
+                </button>
+              </div>
+            }
+            <button
+              type="button"
+              class="floor-public-btn floor-public-btn--ghost"
+              (click)="reloadRequests()"
+              [disabled]="requestsBusy()"
+              matTooltip="Recargar solicitudes"
+            >
+              <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
+              <span class="req-panel__btn-label">Recargar</span>
+            </button>
+          </div>
+        </div>
+
+        <ul class="req-list" [class.req-list--hidden]="!signupOpen() && !pendingRequests().length">
+          @for (req of pendingRequests(); track req.id) {
+            <li class="req-card">
+              <div class="req-card__main">
+                <strong>{{ req.guestName }}</strong>
+                <div class="req-card__chips">
+                  <span class="req-chip">
+                    {{ req.partySize }} {{ req.partySize === 1 ? 'persona' : 'personas' }}
+                  </span>
+                  <span class="req-chip" [class.req-chip--out]="req.area === 'OUTSIDE'">
+                    {{ req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
+                  </span>
+                  <span class="req-chip">{{ requestWhen(req) }}</span>
+                </div>
+                <span class="req-card__contact">
+                  <a [href]="'mailto:' + req.guestEmail">{{ req.guestEmail }}</a>
+                  @if (req.instagramHandle) {
+                    <span>·</span>
+                    <a
+                      [href]="req.instagramUrl || 'https://www.instagram.com/' + req.instagramHandle + '/'"
+                      target="_blank"
+                      rel="noopener"
+                    >@{{ req.instagramHandle }}</a>
+                  }
+                </span>
+                @if (req.guestComment) {
+                  <span class="req-card__comment">{{ req.guestComment }}</span>
+                }
+              </div>
+              <div class="req-card__actions">
+                @if (req.instagramHandle) {
+                  <button
+                    type="button"
+                    class="req-ig"
+                    matTooltip="Copiar mensaje y abrir perfil"
+                    (click)="openGuestInstagram(req, true)"
+                  >
+                    <mat-icon>photo_camera</mat-icon>
+                    IG
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="req-btn req-btn--no"
+                  [disabled]="busyRequestId() === req.id"
+                  (click)="rejectRequest(req)"
+                >
+                  Rechazar
+                </button>
+                <button
+                  type="button"
+                  class="req-btn req-btn--yes"
+                  [disabled]="busyRequestId() === req.id"
+                  (click)="acceptRequest(req)"
+                >
+                  Aceptar
+                </button>
+                @if (req.instagramHandle) {
+                  <button
+                    type="button"
+                    class="req-btn req-btn--yes-ig"
+                    [disabled]="busyRequestId() === req.id"
+                    matTooltip="Aceptar, copiar mensaje y abrir Instagram"
+                    (click)="acceptRequest(req, true)"
+                  >
+                    <mat-icon>photo_camera</mat-icon>
+                    Aceptar e IG
+                  </button>
+                }
+              </div>
+            </li>
+          } @empty {
+            @if (signupOpen()) {
+              <li class="floor-empty">Sin solicitudes pendientes</li>
+            }
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="panel-card floor-panel" #floorPanel>
       <div class="floor-panel__head">
         <div>
           <h2 class="guy-section-title">Reservas del día</h2>
@@ -449,6 +615,7 @@ interface CalendarCell {
             class="floor-card"
             [class.floor-card--out]="r.area === 'OUTSIDE'"
             [class.floor-card--seated]="r.status === 'SEATED'"
+            [class.floor-card--new]="highlightedReservationId() === r.id"
           >
             <div class="floor-card__main">
               <strong>
@@ -473,6 +640,26 @@ interface CalendarCell {
             </div>
             @if (canManage()) {
               <div class="floor-card__actions">
+                <button
+                  type="button"
+                  class="req-copy"
+                  matTooltip="Copiar mensaje de confirmación"
+                  (click)="copyReservationMessage(r)"
+                >
+                  <mat-icon>content_copy</mat-icon>
+                  Copiar
+                </button>
+                @if (instagramFromNotes(r.notes); as ig) {
+                  <button
+                    type="button"
+                    class="req-ig"
+                    matTooltip="Abrir perfil de Instagram"
+                    (click)="openReservationInstagram(r)"
+                  >
+                    <mat-icon>photo_camera</mat-icon>
+                    IG
+                  </button>
+                }
                 @if (r.status === 'CONFIRMED') {
                   <button mat-stroked-button type="button" (click)="markReservation(r, true)">
                     Marcar
@@ -506,6 +693,250 @@ interface CalendarCell {
   `,
   styles: [
     `
+      .req-panel {
+        padding: 1rem 1.1rem 1.05rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .req-panel--closed {
+        padding: 0.7rem 1rem 0.75rem;
+        margin-bottom: 0.7rem;
+      }
+
+      .req-panel--closed .req-panel__head {
+        margin-bottom: 0;
+        align-items: center;
+        gap: 0.55rem;
+      }
+
+      .req-panel--closed:has(.req-card) .req-panel__head {
+        margin-bottom: 0.7rem;
+      }
+
+      .req-panel--closed .guy-section-title {
+        margin: 0;
+        font-size: 0.98rem;
+      }
+
+      .req-panel__lead {
+        margin: 0.15rem 0 0;
+        max-width: 36rem;
+        line-height: 1.35;
+      }
+
+      .req-spin {
+        animation: req-spin 0.8s linear infinite;
+      }
+
+      @keyframes req-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .req-list--hidden {
+        display: none;
+      }
+
+      .req-panel__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .req-panel__tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.75rem 1rem;
+      }
+
+      .req-areas {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem 0.85rem;
+        padding: 0.15rem 0.2rem 0.15rem 0.75rem;
+        border-left: 1px solid color-mix(in srgb, var(--guy-muted, #5f6f76) 28%, transparent);
+      }
+
+      .req-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .req-card {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem 1rem;
+        padding: 0.85rem 0.95rem;
+        border-radius: 1rem;
+        border: 1px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 22%, transparent);
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+      }
+
+      .req-card__main {
+        display: grid;
+        gap: 0.28rem;
+        min-width: 14rem;
+        flex: 1 1 16rem;
+      }
+
+      .req-card__main strong {
+        font-size: 1.02rem;
+      }
+
+      .req-card__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+      }
+
+      .req-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 1.45rem;
+        padding: 0.1rem 0.55rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, #fff);
+        color: color-mix(in srgb, var(--guy-ink, #1b2420) 82%, #5f6f76);
+        font-size: 0.75rem;
+        font-weight: 650;
+      }
+
+      .req-chip--out {
+        background: color-mix(in srgb, #c17a2a 16%, #fff);
+      }
+
+      .req-card__contact {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.28rem 0.35rem;
+        font-size: 0.8rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .req-card__contact a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .req-card__contact a:hover {
+        color: var(--guy-primary, #1d65a0);
+        text-decoration: underline;
+      }
+
+      .req-card__comment {
+        display: block;
+        margin-top: 0.1rem;
+        padding: 0.4rem 0.55rem;
+        border-radius: 0.55rem;
+        background: color-mix(in srgb, var(--guy-ink, #1b2420) 5%, #fff);
+        color: var(--guy-ink, #1b2420);
+        font-size: 0.82rem;
+        font-style: italic;
+        line-height: 1.35;
+      }
+
+      .req-card__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-left: auto;
+      }
+
+      .req-btn,
+      .req-ig,
+      .req-copy {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        min-height: 2.25rem;
+        padding: 0.35rem 0.85rem;
+        border-radius: 999px;
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .req-btn {
+        border: 1px solid transparent;
+      }
+
+      .req-btn--yes {
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 92%, #0f2a1a);
+        color: #fff;
+      }
+
+      .req-btn--yes-ig {
+        background: #c13584;
+        color: #fff;
+        border: 1px solid transparent;
+      }
+
+      .req-btn--yes-ig mat-icon {
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+
+      .req-btn--no {
+        background: transparent;
+        border-color: color-mix(in srgb, #c62828 45%, transparent);
+        color: #c62828;
+      }
+
+      .req-ig {
+        appearance: none;
+        border: 1px solid color-mix(in srgb, #c13584 40%, transparent);
+        color: #c13584;
+        background: #fff;
+      }
+
+      .req-copy {
+        appearance: none;
+        border: 1px solid color-mix(in srgb, var(--guy-muted, #5f6f76) 40%, transparent);
+        color: var(--guy-text, #1a1a1a);
+        background: #fff;
+      }
+
+      .req-ig mat-icon,
+      .req-copy mat-icon {
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+
+      :host-context(html[data-theme='dark']) .req-card {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 16%, var(--guy-card, #1a1f1c));
+      }
+
+      :host-context(html[data-theme='dark']) .req-chip {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 22%, var(--guy-card, #1a1f1c));
+        color: var(--guy-ink, #e8eeea);
+      }
+
+      :host-context(html[data-theme='dark']) .req-chip--out {
+        background: color-mix(in srgb, #c17a2a 28%, var(--guy-card, #1a1f1c));
+      }
+
+      :host-context(html[data-theme='dark']) .req-card__comment {
+        background: color-mix(in srgb, #fff 8%, var(--guy-card, #1a1f1c));
+        color: var(--guy-ink, #e8eeea);
+      }
+
       .floor-panel {
         padding: 1rem 1.1rem 1.15rem;
       }
@@ -1004,6 +1435,11 @@ interface CalendarCell {
         background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
       }
 
+      .floor-card--new {
+        outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 75%, transparent);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
+      }
+
       .floor-num {
         color: var(--guy-primary, #1d65a0);
         margin-right: 0.25rem;
@@ -1080,7 +1516,7 @@ interface CalendarCell {
     `,
   ],
 })
-export class ReservationsPage implements OnInit {
+export class ReservationsPage implements OnInit, OnDestroy {
   private readonly api = inject(ReservationsApiService);
   private readonly inbox = inject(ReservationsInboxService);
   private readonly fb = inject(FormBuilder);
@@ -1120,6 +1556,23 @@ export class ReservationsPage implements OnInit {
   });
 
   readonly shopSlug = computed(() => this.shops.selectedShop()?.slug ?? '');
+  readonly pendingRequests = signal<ReservationRequestRow[]>([]);
+  readonly busyRequestId = signal<string | null>(null);
+  readonly signupBusy = signal(false);
+  readonly requestsBusy = signal(false);
+  readonly highlightedReservationId = signal<string | null>(null);
+  private requestsPoll: ReturnType<typeof setInterval> | null = null;
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly floorPanel = viewChild<ElementRef<HTMLElement>>('floorPanel');
+  readonly signupOpen = computed(
+    () => this.shops.selectedShop()?.reservationSignupEnabled !== false,
+  );
+  readonly insideOpen = computed(
+    () => this.shops.selectedShop()?.reservationInsideEnabled !== false,
+  );
+  readonly outsideOpen = computed(
+    () => this.shops.selectedShop()?.reservationOutsideEnabled !== false,
+  );
 
   readonly dateLabel = computed(() => formatIsoDateDisplay(this.businessDate()));
 
@@ -1217,6 +1670,7 @@ export class ReservationsPage implements OnInit {
     usePageRefresh(() => {
       this.loadReservations();
       this.loadSummary();
+      this.loadRequests();
       this.inbox.refresh();
     });
   }
@@ -1226,9 +1680,25 @@ export class ReservationsPage implements OnInit {
   }
 
   ngOnInit(): void {
-    this.calendarMonth.set(monthKeyFromIso(this.businessDate()));
+    const today = this.defaultDate();
+    this.todayIso.set(today);
+    this.businessDate.set(today);
+    this.calendarMonth.set(monthKeyFromIso(today));
     this.loadReservations();
     this.loadSummary();
+    this.loadRequests();
+    this.requestsPoll = setInterval(() => this.loadRequests(), 45_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.requestsPoll) {
+      clearInterval(this.requestsPoll);
+      this.requestsPoll = null;
+    }
+    if (this.highlightTimer) {
+      clearTimeout(this.highlightTimer);
+      this.highlightTimer = null;
+    }
   }
 
   private defaultDate(): string {
@@ -1241,6 +1711,306 @@ export class ReservationsPage implements OnInit {
   publicUrl(): string {
     const slug = this.shopSlug();
     return `${window.location.origin}/r/${encodeURIComponent(slug)}`;
+  }
+
+  signupUrl(): string {
+    const slug = this.shopSlug();
+    return `${window.location.origin}/reservar/${encodeURIComponent(slug)}`;
+  }
+
+  async copySignupUrl(): Promise<void> {
+    await this.copyText(this.signupUrl(), 'Link del formulario copiado');
+  }
+
+  toggleArea(area: ReservationArea, enabled: boolean): void {
+    const shop = this.shops.selectedShop();
+    const shopId = this.shops.selectedShopId();
+    if (!shop || !shopId || this.signupBusy()) return;
+    const inside = area === 'INSIDE' ? enabled : this.insideOpen();
+    const outside = area === 'OUTSIDE' ? enabled : this.outsideOpen();
+    if (!inside && !outside) {
+      this.snack.open('Dejá al menos un sector habilitado', 'OK', { duration: 2800 });
+      return;
+    }
+    this.signupBusy.set(true);
+    this.api.setReservationAreasEnabled(shopId, { inside, outside }).subscribe({
+      next: (res) => {
+        this.signupBusy.set(false);
+        this.shops.upsertShop({
+          ...shop,
+          reservationInsideEnabled: res.reservationInsideEnabled,
+          reservationOutsideEnabled: res.reservationOutsideEnabled,
+        });
+        this.auth.scheduleRefreshMe(200);
+        this.snack.open(
+          area === 'OUTSIDE'
+            ? res.reservationOutsideEnabled
+              ? 'Sector afuera habilitado'
+              : 'Sector afuera deshabilitado'
+            : res.reservationInsideEnabled
+              ? 'Sector adentro habilitado'
+              : 'Sector adentro deshabilitado',
+          'OK',
+          { duration: 2200 },
+        );
+      },
+      error: (err) => {
+        this.signupBusy.set(false);
+        const msg =
+          (err?.error?.message as string | string[] | undefined) ??
+          'No se pudo cambiar el sector';
+        this.snack.open(Array.isArray(msg) ? msg[0] : String(msg), 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  toggleSignup(enabled: boolean): void {
+    const shop = this.shops.selectedShop();
+    const shopId = this.shops.selectedShopId();
+    if (!shop || !shopId || this.signupBusy()) return;
+    this.signupBusy.set(true);
+    this.api.setReservationSignupEnabled(shopId, enabled).subscribe({
+      next: (res) => {
+        this.signupBusy.set(false);
+        this.shops.upsertShop({
+          ...shop,
+          reservationSignupEnabled: res.reservationSignupEnabled,
+        });
+        this.auth.scheduleRefreshMe(200);
+        this.snack.open(
+          res.reservationSignupEnabled
+            ? 'Formulario público abierto'
+            : 'Formulario público cerrado',
+          'OK',
+          { duration: 2200 },
+        );
+      },
+      error: () => {
+        this.signupBusy.set(false);
+        this.snack.open('No se pudo cambiar el formulario', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  instagramFromNotes(notes?: string | null): { handle: string; url: string; dmUrl: string } | null {
+    const m = String(notes ?? '').match(/(?:^|[\s·])@([A-Za-z0-9._]{1,30})\b/);
+    const handle = m?.[1]?.replace(/\.+$/, '');
+    if (!handle) return null;
+    return {
+      handle,
+      url: `https://www.instagram.com/${handle}/`,
+      dmUrl: `https://www.instagram.com/${handle}/`,
+    };
+  }
+
+  requestWhen(req: ReservationRequestRow): string {
+    const iso = req.businessDate?.slice(0, 10) ?? '';
+    const [y, m, d] = iso.split('-');
+    const label = d && m ? `${d}/${m}${y ? `/${y}` : ''}` : iso;
+    return req.reservationTime ? `${label} · ${req.reservationTime}` : label;
+  }
+
+  acceptRequest(req: ReservationRequestRow, openIg = false): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    if (openIg) {
+      this.openGuestInstagram(req, true, { snack: false });
+    }
+    this.busyRequestId.set(req.id);
+    this.api.acceptReservationRequest(shopId, req.id).subscribe({
+      next: (row) => {
+        this.busyRequestId.set(null);
+        this.snack.open(
+          openIg
+            ? 'Reserva aceptada. Pegá el mensaje en Instagram.'
+            : 'Reserva aceptada. Ya está en reservas del día.',
+          'OK',
+          { duration: 3200 },
+        );
+        const day = String(row.businessDate || req.businessDate || '').slice(0, 10);
+        if (day && day !== this.businessDate()) {
+          this.businessDate.set(day);
+          this.calendarMonth.set(monthKeyFromIso(day));
+        }
+        this.highlightReservation(row.reservationId ?? null);
+        this.loadRequests();
+        this.loadReservations();
+        this.loadSummary();
+        this.inbox.refresh();
+        this.scrollToDayReservations();
+      },
+      error: () => {
+        this.busyRequestId.set(null);
+        this.snack.open('No se pudo aceptar', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  rejectRequest(req: ReservationRequestRow): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.busyRequestId.set(req.id);
+    this.api.rejectReservationRequest(shopId, req.id).subscribe({
+      next: () => {
+        this.busyRequestId.set(null);
+        this.snack.open('Solicitud rechazada. Se avisó por mail.', 'OK', { duration: 2800 });
+        this.loadRequests();
+        this.inbox.refresh();
+      },
+      error: () => {
+        this.busyRequestId.set(null);
+        this.snack.open('No se pudo rechazar', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  openGuestInstagram(
+    req: ReservationRequestRow,
+    accepted = true,
+    opts?: { snack?: boolean },
+  ): void {
+    if (!req.instagramHandle) return;
+    const text = this.igConfirmMessage({
+      guestName: req.guestName,
+      partySize: req.partySize,
+      when: this.requestWhen(req),
+      area: req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro',
+      accepted,
+    });
+    const copied = this.copyTextNow(text);
+    window.open(
+      req.instagramUrl || `https://www.instagram.com/${req.instagramHandle}/`,
+      '_blank',
+      'noopener',
+    );
+    if (opts?.snack !== false) {
+      this.snack.open(
+        copied
+          ? 'Mensaje copiado: pegalo en el chat de Instagram'
+          : 'No se pudo copiar. Copiá el mensaje a mano',
+        'OK',
+        { duration: 2800 },
+      );
+    }
+  }
+
+  copyReservationMessage(r: ReservationRow): void {
+    const copied = this.copyTextNow(this.reservationConfirmText(r));
+    this.snack.open(
+      copied ? 'Mensaje copiado' : 'No se pudo copiar. Intentá de nuevo',
+      'OK',
+      { duration: 2500 },
+    );
+  }
+
+  openReservationInstagram(r: ReservationRow): void {
+    const ig = this.instagramFromNotes(r.notes);
+    if (!ig) return;
+    this.copyTextNow(this.reservationConfirmText(r));
+    window.open(ig.dmUrl, '_blank', 'noopener');
+  }
+
+  private reservationConfirmText(r: ReservationRow): string {
+    const iso = r.businessDate?.slice(0, 10) ?? '';
+    const [y, m, d] = iso.split('-');
+    const label = d && m ? `${d}/${m}${y ? `/${y}` : ''}` : iso;
+    const when = r.reservationTime ? `${label} · ${r.reservationTime}` : label;
+    return this.igConfirmMessage({
+      guestName: r.guestName || 'Reserva',
+      partySize: r.partySize,
+      when,
+      area: r.area === 'OUTSIDE' ? 'Afuera' : 'Adentro',
+      accepted: true,
+    });
+  }
+
+  private igConfirmMessage(opts: {
+    guestName: string;
+    partySize: number;
+    when: string;
+    area: string;
+    accepted: boolean;
+  }): string {
+    const shop = this.shops.selectedShop()?.name ?? 'el local';
+    const first = opts.guestName.split(' ')[0] || '';
+    const pers = opts.partySize === 1 ? 'persona' : 'personas';
+    if (!opts.accepted) {
+      return `Hola ${first}! Esta vez no pudimos confirmar tu reserva en ${shop} (${opts.when}). Gracias por escribirnos.`;
+    }
+    return `Hola ${first}! Te confirmamos la reserva en ${shop} (${opts.partySize} ${pers} · ${opts.area} · ${opts.when}). ¡Te esperamos!`;
+  }
+
+  reloadRequests(): void {
+    this.loadRequests();
+    this.inbox.refresh();
+  }
+
+  private highlightReservation(id: string | null): void {
+    if (this.highlightTimer) {
+      clearTimeout(this.highlightTimer);
+      this.highlightTimer = null;
+    }
+    this.highlightedReservationId.set(id);
+    if (!id) return;
+    this.highlightTimer = setTimeout(() => {
+      this.highlightedReservationId.set(null);
+      this.highlightTimer = null;
+    }, 4500);
+  }
+
+  private scrollToDayReservations(): void {
+    const el = this.floorPanel()?.nativeElement;
+    if (!el) return;
+    queueMicrotask(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  private loadRequests(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) {
+      this.pendingRequests.set([]);
+      return;
+    }
+    this.requestsBusy.set(true);
+    this.api.listReservationRequests(shopId, 'PENDING').subscribe({
+      next: (rows) => {
+        this.requestsBusy.set(false);
+        this.pendingRequests.set(rows ?? []);
+      },
+      error: () => {
+        this.requestsBusy.set(false);
+        this.pendingRequests.set([]);
+      },
+    });
+  }
+
+  /** Copia síncrona en el clic; hay que hacerlo antes de window.open o el navegador lo bloquea. */
+  private copyTextNow(text: string): boolean {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    el.setSelectionRange(0, text.length);
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    el.remove();
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).catch(() => undefined);
+    }
+    return ok;
+  }
+
+  private async copyText(text: string, okMsg: string, showSnack = true): Promise<void> {
+    const copied = this.copyTextNow(text);
+    if (showSnack) {
+      this.snack.open(copied ? okMsg : 'No se pudo copiar', 'OK', { duration: 2200 });
+    }
   }
 
   async copyPublicUrl(): Promise<void> {

@@ -5,6 +5,43 @@ import { environment } from '../../../environments/environment';
 export type ReservationArea = 'INSIDE' | 'OUTSIDE';
 export type ReservationStatus = 'CONFIRMED' | 'SEATED' | 'CANCELLED' | 'NO_SHOW';
 export type WaitingListStatus = 'WAITING' | 'SEATED' | 'CANCELLED' | 'LEFT';
+export type ReservationRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
+export interface ReservationRequestRow {
+  id: string;
+  shopId: string;
+  businessDate: string;
+  guestName: string;
+  guestEmail: string;
+  instagramHandle?: string | null;
+  instagramUrl?: string | null;
+  instagramDmUrl?: string | null;
+  partySize: number;
+  reservationTime?: string | null;
+  area?: ReservationArea;
+  guestComment?: string | null;
+  status: ReservationRequestStatus;
+  reservationId?: string | null;
+  staffNote?: string | null;
+  createdAt?: string;
+}
+
+export interface PublicReservationSignup {
+  signupEnabled: boolean;
+  insideEnabled?: boolean;
+  outsideEnabled?: boolean;
+  shop: {
+    id?: string;
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+    accentColor?: string | null;
+    accentSecondary?: string | null;
+    instagramHandle?: string | null;
+    phone?: string | null;
+    timezone?: string | null;
+  };
+}
 
 export interface ReservationRow {
   id: string;
@@ -225,6 +262,75 @@ export class ReservationsApiService {
   publicWaitingBoard(slug: string) {
     return this.http.get<PublicWaitingBoard>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiting-list`,
+    );
+  }
+
+  publicSignupInfo(slug: string) {
+    return this.http.get<PublicReservationSignup>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/reservation-signup`,
+    );
+  }
+
+  createPublicReservationRequest(
+    slug: string,
+    body: {
+      guestName: string;
+      guestEmail: string;
+      instagramHandle?: string | null;
+      partySize: number;
+      businessDate: string;
+      reservationTime?: string | null;
+      area?: ReservationArea;
+      guestComment?: string | null;
+      website?: string;
+    },
+  ) {
+    return this.http.post<{ ok: boolean; id?: string; status?: string }>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/reservation-requests`,
+      body,
+    );
+  }
+
+  listReservationRequests(shopId: string, status?: ReservationRequestStatus) {
+    let params = new HttpParams();
+    if (status) params = params.set('status', status);
+    return this.http.get<ReservationRequestRow[]>(
+      `${this.base}/shops/${shopId}/reservation-requests`,
+      { params },
+    );
+  }
+
+  pendingReservationRequestsCount(shopId: string) {
+    return this.http.get<{ count: number }>(
+      `${this.base}/shops/${shopId}/reservation-requests/pending-count`,
+    );
+  }
+
+  setReservationSignupEnabled(shopId: string, enabled: boolean) {
+    return this.http.patch<{ reservationSignupEnabled: boolean }>(
+      `${this.base}/shops/${shopId}/reservation-signup`,
+      { enabled },
+    );
+  }
+
+  setReservationAreasEnabled(shopId: string, patch: { inside?: boolean; outside?: boolean }) {
+    return this.http.patch<{
+      reservationInsideEnabled: boolean;
+      reservationOutsideEnabled: boolean;
+    }>(`${this.base}/shops/${shopId}/reservation-areas`, patch);
+  }
+
+  acceptReservationRequest(shopId: string, id: string, staffNote?: string | null) {
+    return this.http.post<ReservationRequestRow>(
+      `${this.base}/shops/${shopId}/reservation-requests/${id}/accept`,
+      { staffNote: staffNote ?? null },
+    );
+  }
+
+  rejectReservationRequest(shopId: string, id: string, staffNote?: string | null) {
+    return this.http.post<ReservationRequestRow>(
+      `${this.base}/shops/${shopId}/reservation-requests/${id}/reject`,
+      { staffNote: staffNote ?? null },
     );
   }
 }

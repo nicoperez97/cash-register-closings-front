@@ -524,6 +524,10 @@ export class ToolbarComponent implements OnInit {
     }
     if (n.paymentId || n.type.startsWith('PAYMENT_')) {
       void this.router.navigateByUrl('/payments/suppliers');
+      return;
+    }
+    if (n.type === 'RESERVATION_REQUEST') {
+      void this.router.navigateByUrl('/reservations');
     }
   }
 

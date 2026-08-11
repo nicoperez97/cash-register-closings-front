@@ -153,6 +153,11 @@ export class AdminUsersPage implements OnInit {
         label: 'Admin faltantes',
         format: (r) => (r['isShortageAdmin'] ? 'Sí' : 'No'),
       });
+      cols.push({
+        key: 'isReservationAdmin',
+        label: 'Admin reservas',
+        format: (r) => (r['isReservationAdmin'] ? 'Sí' : 'No'),
+      });
     }
     cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });
     return cols;

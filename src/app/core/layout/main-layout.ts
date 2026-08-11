@@ -145,7 +145,7 @@ export class MainLayoutComponent {
         label: 'Reservas',
         route: '/reservations',
         icon: 'table_restaurant',
-        badge: this.reservationsInbox.todayGuests() || null,
+        badge: this.reservationsInbox.menuBadge() || null,
         badgeInGroup: false,
       });
     }

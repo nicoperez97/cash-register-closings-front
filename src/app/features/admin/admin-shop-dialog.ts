@@ -20,6 +20,9 @@ export interface AdminShopRow {
   unitsLabel?: string | null;
   coversEnabled?: boolean;
   reservationsEnabled?: boolean;
+  reservationSignupEnabled?: boolean;
+  reservationInsideEnabled?: boolean;
+  reservationOutsideEnabled?: boolean;
   waitingListEnabled?: boolean;
   tipsEnabled?: boolean;
   defaultChangeAmount?: number;
@@ -28,6 +31,8 @@ export interface AdminShopRow {
   accentColor?: string | null;
   accentSecondary?: string | null;
   email?: string | null;
+  instagramHandle?: string | null;
+  phone?: string | null;
   active: boolean;
 }
 
@@ -99,6 +104,20 @@ function slugify(raw: string): string {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Instagram</mat-label>
+          <mat-icon matPrefix>photo_camera</mat-icon>
+          <input matInput formControlName="instagramHandle" placeholder="tuttopassa" />
+          <mat-hint>Usuario del local, sin @</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Teléfono / WhatsApp</mat-label>
+          <mat-icon matPrefix>phone</mat-icon>
+          <input matInput formControlName="phone" placeholder="+598 99 123 456" />
+          <mat-hint>Con código de país, para WhatsApp</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Etiqueta unidades</mat-label>
           <mat-icon matPrefix>inventory_2</mat-icon>
           <input matInput formControlName="unitsLabel" placeholder="paninos" />
@@ -145,6 +164,9 @@ function slugify(raw: string): string {
 
         <mat-slide-toggle formControlName="coversEnabled">Comensales habilitados</mat-slide-toggle>
         <mat-slide-toggle formControlName="reservationsEnabled">Reservas habilitadas</mat-slide-toggle>
+        <mat-slide-toggle formControlName="reservationSignupEnabled">Formulario público de reservas</mat-slide-toggle>
+        <mat-slide-toggle formControlName="reservationInsideEnabled">Sector adentro</mat-slide-toggle>
+        <mat-slide-toggle formControlName="reservationOutsideEnabled">Sector afuera</mat-slide-toggle>
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
         <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>
 
@@ -202,6 +224,8 @@ export class AdminShopDialogComponent {
     name: [this.shop?.name ?? '', Validators.required],
     slug: [this.shop?.slug ?? '', Validators.required],
     email: [this.shop?.email ?? ''],
+    instagramHandle: [this.shop?.instagramHandle ?? ''],
+    phone: [this.shop?.phone ?? ''],
     unitsLabel: [this.shop?.unitsLabel ?? ''],
     currency: [this.shop?.currency ?? 'ARS'],
     defaultChangeAmount: [this.shop?.defaultChangeAmount ?? 0],
@@ -210,6 +234,9 @@ export class AdminShopDialogComponent {
     accentSecondary: [this.shop?.accentSecondary ?? '#F9A825'],
     coversEnabled: [this.shop?.coversEnabled ?? false],
     reservationsEnabled: [this.shop ? !!this.shop.reservationsEnabled : true],
+    reservationSignupEnabled: [this.shop ? this.shop.reservationSignupEnabled !== false : true],
+    reservationInsideEnabled: [this.shop ? this.shop.reservationInsideEnabled !== false : true],
+    reservationOutsideEnabled: [this.shop ? this.shop.reservationOutsideEnabled !== false : true],
     waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
     tipsEnabled: [this.shop ? !!this.shop.tipsEnabled : false],
     active: [this.shop?.active ?? true],
@@ -237,6 +264,8 @@ export class AdminShopDialogComponent {
       name: raw.name.trim(),
       slug: slugify(raw.slug) || raw.slug.trim(),
       email: raw.email.trim() || null,
+      instagramHandle: raw.instagramHandle.trim().replace(/^@+/, '') || null,
+      phone: raw.phone.trim() || null,
       unitsLabel: raw.unitsLabel.trim() || null,
       currency: raw.currency || 'ARS',
       defaultChangeAmount: Number(raw.defaultChangeAmount) || 0,
@@ -245,6 +274,9 @@ export class AdminShopDialogComponent {
       accentSecondary: raw.accentSecondary.trim() || null,
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,
+      reservationSignupEnabled: raw.reservationSignupEnabled,
+      reservationInsideEnabled: raw.reservationInsideEnabled,
+      reservationOutsideEnabled: raw.reservationOutsideEnabled,
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
     };
