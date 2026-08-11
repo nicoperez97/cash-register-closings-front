@@ -1,6 +1,5 @@
 import {
   Component,
-  ElementRef,
   OnDestroy,
   OnInit,
   computed,
@@ -9,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatDatepicker, MatDatepickerModule } from '@angular/material/datepicker';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -24,7 +24,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 
 @Component({
   selector: 'app-public-reservation-signup',
-  imports: [FormsModule],
+  imports: [FormsModule, MatDatepickerModule],
   template: `
     @if (error(); as err) {
       <div class="page page--error">
@@ -136,18 +136,17 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     <span class="only-desk">{{ dateChipLabel(false) }}</span>
                     <span class="only-mob">{{ dateChipLabel(true) }}</span>
                   </button>
-                  <input
-                    #datePicker
-                    class="date-sr"
-                    type="date"
-                    name="businessDate"
-                    required
-                    [min]="minDate"
-                    [(ngModel)]="businessDate"
-                    tabindex="-1"
-                    aria-label="Elegir otro día"
-                  />
                 </div>
+                <input
+                  class="date-sr"
+                  [matDatepicker]="otherPicker"
+                  [min]="minAsDate"
+                  [value]="selectedAsDate"
+                  (dateChange)="onDatePicked($event.value)"
+                  tabindex="-1"
+                  aria-hidden="true"
+                />
+                <mat-datepicker #otherPicker touchUi />
                 <div class="stepper stepper--inline" aria-label="Cantidad de personas">
                   <button type="button" class="stepper__btn" (click)="bump(-1)" [disabled]="partySize <= 1">
                     −
@@ -503,6 +502,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 
       .split {
         display: block;
+        position: relative;
       }
 
       .pills {
@@ -562,9 +562,11 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 
       .date-sr {
         position: absolute;
-        width: 1px;
-        height: 1px;
-        opacity: 0.01;
+        width: 0;
+        height: 0;
+        opacity: 0;
+        border: 0;
+        padding: 0;
         pointer-events: none;
       }
 
@@ -905,9 +907,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   guestComment = '';
   website = '';
   minDate = this.todayIso();
-  private readonly datePicker = viewChild<ElementRef<HTMLInputElement> | HTMLInputElement>(
-    'datePicker',
-  );
+  private readonly otherPicker = viewChild<MatDatepicker<Date>>('otherPicker');
 
   readonly insideEnabled = computed(() => this.info()?.insideEnabled !== false);
   readonly outsideEnabled = computed(() => this.info()?.outsideEnabled !== false);
@@ -982,24 +982,21 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     this.businessDate = this.isoPlus(days);
   }
 
+  get minAsDate(): Date {
+    return this.isoToLocalDate(this.minDate);
+  }
+
+  get selectedAsDate(): Date {
+    return this.isoToLocalDate(this.businessDate || this.minDate);
+  }
+
   pickOtherDay(): void {
-    const raw = this.datePicker();
-    const el =
-      raw && typeof raw === 'object' && 'nativeElement' in raw
-        ? raw.nativeElement
-        : raw;
-    if (!el) return;
-    try {
-      const picker = el as HTMLInputElement & { showPicker?: () => void };
-      if (typeof picker.showPicker === 'function') {
-        picker.showPicker();
-        return;
-      }
-    } catch {
-      // Safari viejo / sin picker
-    }
-    el.focus();
-    el.click();
+    this.otherPicker()?.open();
+  }
+
+  onDatePicked(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    this.businessDate = this.localDateToIso(value);
   }
 
   dateChipLabel(short: boolean): string {
@@ -1087,6 +1084,18 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   private slug(): string {
     return String(this.route.snapshot.paramMap.get('slug') ?? '').trim().toLowerCase();
+  }
+
+  private isoToLocalDate(iso: string): Date {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
+  }
+
+  private localDateToIso(value: Date): string {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   private todayIso(): string {
