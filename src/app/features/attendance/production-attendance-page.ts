@@ -31,6 +31,10 @@ import {
   AttendanceShareRangeDialogComponent,
   AttendanceShareRangeResult,
 } from './attendance-share-range-dialog';
+import {
+  resolveShopCalendarDate,
+  zonedDateParts,
+} from '../../core/shop/business-date';
 
 interface ProdDayCell {
   id?: string;
@@ -86,13 +90,6 @@ const MONTH_LABELS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
-
-function localIsoDate(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 function formatIsoShort(iso: string): string {
   const d = new Date(`${iso}T12:00:00`);
@@ -784,13 +781,20 @@ export class ProductionAttendancePage {
   readonly months = MONTH_LABELS.map((label, idx) => ({ value: idx + 1, label }));
   readonly years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
 
-  private readonly now = new Date();
-  readonly todayYear = this.now.getFullYear();
-  readonly todayMonth = this.now.getMonth() + 1;
-  readonly todayIso = localIsoDate(this.now);
+  private shopTodayParts() {
+    return zonedDateParts(new Date(), this.shops.selectedShop()?.timezone);
+  }
 
-  readonly year = signal(this.todayYear);
-  readonly month = signal(this.todayMonth);
+  readonly todayParts = computed(() => this.shopTodayParts());
+  readonly todayYear = computed(() => this.todayParts().year);
+  readonly todayMonth = computed(() => this.todayParts().month);
+  readonly todayDay = computed(() => this.todayParts().day);
+  readonly todayIso = computed(() =>
+    resolveShopCalendarDate(new Date(), { timezone: this.shops.selectedShop()?.timezone }),
+  );
+
+  readonly year = signal(this.shopTodayParts().year);
+  readonly month = signal(this.shopTodayParts().month);
   readonly data = signal<ProdMonthResponse | null>(null);
   readonly summary = signal<ProdSummaryResponse | null>(null);
   readonly loading = signal(true);
@@ -805,11 +809,12 @@ export class ProductionAttendancePage {
    */
   readonly markingUnlocked = signal(false);
   /** Día seleccionado en el panel rápido (por defecto hoy). */
-  readonly quickDayIso = signal(this.todayIso);
+  readonly quickDayIso = signal(resolveShopCalendarDate(new Date(), { timezone: undefined }));
 
   private monthLoadSeq = 0;
   private todayLoadSeq = 0;
   private summaryLoadSeq = 0;
+  private lastSyncedShopId: string | null = null;
 
   readonly employees = computed(() => this.data()?.employees ?? []);
   readonly dayNumbers = computed(() => {
@@ -861,6 +866,16 @@ export class ProductionAttendancePage {
       void this.reload();
       void this.loadTodayMarks();
       void this.loadSummary();
+    });
+    effect(() => {
+      const shopId = this.shopId();
+      this.todayIso();
+      if (shopId && shopId !== this.lastSyncedShopId) {
+        this.lastSyncedShopId = shopId;
+        this.quickDayIso.set(this.todayIso());
+        this.year.set(this.todayYear());
+        this.month.set(this.todayMonth());
+      }
     });
     effect(() => {
       const shopId = this.shopId();
@@ -962,7 +977,7 @@ export class ProductionAttendancePage {
   }
 
   isQuickDayToday(): boolean {
-    return this.quickDayIso() === this.todayIso;
+    return this.quickDayIso() === this.todayIso();
   }
 
   quickDayLabel(): string {
@@ -986,11 +1001,14 @@ export class ProductionAttendancePage {
     const [y, m, d] = this.quickDayIso().split('-').map(Number);
     const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + delta);
-    this.quickDayIso.set(localIsoDate(dt));
+    const ny = dt.getFullYear();
+    const nm = String(dt.getMonth() + 1).padStart(2, '0');
+    const nd = String(dt.getDate()).padStart(2, '0');
+    this.quickDayIso.set(`${ny}-${nm}-${nd}`);
   }
 
   goQuickDayToday(): void {
-    this.quickDayIso.set(this.todayIso);
+    this.quickDayIso.set(this.todayIso());
   }
 
   isQuickDayClosed(): boolean {
@@ -1146,15 +1164,15 @@ export class ProductionAttendancePage {
   }
 
   goToTodayMonth(): void {
-    this.year.set(this.todayYear);
-    this.month.set(this.todayMonth);
+    this.year.set(this.todayYear());
+    this.month.set(this.todayMonth());
   }
 
   isTodayColumn(day: number): boolean {
     return (
-      this.year() === this.todayYear &&
-      this.month() === this.todayMonth &&
-      day === this.now.getDate()
+      this.year() === this.todayYear() &&
+      this.month() === this.todayMonth() &&
+      day === this.todayDay()
     );
   }
 
@@ -1531,11 +1549,11 @@ export class ProductionAttendancePage {
   }
 
   private scrollMatrixToToday(attempt = 0): void {
-    if (this.year() !== this.todayYear || this.month() !== this.todayMonth) return;
+    if (this.year() !== this.todayYear() || this.month() !== this.todayMonth()) return;
     const wrap = this.tableWrap()?.nativeElement;
     if (!wrap) return;
     const todayHeader = wrap.querySelector(
-      `th.att-table__day[data-day="${this.now.getDate()}"]`,
+      `th.att-table__day[data-day="${this.todayDay()}"]`,
     ) as HTMLElement | null;
     if (!todayHeader) {
       if (attempt < 5) requestAnimationFrame(() => this.scrollMatrixToToday(attempt + 1));

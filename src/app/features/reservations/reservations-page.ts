@@ -419,7 +419,7 @@ interface CalendarCell {
               (dateChange)="onDayPicked($event.value)"
             />
             <mat-datepicker-toggle matIconSuffix [for]="dayPicker" />
-            <mat-datepicker #dayPicker />
+            <mat-datepicker #dayPicker touchUi />
           </mat-form-field>
         </div>
       </div>

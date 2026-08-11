@@ -23,6 +23,7 @@ import {
   ParsedCv,
 } from './candidates-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { takeInputFiles } from '../../shared/utils/input-file';
 
 export type CandidateDialogData = {
   shopId: string;
@@ -687,8 +688,7 @@ export class CandidateDialogComponent {
 
   onFilesPicked(ev: Event): void {
     const input = ev.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
-    input.value = '';
+    const files = takeInputFiles(input);
     if (!files.length) return;
 
     const next = [...this.pendingFiles()];
