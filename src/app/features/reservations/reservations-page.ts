@@ -217,7 +217,7 @@ interface CalendarCell {
     @if (canManage()) {
       <section class="panel-card req-panel" [class.req-panel--closed]="!signupOpen()">
         <div class="req-panel__head">
-          <div>
+          <div class="req-panel__intro">
             <h2 class="guy-section-title">Solicitudes web</h2>
             <p class="text-muted small req-panel__lead">
               @if (signupOpen()) {
@@ -235,34 +235,36 @@ interface CalendarCell {
             </p>
           </div>
           <div class="req-panel__tools">
-            <mat-slide-toggle
-              color="primary"
-              [checked]="signupOpen()"
-              [disabled]="signupBusy()"
-              (change)="toggleSignup($event.checked)"
-            >
-              {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
-            </mat-slide-toggle>
-            <div class="req-areas">
+            <div class="req-panel__toggles">
               <mat-slide-toggle
                 color="primary"
-                [checked]="insideOpen()"
-                [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
-                (change)="toggleArea('INSIDE', $event.checked)"
+                [checked]="signupOpen()"
+                [disabled]="signupBusy()"
+                (change)="toggleSignup($event.checked)"
               >
-                Adentro
+                {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
               </mat-slide-toggle>
-              <mat-slide-toggle
-                color="primary"
-                [checked]="outsideOpen()"
-                [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
-                (change)="toggleArea('OUTSIDE', $event.checked)"
-              >
-                Afuera
-              </mat-slide-toggle>
+              <div class="req-areas">
+                <mat-slide-toggle
+                  color="primary"
+                  [checked]="insideOpen()"
+                  [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
+                  (change)="toggleArea('INSIDE', $event.checked)"
+                >
+                  Adentro
+                </mat-slide-toggle>
+                <mat-slide-toggle
+                  color="primary"
+                  [checked]="outsideOpen()"
+                  [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
+                  (change)="toggleArea('OUTSIDE', $event.checked)"
+                >
+                  Afuera
+                </mat-slide-toggle>
+              </div>
             </div>
-            @if (shopSlug()) {
-              <div class="floor-public-actions">
+            <div class="req-panel__links">
+              @if (shopSlug()) {
                 <a
                   class="floor-public-btn"
                   [href]="signupUrl()"
@@ -282,18 +284,18 @@ interface CalendarCell {
                   <mat-icon>content_copy</mat-icon>
                   <span class="req-panel__btn-label">Copiar link</span>
                 </button>
-              </div>
-            }
-            <button
-              type="button"
-              class="floor-public-btn floor-public-btn--ghost"
-              (click)="reloadRequests()"
-              [disabled]="requestsBusy()"
-              matTooltip="Recargar solicitudes"
-            >
-              <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
-              <span class="req-panel__btn-label">Recargar</span>
-            </button>
+              }
+              <button
+                type="button"
+                class="floor-public-btn floor-public-btn--ghost"
+                (click)="reloadRequests()"
+                [disabled]="requestsBusy()"
+                matTooltip="Recargar solicitudes"
+              >
+                <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
+                <span class="req-panel__btn-label">Recargar</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -423,14 +425,27 @@ interface CalendarCell {
       </div>
 
       <div class="floor-week" aria-label="Días de la semana">
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Semana anterior"
-          (click)="shiftWeek(-1)"
-        >
-          <mat-icon>chevron_left</mat-icon>
-        </button>
+        <div class="floor-week__nav">
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Semana anterior"
+            (click)="shiftWeek(-1)"
+          >
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <button mat-stroked-button type="button" class="floor-week__today" (click)="goToday()">
+            Hoy
+          </button>
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Semana siguiente"
+            (click)="shiftWeek(1)"
+          >
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
         <div class="floor-week__days">
           @for (d of weekDays(); track d.iso) {
             <button
@@ -451,17 +466,6 @@ interface CalendarCell {
             </button>
           }
         </div>
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Semana siguiente"
-          (click)="shiftWeek(1)"
-        >
-          <mat-icon>chevron_right</mat-icon>
-        </button>
-        <button mat-stroked-button type="button" class="floor-week__today" (click)="goToday()">
-          Hoy
-        </button>
       </div>
 
       @if (showCalendar()) {
@@ -746,12 +750,31 @@ interface CalendarCell {
         margin-bottom: 0.75rem;
       }
 
+      .req-panel__intro {
+        min-width: 0;
+        flex: 1 1 12rem;
+      }
+
       .req-panel__tools {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
         gap: 0.75rem 1rem;
+      }
+
+      .req-panel__toggles {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem 0.85rem;
+      }
+
+      .req-panel__links {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
       }
 
       .req-areas {
@@ -1034,17 +1057,30 @@ interface CalendarCell {
       }
 
       .floor-week {
-        display: flex;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
         align-items: center;
         gap: 0.25rem;
         margin-bottom: 0.85rem;
+      }
+
+      .floor-week__nav {
+        display: contents;
+      }
+
+      .floor-week__nav > :first-child {
+        grid-column: 1;
+      }
+
+      .floor-week__nav > :last-child {
+        grid-column: 3;
       }
 
       .floor-week__days {
         display: grid;
         grid-template-columns: repeat(7, minmax(0, 1fr));
         gap: 0.35rem;
-        flex: 1;
+        grid-column: 2;
         min-width: 0;
       }
 
@@ -1129,7 +1165,8 @@ interface CalendarCell {
       }
 
       .floor-week__today {
-        flex-shrink: 0;
+        grid-column: 4;
+        justify-self: start;
         margin-left: 0.15rem;
       }
 
@@ -1257,23 +1294,112 @@ interface CalendarCell {
 
       @media (max-width: 860px) {
         .floor-week {
-          flex-wrap: wrap;
+          grid-template-columns: 1fr;
+          gap: 0.45rem;
+        }
+
+        .floor-week__nav {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.35rem;
+          grid-column: 1;
+        }
+
+        .floor-week__nav > :first-child,
+        .floor-week__nav > :last-child {
+          grid-column: auto;
         }
 
         .floor-week__days {
-          order: 3;
-          width: 100%;
-          flex: 1 1 100%;
+          grid-column: 1;
         }
 
         .floor-week__today {
-          margin-left: auto;
+          grid-column: auto;
+          margin-left: 0;
+          flex: 1;
         }
       }
 
       @media (max-width: 720px) {
+        .req-panel,
+        .floor-panel {
+          padding: 0.85rem 0.8rem 0.95rem;
+        }
+
+        .req-panel__head,
         .floor-panel__head {
           flex-direction: column;
+          align-items: stretch;
+        }
+
+        .req-panel__lead {
+          max-width: none;
+        }
+
+        .req-panel__tools {
+          width: 100%;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: stretch;
+          gap: 0.7rem;
+        }
+
+        .req-panel__toggles {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0.55rem;
+          padding: 0.65rem 0.75rem;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 80%, #fff);
+        }
+
+        .req-areas {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.45rem 0.75rem;
+          padding: 0.45rem 0 0;
+          border-left: 0;
+          border-top: 1px solid color-mix(in srgb, var(--guy-muted, #5f6f76) 22%, transparent);
+        }
+
+        .req-panel__links,
+        .floor-public-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          width: 100%;
+        }
+
+        .req-panel__links .floor-public-btn:last-child:nth-child(odd) {
+          grid-column: 1 / -1;
+        }
+
+        .floor-public-btn {
+          width: 100%;
+          min-height: 2.65rem;
+          padding: 0.5rem 0.65rem;
+          font-size: 0.8rem;
+        }
+
+        .req-card__main {
+          min-width: 0;
+          flex: 1 1 100%;
+        }
+
+        .req-card__actions {
+          width: 100%;
+          margin-left: 0;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .req-card__actions .req-btn--yes-ig {
+          grid-column: 1 / -1;
+        }
+
+        .floor-head-meta {
+          width: 100%;
         }
 
         .floor-head-tools {
@@ -1281,28 +1407,51 @@ interface CalendarCell {
           justify-content: stretch;
         }
 
+        .floor-cal-toggle {
+          flex: 1;
+        }
+
         .floor-date {
           flex: 1;
           width: auto;
+          min-width: 0;
         }
 
         .floor-form {
           grid-template-columns: 1fr 1fr;
         }
 
-        .floor-form > mat-form-field:nth-child(3),
+        .floor-form > mat-form-field:first-child,
         .floor-form button[type='submit'],
         .floor-area-toggle {
           grid-column: 1 / -1;
         }
 
         .floor-week__day {
-          min-height: 3.6rem;
-          padding: 0.3rem 0.1rem;
+          min-height: 3.85rem;
+          padding: 0.35rem 0.08rem;
         }
 
         .floor-week__label {
-          font-size: 0.62rem;
+          font-size: 0.6rem;
+        }
+
+        .floor-week__guests--empty {
+          display: none;
+        }
+
+        .floor-card {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .floor-card__actions {
+          width: 100%;
+          justify-content: stretch;
+        }
+
+        .floor-card__actions > * {
+          flex: 1 1 auto;
         }
       }
 

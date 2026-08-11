@@ -246,6 +246,7 @@ export class ToolbarComponent implements OnInit {
   readonly inlineQuickLimit = computed(() => {
     const all = this.quickActions().length;
     if (!all) return 0;
+    if (this.isMobile()) return 0;
     const avail = this.availableQuickWidth();
     if (avail < QUICK_BTN) return 0;
 

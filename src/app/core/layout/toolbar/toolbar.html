@@ -312,17 +312,25 @@
             <span class="user-popover__role">{{ roleLabel(u) }}</span>
           </div>
         </div>
+        @if (isMobile()) {
+          <button mat-menu-item type="button" class="user-popover__logout" (click)="logout.emit()">
+            <mat-icon>logout</mat-icon>
+            <span>Salir</span>
+          </button>
+        }
       </mat-menu>
     }
 
-    <button
-      type="button"
-      class="tb-btn"
-      matTooltip="Salir"
-      aria-label="Salir"
-      (click)="logout.emit()"
-    >
-      <mat-icon>logout</mat-icon>
-    </button>
+    @if (!isMobile()) {
+      <button
+        type="button"
+        class="tb-btn"
+        matTooltip="Salir"
+        aria-label="Salir"
+        (click)="logout.emit()"
+      >
+        <mat-icon>logout</mat-icon>
+      </button>
+    }
   </div>
 </header>

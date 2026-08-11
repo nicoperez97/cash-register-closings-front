@@ -100,6 +100,23 @@ import { APP_BRAND } from '../../core/config/app-brand';
         height: 1.5rem;
         margin-right: 0.15rem;
       }
+      @media (max-width: 720px) {
+        .guy-page-header {
+          gap: 0.65rem;
+          margin-bottom: 0.85rem;
+          padding: 0.75rem 0.85rem;
+        }
+        h1 {
+          font-size: 1.22rem;
+        }
+        .subtitle {
+          font-size: 0.84rem;
+        }
+        .guy-page-header__action {
+          width: 100%;
+          justify-content: center;
+        }
+      }
     `,
   ],
 })

@@ -517,6 +517,11 @@
   text-transform: uppercase;
 }
 
+.user-popover__logout {
+  margin-top: 0.35rem;
+  border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+}
+
 .logout-btn {
   border-radius: 999px !important;
   border-color: var(--guy-navy, #003366) !important;
