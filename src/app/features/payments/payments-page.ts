@@ -475,13 +475,25 @@ function daysUntilDue(iso: string | null | undefined): number | null {
 
           <div class="pay-card__actions">
             @if (canValidate(p)) {
-              <button mat-flat-button color="primary" type="button" (click)="validate(p)">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="actionBusyId() === p.id"
+                (click)="validate(p)"
+              >
                 <mat-icon>verified</mat-icon>
                 Validar
               </button>
             }
             @if (canPay(p)) {
-              <button mat-flat-button color="primary" type="button" (click)="pay(p)">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="actionBusyId() === p.id"
+                (click)="pay(p)"
+              >
                 <mat-icon>paid</mat-icon>
                 Marcar pagado
               </button>
@@ -888,6 +900,7 @@ export class PaymentsPage {
 
   readonly rows = signal<ShopPayment[]>([]);
   readonly loading = signal(true);
+  readonly actionBusyId = signal<string | null>(null);
   readonly users = signal<
     Array<{
       id: string;
@@ -1592,13 +1605,18 @@ export class PaymentsPage {
 
   validate(p: ShopPayment): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || this.actionBusyId()) return;
+    this.actionBusyId.set(p.id);
     this.api.validate(shopId, p.id).subscribe({
       next: () => {
+        this.actionBusyId.set(null);
         this.snack.open('Pago validado', 'OK', { duration: 2500 });
         this.reload({ preserveScroll: true });
       },
-      error: (err) => this.showErr(err),
+      error: (err) => {
+        this.actionBusyId.set(null);
+        this.showErr(err);
+      },
     });
   }
 
@@ -1622,17 +1640,23 @@ export class PaymentsPage {
     const ok = await this.confirm.confirm('Rechazar pago', `¿Rechazar "${p.title}"?`);
     if (!ok) return;
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || this.actionBusyId()) return;
+    this.actionBusyId.set(p.id);
     this.api.reject(shopId, p.id).subscribe({
       next: () => {
+        this.actionBusyId.set(null);
         this.snack.open('Pago rechazado', 'OK', { duration: 2500 });
         this.reload({ preserveScroll: true });
       },
-      error: (err) => this.showErr(err),
+      error: (err) => {
+        this.actionBusyId.set(null);
+        this.showErr(err);
+      },
     });
   }
 
   async pay(p: ShopPayment): Promise<void> {
+    if (this.actionBusyId()) return;
     const result = await firstValueFrom(
       this.dialogTitle
         .track(
@@ -1648,10 +1672,12 @@ export class PaymentsPage {
     );
     if (!result?.paymentMethod) return;
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || this.actionBusyId()) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    this.actionBusyId.set(p.id);
     this.api.pay(shopId, p.id, { paymentMethod: result.paymentMethod }).subscribe({
       next: (paid) => {
+        this.actionBusyId.set(null);
         this.reload({ preserveScroll: true });
         this.dialogTitle.track(
           this.dialog.open(RecordSavedDialogComponent, {
@@ -1665,7 +1691,10 @@ export class PaymentsPage {
         // Ofrece adjuntar comprobante de pago de inmediato
         void this.promptReceiptAfterPay(paid);
       },
-      error: (err) => this.showErr(err),
+      error: (err) => {
+        this.actionBusyId.set(null);
+        this.showErr(err);
+      },
     });
   }
 

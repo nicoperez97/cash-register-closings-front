@@ -22,7 +22,7 @@ import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
 import { Employee } from '../employees/employees-api.service';
 import { takeInputFile } from '../../shared/utils/input-file';
-import { Observable, of, switchMap } from 'rxjs';
+import { Observable, catchError, map, of, switchMap } from 'rxjs';
 
 export type PaymentDialogKind = 'supplier' | 'employee';
 
@@ -895,10 +895,15 @@ export class PaymentDialogComponent {
             return req$.pipe(
               switchMap((saved) => {
                 const file = this.pendingInvoiceFile();
-                if (!file || !this.isSupplierKind) return of({ kind: 'updated' as const, saved });
-                return this.api
-                  .uploadInvoiceFile(this.data.shopId, saved.id, file, false)
-                  .pipe(switchMap((s) => of({ kind: 'updated' as const, saved: s })));
+                if (!file || !this.isSupplierKind) {
+                  return of({ kind: 'updated' as const, saved, invoiceOk: true });
+                }
+                return this.api.uploadInvoiceFile(this.data.shopId, saved.id, file, false).pipe(
+                  map((s) => ({ kind: 'updated' as const, saved: s, invoiceOk: true })),
+                  catchError(() =>
+                    of({ kind: 'updated' as const, saved, invoiceOk: false }),
+                  ),
+                );
               }),
             );
           }
@@ -922,11 +927,16 @@ export class PaymentDialogComponent {
               switchMap((created) => {
                 const file = this.pendingInvoiceFile();
                 if (!file || !this.isSupplierKind) {
-                  return of({ kind: 'created' as const, saved: created });
+                  return of({ kind: 'created' as const, saved: created, invoiceOk: true });
                 }
                 return this.api
                   .uploadInvoiceFile(this.data.shopId, created.id, file, false)
-                  .pipe(switchMap((s) => of({ kind: 'created' as const, saved: s })));
+                  .pipe(
+                    map((s) => ({ kind: 'created' as const, saved: s, invoiceOk: true })),
+                    catchError(() =>
+                      of({ kind: 'created' as const, saved: created, invoiceOk: false }),
+                    ),
+                  );
               }),
             );
         }),
@@ -945,11 +955,17 @@ export class PaymentDialogComponent {
           }
           const msg =
             result.kind === 'updated'
-              ? 'Pago actualizado'
-              : this.isDuplicate
-                ? 'Pago duplicado'
-                : 'Pago creado';
-          this.snack.open(msg, 'OK', { duration: 2500 });
+              ? result.invoiceOk === false
+                ? 'Pago actualizado, pero no se pudo subir la factura. Volvé a adjuntarla desde el listado.'
+                : 'Pago actualizado'
+              : result.invoiceOk === false
+                ? 'Pago creado, pero no se pudo subir la factura. Abrí el pago y volvé a adjuntarla.'
+                : this.isDuplicate
+                  ? 'Pago duplicado'
+                  : 'Pago creado';
+          this.snack.open(msg, 'OK', {
+            duration: result.invoiceOk === false ? 5500 : 2500,
+          });
           this.ref.close(true);
         },
         error: (err) => {
