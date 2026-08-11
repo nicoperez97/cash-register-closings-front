@@ -10,7 +10,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import { PaymentsApiService, PAYMENT_METHOD_OPTIONS, PaymentMethod, ShopPayment } from './payments-api.service';
+import {
+  PaymentsApiService,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_PRIORITY_OPTIONS,
+  PaymentMethod,
+  PaymentPriority,
+  ShopPayment,
+} from './payments-api.service';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
 import { Employee } from '../employees/employees-api.service';
@@ -99,6 +106,44 @@ export type PaymentDialogData = {
           grid-column: auto;
         }
       }
+      .prio-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin: 0.1rem 0 0.15rem;
+      }
+      .prio-field__label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .prio-field__btns {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.45rem;
+      }
+      .prio-btn {
+        min-height: 40px;
+        border-radius: 999px !important;
+        font-weight: 700 !important;
+      }
+      .prio-btn--high.prio-btn--on {
+        background: color-mix(in srgb, #c62828 16%, #fff);
+        border-color: #c62828;
+        color: #c62828;
+      }
+      .prio-btn--medium.prio-btn--on {
+        background: color-mix(in srgb, #ef6c00 16%, #fff);
+        border-color: #e65100;
+        color: #e65100;
+      }
+      .prio-btn--low.prio-btn--on {
+        background: color-mix(in srgb, #1565c0 16%, #fff);
+        border-color: #1565c0;
+        color: #1565c0;
+      }
     `,
   ],
   template: `
@@ -130,6 +175,26 @@ export type PaymentDialogData = {
           <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
           <mat-datepicker #duePicker />
         </mat-form-field>
+
+        <div class="prio-field">
+          <span class="prio-field__label">Prioridad</span>
+          <div class="prio-field__btns">
+            @for (opt of paymentPriorities; track opt.value) {
+              <button
+                mat-stroked-button
+                type="button"
+                class="prio-btn"
+                [class.prio-btn--on]="form.controls.priority.value === opt.value"
+                [class.prio-btn--high]="opt.value === 'high'"
+                [class.prio-btn--medium]="opt.value === 'medium'"
+                [class.prio-btn--low]="opt.value === 'low'"
+                (click)="setPriority(opt.value)"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        </div>
 
         @if (isPaidEdit) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -383,6 +448,12 @@ export class PaymentDialogComponent {
   readonly isPaidEdit =
     this.data.mode === 'edit' && this.data.payment.status === 'PAID';
   readonly paymentMethods = PAYMENT_METHOD_OPTIONS;
+  readonly paymentPriorities = PAYMENT_PRIORITY_OPTIONS;
+
+  setPriority(value: PaymentPriority): void {
+    const current = this.form.controls.priority.value;
+    this.form.controls.priority.setValue(current === value ? null : value);
+  }
   readonly seed: Partial<ShopPayment> | null =
     this.data.mode === 'edit' || this.data.mode === 'duplicate'
       ? this.data.payment
@@ -444,6 +515,7 @@ export class PaymentDialogComponent {
     amount: [this.seed?.amount ?? (null as number | null)],
     dueDate: [this.parseDate(this.seed?.dueDate) as Date | null],
     paidAt: [this.parseDate(this.seed?.paidAt) as Date | null],
+    priority: [this.seed?.priority ?? (null as PaymentPriority | null)],
     supplierId: [
       this.isSupplierKind ? (this.seed?.supplierId ?? null) : (null as string | null),
     ],
@@ -740,6 +812,7 @@ export class PaymentDialogComponent {
             amount,
             dueDate: this.toIsoDate(raw.dueDate),
             paidAt: this.isPaidEdit ? this.toIsoDate(raw.paidAt) : null,
+            priority: (raw.priority as PaymentPriority | null) || null,
             supplierId: this.isSupplierKind ? supplierId : null,
             employeeId: this.isSupplierKind ? null : raw.employeeId || null,
             payerUserId: raw.payerUserId || null,
@@ -761,6 +834,7 @@ export class PaymentDialogComponent {
             if (!sameStr(next.title, prev.title)) body['title'] = next.title;
             if (!sameAmount(next.amount, prev.amount ?? null)) body['amount'] = next.amount;
             if (!sameStr(next.dueDate, prev.dueDate)) body['dueDate'] = next.dueDate;
+            if (!sameStr(next.priority, prev.priority)) body['priority'] = next.priority;
             if (this.isPaidEdit && next.paidAt && !sameStr(next.paidAt, prev.paidAt)) {
               body['paidAt'] = next.paidAt;
             }
@@ -835,6 +909,7 @@ export class PaymentDialogComponent {
               title: next.title,
               amount: next.amount,
               dueDate: next.dueDate,
+              priority: next.priority,
               supplierId: next.supplierId,
               employeeId: next.employeeId,
               payerUserId: next.payerUserId,

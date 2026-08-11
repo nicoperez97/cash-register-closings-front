@@ -120,10 +120,41 @@ function formatIsoShort(iso: string): string {
       <div class="panel-card mb-3 today-panel">
         <div class="today-panel__head">
           <div>
-            <h2 class="today-panel__title">Hoy</h2>
+            <h2 class="today-panel__title">{{ isQuickDayToday() ? 'Hoy' : 'Día' }}</h2>
             <p class="today-panel__date">
-              {{ todayLabel() }} · Default {{ defaultHours() }} h
+              {{ quickDayLabel() }} · Default {{ defaultHours() }} h
             </p>
+            <div class="today-panel__day-nav">
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Día anterior"
+                (click)="shiftQuickDay(-1)"
+              >
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <input
+                class="today-panel__day-input"
+                type="date"
+                [ngModel]="quickDayIso()"
+                (ngModelChange)="onQuickDayChange($event)"
+                aria-label="Fecha de asistencia"
+              />
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Día siguiente"
+                (click)="shiftQuickDay(1)"
+              >
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+              @if (!isQuickDayToday()) {
+                <button mat-stroked-button type="button" (click)="goQuickDayToday()">
+                  <mat-icon>today</mat-icon>
+                  Hoy
+                </button>
+              }
+            </div>
           </div>
           <div class="today-panel__actions">
             <button
@@ -135,7 +166,7 @@ function formatIsoShort(iso: string): string {
               <mat-icon>share</mat-icon>
               Compartir
             </button>
-            @if (canManage()) {
+            @if (canManage() && !isQuickDayClosed()) {
               <button
                 mat-flat-button
                 color="primary"
@@ -149,29 +180,34 @@ function formatIsoShort(iso: string): string {
             }
           </div>
         </div>
-        <div class="today-panel__chips">
-          @for (emp of employees(); track emp.employeeId) {
-            <button
-              type="button"
-              class="today-chip"
-              [class.today-chip--present]="hoursToday(emp) > 0"
-              [disabled]="!canManage() || saving()"
-              [matTooltip]="chipHint(emp)"
-              (click)="onChipClick(emp)"
-              (contextmenu)="editHoursToday($event, emp)"
-              (pointerdown)="onPressStart($event, () => editHoursToday($event, emp))"
-              (pointerup)="onPressEnd()"
-              (pointerleave)="onPressEnd()"
-              (pointercancel)="onPressEnd()"
-            >
-              <mat-icon>{{ hoursToday(emp) > 0 ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-              {{ emp.fullName }}
-              @if (hoursToday(emp) > 0) {
-                <span class="today-chip__hours">{{ formatHours(hoursToday(emp)) }} h</span>
-              }
-            </button>
-          }
-        </div>
+        @if (isQuickDayClosed()) {
+          <p class="today-panel__closed">Franco del local. No se marca asistencia ese día.</p>
+        } @else {
+          <div class="today-panel__chips">
+            @for (emp of employees(); track emp.employeeId) {
+              <button
+                type="button"
+                class="today-chip"
+                [class.today-chip--present]="hoursToday(emp) > 0"
+                [disabled]="!canManage() || saving()"
+                [matTooltip]="chipHint(emp)"
+                (click)="onChipClick(emp)"
+                (contextmenu)="editHoursToday($event, emp)"
+                (pointerdown)="onPressStart($event, () => editHoursToday($event, emp))"
+                (pointermove)="onPressMove($event)"
+                (pointerup)="onPressEnd()"
+                (pointerleave)="onPressEnd()"
+                (pointercancel)="onPressEnd()"
+              >
+                <mat-icon>{{ hoursToday(emp) > 0 ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                {{ emp.fullName }}
+                @if (hoursToday(emp) > 0) {
+                  <span class="today-chip__hours">{{ formatHours(hoursToday(emp)) }} h</span>
+                }
+              </button>
+            }
+          </div>
+        }
       </div>
     }
 
@@ -294,7 +330,40 @@ function formatIsoShort(iso: string): string {
     } @else {
       <div class="panel-card panel-card--flush">
         <div class="panel-card__body">
-          <div class="att-table-wrap" #tableWrap>
+          <div class="att-board__head">
+            <div>
+              <h2 class="att-board__title">Tablero del mes</h2>
+              <p class="att-board__meta">
+                {{ months.find((m) => m.value === month())?.label }} {{ year() }}
+              </p>
+            </div>
+            @if (canManage()) {
+              <div class="att-board__actions">
+                @if (!markingUnlocked()) {
+                  <button mat-flat-button color="primary" type="button" (click)="unlockMarking()">
+                    <mat-icon>edit</mat-icon>
+                    Editar tablero
+                  </button>
+                } @else {
+                  <button mat-stroked-button type="button" (click)="lockMarking()">
+                    <mat-icon>lock</mat-icon>
+                    Listo
+                  </button>
+                }
+              </div>
+            }
+          </div>
+          @if (canManage() && !markingUnlocked()) {
+            <p class="att-board__lock-hint">
+              Activá <strong>Editar tablero</strong> para marcar celdas (viene bloqueado). Cada
+              guardado pide confirmación.
+            </p>
+          }
+          <div
+            class="att-table-wrap"
+            [class.att-table-wrap--locked]="canManage() && !markingUnlocked()"
+            #tableWrap
+          >
             <table class="att-table">
               <thead>
                 <tr>
@@ -332,11 +401,12 @@ function formatIsoShort(iso: string): string {
                           [class.att-cell--present]="hoursOf(emp, d) > 0"
                           [class.att-cell--closed]="isClosedDay(d)"
                           [class.att-cell--today]="isTodayColumn(d)"
-                          [disabled]="!canManage() || saving() || isClosedDay(d)"
+                          [disabled]="!canManage() || saving() || isClosedDay(d) || !markingUnlocked()"
                           [matTooltip]="cellTooltip(emp, d)"
                           (click)="onCellClick(emp, d)"
                           (contextmenu)="editHours($event, emp, d)"
                           (pointerdown)="onPressStart($event, () => editHours($event, emp, d))"
+                          (pointermove)="onPressMove($event)"
                           (pointerup)="onPressEnd()"
                           (pointerleave)="onPressEnd()"
                           (pointercancel)="onPressEnd()"
@@ -360,6 +430,9 @@ function formatIsoShort(iso: string): string {
             <span class="att-legend__item">Mantener pulsado: editar horas</span>
             <span class="att-legend__item att-legend__item--desk">En PC: click derecho también edita</span>
             <span class="att-legend__item">Default del local: {{ defaultHours() }} h</span>
+            <span class="att-legend__hint">
+              Tablero: activá Editar tablero para marcar celdas. Cada guardado pide confirmación.
+            </span>
           </p>
         </div>
       </div>
@@ -460,6 +533,29 @@ function formatIsoShort(iso: string): string {
         color: var(--guy-muted, #5f6f76);
         text-transform: capitalize;
       }
+      .today-panel__day-nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.15rem;
+        margin-top: 0.45rem;
+      }
+      .today-panel__day-input {
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 10px;
+        padding: 0.35rem 0.55rem;
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+        background: #fff;
+        min-height: 40px;
+      }
+      .today-panel__closed {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--guy-muted, #5f6f76);
+      }
       .today-panel__actions {
         display: flex;
         flex-wrap: wrap;
@@ -504,7 +600,47 @@ function formatIsoShort(iso: string): string {
       }
       .att-table-wrap {
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
         scroll-behavior: smooth;
+        touch-action: pan-x pan-y;
+      }
+      .att-table-wrap--locked {
+        opacity: 0.92;
+      }
+      .att-table-wrap--locked .att-cell,
+      .att-table-wrap--locked .att-table__day {
+        pointer-events: none;
+        touch-action: pan-x pan-y;
+      }
+      .att-board__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.65rem;
+      }
+      .att-board__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .att-board__meta {
+        margin: 0.15rem 0 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .att-board__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .att-board__lock-hint {
+        margin: 0 0 0.75rem;
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5f6f76);
       }
       .att-table {
         border-collapse: collapse;
@@ -654,6 +790,13 @@ export class ProductionAttendancePage {
   readonly exporting = signal(false);
   readonly sharing = signal(false);
   readonly defaultHours = signal(8);
+  /**
+   * Solo el tablero del mes: siempre bloqueado por defecto.
+   * La sección Hoy no usa este candado.
+   */
+  readonly markingUnlocked = signal(false);
+  /** Día seleccionado en el panel rápido (por defecto hoy). */
+  readonly quickDayIso = signal(this.todayIso);
 
   private monthLoadSeq = 0;
   private todayLoadSeq = 0;
@@ -717,13 +860,20 @@ export class ProductionAttendancePage {
       if (!shopId) {
         this.data.set(null);
         this.summary.set(null);
-        this.todayMarks.set({});
         this.loading.set(false);
         return;
       }
       void this.reload();
-      void this.loadTodayMarks();
       void this.loadSummary();
+    });
+    effect(() => {
+      const shopId = this.shopId();
+      this.quickDayIso();
+      if (!shopId) {
+        this.todayMarks.set({});
+        return;
+      }
+      void this.loadTodayMarks();
     });
   }
 
@@ -802,19 +952,72 @@ export class ProductionAttendancePage {
     return raw || 'local';
   }
 
-  todayLabel(): string {
-    return this.now.toLocaleDateString('es-AR', {
+  isQuickDayToday(): boolean {
+    return this.quickDayIso() === this.todayIso;
+  }
+
+  quickDayLabel(): string {
+    const [y, m, d] = this.quickDayIso().split('-').map(Number);
+    if (!y || !m || !d) return this.quickDayIso();
+    return new Date(y, m - 1, d).toLocaleDateString('es-AR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     });
   }
 
+  onQuickDayChange(raw: string): void {
+    const next = String(raw ?? '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return;
+    if (next === this.quickDayIso()) return;
+    this.quickDayIso.set(next);
+  }
+
+  shiftQuickDay(delta: number): void {
+    const [y, m, d] = this.quickDayIso().split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + delta);
+    this.quickDayIso.set(localIsoDate(dt));
+  }
+
+  goQuickDayToday(): void {
+    this.quickDayIso.set(this.todayIso);
+  }
+
+  isQuickDayClosed(): boolean {
+    const closed = this.shops.selectedShop()?.closedWeekdays ?? [];
+    if (!closed.length) return false;
+    const [y, m, d] = this.quickDayIso().split('-').map(Number);
+    if (!y || !m || !d) return false;
+    return closed.includes(new Date(y, m - 1, d).getDay());
+  }
+
+  unlockMarking(): void {
+    const ok = window.confirm(
+      '¿Editar el tablero del mes?\n\nCada cambio te va a pedir confirmación antes de guardarse.',
+    );
+    if (!ok) return;
+    this.markingUnlocked.set(true);
+    this.snack.open('Tablero en edición. Tocá Listo cuando termines.', 'OK', {
+      duration: 2200,
+    });
+  }
+
+  lockMarking(): void {
+    this.markingUnlocked.set(false);
+  }
+
+  /** Confirmación obligatoria antes de guardar un cambio del tablero. */
+  private confirmBoardSave(summary: string): boolean {
+    if (!this.markingUnlocked()) return false;
+    return window.confirm(`${summary}\n\n¿Confirmás guardar este cambio?`);
+  }
+
   async shareToday(): Promise<void> {
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     const payload = attendanceDaySharePayload({
       shopName,
-      dateLabel: this.todayLabel(),
+      dateLabel: this.quickDayLabel(),
       kind: 'produccion',
       employees: this.employees().map((emp) => {
         const hours = this.hoursToday(emp);
@@ -886,6 +1089,7 @@ export class ProductionAttendancePage {
 
   cellTooltip(emp: ProdEmployeeRow, day: number): string {
     if (this.isClosedDay(day)) return 'Franco del local';
+    if (!this.markingUnlocked()) return 'Activá Editar tablero para marcar celdas';
     const h = this.hoursOf(emp, day);
     if (h > 0) {
       return `${this.formatHours(h)} h · Toque: quitar · Mantener: editar`;
@@ -914,9 +1118,12 @@ export class ProductionAttendancePage {
     if (!this.canManage()) return;
     // Solo touch / pen: el mouse usa click derecho
     if (event.pointerType === 'mouse') return;
+    this.pressMoved = false;
+    this.pressOrigin = { x: event.clientX, y: event.clientY };
     this.clearPressTimer();
     this.pressTimer = window.setTimeout(() => {
       this.pressTimer = null;
+      if (this.pressMoved) return;
       this.skipNextClick = true;
       try {
         if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -929,12 +1136,24 @@ export class ProductionAttendancePage {
     }, 480);
   }
 
+  onPressMove(event: PointerEvent): void {
+    if (!this.pressOrigin) return;
+    const dx = event.clientX - this.pressOrigin.x;
+    const dy = event.clientY - this.pressOrigin.y;
+    if (dx * dx + dy * dy > 144) {
+      this.pressMoved = true;
+      this.skipNextClick = true;
+      this.clearPressTimer();
+    }
+  }
+
   onPressEnd(): void {
     this.clearPressTimer();
+    this.pressOrigin = null;
   }
 
   togglePresentToday(emp: ProdEmployeeRow): void {
-    if (!this.canManage()) return;
+    if (!this.canManage() || this.isQuickDayClosed()) return;
     const cur = this.hoursToday(emp);
     this.upsertToday(emp, cur > 0 ? 0 : this.defaultHours());
   }
@@ -942,29 +1161,41 @@ export class ProductionAttendancePage {
   editHoursToday(event: Event, emp: ProdEmployeeRow): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage()) return;
+    if (!this.canManage() || this.isQuickDayClosed()) return;
     const next = this.askHours(this.hoursToday(emp) || this.defaultHours());
     if (next === null) return;
     this.upsertToday(emp, next);
   }
 
   togglePresent(emp: ProdEmployeeRow, day: number): void {
-    if (!this.canManage() || this.isClosedDay(day)) return;
+    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
     const cur = this.hoursOf(emp, day);
-    this.upsert(emp, day, cur > 0 ? 0 : this.defaultHours());
+    const next = cur > 0 ? 0 : this.defaultHours();
+    const label = next > 0 ? `presente (${this.formatHours(next)} h)` : 'ausente (0 h)';
+    if (!this.confirmBoardSave(`${emp.fullName} · día ${day}: marcar ${label}`)) return;
+    this.upsert(emp, day, next);
   }
 
   editHours(event: Event, emp: ProdEmployeeRow, day: number): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage() || this.isClosedDay(day)) return;
+    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
     const next = this.askHours(this.hoursOf(emp, day) || this.defaultHours());
     if (next === null) return;
+    if (
+      !this.confirmBoardSave(
+        `${emp.fullName} · día ${day}: ${this.formatHours(next)} h`,
+      )
+    ) {
+      return;
+    }
     this.upsert(emp, day, next);
   }
 
   private pressTimer: number | null = null;
   private skipNextClick = false;
+  private pressOrigin: { x: number; y: number } | null = null;
+  private pressMoved = false;
 
   private clearPressTimer(): void {
     if (this.pressTimer != null) {
@@ -974,18 +1205,20 @@ export class ProductionAttendancePage {
   }
 
   private consumeLongPressClick(): boolean {
-    if (!this.skipNextClick) return false;
+    if (!this.skipNextClick && !this.pressMoved) return false;
     this.skipNextClick = false;
+    this.pressMoved = false;
     return true;
   }
 
   markAllPresentToday(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage()) return;
+    if (!shopId || !this.canManage() || this.isQuickDayClosed()) return;
     const hours = this.defaultHours();
+    const date = this.quickDayIso();
     const items = this.employees().map((e) => ({
       employeeId: e.employeeId,
-      date: this.todayIso,
+      date,
       hours,
     }));
     if (!items.length) return;
@@ -998,7 +1231,8 @@ export class ProductionAttendancePage {
           const next = { ...this.todayMarks() };
           for (const e of this.employees()) next[e.employeeId] = hours;
           this.todayMarks.set(next);
-          if (this.year() === this.todayYear && this.month() === this.todayMonth) {
+          const [y, m] = date.split('-').map(Number);
+          if (this.year() === y && this.month() === m) {
             void this.reload();
           }
           void this.loadSummary();
@@ -1027,20 +1261,22 @@ export class ProductionAttendancePage {
 
   private upsertToday(emp: ProdEmployeeRow, hours: number): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || this.isQuickDayClosed()) return;
+    const date = this.quickDayIso();
     this.saving.set(true);
     this.http
       .post<{ hours: number }>(`${environment.apiUrl}/shops/${shopId}/production-attendance`, {
         employeeId: emp.employeeId,
-        date: this.todayIso,
+        date,
         hours,
       })
       .subscribe({
         next: (res) => {
           this.saving.set(false);
           this.todayMarks.update((m) => ({ ...m, [emp.employeeId]: Number(res.hours) || 0 }));
-          if (this.year() === this.todayYear && this.month() === this.todayMonth) {
-            this.patchLocalDay(emp.employeeId, this.todayIso, Number(res.hours) || 0);
+          const [y, m] = date.split('-').map(Number);
+          if (this.year() === y && this.month() === m) {
+            this.patchLocalDay(emp.employeeId, date, Number(res.hours) || 0);
           }
           void this.loadSummary();
         },
@@ -1068,7 +1304,7 @@ export class ProductionAttendancePage {
           this.saving.set(false);
           const h = Number(res.hours) || 0;
           this.patchLocalDay(emp.employeeId, iso, h);
-          if (iso === this.todayIso) {
+          if (iso === this.quickDayIso()) {
             this.todayMarks.update((m) => ({ ...m, [emp.employeeId]: h }));
           }
           void this.loadSummary();
@@ -1144,6 +1380,9 @@ export class ProductionAttendancePage {
   private async loadTodayMarks(): Promise<void> {
     const shopId = this.shopId();
     if (!shopId) return;
+    const iso = this.quickDayIso();
+    const [y, m] = iso.split('-').map(Number);
+    if (!y || !m) return;
     const seq = ++this.todayLoadSeq;
     try {
       const data = await firstValueFrom(
@@ -1151,8 +1390,8 @@ export class ProductionAttendancePage {
           `${environment.apiUrl}/shops/${shopId}/production-attendance`,
           {
             params: {
-              year: String(this.todayYear),
-              month: String(this.todayMonth),
+              year: String(y),
+              month: String(m),
               _: String(Date.now()),
             },
             headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
@@ -1163,14 +1402,9 @@ export class ProductionAttendancePage {
       if (data.defaultHours) this.defaultHours.set(Number(data.defaultHours) || 8);
       const marks: Record<string, number> = {};
       for (const e of data.employees ?? []) {
-        marks[e.employeeId] = Number(e.days?.[this.todayIso]?.hours ?? 0) || 0;
+        marks[e.employeeId] = Number(e.days?.[iso]?.hours ?? 0) || 0;
       }
       this.todayMarks.set(marks);
-      // Si el mes visible no es el de hoy, igual necesitamos la lista de productores
-      if (this.year() !== this.todayYear || this.month() !== this.todayMonth) {
-        // keep month data; chips use todayMarks + employees from month if same list
-      }
-      // Si no hay data de mes aún, setear empleados del mes de hoy para el panel
       if (!this.data()) this.data.set(data);
     } catch {
       if (seq !== this.todayLoadSeq) return;
