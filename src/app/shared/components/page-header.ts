@@ -102,19 +102,24 @@ import { APP_BRAND } from '../../core/config/app-brand';
       }
       @media (max-width: 720px) {
         .guy-page-header {
-          gap: 0.65rem;
-          margin-bottom: 0.85rem;
-          padding: 0.75rem 0.85rem;
+          flex-wrap: nowrap;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.65rem;
+          padding: 0.55rem 0.75rem;
+        }
+        .guy-page-header__eyebrow,
+        .subtitle {
+          display: none;
         }
         h1 {
-          font-size: 1.22rem;
-        }
-        .subtitle {
-          font-size: 0.84rem;
+          font-size: 1.12rem;
         }
         .guy-page-header__action {
-          width: 100%;
-          justify-content: center;
+          width: auto;
+          min-height: 2.4rem;
+          padding: 0 0.8rem;
+          font-size: 0.82rem;
         }
       }
     `,

@@ -531,7 +531,10 @@
 .toolbar--mobile {
   --tb-size: 38px;
   gap: 0.45rem;
-  padding: 0.4rem 0.5rem 0.4rem 0.3rem;
+  padding-top: max(0.45rem, env(safe-area-inset-top, 0px));
+  padding-bottom: 0.4rem;
+  padding-left: max(0.45rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
   min-height: 56px;
   align-items: center;
 

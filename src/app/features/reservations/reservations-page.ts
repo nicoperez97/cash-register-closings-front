@@ -752,7 +752,7 @@ interface CalendarCell {
 
       .req-panel__intro {
         min-width: 0;
-        flex: 1 1 12rem;
+        flex: 1 1 auto;
       }
 
       .req-panel__tools {
@@ -1045,9 +1045,9 @@ interface CalendarCell {
       }
 
       .floor-public-btn--ghost {
-        background: transparent;
+        background: #fff;
         color: var(--guy-navy, #003366);
-        border-color: color-mix(in srgb, var(--guy-navy, #003366) 28%, transparent);
+        border-color: color-mix(in srgb, var(--guy-navy, #003366) 22%, #c5d0c8);
         box-shadow: none;
       }
 
@@ -1324,14 +1324,27 @@ interface CalendarCell {
 
       @media (max-width: 720px) {
         .req-panel,
+        .req-panel--closed,
         .floor-panel {
-          padding: 0.85rem 0.8rem 0.95rem;
+          padding: 0.7rem 0.75rem 0.8rem;
         }
 
         .req-panel__head,
+        .req-panel--closed .req-panel__head,
         .floor-panel__head {
           flex-direction: column;
           align-items: stretch;
+          justify-content: flex-start;
+          gap: 0.55rem;
+        }
+
+        .req-panel__intro {
+          flex: 0 0 auto;
+        }
+
+        .req-panel .guy-section-title,
+        .floor-panel .guy-section-title {
+          margin-bottom: 0.2rem;
         }
 
         .req-panel__lead {
@@ -1342,15 +1355,16 @@ interface CalendarCell {
           width: 100%;
           flex-direction: column;
           align-items: stretch;
-          justify-content: stretch;
-          gap: 0.7rem;
+          justify-content: flex-start;
+          gap: 0.55rem;
         }
 
         .req-panel__toggles {
           display: grid;
+          width: 100%;
           grid-template-columns: 1fr;
-          gap: 0.55rem;
-          padding: 0.65rem 0.75rem;
+          gap: 0.4rem;
+          padding: 0.5rem 0.65rem;
           border-radius: 12px;
           background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 80%, #fff);
         }
@@ -1358,8 +1372,8 @@ interface CalendarCell {
         .req-areas {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.45rem 0.75rem;
-          padding: 0.45rem 0 0;
+          gap: 0.4rem 0.65rem;
+          padding: 0.4rem 0 0;
           border-left: 0;
           border-top: 1px solid color-mix(in srgb, var(--guy-muted, #5f6f76) 22%, transparent);
         }
@@ -1367,8 +1381,16 @@ interface CalendarCell {
         .req-panel__links,
         .floor-public-actions {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           width: 100%;
+          gap: 0.45rem;
+        }
+
+        .req-panel__links > *,
+        .floor-public-actions > * {
+          min-width: 0;
+          width: 100%;
+          justify-content: center;
         }
 
         .req-panel__links .floor-public-btn:last-child:nth-child(odd) {
@@ -1377,9 +1399,10 @@ interface CalendarCell {
 
         .floor-public-btn {
           width: 100%;
-          min-height: 2.65rem;
-          padding: 0.5rem 0.65rem;
-          font-size: 0.8rem;
+          min-height: 2.55rem;
+          padding: 0.45rem 0.5rem;
+          font-size: 0.78rem;
+          box-sizing: border-box;
         }
 
         .req-card__main {
@@ -1402,19 +1425,24 @@ interface CalendarCell {
           width: 100%;
         }
 
+        .floor-head-meta > .text-muted {
+          display: none;
+        }
+
         .floor-head-tools {
           width: 100%;
-          justify-content: stretch;
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0.45rem;
         }
 
         .floor-cal-toggle {
-          flex: 1;
+          width: 100%;
+          min-height: 2.55rem;
         }
 
         .floor-date {
-          flex: 1;
-          width: auto;
-          min-width: 0;
+          display: none;
         }
 
         .floor-form {
