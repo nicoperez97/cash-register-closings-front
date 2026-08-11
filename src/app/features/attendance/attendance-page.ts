@@ -33,6 +33,10 @@ import {
   AttendanceShareRangeDialogComponent,
   AttendanceShareRangeResult,
 } from './attendance-share-range-dialog';
+import {
+  resolveShopCalendarDate,
+  zonedDateParts,
+} from '../../core/shop/business-date';
 
 interface AttendanceDayCell {
   id?: string;
@@ -861,8 +865,20 @@ export class AttendancePage {
   readonly months = MONTH_LABELS.map((label, idx) => ({ value: idx + 1, label }));
   readonly years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
 
-  readonly year = signal(new Date().getFullYear());
-  readonly month = signal(new Date().getMonth() + 1);
+  private shopTodayParts() {
+    return zonedDateParts(new Date(), this.shops.selectedShop()?.timezone);
+  }
+
+  readonly todayParts = computed(() => this.shopTodayParts());
+  readonly todayIso = computed(() =>
+    resolveShopCalendarDate(new Date(), { timezone: this.shops.selectedShop()?.timezone }),
+  );
+  readonly todayDay = computed(() => this.todayParts().day);
+  readonly todayYear = computed(() => this.todayParts().year);
+  readonly todayMonth = computed(() => this.todayParts().month);
+
+  readonly year = signal(this.shopTodayParts().year);
+  readonly month = signal(this.shopTodayParts().month);
   readonly data = signal<AttendanceMonthResponse | null>(null);
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -876,12 +892,15 @@ export class AttendancePage {
   /** Evita que respuestas viejas pisen datos más nuevos al cambiar mes/refresco. */
   private monthLoadSeq = 0;
   private todayLoadSeq = 0;
+  private lastSyncedShopId: string | null = null;
   /** Estado del panel rápido (día seleccionado). */
   readonly todayMarks = signal<
     Record<string, { isPresent: boolean; isHoliday: boolean; overtimeHours: number }>
   >({});
   /** Día seleccionado en el panel rápido (por defecto hoy). */
-  readonly quickDayIso = signal(this.toIsoDate(new Date()));
+  readonly quickDayIso = signal(
+    resolveShopCalendarDate(new Date(), { timezone: undefined }),
+  );
   private overtimeSaveTimers = new Map<string, number>();
 
   readonly employees = computed(() => this.data()?.employees ?? []);
@@ -889,14 +908,8 @@ export class AttendancePage {
     Array.from({ length: this.data()?.daysInMonth ?? 0 }, (_, i) => i + 1),
   );
 
-  /** Calendario “hoy” real (resaltado en el tablero). */
-  readonly todayIso = this.toIsoDate(new Date());
-  readonly todayDay = new Date().getDate();
-  readonly todayYear = new Date().getFullYear();
-  readonly todayMonth = new Date().getMonth() + 1;
-
   isQuickDayToday(): boolean {
-    return this.quickDayIso() === this.todayIso;
+    return this.quickDayIso() === this.todayIso();
   }
 
   quickDayLabel(): string {
@@ -924,7 +937,7 @@ export class AttendancePage {
   }
 
   goQuickDayToday(): void {
-    this.quickDayIso.set(this.todayIso);
+    this.quickDayIso.set(this.todayIso());
   }
 
   isQuickDayClosed(): boolean {
@@ -1044,6 +1057,16 @@ export class AttendancePage {
     });
     effect(() => {
       const shopId = this.shopId();
+      this.todayIso();
+      if (shopId && shopId !== this.lastSyncedShopId) {
+        this.lastSyncedShopId = shopId;
+        this.quickDayIso.set(this.todayIso());
+        this.year.set(this.todayYear());
+        this.month.set(this.todayMonth());
+      }
+    });
+    effect(() => {
+      const shopId = this.shopId();
       this.year();
       this.month();
       if (!shopId) {
@@ -1143,23 +1166,23 @@ export class AttendancePage {
   }
 
   goToTodayMonth(): void {
-    this.year.set(this.todayYear);
-    this.month.set(this.todayMonth);
+    this.year.set(this.todayYear());
+    this.month.set(this.todayMonth());
   }
 
   isTodayColumn(day: number): boolean {
     return (
-      this.year() === this.todayYear &&
-      this.month() === this.todayMonth &&
-      day === this.todayDay
+      this.year() === this.todayYear() &&
+      this.month() === this.todayMonth() &&
+      day === this.todayDay()
     );
   }
 
   private scrollMatrixToToday(attempt = 0): void {
-    if (!this.isTodayColumn(this.todayDay)) return;
+    if (!this.isTodayColumn(this.todayDay())) return;
     const wrap = this.tableWrap()?.nativeElement;
     const todayHeader = wrap?.querySelector<HTMLElement>(
-      `.att-table__day[data-day="${this.todayDay}"]`,
+      `.att-table__day[data-day="${this.todayDay()}"]`,
     );
     if (!wrap || !todayHeader) {
       if (attempt < 12) {

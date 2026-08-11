@@ -140,9 +140,9 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             color="primary"
             type="submit"
             form="closing-form"
-            [disabled]="isLocked() && !auth.isAdmin()"
+            [disabled]="saving() || (isLocked() && !auth.isAdmin())"
           >
-            Guardar cierre
+            {{ saving() ? 'Guardando…' : 'Guardar cierre' }}
           </button>
         </div>
       </header>
@@ -161,7 +161,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
               <mat-label>Fecha</mat-label>
               <input matInput [matDatepicker]="closingDatePicker" formControlName="businessDate" />
               <mat-datepicker-toggle matIconSuffix [for]="closingDatePicker" />
-              <mat-datepicker #closingDatePicker />
+              <mat-datepicker #closingDatePicker touchUi />
               @if (businessDayHint()) {
                 <mat-hint>{{ businessDayHint() }}</mat-hint>
               }
@@ -639,9 +639,9 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   mat-flat-button
                   color="primary"
                   type="submit"
-                  [disabled]="isLocked() && !auth.isAdmin()"
+                  [disabled]="saving() || (isLocked() && !auth.isAdmin())"
                 >
-                  Guardar cierre
+                  {{ saving() ? 'Guardando…' : 'Guardar cierre' }}
                 </button>
               </div>
             </mat-step>
@@ -664,9 +664,9 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
           color="primary"
           type="submit"
           form="closing-form"
-          [disabled]="isLocked() && !auth.isAdmin()"
+          [disabled]="saving() || (isLocked() && !auth.isAdmin())"
         >
-          Guardar cierre
+          {{ saving() ? 'Guardando…' : 'Guardar cierre' }}
         </button>
       </div>
     </div>
@@ -1432,6 +1432,7 @@ export class ClosingsFormPage implements OnInit {
   readonly tipEditorValue = signal<TipsEditorState | null>(null);
   private tipDraft: TipsEditorState | null = null;
   readonly isEdit = signal(false);
+  readonly saving = signal(false);
   readonly status = signal<string | null>(null);
   readonly users = signal<ShopUserOption[]>([]);
   readonly expenseCategories = EXPENSE_CATEGORY_OPTIONS;
@@ -2256,6 +2257,7 @@ export class ClosingsFormPage implements OnInit {
   }
 
   save(): void {
+    if (this.saving()) return;
     if (this.isLocked() && !this.auth.isAdmin()) {
       this.snack.open('El cierre está bloqueado', 'OK', { duration: 2500 });
       return;
@@ -2270,8 +2272,10 @@ export class ClosingsFormPage implements OnInit {
       return;
     }
 
+    this.saving.set(true);
     this.api.update(shopId, this.closingId!, body).subscribe({
       next: () => {
+        this.saving.set(false);
         this.cashWithdrawalsInbox.refresh();
         this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
         void this.router.navigateByUrl(
@@ -2279,6 +2283,7 @@ export class ClosingsFormPage implements OnInit {
         );
       },
       error: (err) => {
+        this.saving.set(false);
         const msg = err?.error?.message ?? 'No se pudo guardar';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },

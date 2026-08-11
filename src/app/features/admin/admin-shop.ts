@@ -29,6 +29,7 @@ import { AdminAccountDialogComponent, AdminAccountRow, LINKED_PAYMENT_METHOD_OPT
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { activeLabel } from '../../core/i18n/labels';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeInputFile } from '../../shared/utils/input-file';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -1829,8 +1830,7 @@ export class AdminShopPage implements OnInit {
 
   onLogoFile(ev: Event): void {
     const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
+    const file = takeInputFile(input);
     const shopId = this.shops.selectedShopId();
     if (!file || !shopId) return;
     if (!file.type.startsWith('image/')) {
@@ -1884,8 +1884,7 @@ export class AdminShopPage implements OnInit {
 
   onRestoreFile(ev: Event): void {
     const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
+    const file = takeInputFile(input);
     const shop = this.shops.selectedShop();
     if (!file || !shop) return;
     if (

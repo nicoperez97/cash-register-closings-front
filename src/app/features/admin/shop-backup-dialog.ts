@@ -9,6 +9,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormsModule } from '@angular/forms';
 import { ShopBackupApiService } from './shop-backup-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { takeInputFile } from '../../shared/utils/input-file';
 
 export interface ShopBackupDialogData {
   shopId: string;
@@ -361,8 +362,7 @@ export class ShopBackupDialogComponent {
 
   onFile(ev: Event): void {
     const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
+    const file = takeInputFile(input);
     if (!file) return;
     const ok = window.confirm(
       `¿Restaurar backup en “${this.data.shopName}”? Se borrarán los datos actuales (incl. cuentas y conceptos) y se cargará el Excel.`,
