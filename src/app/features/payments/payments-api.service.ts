@@ -23,6 +23,30 @@ export function paymentMethodLabel(method: PaymentMethod | string | null | undef
   return PAYMENT_METHOD_OPTIONS.find((o) => o.value === method)?.label ?? method;
 }
 
+export type PaymentPriority = 'low' | 'medium' | 'high';
+
+export const PAYMENT_PRIORITY_OPTIONS: Array<{ value: PaymentPriority; label: string }> = [
+  { value: 'low', label: 'Baja' },
+  { value: 'medium', label: 'Media' },
+  { value: 'high', label: 'Alta' },
+];
+
+export function paymentPriorityLabel(
+  priority: PaymentPriority | string | null | undefined,
+): string {
+  if (!priority) return '—';
+  return PAYMENT_PRIORITY_OPTIONS.find((o) => o.value === priority)?.label ?? priority;
+}
+
+export function paymentPriorityRank(
+  priority: PaymentPriority | string | null | undefined,
+): number {
+  if (priority === 'high') return 0;
+  if (priority === 'medium') return 1;
+  if (priority === 'low') return 2;
+  return 3;
+}
+
 export interface ShopPayment {
   id: string;
   shopId: string;
@@ -30,6 +54,7 @@ export interface ShopPayment {
   notes: string | null;
   amount: number;
   dueDate: string | null;
+  priority: PaymentPriority | null;
   payerUserId: string | null;
   payerName: string | null;
   validatorUserId: string | null;
@@ -72,6 +97,7 @@ export interface UpsertPaymentBody {
   amount?: number | null;
   dueDate?: string | null;
   paidAt?: string | null;
+  priority?: PaymentPriority | null;
   payerUserId?: string | null;
   validatorUserId?: string | null;
   accountId?: string | null;
