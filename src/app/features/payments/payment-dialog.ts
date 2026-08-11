@@ -21,6 +21,7 @@ import {
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
 import { Employee } from '../employees/employees-api.service';
+import { takeInputFile } from '../../shared/utils/input-file';
 import { Observable, of, switchMap } from 'rxjs';
 
 export type PaymentDialogKind = 'supplier' | 'employee';
@@ -634,9 +635,7 @@ export class PaymentDialogComponent {
   }
 
   onInvoicePicked(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    input.value = '';
+    const file = takeInputFile(ev.target as HTMLInputElement);
     if (!file) return;
     this.pendingInvoiceFile.set(file);
     this.invoiceExpanded.set(true);

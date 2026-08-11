@@ -38,6 +38,7 @@ import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeInputFile } from '../../shared/utils/input-file';
 import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import {
@@ -1124,9 +1125,7 @@ export class PaymentsPage {
   }
 
   onReceiptPicked(ev: Event, p: ShopPayment): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    input.value = '';
+    const file = takeInputFile(ev.target as HTMLInputElement);
     if (!file) return;
     const shopId = this.shopId();
     if (!shopId) return;
@@ -1180,7 +1179,11 @@ export class PaymentsPage {
     this.pendingReceiptPayment = p;
     const input = this.receiptPicker()?.nativeElement;
     if (!input) return;
-    input.value = '';
+    try {
+      input.value = '';
+    } catch {
+      // ignore
+    }
     input.click();
   }
 
@@ -1701,7 +1704,7 @@ export class PaymentsPage {
     input.type = 'file';
     input.accept = 'application/pdf,image/*';
     input.onchange = () => {
-      const file = input.files?.[0];
+      const file = takeInputFile(input);
       if (!file) return;
       const shopId = this.shopId();
       if (!shopId) return;

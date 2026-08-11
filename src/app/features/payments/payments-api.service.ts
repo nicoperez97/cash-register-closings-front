@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { safeUploadFileName } from '../../shared/utils/input-file';
 
 export type PaymentStatus =
   | 'PENDING_VALIDATION'
@@ -247,7 +248,7 @@ export class PaymentsApiService {
 
   parseInvoice(shopId: string, file: File) {
     const form = new FormData();
-    form.append('file', file, file.name);
+    form.append('file', file, safeUploadFileName(file.name));
     return this.http.post<ParsedInvoice>(
       `${this.base}/shops/${shopId}/payments/parse-invoice`,
       form,
@@ -256,7 +257,7 @@ export class PaymentsApiService {
 
   uploadInvoiceFile(shopId: string, id: string, file: File, applyParsed = true) {
     const form = new FormData();
-    form.append('file', file, file.name);
+    form.append('file', file, safeUploadFileName(file.name));
     form.append('applyParsed', applyParsed ? '1' : '0');
     return this.http.post<ShopPayment>(
       `${this.base}/shops/${shopId}/payments/${id}/invoice-file`,
@@ -266,7 +267,7 @@ export class PaymentsApiService {
 
   uploadReceiptFile(shopId: string, id: string, file: File) {
     const form = new FormData();
-    form.append('file', file, file.name);
+    form.append('file', file, safeUploadFileName(file.name));
     return this.http.post<ShopPayment>(
       `${this.base}/shops/${shopId}/payments/${id}/receipt-file`,
       form,
