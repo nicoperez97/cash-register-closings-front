@@ -21,9 +21,18 @@ import { AttendanceOvertimeDialogComponent } from './attendance-overtime-dialog'
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
-import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
+import {
+  attendanceRangeSharePayload,
+  formatIsoShareLabel,
+  isoDatesInRange,
+  monthKeysInRange,
+} from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
+import {
+  AttendanceShareRangeDialogComponent,
+  AttendanceShareRangeResult,
+} from './attendance-share-range-dialog';
 
 interface AttendanceDayCell {
   id?: string;
@@ -927,29 +936,106 @@ export class AttendancePage {
   }
 
   async shareToday(): Promise<void> {
-    const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const marks = this.todayMarks();
-    const payload = attendanceDaySharePayload({
-      shopName,
-      dateLabel: this.quickDayLabel(),
-      kind: 'servicio',
-      employees: this.employees().map((emp) => {
-        const m = marks[emp.employeeId];
-        return {
-          fullName: emp.fullName,
-          present: !!m?.isPresent,
-          holiday: !!m?.isHoliday,
-        };
-      }),
-    });
+    const shopId = this.shopId();
+    if (!shopId) return;
+    const range = await firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(AttendanceShareRangeDialogComponent, {
+            width: '440px',
+            maxWidth: '96vw',
+            panelClass: 'guy-dialog',
+            data: { fromIso: this.quickDayIso(), toIso: this.quickDayIso() },
+          }),
+          'Compartir presentismo',
+        )
+        .afterClosed(),
+    );
+    if (!range) return;
     this.sharing.set(true);
-    const result = await shareText(payload);
-    this.sharing.set(false);
-    if (result === 'copied') {
-      this.snack.open('Presentismo copiado al portapapeles', 'OK', { duration: 2200 });
-    } else if (result === 'failed') {
-      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    try {
+      const payload = await this.buildSharePayload(shopId, range);
+      const result = await shareText(payload);
+      if (result === 'copied') {
+        this.snack.open('Presentismo copiado al portapapeles', 'OK', { duration: 2200 });
+      } else if (result === 'failed') {
+        this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+      }
+    } catch {
+      this.snack.open('No se pudo armar el presentismo', 'OK', { duration: 3000 });
+    } finally {
+      this.sharing.set(false);
     }
+  }
+
+  private async buildSharePayload(
+    shopId: string,
+    range: AttendanceShareRangeResult,
+  ): Promise<{ title: string; text: string }> {
+    const shop = this.shops.selectedShop();
+    const months = await this.loadMonthsForRange(shopId, range.fromIso, range.toIso);
+    const byId = new Map<string, AttendanceEmployeeRow>();
+    for (const month of months) {
+      for (const emp of month.employees ?? []) {
+        const prev = byId.get(emp.employeeId);
+        byId.set(emp.employeeId, prev ? { ...emp, days: { ...prev.days, ...emp.days } } : emp);
+      }
+    }
+    const employees = [...byId.values()];
+    const closed = shop?.closedWeekdays ?? [];
+    let dates = isoDatesInRange(range.fromIso, range.toIso);
+    const openDates = dates.filter((iso) => {
+      const [y, m, d] = iso.split('-').map(Number);
+      return !closed.includes(new Date(y, m - 1, d).getDay());
+    });
+    if (openDates.length) dates = openDates;
+    const quick = this.quickDayIso();
+    const marks = this.todayMarks();
+    return attendanceRangeSharePayload({
+      shopName: shop?.name ?? 'Local',
+      fromLabel: formatIsoShareLabel(range.fromIso),
+      toLabel: formatIsoShareLabel(range.toIso),
+      kind: 'servicio',
+      days: dates.map((iso) => ({
+        dateLabel: formatIsoShareLabel(iso),
+        employees: employees.map((emp) => {
+          const cell =
+            iso === quick
+              ? marks[emp.employeeId] ?? emp.days[iso]
+              : emp.days[iso];
+          return {
+            fullName: emp.fullName,
+            present: !!cell?.isPresent,
+            holiday: !!cell?.isHoliday,
+          };
+        }),
+      })),
+    });
+  }
+
+  private async loadMonthsForRange(
+    shopId: string,
+    fromIso: string,
+    toIso: string,
+  ): Promise<AttendanceMonthResponse[]> {
+    const keys = monthKeysInRange(fromIso, toIso);
+    return Promise.all(
+      keys.map((key) => {
+        if (this.year() === key.year && this.month() === key.month && this.data()) {
+          return Promise.resolve(this.data()!);
+        }
+        return firstValueFrom(
+          this.http.get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
+            params: {
+              year: String(key.year),
+              month: String(key.month),
+              _: String(Date.now()),
+            },
+            headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+          }),
+        );
+      }),
+    );
   }
 
   constructor() {
