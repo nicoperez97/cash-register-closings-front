@@ -26,6 +26,8 @@ import {
   PaymentStatus,
   ShopPayment,
   paymentMethodLabel as formatPaymentMethod,
+  paymentPriorityLabel,
+  paymentPriorityRank,
 } from './payments-api.service';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
@@ -277,12 +279,20 @@ function daysUntilDue(iso: string | null | undefined): number | null {
             class="panel-card pay-card"
             [attr.id]="'payment-' + p.id"
             [attr.data-status]="p.status"
+            [attr.data-priority]="p.priority || null"
             [attr.data-due]="dueUrgency(p)"
             [class.pay-card--focus]="focusedPaymentId() === p.id"
           >
             <div class="pay-card__top">
               <div>
-                <h3 class="pay-card__title">{{ p.title || 'Sin concepto' }}</h3>
+                <h3 class="pay-card__title">
+                  {{ p.title || 'Sin concepto' }}
+                  @if (p.priority) {
+                    <span class="pay-card__prio" [attr.data-priority]="p.priority">{{
+                      priorityLabel(p.priority)
+                    }}</span>
+                  }
+                </h3>
                 <p class="pay-card__meta" [class.pay-card__due--overdue]="dueUrgency(p) === 'overdue'" [class.pay-card__due--soon]="dueUrgency(p) === 'soon'">
                   @if (p.dueDate) {
                     @if (dueUrgency(p) === 'overdue') {
@@ -306,10 +316,14 @@ function daysUntilDue(iso: string | null | undefined): number | null {
             </div>
 
             <div class="pay-card__grid">
-              <div>
-                <span class="pay-card__label">Estado</span>
-                <strong class="pay-card__status">{{ statusLabel(p.status) }}</strong>
-              </div>
+            <div>
+              <span class="pay-card__label">Estado</span>
+              <strong class="pay-card__status">{{ statusLabel(p.status) }}</strong>
+            </div>
+            <div>
+              <span class="pay-card__label">Prioridad</span>
+              <strong>{{ priorityLabel(p.priority) }}</strong>
+            </div>
               @if (isSupplierKind()) {
                 <div>
                   <span class="pay-card__label">Proveedor</span>
@@ -639,6 +653,10 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         margin: 0 0 0.2rem;
         font-size: 1.05rem;
         color: var(--guy-navy, #003366);
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.4rem 0.55rem;
       }
       .pay-card__meta {
         margin: 0;
@@ -695,6 +713,31 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         letter-spacing: 0.06em;
         color: var(--guy-muted, #5f6f76);
         margin-bottom: 0.15rem;
+      }
+      .pay-card__prio {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.12rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        line-height: 1.2;
+        background: color-mix(in srgb, #5f6f76 14%, #fff);
+        color: #5f6f76;
+      }
+      .pay-card__prio[data-priority='high'] {
+        background: color-mix(in srgb, #c62828 14%, #fff);
+        color: #c62828;
+      }
+      .pay-card__prio[data-priority='medium'] {
+        background: color-mix(in srgb, #ef6c00 16%, #fff);
+        color: #e65100;
+      }
+      .pay-card__prio[data-priority='low'] {
+        background: color-mix(in srgb, #1565c0 14%, #fff);
+        color: #1565c0;
       }
       .pay-card__status {
         color: var(--guy-green, #2e7d32);
@@ -944,7 +987,11 @@ export class PaymentsPage {
     const list = this.rows().filter((p) =>
       this.isSupplierKind() ? !!p.supplierId : !p.supplierId,
     );
-    return [...list].sort((a, b) => compareDueDate(a.dueDate, b.dueDate));
+    return [...list].sort((a, b) => {
+      const byPrio = paymentPriorityRank(a.priority) - paymentPriorityRank(b.priority);
+      if (byPrio !== 0) return byPrio;
+      return compareDueDate(a.dueDate, b.dueDate);
+    });
   });
 
   canManage(): boolean {
@@ -969,6 +1016,10 @@ export class PaymentsPage {
 
   paymentMethodLabel(method: ShopPayment['paymentMethod']): string {
     return formatPaymentMethod(method);
+  }
+
+  priorityLabel(priority: ShopPayment['priority']): string {
+    return paymentPriorityLabel(priority);
   }
 
   /** overdue | soon (≤3 días) | ok | none — solo para pagos abiertos. */

@@ -1,5 +1,9 @@
 import { Movement } from '../../features/movements/movements-api.service';
-import { ShopPayment, paymentMethodLabel } from '../../features/payments/payments-api.service';
+import {
+  ShopPayment,
+  paymentMethodLabel,
+  paymentPriorityLabel,
+} from '../../features/payments/payments-api.service';
 import { CashClosing } from '../../features/closings/closings-api.service';
 import { closingStatusLabel } from '../../core/i18n/labels';
 import { formatDateAr, formatMoneyAr } from '../utils/share-text';
@@ -111,6 +115,9 @@ export function buildPaymentShareLines(
     `Monto: ${amount}`,
     `${targetLabel}: ${target}`,
   ];
+  if (payment.priority) {
+    lines.push(`Prioridad: ${paymentPriorityLabel(payment.priority)}`);
+  }
 
   if (payment.supplierBankAlias?.trim()) {
     lines.push(`Alias / CBU: ${payment.supplierBankAlias.trim()}`);
