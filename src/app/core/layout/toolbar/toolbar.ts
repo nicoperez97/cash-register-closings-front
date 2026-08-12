@@ -439,10 +439,15 @@ export class ToolbarComponent implements OnInit {
   openNotifications(): void {
     this.loadingNotifs.set(true);
     void this.push.refreshStatus();
-    this.notificationsApi.list(this.shopContext.selectedShopId()).subscribe({
+    const shopId = this.shopContext.selectedShopId();
+    const shouldMarkRead = this.unreadCount() > 0;
+    this.notificationsApi.list(shopId).subscribe({
       next: (rows) => {
         this.notifications.set(rows);
         this.loadingNotifs.set(false);
+        if (shouldMarkRead || rows.some((n) => !n.read)) {
+          this.markAllRead(true);
+        }
       },
       error: () => {
         this.notifications.set([]);
@@ -468,11 +473,14 @@ export class ToolbarComponent implements OnInit {
     }
   }
 
-  markAllRead(): void {
+  markAllRead(silent = false): void {
     this.notificationsApi.markAllRead(this.shopContext.selectedShopId()).subscribe({
       next: () => {
         this.notifications.update((rows) => rows.map((n) => ({ ...n, read: true })));
         this.notifsInbox.refresh();
+        if (!silent) {
+          this.snack.open('Notificaciones marcadas como leídas', 'OK', { duration: 2000 });
+        }
       },
     });
   }
