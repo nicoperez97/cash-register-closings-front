@@ -1,0 +1,41 @@
+.floor-form {
+  display: grid;
+  grid-template-columns: 1fr 5.5rem 8rem auto auto;
+  gap: 0.55rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.floor-area-toggle {
+  width: 100%;
+  display: inline-flex !important;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.floor-area-toggle .mat-button-toggle {
+  flex: 1 1 0;
+}
+
+.floor-area-toggle .mat-button-toggle-label-content {
+  width: 100%;
+  text-align: center;
+  line-height: 1.2;
+  padding: 0.55rem 0.75rem !important;
+}
+
+.floor-area-toggle .mat-button-toggle-button {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .floor-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .floor-form > mat-form-field:first-child,
+  .floor-form button[type='submit'],
+  .floor-area-toggle {
+    grid-column: 1 / -1;
+  }
+}
