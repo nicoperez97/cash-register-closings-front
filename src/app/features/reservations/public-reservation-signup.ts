@@ -32,11 +32,11 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
         <button type="button" class="ghost" (click)="load()">Reintentar</button>
       </div>
     } @else if (info(); as i) {
-      <div class="page" [class.page--logo-only]="!i.signupEnabled" [style.--accent]="accent()">
+      <div class="page" [class.page--logo-only]="!shopSignupOpen()" [style.--accent]="accent()">
         <div class="glow" aria-hidden="true"></div>
         <header class="hero">
           @if (logoUrl()) {
-            @if (!i.signupEnabled && igUrl(); as url) {
+            @if (!shopSignupOpen() && igUrl(); as url) {
               <a [href]="url" target="_blank" rel="noopener" [attr.aria-label]="'Instagram de ' + i.shop.name">
                 <img class="logo" [src]="logoUrl()!" [alt]="i.shop.name" />
               </a>
@@ -46,7 +46,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
           } @else {
             <p class="brand">{{ i.shop.name }}</p>
           }
-          @if (i.signupEnabled) {
+          @if (shopSignupOpen()) {
             <div class="hero__text">
               <h1>Reservá tu mesa</h1>
               <p class="lead">Dejanos tus datos. Te confirmamos por mail.</p>
@@ -60,7 +60,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
           }
         </header>
 
-        @if (i.signupEnabled) {
+        @if (shopSignupOpen()) {
         @if (sent()) {
           <section class="card done" role="status">
             <div class="done__mark" aria-hidden="true">✓</div>
@@ -72,7 +72,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             <p class="done__mail">Te avisamos a <strong>{{ sentEmail() }}</strong> cuando el local confirme.</p>
             <button type="button" class="ghost" (click)="reset()">Hacer otra reserva</button>
           </section>
-        } @else {
+        } @else if (dateSignupOpen()) {
           <form class="card form" (ngSubmit)="submit()" novalidate>
             <label class="field">
               <span>Tu nombre</span>
@@ -239,6 +239,11 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             </button>
             <p class="hint">Sin pago. Queda pendiente hasta que el local la acepte.</p>
           </form>
+        } @else {
+          <section class="card done day-closed" role="status">
+            <p>No tomamos reservas web para este día.</p>
+            <p class="hint">El ingreso es por orden de llegada.</p>
+          </section>
         }
         }
       </div>
@@ -888,6 +893,11 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   readonly timeSlots = TIME_SLOTS;
   readonly info = signal<PublicReservationSignup | null>(null);
+  readonly dateFlags = signal<{
+    signupEnabled: boolean;
+    insideEnabled: boolean;
+    outsideEnabled: boolean;
+  } | null>(null);
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
   readonly sent = signal(false);
@@ -909,8 +919,22 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   minDate = this.todayIso();
   private readonly otherPicker = viewChild<MatDatepicker<Date>>('otherPicker');
 
-  readonly insideEnabled = computed(() => this.info()?.insideEnabled !== false);
-  readonly outsideEnabled = computed(() => this.info()?.outsideEnabled !== false);
+  readonly shopSignupOpen = computed(() => this.info()?.shopSignupEnabled !== false);
+  readonly dateSignupOpen = computed(() => {
+    const df = this.dateFlags();
+    if (df) return df.signupEnabled;
+    return this.info()?.signupEnabled !== false;
+  });
+  readonly insideEnabled = computed(() => {
+    const df = this.dateFlags();
+    const v = df?.insideEnabled ?? this.info()?.insideEnabled;
+    return v !== false;
+  });
+  readonly outsideEnabled = computed(() => {
+    const df = this.dateFlags();
+    const v = df?.outsideEnabled ?? this.info()?.outsideEnabled;
+    return v !== false;
+  });
   readonly onlyAreaLabel = computed(() => {
     const inside = this.insideEnabled();
     const outside = this.outsideEnabled();
@@ -940,19 +964,39 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   load(): void {
     const slug = this.slug();
     this.error.set(null);
-    this.api.publicSignupInfo(slug).subscribe({
+    const today = this.todayIso();
+    this.minDate = today;
+    if (!this.businessDate || this.businessDate < today) {
+      this.businessDate = today;
+    }
+    this.api.publicSignupInfo(slug, this.businessDate).subscribe({
       next: (info) => {
         this.info.set(info);
-        const today = this.todayIso();
-        this.minDate = today;
-        if (!this.businessDate || this.businessDate < today) {
-          this.businessDate = today;
-        }
-        this.syncArea(info.insideEnabled !== false, info.outsideEnabled !== false);
+        this.applyDateFlags(info);
+        this.syncArea(this.insideEnabled(), this.outsideEnabled());
         this.title.setTitle(`Reservar · ${info.shop.name}`);
         applyStatusBar('#0e0c0b', 'dark');
       },
       error: () => this.error.set('Este local no tiene reservas online por ahora.'),
+    });
+  }
+
+  private applyDateFlags(info: PublicReservationSignup): void {
+    this.dateFlags.set({
+      signupEnabled: info.signupEnabled,
+      insideEnabled: info.insideEnabled !== false,
+      outsideEnabled: info.outsideEnabled !== false,
+    });
+  }
+
+  private refreshDateFlags(): void {
+    const slug = this.slug();
+    if (!slug || !this.businessDate) return;
+    this.api.publicSignupInfo(slug, this.businessDate).subscribe({
+      next: (info) => {
+        this.applyDateFlags(info);
+        this.syncArea(this.insideEnabled(), this.outsideEnabled());
+      },
     });
   }
 
@@ -980,6 +1024,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   setOffset(days: number): void {
     this.businessDate = this.isoPlus(days);
+    this.refreshDateFlags();
   }
 
   get minAsDate(): Date {
@@ -997,6 +1042,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   onDatePicked(value: Date | null): void {
     if (!value || Number.isNaN(value.getTime())) return;
     this.businessDate = this.localDateToIso(value);
+    this.refreshDateFlags();
   }
 
   dateChipLabel(short: boolean): string {
@@ -1019,6 +1065,10 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     }
     if (!this.businessDate) {
       this.formError.set('Elegí el día.');
+      return;
+    }
+    if (!this.dateSignupOpen()) {
+      this.formError.set('No tomamos reservas web para este día.');
       return;
     }
     if (this.area === 'INSIDE' && !this.insideEnabled()) {

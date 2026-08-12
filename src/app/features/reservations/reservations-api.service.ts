@@ -30,6 +30,9 @@ export interface PublicReservationSignup {
   signupEnabled: boolean;
   insideEnabled?: boolean;
   outsideEnabled?: boolean;
+  /** Config global del local (sin override del día). */
+  shopSignupEnabled?: boolean;
+  businessDate?: string;
   shop: {
     id?: string;
     name: string;
@@ -74,7 +77,14 @@ export interface ReservationsDayResponse {
   shopId: string;
   businessDate: string;
   notice?: string | null;
+  daySettings?: ReservationDaySettings | null;
   reservations: ReservationRow[];
+}
+
+export interface ReservationDaySettings {
+  signupEnabled: boolean | null;
+  insideEnabled: boolean | null;
+  outsideEnabled: boolean | null;
 }
 
 export interface ReservationsDaySummary {
@@ -198,11 +208,22 @@ export class ReservationsApiService {
     return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/reservations/${id}`);
   }
 
-  upsertDayNotice(shopId: string, body: { businessDate: string; message: string }) {
-    return this.http.put<{ shopId: string; businessDate: string; notice: string | null }>(
-      `${this.base}/shops/${shopId}/reservation-day-notices`,
-      body,
-    );
+  upsertDayNotice(
+    shopId: string,
+    body: {
+      businessDate: string;
+      message?: string;
+      signupEnabled?: boolean | null;
+      insideEnabled?: boolean | null;
+      outsideEnabled?: boolean | null;
+    },
+  ) {
+    return this.http.put<{
+      shopId: string;
+      businessDate: string;
+      notice: string | null;
+      daySettings?: ReservationDaySettings | null;
+    }>(`${this.base}/shops/${shopId}/reservation-day-notices`, body);
   }
 
   listWaiting(shopId: string, includeDone = false) {
@@ -265,9 +286,12 @@ export class ReservationsApiService {
     );
   }
 
-  publicSignupInfo(slug: string) {
+  publicSignupInfo(slug: string, date?: string) {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
     return this.http.get<PublicReservationSignup>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/reservation-signup`,
+      { params },
     );
   }
 

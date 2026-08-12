@@ -111,6 +111,21 @@ jobs:
           echo "Invalidation: $INVALIDATION_ID"
           echo "INVALIDATION_ID=$INVALIDATION_ID" >> "$GITHUB_ENV"
 
+      - name: Notificar nueva versión (push)
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "${API_URL:-}" ] || [ -z "${DEPLOY_WEBHOOK_SECRET:-}" ]; then
+            echo "Skip push broadcast: API_URL o DEPLOY_WEBHOOK_SECRET no configurados"
+            exit 0
+          fi
+          curl -sf -X POST "${API_URL%/}/api/v1/push/broadcast-app-update" \
+            -H "Content-Type: application/json" \
+            -H "X-Deploy-Secret: ${DEPLOY_WEBHOOK_SECRET}" \
+            -d "{\"version\":\"${{ github.sha }}\"}" \
+            || echo "::warning::Push broadcast falló (no bloquea deploy)"
+
       - name: Resumen
         if: always()
         run: |
