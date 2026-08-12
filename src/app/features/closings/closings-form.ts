@@ -40,6 +40,7 @@ import {
   TipsEditorState,
   tipDayToEditorState,
 } from '../tips/tips-editor';
+import { ClosingFormHeaderComponent } from './closing-form-header';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -113,6 +114,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatDatepickerModule,
     MatStepperModule,
     TipsEditorComponent,
+    ClosingFormHeaderComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -120,32 +122,16 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
   },
   template: `
     <div class="closing-form-shell panel-card">
-      <header class="closing-form-head">
-        <div>
-          <h1>{{ isEdit() ? 'Editar cierre' : 'Nuevo cierre' }}</h1>
-          <p>{{ shop()?.name ?? '' }}</p>
-        </div>
-        <div class="closing-form-actions closing-form-actions--top">
-          @if (!cashierOnly()) {
-            <button mat-stroked-button type="button" (click)="cancel()">Cancelar</button>
-          }
-          @if (isLocked() && auth.isAdmin()) {
-            <button mat-stroked-button type="button" (click)="unlock()">
-              <mat-icon>lock_open</mat-icon>
-              Desbloquear
-            </button>
-          }
-          <button
-            mat-flat-button
-            color="primary"
-            type="submit"
-            form="closing-form"
-            [disabled]="saving() || (isLocked() && !auth.isAdmin())"
-          >
-            {{ saving() ? 'Guardando…' : 'Guardar cierre' }}
-          </button>
-        </div>
-      </header>
+      <app-closing-form-header
+        [isEdit]="isEdit()"
+        [shopName]="shop()?.name ?? ''"
+        [cashierOnly]="cashierOnly()"
+        [isLocked]="isLocked()"
+        [isAdmin]="auth.isAdmin()"
+        [saving]="saving()"
+        (cancelClicked)="cancel()"
+        (unlockClicked)="unlock()"
+      />
 
       <form
         id="closing-form"

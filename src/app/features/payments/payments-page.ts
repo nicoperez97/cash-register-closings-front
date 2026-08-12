@@ -23,33 +23,24 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import {
-  PaymentsApiService,
-  PaymentStatus,
-  ShopPayment,
-  paymentMethodLabel as formatPaymentMethod,
-  paymentPriorityLabel,
-  paymentPriorityRank,
-} from './payments-api.service';
+import { PaymentsApiService, PaymentStatus, ShopPayment, paymentPriorityRank } from './payments-api.service';
+import { PaymentCardComponent } from './payment-card';
+import { compareDueDate, PAYMENT_STATUS_LABEL } from './payments-display.util';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
 import { PaymentDialogComponent } from './payment-dialog';
 import { PaymentPayDialogComponent } from './payment-pay-dialog';
-import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile } from '../../shared/utils/input-file';
-import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import {
-  paymentDeepLink,
   paymentPaidDialogData,
-  paymentSharePayload,
   paymentsSharePayload,
 } from '../../shared/components/record-share-builders';
-import { copyText, shareText } from '../../shared/utils/share-text';
+import { shareText } from '../../shared/utils/share-text';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { SpinnerComponent } from '../../shared/components/spinner';
@@ -67,36 +58,6 @@ function loadPaymentsViewMode(): PaymentsViewMode {
   } catch {
     return 'list';
   }
-}
-
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  PENDING_VALIDATION: 'Pendiente de validar',
-  VALIDATED: 'Validado · por pagar',
-  REJECTED: 'Rechazado',
-  PAID: 'Pagado',
-  CANCELLED: 'Cancelado',
-};
-
-function dueTime(iso: string | null | undefined): number {
-  if (!iso) return Number.POSITIVE_INFINITY;
-  const t = Date.parse(`${String(iso).slice(0, 10)}T12:00:00`);
-  return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
-}
-
-function compareDueDate(a: string | null | undefined, b: string | null | undefined): number {
-  return dueTime(a) - dueTime(b);
-}
-
-/** Días hasta el vencimiento (negativo = vencido). null si no hay fecha. */
-function daysUntilDue(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const due = Date.parse(`${String(iso).slice(0, 10)}T12:00:00`);
-  if (!Number.isFinite(due)) return null;
-  const now = new Date();
-  const today = Date.parse(
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`,
-  );
-  return Math.round((due - today) / 86_400_000);
 }
 
 @Component({
@@ -118,6 +79,7 @@ function daysUntilDue(iso: string | null | undefined): number | null {
     MatTooltipModule,
     FiltersCollapseBtnComponent,
     SpinnerComponent,
+    PaymentCardComponent,
   ],
   template: `
     <app-page-header
@@ -320,327 +282,24 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         </div>
       } @else {
         @for (p of visibleRows(); track p.id) {
-          <article
-            class="panel-card pay-card"
-            [class.pay-card--list]="viewMode() === 'list'"
-            [class.pay-card--selected]="isSelected(p.id)"
-            [class.pay-card--pick]="selecting()"
-            [attr.id]="'payment-' + p.id"
-            [attr.data-status]="p.status"
-            [attr.data-priority]="p.priority || null"
-            [attr.data-due]="dueUrgency(p)"
-            [class.pay-card--focus]="focusedPaymentId() === p.id"
+          <app-payment-card
+            [payment]="p"
+            [viewMode]="viewMode()"
+            [selecting]="selecting()"
+            [selected]="isSelected(p.id)"
+            [focused]="focusedPaymentId() === p.id"
+            [payBusy]="actionBusyId() === p.id"
+            [supplierKind]="isSupplierKind()"
+            [canManage]="canManage()"
             (click)="onCardClick(p, $event)"
-          >
-            @if (selecting()) {
-              <mat-checkbox
-                class="pay-card__check"
-                [checked]="isSelected(p.id)"
-                (click)="$event.stopPropagation()"
-                (change)="toggleSelected(p)"
-                [attr.aria-label]="'Seleccionar ' + (p.title || 'pago')"
-              />
-            }
-            <div class="pay-card__top">
-              <div>
-                <h3 class="pay-card__title">
-                  {{ p.title || 'Sin concepto' }}
-                  @if (p.priority) {
-                    <span class="pay-card__prio" [attr.data-priority]="p.priority">{{
-                      priorityLabel(p.priority)
-                    }}</span>
-                  }
-                </h3>
-                <p class="pay-card__meta" [class.pay-card__due--overdue]="dueUrgency(p) === 'overdue'" [class.pay-card__due--soon]="dueUrgency(p) === 'soon'">
-                  @if (p.dueDate) {
-                    @if (dueUrgency(p) === 'overdue') {
-                      <mat-icon class="pay-card__due-icon">warning</mat-icon>
-                      Vencido {{ formatDate(p.dueDate) }}
-                    } @else if (dueUrgency(p) === 'soon') {
-                      <mat-icon class="pay-card__due-icon">schedule</mat-icon>
-                      Vence {{ formatDate(p.dueDate) }}
-                    } @else {
-                      Vence {{ formatDate(p.dueDate) }}
-                    }
-                  } @else {
-                    Sin fecha
-                  }
-                  @if (p.paidAt) {
-                    · Pagado {{ formatDate(p.paidAt) }}
-                  }
-                </p>
-              </div>
-              <div class="pay-card__amount">$ {{ (p.amount || 0).toLocaleString('es-AR') }}</div>
-            </div>
-
-            <div class="pay-card__grid">
-            <div>
-              <span class="pay-card__label">Estado</span>
-              <strong class="pay-card__status">{{ statusLabel(p.status) }}</strong>
-            </div>
-            <div>
-              <span class="pay-card__label">Prioridad</span>
-              <strong>{{ priorityLabel(p.priority) }}</strong>
-            </div>
-              @if (isSupplierKind()) {
-                <div>
-                  <span class="pay-card__label">Proveedor</span>
-                  <strong>{{ p.supplierName || '—' }}</strong>
-                </div>
-              } @else {
-                <div>
-                  <span class="pay-card__label">Empleado</span>
-                  <strong>{{ p.employeeName || '—' }}</strong>
-                </div>
-              }
-              <div>
-                <span class="pay-card__label">Paga</span>
-              <strong>{{ p.payerName || '—' }}</strong>
-            </div>
-            <div>
-              <span class="pay-card__label">Valida</span>
-              <strong>{{ p.validatorName || '—' }}</strong>
-            </div>
-            <div>
-              <span class="pay-card__label">Creado por</span>
-              <strong>{{ p.createdByName || '—' }}</strong>
-            </div>
-            <div>
-              <span class="pay-card__label">Cuenta que paga</span>
-              <strong>{{ p.accountName || '—' }}</strong>
-            </div>
-            <div>
-              <span class="pay-card__label">Forma de pago</span>
-              <strong>{{ paymentMethodLabel(p.paymentMethod) }}</strong>
-            </div>
-          </div>
-
-          @if (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED') {
-            <div class="pay-card__pay-data">
-              @if (isSupplierKind()) {
-                <div class="pay-card__pay-row">
-                  <div>
-                    <span class="pay-card__label">Alias / CBU</span>
-                    <code class="pay-card__code">{{ p.supplierBankAlias || '—' }}</code>
-                  </div>
-                  @if (p.status === 'VALIDATED' && p.supplierBankAlias) {
-                    <button
-                      mat-icon-button
-                      type="button"
-                      matTooltip="Copiar alias"
-                      aria-label="Copiar alias"
-                      (click)="copyAlias(p)"
-                    >
-                      <mat-icon>content_copy</mat-icon>
-                    </button>
-                  }
-                </div>
-              }
-              <div class="pay-card__pay-row">
-                <div>
-                  <span class="pay-card__label">Monto</span>
-                  <strong class="pay-card__code">$ {{ formatAmount(p.amount) }}</strong>
-                </div>
-                @if (p.status === 'VALIDATED') {
-                  <button
-                    mat-icon-button
-                    type="button"
-                    matTooltip="Copiar monto"
-                    aria-label="Copiar monto"
-                    (click)="copyAmount(p)"
-                  >
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                }
-              </div>
-            </div>
-          }
-
-          @if (p.notes) {
-            <p class="pay-card__notes">{{ p.notes }}</p>
-          }
-
-          @if (isSupplierKind() && hasInvoiceData(p)) {
-            <details class="pay-card__invoice">
-              <summary>
-                <mat-icon>receipt_long</mat-icon>
-                Datos de facturación
-                @if (p.invoiceNumber) {
-                  <span class="pay-card__invoice-num"
-                    >{{ p.invoiceType || '' }} {{ p.invoiceNumber }}</span
-                  >
-                }
-              </summary>
-              <div class="pay-card__invoice-grid">
-                @if (p.invoiceLegalName) {
-                  <div>
-                    <span class="pay-card__label">Razón social</span>
-                    <strong>{{ p.invoiceLegalName }}</strong>
-                  </div>
-                }
-                @if (p.invoiceTaxId) {
-                  <div>
-                    <span class="pay-card__label">CUIT</span>
-                    <strong>{{ p.invoiceTaxId }}</strong>
-                  </div>
-                }
-                @if (p.invoiceType) {
-                  <div>
-                    <span class="pay-card__label">Tipo</span>
-                    <strong>{{ p.invoiceType }}</strong>
-                  </div>
-                }
-                @if (p.invoiceNumber) {
-                  <div>
-                    <span class="pay-card__label">Nº factura</span>
-                    <strong>{{ p.invoiceNumber }}</strong>
-                  </div>
-                }
-                @if (p.invoiceNetAmount != null) {
-                  <div>
-                    <span class="pay-card__label">Monto neto</span>
-                    <strong>$ {{ formatAmount(p.invoiceNetAmount) }}</strong>
-                  </div>
-                }
-                @if (p.invoiceIvaAmount != null) {
-                  <div>
-                    <span class="pay-card__label">IVA</span>
-                    <strong>$ {{ formatAmount(p.invoiceIvaAmount) }}</strong>
-                  </div>
-                }
-                @if (p.invoicePerceptionsAmount != null) {
-                  <div>
-                    <span class="pay-card__label">Percepciones</span>
-                    <strong>$ {{ formatAmount(p.invoicePerceptionsAmount) }}</strong>
-                  </div>
-                }
-                @if (p.invoiceOtherTaxesAmount != null) {
-                  <div>
-                    <span class="pay-card__label">Otros impuestos</span>
-                    <strong>$ {{ formatAmount(p.invoiceOtherTaxesAmount) }}</strong>
-                  </div>
-                }
-              </div>
-              @if (p.hasInvoiceFile) {
-                <button mat-stroked-button type="button" (click)="viewInvoice(p)">
-                  <mat-icon>visibility</mat-icon>
-                  Ver factura
-                </button>
-              }
-            </details>
-          }
-
-          <div class="pay-card__actions">
-            @if (canValidate(p)) {
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="actionBusyId() === p.id"
-                (click)="validate(p)"
-              >
-                <mat-icon>verified</mat-icon>
-                Validar
-              </button>
-            }
-            @if (canPay(p)) {
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="actionBusyId() === p.id"
-                (click)="pay(p)"
-              >
-                <mat-icon>paid</mat-icon>
-                Marcar pagado
-              </button>
-            }
-
-            @if (hasMoreActions(p)) {
-              <button
-                mat-stroked-button
-                type="button"
-                [matMenuTriggerFor]="payMoreMenu"
-                aria-label="Más acciones"
-              >
-                Más
-                <mat-icon iconPositionEnd>expand_more</mat-icon>
-              </button>
-              <mat-menu #payMoreMenu="matMenu" class="pay-card__more-menu">
-                @if (canValidate(p)) {
-                  <button mat-menu-item type="button" (click)="reject(p)">
-                    <mat-icon>block</mat-icon>
-                    <span>Rechazar</span>
-                  </button>
-                }
-                @if (canManage() && p.status === 'VALIDATED') {
-                  <button mat-menu-item type="button" (click)="revertStatus(p)">
-                    <mat-icon>undo</mat-icon>
-                    <span>Volver a validar</span>
-                  </button>
-                }
-                @if (canManage() && p.status === 'PAID') {
-                  <button mat-menu-item type="button" (click)="revertStatus(p)">
-                    <mat-icon>undo</mat-icon>
-                    <span>Marcar no pagado</span>
-                  </button>
-                }
-                @if (p.status === 'PAID') {
-                  <button mat-menu-item type="button" (click)="startReceiptPick(p)">
-                    <mat-icon>attach_file</mat-icon>
-                    <span>{{ p.hasReceiptFile ? 'Cambiar comprobante' : 'Adjuntar comprobante' }}</span>
-                  </button>
-                  @if (p.hasReceiptFile) {
-                    <button mat-menu-item type="button" (click)="viewReceipt(p)">
-                      <mat-icon>visibility</mat-icon>
-                      <span>Ver comprobante</span>
-                    </button>
-                  }
-                }
-                <button mat-menu-item type="button" (click)="sharePayment(p)">
-                  <mat-icon>share</mat-icon>
-                  <span>Compartir</span>
-                </button>
-                @if (canResendNotification(p)) {
-                  <button mat-menu-item type="button" (click)="resendNotification(p)">
-                    <mat-icon>notifications_active</mat-icon>
-                    <span>Reenviar aviso</span>
-                  </button>
-                }
-                @if (canManage()) {
-                  <button mat-menu-item type="button" (click)="openDuplicate(p)">
-                    <mat-icon>content_copy</mat-icon>
-                    <span>Duplicar</span>
-                  </button>
-                }
-                @if (
-                  canManage() &&
-                  (p.status === 'PENDING_VALIDATION' ||
-                    p.status === 'VALIDATED' ||
-                    p.status === 'PAID')
-                ) {
-                  <button mat-menu-item type="button" (click)="openEdit(p)">
-                    <mat-icon>edit</mat-icon>
-                    <span>Editar</span>
-                  </button>
-                }
-                @if (canManage() && (p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED')) {
-                  <button mat-menu-item type="button" (click)="cancel(p)">
-                    <mat-icon>cancel</mat-icon>
-                    <span>Cancelar</span>
-                  </button>
-                }
-                @if (canManage() && p.status !== 'PAID') {
-                  <button mat-menu-item type="button" class="pay-card__danger" (click)="remove(p)">
-                    <mat-icon>delete</mat-icon>
-                    <span>Eliminar</span>
-                  </button>
-                }
-              </mat-menu>
-            }
-          </div>
-        </article>
-      } @empty {
+            (toggleSelected)="toggleSelected(p)"
+            (changed)="reload({ preserveScroll: true })"
+            (payRequested)="pay($event)"
+            (editRequested)="openEdit($event)"
+            (duplicateRequested)="openDuplicate($event)"
+            (receiptPickRequested)="startReceiptPick($event)"
+          />
+        } @empty {
         <div class="panel-card guy-empty">
           <mat-icon>{{ isSupplierKind() ? 'local_shipping' : 'badge' }}</mat-icon>
           <div>
@@ -776,7 +435,7 @@ export class PaymentsPage {
   readonly exporting = signal(false);
 
   readonly statusOptions = (
-    Object.entries(STATUS_LABEL) as Array<[PaymentStatus, string]>
+    Object.entries(PAYMENT_STATUS_LABEL) as Array<[PaymentStatus, string]>
   ).map(([value, label]) => ({ value, label }));
 
   private readonly statusFilterValue = toSignal(this.statusFilter.valueChanges, {
@@ -854,129 +513,8 @@ export class PaymentsPage {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'payments.manage');
   }
 
-  /** Reenviar aviso: validar (pendiente) o abonar (validado), con destinatario asignado. */
-  canResendNotification(p: ShopPayment): boolean {
-    if (!this.canManage()) return false;
-    if (p.status === 'PENDING_VALIDATION') return !!p.validatorUserId;
-    if (p.status === 'VALIDATED') return !!p.payerUserId;
-    return false;
-  }
-
   canManageSuppliers(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'suppliers.manage');
-  }
-
-  statusLabel(status: PaymentStatus): string {
-    return STATUS_LABEL[status] ?? status;
-  }
-
-  paymentMethodLabel(method: ShopPayment['paymentMethod']): string {
-    return formatPaymentMethod(method);
-  }
-
-  priorityLabel(priority: ShopPayment['priority']): string {
-    return paymentPriorityLabel(priority);
-  }
-
-  /** overdue | soon (≤3 días) | ok | none — solo para pagos abiertos. */
-  dueUrgency(p: ShopPayment): 'overdue' | 'soon' | 'ok' | 'none' {
-    if (!p.dueDate) return 'none';
-    if (p.status !== 'PENDING_VALIDATION' && p.status !== 'VALIDATED') return 'none';
-    const days = daysUntilDue(p.dueDate);
-    if (days == null) return 'none';
-    if (days < 0) return 'overdue';
-    if (days <= 3) return 'soon';
-    return 'ok';
-  }
-
-  formatDate(iso: string | null | undefined): string {
-    if (!iso) return '—';
-    return formatIsoDateDisplay(iso);
-  }
-
-  formatAmount(amount: number | null | undefined): string {
-    return Number(amount || 0).toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  hasInvoiceData(p: ShopPayment): boolean {
-    return !!(
-      p.hasInvoiceFile ||
-      p.invoiceLegalName ||
-      p.invoiceTaxId ||
-      p.invoiceType ||
-      p.invoiceNumber ||
-      p.invoiceNetAmount != null ||
-      p.invoiceIvaAmount != null ||
-      p.invoicePerceptionsAmount != null ||
-      p.invoiceOtherTaxesAmount != null
-    );
-  }
-
-  private triggerDownload(blob: Blob, fileName: string): void {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  private openFilePreview(title: string, fileName: string, blob: Blob): void {
-    this.dialogTitle.track(
-      this.dialog.open(PaymentFilePreviewDialogComponent, {
-        width: '920px',
-        maxWidth: '96vw',
-        maxHeight: '92vh',
-        panelClass: 'guy-dialog',
-        data: { title, fileName, blob },
-      }),
-      title,
-    );
-  }
-
-  viewInvoice(p: ShopPayment): void {
-    const shopId = this.shopId();
-    if (!shopId) return;
-    this.api.downloadInvoiceFile(shopId, p.id).subscribe({
-      next: (blob) =>
-        this.openFilePreview('Factura', p.invoiceFileName || 'factura.pdf', blob),
-      error: (err) => this.showErr(err),
-    });
-  }
-
-  viewReceipt(p: ShopPayment): void {
-    const shopId = this.shopId();
-    if (!shopId) return;
-    this.api.downloadReceiptFile(shopId, p.id).subscribe({
-      next: (blob) =>
-        this.openFilePreview(
-          'Comprobante de pago',
-          p.receiptFileName || 'comprobante.pdf',
-          blob,
-        ),
-      error: (err) => this.showErr(err),
-    });
-  }
-
-  downloadInvoice(p: ShopPayment): void {
-    const shopId = this.shopId();
-    if (!shopId) return;
-    this.api.downloadInvoiceFile(shopId, p.id).subscribe({
-      next: (blob) => this.triggerDownload(blob, p.invoiceFileName || 'factura.pdf'),
-      error: (err) => this.showErr(err),
-    });
-  }
-
-  downloadReceipt(p: ShopPayment): void {
-    const shopId = this.shopId();
-    if (!shopId) return;
-    this.api.downloadReceiptFile(shopId, p.id).subscribe({
-      next: (blob) => this.triggerDownload(blob, p.receiptFileName || 'comprobante.pdf'),
-      error: (err) => this.showErr(err),
-    });
   }
 
   async onReceiptPicked(ev: Event, p: ShopPayment): Promise<void> {
@@ -994,40 +532,6 @@ export class PaymentsPage {
       },
       error: (err) => this.showErr(err),
     });
-  }
-
-  async copyAlias(p: ShopPayment): Promise<void> {
-    const text = (p.supplierBankAlias ?? '').trim();
-    if (!text) return;
-    const ok = await copyText(text);
-    this.snack.open(ok ? 'Alias / CBU copiado' : 'No se pudo copiar', 'OK', {
-      duration: ok ? 2000 : 2500,
-    });
-  }
-
-  async copyAmount(p: ShopPayment): Promise<void> {
-    const text = this.formatAmount(p.amount);
-    const ok = await copyText(text);
-    this.snack.open(ok ? 'Monto copiado' : 'No se pudo copiar', 'OK', {
-      duration: ok ? 2000 : 2500,
-    });
-  }
-
-  canValidate(p: ShopPayment): boolean {
-    if (p.status !== 'PENDING_VALIDATION') return false;
-    const uid = this.auth.currentUser()?.id;
-    return this.canManage() || !p.validatorUserId || uid === p.validatorUserId;
-  }
-
-  canPay(p: ShopPayment): boolean {
-    if (p.status !== 'VALIDATED') return false;
-    const uid = this.auth.currentUser()?.id;
-    return this.canManage() || !p.payerUserId || uid === p.payerUserId;
-  }
-
-  hasMoreActions(_p: ShopPayment): boolean {
-    // Siempre hay al menos "Compartir".
-    return true;
   }
 
   private readonly receiptPicker = viewChild<ElementRef<HTMLInputElement>>('receiptPicker');
@@ -1504,58 +1008,6 @@ export class PaymentsPage {
       });
   }
 
-  validate(p: ShopPayment): void {
-    const shopId = this.shopId();
-    if (!shopId || this.actionBusyId()) return;
-    this.actionBusyId.set(p.id);
-    this.api.validate(shopId, p.id).subscribe({
-      next: () => {
-        this.actionBusyId.set(null);
-        this.snack.open('Pago validado', 'OK', { duration: 2500 });
-        this.reload({ preserveScroll: true });
-      },
-      error: (err) => {
-        this.actionBusyId.set(null);
-        this.showErr(err);
-      },
-    });
-  }
-
-  resendNotification(p: ShopPayment): void {
-    const shopId = this.shopId();
-    if (!shopId || !this.canResendNotification(p)) return;
-    const kind = p.status === 'PENDING_VALIDATION' ? 'VALIDATE' : 'PAY';
-    const label =
-      kind === 'VALIDATE'
-        ? `aviso de validación a ${p.validatorName || 'quien valida'}`
-        : `aviso de pago a ${p.payerName || 'quien paga'}`;
-    this.api.resendNotification(shopId, p.id, kind).subscribe({
-      next: () => {
-        this.snack.open(`Reenviado: ${label}`, 'OK', { duration: 3000 });
-      },
-      error: (err) => this.showErr(err),
-    });
-  }
-
-  async reject(p: ShopPayment): Promise<void> {
-    const ok = await this.confirm.confirm('Rechazar pago', `¿Rechazar "${p.title}"?`);
-    if (!ok) return;
-    const shopId = this.shopId();
-    if (!shopId || this.actionBusyId()) return;
-    this.actionBusyId.set(p.id);
-    this.api.reject(shopId, p.id).subscribe({
-      next: () => {
-        this.actionBusyId.set(null);
-        this.snack.open('Pago rechazado', 'OK', { duration: 2500 });
-        this.reload({ preserveScroll: true });
-      },
-      error: (err) => {
-        this.actionBusyId.set(null);
-        this.showErr(err);
-      },
-    });
-  }
-
   async pay(p: ShopPayment): Promise<void> {
     if (this.actionBusyId()) return;
     const result = await firstValueFrom(
@@ -1599,31 +1051,6 @@ export class PaymentsPage {
     });
   }
 
-  async revertStatus(p: ShopPayment): Promise<void> {
-    if (!this.canManage()) return;
-    const shopId = this.shopId();
-    if (!shopId) return;
-    const goingBackToValidate = p.status === 'VALIDATED';
-    const ok = await this.confirm.confirm(
-      goingBackToValidate ? 'Volver a validar' : 'Marcar no pagado',
-      goingBackToValidate
-        ? `¿Devolver "${p.title}" a pendiente de validación?`
-        : `¿Marcar "${p.title}" como no pagado? Se anula el movimiento contable asociado.`,
-    );
-    if (!ok) return;
-    this.api.revertStatus(shopId, p.id).subscribe({
-      next: () => {
-        this.snack.open(
-          goingBackToValidate ? 'Volvió a pendiente de validar' : 'Marcado como no pagado',
-          'OK',
-          { duration: 2500 },
-        );
-        this.reload({ preserveScroll: true });
-      },
-      error: (err) => this.showErr(err),
-    });
-  }
-
   private async promptReceiptAfterPay(paid: ShopPayment): Promise<void> {
     const ok = await this.confirm.confirm(
       'Comprobante de pago',
@@ -1654,45 +1081,6 @@ export class PaymentsPage {
       })();
     };
     input.click();
-  }
-
-  async sharePayment(p: ShopPayment): Promise<void> {
-    const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const payload = paymentSharePayload(p, shopName, { link: paymentDeepLink(p) });
-    const result = await shareText(payload);
-    if (result === 'copied') {
-      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
-    } else if (result === 'failed') {
-      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
-    }
-  }
-
-  async cancel(p: ShopPayment): Promise<void> {
-    const ok = await this.confirm.confirm('Cancelar pago', `¿Cancelar "${p.title}"?`);
-    if (!ok) return;
-    const shopId = this.shopId();
-    if (!shopId) return;
-    this.api.cancel(shopId, p.id).subscribe({
-      next: () => {
-        this.snack.open('Pago cancelado', 'OK', { duration: 2500 });
-        this.reload({ preserveScroll: true });
-      },
-      error: (err) => this.showErr(err),
-    });
-  }
-
-  async remove(p: ShopPayment): Promise<void> {
-    const ok = await this.confirm.confirm('Eliminar pago', `¿Eliminar "${p.title}"?`);
-    if (!ok) return;
-    const shopId = this.shopId();
-    if (!shopId) return;
-    this.api.remove(shopId, p.id).subscribe({
-      next: () => {
-        this.snack.open('Pago eliminado', 'OK', { duration: 2500 });
-        this.reload({ preserveScroll: true });
-      },
-      error: (err) => this.showErr(err),
-    });
   }
 
   private showErr(err: any): void {

@@ -1,0 +1,38 @@
+:host {
+  display: block;
+}
+
+.closing-form-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.closing-form-head h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+  line-height: 1.2;
+}
+
+.closing-form-head p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+@media (max-width: 960px) {
+  .closing-form-actions--top {
+    display: none;
+  }
+}
