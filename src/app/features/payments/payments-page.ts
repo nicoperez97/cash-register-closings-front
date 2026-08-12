@@ -1,4 +1,13 @@
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -406,8 +415,12 @@ export class PaymentsPage {
         this.selectedIds.set(new Set());
         return;
       }
-      this.reloadMeta(shopId);
-      this.reload();
+      // untracked: reload() lee rows()/mineOnly() y al hacer rows.set() re-disparaba este effect
+      // en bucle (con lista vacía el spinner nunca cortaba).
+      untracked(() => {
+        this.reloadMeta(shopId);
+        this.reload();
+      });
     });
     this.statusFilter.valueChanges.subscribe(() => this.reload());
     this.validatorFilter.valueChanges.subscribe(() => {
@@ -620,13 +633,13 @@ export class PaymentsPage {
     }
     const optsList = this.listFilterOpts();
     // Si ya hay filas, no reemplazar la lista por el spinner (salta al top).
-    const soft = this.rows().length > 0;
+    const soft = untracked(() => this.rows().length > 0);
     if (!soft) this.loading.set(true);
     this.api.list(shopId, optsList).subscribe({
       next: (rows) => {
         this.rows.set(rows);
         this.loading.set(false);
-        this.paymentsInbox.refresh();
+        untracked(() => this.paymentsInbox.refresh());
         void this.afterListLoaded();
         this.restoreScrollIfNeeded();
       },
