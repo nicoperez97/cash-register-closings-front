@@ -238,6 +238,32 @@
   color: var(--guy-navy, #003366);
 }
 
+.notif-panel__push-btn--compact {
+  width: auto;
+  flex-shrink: 0;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  gap: 0.22rem;
+}
+
+.notif-panel__push-btn--compact mat-icon {
+  font-size: 0.95rem;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.notif-panel__push-label {
+  white-space: nowrap;
+}
+
+.notif-panel__hint {
+  margin: 0 0 0.45rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--guy-muted, #5f6f76);
+}
+
 .notif-panel__link {
   border: 0;
   background: transparent;
