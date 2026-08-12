@@ -671,7 +671,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
       </div>
     </div>
   `,
-  
+  styleUrl: './closings-form.scss',
 })
 export class ClosingsFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);

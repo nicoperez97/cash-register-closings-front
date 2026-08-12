@@ -147,7 +147,7 @@ import {
       </section>
     </div>
   `,
-  
+  styleUrl: './waiting-list-page.scss',
 })
 export class WaitingListPage implements OnInit {
   private readonly api = inject(ReservationsApiService);

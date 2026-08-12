@@ -251,7 +251,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
       <div class="page page--loading"><p>Cargando…</p></div>
     }
   `,
-  
+  styleUrl: './public-reservation-signup.scss',
 })
 export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);

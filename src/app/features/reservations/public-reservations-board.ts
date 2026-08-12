@@ -230,7 +230,7 @@ import { BoardPwaService } from './board-pwa.service';
       </div>
     }
   `,
-  
+  styleUrl: './public-reservations-board.scss',
 })
 export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);

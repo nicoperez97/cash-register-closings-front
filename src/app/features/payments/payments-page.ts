@@ -679,7 +679,7 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       </div>
     }
   `,
-  
+  styleUrl: './payments-page.scss',
 })
 export class PaymentsPage {
   private readonly filtersUi = createFiltersCollapsed('payments');
