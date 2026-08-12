@@ -60,7 +60,9 @@
   max-width: var(--layout-sidenav-w, 300px) !important;
   transition:
     width var(--layout-sidenav-dur) var(--layout-sidenav-ease),
-    max-width var(--layout-sidenav-dur) var(--layout-sidenav-ease);
+    max-width var(--layout-sidenav-dur) var(--layout-sidenav-ease),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 280ms ease;
 }
 
 :host ::ng-deep .layout-sidenav--rail.mat-drawer,
@@ -71,11 +73,20 @@
 :host ::ng-deep .layout-sidenav--mobile.mat-drawer {
   width: min(300px, 86vw) !important;
   max-width: 86vw !important;
-  border-radius: 0 16px 16px 0 !important;
+  border-radius: 0 18px 18px 0 !important;
   z-index: 100 !important;
   overscroll-behavior: contain;
   touch-action: pan-y;
-  transition: none;
+  /* Slide suave (Material usa transform); no anular con transition:none */
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  box-shadow: none;
+  will-change: transform;
+}
+
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened {
+  box-shadow:
+    10px 0 28px rgba(8, 14, 22, 0.14),
+    2px 0 8px rgba(8, 14, 22, 0.06);
 }
 
 :host ::ng-deep .layout-sidenav .mat-drawer-inner-container {
@@ -101,13 +112,19 @@
 .layout-sidenav--mobile {
   width: min(300px, 86vw) !important;
   max-width: 86vw !important;
-  border-radius: 0 16px 16px 0 !important;
+  border-radius: 0 18px 18px 0 !important;
+}
+
+:host ::ng-deep .mat-drawer-backdrop {
+  transition: opacity 300ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 :host ::ng-deep .mat-drawer-backdrop.mat-sidenav-shown {
   z-index: 99 !important;
-  background: rgba(8, 14, 22, 0.55);
-  animation: guy-backdrop-in var(--guy-dur) var(--guy-ease) both;
+  background: rgba(8, 14, 22, 0.48);
+  animation: guy-backdrop-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 @keyframes guy-backdrop-in {
@@ -119,9 +136,50 @@
   }
 }
 
+/* Contenido del menú: entrada escalonada al abrir en mobile */
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-brand-block,
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-shop,
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-nav,
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-footer {
+  animation: guy-sidenav-panel-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-shop {
+  animation-delay: 40ms;
+}
+
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-nav {
+  animation-delay: 70ms;
+}
+
+:host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-footer {
+  animation-delay: 100ms;
+}
+
+@keyframes guy-sidenav-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  :host ::ng-deep .mat-drawer-backdrop.mat-sidenav-shown {
-    animation: none;
+  :host ::ng-deep .layout-sidenav.mat-drawer,
+  :host ::ng-deep .layout-sidenav--mobile.mat-drawer,
+  :host ::ng-deep .mat-drawer-backdrop {
+    transition: none !important;
+  }
+
+  :host ::ng-deep .mat-drawer-backdrop.mat-sidenav-shown,
+  :host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-brand-block,
+  :host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-shop,
+  :host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-nav,
+  :host ::ng-deep .layout-sidenav--mobile.mat-drawer-opened app-sidebar .sidebar-footer {
+    animation: none !important;
   }
 }
 
