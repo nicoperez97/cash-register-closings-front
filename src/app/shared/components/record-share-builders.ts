@@ -179,6 +179,35 @@ export function paymentSharePayload(
   };
 }
 
+/** Varios pagos en un solo mensaje (WhatsApp / compartir). */
+export function paymentsSharePayload(
+  payments: ShopPayment[],
+  shopName: string,
+): { title: string; text: string } {
+  const rows = payments.filter(Boolean);
+  if (rows.length === 1) {
+    return paymentSharePayload(rows[0], shopName, { link: paymentDeepLink(rows[0]) });
+  }
+  const total = rows.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const lines = [`Pagos — ${shopName}`, `${rows.length} pagos`, ''];
+  for (const p of rows) {
+    const title = p.title?.trim() || 'Sin concepto';
+    const target = (p.supplierName || p.employeeName || '').trim();
+    const status = PAYMENT_STATUS_SHARE_LABEL[p.status] ?? p.status;
+    lines.push(`· ${title}${target ? ` · ${target}` : ''}`);
+    lines.push(`  ${formatMoneyAr(p.amount)} · ${status}`);
+    if (p.dueDate) lines.push(`  Vence: ${formatDateAr(p.dueDate)}`);
+    if (p.supplierBankAlias?.trim()) {
+      lines.push(`  Alias / CBU: ${p.supplierBankAlias.trim()}`);
+    }
+  }
+  lines.push('', `Total: ${formatMoneyAr(total)}`);
+  return {
+    title: `Pagos · ${shopName}`,
+    text: lines.join('\n'),
+  };
+}
+
 /** URL directa al pago en la app (mismo origen). */
 export function paymentDeepLink(payment: ShopPayment): string {
   if (typeof window === 'undefined' || !window.location?.origin) {
@@ -213,6 +242,7 @@ export function closingSharePayload(
   }
 
   // Resumen principal: siempre. El resto solo si tiene valor.
+  // El total va al final del mensaje (más visible al compartir).
   pushMoneyLine(lines, 'PVS', closing.cardAmount, true);
   pushMoneyLine(lines, 'Mercado Pago', closing.mercadoPagoAmount);
   pushMoneyLine(lines, 'Efectivo', closing.cashAmount, true);
@@ -222,7 +252,6 @@ export function closingSharePayload(
   pushMoneyLine(lines, 'Otros', closing.otherAmount);
   pushMoneyLine(lines, 'Propinas', closing.tipsAmount);
   pushMoneyLine(lines, 'Caja sistema', closing.posSystemAmount, true);
-  pushMoneyLine(lines, 'Total declarado', closing.declaredTotal, true);
   pushMoneyLine(lines, 'Diferencia', closing.difference, true);
 
   const posnets = (closing.posnetAmounts ?? []).filter((p) => Number(p.amount || 0) !== 0);
@@ -261,6 +290,8 @@ export function closingSharePayload(
   if (closing.notes?.trim()) {
     lines.push(`Notas: ${closing.notes.trim()}`);
   }
+
+  pushMoneyLine(lines, 'Total declarado', closing.declaredTotal, true);
 
   return {
     title: `Cierre · ${shopName}`,
