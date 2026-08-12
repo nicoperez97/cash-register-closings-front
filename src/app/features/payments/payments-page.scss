@@ -1,161 +1,102 @@
-.pay-filters {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.65rem 0.85rem;
-        align-items: start;
-      }
-      .pay-export-btn__short {
-        display: none;
-      }
-      @media (max-width: 560px) {
-        .pay-export-btn__full {
-          display: none;
-        }
-        .pay-export-btn__short {
-          display: inline;
-        }
-      }
-      @media (min-width: 720px) {
-        .pay-filters {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-        .pay-filters__range {
-          grid-column: span 1;
-        }
-        .pay-filters__mine {
-          grid-column: 1 / -1;
-          justify-self: start;
-          align-self: center;
-        }
-      }
-      .pay-filters__mine {
-        height: 40px;
-        border-radius: 999px;
-      }
-      .pay-filters__mine--on {
-        border-color: var(--guy-green, #2e7d32);
-        color: var(--guy-green, #2e7d32);
-      }
-      .pay-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.85rem;
-      }
-      .pay-list--cards {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.55rem;
-        align-items: stretch;
-      }
-      @media (min-width: 720px) {
-        .pay-list--cards {
-          grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-          gap: 0.85rem;
-        }
-      }
-      .pay-list--cards > .guy-empty {
-        grid-column: 1 / -1;
-      }
-      .pay-list--cards .pay-card,
-      .pay-list--cards app-payment-card {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        min-width: 0;
-      }
-      .pay-list--cards .pay-card__actions,
-      .pay-list--cards app-payment-card .pay-card__actions {
-        margin-top: auto;
-      }
-      .pay-list--cards .pay-card__grid,
-      .pay-list--cards app-payment-card .pay-card__grid {
-        grid-template-columns: 1fr;
-      }
-      @media (max-width: 719px) {
-        .pay-list--cards .pay-card,
-        .pay-list--cards app-payment-card {
-          padding: 0.7rem 0.75rem;
-        }
-        .pay-list--cards .pay-card__title,
-        .pay-list--cards app-payment-card .pay-card__title {
-          font-size: 0.92rem;
-        }
-        .pay-list--cards .pay-card__amount,
-        .pay-list--cards app-payment-card .pay-card__amount {
-          font-size: 1rem;
-        }
-        .pay-list--cards .pay-card__top,
-        .pay-list--cards app-payment-card .pay-card__top {
-          flex-direction: column;
-          gap: 0.25rem;
-          margin-bottom: 0.5rem;
-        }
-        .pay-list--cards .pay-card__grid,
-        .pay-list--cards .pay-card__invoice,
-        .pay-list--cards .pay-card__pay-data,
-        .pay-list--cards .pay-card__notes,
-        .pay-list--cards app-payment-card .pay-card__grid,
-        .pay-list--cards app-payment-card .pay-card__invoice,
-        .pay-list--cards app-payment-card .pay-card__pay-data,
-        .pay-list--cards app-payment-card .pay-card__notes {
-          display: none;
-        }
-        .pay-list--cards .pay-card__actions,
-        .pay-list--cards app-payment-card .pay-card__actions {
-          gap: 0.35rem;
-        }
-        .pay-list--cards .pay-card__actions .mat-mdc-button,
-        .pay-list--cards app-payment-card .pay-card__actions .mat-mdc-button {
-          min-width: 0;
-          padding: 0 0.55rem;
-        }
-      }
-      .pay-card--list .pay-card__grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      @media (min-width: 900px) {
-        .pay-card--list .pay-card__grid {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-      }
-      .pay-view {
-        height: 2.5rem;
-        flex: 0 0 auto;
-      }
-      .pay-view .mat-button-toggle {
-        height: 100%;
-      }
-      .pay-view .mat-button-toggle-label-content {
-        line-height: 2.35rem;
-        padding: 0 0.65rem;
-      }
-      .pay-select-btn--on {
-        border-color: var(--guy-green, #2e7d32);
-        color: var(--guy-green, #2e7d32);
-      }
-      .pay-select-bar {
-        position: sticky;
-        bottom: 0.75rem;
-        z-index: 4;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.5rem;
-        margin-top: 0.85rem;
-        padding: 0.65rem 0.85rem;
-        border-radius: 14px;
-        background: var(--guy-surface, #fff);
-        border: 1px solid var(--guy-border, #d7e0d9);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-      }
-      .pay-select-bar__count {
-        font-weight: 700;
-        color: var(--guy-navy, #003366);
-        margin-right: auto;
-      }
-      .guy-filters__tools {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        align-items: center;
-      }
+.pay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.pay-list--cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  align-items: stretch;
+}
+@media (min-width: 720px) {
+  .pay-list--cards {
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    gap: 0.85rem;
+  }
+}
+.pay-list--cards > .guy-empty {
+  grid-column: 1 / -1;
+}
+.pay-list--cards .pay-card,
+.pay-list--cards app-payment-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+.pay-list--cards .pay-card__actions,
+.pay-list--cards app-payment-card .pay-card__actions {
+  margin-top: auto;
+}
+.pay-list--cards .pay-card__grid,
+.pay-list--cards app-payment-card .pay-card__grid {
+  grid-template-columns: 1fr;
+}
+@media (max-width: 719px) {
+  .pay-list--cards .pay-card,
+  .pay-list--cards app-payment-card {
+    padding: 0.7rem 0.75rem;
+  }
+  .pay-list--cards .pay-card__title,
+  .pay-list--cards app-payment-card .pay-card__title {
+    font-size: 0.92rem;
+  }
+  .pay-list--cards .pay-card__amount,
+  .pay-list--cards app-payment-card .pay-card__amount {
+    font-size: 1rem;
+  }
+  .pay-list--cards .pay-card__top,
+  .pay-list--cards app-payment-card .pay-card__top {
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+  .pay-list--cards .pay-card__grid,
+  .pay-list--cards .pay-card__invoice,
+  .pay-list--cards .pay-card__pay-data,
+  .pay-list--cards .pay-card__notes,
+  .pay-list--cards app-payment-card .pay-card__grid,
+  .pay-list--cards app-payment-card .pay-card__invoice,
+  .pay-list--cards app-payment-card .pay-card__pay-data,
+  .pay-list--cards app-payment-card .pay-card__notes {
+    display: none;
+  }
+  .pay-list--cards .pay-card__actions,
+  .pay-list--cards app-payment-card .pay-card__actions {
+    gap: 0.35rem;
+  }
+  .pay-list--cards .pay-card__actions .mat-mdc-button,
+  .pay-list--cards app-payment-card .pay-card__actions .mat-mdc-button {
+    min-width: 0;
+    padding: 0 0.55rem;
+  }
+}
+.pay-card--list .pay-card__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 900px) {
+  .pay-card--list .pay-card__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.pay-select-bar {
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 14px;
+  background: var(--guy-surface, #fff);
+  border: 1px solid var(--guy-border, #d7e0d9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.pay-select-bar__count {
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+  margin-right: auto;
+}

@@ -1,19 +1,12 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormControl } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
@@ -25,6 +18,7 @@ import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { PaymentsApiService, PaymentStatus, ShopPayment, paymentPriorityRank } from './payments-api.service';
 import { PaymentCardComponent } from './payment-card';
+import { PaymentsFiltersPanelComponent } from './payments-filters-panel';
 import { compareDueDate, PAYMENT_STATUS_LABEL } from './payments-display.util';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
@@ -41,7 +35,6 @@ import {
   paymentsSharePayload,
 } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
-import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { firstValueFrom } from 'rxjs';
@@ -64,22 +57,14 @@ function loadPaymentsViewMode(): PaymentsViewMode {
   selector: 'app-payments-page',
   imports: [
     PageHeaderComponent,
-    ReactiveFormsModule,
     MatButtonModule,
-    MatButtonToggleModule,
-    MatCheckboxModule,
     MatIconModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    MatDatepickerModule,
-    MatInputModule,
     MatDialogModule,
     MatMenuModule,
     MatSnackBarModule,
-    MatTooltipModule,
-    FiltersCollapseBtnComponent,
     SpinnerComponent,
     PaymentCardComponent,
+    PaymentsFiltersPanelComponent,
   ],
   template: `
     <app-page-header
@@ -91,181 +76,35 @@ function loadPaymentsViewMode(): PaymentsViewMode {
       (action)="openCreate()"
     />
 
-    <div
-      class="panel-card guy-filters mb-3"
-      [class.guy-filters--collapsed]="filtersCollapsed()"
-    >
-      <div class="guy-filters__head">
-        <div>
-          <h2 class="guy-filters__title">Filtros</h2>
-          <p class="guy-filters__subtitle">
-            @if (activeFilterCount() > 0) {
-              {{ activeFilterCount() }} filtro{{ activeFilterCount() === 1 ? '' : 's' }} activo{{
-                activeFilterCount() === 1 ? '' : 's'
-              }}
-            } @else {
-              Sin filtros
-            }
-          </p>
-        </div>
-        <div class="guy-filters__tools">
-          <mat-button-toggle-group
-            class="pay-view"
-            [value]="viewMode()"
-            (change)="onViewMode($event.value)"
-            aria-label="Vista de pagos"
-          >
-            <mat-button-toggle value="cards" matTooltip="Vista tarjetas">
-              <mat-icon>grid_view</mat-icon>
-            </mat-button-toggle>
-            <mat-button-toggle value="list" matTooltip="Vista lista">
-              <mat-icon>view_list</mat-icon>
-            </mat-button-toggle>
-          </mat-button-toggle-group>
-          <button
-            mat-stroked-button
-            type="button"
-            class="pay-select-btn"
-            [class.pay-select-btn--on]="selecting()"
-            (click)="toggleSelecting()"
-          >
-            <mat-icon>{{ selecting() ? 'close' : 'checklist' }}</mat-icon>
-            {{ selecting() ? 'Listo' : 'Seleccionar' }}
-          </button>
-          <button
-            mat-stroked-button
-            type="button"
-            class="pay-export-btn"
-            [disabled]="!shopId() || exporting()"
-            (click)="exportExcel()"
-          >
-            <mat-icon>download</mat-icon>
-            <span class="pay-export-btn__full">{{
-              exporting() ? 'Descargando…' : 'Descargar Excel'
-            }}</span>
-            <span class="pay-export-btn__short">{{ exporting() ? '…' : 'Excel' }}</span>
-          </button>
-          <app-filters-collapse-btn
-            [collapsed]="filtersCollapsed()"
-            [badgeCount]="activeFilterCount()"
-            (toggle)="toggleFilters()"
-          />
-        </div>
-      </div>
-      <div class="guy-filters__body pay-filters">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Estado</mat-label>
-          <mat-select [formControl]="statusFilter" multiple>
-            @for (opt of statusOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Valida</mat-label>
-          <mat-select [formControl]="validatorFilter" multiple>
-            @if (currentUserId()) {
-              <mat-option [value]="currentUserId()">Yo</mat-option>
-            }
-            @for (u of filterUsers(); track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Paga</mat-label>
-          <mat-select [formControl]="payerFilter" multiple>
-            @if (currentUserId()) {
-              <mat-option [value]="currentUserId()">Yo</mat-option>
-            }
-            @for (u of filterUsers(); track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field
-          appearance="outline"
-          class="pay-filters__range"
-          subscriptSizing="dynamic"
-        >
-          <mat-label>Vencimiento</mat-label>
-          <mat-date-range-input [formGroup]="dueRange" [rangePicker]="duePicker">
-            <input matStartDate formControlName="start" placeholder="Desde" />
-            <input matEndDate formControlName="end" placeholder="Hasta" />
-          </mat-date-range-input>
-          <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
-          <mat-date-range-picker #duePicker />
-        </mat-form-field>
-        <mat-form-field
-          appearance="outline"
-          class="pay-filters__range"
-          subscriptSizing="dynamic"
-        >
-          <mat-label>Realizado</mat-label>
-          <mat-date-range-input [formGroup]="paidRange" [rangePicker]="paidPicker">
-            <input matStartDate formControlName="start" placeholder="Desde" />
-            <input matEndDate formControlName="end" placeholder="Hasta" />
-          </mat-date-range-input>
-          <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
-          <mat-date-range-picker #paidPicker />
-        </mat-form-field>
-        @if (isSupplierKind()) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Proveedor</mat-label>
-            <mat-select [formControl]="supplierFilter" multiple>
-              @for (s of suppliers(); track s.id) {
-                <mat-option [value]="s.id">{{ s.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        } @else {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Empleado</mat-label>
-            <mat-select [formControl]="employeeFilter" multiple>
-              @for (e of employees(); track e.id) {
-                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        }
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Monto desde</mat-label>
-          <input
-            matInput
-            type="number"
-            min="0"
-            step="0.01"
-            inputmode="decimal"
-            [formControl]="amountMinFilter"
-            placeholder="0"
-          />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Monto hasta</mat-label>
-          <input
-            matInput
-            type="number"
-            min="0"
-            step="0.01"
-            inputmode="decimal"
-            [formControl]="amountMaxFilter"
-            placeholder="Sin tope"
-          />
-        </mat-form-field>
-        @if (currentUserId()) {
-          <button
-            mat-stroked-button
-            type="button"
-            class="pay-filters__mine"
-            [class.pay-filters__mine--on]="mineOnly()"
-            (click)="filterMine()"
-          >
-            <mat-icon>person</mat-icon>
-            {{ mineOnly() ? 'Viendo solo míos' : 'Solo míos' }}
-          </button>
-        }
-      </div>
-    </div>
+    <app-payments-filters-panel
+      [collapsed]="filtersCollapsed()"
+      [activeFilterCount]="activeFilterCount()"
+      [viewMode]="viewMode()"
+      [selecting]="selecting()"
+      [exporting]="exporting()"
+      [shopId]="shopId()"
+      [mineOnly]="mineOnly()"
+      [supplierKind]="isSupplierKind()"
+      [currentUserId]="currentUserId()"
+      [statusOptions]="statusOptions"
+      [filterUsers]="filterUsers()"
+      [suppliers]="suppliers()"
+      [employees]="employees()"
+      [statusFilter]="statusFilter"
+      [validatorFilter]="validatorFilter"
+      [payerFilter]="payerFilter"
+      [dueRange]="dueRange"
+      [paidRange]="paidRange"
+      [supplierFilter]="supplierFilter"
+      [employeeFilter]="employeeFilter"
+      [amountMinFilter]="amountMinFilter"
+      [amountMaxFilter]="amountMaxFilter"
+      (viewModeChange)="onViewMode($event)"
+      (toggleSelecting)="toggleSelecting()"
+      (exportExcel)="exportExcel()"
+      (toggleFilters)="toggleFilters()"
+      (filterMine)="filterMine()"
+    />
 
     <div
       class="pay-list"
