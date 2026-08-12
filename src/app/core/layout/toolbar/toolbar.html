@@ -3,8 +3,24 @@
     mat-icon-button
     type="button"
     class="toolbar-menu"
-    [matTooltip]="sidenavOpen() ? 'Ocultar menú' : 'Mostrar menú'"
-    [attr.aria-label]="sidenavOpen() ? 'Ocultar menú' : 'Mostrar menú'"
+    [matTooltip]="
+      isMobile()
+        ? sidenavOpen()
+          ? 'Ocultar menú'
+          : 'Mostrar menú'
+        : sidenavOpen()
+          ? 'Contraer menú'
+          : 'Expandir menú'
+    "
+    [attr.aria-label]="
+      isMobile()
+        ? sidenavOpen()
+          ? 'Ocultar menú'
+          : 'Mostrar menú'
+        : sidenavOpen()
+          ? 'Contraer menú'
+          : 'Expandir menú'
+    "
     (click)="menuToggle.emit()"
   >
     <mat-icon>{{ sidenavOpen() ? 'menu_open' : 'menu' }}</mat-icon>

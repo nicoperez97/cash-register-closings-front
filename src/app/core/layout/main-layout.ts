@@ -34,6 +34,26 @@ import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
+const SIDENAV_EXPANDED_KEY = 'crc.sidenav.expanded';
+
+function loadSidenavExpanded(): boolean {
+  try {
+    const v = localStorage.getItem(SIDENAV_EXPANDED_KEY);
+    if (v === '0' || v === 'false') return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function saveSidenavExpanded(expanded: boolean): void {
+  try {
+    localStorage.setItem(SIDENAV_EXPANDED_KEY, expanded ? '1' : '0');
+  } catch {
+    // ignore
+  }
+}
+
 @Component({
   selector: 'app-main-layout',
   imports: [
@@ -76,6 +96,8 @@ export class MainLayoutComponent {
   );
 
   readonly sidenavOpen = signal(true);
+  /** Desktop: menú ancho vs rail de iconos. Persistido en localStorage. */
+  readonly sidenavExpanded = signal(loadSidenavExpanded());
   readonly currentUrl = signal(this.router.url);
   private readonly lastMobile = signal<boolean | null>(null);
 
@@ -311,6 +333,7 @@ export class MainLayoutComponent {
       const prev = this.lastMobile();
       if (prev === mobile) return;
       this.lastMobile.set(mobile);
+      // Desktop: drawer siempre abierto (rail o expandido). Mobile: overlay cerrado al entrar.
       this.sidenavOpen.set(!mobile);
     });
 
@@ -485,11 +508,40 @@ export class MainLayoutComponent {
   }
 
   toggleSidenav(): void {
-    this.sidenavOpen.update((open) => !open);
+    if (this.isMobile()) {
+      this.sidenavOpen.update((open) => !open);
+      return;
+    }
+    this.sidenavExpanded.update((expanded) => {
+      const next = !expanded;
+      saveSidenavExpanded(next);
+      return next;
+    });
+    // Asegurar que el drawer siga abierto en desktop (modo rail).
+    this.sidenavOpen.set(true);
+  }
+
+  expandSidenav(): void {
+    if (this.isMobile()) return;
+    if (this.sidenavExpanded()) return;
+    this.sidenavExpanded.set(true);
+    saveSidenavExpanded(true);
+    this.sidenavOpen.set(true);
   }
 
   onSidenavOpenedChange(opened: boolean): void {
-    this.sidenavOpen.set(opened);
+    if (this.isMobile()) {
+      this.sidenavOpen.set(opened);
+      return;
+    }
+    // Desktop: no dejar cerrar el drawer; el toggle solo colapsa a rail.
+    if (!opened) {
+      this.sidenavOpen.set(true);
+      this.sidenavExpanded.set(false);
+      saveSidenavExpanded(false);
+      return;
+    }
+    this.sidenavOpen.set(true);
   }
 
   closeSidenavOnNavigate(): void {

@@ -55,8 +55,14 @@ export class SidebarComponent {
   readonly pageRefresh = inject(PageRefreshService);
   readonly navItems = input.required<NavItem[]>();
   readonly isMobile = input(false);
+  /** Desktop: solo iconos (rail). */
+  readonly rail = input(false);
   readonly navigate = output<void>();
   readonly close = output<void>();
+  /** Pedir expandir el menú (p. ej. al abrir grupos / shop picker en rail). */
+  readonly expandRequest = output<void>();
+  /** Toggle rail ↔ expandido (botón al borde). */
+  readonly railToggle = output<void>();
   readonly logoBroken = signal(false);
   /** Logos de locales que fallaron al cargar (mostrar iniciales). */
   readonly brokenShopLogos = signal<ReadonlySet<string>>(new Set());
@@ -107,6 +113,11 @@ export class SidebarComponent {
   }
 
   toggleShopPicker(): void {
+    if (this.rail()) {
+      this.expandRequest.emit();
+      setTimeout(() => this.shopPickerOpen.set(true), 240);
+      return;
+    }
     this.shopPickerOpen.update((open) => !open);
   }
 
@@ -145,14 +156,25 @@ export class SidebarComponent {
     return (item.children ?? []).some((c) => this.routeMatches(path, c.route));
   }
 
-  /** Abierto por defecto; solo se cierra si el usuario lo contrajo. */
+  /** Abierto por defecto; solo se cierra si el usuario lo contrajo. En rail siempre cerrado visualmente. */
   isGroupOpen(item: NavItem): boolean {
+    if (this.rail()) return false;
     return !this.collapsedGroups().has(item.route);
   }
 
   toggleGroup(item: NavItem, event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
+    if (this.rail()) {
+      // En rail: expandir menú y abrir el grupo.
+      this.collapsedGroups.update((prev) => {
+        const next = new Set(prev);
+        next.delete(item.route);
+        return next;
+      });
+      this.expandRequest.emit();
+      return;
+    }
     this.collapsedGroups.update((prev) => {
       const next = new Set(prev);
       if (next.has(item.route)) next.delete(item.route);

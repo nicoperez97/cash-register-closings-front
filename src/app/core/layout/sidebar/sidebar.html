@@ -1,4 +1,4 @@
-<div class="sidebar">
+<div class="sidebar" [class.sidebar--rail]="rail()">
   <div class="sidebar-brand-block">
     <button
       type="button"
@@ -21,6 +21,7 @@
             ? 'Tocar para actualizar'
             : logoAlt()
       "
+      matTooltipShowDelay="200"
       (click)="onLogoRefresh()"
     >
       @if (!logoBroken() && logoSrc()) {
@@ -59,6 +60,8 @@
           [class.shop-switcher--open]="shopPickerOpen()"
           [attr.aria-expanded]="shopPickerOpen()"
           [attr.aria-label]="'Cambiar local. Activo: ' + shop.name"
+          [matTooltip]="rail() ? shop.name : ''"
+          matTooltipShowDelay="200"
           [style.--shop-accent]="shop.accentColor || null"
           [style.--shop-accent-secondary]="shop.accentSecondary || null"
           (click)="toggleShopPicker()"
@@ -99,7 +102,7 @@
           </span>
         </button>
 
-        @if (shopPickerOpen()) {
+        @if (shopPickerOpen() && !rail()) {
           <div class="shop-picker" role="listbox" [attr.aria-label]="'Elegir local'">
             @for (s of shopContext.shops(); track s.id) {
               <div
@@ -175,6 +178,8 @@
       } @else {
         <div
           class="shop-switcher shop-switcher--static"
+          [matTooltip]="rail() ? shop.name : ''"
+          matTooltipShowDelay="200"
           [style.--shop-accent]="shop.accentColor || null"
           [style.--shop-accent-secondary]="shop.accentSecondary || null"
         >
@@ -214,6 +219,9 @@
             class="nav-group__title"
             [attr.aria-expanded]="isGroupOpen(item)"
             [attr.aria-controls]="'nav-group-' + item.route"
+            [attr.aria-label]="item.label"
+            [matTooltip]="rail() ? item.label : ''"
+            matTooltipShowDelay="200"
             (click)="toggleGroup(item, $event)"
           >
             <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
@@ -265,10 +273,13 @@
           [routerLink]="item.route"
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: item.exact === true }"
+          [attr.aria-label]="item.label"
+          [matTooltip]="rail() ? item.label : ''"
+          matTooltipShowDelay="200"
           (click)="onNavClick()"
         >
           <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-          <span>{{ item.label }}</span>
+          <span class="nav-link__label">{{ item.label }}</span>
           @if (item.badge && item.badge > 0) {
             <span class="nav-badge" aria-label="{{ item.badge }}">
               {{ badgeLabel(item.badge) }}
@@ -280,6 +291,20 @@
   </nav>
 
   <div class="sidebar-footer">
-    {{ brand.tagline }}
+    @if (!rail()) {
+      <span class="sidebar-footer__tagline">{{ brand.tagline }}</span>
+    }
+    @if (!isMobile()) {
+      <button
+        type="button"
+        class="sidebar-rail-toggle"
+        [attr.aria-label]="rail() ? 'Expandir menú' : 'Contraer menú'"
+        [matTooltip]="rail() ? 'Expandir menú' : 'Contraer menú'"
+        matTooltipShowDelay="200"
+        (click)="railToggle.emit()"
+      >
+        <mat-icon>{{ rail() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+      </button>
+    }
   </div>
 </div>
