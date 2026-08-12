@@ -10,6 +10,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { movementSavedDialogData } from '../../shared/components/record-share-builders';
+import { shareText } from '../../shared/utils/share-text';
 import {
   Concept,
   LedgerAccount,
@@ -43,68 +45,134 @@ function todayIso(timezone?: string | null): string {
   ],
   template: `
     <h2 mat-dialog-title>
-      <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>payments</mat-icon>
+      <span
+        class="guy-dialog__title-icon"
+        [class.guy-dialog__title-icon--ok]="!!saved()"
+        aria-hidden="true"
+      >
+        <mat-icon>{{ saved() ? 'check_circle' : 'payments' }}</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>Gasto rápido</strong>
+        <strong>{{ saved() ? 'Gasto registrado' : 'Gasto rápido' }}</strong>
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
 
-    <mat-dialog-content>
-      <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Monto</mat-label>
-          <mat-icon matPrefix>attach_money</mat-icon>
-          <input matInput type="number" inputmode="decimal" formControlName="amountUyu" />
-        </mat-form-field>
+    @if (saved(); as movement) {
+      <mat-dialog-content>
+        <p class="quick-exp__ok">Quedó registrado. Podés compartirlo o cerrar.</p>
+        <dl class="quick-exp__summary">
+          @for (f of savedFields(movement); track f.label) {
+            <div [class.quick-exp__total]="f.emphasize">
+              <dt>{{ f.label }}</dt>
+              <dd>{{ f.value }}</dd>
+            </div>
+          }
+        </dl>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-stroked-button type="button" (click)="share(movement)" [disabled]="sharing()">
+          <mat-icon>share</mat-icon>
+          Compartir
+        </button>
+        <button mat-flat-button color="primary" type="button" (click)="ref.close(movement)">
+          Cerrar
+        </button>
+      </mat-dialog-actions>
+    } @else {
+      <mat-dialog-content>
+        <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Monto</mat-label>
+            <mat-icon matPrefix>attach_money</mat-icon>
+            <input matInput type="number" inputmode="decimal" formControlName="amountUyu" />
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Concepto</mat-label>
-          <mat-icon matPrefix>sell</mat-icon>
-          <mat-select formControlName="conceptId">
-            @for (c of expenseConcepts(); track c.id) {
-              <mat-option [value]="c.id">{{ c.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Concepto</mat-label>
+            <mat-icon matPrefix>sell</mat-icon>
+            <mat-select formControlName="conceptId">
+              @for (c of expenseConcepts(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Sale de</mat-label>
-          <mat-icon matPrefix>account_balance_wallet</mat-icon>
-          <mat-select formControlName="fromAccountId">
-            @for (a of fromAccounts(); track a.id) {
-              <mat-option [value]="a.id">{{ a.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Sale de</mat-label>
+            <mat-icon matPrefix>account_balance_wallet</mat-icon>
+            <mat-select formControlName="fromAccountId">
+              @for (a of fromAccounts(); track a.id) {
+                <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Descripción (opcional)</mat-label>
-          <mat-icon matPrefix>notes</mat-icon>
-          <input matInput formControlName="description" autocomplete="off" />
-        </mat-form-field>
-      </form>
-    </mat-dialog-content>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Descripción (opcional)</mat-label>
+            <mat-icon matPrefix>notes</mat-icon>
+            <input matInput formControlName="description" autocomplete="off" />
+          </mat-form-field>
+        </form>
+      </mat-dialog-content>
 
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
-        Cancelar
-      </button>
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        [disabled]="form.invalid || busy() || !egresoAccountId()"
-        (click)="save()"
-      >
-        <app-busy-label [busy]="busy()" busyLabel="Guardando…">
-          <mat-icon>check</mat-icon>
-          Registrar gasto
-        </app-busy-label>
-      </button>
-    </mat-dialog-actions>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
+          Cancelar
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="form.invalid || busy() || !egresoAccountId()"
+          (click)="save()"
+        >
+          <app-busy-label [busy]="busy()" busyLabel="Guardando…">
+            <mat-icon>check</mat-icon>
+            Registrar gasto
+          </app-busy-label>
+        </button>
+      </mat-dialog-actions>
+    }
+  `,
+  styles: `
+    .quick-exp__ok {
+      margin: 0 0 0.75rem;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.9rem;
+    }
+    .quick-exp__summary {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0;
+      padding: 0;
+    }
+    .quick-exp__summary > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+    }
+    .quick-exp__summary dt {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .quick-exp__summary dd {
+      margin: 0;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--guy-navy, #003366);
+      text-align: right;
+    }
+    .quick-exp__total {
+      margin-top: 0.35rem;
+      padding-top: 0.55rem;
+      border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+    }
+    .quick-exp__total dd {
+      font-size: 1.05rem;
+    }
   `,
 })
 export class QuickExpenseDialogComponent {
@@ -116,6 +184,8 @@ export class QuickExpenseDialogComponent {
   private readonly shops = inject(ShopContextService);
 
   readonly busy = signal(false);
+  readonly sharing = signal(false);
+  readonly saved = signal<Movement | null>(null);
 
   readonly egresoAccountId = computed(() => {
     const hit = this.data.accounts.find(
@@ -161,6 +231,25 @@ export class QuickExpenseDialogComponent {
     });
   }
 
+  savedFields(movement: Movement) {
+    return movementSavedDialogData(movement, this.data.shopName).fields;
+  }
+
+  async share(movement: Movement): Promise<void> {
+    const data = movementSavedDialogData(movement, this.data.shopName);
+    this.sharing.set(true);
+    const result = await shareText({
+      title: data.shareTitle,
+      text: data.shareText || data.shareTitle,
+    });
+    this.sharing.set(false);
+    if (result === 'copied') {
+      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    }
+  }
+
   save(): void {
     if (this.form.invalid || !this.egresoAccountId()) {
       this.form.markAllAsTouched();
@@ -185,8 +274,7 @@ export class QuickExpenseDialogComponent {
       .subscribe({
         next: (saved) => {
           this.busy.set(false);
-          this.snack.open('Gasto registrado', 'OK', { duration: 2500 });
-          this.ref.close(saved);
+          this.saved.set(saved);
         },
         error: (err) => {
           this.busy.set(false);
