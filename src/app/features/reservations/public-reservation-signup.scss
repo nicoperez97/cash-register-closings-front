@@ -445,6 +445,19 @@
         padding: 1.15rem 1rem 1.2rem;
       }
 
+      .day-closed__pick {
+        margin: 0.35rem 0 0.15rem;
+        justify-items: center;
+      }
+
+      .day-closed__pick .pills {
+        justify-content: center;
+      }
+
+      .day-closed .hint {
+        margin-top: 0.15rem;
+      }
+
       .ig-btn {
         display: inline-flex;
         align-items: center;

@@ -240,9 +240,44 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             <p class="hint">Sin pago. Queda pendiente hasta que el local la acepte.</p>
           </form>
         } @else {
-          <section class="card done day-closed" role="status">
-            <p>No tomamos reservas web para este día.</p>
-            <p class="hint">El ingreso es por orden de llegada.</p>
+          <section class="card closed day-closed" role="status">
+            <h2>Este día no toma reservas web</h2>
+            <p>
+              Para el
+              <strong>{{ formatWhen(businessDate) }}</strong>
+              el ingreso es por orden de llegada.
+            </p>
+            <p class="hint">Elegí otro día para pedir mesa:</p>
+            <div class="block day-closed__pick">
+              <div class="pills">
+                <button type="button" class="pill" [class.pill--on]="isOffset(0)" (click)="setOffset(0)">
+                  Hoy
+                </button>
+                <button type="button" class="pill" [class.pill--on]="isOffset(1)" (click)="setOffset(1)">
+                  Mañana
+                </button>
+                <button
+                  type="button"
+                  class="pill"
+                  [class.pill--on]="!isOffset(0) && !isOffset(1)"
+                  (click)="pickOtherDay()"
+                >
+                  <span class="only-desk">{{ dateChipLabel(false) }}</span>
+                  <span class="only-mob">{{ dateChipLabel(true) }}</span>
+                </button>
+              </div>
+              <input
+                class="date-sr"
+                [matDatepicker]="closedDayPicker"
+                [min]="minAsDate"
+                [value]="selectedAsDate"
+                (dateChange)="onDatePicked($event.value)"
+                tabindex="-1"
+                aria-hidden="true"
+              />
+              <mat-datepicker #closedDayPicker touchUi />
+            </div>
+            <button type="button" class="ghost" (click)="pickOtherDay()">Elegir otra fecha</button>
           </section>
         }
         }
@@ -285,6 +320,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   website = '';
   minDate = this.todayIso();
   private readonly otherPicker = viewChild<MatDatepicker<Date>>('otherPicker');
+  private readonly closedDayPicker = viewChild<MatDatepicker<Date>>('closedDayPicker');
 
   readonly shopSignupOpen = computed(() => this.info()?.shopSignupEnabled !== false);
   readonly dateSignupOpen = computed(() => {
@@ -403,7 +439,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   pickOtherDay(): void {
-    this.otherPicker()?.open();
+    (this.closedDayPicker() ?? this.otherPicker())?.open();
   }
 
   onDatePicked(value: Date | null): void {
@@ -521,7 +557,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     });
   }
 
-  private formatWhen(iso: string, time?: string): string {
+  formatWhen(iso: string, time?: string): string {
     const [y, m, d] = iso.split('-');
     const label = `${d}/${m}/${y}`;
     return time ? `${label} a las ${time}` : label;

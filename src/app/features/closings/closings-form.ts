@@ -41,6 +41,8 @@ import {
   tipDayToEditorState,
 } from '../tips/tips-editor';
 import { ClosingFormHeaderComponent } from './closing-form-header';
+import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions';
+import { ClosingFormSummaryComponent } from './closing-form-summary';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -115,6 +117,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatStepperModule,
     TipsEditorComponent,
     ClosingFormHeaderComponent,
+    ClosingFormStickyActionsComponent,
+    ClosingFormSummaryComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -577,84 +581,30 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             </mat-step>
 
             <mat-step label="Resumen">
-              <div class="closing-totals closing-totals--hero">
-                <div class="closing-totals__head">
-                  <div>
-                    <h2>Resumen</h2>
-                    <p class="closing-totals__sub">Lo que importa del día</p>
-                  </div>
-                  <button mat-stroked-button type="button" (click)="shareSummary()">
-                    <mat-icon>share</mat-icon>
-                    Compartir
-                  </button>
-                </div>
-                <div class="closing-totals__grid">
-                  <div class="closing-totals__item">
-                    <span>Fecha</span>
-                    <strong>{{ summaryDate() }}</strong>
-                  </div>
-                  <div class="closing-totals__item">
-                    <span>PVS</span>
-                    <strong>{{ money(cardAmount()) }}</strong>
-                  </div>
-                  <div class="closing-totals__item">
-                    <span>Efectivo</span>
-                    <strong>{{ money(cashAmount()) }}</strong>
-                  </div>
-                  <div class="closing-totals__item">
-                    <span>Cuenta DNI</span>
-                    <strong>{{ money(accountDniAmount()) }}</strong>
-                  </div>
-                  <div class="closing-totals__item">
-                    <span>Caja sistema</span>
-                    <strong>{{ money(posAmount()) }}</strong>
-                  </div>
-                  <div class="closing-totals__item closing-totals__item--total">
-                    <span>Total</span>
-                    <strong>{{ money(declaredTotal()) }}</strong>
-                  </div>
-                </div>
-              </div>
-              <div class="closing-form__total-bar" aria-live="polite">
-                <span>Total declarado</span>
-                <strong>{{ money(declaredTotal()) }}</strong>
-              </div>
-              <div class="closing-stepper__nav closing-stepper__nav--final">
-                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="submit"
-                  [disabled]="saving() || (isLocked() && !auth.isAdmin())"
-                >
-                  {{ saving() ? 'Guardando…' : 'Guardar cierre' }}
-                </button>
-              </div>
+              <app-closing-form-summary
+                [summaryDate]="summaryDate()"
+                [cardAmount]="money(cardAmount())"
+                [cashAmount]="money(cashAmount())"
+                [accountDniAmount]="money(accountDniAmount())"
+                [posAmount]="money(posAmount())"
+                [declaredTotal]="money(declaredTotal())"
+                [saving]="saving()"
+                [saveDisabled]="saving() || (isLocked() && !auth.isAdmin())"
+                (shareClicked)="shareSummary()"
+              />
             </mat-step>
           </mat-stepper>
         </section>
       </form>
 
-      <div class="closing-form-actions closing-form-actions--sticky" aria-label="Acciones del cierre">
-        @if (!cashierOnly()) {
-          <button mat-stroked-button type="button" (click)="cancel()">Cancelar</button>
-        }
-        @if (isLocked() && auth.isAdmin()) {
-          <button mat-stroked-button type="button" (click)="unlock()">
-            <mat-icon>lock_open</mat-icon>
-            Desbloquear
-          </button>
-        }
-        <button
-          mat-flat-button
-          color="primary"
-          type="submit"
-          form="closing-form"
-          [disabled]="saving() || (isLocked() && !auth.isAdmin())"
-        >
-          {{ saving() ? 'Guardando…' : 'Guardar cierre' }}
-        </button>
-      </div>
+      <app-closing-form-sticky-actions
+        [cashierOnly]="cashierOnly()"
+        [isLocked]="isLocked()"
+        [isAdmin]="auth.isAdmin()"
+        [saving]="saving()"
+        (cancelClicked)="cancel()"
+        (unlockClicked)="unlock()"
+      />
     </div>
   `,
   styleUrl: './closings-form.scss',
