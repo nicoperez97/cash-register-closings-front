@@ -360,9 +360,9 @@ export class ShopBackupDialogComponent {
     });
   }
 
-  onFile(ev: Event): void {
+  async onFile(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
-    const file = takeInputFile(input);
+    const file = await takeInputFile(input);
     if (!file) return;
     const ok = window.confirm(
       `¿Restaurar backup en “${this.data.shopName}”? Se borrarán los datos actuales (incl. cuentas y conceptos) y se cargará el Excel.`,

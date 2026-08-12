@@ -12,6 +12,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import {
+  formatBusinessDayHint,
   formatIsoDateDisplay,
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
@@ -78,12 +79,26 @@ function formatMoney(value: number): string {
               {{ dateLabel() }} · efectivo y recibos
             </p>
           </div>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Fecha</mat-label>
-            <input matInput [matDatepicker]="picker" [formControl]="dateCtrl" />
-            <mat-datepicker-toggle matIconSuffix [for]="picker" />
-            <mat-datepicker #picker />
-          </mat-form-field>
+          <div class="tips-page__day-controls">
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="isBusinessToday()"
+              (click)="goBusinessToday()"
+            >
+              <mat-icon>today</mat-icon>
+              Hoy laboral
+            </button>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Fecha</mat-label>
+              <input matInput [matDatepicker]="picker" [formControl]="dateCtrl" />
+              <mat-datepicker-toggle matIconSuffix [for]="picker" />
+              <mat-datepicker #picker touchUi />
+              @if (businessDayHint()) {
+                <mat-hint>{{ businessDayHint() }}</mat-hint>
+              }
+            </mat-form-field>
+          </div>
         </div>
 
         <app-tips-editor
@@ -161,6 +176,15 @@ function formatMoney(value: number): string {
         align-items: flex-start;
         margin-bottom: 1rem;
       }
+      .tips-page__day-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: flex-start;
+      }
+      .tips-page__day-controls mat-form-field {
+        min-width: min(100%, 12.5rem);
+      }
       .tips-page__actions {
         display: flex;
         justify-content: flex-end;
@@ -206,6 +230,12 @@ export class TipsPage {
 
   readonly selectedDate = computed(() => toDateString(this.dateCtrl.value));
   readonly dateLabel = computed(() => formatIsoDateDisplay(this.selectedDate()));
+  readonly businessDayHint = computed(() => {
+    const date = this.selectedDate();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
+    return formatBusinessDayHint(date, this.shops.selectedShop()?.openingTime);
+  });
+  readonly isBusinessToday = computed(() => this.selectedDate() === this.defaultDate());
 
   readonly canEdit = computed(() => {
     const shopId = this.shops.selectedShopId();
@@ -261,6 +291,8 @@ export class TipsPage {
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;
+      // Misma lógica que cierres: día laboral del local (TZ + openingTime).
+      this.dateCtrl.setValue(toDateInput(this.defaultDate()), { emitEvent: false });
       this.employeesApi.list(shopId).subscribe({
         next: (rows) => this.employees.set(rows.filter((e) => e.active)),
         error: () => this.employees.set([]),
@@ -280,6 +312,10 @@ export class TipsPage {
       timezone: shop?.timezone,
       openingTime: shop?.openingTime,
     });
+  }
+
+  goBusinessToday(): void {
+    this.dateCtrl.setValue(toDateInput(this.defaultDate()));
   }
 
   onEditorChange(v: TipsEditorState) {

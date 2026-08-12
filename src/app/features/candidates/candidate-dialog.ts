@@ -686,9 +686,9 @@ export class CandidateDialogComponent {
     this.languages.push(this.langGroup());
   }
 
-  onFilesPicked(ev: Event): void {
+  async onFilesPicked(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
-    const files = takeInputFiles(input);
+    const files = await takeInputFiles(input);
     if (!files.length) return;
 
     const next = [...this.pendingFiles()];

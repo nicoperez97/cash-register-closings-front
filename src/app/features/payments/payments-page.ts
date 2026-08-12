@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -53,6 +54,18 @@ import { SpinnerComponent } from '../../shared/components/spinner';
 import { firstValueFrom } from 'rxjs';
 
 type PaymentKind = 'supplier' | 'employee';
+type PaymentsViewMode = 'cards' | 'list';
+
+const PAYMENTS_VIEW_KEY = 'crc.payments.viewMode';
+
+function loadPaymentsViewMode(): PaymentsViewMode {
+  try {
+    const v = localStorage.getItem(PAYMENTS_VIEW_KEY);
+    return v === 'list' || v === 'cards' ? v : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING_VALIDATION: 'Pendiente de validar',
@@ -90,6 +103,7 @@ function daysUntilDue(iso: string | null | undefined): number | null {
     PageHeaderComponent,
     ReactiveFormsModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatIconModule,
     MatSelectModule,
     MatFormFieldModule,
@@ -130,6 +144,19 @@ function daysUntilDue(iso: string | null | undefined): number | null {
           </p>
         </div>
         <div class="guy-filters__tools">
+          <mat-button-toggle-group
+            class="pay-view"
+            [value]="viewMode()"
+            (change)="onViewMode($event.value)"
+            aria-label="Vista de pagos"
+          >
+            <mat-button-toggle value="cards" matTooltip="Vista tarjetas">
+              <mat-icon>grid_view</mat-icon>
+            </mat-button-toggle>
+            <mat-button-toggle value="list" matTooltip="Vista lista">
+              <mat-icon>view_list</mat-icon>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
           <button
             mat-stroked-button
             type="button"
@@ -265,7 +292,11 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       </div>
     </div>
 
-    <div class="pay-list">
+    <div
+      class="pay-list"
+      [class.pay-list--cards]="viewMode() === 'cards'"
+      [class.pay-list--list]="viewMode() === 'list'"
+    >
       @if (loading()) {
         <div class="panel-card guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
           <app-spinner [size]="28" tone="accent" />
@@ -278,6 +309,7 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         @for (p of visibleRows(); track p.id) {
           <article
             class="panel-card pay-card"
+            [class.pay-card--list]="viewMode() === 'list'"
             [attr.id]="'payment-' + p.id"
             [attr.data-status]="p.status"
             [attr.data-priority]="p.priority || null"
@@ -648,6 +680,51 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         flex-direction: column;
         gap: 0.85rem;
       }
+      .pay-list--cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+        gap: 0.85rem;
+        align-items: stretch;
+      }
+      .pay-list--cards > .guy-empty {
+        grid-column: 1 / -1;
+      }
+      .pay-list--cards .pay-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-width: 0;
+      }
+      .pay-list--cards .pay-card__actions {
+        margin-top: auto;
+      }
+      .pay-list--cards .pay-card__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .pay-card--list .pay-card__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      @media (min-width: 900px) {
+        .pay-card--list .pay-card__grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .pay-view {
+        height: 2.5rem;
+      }
+      .pay-view .mat-button-toggle {
+        height: 100%;
+      }
+      .pay-view .mat-button-toggle-label-content {
+        line-height: 2.35rem;
+        padding: 0 0.65rem;
+      }
+      .guy-filters__tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
       .pay-card--focus {
         outline: 2px solid color-mix(in srgb, var(--guy-primary, #003366) 55%, transparent);
         box-shadow:
@@ -901,6 +978,7 @@ export class PaymentsPage {
   readonly rows = signal<ShopPayment[]>([]);
   readonly loading = signal(true);
   readonly actionBusyId = signal<string | null>(null);
+  readonly viewMode = signal<PaymentsViewMode>(loadPaymentsViewMode());
   readonly users = signal<
     Array<{
       id: string;
@@ -1137,9 +1215,12 @@ export class PaymentsPage {
     });
   }
 
-  onReceiptPicked(ev: Event, p: ShopPayment): void {
-    const file = takeInputFile(ev.target as HTMLInputElement);
-    if (!file) return;
+  async onReceiptPicked(ev: Event, p: ShopPayment): Promise<void> {
+    const file = await takeInputFile(ev.target as HTMLInputElement);
+    if (!file) {
+      this.snack.open('No se pudo leer el archivo. Probá de nuevo.', 'OK', { duration: 3500 });
+      return;
+    }
     const shopId = this.shopId();
     if (!shopId) return;
     this.api.uploadReceiptFile(shopId, p.id, file).subscribe({
@@ -1273,6 +1354,16 @@ export class PaymentsPage {
     this.validatorFilter.setValue([], { emitEvent: false });
     this.payerFilter.setValue([], { emitEvent: false });
     this.reload();
+  }
+
+  onViewMode(value: PaymentsViewMode | null | undefined): void {
+    const mode: PaymentsViewMode = value === 'list' ? 'list' : 'cards';
+    this.viewMode.set(mode);
+    try {
+      localStorage.setItem(PAYMENTS_VIEW_KEY, mode);
+    } catch {
+      // ignore
+    }
   }
 
   private listFilterOpts() {
@@ -1733,17 +1824,24 @@ export class PaymentsPage {
     input.type = 'file';
     input.accept = 'application/pdf,image/*';
     input.onchange = () => {
-      const file = takeInputFile(input);
-      if (!file) return;
-      const shopId = this.shopId();
-      if (!shopId) return;
-      this.api.uploadReceiptFile(shopId, paid.id, file).subscribe({
-        next: () => {
-          this.snack.open('Comprobante de pago guardado', 'OK', { duration: 2500 });
-          this.reload({ preserveScroll: true });
-        },
-        error: (err) => this.showErr(err),
-      });
+      void (async () => {
+        const file = await takeInputFile(input);
+        if (!file) {
+          this.snack.open('No se pudo leer el archivo. Probá de nuevo.', 'OK', {
+            duration: 3500,
+          });
+          return;
+        }
+        const shopId = this.shopId();
+        if (!shopId) return;
+        this.api.uploadReceiptFile(shopId, paid.id, file).subscribe({
+          next: () => {
+            this.snack.open('Comprobante de pago guardado', 'OK', { duration: 2500 });
+            this.reload({ preserveScroll: true });
+          },
+          error: (err) => this.showErr(err),
+        });
+      })();
     };
     input.click();
   }
