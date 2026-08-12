@@ -161,20 +161,28 @@ const TIMEZONE_OPTIONS = [
       </aside>
 
       <div class="shop-admin__fields">
-        <section class="panel-card">
+        <nav class="guy-form-toc shop-admin__toc" aria-label="Secciones del local">
+          @for (s of tocSections; track s.id) {
+            <button type="button" class="guy-form-toc__chip" (click)="scrollToSection(s.id)">
+              {{ s.label }}
+            </button>
+          }
+        </nav>
+
+        <section class="panel-card guy-form-section" id="shop-sec-identidad">
           <h2 class="guy-section-title">Identidad</h2>
           <p class="text-muted small mb-3">Nombre visible y URL interna del local.</p>
           <div class="guy-form-grid guy-form-grid--2">
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Nombre</mat-label>
               <input matInput formControlName="name" autocomplete="organization" />
             </mat-form-field>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Slug</mat-label>
               <input matInput formControlName="slug" />
               <mat-hint>Solo minúsculas, números y guiones</mat-hint>
             </mat-form-field>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Email del local (Gmail)</mat-label>
               <input
                 matInput
@@ -185,7 +193,7 @@ const TIMEZONE_OPTIONS = [
               />
               <mat-hint>Remitente y usuario SMTP de las notificaciones</mat-hint>
             </mat-form-field>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Instagram</mat-label>
               <span matPrefix class="shop-admin__ig-prefix">@</span>
               <input
@@ -196,7 +204,7 @@ const TIMEZONE_OPTIONS = [
               />
               <mat-hint>Se muestra si el formulario público está cerrado</mat-hint>
             </mat-form-field>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Teléfono / WhatsApp</mat-label>
               <input
                 matInput
@@ -207,7 +215,7 @@ const TIMEZONE_OPTIONS = [
               />
               <mat-hint>Con código de país. Lo usamos después para avisos por WhatsApp</mat-hint>
             </mat-form-field>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Contraseña de aplicación</mat-label>
               <input
                 matInput
@@ -239,7 +247,7 @@ const TIMEZONE_OPTIONS = [
           </div>
         </section>
 
-        <section class="panel-card">
+        <section class="panel-card guy-form-section" id="shop-sec-notificaciones">
           <h2 class="guy-section-title">Notificaciones por correo</h2>
           <p class="text-muted small mb-3">
             Activá el envío de mails, elegí qué avisos se mandan y a qué usuarios del local.
@@ -292,7 +300,7 @@ const TIMEZONE_OPTIONS = [
           }
         </section>
 
-        <section class="panel-card shop-admin__appearance">
+        <section class="panel-card guy-form-section shop-admin__appearance" id="shop-sec-apariencia">
           <h2 class="guy-section-title">Apariencia</h2>
           <p class="text-muted small mb-3">
             Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
@@ -395,7 +403,7 @@ const TIMEZONE_OPTIONS = [
           </div>
         </section>
 
-        <section class="panel-card">
+        <section class="panel-card guy-form-section" id="shop-sec-operacion">
           <h2 class="guy-section-title">Operación</h2>
           <p class="text-muted small mb-3">
             Caja, producción, POS y módulos del día a día.
@@ -404,12 +412,12 @@ const TIMEZONE_OPTIONS = [
           <div class="shop-admin__op-block">
             <h3 class="shop-admin__op-title">Caja</h3>
             <div class="guy-form-grid guy-form-grid--2">
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Etiqueta de unidades</mat-label>
                 <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
                 <mat-hint>Cómo se llaman las unidades vendidas</mat-hint>
               </mat-form-field>
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Moneda</mat-label>
                 <mat-select formControlName="currency">
                   <mat-option value="ARS">ARS · Peso argentino</mat-option>
@@ -422,7 +430,7 @@ const TIMEZONE_OPTIONS = [
                 </mat-select>
                 <mat-hint>Moneda de operación del local</mat-hint>
               </mat-form-field>
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Cambio por defecto</mat-label>
                 <input
                   matInput
@@ -434,12 +442,12 @@ const TIMEZONE_OPTIONS = [
                 />
                 <mat-hint>Monto sugerido al abrir un cierre</mat-hint>
               </mat-form-field>
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Hora de apertura</mat-label>
                 <input matInput type="time" formControlName="openingTime" />
                 <mat-hint>El día del cierre corre hasta esta hora del día siguiente</mat-hint>
               </mat-form-field>
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Zona horaria</mat-label>
                 <mat-select formControlName="timezone">
                   @for (tz of timezoneOptions; track tz.value) {
@@ -468,7 +476,7 @@ const TIMEZONE_OPTIONS = [
           <div class="shop-admin__op-block">
             <h3 class="shop-admin__op-title">Producción</h3>
             <div class="guy-form-grid guy-form-grid--2">
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Horas por defecto</mat-label>
                 <input
                   matInput
@@ -490,7 +498,7 @@ const TIMEZONE_OPTIONS = [
 
           <div class="shop-admin__op-block">
             <h3 class="shop-admin__op-title">Ventas POS</h3>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Sistema de ventas</mat-label>
               <mat-select formControlName="salesSystemId">
                 <mat-option [value]="null">Sin sistema</mat-option>
@@ -581,7 +589,7 @@ const TIMEZONE_OPTIONS = [
           </div>
         </section>
 
-        <section class="panel-card">
+        <section class="panel-card guy-form-section" id="shop-sec-francos">
           <h2 class="guy-section-title">Días de franco</h2>
           <p class="text-muted small mb-3">
             Marcá los días en que el local no abre. Se reflejan en presentismo.
@@ -602,7 +610,7 @@ const TIMEZONE_OPTIONS = [
           </div>
         </section>
 
-        <section class="panel-card">
+        <section class="panel-card guy-form-section" id="shop-sec-posnets">
           <div class="shop-admin__posnets-head">
             <div>
               <h2 class="guy-section-title">Posnets</h2>
@@ -651,7 +659,7 @@ const TIMEZONE_OPTIONS = [
         </section>
 
         @if (canManageAccounts()) {
-          <section class="panel-card" id="shop-admin-closing-deposits">
+          <section class="panel-card guy-form-section" id="shop-admin-closing-deposits">
             <div class="shop-admin__posnets-head">
               <div>
                 <h2 class="guy-section-title">Depósito del cierre</h2>
@@ -687,7 +695,7 @@ const TIMEZONE_OPTIONS = [
             </div>
           </section>
 
-          <section class="panel-card" id="shop-admin-channel-accounts">
+          <section class="panel-card guy-form-section" id="shop-admin-channel-accounts">
             <div class="shop-admin__posnets-head">
               <div>
                 <h2 class="guy-section-title">Cuentas canal</h2>
@@ -712,7 +720,7 @@ const TIMEZONE_OPTIONS = [
           </section>
         }
 
-        <section class="panel-card">
+        <section class="panel-card guy-form-section" id="shop-sec-estado">
           <h2 class="guy-section-title">Estado</h2>
           <div class="shop-admin__toggle">
             <div>
@@ -726,7 +734,7 @@ const TIMEZONE_OPTIONS = [
         </section>
 
         @if (isSuperAdmin()) {
-          <section class="panel-card shop-admin__danger">
+          <section class="panel-card guy-form-section shop-admin__danger" id="shop-sec-peligro">
             <h2 class="guy-section-title">Zona peligrosa</h2>
             <p class="text-muted small mb-3">
               Solo super admin. Conserva configuración y usuarios; vacía cierres, movimientos, POS,
@@ -762,10 +770,10 @@ const TIMEZONE_OPTIONS = [
           </section>
         }
 
-        <div class="shop-admin__save-spacer" aria-hidden="true"></div>
+        <div class="shop-admin__save-spacer guy-form-save-spacer" aria-hidden="true"></div>
       </div>
 
-      <div class="shop-admin__save-bar" [style.--save-accent]="liveAccent()">
+      <div class="shop-admin__save-bar guy-form-save-bar" [style.--save-accent]="liveAccent()">
         <button
           mat-flat-button
           type="submit"
@@ -884,6 +892,13 @@ const TIMEZONE_OPTIONS = [
         flex-direction: column;
         gap: 1rem;
         min-width: 0;
+      }
+      .shop-admin__fields > .guy-form-toc {
+        /* sticks under page chrome while scrolling sections */
+        top: 0.15rem;
+      }
+      .shop-admin__fields .panel-card {
+        scroll-margin-top: 4.25rem;
       }
       .shop-admin__full {
         grid-column: 1 / -1;
@@ -1132,6 +1147,12 @@ const TIMEZONE_OPTIONS = [
           position: static;
         }
       }
+      @media (max-width: 960px) {
+        .shop-admin__preview {
+          /* compact preview on mobile so form starts sooner */
+          padding: 0.85rem;
+        }
+      }
       .shop-admin__weekdays {
         display: flex;
         flex-direction: column;
@@ -1309,6 +1330,24 @@ export class AdminShopPage implements OnInit {
 
   readonly weekdayOptions = WEEKDAY_OPTIONS;
   readonly timezoneOptions = TIMEZONE_OPTIONS;
+
+  readonly tocSections = [
+    { id: 'shop-sec-identidad', label: 'Identidad' },
+    { id: 'shop-sec-notificaciones', label: 'Mails' },
+    { id: 'shop-sec-apariencia', label: 'Apariencia' },
+    { id: 'shop-sec-operacion', label: 'Operación' },
+    { id: 'shop-sec-francos', label: 'Francos' },
+    { id: 'shop-sec-posnets', label: 'Posnets' },
+    { id: 'shop-admin-closing-deposits', label: 'Depósitos' },
+    { id: 'shop-admin-channel-accounts', label: 'Cuentas' },
+    { id: 'shop-sec-estado', label: 'Estado' },
+  ] as const;
+
+  scrollToSection(id: string): void {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   get posnets(): FormArray {
     return this.form.get('posnets') as FormArray;

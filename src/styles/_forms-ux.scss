@@ -1,0 +1,198 @@
+// UX transversal de formularios largos y diálogos.
+
+/* Grillas más legibles (antes el gap vertical era demasiado chico) */
+.guy-form-grid {
+  gap: 0.55rem 0.9rem;
+}
+
+.guy-form-grid--tight {
+  gap: 0.35rem 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .guy-form-grid {
+    gap: 0.45rem 0.75rem;
+  }
+}
+
+/* Secciones de formulario en cards */
+.panel-card.guy-form-section,
+.guy-form-section.panel-card {
+  padding: 1.05rem 1.15rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  scroll-margin-top: 4.5rem;
+}
+
+.guy-form-section__hint,
+.panel-card > .text-muted.small.mb-3 {
+  margin-top: -0.15rem;
+  margin-bottom: 0.85rem !important;
+  line-height: 1.45;
+  max-width: 62ch;
+}
+
+.panel-card > .guy-section-title {
+  margin-bottom: 0.55rem;
+}
+
+/* Campos densos: menos aire muerto del subscript vacío */
+.panel-card .mat-mdc-form-field,
+.guy-dialog__form .mat-mdc-form-field,
+.shop-admin .mat-mdc-form-field,
+.guy-form-page .mat-mdc-form-field {
+  margin-bottom: 0.15rem;
+}
+
+.panel-card .mat-mdc-form-field-subscript-wrapper,
+.guy-dialog__form .mat-mdc-form-field-subscript-wrapper,
+.shop-admin .mat-mdc-form-field-subscript-wrapper,
+.guy-form-page .mat-mdc-form-field-subscript-wrapper {
+  margin-top: 0;
+}
+
+/* TOC horizontal sticky para formularios largos */
+.guy-form-toc {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0.55rem 0.15rem 0.65rem;
+  margin: 0 0 0.85rem;
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+}
+
+.guy-form-toc::-webkit-scrollbar {
+  display: none;
+}
+
+.guy-form-toc__chip {
+  flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 85%, transparent);
+  background: var(--guy-card, #fff);
+  color: var(--guy-text, #1b2a33);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(27, 42, 51, 0.04);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.guy-form-toc__chip:hover {
+  border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, #fff);
+}
+
+.guy-form-toc__chip:active {
+  transform: scale(0.98);
+}
+
+.guy-form-toc__chip:focus-visible {
+  outline: none;
+  box-shadow: var(--guy-focus-ring);
+}
+
+/* Barra de guardar flotante reutilizable */
+.guy-form-save-spacer {
+  height: 5.25rem;
+}
+
+.guy-form-save-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(0.85rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 1rem;
+}
+
+.guy-form-save-bar > * {
+  pointer-events: auto;
+}
+
+/* Diálogos: más aire y scroll cómodo */
+.guy-dialog__form {
+  gap: 0.7rem;
+}
+
+.guy-dialog .mat-mdc-dialog-content {
+  scroll-padding-bottom: 1rem;
+}
+
+.guy-dialog__form .guy-section-title {
+  margin-top: 0.35rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.88rem;
+}
+
+/* Toggles en filas legibles */
+.guy-form-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
+  background: color-mix(in srgb, var(--guy-card, #fff) 70%, var(--guy-surface, #f3f6f4));
+}
+
+.guy-form-toggle-row strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--guy-navy, #003366);
+  margin-bottom: 0.15rem;
+}
+
+.guy-form-toggle-row p {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .panel-card.guy-form-section,
+  .guy-form-section.panel-card {
+    padding: 0.9rem 0.9rem 1rem;
+    scroll-margin-top: 5.5rem;
+  }
+
+  .guy-form-toc {
+    margin-left: -0.15rem;
+    margin-right: -0.15rem;
+    padding-inline: 0.35rem;
+  }
+
+  .guy-form-toc__chip {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.78rem;
+    min-height: 2.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guy-form-toc__chip {
+    transition: none;
+  }
+}
