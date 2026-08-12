@@ -1,0 +1,18 @@
+// Design tokens extendidos — escala de espaciado, elevación y focus.
+:root {
+  --guy-space-1: 0.25rem;
+  --guy-space-2: 0.5rem;
+  --guy-space-3: 0.75rem;
+  --guy-space-4: 1rem;
+  --guy-space-5: 1.25rem;
+  --guy-space-6: 1.5rem;
+  --guy-space-8: 2rem;
+
+  --guy-elev-1: 0 2px 8px rgba(0, 51, 102, 0.05);
+  --guy-elev-2: var(--guy-shadow);
+  --guy-elev-3: 0 14px 36px rgba(0, 51, 102, 0.12);
+
+  --guy-focus-ring: 0 0 0 3px color-mix(in srgb, var(--guy-primary) 28%, transparent);
+  --guy-focus-offset: 2px;
+  --guy-touch-min: 44px;
+}

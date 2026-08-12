@@ -17,7 +17,7 @@ export type ConfirmDialogOptions = {
   selector: 'app-confirm-dialog',
   imports: [MatButtonModule, MatDialogModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>
+    <h2 mat-dialog-title id="confirm-dialog-title">
       <span
         class="guy-dialog__title-icon"
         [class.guy-dialog__title-icon--warn]="data.confirmColor !== 'primary'"
@@ -28,7 +28,7 @@ export type ConfirmDialogOptions = {
       </span>
       <span class="guy-dialog__title-text">
         <strong>{{ data.title }}</strong>
-        <span>{{ data.message }}</span>
+        <span id="confirm-dialog-message">{{ data.message }}</span>
       </span>
     </h2>
     <mat-dialog-actions align="end">
@@ -39,6 +39,7 @@ export type ConfirmDialogOptions = {
         mat-flat-button
         [color]="data.confirmColor || 'warn'"
         type="button"
+        aria-describedby="confirm-dialog-message"
         (click)="ref.close(true)"
       >
         {{ data.confirmLabel || 'Confirmar' }}

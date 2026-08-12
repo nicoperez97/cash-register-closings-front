@@ -26,7 +26,6 @@ import { SidebarComponent, NavItem } from './sidebar/sidebar';
 import { ShopContextService } from '../shop/shop-context.service';
 import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
-import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
 import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
 import { CashWithdrawalsInboxService } from '../../features/cash-withdrawals/cash-withdrawals-inbox.service';
@@ -44,7 +43,6 @@ import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
     ToolbarComponent,
     SidebarComponent,
     PullToRefreshComponent,
-    LoadingStateComponent,
     MainPwaInstallBannerComponent,
   ],
   templateUrl: './main-layout.html',

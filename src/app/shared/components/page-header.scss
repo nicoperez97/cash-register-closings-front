@@ -1,0 +1,114 @@
+:host {
+  display: block;
+}
+
+.guy-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--guy-space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--guy-space-5);
+  padding: var(--guy-space-4) var(--guy-space-5);
+  background: linear-gradient(
+    105deg,
+    var(--guy-card, #ffffff) 0%,
+    color-mix(in srgb, var(--guy-accent, #2e7d32) 10%, var(--guy-card, #fff)) 55%,
+    color-mix(in srgb, var(--guy-primary, #0b5cab) 10%, var(--guy-card, #fff)) 100%
+  );
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 14px;
+  border-left: 5px solid var(--guy-green, #2e7d32);
+  box-shadow: var(--guy-shadow, 0 8px 24px rgba(0, 51, 102, 0.08));
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
+    both;
+  transition:
+    box-shadow var(--guy-dur) var(--guy-ease),
+    border-color var(--guy-dur) ease;
+}
+
+@media (hover: hover) {
+  .guy-page-header:hover {
+    box-shadow: var(--guy-elev-3, 0 14px 36px rgba(0, 51, 102, 0.12));
+  }
+}
+
+.guy-page-header__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.guy-page-header__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--guy-green, #2e7d32);
+  margin-bottom: 0.2rem;
+}
+
+.guy-page-header h1 {
+  margin: 0;
+  color: var(--guy-navy, #003366);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0.3rem 0 0;
+  color: var(--guy-muted, #5f6f76);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.guy-page-header__action {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.guy-page-header__action--large {
+  min-height: 3.25rem;
+  padding: 0.85rem 1.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  letter-spacing: 0.01em;
+}
+
+.guy-page-header__action--large mat-icon {
+  font-size: 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.15rem;
+}
+
+@media (max-width: 720px) {
+  .guy-page-header {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--guy-space-2);
+    margin-bottom: var(--guy-space-3);
+    padding: 0.55rem 0.75rem;
+  }
+
+  .guy-page-header__eyebrow,
+  .subtitle {
+    display: none;
+  }
+
+  .guy-page-header h1 {
+    font-size: 1.12rem;
+  }
+
+  .guy-page-header__action {
+    width: auto;
+    min-height: 2.4rem;
+    padding: 0 0.8rem;
+    font-size: 0.82rem;
+  }
+}
