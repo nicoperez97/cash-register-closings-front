@@ -219,6 +219,7 @@
             class="nav-group__title"
             [attr.aria-expanded]="isGroupOpen(item)"
             [attr.aria-controls]="'nav-group-' + item.route"
+            [attr.aria-label]="item.label"
             [matTooltip]="item.label"
             [matTooltipDisabled]="!rail()"
             matTooltipPosition="right"
