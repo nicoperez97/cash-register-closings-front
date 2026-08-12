@@ -170,24 +170,21 @@ export class SidebarComponent {
 
     const target = item.defaultRoute || item.children?.[0]?.route;
     if (target && !target.startsWith('__')) {
-      this.collapsedGroups.update((prev) => {
-        const next = new Set(prev);
-        next.delete(item.route);
-        return next;
-      });
-      if (this.rail()) this.expandRequest.emit();
+      // Menú expandido: abrir el grupo. En rail: navegar sin expandir.
+      if (!this.rail()) {
+        this.collapsedGroups.update((prev) => {
+          const next = new Set(prev);
+          next.delete(item.route);
+          return next;
+        });
+      }
       void this.router.navigateByUrl(target);
       this.onNavClick();
       return;
     }
 
     if (this.rail()) {
-      this.collapsedGroups.update((prev) => {
-        const next = new Set(prev);
-        next.delete(item.route);
-        return next;
-      });
-      this.expandRequest.emit();
+      // Sin destino: no abrir el rail automáticamente.
       return;
     }
 
@@ -249,6 +246,15 @@ export class SidebarComponent {
   }
 
   onLogoRefresh(): void {
+    const home = defaultHomeRoute(this.auth.currentUser(), this.shopContext.selectedShopId());
+    const path = this.currentUrl().split('?')[0];
+    const atHome =
+      path === home || ((home === '/' || home === '') && (path === '/' || path === ''));
+    if (!atHome) {
+      void this.router.navigateByUrl(home);
+      this.navigate.emit();
+      return;
+    }
     if (!this.pageRefresh.hasHandler() || this.pageRefresh.refreshing()) return;
     void this.pageRefresh.refresh();
   }

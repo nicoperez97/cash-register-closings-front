@@ -9,17 +9,11 @@
       [disabled]="pageRefresh.refreshing()"
       [style.--shop-accent]="shopContext.selectedShop()?.accentColor || null"
       [style.--shop-accent-secondary]="shopContext.selectedShop()?.accentSecondary || null"
-      [attr.aria-label]="
-        pageRefresh.hasHandler()
-          ? 'Actualizar pantalla · ' + logoAlt()
-          : logoAlt()
-      "
+      [attr.aria-label]="'Ir a inicio · ' + logoAlt()"
       [matTooltip]="
         pageRefresh.refreshing()
           ? 'Actualizando…'
-          : pageRefresh.hasHandler()
-            ? 'Tocar para actualizar'
-            : logoAlt()
+          : 'Ir a inicio'
       "
       matTooltipShowDelay="200"
       (click)="onLogoRefresh()"

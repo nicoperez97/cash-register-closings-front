@@ -34,15 +34,9 @@
       [matTooltip]="
         pageRefresh.refreshing()
           ? 'Actualizando…'
-          : pageRefresh.hasHandler()
-            ? 'Tocar para actualizar'
-            : brand.productName
+          : 'Ir a inicio'
       "
-      [attr.aria-label]="
-        pageRefresh.hasHandler()
-          ? 'Actualizar pantalla · ' + brand.productName
-          : brand.productName
-      "
+      [attr.aria-label]="'Ir a inicio · ' + brand.productName"
       (click)="onLogoRefresh()"
     >
       <span class="toolbar-eyebrow">{{ brand.company }}</span>
@@ -59,13 +53,9 @@
       [matTooltip]="
         pageRefresh.refreshing()
           ? 'Actualizando…'
-          : pageRefresh.hasHandler()
-            ? 'Tocar para actualizar'
-            : logoAlt()
+          : 'Ir a inicio'
       "
-      [attr.aria-label]="
-        pageRefresh.hasHandler() ? 'Actualizar pantalla · ' + logoAlt() : logoAlt()
-      "
+      [attr.aria-label]="'Ir a inicio · ' + logoAlt()"
       (click)="onLogoRefresh()"
     >
       <img

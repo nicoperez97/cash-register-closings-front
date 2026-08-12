@@ -22,6 +22,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { APP_BRAND } from '../../config/app-brand';
 import { AuthService } from '../../auth/auth.service';
 import {
+  defaultHomeRoute,
   hasShopPermission,
   isCashierOnly,
   isProducerOnly,
@@ -380,6 +381,14 @@ export class ToolbarComponent implements OnInit {
   }
 
   onLogoRefresh(): void {
+    const home = defaultHomeRoute(this.auth.currentUser(), this.shopContext.selectedShopId());
+    const path = this.router.url.split('?')[0];
+    const atHome =
+      path === home || ((home === '/' || home === '') && (path === '/' || path === ''));
+    if (!atHome) {
+      void this.router.navigateByUrl(home);
+      return;
+    }
     if (!this.pageRefresh.hasHandler() || this.pageRefresh.refreshing()) return;
     void this.pageRefresh.refresh();
   }
