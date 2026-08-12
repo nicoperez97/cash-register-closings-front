@@ -1,10 +1,10 @@
 @use '@angular/material' as mat;
+@use 'styles/tokens';
+@use 'styles/ui-polish';
 @import '@fontsource/roboto/300.css';
 @import '@fontsource/roboto/400.css';
 @import '@fontsource/roboto/500.css';
 @import 'material-icons/iconfont/material-icons.css';
-@use 'styles/tokens';
-@use 'styles/ui-polish';
 
 :root {
   --guy-primary: #1d65a0;
