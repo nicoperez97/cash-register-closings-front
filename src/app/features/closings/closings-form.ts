@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -11,7 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom, map, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatStepperModule } from '@angular/material/stepper';
+import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -136,17 +136,26 @@ import {
           </div>
 
           @if (isMobile()) {
-            <div class="closing-stepper__progress" aria-live="polite">
-              <span>Paso {{ stepIndex() + 1 }} de {{ stepLabels.length }} · {{ stepLabels[stepIndex()] }}</span>
-              <div
-                class="closing-stepper__bar"
-                role="progressbar"
-                [attr.aria-valuenow]="stepIndex() + 1"
-                aria-valuemin="1"
-                [attr.aria-valuemax]="stepLabels.length"
-              >
-                <span [style.width.%]="((stepIndex() + 1) / stepLabels.length) * 100"></span>
+            <div class="closing-stepper__progress">
+              <div class="closing-stepper__dots" role="tablist" aria-label="Pasos del cierre">
+                @for (label of stepLabels; track label; let i = $index) {
+                  <button
+                    type="button"
+                    class="closing-stepper__dot"
+                    role="tab"
+                    [attr.aria-label]="label"
+                    [attr.aria-selected]="stepIndex() === i"
+                    [class.is-active]="stepIndex() === i"
+                    [class.is-done]="stepIndex() > i"
+                    (click)="goToStep(i)"
+                  >
+                    {{ i + 1 }}
+                  </button>
+                }
               </div>
+              <span aria-live="polite">
+                Paso {{ stepIndex() + 1 }} de {{ stepLabels.length }} · {{ stepLabels[stepIndex()] }}
+              </span>
             </div>
           }
 
@@ -233,10 +242,14 @@ import {
       </form>
 
       <app-closing-form-sticky-actions
+        [navigateMode]="!isLastStep()"
+        [canGoBack]="stepIndex() > 0"
         [cashierOnly]="cashierOnly()"
         [isLocked]="isLocked()"
         [isAdmin]="auth.isAdmin()"
         [saving]="saving()"
+        (backClicked)="stepBack()"
+        (nextClicked)="stepNext()"
         (cancelClicked)="cancel()"
         (unlockClicked)="unlock()"
       />
@@ -288,6 +301,8 @@ export class ClosingsFormPage implements OnInit {
     'Retiro y egresos',
     'Resumen',
   ] as const;
+  readonly isLastStep = computed(() => this.stepIndex() === this.stepLabels.length - 1);
+  private readonly stepper = viewChild(MatStepper);
   private closingId: string | null = null;
 
   /** IDs de posnets del local (para distinguir transferencias DNI ad-hoc al editar). */
@@ -861,6 +876,25 @@ export class ClosingsFormPage implements OnInit {
     void this.router.navigateByUrl(
       defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
     );
+  }
+
+  goToStep(index: number): void {
+    const stepper = this.stepper();
+    if (!stepper || index < 0 || index >= this.stepLabels.length) return;
+    stepper.selectedIndex = index;
+    this.stepIndex.set(index);
+  }
+
+  stepBack(): void {
+    const stepper = this.stepper();
+    if (!stepper || this.stepIndex() <= 0) return;
+    stepper.previous();
+  }
+
+  stepNext(): void {
+    const stepper = this.stepper();
+    if (!stepper || this.isLastStep()) return;
+    stepper.next();
   }
 
   cancel(): void {

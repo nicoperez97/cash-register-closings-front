@@ -147,8 +147,46 @@
 
   .closing-stepper__progress {
     display: grid;
-    gap: 0.4rem;
-    margin: 0.85rem 0 0.15rem;
+    gap: 0.55rem;
+    margin: 0.85rem 0 0.25rem;
+  }
+
+  .closing-stepper__dots {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+  }
+
+  .closing-stepper__dot {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 2.1rem;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 90%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 70%, #fff);
+    color: var(--guy-navy, #003366);
+    font-size: 0.78rem;
+    font-weight: 750;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .closing-stepper__dot.is-done {
+    background: color-mix(in srgb, var(--guy-accent, #2e7d32) 14%, #fff);
+    border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, var(--guy-border));
+    color: var(--guy-accent, #2e7d32);
+  }
+
+  .closing-stepper__dot.is-active {
+    background: var(--guy-accent, #2e7d32);
+    border-color: var(--guy-accent, #2e7d32);
+    color: #fff;
   }
 
   .closing-stepper__progress > span {
@@ -157,22 +195,7 @@
     color: var(--guy-muted, #5f6f76);
   }
 
-  .closing-stepper__bar {
-    height: 4px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
-    overflow: hidden;
-  }
-
-  .closing-stepper__bar > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--guy-accent, #2e7d32);
-    transition: width 0.2s ease;
-  }
-
-  /* Mobile: ocultar cabeceras Material; el progreso + título del bloque alcanzan */
+  /* Mobile: ocultar cabeceras Material; los dots saltan entre pasos */
   :host ::ng-deep .closing-stepper--mobile .mat-horizontal-stepper-header-container {
     display: none !important;
   }

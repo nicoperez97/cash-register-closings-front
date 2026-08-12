@@ -124,6 +124,12 @@
   margin-top: 1rem;
 }
 
+@media (max-width: 960px) {
+  .closing-stepper__nav--final {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   .closing-totals {
     padding: 0.7rem 0.75rem 0.8rem;
@@ -156,15 +162,5 @@
 
   .closing-form__total-bar strong {
     font-size: 1.1rem;
-  }
-
-  .closing-stepper__nav {
-    margin-top: 0.7rem;
-    gap: 0.5rem;
-  }
-
-  .closing-stepper__nav .mat-mdc-button-base {
-    flex: 1 1 0;
-    min-height: 44px;
   }
 }
