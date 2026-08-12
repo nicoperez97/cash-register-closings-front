@@ -38,6 +38,8 @@ type ReservationNoteDialogData = {
   reservation: ReservationRow;
 };
 
+type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
+
 @Component({
   selector: 'app-reservation-note-dialog',
   imports: [
@@ -593,51 +595,21 @@ interface CalendarCell {
             }
           </div>
           <div class="floor-day-settings">
-            <div class="floor-day-settings__head">
-              <strong>Formulario web ({{ dateLabel() }})</strong>
-              <span class="text-muted small">Solo para este día; desactivado hereda la config del local</span>
-            </div>
-            <mat-slide-toggle
-              [checked]="dayWebOpen()"
-              (change)="onDayWebToggle($event.checked)"
-              [disabled]="savingDaySettings()"
-            >
-              Reservas web abiertas
-            </mat-slide-toggle>
-            <mat-slide-toggle
-              [checked]="dayInsideOpen()"
-              (change)="onDayInsideToggle($event.checked)"
-              [disabled]="savingDaySettings() || dayWebClosedOverride()"
-            >
-              Adentro disponible
-            </mat-slide-toggle>
-            <mat-slide-toggle
-              [checked]="dayOutsideOpen()"
-              (change)="onDayOutsideToggle($event.checked)"
-              [disabled]="savingDaySettings() || dayWebClosedOverride()"
-            >
-              Afuera disponible
-            </mat-slide-toggle>
-            <div class="floor-day-settings__actions">
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="savingDaySettings() || !daySettingsDirty()"
-                (click)="saveDaySettings()"
+            <div class="floor-day-settings__row">
+              <span class="floor-day-settings__label">Formulario web</span>
+              <mat-button-toggle-group
+                class="floor-form-mode-toggle"
+                hideSingleSelectionIndicator
+                [value]="dayFormMode()"
+                [disabled]="savingDaySettings()"
+                (change)="onDayFormMode($event.value)"
+                aria-label="Configuración del formulario web para este día"
               >
-                <mat-icon>save</mat-icon>
-                Guardar formulario
-              </button>
-              @if (hasDaySettingsOverride()) {
-                <button
-                  mat-button
-                  type="button"
-                  [disabled]="savingDaySettings()"
-                  (click)="resetDaySettings()"
-                >
-                  Usar config del local
-                </button>
-              }
+                <mat-button-toggle value="normal">Normal</mat-button-toggle>
+                <mat-button-toggle value="closed">Cerrar</mat-button-toggle>
+                <mat-button-toggle value="no-inside">Sin adentro</mat-button-toggle>
+                <mat-button-toggle value="no-outside">Sin afuera</mat-button-toggle>
+              </mat-button-toggle-group>
             </div>
           </div>
         } @else if (savedNotice()) {
@@ -1612,29 +1584,53 @@ interface CalendarCell {
       }
 
       .floor-day-settings {
-        display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
         margin-top: 0.85rem;
         padding-top: 0.85rem;
         border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
       }
 
-      .floor-day-settings__head strong {
-        display: block;
-        font-size: 0.92rem;
-      }
-
-      .floor-day-settings__head span {
-        display: block;
-        font-size: 0.78rem;
-      }
-
-      .floor-day-settings__actions {
+      .floor-day-settings__row {
         display: flex;
-        flex-wrap: wrap;
+        flex-direction: column;
         gap: 0.4rem;
-        margin-top: 0.15rem;
+      }
+
+      .floor-day-settings__label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+      }
+
+      .floor-form-mode-toggle {
+        width: 100%;
+        display: inline-flex !important;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .floor-form-mode-toggle .mat-button-toggle {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+
+      .floor-form-mode-toggle .mat-button-toggle-label-content {
+        width: 100%;
+        text-align: center;
+        line-height: 1.2;
+        padding: 0.5rem 0.35rem !important;
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+
+      .floor-form-mode-toggle .mat-button-toggle-button {
+        width: 100%;
+      }
+
+      @media (min-width: 480px) {
+        .floor-form-mode-toggle .mat-button-toggle-label-content {
+          font-size: 0.82rem;
+          padding: 0.55rem 0.5rem !important;
+        }
       }
 
       .floor-stat {
@@ -1795,29 +1791,16 @@ export class ReservationsPage implements OnInit, OnDestroy {
   readonly dayOutsideOverride = signal<boolean | null>(null);
   readonly savingDaySettings = signal(false);
 
+  readonly dayFormMode = computed((): DayFormMode => {
+    if (this.daySignupOverride() === false) return 'closed';
+    if (this.dayInsideOverride() === false) return 'no-inside';
+    if (this.dayOutsideOverride() === false) return 'no-outside';
+    return 'normal';
+  });
+
   readonly noticeDirty = computed(
     () => this.noticeDraft().trim() !== (this.savedNotice() ?? '').trim(),
   );
-  readonly daySettingsDirty = computed(() => {
-    const saved = this.savedDaySettings();
-    const eq = (a: boolean | null | undefined, b: boolean | null) =>
-      (a ?? null) === (b ?? null);
-    return (
-      !eq(saved?.signupEnabled, this.daySignupOverride()) ||
-      !eq(saved?.insideEnabled, this.dayInsideOverride()) ||
-      !eq(saved?.outsideEnabled, this.dayOutsideOverride())
-    );
-  });
-  readonly hasDaySettingsOverride = computed(
-    () =>
-      this.daySignupOverride() !== null ||
-      this.dayInsideOverride() !== null ||
-      this.dayOutsideOverride() !== null,
-  );
-  readonly dayWebClosedOverride = computed(() => this.daySignupOverride() === false);
-  readonly dayWebOpen = computed(() => this.daySignupOverride() !== false);
-  readonly dayInsideOpen = computed(() => this.dayInsideOverride() !== false);
-  readonly dayOutsideOpen = computed(() => this.dayOutsideOverride() !== false);
 
   readonly selectedDay = computed(() => toDateInput(this.businessDate()));
 
@@ -2460,19 +2443,47 @@ export class ReservationsPage implements OnInit, OnDestroy {
     this.saveNotice();
   }
 
-  onDayWebToggle(open: boolean): void {
-    this.daySignupOverride.set(open ? null : false);
+  onDayFormMode(value: string | null | undefined): void {
+    const mode = this.parseDayFormMode(value);
+    if (!mode || mode === this.dayFormMode()) return;
+    switch (mode) {
+      case 'normal':
+        this.daySignupOverride.set(null);
+        this.dayInsideOverride.set(null);
+        this.dayOutsideOverride.set(null);
+        break;
+      case 'closed':
+        this.daySignupOverride.set(false);
+        this.dayInsideOverride.set(null);
+        this.dayOutsideOverride.set(null);
+        break;
+      case 'no-inside':
+        this.daySignupOverride.set(null);
+        this.dayInsideOverride.set(false);
+        this.dayOutsideOverride.set(null);
+        break;
+      case 'no-outside':
+        this.daySignupOverride.set(null);
+        this.dayInsideOverride.set(null);
+        this.dayOutsideOverride.set(false);
+        break;
+    }
+    this.saveDaySettings(true);
   }
 
-  onDayInsideToggle(open: boolean): void {
-    this.dayInsideOverride.set(open ? null : false);
+  private parseDayFormMode(value: string | null | undefined): DayFormMode | null {
+    if (
+      value === 'normal' ||
+      value === 'closed' ||
+      value === 'no-inside' ||
+      value === 'no-outside'
+    ) {
+      return value;
+    }
+    return null;
   }
 
-  onDayOutsideToggle(open: boolean): void {
-    this.dayOutsideOverride.set(open ? null : false);
-  }
-
-  saveDaySettings(): void {
+  saveDaySettings(silent = false): void {
     if (!this.canManage() || this.savingDaySettings()) return;
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
@@ -2488,7 +2499,9 @@ export class ReservationsPage implements OnInit, OnDestroy {
         next: (res) => {
           this.savingDaySettings.set(false);
           this.applyDaySettings(res.daySettings ?? null);
-          this.snack.open('Formulario del día guardado', 'OK', { duration: 2200 });
+          if (!silent) {
+            this.snack.open('Formulario del día guardado', 'OK', { duration: 2200 });
+          }
         },
         error: (err) => {
           this.savingDaySettings.set(false);
@@ -2496,13 +2509,6 @@ export class ReservationsPage implements OnInit, OnDestroy {
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
-  }
-
-  resetDaySettings(): void {
-    this.daySignupOverride.set(null);
-    this.dayInsideOverride.set(null);
-    this.dayOutsideOverride.set(null);
-    this.saveDaySettings();
   }
 
   private applyDaySettings(settings: ReservationDaySettings | null): void {
