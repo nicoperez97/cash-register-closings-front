@@ -1,0 +1,127 @@
+:host {
+  display: block;
+}
+
+.closing-form__block {
+  padding: 0.85rem 0.95rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  background: var(--guy-card, #fff);
+}
+
+.closing-form__block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.closing-form__block-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.closing-form__block-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+}
+
+.closing-form__meta {
+  font-size: 0.78rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form__add-btn {
+  flex-shrink: 0;
+  min-height: 36px !important;
+  padding-inline: 0.75rem !important;
+  border-radius: 999px !important;
+  line-height: 1.2 !important;
+}
+
+.closing-form__add-btn mat-icon {
+  margin-right: 0.1rem;
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.closing-form__block-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.closing-form__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+}
+
+.closing-form__fields--cash {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.closing-form__span-all {
+  grid-column: 1 / -1;
+}
+
+.closing-form__account-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form__pending-hint {
+  color: color-mix(in srgb, var(--guy-accent, #2e7d32) 70%, #334);
+  font-weight: 500;
+}
+
+.closing-form__fields .mat-mdc-form-field {
+  width: 100%;
+  margin-bottom: 0 !important;
+}
+
+.closing-field__prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--guy-muted, #5f6f76);
+}
+
+:host ::ng-deep .closing-field--money .mat-mdc-form-field-text-prefix,
+:host ::ng-deep .closing-field--money .mat-mdc-form-field-icon-prefix {
+  align-self: center !important;
+  padding: 0 0.15rem 0 0.35rem !important;
+}
+
+:host ::ng-deep .closing-field--money input.mat-mdc-input-element {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+:host ::ng-deep .closing-form__fields .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix {
+  min-height: 44px !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+@media (max-width: 720px) {
+  .closing-form__fields,
+  .closing-form__fields--cash {
+    grid-template-columns: 1fr;
+  }
+}

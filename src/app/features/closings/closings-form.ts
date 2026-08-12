@@ -36,16 +36,17 @@ import { isUserVisible } from '../../shared/user-visibility';
 import { EmployeesApiService, Employee } from '../employees/employees-api.service';
 import { TipsApiService } from '../tips/tips-api.service';
 import {
-  TipsEditorComponent,
   TipsEditorState,
   tipDayToEditorState,
 } from '../tips/tips-editor';
 import { ClosingFormHeaderComponent } from './closing-form-header';
 import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions';
 import { ClosingFormSummaryComponent } from './closing-form-summary';
-import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 import { ClosingFormPosnetsStepComponent } from './closing-form-posnets-step';
 import { ClosingFormCajaOtrosStepComponent } from './closing-form-caja-otros-step';
+import { ClosingFormEfectivoStepComponent } from './closing-form-efectivo-step';
+import { ClosingFormDniStepComponent } from './closing-form-dni-step';
+import { ClosingFormRetiroStepComponent } from './closing-form-retiro-step';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -118,13 +119,14 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     MatDialogModule,
     MatDatepickerModule,
     MatStepperModule,
-    TipsEditorComponent,
     ClosingFormHeaderComponent,
     ClosingFormStickyActionsComponent,
     ClosingFormSummaryComponent,
-    ClosingFormStepNavComponent,
     ClosingFormPosnetsStepComponent,
     ClosingFormCajaOtrosStepComponent,
+    ClosingFormEfectivoStepComponent,
+    ClosingFormDniStepComponent,
+    ClosingFormRetiroStepComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -184,152 +186,25 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             </mat-step>
 
             <mat-step label="Efectivo">
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Efectivo</h3>
-                    <span class="closing-form__meta">Contá billetes, dejá cambio y quién se lo lleva</span>
-                  </div>
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    class="closing-form__add-btn"
-                    (click)="openBillCounter()"
-                  >
-                    <mat-icon>payments</mat-icon>
-                    Contar
-                  </button>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__fields closing-form__fields--cash">
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      floatLabel="always"
-                      class="closing-field--money"
-                    >
-                      <mat-label>Efectivo</mat-label>
-                      <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
-                    </mat-form-field>
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      floatLabel="always"
-                      class="closing-field--money"
-                    >
-                      <mat-label>Se deja en caja</mat-label>
-                      <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input
-                        matInput
-                        type="number"
-                        inputmode="decimal"
-                        formControlName="cashLeftInRegister"
-                      />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Quién se lo lleva</mat-label>
-                      <mat-select
-                        formControlName="cashWithdrawnByUserId"
-                        (selectionChange)="onWithdrawnUserChange($event.value)"
-                      >
-                        <mat-option value="">— Sin asignar —</mat-option>
-                        @for (u of withdrawUsers(); track u.id) {
-                          <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-                        }
-                      </mat-select>
-                    </mat-form-field>
-                    @if (needsWithdrawnAccountPick()) {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
-                        <mat-label>Cuenta destino del efectivo</mat-label>
-                        <mat-select formControlName="cashWithdrawnToAccountId">
-                          @for (acc of withdrawnAccountOptions(); track acc.id) {
-                            <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                    } @else if (withdrawnAccountHint()) {
-                      <p class="closing-form__account-hint closing-form__span-all">{{ withdrawnAccountHint() }}</p>
-                    }
-                    @if (pendingWithdrawHint()) {
-                      <p class="closing-form__account-hint closing-form__span-all closing-form__pending-hint">
-                        {{ pendingWithdrawHint() }}
-                      </p>
-                    }
-                  </div>
-                </div>
-              </div>
-              <app-closing-form-step-nav />
+              <app-closing-form-efectivo-step
+                [withdrawUsers]="withdrawUsers()"
+                [needsAccountPick]="needsWithdrawnAccountPick()"
+                [accountOptions]="withdrawnAccountOptions()"
+                [accountHint]="withdrawnAccountHint()"
+                [pendingHint]="pendingWithdrawHint()"
+                (countBills)="openBillCounter()"
+                (withdrawnUserChange)="onWithdrawnUserChange($event)"
+              />
             </mat-step>
 
             <mat-step label="Cuenta DNI">
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Cuenta DNI</h3>
-                    <span class="closing-form__meta">{{ dniPanelHint() }}</span>
-                  </div>
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    class="closing-form__add-btn"
-                    (click)="addDniTransfer()"
-                  >
-                    <mat-icon>add</mat-icon>
-                    Transferencia
-                  </button>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__stack" formArrayName="dniTransfers">
-                    @for (row of dniTransfers.controls; track row; let i = $index) {
-                      <div class="closing-form__dni-row" [formGroupName]="i">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Detalle</mat-label>
-                          <input matInput formControlName="label" placeholder="ej. Transferencia cliente" />
-                        </mat-form-field>
-                        <mat-form-field
-                          appearance="outline"
-                          subscriptSizing="dynamic"
-                          floatLabel="always"
-                          class="closing-field--money"
-                        >
-                          <mat-label>Monto</mat-label>
-                          <span matTextPrefix class="closing-field__prefix">$</span>
-                          <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                        </mat-form-field>
-                        <button
-                          mat-icon-button
-                          type="button"
-                          class="closing-form__row-remove"
-                          aria-label="Quitar transferencia"
-                          (click)="removeDniTransfer(i)"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
-                    }
-                  </div>
-                  <div class="closing-form__fields closing-form__fields--single">
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      floatLabel="always"
-                      class="closing-field--money"
-                    >
-                      <mat-label>Cuenta DNI{{ locksDni() ? ' (suma)' : '' }}</mat-label>
-                      <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input
-                        matInput
-                        type="number"
-                        inputmode="decimal"
-                        formControlName="accountDniAmount"
-                        [readonly]="locksDni()"
-                      />
-                    </mat-form-field>
-                  </div>
-                </div>
-              </div>
-              <app-closing-form-step-nav />
+              <app-closing-form-dni-step
+                [dniTransfers]="dniTransfers"
+                [panelHint]="dniPanelHint()"
+                [locksDni]="locksDni()"
+                (add)="addDniTransfer()"
+                (remove)="removeDniTransfer($event)"
+              />
             </mat-step>
 
             <mat-step label="Caja y otros">
@@ -337,104 +212,21 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             </mat-step>
 
             <mat-step label="Retiro y egresos">
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Retiro y extras</h3>
-                    <span class="closing-form__meta">{{ withdrawPanelHint() }}</span>
-                  </div>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__fields">
-                    @if (shop()?.unitsLabel) {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>{{ shop()?.unitsLabel }}</mat-label>
-                        <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="unitsSold" />
-                      </mat-form-field>
-                    }
-                    @if (shop()?.coversEnabled) {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Comensales</mat-label>
-                        <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
-                      </mat-form-field>
-                    }
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Efectivo retirado</mat-label>
-                      <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
-                    </mat-form-field>
-                    @if (!tipsEnabled()) {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Propinas</mat-label>
-                        <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
-                      </mat-form-field>
-                    }
-                    <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
-                      <mat-label>Notas</mat-label>
-                      <textarea matInput rows="2" formControlName="notes"></textarea>
-                    </mat-form-field>
-                  </div>
-                  @if (tipsEnabled()) {
-                    <div class="closing-form__tips">
-                      <h4 class="closing-form__tips-title">Propinas del día</h4>
-                      <app-tips-editor
-                        [employees]="tipEmployees()"
-                        [value]="tipEditorValue()"
-                        [readonly]="isLocked() && !auth.isAdmin()"
-                        [showDelivery]="false"
-                        (valueChange)="onTipEditorChange($event)"
-                      />
-                    </div>
-                  }
-                </div>
-              </div>
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Egresos del día</h3>
-                    <span class="closing-form__meta">{{ expensesPanelHint() }}</span>
-                  </div>
-                  <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="addExpense()">
-                    <mat-icon>add</mat-icon>
-                    Agregar
-                  </button>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__expenses-list" formArrayName="expenses">
-                    @for (row of expenses.controls; track row; let i = $index) {
-                      <div class="expense-row" [formGroupName]="i">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Concepto</mat-label>
-                          <input matInput formControlName="label" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Monto</mat-label>
-                          <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Categoría</mat-label>
-                          <mat-select formControlName="category">
-                            @for (opt of expenseCategories; track opt.value) {
-                              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                            }
-                          </mat-select>
-                        </mat-form-field>
-                        <button
-                          mat-icon-button
-                          type="button"
-                          class="expense-row__remove"
-                          aria-label="Quitar egreso"
-                          (click)="removeExpense(i)"
-                        >
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </div>
-                    } @empty {
-                      <p class="closing-form__hint">No hay egresos cargados.</p>
-                    }
-                  </div>
-                </div>
-              </div>
-              <app-closing-form-step-nav />
+              <app-closing-form-retiro-step
+                [expenses]="expenses"
+                [withdrawHint]="withdrawPanelHint()"
+                [expensesHint]="expensesPanelHint()"
+                [unitsLabel]="shop()?.unitsLabel ?? null"
+                [coversEnabled]="!!shop()?.coversEnabled"
+                [tipsEnabled]="tipsEnabled()"
+                [tipsReadonly]="isLocked() && !auth.isAdmin()"
+                [tipEmployees]="tipEmployees()"
+                [tipEditorValue]="tipEditorValue()"
+                [expenseCategories]="expenseCategories"
+                (addExpense)="addExpense()"
+                (removeExpense)="removeExpense($event)"
+                (tipChange)="onTipEditorChange($event)"
+              />
             </mat-step>
 
             <mat-step label="Resumen">
