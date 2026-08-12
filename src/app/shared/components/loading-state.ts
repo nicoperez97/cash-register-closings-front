@@ -19,15 +19,23 @@ import { SpinnerComponent } from './spinner';
         </div>
       </div>
     } @else if (loading()) {
-      <div class="loading-card" role="status" aria-live="polite" aria-busy="true">
-        <div class="loading-card__orb">
-          <app-spinner [size]="28" tone="accent" />
+      @if (skeleton()) {
+        <div class="loading-skeleton panel-card" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando">
+          <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+          <div class="guy-skeleton-line"></div>
+          <div class="guy-skeleton-line guy-skeleton-line--short"></div>
         </div>
-        <div class="loading-card__text">
-          <strong>{{ title() }}</strong>
-          <span>{{ message() }}</span>
+      } @else {
+        <div class="loading-card" role="status" aria-live="polite" aria-busy="true">
+          <div class="loading-card__orb">
+            <app-spinner [size]="28" tone="accent" />
+          </div>
+          <div class="loading-card__text">
+            <strong>{{ title() }}</strong>
+            <span>{{ message() }}</span>
+          </div>
         </div>
-      </div>
+      }
     }
   `,
   styles: [
@@ -37,7 +45,12 @@ import { SpinnerComponent } from './spinner';
         overflow: hidden;
         border-radius: 12px;
         border: 1px solid var(--guy-border, #d7e0d9);
-        background: linear-gradient(105deg, #ffffff 0%, #eef6f0 55%, #e8f0f8 100%);
+        background: linear-gradient(
+          105deg,
+          var(--guy-card) 0%,
+          color-mix(in srgb, var(--guy-accent) 8%, var(--guy-card)) 55%,
+          color-mix(in srgb, var(--guy-primary) 6%, var(--guy-card)) 100%
+        );
         box-shadow: var(--guy-shadow, 0 8px 24px rgba(0, 51, 102, 0.06));
         animation: guy-slide-down var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
           both;
@@ -74,6 +87,12 @@ import { SpinnerComponent } from './spinner';
         font-size: 0.8rem;
       }
 
+      .loading-skeleton {
+        margin: 0.25rem 0 1rem;
+        padding: 1.25rem 1.15rem;
+        animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
+      }
+
       .loading-card {
         display: flex;
         align-items: center;
@@ -83,7 +102,7 @@ import { SpinnerComponent } from './spinner';
         padding: 1.5rem 1.25rem;
         border-radius: 14px;
         border: 1px solid var(--guy-border, #d7e0d9);
-        background: linear-gradient(145deg, #ffffff 0%, #f4f8f5 100%);
+        background: linear-gradient(145deg, var(--guy-card) 0%, color-mix(in srgb, var(--guy-accent) 6%, var(--guy-card)) 100%);
         box-shadow: var(--guy-shadow, 0 8px 24px rgba(0, 51, 102, 0.08));
         animation: guy-scale-in var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
           both;
@@ -131,6 +150,8 @@ export class LoadingStateComponent {
   readonly loading = input(false);
   /** Refresh en segundo plano: barra + banner, sin vaciar la pantalla. */
   readonly refreshing = input(false);
+  /** Placeholder skeleton en lugar del spinner grande. */
+  readonly skeleton = input(false);
   readonly title = input('Cargando…');
   readonly message = input('Preparando la información');
   readonly refreshTitle = input('Actualizando…');

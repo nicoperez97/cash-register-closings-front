@@ -1,0 +1,220 @@
+// Mejoras transversales de UI/UX — scroll, focus, skeletons, micro-interacciones.
+
+/* Scrollbar sutil (desktop) */
+@media (pointer: fine) {
+  .layout-main-scroll,
+  .guy-table-wrap,
+  .mat-drawer-inner-container {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--guy-muted) 35%, transparent) transparent;
+  }
+
+  .layout-main-scroll::-webkit-scrollbar,
+  .guy-table-wrap::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .layout-main-scroll::-webkit-scrollbar-thumb,
+  .guy-table-wrap::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--guy-muted) 40%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .layout-main-scroll::-webkit-scrollbar-thumb:hover,
+  .guy-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--guy-muted) 55%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+/* Focus accesible coherente */
+:where(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [tabindex]:not([tabindex='-1']),
+  .mat-mdc-button,
+  .mat-mdc-icon-button,
+  .mat-mdc-list-item,
+  .mat-mdc-tab
+):focus-visible {
+  outline: none;
+  box-shadow: var(--guy-focus-ring);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--guy-accent) 28%, #fff);
+  color: var(--guy-text);
+}
+
+/* Panel cards — hover sutil en desktop */
+@media (hover: hover) and (pointer: fine) {
+  .panel-card:not(.guy-filters):not(.guy-empty):not(.offline-banner):hover {
+    border-color: color-mix(in srgb, var(--guy-primary) 18%, var(--guy-border));
+    box-shadow: var(--guy-elev-3);
+  }
+}
+
+/* Empty states */
+.guy-empty {
+  border-radius: var(--guy-radius);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--guy-accent) 5%, var(--guy-card)) 0%,
+    var(--guy-card) 45%
+  );
+}
+
+.guy-empty strong {
+  color: var(--guy-navy);
+  font-weight: 700;
+}
+
+/* Skeleton shimmer */
+@keyframes guy-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.guy-skeleton,
+.guy-skeleton-line {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--guy-border) 55%, var(--guy-card)) 0%,
+    color-mix(in srgb, var(--guy-border) 25%, var(--guy-card)) 50%,
+    color-mix(in srgb, var(--guy-border) 55%, var(--guy-card)) 100%
+  );
+  background-size: 200% 100%;
+  animation: guy-shimmer 1.4s ease-in-out infinite;
+}
+
+.guy-skeleton-line {
+  height: 0.85rem;
+  margin-bottom: 0.45rem;
+}
+
+.guy-skeleton-line--short {
+  width: 55%;
+}
+
+.guy-skeleton-line--title {
+  height: 1.1rem;
+  width: 70%;
+  margin-bottom: 0.65rem;
+}
+
+/* Route outlet — transición suave (main-layout) */
+.route-outlet {
+  transition:
+    opacity var(--guy-dur) var(--guy-ease),
+    transform var(--guy-dur) var(--guy-ease);
+}
+
+.route-outlet--dimmed {
+  opacity: 0.42;
+  pointer-events: none;
+  transform: translateY(4px);
+}
+
+.route-loading {
+  animation: guy-slide-down var(--guy-dur) var(--guy-ease) both;
+}
+
+.route-loading__bar {
+  height: 3px !important;
+}
+
+/* Shortcuts (home y similares) */
+.guy-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--guy-space-2);
+}
+
+.guy-shortcuts .mat-mdc-button-base,
+.guy-shortcuts a.mat-mdc-button-base {
+  border-radius: 999px !important;
+  transition:
+    transform var(--guy-dur-fast) var(--guy-ease),
+    box-shadow var(--guy-dur) var(--guy-ease),
+    border-color var(--guy-dur-fast) ease;
+}
+
+@media (hover: hover) {
+  .guy-shortcuts .mat-mdc-button-base:not(:disabled):hover,
+  .guy-shortcuts a.mat-mdc-button-base:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--guy-elev-1);
+  }
+}
+
+/* Chips interactivos (presentismo, filtros) */
+.guy-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--guy-border);
+  background: var(--guy-card);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--guy-navy);
+  cursor: pointer;
+  transition:
+    transform var(--guy-dur-fast) var(--guy-ease),
+    background-color var(--guy-dur-fast) ease,
+    border-color var(--guy-dur-fast) ease,
+    box-shadow var(--guy-dur) ease;
+}
+
+.guy-chip-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.guy-chip-btn--on {
+  background: color-mix(in srgb, var(--guy-green) 18%, transparent);
+  border-color: var(--guy-green);
+}
+
+/* Form fields — foco más claro */
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--guy-primary) !important;
+}
+
+/* Mobile touch targets */
+@media (max-width: 960px) {
+  button.mat-mdc-icon-button,
+  .mat-mdc-icon-button .mat-mdc-button-touch-target {
+    min-width: var(--guy-touch-min);
+    min-height: var(--guy-touch-min);
+  }
+
+  .guy-page-header__action {
+    min-height: var(--guy-touch-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guy-skeleton,
+  .guy-skeleton-line {
+    animation: none;
+    background: color-mix(in srgb, var(--guy-border) 40%, var(--guy-card));
+  }
+
+  .route-outlet {
+    transition: none;
+  }
+}

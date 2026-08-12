@@ -71,7 +71,7 @@ interface BalanceRowExt extends BalanceAccountRow {
       <app-kpi-strip [items]="kpis()" class="mb-3" />
     }
 
-    <div class="home-shortcuts mb-3">
+    <div class="home-shortcuts guy-shortcuts guy-stagger mb-3">
       @if (canCreateShop()) {
         <a mat-stroked-button routerLink="/admin/shops">
           <mat-icon>add_business</mat-icon>
@@ -141,7 +141,7 @@ interface BalanceRowExt extends BalanceAccountRow {
     </div>
 
     @if (canViewAttendance()) {
-      <div class="panel-card mb-3 today-panel">
+      <div class="panel-card mb-3 today-panel guy-enter-scale">
         <div class="today-panel__head">
           <div>
             <h2 class="today-panel__title">Hoy</h2>
@@ -198,8 +198,9 @@ interface BalanceRowExt extends BalanceAccountRow {
             @for (emp of attendanceEmployees(); track emp.employeeId) {
               <button
                 type="button"
-                class="today-chip"
+                class="today-chip guy-chip-btn"
                 [class.today-chip--present]="isPresentToday(emp.employeeId)"
+                [class.guy-chip-btn--on]="isPresentToday(emp.employeeId)"
                 [class.today-chip--rotating]="emp.type === 'ROTATING'"
                 [disabled]="!canManageAttendance() || attendanceBusy() || isTodayClosed()"
                 [title]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
@@ -233,11 +234,6 @@ interface BalanceRowExt extends BalanceAccountRow {
   `,
   styles: [
     `
-      .home-shortcuts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
       .today-panel__head {
         display: flex;
         align-items: center;
@@ -268,27 +264,10 @@ interface BalanceRowExt extends BalanceAccountRow {
         flex-wrap: wrap;
         gap: 0.5rem;
       }
-      .today-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        border: 1px solid var(--guy-border, #d7e0d9);
-        background: #fff;
-        border-radius: 999px;
-        padding: 0.45rem 0.85rem;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: var(--guy-navy, #003366);
-        cursor: pointer;
-      }
       .today-chip mat-icon {
         font-size: 1.15rem;
         width: 1.15rem;
         height: 1.15rem;
-      }
-      .today-chip--present {
-        background: color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
-        border-color: var(--guy-green, #2e7d32);
       }
       .today-chip--rotating:not(.today-chip--present) {
         border-style: dashed;
