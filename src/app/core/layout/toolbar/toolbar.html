@@ -158,25 +158,20 @@
       <div class="notif-panel" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
         <div class="notif-panel__head">
           <strong>Notificaciones</strong>
-          <button
-            type="button"
-            class="notif-panel__push-btn notif-panel__push-btn--compact"
-            [class.notif-panel__push-btn--on]="push.subscribed()"
-            [disabled]="push.busy() || push.permission() === 'unsupported'"
-            [attr.aria-pressed]="push.subscribed()"
-            (click)="togglePush()"
-            [matTooltip]="
-              push.subscribed()
-                ? 'Desactivar notificaciones push'
-                : 'Activar notificaciones push'
-            "
-          >
-            <mat-icon>{{ push.subscribed() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
-            <span class="notif-panel__push-label">{{
-              push.subscribed() ? 'Push activo' : 'Activar push'
-            }}</span>
-          </button>
         </div>
+        <button
+          type="button"
+          class="notif-panel__push-btn"
+          [class.notif-panel__push-btn--on]="push.subscribed()"
+          [disabled]="push.busy() || push.permission() === 'unsupported'"
+          [attr.aria-pressed]="push.subscribed()"
+          (click)="togglePush()"
+        >
+          <mat-icon>{{ push.subscribed() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
+          <span class="notif-panel__push-label">{{
+            push.subscribed() ? 'Push activo · tocá para desactivar' : 'Activar notificaciones push'
+          }}</span>
+        </button>
         @if (push.iosHomeScreenHint()) {
           <p class="notif-panel__hint">
             En iPhone: Compartir → <em>Agregar a pantalla de inicio</em> y abrí la app desde el ícono

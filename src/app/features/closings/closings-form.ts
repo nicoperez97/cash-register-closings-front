@@ -43,6 +43,7 @@ import {
 import { ClosingFormHeaderComponent } from './closing-form-header';
 import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions';
 import { ClosingFormSummaryComponent } from './closing-form-summary';
+import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -119,6 +120,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     ClosingFormHeaderComponent,
     ClosingFormStickyActionsComponent,
     ClosingFormSummaryComponent,
+    ClosingFormStepNavComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -266,10 +268,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </div>
                 </div>
               </div>
-              <div class="closing-stepper__nav">
-                <span></span>
-                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
-              </div>
+              <app-closing-form-step-nav [showBack]="false" />
             </mat-step>
 
             <mat-step label="Efectivo">
@@ -348,10 +347,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </div>
                 </div>
               </div>
-              <div class="closing-stepper__nav">
-                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
-                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
-              </div>
+              <app-closing-form-step-nav />
             </mat-step>
 
             <mat-step label="Cuenta DNI">
@@ -421,10 +417,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </div>
                 </div>
               </div>
-              <div class="closing-stepper__nav">
-                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
-                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
-              </div>
+              <app-closing-form-step-nav />
             </mat-step>
 
             <mat-step label="Caja y otros">
@@ -470,10 +463,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </div>
                 </div>
               </div>
-              <div class="closing-stepper__nav">
-                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
-                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
-              </div>
+              <app-closing-form-step-nav />
             </mat-step>
 
             <mat-step label="Retiro y egresos">
@@ -574,10 +564,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
                   </div>
                 </div>
               </div>
-              <div class="closing-stepper__nav">
-                <button mat-stroked-button type="button" matStepperPrevious>Atrás</button>
-                <button mat-flat-button color="primary" type="button" matStepperNext>Siguiente</button>
-              </div>
+              <app-closing-form-step-nav />
             </mat-step>
 
             <mat-step label="Resumen">
