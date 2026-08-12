@@ -6,10 +6,19 @@
 .layout-root {
   min-height: 100vh;
   min-height: 100dvh;
+  --layout-sidenav-w: 300px;
+  --layout-sidenav-dur: 220ms;
+  --layout-sidenav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.layout-root--rail {
+  --layout-sidenav-w: 76px;
 }
 
 .layout-root--mobile {
   --guy-bottom-nav-height: 0px;
+  /* En mobile el drawer es overlay: el content no se empuja. */
+  --layout-sidenav-w: 0px;
 }
 
 .layout-container {
@@ -21,17 +30,17 @@
 }
 
 .layout-sidenav {
-  width: 300px !important;
+  width: var(--layout-sidenav-w, 300px) !important;
   min-width: 0 !important;
-  max-width: 300px !important;
+  max-width: var(--layout-sidenav-w, 300px) !important;
   border-right: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent) !important;
   border-radius: 0 !important;
   background: var(--guy-sidebar-bg, #fff) !important;
   box-shadow: none;
   overflow: hidden !important;
   transition:
-    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    max-width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    width var(--layout-sidenav-dur) var(--layout-sidenav-ease),
+    max-width var(--layout-sidenav-dur) var(--layout-sidenav-ease);
 }
 
 :host ::ng-deep .layout-sidenav.mat-drawer,
@@ -47,18 +56,15 @@
   height: 100vh !important;
   height: 100dvh !important;
   max-height: 100dvh !important;
-  width: 300px !important;
-  max-width: 300px !important;
+  width: var(--layout-sidenav-w, 300px) !important;
+  max-width: var(--layout-sidenav-w, 300px) !important;
   transition:
-    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    max-width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    width var(--layout-sidenav-dur) var(--layout-sidenav-ease),
+    max-width var(--layout-sidenav-dur) var(--layout-sidenav-ease);
 }
 
 :host ::ng-deep .layout-sidenav--rail.mat-drawer,
 .layout-sidenav--rail {
-  width: 76px !important;
-  max-width: 76px !important;
-  min-width: 76px !important;
   background: #fff !important;
 }
 
@@ -69,6 +75,7 @@
   z-index: 100 !important;
   overscroll-behavior: contain;
   touch-action: pan-y;
+  transition: none;
 }
 
 :host ::ng-deep .layout-sidenav .mat-drawer-inner-container {
@@ -151,6 +158,15 @@
   max-height: 100dvh !important;
   min-height: 0 !important;
   overflow: hidden !important;
+  /* Material fija el margin al abrir; nosotros lo animamos con el rail. */
+  margin-left: var(--layout-sidenav-w, 300px) !important;
+  margin-right: 0 !important;
+  transition: margin-left var(--layout-sidenav-dur, 220ms) var(--layout-sidenav-ease, ease) !important;
+}
+
+:host ::ng-deep .layout-root--mobile .mat-drawer-content.layout-shell {
+  margin-left: 0 !important;
+  transition: none !important;
 }
 
 .layout-main-scroll {
