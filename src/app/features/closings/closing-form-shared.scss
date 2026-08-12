@@ -168,14 +168,66 @@
 }
 
 @media (max-width: 720px) {
+  /* Evitar tarjeta dentro de tarjeta: el section ya enmarca el paso */
+  .closing-form__block {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .closing-form__block + .closing-form__block {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+  }
+
+  .closing-form__block-head {
+    margin-bottom: 0.45rem;
+    min-height: 0;
+    gap: 0.45rem;
+  }
+
+  /* El label del stepper ya nombra el paso; dejamos meta + acciones */
+  .closing-form__block-head h3 {
+    display: none;
+  }
+
+  .closing-form__meta {
+    font-size: 0.75rem;
+  }
+
+  .closing-form__add-btn {
+    min-height: 34px !important;
+    padding-inline: 0.65rem !important;
+  }
+
+  .closing-form__block-body {
+    gap: 0.45rem;
+  }
+
+  .closing-form__stack {
+    gap: 0.5rem;
+  }
+
   .closing-form__fields,
   .closing-form__fields--cash,
   .closing-form__fields--totals,
   .closing-form__fields--single {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 
   .closing-form__row-remove {
     justify-self: end;
+  }
+
+  :host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix,
+  :host ::ng-deep .closing-form__posnet-row .mat-mdc-form-field-infix,
+  :host ::ng-deep .closing-form__dni-row .mat-mdc-form-field-infix,
+  :host ::ng-deep .expense-row .mat-mdc-form-field-infix {
+    min-height: 40px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
   }
 }

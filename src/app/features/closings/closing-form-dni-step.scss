@@ -10,5 +10,15 @@
 @media (max-width: 720px) {
   .closing-form__dni-row {
     grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding: 0.55rem 0.6rem 0.6rem;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
+    background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 42%, #fff);
+  }
+
+  .closing-form__dni-row .closing-form__row-remove {
+    justify-self: end;
+    margin: -0.15rem -0.2rem 0 0;
   }
 }

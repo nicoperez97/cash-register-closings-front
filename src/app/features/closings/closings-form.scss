@@ -117,6 +117,77 @@
   }
 }
 
+@media (max-width: 720px) {
+  .closing-form-shell {
+    padding: 0.65rem 0.7rem calc(
+      4.75rem + var(--guy-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  .closing-form {
+    gap: 0.6rem;
+  }
+
+  .closing-form__section {
+    padding: 0.7rem 0.65rem 0.8rem;
+    border-radius: 12px;
+  }
+
+  .closing-form__section h2 {
+    margin-bottom: 0.5rem;
+  }
+
+  .closing-stepper {
+    margin-top: 0.55rem;
+  }
+
+  /* Stepper vertical: menos margen izquierdo, más ancho útil para inputs */
+  :host ::ng-deep .closing-stepper.mat-stepper-vertical {
+    .mat-step-header {
+      padding: 0.45rem 0.35rem 0.45rem 0;
+      height: auto;
+    }
+
+    .mat-step-label {
+      font-size: 0.88rem;
+    }
+
+    .mat-step-icon {
+      width: 26px !important;
+      height: 26px !important;
+      font-size: 0.78rem !important;
+    }
+
+    .mat-vertical-content-container {
+      margin-left: 0 !important;
+    }
+
+    .mat-vertical-content {
+      padding: 0.25rem 0 0.75rem 0.15rem;
+    }
+
+    .mat-stepper-vertical-line {
+      top: -4px;
+      bottom: -4px;
+    }
+
+    .mat-stepper-vertical-line::before {
+      left: 12px;
+      border-left-width: 1.5px;
+    }
+  }
+
+  :host ::ng-deep .closing-form__main .mat-mdc-text-field-wrapper {
+    border-radius: 10px !important;
+  }
+
+  :host ::ng-deep .closing-form__main .mat-mdc-form-field-infix {
+    min-height: 40px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+}
+
 @media (max-width: 560px) {
   .closing-form__fields,
   .closing-form__fields--date {
