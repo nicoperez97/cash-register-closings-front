@@ -1,7 +1,7 @@
 /**
  * Fechas de local:
  * - resolveShopCalendarDate: día calendario (reservas, movimientos, etc.)
- * - resolveShopBusinessDate: día laboral con openingTime (solo cierres)
+ * - resolveShopBusinessDate: día laboral con openingTime (cierres y propinas)
  */
 
 const DEFAULT_TZ = 'America/Argentina/Buenos_Aires';

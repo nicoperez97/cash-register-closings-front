@@ -634,9 +634,12 @@ export class PaymentDialogComponent {
     return false;
   }
 
-  onInvoicePicked(ev: Event): void {
-    const file = takeInputFile(ev.target as HTMLInputElement);
-    if (!file) return;
+  async onInvoicePicked(ev: Event): Promise<void> {
+    const file = await takeInputFile(ev.target as HTMLInputElement);
+    if (!file) {
+      this.snack.open('No se pudo leer el archivo. Probá de nuevo.', 'OK', { duration: 3500 });
+      return;
+    }
     this.pendingInvoiceFile.set(file);
     this.invoiceExpanded.set(true);
     this.parsingInvoice.set(true);
