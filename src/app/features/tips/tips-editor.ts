@@ -150,14 +150,17 @@ function receiptsFromLegacy(
           <div>
             <h3 class="tips-editor__emps-title">Empleados en el reparto</h3>
             <p class="tips-editor__emps-meta">
-              {{ selectedEmployeeIds().length }} de {{ employees().length }} seleccionados
+              {{ selectedEmployeeIds().length }} seleccionados
+              @if (fixedEmployees().length) {
+                · {{ fixedSelectedCount() }} de {{ fixedEmployees().length }} fijos
+              }
             </p>
           </div>
           <div class="tips-editor__emps-actions">
-            @if (!readonly() && employees().length) {
+            @if (!readonly() && fixedEmployees().length) {
               <button mat-stroked-button type="button" (click)="toggleSelectAll()">
-                <mat-icon>{{ allSelected() ? 'deselect' : 'select_all' }}</mat-icon>
-                {{ allSelected() ? 'Desmarcar todos' : 'Seleccionar todos' }}
+                <mat-icon>{{ allFixedSelected() ? 'deselect' : 'select_all' }}</mat-icon>
+                {{ allFixedSelected() ? 'Desmarcar fijos' : 'Seleccionar fijos' }}
               </button>
             }
             @if (!readonly() && selectedEmployeeIds().length) {
@@ -175,13 +178,20 @@ function receiptsFromLegacy(
           <ul class="tips-editor__emp-list">
             @for (e of employees(); track e.id) {
               <li class="tips-editor__emp-row" [class.tips-editor__emp-row--on]="isSelected(e.id)">
-                <mat-checkbox
-                  [checked]="isSelected(e.id)"
-                  [disabled]="readonly()"
-                  (change)="toggleEmployee(e.id)"
-                >
-                  {{ e.fullName }}
-                </mat-checkbox>
+                <div class="tips-editor__emp-check">
+                  <mat-checkbox
+                    [checked]="isSelected(e.id)"
+                    [disabled]="readonly()"
+                    (change)="toggleEmployee(e.id)"
+                  >
+                    {{ e.fullName }}
+                  </mat-checkbox>
+                  @if (e.type === 'ROTATING') {
+                    <span class="tips-chip tips-chip--rotating">Rotativo</span>
+                  } @else {
+                    <span class="tips-chip tips-chip--fixed">Fijo</span>
+                  }
+                </div>
                 @if (isSelected(e.id)) {
                   <div class="tips-editor__emp-amount">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -359,11 +369,26 @@ function receiptsFromLegacy(
       .tips-editor__emp-amount mat-form-field {
         width: 8.5rem;
       }
+      .tips-editor__emp-check {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem 0.55rem;
+        min-width: 0;
+      }
       .tips-chip {
         font-size: 0.72rem;
         font-weight: 600;
         padding: 0.15rem 0.5rem;
         border-radius: 999px;
+      }
+      .tips-chip--fixed {
+        background: color-mix(in srgb, var(--guy-navy, #003366) 12%, white);
+        color: var(--guy-navy, #003366);
+      }
+      .tips-chip--rotating {
+        background: color-mix(in srgb, #5f6f76 14%, white);
+        color: #455a64;
       }
       .tips-chip--ok {
         background: color-mix(in srgb, #2e7d32 18%, white);
@@ -434,11 +459,21 @@ export class TipsEditorComponent {
     this.allocations().map((a) => a.employeeId),
   );
 
-  readonly allSelected = computed(() => {
-    const emps = this.employees();
-    if (!emps.length) return false;
+  readonly fixedEmployees = computed(() =>
+    this.employees().filter((e) => e.type !== 'ROTATING'),
+  );
+
+  readonly fixedSelectedCount = computed(() => {
     const selected = new Set(this.selectedEmployeeIds());
-    return emps.every((e) => selected.has(e.id));
+    return this.fixedEmployees().filter((e) => selected.has(e.id)).length;
+  });
+
+  /** “Todos” = todos los fijos; los rotativos se eligen a mano. */
+  readonly allFixedSelected = computed(() => {
+    const fixed = this.fixedEmployees();
+    if (!fixed.length) return false;
+    const selected = new Set(this.selectedEmployeeIds());
+    return fixed.every((e) => selected.has(e.id));
   });
 
   readonly allocationSumError = computed(() => {
@@ -552,10 +587,14 @@ export class TipsEditorComponent {
 
   toggleSelectAll() {
     if (this.readonly()) return;
-    if (this.allSelected()) {
-      this.onEmployeesChange([]);
+    const fixedIds = new Set(this.fixedEmployees().map((e) => e.id));
+    const current = this.selectedEmployeeIds();
+    if (this.allFixedSelected()) {
+      // Desmarcar solo fijos; dejar rotativos elegidos a mano.
+      this.onEmployeesChange(current.filter((id) => !fixedIds.has(id)));
     } else {
-      this.onEmployeesChange(this.employees().map((e) => e.id));
+      const rotatingKept = current.filter((id) => !fixedIds.has(id));
+      this.onEmployeesChange([...this.fixedEmployees().map((e) => e.id), ...rotatingKept]);
     }
   }
 

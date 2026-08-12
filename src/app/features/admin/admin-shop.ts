@@ -1828,9 +1828,9 @@ export class AdminShopPage implements OnInit {
     });
   }
 
-  onLogoFile(ev: Event): void {
+  async onLogoFile(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
-    const file = takeInputFile(input);
+    const file = await takeInputFile(input);
     const shopId = this.shops.selectedShopId();
     if (!file || !shopId) return;
     if (!file.type.startsWith('image/')) {
@@ -1882,9 +1882,9 @@ export class AdminShopPage implements OnInit {
     });
   }
 
-  onRestoreFile(ev: Event): void {
+  async onRestoreFile(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
-    const file = takeInputFile(input);
+    const file = await takeInputFile(input);
     const shop = this.shops.selectedShop();
     if (!file || !shop) return;
     if (
