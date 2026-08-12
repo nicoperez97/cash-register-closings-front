@@ -63,9 +63,9 @@ const PAYMENTS_VIEW_KEY = 'crc.payments.viewMode';
 function loadPaymentsViewMode(): PaymentsViewMode {
   try {
     const v = localStorage.getItem(PAYMENTS_VIEW_KEY);
-    return v === 'list' || v === 'cards' ? v : 'cards';
+    return v === 'list' || v === 'cards' ? v : 'list';
   } catch {
-    return 'cards';
+    return 'list';
   }
 }
 
