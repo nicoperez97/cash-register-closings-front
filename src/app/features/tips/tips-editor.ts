@@ -169,6 +169,28 @@ function receiptsFromLegacy(
                 Reparto igualitario
               </button>
             }
+            @if (canDeliverAll()) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="!!deliveryBusy()"
+                (click)="deliverAll(true)"
+              >
+                <mat-icon>done_all</mat-icon>
+                Entregar a todos
+              </button>
+            }
+            @if (canUndeliverAll()) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="!!deliveryBusy()"
+                (click)="deliverAll(false)"
+              >
+                <mat-icon>undo</mat-icon>
+                Marcar pendientes
+              </button>
+            }
           </div>
         </div>
 
@@ -215,7 +237,7 @@ function receiptsFromLegacy(
                         <button
                           mat-stroked-button
                           type="button"
-                          [disabled]="deliveryBusy() === a.id"
+                          [disabled]="!!deliveryBusy()"
                           (click)="toggleDelivered(a)"
                         >
                           <mat-icon>{{ a.delivered ? 'undo' : 'check' }}</mat-icon>
@@ -449,6 +471,25 @@ export class TipsEditorComponent {
   readonly allocations = signal<TipsEditorState['allocations']>([]);
   readonly deliveryBusy = signal<string | null>(null);
 
+  readonly pendingDeliverable = computed(() =>
+    this.allocations().filter((a) => !a.delivered),
+  );
+
+  readonly deliveredDeliverable = computed(() =>
+    this.allocations().filter((a) => a.delivered),
+  );
+
+  readonly canDeliverAll = computed(
+    () => !this.readonly() && this.pendingDeliverable().length > 0,
+  );
+
+  readonly canUndeliverAll = computed(
+    () =>
+      !this.readonly() &&
+      this.deliveredDeliverable().length > 0 &&
+      this.pendingDeliverable().length === 0,
+  );
+
   readonly receiptsSum = computed(() =>
     round2(filledReceipts(this.receiptRows()).reduce((s, v) => s + v, 0)),
   );
@@ -675,6 +716,62 @@ export class TipsEditorComponent {
         );
       },
     });
+  }
+
+  deliverAll(delivered: boolean): void {
+    const targets = delivered ? this.pendingDeliverable() : this.deliveredDeliverable();
+    if (!targets.length) return;
+
+    const shopId = this.shopId();
+    const date = this.businessDate();
+    const savedIds = targets.filter((a) => !!a.id);
+    const canSyncApi =
+      this.showDelivery() && !!shopId && !!date && savedIds.length === targets.length;
+
+    if (canSyncApi && shopId && date) {
+      this.deliveryBusy.set('__all__');
+      this.api.setDeliveredAll(shopId, date, delivered).subscribe({
+        next: (rows) => {
+          const byId = new Map(rows.map((r) => [r.id, r]));
+          this.allocations.update((list) =>
+            list.map((a) => {
+              if (!a.id) return { ...a, delivered };
+              const row = byId.get(a.id);
+              return row ? { ...a, delivered: row.delivered, id: row.id } : { ...a, delivered };
+            }),
+          );
+          this.deliveryBusy.set(null);
+          this.deliveredChange.emit();
+          this.emit();
+          this.snack.open(
+            delivered
+              ? `Entregadas ${targets.length} propina${targets.length === 1 ? '' : 's'}`
+              : 'Marcadas como pendientes',
+            'OK',
+            { duration: 2500 },
+          );
+        },
+        error: (err) => {
+          this.deliveryBusy.set(null);
+          this.snack.open(
+            err?.error?.message ?? 'No se pudo actualizar la entrega',
+            'OK',
+            { duration: 3500 },
+          );
+        },
+      });
+      return;
+    }
+
+    this.allocations.update((list) => list.map((a) => ({ ...a, delivered })));
+    this.emit();
+    this.snack.open(
+      delivered
+        ? `Marcadas como entregadas (${targets.length})`
+        : 'Marcadas como pendientes',
+      'OK',
+      { duration: 2200 },
+    );
   }
 
   /** Snapshot válido para guardar (null si hay error de suma). */

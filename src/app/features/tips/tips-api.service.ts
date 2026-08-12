@@ -107,6 +107,13 @@ export class TipsApiService {
     );
   }
 
+  setDeliveredAll(shopId: string, date: string, delivered: boolean) {
+    return this.http.patch<TipAllocation[]>(
+      `${this.base}/shops/${shopId}/tips/${date}/delivered`,
+      { delivered },
+    );
+  }
+
   summary(shopId: string, from: string, to: string) {
     return this.http.get<TipsSummary>(`${this.base}/shops/${shopId}/tips/summary`, {
       params: { from, to },
