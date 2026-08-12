@@ -219,8 +219,9 @@
             class="nav-group__title"
             [attr.aria-expanded]="isGroupOpen(item)"
             [attr.aria-controls]="'nav-group-' + item.route"
-            [attr.aria-label]="item.label"
-            [matTooltip]="rail() ? item.label : ''"
+            [matTooltip]="item.label"
+            [matTooltipDisabled]="!rail()"
+            matTooltipPosition="right"
             matTooltipShowDelay="200"
             (click)="toggleGroup(item, $event)"
           >
@@ -274,7 +275,9 @@
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: item.exact === true }"
           [attr.aria-label]="item.label"
-          [matTooltip]="rail() ? item.label : ''"
+          [matTooltip]="item.label"
+          [matTooltipDisabled]="!rail()"
+          matTooltipPosition="right"
           matTooltipShowDelay="200"
           (click)="onNavClick()"
         >

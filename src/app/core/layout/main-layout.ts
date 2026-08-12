@@ -137,6 +137,7 @@ export class MainLayoutComponent {
           label: 'Stock',
           route: '__group_stock',
           icon: 'inventory_2',
+          defaultRoute: stockChildren.find((c) => c.route === '/stock')?.route ?? stockChildren[0]?.route,
           children: stockChildren,
         });
       }
@@ -160,18 +161,6 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
       operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
     }
-    if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
-      operacion.push({
-        label: 'Reservas',
-        route: '/reservations',
-        icon: 'table_restaurant',
-        badge: this.reservationsInbox.menuBadge() || null,
-        badgeInGroup: false,
-      });
-    }
-    if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
-      operacion.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
-    }
     if (shopId && hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips')) {
       operacion.push({
         label: 'Propinas',
@@ -186,7 +175,33 @@ export class MainLayoutComponent {
         label: 'Operación',
         route: '__group_operacion',
         icon: 'today',
+        defaultRoute: operacion.find((c) => c.route === '/closings')?.route ?? operacion[0]?.route,
         children: operacion,
+      });
+    }
+
+    const salon: NonNullable<NavItem['children']> = [];
+    if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
+      salon.push({
+        label: 'Reservas',
+        route: '/reservations',
+        icon: 'table_restaurant',
+        badge: this.reservationsInbox.menuBadge() || null,
+        badgeInGroup: false,
+      });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
+      salon.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
+    }
+    if (salon.length) {
+      items.push({
+        label: 'Salón',
+        route: '__group_salon',
+        icon: 'table_restaurant',
+        defaultRoute: salon.find((c) => c.route === '/reservations')?.route ?? salon[0]?.route,
+        children: salon,
+        badge: this.reservationsInbox.menuBadge() || null,
+        badgeInGroup: false,
       });
     }
 
@@ -205,6 +220,7 @@ export class MainLayoutComponent {
         label: 'Stock',
         route: '__group_stock',
         icon: 'inventory_2',
+        defaultRoute: stockChildren.find((c) => c.route === '/stock')?.route ?? stockChildren[0]?.route,
         children: stockChildren,
       });
     }
@@ -214,6 +230,7 @@ export class MainLayoutComponent {
         label: 'Asistencia',
         route: '__group_asistencia',
         icon: 'event_available',
+        defaultRoute: '/attendance',
         children: [
           { label: 'Servicio', route: '/attendance', icon: 'storefront' },
           { label: 'Produccion', route: '/production-attendance', icon: 'restaurant' },
@@ -250,6 +267,8 @@ export class MainLayoutComponent {
         label: 'Pagos',
         route: '__group_pagos',
         icon: 'payments',
+        defaultRoute:
+          pagos.find((c) => c.route === '/payments/suppliers')?.route ?? pagos[0]?.route,
         children: pagos,
       });
     }
@@ -259,6 +278,7 @@ export class MainLayoutComponent {
         label: 'Reportes',
         route: '__group_reportes',
         icon: 'insights',
+        defaultRoute: '/reports',
         children: [
           { label: 'Cierres', route: '/reports', icon: 'insights' },
           { label: 'Ventas POS', route: '/reports/products', icon: 'restaurant_menu' },
@@ -285,6 +305,7 @@ export class MainLayoutComponent {
         label: 'Personal',
         route: '__group_personal',
         icon: 'groups',
+        defaultRoute: personal.find((c) => c.route === '/employees')?.route ?? personal[0]?.route,
         children: personal,
       });
     }
@@ -310,10 +331,13 @@ export class MainLayoutComponent {
       admin.push({ label: 'Platos y rubros', route: '/admin/pos-products', icon: 'restaurant_menu' });
     }
     if (admin.length) {
+      const adminDefault =
+        admin.find((c) => c.route === '/admin/shop')?.route ?? admin[0]?.route;
       items.push({
         label: 'Administración',
         route: '__group_admin',
         icon: 'settings',
+        defaultRoute: adminDefault,
         children: admin,
       });
     }

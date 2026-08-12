@@ -30,6 +30,8 @@ export interface NavItem {
   exact?: boolean;
   badge?: number | null;
   badgeInGroup?: boolean;
+  /** Al clickear el grupo (rail o título), navegar a esta ruta. */
+  defaultRoute?: string;
 }
 
 @Component({
@@ -165,8 +167,21 @@ export class SidebarComponent {
   toggleGroup(item: NavItem, event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
+
+    const target = item.defaultRoute || item.children?.[0]?.route;
+    if (target && !target.startsWith('__')) {
+      this.collapsedGroups.update((prev) => {
+        const next = new Set(prev);
+        next.delete(item.route);
+        return next;
+      });
+      if (this.rail()) this.expandRequest.emit();
+      void this.router.navigateByUrl(target);
+      this.onNavClick();
+      return;
+    }
+
     if (this.rail()) {
-      // En rail: expandir menú y abrir el grupo.
       this.collapsedGroups.update((prev) => {
         const next = new Set(prev);
         next.delete(item.route);
@@ -175,6 +190,7 @@ export class SidebarComponent {
       this.expandRequest.emit();
       return;
     }
+
     this.collapsedGroups.update((prev) => {
       const next = new Set(prev);
       if (next.has(item.route)) next.delete(item.route);
