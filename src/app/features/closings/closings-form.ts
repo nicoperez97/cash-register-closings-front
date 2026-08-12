@@ -135,10 +135,27 @@ import {
             </mat-form-field>
           </div>
 
+          @if (isMobile()) {
+            <div class="closing-stepper__progress" aria-live="polite">
+              <span>Paso {{ stepIndex() + 1 }} de {{ stepLabels.length }} · {{ stepLabels[stepIndex()] }}</span>
+              <div
+                class="closing-stepper__bar"
+                role="progressbar"
+                [attr.aria-valuenow]="stepIndex() + 1"
+                aria-valuemin="1"
+                [attr.aria-valuemax]="stepLabels.length"
+              >
+                <span [style.width.%]="((stepIndex() + 1) / stepLabels.length) * 100"></span>
+              </div>
+            </div>
+          }
+
           <mat-stepper
             class="closing-stepper"
-            [orientation]="isMobile() ? 'vertical' : 'horizontal'"
+            [class.closing-stepper--mobile]="isMobile()"
+            orientation="horizontal"
             [linear]="false"
+            (selectionChange)="stepIndex.set($event.selectedIndex)"
           >
             <mat-step label="Posnets">
               <app-closing-form-posnets-step
@@ -262,6 +279,15 @@ export class ClosingsFormPage implements OnInit {
     this.breakpointObserver.observe('(max-width: 720px)').pipe(map((r) => r.matches)),
     { initialValue: false },
   );
+  readonly stepIndex = signal(0);
+  readonly stepLabels = [
+    'Posnets',
+    'Efectivo',
+    'Cuenta DNI',
+    'Caja y otros',
+    'Retiro y egresos',
+    'Resumen',
+  ] as const;
   private closingId: string | null = null;
 
   /** IDs de posnets del local (para distinguir transferencias DNI ad-hoc al editar). */

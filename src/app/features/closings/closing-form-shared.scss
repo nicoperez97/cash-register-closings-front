@@ -177,20 +177,20 @@
   }
 
   .closing-form__block + .closing-form__block {
-    margin-top: 0.85rem;
-    padding-top: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
     border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
   }
 
   .closing-form__block-head {
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.65rem;
     min-height: 0;
-    gap: 0.45rem;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
   }
 
-  /* El label del stepper ya nombra el paso; dejamos meta + acciones */
   .closing-form__block-head h3 {
-    display: none;
+    font-size: 1rem;
   }
 
   .closing-form__meta {
@@ -198,16 +198,16 @@
   }
 
   .closing-form__add-btn {
-    min-height: 34px !important;
-    padding-inline: 0.65rem !important;
+    min-height: 36px !important;
+    padding-inline: 0.7rem !important;
   }
 
   .closing-form__block-body {
-    gap: 0.45rem;
+    gap: 0.65rem;
   }
 
   .closing-form__stack {
-    gap: 0.5rem;
+    gap: 0.65rem;
   }
 
   .closing-form__fields,
@@ -215,19 +215,10 @@
   .closing-form__fields--totals,
   .closing-form__fields--single {
     grid-template-columns: 1fr;
-    gap: 0.5rem;
+    gap: 0.65rem;
   }
 
   .closing-form__row-remove {
     justify-self: end;
-  }
-
-  :host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix,
-  :host ::ng-deep .closing-form__posnet-row .mat-mdc-form-field-infix,
-  :host ::ng-deep .closing-form__dni-row .mat-mdc-form-field-infix,
-  :host ::ng-deep .expense-row .mat-mdc-form-field-infix {
-    min-height: 40px !important;
-    padding-top: 10px !important;
-    padding-bottom: 10px !important;
   }
 }
