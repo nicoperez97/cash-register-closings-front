@@ -44,6 +44,8 @@ import { ClosingFormHeaderComponent } from './closing-form-header';
 import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions';
 import { ClosingFormSummaryComponent } from './closing-form-summary';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
+import { ClosingFormPosnetsStepComponent } from './closing-form-posnets-step';
+import { ClosingFormCajaOtrosStepComponent } from './closing-form-caja-otros-step';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -121,6 +123,8 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
     ClosingFormStickyActionsComponent,
     ClosingFormSummaryComponent,
     ClosingFormStepNavComponent,
+    ClosingFormPosnetsStepComponent,
+    ClosingFormCajaOtrosStepComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -166,109 +170,17 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             [linear]="false"
           >
             <mat-step label="Posnets">
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Posnets</h3>
-                    <span class="closing-form__meta">{{ posnetsPanelHint() }}</span>
-                  </div>
-                  <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="addPosnet()">
-                    <mat-icon>add</mat-icon>
-                    Agregar
-                  </button>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__stack" formArrayName="posnetAmounts">
-                    @for (row of posnetAmounts.controls; track row; let i = $index) {
-                      <div class="closing-form__posnet-card" [formGroupName]="i">
-                        <div class="closing-form__posnet-card-head">
-                          <div class="closing-form__posnet-card-title">
-                            <span class="closing-form__posnet-index">{{ i + 1 }}</span>
-                            <div>
-                              <strong>{{ posnetRowTitle(i) }}</strong>
-                              <span>{{ posnetRowTypeLabel(i) }}</span>
-                            </div>
-                          </div>
-                          @if (!isConfiguredPosnet(i)) {
-                            <button
-                              mat-icon-button
-                              type="button"
-                              class="closing-form__row-remove"
-                              aria-label="Quitar posnet"
-                              (click)="removePosnet(i)"
-                            >
-                              <mat-icon>delete</mat-icon>
-                            </button>
-                          }
-                        </div>
-                        <div class="closing-form__posnet-row" [class.closing-form__posnet-row--amount-only]="isConfiguredPosnet(i)">
-                          @if (!isConfiguredPosnet(i)) {
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                              <mat-label>Nombre</mat-label>
-                              <input matInput formControlName="name" placeholder="ej. Caja 1" />
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                              <mat-label>Tipo</mat-label>
-                              <mat-select formControlName="type">
-                                @for (opt of posnetTypes; track opt.value) {
-                                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                                }
-                              </mat-select>
-                            </mat-form-field>
-                          }
-                          <mat-form-field
-                            appearance="outline"
-                            subscriptSizing="dynamic"
-                            floatLabel="always"
-                            class="closing-field--money"
-                          >
-                            <mat-label>Monto</mat-label>
-                            <span matTextPrefix class="closing-field__prefix">$</span>
-                            <input matInput type="number" inputmode="decimal" formControlName="amount" />
-                          </mat-form-field>
-                        </div>
-                      </div>
-                    } @empty {
-                      <p class="closing-form__hint">Sin terminales. Completá PVS y Mercado Pago abajo.</p>
-                    }
-                  </div>
-                  <div class="closing-form__fields closing-form__fields--totals">
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      floatLabel="always"
-                      class="closing-field--money"
-                    >
-                      <mat-label>PVS{{ locksCard() ? ' (suma)' : '' }}</mat-label>
-                      <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input
-                        matInput
-                        type="number"
-                        inputmode="decimal"
-                        formControlName="cardAmount"
-                        [readonly]="locksCard()"
-                      />
-                    </mat-form-field>
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      floatLabel="always"
-                      class="closing-field--money"
-                    >
-                      <mat-label>Mercado Pago{{ locksMp() ? ' (suma)' : '' }}</mat-label>
-                      <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input
-                        matInput
-                        type="number"
-                        inputmode="decimal"
-                        formControlName="mercadoPagoAmount"
-                        [readonly]="locksMp()"
-                      />
-                    </mat-form-field>
-                  </div>
-                </div>
-              </div>
-              <app-closing-form-step-nav [showBack]="false" />
+              <app-closing-form-posnets-step
+                [posnetAmounts]="posnetAmounts"
+                [panelHint]="posnetsPanelHint()"
+                [locksCard]="locksCard()"
+                [locksMp]="locksMp()"
+                [configuredIds]="configuredPosnetIds"
+                [posnetTypes]="posnetTypes"
+                [typeLabels]="posnetTypeLabels"
+                (add)="addPosnet()"
+                (remove)="removePosnet($event)"
+              />
             </mat-step>
 
             <mat-step label="Efectivo">
@@ -421,49 +333,7 @@ type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
             </mat-step>
 
             <mat-step label="Caja y otros">
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Caja</h3>
-                    <span class="closing-form__meta">Total del sistema</span>
-                  </div>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__fields closing-form__fields--single">
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      floatLabel="always"
-                      class="closing-field--money"
-                    >
-                      <mat-label>Caja (sistema)</mat-label>
-                      <span matTextPrefix class="closing-field__prefix">$</span>
-                      <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
-                    </mat-form-field>
-                  </div>
-                </div>
-              </div>
-              <div class="closing-form__block">
-                <div class="closing-form__block-head">
-                  <div class="closing-form__block-title">
-                    <h3>Otros cobros</h3>
-                    <span class="closing-form__meta">Delivery y transferencias</span>
-                  </div>
-                </div>
-                <div class="closing-form__block-body">
-                  <div class="closing-form__fields">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>PedidosYa / delivery</mat-label>
-                      <input matInput type="number" inputmode="decimal" formControlName="deliveryAppsAmount" />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Transferencia</mat-label>
-                      <input matInput type="number" inputmode="decimal" formControlName="transferAmount" />
-                    </mat-form-field>
-                  </div>
-                </div>
-              </div>
-              <app-closing-form-step-nav />
+              <app-closing-form-caja-otros-step />
             </mat-step>
 
             <mat-step label="Retiro y egresos">
@@ -624,6 +494,7 @@ export class ClosingsFormPage implements OnInit {
   readonly users = signal<ShopUserOption[]>([]);
   readonly expenseCategories = EXPENSE_CATEGORY_OPTIONS;
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
+  readonly posnetTypeLabels = POSNET_TYPE_LABEL;
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
   readonly isLocked = () => this.status() === 'LOCKED';
   readonly isMobile = toSignal(
@@ -637,7 +508,7 @@ export class ClosingsFormPage implements OnInit {
   readonly panelExpenses = signal(false);
 
   /** IDs de posnets del local (para distinguir transferencias DNI ad-hoc al editar). */
-  private configuredPosnetIds = new Set<string>();
+  configuredPosnetIds = new Set<string>();
 
   private currentBusinessDate(): string {
     const shop = this.shop();

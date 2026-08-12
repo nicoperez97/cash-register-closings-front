@@ -1,0 +1,236 @@
+:host {
+  display: block;
+}
+
+.closing-form__block {
+  padding: 0.85rem 0.95rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  background: var(--guy-card, #fff);
+}
+
+.closing-form__block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.closing-form__block-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.closing-form__block-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+}
+
+.closing-form__meta {
+  font-size: 0.78rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form__add-btn {
+  flex-shrink: 0;
+  min-height: 36px !important;
+  padding-inline: 0.75rem !important;
+  border-radius: 999px !important;
+  line-height: 1.2 !important;
+}
+
+.closing-form__add-btn mat-icon {
+  margin-right: 0.1rem;
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.closing-form__block-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.closing-form__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.closing-form__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+}
+
+.closing-form__fields--totals {
+  margin-top: 0.25rem;
+}
+
+.closing-form__posnet-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 0.8rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 42%, #fff);
+}
+
+.closing-form__posnet-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.closing-form__posnet-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.closing-form__posnet-card-title > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.closing-form__posnet-card-title strong {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.closing-form__posnet-card-title span:not(.closing-form__posnet-index) {
+  font-size: 0.72rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form__posnet-index {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--guy-navy, #003366);
+  background: color-mix(in srgb, var(--guy-navy, #003366) 10%, #fff);
+  border: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 16%, transparent);
+}
+
+.closing-form__posnet-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.85fr;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.closing-form__posnet-row--amount-only {
+  grid-template-columns: minmax(0, 14rem);
+}
+
+.closing-form__row-remove {
+  color: #c62828;
+  margin: -0.25rem -0.35rem -0.25rem 0;
+}
+
+.closing-form__fields .mat-mdc-form-field,
+.closing-form__posnet-row .mat-mdc-form-field {
+  width: 100%;
+  margin-bottom: 0 !important;
+}
+
+.closing-field__prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--guy-muted, #5f6f76);
+}
+
+:host ::ng-deep .closing-field--money .mat-mdc-form-field-text-prefix,
+:host ::ng-deep .closing-field--money .mat-mdc-form-field-icon-prefix {
+  align-self: center !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 0.15rem 0 0.35rem !important;
+  top: 0 !important;
+  height: auto !important;
+}
+
+:host ::ng-deep .closing-field--money .mat-mdc-form-field-infix {
+  display: flex;
+  align-items: center;
+}
+
+:host ::ng-deep .closing-form__posnet-card .mat-mdc-text-field-wrapper {
+  background: #fff !important;
+}
+
+:host ::ng-deep .closing-field--money input.mat-mdc-input-element {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+:host ::ng-deep .closing-form__fields--totals .mat-mdc-text-field-wrapper {
+  background: #fff !important;
+}
+
+:host ::ng-deep .closing-form__fields .mat-mdc-form-field-subscript-wrapper,
+:host ::ng-deep .closing-form__posnet-row .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix,
+:host ::ng-deep .closing-form__posnet-row .mat-mdc-form-field-infix {
+  min-height: 44px !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+:host ::ng-deep .closing-form__fields input[readonly] {
+  cursor: default;
+  color: var(--guy-navy, #003366);
+}
+
+@media (max-width: 720px) {
+  .closing-form__posnet-row:not(.closing-form__posnet-row--amount-only) {
+    grid-template-columns: 1fr;
+  }
+
+  .closing-form__posnet-row--amount-only {
+    grid-template-columns: 1fr;
+  }
+
+  .closing-form__fields {
+    grid-template-columns: 1fr;
+  }
+}
