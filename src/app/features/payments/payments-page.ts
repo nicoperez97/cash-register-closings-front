@@ -47,6 +47,11 @@ import { shareText } from '../../shared/utils/share-text';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { firstValueFrom } from 'rxjs';
+import {
+  buildPaymentsListFilterOpts,
+  countActivePaymentFilters,
+} from './payments-list-query';
+import { shopFileSlug } from './payments-page-actions';
 
 type PaymentKind = 'supplier' | 'employee';
 type PaymentsViewMode = 'cards' | 'list';
@@ -324,25 +329,23 @@ export class PaymentsPage {
     );
   });
 
-  readonly activeFilterCount = computed(() => {
-    let n = this.statusFilterValue()?.length ?? 0;
-    if (this.mineOnly()) n += 1;
-    else {
-      n += this.validatorFilterValue()?.length ?? 0;
-      n += this.payerFilterValue()?.length ?? 0;
-    }
-    const due = this.dueRangeValue();
-    if (due?.start || due?.end) n += 1;
-    const paid = this.paidRangeValue();
-    if (paid?.start || paid?.end) n += 1;
-    if (this.isSupplierKind()) n += this.supplierFilterValue()?.length ?? 0;
-    else n += this.employeeFilterValue()?.length ?? 0;
-    const min = this.amountMinFilterValue();
-    const max = this.amountMaxFilterValue();
-    if (min != null && min !== ('' as any) && Number.isFinite(Number(min))) n += 1;
-    if (max != null && max !== ('' as any) && Number.isFinite(Number(max))) n += 1;
-    return n;
-  });
+  readonly activeFilterCount = computed(() =>
+    countActivePaymentFilters({
+      statusCount: this.statusFilterValue()?.length ?? 0,
+      mineOnly: this.mineOnly(),
+      validatorCount: this.validatorFilterValue()?.length ?? 0,
+      payerCount: this.payerFilterValue()?.length ?? 0,
+      dueStart: this.dueRangeValue()?.start,
+      dueEnd: this.dueRangeValue()?.end,
+      paidStart: this.paidRangeValue()?.start,
+      paidEnd: this.paidRangeValue()?.end,
+      isSupplierKind: this.isSupplierKind(),
+      supplierCount: this.supplierFilterValue()?.length ?? 0,
+      employeeCount: this.employeeFilterValue()?.length ?? 0,
+      amountMin: this.amountMinFilterValue(),
+      amountMax: this.amountMaxFilterValue(),
+    }),
+  );
 
   readonly shopId = computed(() => this.shops.selectedShopId());
 
@@ -450,19 +453,22 @@ export class PaymentsPage {
     }
   }
 
-  private toIsoDate(value: Date | string | null | undefined): string | null {
-    if (!value) return null;
-    if (typeof value === 'string') return value.slice(0, 10) || null;
-    const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, '0');
-    const d = String(value.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
-  private amountOrUndefined(v: number | null | undefined): number | undefined {
-    if (v === null || v === undefined || (v as any) === '') return undefined;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : undefined;
+  private listFilterOpts() {
+    return buildPaymentsListFilterOpts({
+      statuses: this.statusFilter.value,
+      mineOnly: this.mineOnly(),
+      dueStart: this.dueRange.controls.start.value,
+      dueEnd: this.dueRange.controls.end.value,
+      paidStart: this.paidRange.controls.start.value,
+      paidEnd: this.paidRange.controls.end.value,
+      amountMin: this.amountMinFilter.value,
+      amountMax: this.amountMaxFilter.value,
+      isSupplierKind: this.isSupplierKind(),
+      supplierIds: this.supplierFilter.value,
+      employeeIds: this.employeeFilter.value,
+      validatorIds: this.validatorFilter.value,
+      payerIds: this.payerFilter.value,
+    });
   }
 
   filterMine(): void {
@@ -530,50 +536,6 @@ export class PaymentsPage {
     } else if (result === 'failed') {
       this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
     }
-  }
-
-  private listFilterOpts() {
-    const statuses = this.statusFilter.value;
-    const dates = {
-      dueFrom: this.toIsoDate(this.dueRange.controls.start.value) || undefined,
-      dueTo: this.toIsoDate(this.dueRange.controls.end.value) || undefined,
-      paidFrom: this.toIsoDate(this.paidRange.controls.start.value) || undefined,
-      paidTo: this.toIsoDate(this.paidRange.controls.end.value) || undefined,
-    };
-    const amounts = {
-      amountMin: this.amountOrUndefined(this.amountMinFilter.value),
-      amountMax: this.amountOrUndefined(this.amountMaxFilter.value),
-    };
-    const party = this.isSupplierKind()
-      ? {
-          supplierId: this.supplierFilter.value.length
-            ? this.supplierFilter.value
-            : undefined,
-        }
-      : {
-          employeeId: this.employeeFilter.value.length
-            ? this.employeeFilter.value
-            : undefined,
-        };
-    if (this.mineOnly()) {
-      return {
-        status: statuses.length ? statuses : undefined,
-        mine: true as const,
-        ...dates,
-        ...amounts,
-        ...party,
-      };
-    }
-    const validators = this.validatorFilter.value;
-    const payers = this.payerFilter.value;
-    return {
-      status: statuses.length ? statuses : undefined,
-      validatorUserId: validators.length ? validators : undefined,
-      payerUserId: payers.length ? payers : undefined,
-      ...dates,
-      ...amounts,
-      ...party,
-    };
   }
 
   reloadMeta(shopId: string): void {
@@ -771,7 +733,7 @@ export class PaymentsPage {
         a.href = url;
         const stamp = new Date().toISOString().slice(0, 10);
         const kindSlug = kind === 'supplier' ? 'proveedores' : 'empleados';
-        a.download = `pagos-${kindSlug}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${stamp}.xlsx`;
+        a.download = `pagos-${kindSlug}-${shopFileSlug(shop?.name ?? shop?.slug)}-${stamp}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -780,17 +742,6 @@ export class PaymentsPage {
         this.snack.open('No se pudo descargar el Excel', 'OK', { duration: 3000 });
       },
     });
-  }
-
-  private shopFileSlug(name?: string | null): string {
-    const raw = (name ?? 'local')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 48);
-    return raw || 'local';
   }
 
   openEdit(p: ShopPayment): void {

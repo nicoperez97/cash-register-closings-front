@@ -1,69 +1,4 @@
-:host {
-  display: block;
-}
-
-.closing-form__block {
-  padding: 0.85rem 0.95rem 0.95rem;
-  border-radius: 14px;
-  border: 1px solid var(--guy-border, #d7e0d9);
-  background: var(--guy-card, #fff);
-  margin-bottom: 0.7rem;
-}
-
-.closing-form__block-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.65rem;
-}
-
-.closing-form__block-title {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.closing-form__block-head h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--guy-navy, #003366);
-}
-
-.closing-form__meta {
-  font-size: 0.78rem;
-  color: var(--guy-muted, #5f6f76);
-}
-
-.closing-form__add-btn {
-  flex-shrink: 0;
-  min-height: 36px !important;
-  padding-inline: 0.75rem !important;
-  border-radius: 999px !important;
-  line-height: 1.2 !important;
-}
-
-.closing-form__add-btn mat-icon {
-  margin-right: 0.1rem;
-  font-size: 1.1rem;
-  width: 1.1rem;
-  height: 1.1rem;
-}
-
-.closing-form__block-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.closing-form__fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem 0.75rem;
-}
+@use './closing-form-shared';
 
 .closing-notes {
   grid-column: 1 / -1;
@@ -78,12 +13,6 @@
   font-size: 0.88rem;
   font-weight: 700;
   color: var(--guy-navy, #003366);
-}
-
-.closing-form__hint {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--guy-muted, #5f6f76);
 }
 
 .closing-form__expenses-list {
@@ -103,24 +32,6 @@
   color: #c62828;
 }
 
-.closing-form__fields .mat-mdc-form-field,
-.expense-row .mat-mdc-form-field {
-  width: 100%;
-  margin-bottom: 0 !important;
-}
-
-:host ::ng-deep .closing-form__fields .mat-mdc-form-field-subscript-wrapper,
-:host ::ng-deep .expense-row .mat-mdc-form-field-subscript-wrapper {
-  display: none;
-}
-
-:host ::ng-deep .closing-form__fields .mat-mdc-form-field-infix,
-:host ::ng-deep .expense-row .mat-mdc-form-field-infix {
-  min-height: 44px !important;
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
-}
-
 @media (max-width: 720px) {
   .expense-row {
     grid-template-columns: 1fr;
@@ -128,9 +39,5 @@
 
   .expense-row__remove {
     justify-self: end;
-  }
-
-  .closing-form__fields {
-    grid-template-columns: 1fr;
   }
 }

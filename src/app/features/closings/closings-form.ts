@@ -47,64 +47,27 @@ import { ClosingFormCajaOtrosStepComponent } from './closing-form-caja-otros-ste
 import { ClosingFormEfectivoStepComponent } from './closing-form-efectivo-step';
 import { ClosingFormDniStepComponent } from './closing-form-dni-step';
 import { ClosingFormRetiroStepComponent } from './closing-form-retiro-step';
-
-function toDateInput(value?: string | null): Date {
-  if (!value) return new Date();
-  const d = new Date(`${value}T12:00:00`);
-  return Number.isNaN(d.getTime()) ? new Date() : d;
-}
-
-function toDateString(value: Date | null | string | undefined): string {
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const d = value instanceof Date ? value : new Date();
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-const EXPENSE_CATEGORY_OPTIONS = [
-  { value: 'VEGETABLES', label: 'Verdulería' },
-  { value: 'CHEESE', label: 'Quesería' },
-  { value: 'MEAT', label: 'Carnicería' },
-  { value: 'FISH', label: 'Pescadería' },
-  { value: 'BAKERY', label: 'Panadería' },
-  { value: 'DELI', label: 'Fiambrería' },
-  { value: 'GROCERY', label: 'Almacén / secos' },
-  { value: 'DAIRY', label: 'Lácteos' },
-  { value: 'BEVERAGES', label: 'Bebidas' },
-  { value: 'BAR', label: 'Cerveza y bar' },
-  { value: 'COFFEE', label: 'Café' },
-  { value: 'RAW_MATERIALS', label: 'Materia prima' },
-  { value: 'DRINKS', label: 'Bebidas (genérico)' },
-  { value: 'DISPOSABLES', label: 'Descartables' },
-  { value: 'CLEANING', label: 'Limpieza' },
-  { value: 'SUPPLIES', label: 'Insumos cocina' },
-  { value: 'SALARIES', label: 'Sueldos' },
-  { value: 'COMMISSIONS', label: 'Comisiones' },
-  { value: 'RENT', label: 'Alquiler' },
-  { value: 'EQUIPMENT', label: 'Equipamiento' },
-  { value: 'UTILITIES', label: 'Servicios (luz/gas)' },
-  { value: 'SERVICES', label: 'Servicios' },
-  { value: 'MARKETING', label: 'Marketing' },
-  { value: 'TRANSFER_SHOP', label: 'Transferencia locales' },
-  { value: 'OTHER', label: 'Otros' },
-];
-
-const POSNET_TYPE_OPTIONS = [
-  { value: 'PVS', label: 'PVS' },
-  { value: 'MERCADO_PAGO', label: 'Mercado Pago' },
-  { value: 'CUENTA_DNI', label: 'Cuenta DNI' },
-];
-
-const POSNET_TYPE_LABEL: Record<string, string> = {
-  PVS: 'PVS',
-  MERCADO_PAGO: 'Mercado Pago',
-  CUENTA_DNI: 'Cuenta DNI',
-};
-
-type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
+import {
+  buildDniTransferGroup,
+  buildPosnetAmountGroup,
+  syncDerivedTotals,
+} from './closings-form-payment-lines';
+import {
+  buildClosingShareSnapshot,
+  prepareClosingSaveBody,
+  type ClosingFormRawValue,
+} from './closings-form-save';
+import {
+  EXPENSE_CATEGORY_OPTIONS,
+  POSNET_TYPE_LABEL,
+  POSNET_TYPE_OPTIONS,
+  closingMoney,
+  closingNum,
+  emptyNum as toEmptyNum,
+  toDateInput,
+  toDateString,
+  type PosnetType,
+} from './closings-form.utils';
 
 @Component({
   selector: 'app-closings-form',
@@ -295,10 +258,6 @@ export class ClosingsFormPage implements OnInit {
   );
   private closingId: string | null = null;
 
-  readonly panelOther = signal(false);
-  readonly panelWithdraw = signal(false);
-  readonly panelExpenses = signal(false);
-
   /** IDs de posnets del local (para distinguir transferencias DNI ad-hoc al editar). */
   configuredPosnetIds = new Set<string>();
 
@@ -467,33 +426,6 @@ export class ClosingsFormPage implements OnInit {
     return n === 1 ? '1 egreso' : `${n} egresos`;
   }
 
-  togglePanel(panel: 'other' | 'withdraw' | 'expenses'): void {
-    const map = {
-      other: this.panelOther,
-      withdraw: this.panelWithdraw,
-      expenses: this.panelExpenses,
-    } as const;
-    map[panel].update((v) => !v);
-  }
-
-  private syncPanelDefaults(): void {
-    const v = this.form.getRawValue();
-    if (
-      this.n(v.deliveryAppsAmount) > 0 ||
-      this.n(v.transferAmount) > 0
-    ) {
-      this.panelOther.set(true);
-    }
-    if (
-      this.n(v.cashWithdrawn) > 0 ||
-      this.n(v.tipsAmount) > 0 ||
-      !!String(v.notes ?? '').trim()
-    ) {
-      this.panelWithdraw.set(true);
-    }
-    if (this.expenses.length > 0) this.panelExpenses.set(true);
-  }
-
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
     if (shopId) {
@@ -518,7 +450,7 @@ export class ClosingsFormPage implements OnInit {
 
     merge(this.posnetAmounts.valueChanges, this.dniTransfers.valueChanges)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.syncDerivedTotals());
+      .subscribe(() => this.runSyncDerivedTotals());
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new' && shopId) {
@@ -558,7 +490,6 @@ export class ClosingsFormPage implements OnInit {
             }),
           );
         }
-        this.syncPanelDefaults();
         this.loadTipDay(c.businessDate);
       });
     } else {
@@ -568,7 +499,6 @@ export class ClosingsFormPage implements OnInit {
         cashLeftInRegister: this.emptyNum(this.shop()?.defaultChangeAmount),
       });
       this.initPaymentLines();
-      this.syncPanelDefaults();
       this.loadTipDay(today);
     }
 
@@ -630,55 +560,16 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
-  private tipPayloadForClosing(): Record<string, unknown> {
-    if (!this.tipsEnabled() || !this.tipDraft) return {};
-    const d = this.tipDraft;
-    const allocSum = Math.round(
-      d.allocations.reduce((s, a) => s + Number(a.amount || 0), 0) * 100,
-    ) / 100;
-    const total =
-      Math.round(
-        (Number(d.cashAmount || 0) +
-          Number(d.transferAmount || 0) +
-          Number(d.ticketsAmount || 0)) *
-          100,
-      ) / 100;
-    if (d.allocations.length && Math.abs(allocSum - total) > 0.02) {
-      this.snack.open('El reparto de propinas debe sumar el total', 'OK', {
-        duration: 3000,
-      });
-      return { __tipsInvalid: true };
-    }
-    return {
-      tipCashAmount: Number(d.cashAmount || 0),
-      tipTransferAmount: Number(d.transferAmount || 0),
-      tipTicketsAmount: Number(d.ticketsAmount || 0),
-      tipReceipts: d.receipts ?? [],
-      tipNotes: d.notes?.trim() || null,
-      tipAllocations: d.allocations.map((a) => ({
-        employeeId: a.employeeId,
-        amount: Number(a.amount || 0),
-        delivered: !!a.delivered,
-      })),
-      tipsAmount: total,
-    };
-  }
-
   money(value: number): string {
-    return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return closingMoney(value);
   }
 
   private n(v: unknown): number {
-    const num = Number(v ?? 0);
-    return Number.isFinite(num) ? num : 0;
+    return closingNum(v);
   }
 
-  /** Vacío en el input si no hay monto (evita el 0 adelante en móvil). */
   private emptyNum(v: unknown): number | null {
-    if (v === null || v === undefined || v === '') return null;
-    const num = Number(v);
-    if (!Number.isFinite(num) || num === 0) return null;
-    return num;
+    return toEmptyNum(v);
   }
 
   private hasPosnetType(type: PosnetType): boolean {
@@ -696,7 +587,8 @@ export class ClosingsFormPage implements OnInit {
     for (const posnet of configured) {
       const prev = byId.get(posnet.id);
       this.posnetAmounts.push(
-        this.buildPosnetAmountGroup(
+        buildPosnetAmountGroup(
+          this.fb,
           {
             posnetId: posnet.id,
             name: posnet.name,
@@ -713,7 +605,7 @@ export class ClosingsFormPage implements OnInit {
       if (this.configuredPosnetIds.has(row.posnetId)) continue;
       if (row.type === 'CUENTA_DNI') {
         this.dniTransfers.push(
-          this.buildDniTransferGroup({
+          buildDniTransferGroup(this.fb, {
             id: row.posnetId,
             label: row.name,
             amount: row.amount ?? 0,
@@ -722,83 +614,19 @@ export class ClosingsFormPage implements OnInit {
         );
         continue;
       }
-      this.posnetAmounts.push(this.buildPosnetAmountGroup(row), { emitEvent: false });
+      this.posnetAmounts.push(buildPosnetAmountGroup(this.fb, row), { emitEvent: false });
     }
 
-    this.syncDerivedTotals();
+    this.runSyncDerivedTotals();
   }
 
-  private buildPosnetAmountGroup(
-    value: {
-      posnetId: string;
-      name: string;
-      type: PosnetType | string;
-      amount?: number | null;
-    },
-    opts?: { lockIdentity?: boolean },
-  ) {
-    const group = this.fb.group({
-      posnetId: [value.posnetId || newId()],
-      name: [value.name || ''],
-      type: [value.type || 'PVS'],
-      amount: [this.emptyNum(value.amount)],
-    });
-    if (opts?.lockIdentity) {
-      group.controls.name.disable({ emitEvent: false });
-      group.controls.type.disable({ emitEvent: false });
-    }
-    return group;
-  }
-
-  private buildDniTransferGroup(value: { id: string; label: string; amount?: number | null }) {
-    return this.fb.group({
-      id: [value.id || newId()],
-      label: [value.label || ''],
-      amount: [this.emptyNum(value.amount)],
-    });
-  }
-
-  private syncDerivedTotals(): void {
-    const posnets = this.posnetAmounts.getRawValue() as ClosingPosnetAmount[];
-    const transfers = this.dniTransfers.getRawValue() as Array<{ id: string; label: string; amount: number }>;
-
-    let card = 0;
-    let mp = 0;
-    let dniFromPosnets = 0;
-    let hasPvs = false;
-    let hasMp = false;
-    let hasDniPosnet = false;
-
-    for (const row of posnets) {
-      const amount = this.n(row.amount);
-      if (row.type === 'PVS') {
-        hasPvs = true;
-        card += amount;
-      } else if (row.type === 'MERCADO_PAGO') {
-        hasMp = true;
-        mp += amount;
-      } else if (row.type === 'CUENTA_DNI') {
-        hasDniPosnet = true;
-        dniFromPosnets += amount;
-      }
-    }
-
-    const dniFromTransfers = transfers.reduce((acc, t) => acc + this.n(t.amount), 0);
-    const hasTransfers = transfers.length > 0;
-    const patch: Record<string, number | null> = {};
-    if (hasPvs) patch['cardAmount'] = this.emptyNum(card);
-    if (hasMp) patch['mercadoPagoAmount'] = this.emptyNum(mp);
-    if (hasDniPosnet || hasTransfers) {
-      patch['accountDniAmount'] = this.emptyNum(dniFromPosnets + dniFromTransfers);
-    }
-    if (Object.keys(patch).length) {
-      this.form.patchValue(patch, { emitEvent: true });
-    }
+  private runSyncDerivedTotals(): void {
+    syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
   }
 
   addPosnet(): void {
     this.posnetAmounts.push(
-      this.buildPosnetAmountGroup({
+      buildPosnetAmountGroup(this.fb, {
         posnetId: newId(),
         name: '',
         type: 'PVS',
@@ -812,27 +640,15 @@ export class ClosingsFormPage implements OnInit {
     return !!row?.posnetId && this.configuredPosnetIds.has(row.posnetId);
   }
 
-  posnetRowTitle(index: number): string {
-    const row = this.posnetAmounts.at(index)?.getRawValue() as ClosingPosnetAmount | undefined;
-    const name = String(row?.name ?? '').trim();
-    return name || `Terminal ${index + 1}`;
-  }
-
-  posnetRowTypeLabel(index: number): string {
-    const row = this.posnetAmounts.at(index)?.getRawValue() as ClosingPosnetAmount | undefined;
-    const type = String(row?.type ?? '');
-    return POSNET_TYPE_LABEL[type] ?? 'Posnet';
-  }
-
   removePosnet(index: number): void {
     if (this.isConfiguredPosnet(index)) return;
     this.posnetAmounts.removeAt(index);
-    this.syncDerivedTotals();
+    this.runSyncDerivedTotals();
   }
 
   addDniTransfer(): void {
     this.dniTransfers.push(
-      this.buildDniTransferGroup({
+      buildDniTransferGroup(this.fb, {
         id: newId(),
         label: '',
         amount: null,
@@ -842,7 +658,7 @@ export class ClosingsFormPage implements OnInit {
 
   removeDniTransfer(index: number): void {
     this.dniTransfers.removeAt(index);
-    this.syncDerivedTotals();
+    this.runSyncDerivedTotals();
   }
 
   openBillCounter(): void {
@@ -907,7 +723,7 @@ export class ClosingsFormPage implements OnInit {
 
   private async doShare(): Promise<void> {
     const shopName = this.shop()?.name ?? 'Local';
-    const payload = closingSharePayload(this.buildShareClosing(), shopName, {
+    const payload = closingSharePayload(this.shareClosingSnapshot(), shopName, {
       unitsLabel: this.shop()?.unitsLabel,
     });
     const result = await shareText(payload);
@@ -924,7 +740,7 @@ export class ClosingsFormPage implements OnInit {
       this.snack.open('El cierre está bloqueado', 'OK', { duration: 2500 });
       return;
     }
-    const prepared = this.prepareSaveBody();
+    const prepared = this.tryPrepareSaveBody();
     if (!prepared) return;
 
     const { shopId, body } = prepared;
@@ -947,163 +763,46 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
-  /** Arma el body de guardado o null si la validación falla. */
-  private prepareSaveBody(): { shopId: string; body: Partial<CashClosing> } | null {
+  /** Arma el body de guardado o null si la validación falla (snacks en el componente). */
+  private tryPrepareSaveBody(): { shopId: string; body: Partial<CashClosing> } | null {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return null;
     }
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) {
-      this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
-      return null;
-    }
-    this.syncDerivedTotals();
-    const raw = this.form.getRawValue();
-    const userId = raw.cashWithdrawnByUserId || null;
-    const selected = this.users().find((u) => u.id === userId);
-    const withdrawnAccounts = selected?.ledgerAccounts ?? [];
-    let accountId = raw.cashWithdrawnToAccountId || null;
-    if (this.n(raw.cashAmount) > 0 && userId && withdrawnAccounts.length > 1 && !accountId) {
-      this.snack.open('Seleccioná la cuenta destino del efectivo', 'OK', { duration: 3000 });
-      return null;
-    }
-    if (withdrawnAccounts.length === 1) {
-      accountId = withdrawnAccounts[0].id;
-    }
-    if (!userId) accountId = null;
-
-    const posnetAmounts: ClosingPosnetAmount[] = (raw.posnetAmounts as ClosingPosnetAmount[])
-      .filter((p) => !!String(p.name ?? '').trim() || this.n(p.amount) > 0)
-      .map((p) => ({
-        posnetId: p.posnetId || newId(),
-        name: String(p.name ?? '').trim() || POSNET_TYPE_LABEL[p.type] || 'Posnet',
-        type: p.type,
-        amount: this.n(p.amount),
-      }));
-
-    for (const t of raw.dniTransfers as Array<{ id: string; label: string; amount: number }>) {
-      if (!String(t.label ?? '').trim() && this.n(t.amount) <= 0) continue;
-      posnetAmounts.push({
-        posnetId: t.id || newId(),
-        name: String(t.label ?? '').trim() || 'Transferencia Cuenta DNI',
-        type: 'CUENTA_DNI',
-        amount: this.n(t.amount),
-      });
-    }
-
-    const body: Partial<CashClosing> & Record<string, unknown> = {
-      ...raw,
-      businessDate: toDateString(raw.businessDate as Date | string | null),
-      posSystemAmount: this.n(raw.posSystemAmount),
-      cardAmount: this.n(raw.cardAmount),
-      cashAmount: this.n(raw.cashAmount),
-      mercadoPagoAmount: this.n(raw.mercadoPagoAmount),
-      deliveryAppsAmount: this.n(raw.deliveryAppsAmount),
-      transferAmount: this.n(raw.transferAmount),
-      accountDniAmount: this.n(raw.accountDniAmount),
-      cashLeftInRegister: this.n(raw.cashLeftInRegister),
-      cashWithdrawn: this.n(raw.cashWithdrawn),
-      tipsAmount: this.n(raw.tipsAmount),
-      unitsSold: raw.unitsSold || null,
-      coversCount: raw.coversCount || null,
-      cashWithdrawnByUserId: userId,
-      cashWithdrawnByEmployeeId: null,
-      cashWithdrawnByName: selected?.fullName ?? null,
-      cashWithdrawnToAccountId: accountId,
-      cashPendingPickup: userId
-        ? 0
-        : (() => {
-            const explicit = this.n(raw.cashWithdrawn);
-            if (explicit > 0) return explicit;
-            const expensesTotal = (
-              raw.expenses as Array<{ label: string; amount: number }>
-            )
-              .filter((e) => !!e.label && this.n(e.amount) > 0)
-              .reduce((s, e) => s + this.n(e.amount), 0);
-            return Math.max(
-              0,
-              this.n(raw.cashAmount) - this.n(raw.cashLeftInRegister) - expensesTotal,
-            );
-          })(),
+    this.runSyncDerivedTotals();
+    const result = prepareClosingSaveBody({
+      formRaw: this.form.getRawValue() as ClosingFormRawValue,
+      users: this.users(),
       declaredTotal: this.declaredTotal(),
-      posnetAmounts: posnetAmounts.length ? posnetAmounts : [],
-      expenses: (raw.expenses as Array<{ label: string; amount: number; category?: string }>)
-        .filter((e) => !!e.label && this.n(e.amount) > 0)
-        .map((e) => ({
-          label: e.label,
-          amount: this.n(e.amount),
-          category: e.category,
-        })),
-      notes: String(raw.notes ?? '').trim() || null,
-      ...this.tipPayloadForClosing(),
-    };
-    if (body['__tipsInvalid']) return null;
-    delete body['__tipsInvalid'];
-    // dniTransfers es solo UI; no lo mandamos al API
-    delete (body as { dniTransfers?: unknown }).dniTransfers;
-    return { shopId, body };
+      shopId: this.shops.selectedShopId(),
+      tipsEnabled: this.tipsEnabled(),
+      tipDraft: this.tipDraft,
+    });
+    if (!result.ok) {
+      if (result.reason === 'no_shop') {
+        this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
+      } else if (result.reason === 'missing_account') {
+        this.snack.open('Seleccioná la cuenta destino del efectivo', 'OK', { duration: 3000 });
+      } else if (result.reason === 'tips_invalid') {
+        this.snack.open('El reparto de propinas debe sumar el total', 'OK', { duration: 3000 });
+      }
+      return null;
+    }
+    return { shopId: result.shopId, body: result.body };
   }
 
   /** Snapshot del formulario como CashClosing para armar el texto de compartir. */
-  private buildShareClosing(): CashClosing {
-    const raw = this.form.getRawValue();
-    this.syncDerivedTotals();
-    const userId = String(raw.cashWithdrawnByUserId ?? '');
-    const who =
-      this.users().find((u) => u.id === userId)?.fullName?.trim() || null;
-    const declared = this.declaredTotal();
-    const pos = this.posAmount();
-
-    const posnetAmounts: ClosingPosnetAmount[] = [
-      ...((raw.posnetAmounts as ClosingPosnetAmount[]) ?? []),
-      ...((raw.dniTransfers as Array<{ id: string; label: string; amount: number }>) ?? []).map(
-        (t) => ({
-          posnetId: t.id,
-          name: String(t.label ?? '').trim() || 'Transferencia Cuenta DNI',
-          type: 'CUENTA_DNI' as const,
-          amount: this.n(t.amount),
-        }),
-      ),
-    ].filter((p) => this.n(p.amount) > 0);
-
-    const expenses = (
-      (raw.expenses as Array<{ label: string; amount: number; category?: string }>) ?? []
-    )
-      .filter((e) => !!e.label && this.n(e.amount) > 0)
-      .map((e) => ({
-        label: e.label,
-        amount: this.n(e.amount),
-        category: e.category,
-      }));
-
-    return {
-      id: this.closingId ?? '',
-      shopId: this.shops.selectedShopId() ?? '',
-      businessDate: toDateString(raw.businessDate as Date | string | null),
-      status: this.status() ?? 'OPEN',
-      posSystemAmount: pos,
-      cardAmount: this.n(raw.cardAmount),
-      cashAmount: this.n(raw.cashAmount),
-      mercadoPagoAmount: this.n(raw.mercadoPagoAmount),
-      deliveryAppsAmount: this.n(raw.deliveryAppsAmount),
-      transferAmount: this.n(raw.transferAmount),
-      accountDniAmount: this.n(raw.accountDniAmount),
-      otherAmount: 0,
-      tipsAmount: this.n(raw.tipsAmount),
-      cashLeftInRegister: this.n(raw.cashLeftInRegister),
-      cashPendingPickup: 0,
-      cashWithdrawn: this.n(raw.cashWithdrawn),
-      cashWithdrawnByName: who,
-      unitsSold: raw.unitsSold || null,
-      coversCount: raw.coversCount || null,
-      declaredTotal: declared,
-      calculatedTotal: declared,
-      difference: declared - pos,
-      notes: String(raw.notes ?? '').trim() || null,
-      posnetAmounts,
-      expenses,
-    };
+  private shareClosingSnapshot(): CashClosing {
+    this.runSyncDerivedTotals();
+    return buildClosingShareSnapshot({
+      formRaw: this.form.getRawValue() as ClosingFormRawValue,
+      users: this.users(),
+      declaredTotal: this.declaredTotal(),
+      posSystemAmount: this.posAmount(),
+      shopId: this.shops.selectedShopId(),
+      closingId: this.closingId,
+      status: this.status(),
+    });
   }
 
   save(): void {
@@ -1112,7 +811,7 @@ export class ClosingsFormPage implements OnInit {
       this.snack.open('El cierre está bloqueado', 'OK', { duration: 2500 });
       return;
     }
-    const prepared = this.prepareSaveBody();
+    const prepared = this.tryPrepareSaveBody();
     if (!prepared) return;
 
     const { shopId, body } = prepared;
@@ -1148,7 +847,7 @@ export class ClosingsFormPage implements OnInit {
     const shopName = this.shop()?.name ?? 'Local';
     const share = closingSharePayload(
       {
-        ...this.buildShareClosing(),
+        ...this.shareClosingSnapshot(),
         ...body,
         cashWithdrawnByName: body.cashWithdrawnByName ?? null,
       } as CashClosing,
@@ -1258,7 +957,6 @@ export class ClosingsFormPage implements OnInit {
   }
 
   addExpense(): void {
-    this.panelExpenses.set(true);
     this.expenses.push(this.buildExpenseGroup({ label: '', amount: null, category: 'OTHER' }));
   }
 
