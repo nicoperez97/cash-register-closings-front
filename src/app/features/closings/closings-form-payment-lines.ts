@@ -37,6 +37,55 @@ export function buildDniTransferGroup(
   });
 }
 
+/** Clears and fills posnetAmounts / dniTransfers from shop config + saved rows. */
+export function populatePaymentLines(
+  fb: FormBuilder,
+  formArrays: { posnetAmounts: FormArray; dniTransfers: FormArray },
+  shopPosnets: Array<{ id: string; name: string; type: string }>,
+  saved?: ClosingPosnetAmount[] | null,
+): Set<string> {
+  const configured = shopPosnets ?? [];
+  const configuredPosnetIds = new Set(configured.map((p) => p.id));
+  formArrays.posnetAmounts.clear({ emitEvent: false });
+  formArrays.dniTransfers.clear({ emitEvent: false });
+
+  const byId = new Map((saved ?? []).map((p) => [p.posnetId, p]));
+  for (const posnet of configured) {
+    const prev = byId.get(posnet.id);
+    formArrays.posnetAmounts.push(
+      buildPosnetAmountGroup(
+        fb,
+        {
+          posnetId: posnet.id,
+          name: posnet.name,
+          type: posnet.type,
+          amount: prev?.amount ?? null,
+        },
+        { lockIdentity: true },
+      ),
+      { emitEvent: false },
+    );
+  }
+
+  for (const row of saved ?? []) {
+    if (configuredPosnetIds.has(row.posnetId)) continue;
+    if (row.type === 'CUENTA_DNI') {
+      formArrays.dniTransfers.push(
+        buildDniTransferGroup(fb, {
+          id: row.posnetId,
+          label: row.name,
+          amount: row.amount ?? 0,
+        }),
+        { emitEvent: false },
+      );
+      continue;
+    }
+    formArrays.posnetAmounts.push(buildPosnetAmountGroup(fb, row), { emitEvent: false });
+  }
+
+  return configuredPosnetIds;
+}
+
 export function syncDerivedTotals(
   form: FormGroup,
   posnetAmounts: FormArray,

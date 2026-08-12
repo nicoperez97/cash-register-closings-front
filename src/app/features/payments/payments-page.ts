@@ -51,21 +51,20 @@ import {
   buildPaymentsListFilterOpts,
   countActivePaymentFilters,
 } from './payments-list-query';
-import { shopFileSlug } from './payments-page-actions';
-
-type PaymentKind = 'supplier' | 'employee';
-type PaymentsViewMode = 'cards' | 'list';
-
-const PAYMENTS_VIEW_KEY = 'crc.payments.viewMode';
-
-function loadPaymentsViewMode(): PaymentsViewMode {
-  try {
-    const v = localStorage.getItem(PAYMENTS_VIEW_KEY);
-    return v === 'list' || v === 'cards' ? v : 'list';
-  } catch {
-    return 'list';
-  }
-}
+import {
+  buildPaymentDialogAccounts,
+  buildPaymentDialogUsers,
+  clearedFiltersForDeepLink,
+  downloadBlobFile,
+  filterActivePaymentAccounts,
+  loadPaymentsViewMode,
+  mapShopUsersForPayments,
+  paymentsExportFilename,
+  savePaymentsViewMode,
+  shouldRedirectPaymentKind,
+  type PaymentKind,
+  type PaymentsViewMode,
+} from './payments-page-actions';
 
 @Component({
   selector: 'app-payments-page',
@@ -487,11 +486,7 @@ export class PaymentsPage {
   onViewMode(value: PaymentsViewMode | null | undefined): void {
     const mode: PaymentsViewMode = value === 'list' ? 'list' : 'cards';
     this.viewMode.set(mode);
-    try {
-      localStorage.setItem(PAYMENTS_VIEW_KEY, mode);
-    } catch {
-      // ignore
-    }
+    savePaymentsViewMode(mode);
   }
 
   isSelected(id: string): boolean {
@@ -540,15 +535,7 @@ export class PaymentsPage {
 
   reloadMeta(shopId: string): void {
     this.closingsApi.shopUsers(shopId).subscribe({
-      next: (rows) =>
-        this.users.set(
-          rows.map((u) => ({
-            id: u.id,
-            fullName: u.fullName,
-            visibility: u.visibility,
-            hideFromCashWithdraw: u.hideFromCashWithdraw,
-          })),
-        ),
+      next: (rows) => this.users.set(mapShopUsersForPayments(rows)),
       error: () => this.users.set([]),
     });
     this.http
@@ -556,17 +543,7 @@ export class PaymentsPage {
         `${environment.apiUrl}/shops/${shopId}/accounts`,
       )
       .subscribe({
-        next: (rows) =>
-          this.accounts.set(
-            rows
-              .filter(
-                (a) =>
-                  a.active !== false &&
-                  a.type !== 'SUPPLIER' &&
-                  a.type !== 'SYSTEM',
-              )
-              .map((a) => ({ id: a.id, name: a.name })),
-          ),
+        next: (rows) => this.accounts.set(filterActivePaymentAccounts(rows)),
         error: () => this.accounts.set([]),
       });
     this.suppliersApi.list(shopId).subscribe({
@@ -646,11 +623,9 @@ export class PaymentsPage {
 
     this.api.get(shopId, focusId).subscribe({
       next: (p) => {
-        // Ajustar sección si el link apunta al otro tipo.
-        const wantsSupplier = !!p.supplierId;
-        if (wantsSupplier !== this.isSupplierKind()) {
-          const path = wantsSupplier ? '/payments/suppliers' : '/payments/employees';
-          void this.router.navigate([path], {
+        const redirectPath = shouldRedirectPaymentKind(p, this.isSupplierKind());
+        if (redirectPath) {
+          void this.router.navigate([redirectPath], {
             queryParams: { payment: p.id, shop: p.shopId },
             replaceUrl: true,
           });
@@ -658,16 +633,17 @@ export class PaymentsPage {
         }
 
         // Limpiar filtros que lo ocultan y volver a listar.
-        this.mineOnly.set(false);
-        this.validatorFilter.setValue([], { emitEvent: false });
-        this.payerFilter.setValue([], { emitEvent: false });
-        this.supplierFilter.setValue([], { emitEvent: false });
-        this.employeeFilter.setValue([], { emitEvent: false });
-        this.amountMinFilter.setValue(null, { emitEvent: false });
-        this.amountMaxFilter.setValue(null, { emitEvent: false });
-        this.dueRange.reset({ start: null, end: null }, { emitEvent: false });
-        this.paidRange.reset({ start: null, end: null }, { emitEvent: false });
-        this.statusFilter.setValue([p.status], { emitEvent: false });
+        const cleared = clearedFiltersForDeepLink(p);
+        this.mineOnly.set(cleared.mineOnly);
+        this.validatorFilter.setValue(cleared.validatorFilter, { emitEvent: false });
+        this.payerFilter.setValue(cleared.payerFilter, { emitEvent: false });
+        this.supplierFilter.setValue(cleared.supplierFilter, { emitEvent: false });
+        this.employeeFilter.setValue(cleared.employeeFilter, { emitEvent: false });
+        this.amountMinFilter.setValue(cleared.amountMin, { emitEvent: false });
+        this.amountMaxFilter.setValue(cleared.amountMax, { emitEvent: false });
+        this.dueRange.reset(cleared.dueRange, { emitEvent: false });
+        this.paidRange.reset(cleared.paidRange, { emitEvent: false });
+        this.statusFilter.setValue(cleared.statusFilter, { emitEvent: false });
         this.filtersCollapsed.set(false);
         this.deepLinkHandled = true;
         this.loading.set(true);
@@ -728,14 +704,11 @@ export class PaymentsPage {
     this.api.exportExcel(shopId, { ...opts, kind }).subscribe({
       next: (blob) => {
         this.exporting.set(false);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
         const stamp = new Date().toISOString().slice(0, 10);
-        const kindSlug = kind === 'supplier' ? 'proveedores' : 'empleados';
-        a.download = `pagos-${kindSlug}-${shopFileSlug(shop?.name ?? shop?.slug)}-${stamp}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlobFile(
+          blob,
+          paymentsExportFilename(kind, shop?.name ?? shop?.slug, stamp),
+        );
       },
       error: () => {
         this.exporting.set(false);
@@ -766,15 +739,7 @@ export class PaymentsPage {
       mode === 'create' && kind === 'employee'
         ? { supplierId: null as string | null }
         : undefined;
-    // Incluir la cuenta actual del pago aunque esté filtrada en el catálogo.
-    const accounts = [...this.accounts()];
-    if (
-      payment?.accountId &&
-      payment.accountName &&
-      !accounts.some((a) => a.id === payment.accountId)
-    ) {
-      accounts.unshift({ id: payment.accountId, name: payment.accountName });
-    }
+    const accounts = buildPaymentDialogAccounts(this.accounts(), payment);
     this.dialogTitle
       .track(
         this.dialog.open(PaymentDialogComponent, {
@@ -786,12 +751,7 @@ export class PaymentsPage {
             kind,
             shopId,
             shopName: shop.name,
-            users: this.users().filter(
-              (u) =>
-                isUserVisible(u, 'payments') ||
-                u.id === payment?.payerUserId ||
-                u.id === payment?.validatorUserId,
-            ),
+            users: buildPaymentDialogUsers(this.users(), payment),
             accounts,
             suppliers: this.suppliers(),
             employees: this.employees(),

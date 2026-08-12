@@ -35,10 +35,7 @@ import { CashBillCounterDialogComponent } from './cash-bill-counter-dialog';
 import { isUserVisible } from '../../shared/user-visibility';
 import { EmployeesApiService, Employee } from '../employees/employees-api.service';
 import { TipsApiService } from '../tips/tips-api.service';
-import {
-  TipsEditorState,
-  tipDayToEditorState,
-} from '../tips/tips-editor';
+import { TipsEditorState } from '../tips/tips-editor';
 import { ClosingFormHeaderComponent } from './closing-form-header';
 import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions';
 import { ClosingFormSummaryComponent } from './closing-form-summary';
@@ -50,8 +47,17 @@ import { ClosingFormRetiroStepComponent } from './closing-form-retiro-step';
 import {
   buildDniTransferGroup,
   buildPosnetAmountGroup,
+  populatePaymentLines,
   syncDerivedTotals,
 } from './closings-form-payment-lines';
+import {
+  applyTipDayToForm,
+  buildExpenseGroup,
+  defaultNewClosingPatch,
+  patchClosingFormValues,
+  resetClosingFormForNext,
+  resolveWithdrawnAccountId,
+} from './closings-form-load';
 import {
   buildClosingShareSnapshot,
   prepareClosingSaveBody,
@@ -461,43 +467,29 @@ export class ClosingsFormPage implements OnInit {
         if (c.status === 'LOCKED' && !this.auth.isAdmin()) {
           this.form.disable({ emitEvent: false });
         }
-        this.form.patchValue({
-          businessDate: toDateInput(c.businessDate),
-          posSystemAmount: this.emptyNum(c.posSystemAmount),
-          cardAmount: this.emptyNum(c.cardAmount),
-          cashAmount: this.emptyNum(c.cashAmount),
-          mercadoPagoAmount: this.emptyNum(c.mercadoPagoAmount),
-          deliveryAppsAmount: this.emptyNum(c.deliveryAppsAmount),
-          transferAmount: this.emptyNum(c.transferAmount),
-          accountDniAmount: this.emptyNum(c.accountDniAmount),
-          unitsSold: this.emptyNum(c.unitsSold),
-          coversCount: this.emptyNum(c.coversCount),
-          cashLeftInRegister: this.emptyNum(c.cashLeftInRegister),
-          cashWithdrawn: this.emptyNum(c.cashWithdrawn),
-          cashWithdrawnByUserId: c.cashWithdrawnByUserId ?? '',
-          cashWithdrawnToAccountId: c.cashWithdrawnToAccountId ?? '',
-          tipsAmount: this.emptyNum(c.tipsAmount),
-          notes: c.notes ?? '',
-        });
+        patchClosingFormValues(this.form, c, (v) => this.emptyNum(v), toDateInput);
         this.initPaymentLines(c.posnetAmounts);
         this.expenses.clear();
         for (const expense of c.expenses ?? []) {
           this.expenses.push(
-            this.buildExpenseGroup({
-              label: expense.label ?? '',
-              amount: expense.amount ?? 0,
-              category: expense.category ?? 'OTHER',
-            }),
+            buildExpenseGroup(
+              this.fb,
+              {
+                label: expense.label ?? '',
+                amount: expense.amount ?? 0,
+                category: expense.category ?? 'OTHER',
+              },
+              (v) => this.emptyNum(v),
+            ),
           );
         }
         this.loadTipDay(c.businessDate);
       });
     } else {
       const today = this.currentBusinessDate();
-      this.form.patchValue({
-        businessDate: toDateInput(today),
-        cashLeftInRegister: this.emptyNum(this.shop()?.defaultChangeAmount),
-      });
+      this.form.patchValue(
+        defaultNewClosingPatch(this.shop(), today, (v) => this.emptyNum(v), toDateInput),
+      );
       this.initPaymentLines();
       this.loadTipDay(today);
     }
@@ -530,30 +522,21 @@ export class ClosingsFormPage implements OnInit {
     }
     this.tipsApi.getByDate(shopId, businessDate).subscribe({
       next: (day) => {
-        const state = tipDayToEditorState(day);
-        if (!day.id && this.n(this.form.getRawValue().tipsAmount) > 0 && !state.cashAmount) {
-          state.cashAmount = this.n(this.form.getRawValue().tipsAmount);
-        }
+        const { state, tipsAmount } = applyTipDayToForm({
+          day,
+          currentTipsAmount: this.n(this.form.getRawValue().tipsAmount),
+        });
         this.tipEditorValue.set(state);
         this.tipDraft = state;
-        const total =
-          Math.round(
-            (state.cashAmount + state.transferAmount + state.ticketsAmount) * 100,
-          ) / 100;
-        if (total > 0) {
-          this.form.patchValue({ tipsAmount: total }, { emitEvent: false });
+        if (tipsAmount != null) {
+          this.form.patchValue({ tipsAmount }, { emitEvent: false });
         }
       },
       error: () => {
-        const tips = this.n(this.form.getRawValue().tipsAmount);
-        const state: TipsEditorState = {
-          cashAmount: tips,
-          receipts: [],
-          transferAmount: 0,
-          ticketsAmount: 0,
-          notes: '',
-          allocations: [],
-        };
+        const { state } = applyTipDayToForm({
+          error: true,
+          currentTipsAmount: this.n(this.form.getRawValue().tipsAmount),
+        });
         this.tipEditorValue.set(state);
         this.tipDraft = state;
       },
@@ -578,45 +561,12 @@ export class ClosingsFormPage implements OnInit {
   }
 
   private initPaymentLines(saved?: ClosingPosnetAmount[] | null): void {
-    const configured = this.shop()?.posnets ?? [];
-    this.configuredPosnetIds = new Set(configured.map((p) => p.id));
-    this.posnetAmounts.clear({ emitEvent: false });
-    this.dniTransfers.clear({ emitEvent: false });
-
-    const byId = new Map((saved ?? []).map((p) => [p.posnetId, p]));
-    for (const posnet of configured) {
-      const prev = byId.get(posnet.id);
-      this.posnetAmounts.push(
-        buildPosnetAmountGroup(
-          this.fb,
-          {
-            posnetId: posnet.id,
-            name: posnet.name,
-            type: posnet.type,
-            amount: prev?.amount ?? null,
-          },
-          { lockIdentity: true },
-        ),
-        { emitEvent: false },
-      );
-    }
-
-    for (const row of saved ?? []) {
-      if (this.configuredPosnetIds.has(row.posnetId)) continue;
-      if (row.type === 'CUENTA_DNI') {
-        this.dniTransfers.push(
-          buildDniTransferGroup(this.fb, {
-            id: row.posnetId,
-            label: row.name,
-            amount: row.amount ?? 0,
-          }),
-          { emitEvent: false },
-        );
-        continue;
-      }
-      this.posnetAmounts.push(buildPosnetAmountGroup(this.fb, row), { emitEvent: false });
-    }
-
+    this.configuredPosnetIds = populatePaymentLines(
+      this.fb,
+      { posnetAmounts: this.posnetAmounts, dniTransfers: this.dniTransfers },
+      this.shop()?.posnets ?? [],
+      saved,
+    );
     this.runSyncDerivedTotals();
   }
 
@@ -684,20 +634,9 @@ export class ClosingsFormPage implements OnInit {
   }
 
   onWithdrawnUserChange(userId: string): void {
-    const user = this.users().find((u) => u.id === userId);
-    const accounts = user?.ledgerAccounts ?? [];
-    if (accounts.length === 1) {
-      this.form.patchValue({ cashWithdrawnToAccountId: accounts[0].id }, { emitEvent: false });
-      return;
-    }
-    if (accounts.length === 0) {
-      this.form.patchValue({ cashWithdrawnToAccountId: '' }, { emitEvent: false });
-      return;
-    }
     const current = String(this.form.getRawValue().cashWithdrawnToAccountId ?? '');
-    if (!accounts.some((a) => a.id === current)) {
-      this.form.patchValue({ cashWithdrawnToAccountId: '' }, { emitEvent: false });
-    }
+    const accountId = resolveWithdrawnAccountId(this.users(), userId, current);
+    this.form.patchValue({ cashWithdrawnToAccountId: accountId }, { emitEvent: false });
   }
 
   async shareSummary(): Promise<void> {
@@ -924,40 +863,23 @@ export class ClosingsFormPage implements OnInit {
     const today = this.currentBusinessDate();
     this.expenses.clear();
     this.dniTransfers.clear();
-    this.form.reset({
-      businessDate: toDateInput(today),
-      posSystemAmount: null,
-      cardAmount: null,
-      cashAmount: null,
-      mercadoPagoAmount: null,
-      deliveryAppsAmount: null,
-      transferAmount: null,
-      accountDniAmount: null,
-      unitsSold: null,
-      coversCount: null,
-      cashLeftInRegister: this.emptyNum(this.shop()?.defaultChangeAmount),
-      cashWithdrawn: null,
-      cashWithdrawnByUserId: '',
-      cashWithdrawnToAccountId: '',
-      tipsAmount: null,
-      notes: '',
-      expenses: [],
-      posnetAmounts: [],
-      dniTransfers: [],
-    });
+    this.form.reset(
+      resetClosingFormForNext({
+        currentBusinessDate: today,
+        defaultChangeAmount: this.shop()?.defaultChangeAmount,
+        emptyNum: (v) => this.emptyNum(v),
+        toDateInput,
+      }),
+    );
     this.initPaymentLines();
   }
 
-  private buildExpenseGroup(value: { label: string; amount?: number | null; category: string }) {
-    return this.fb.group({
-      label: [value.label || ''],
-      amount: [this.emptyNum(value.amount)],
-      category: [value.category || 'OTHER'],
-    });
-  }
-
   addExpense(): void {
-    this.expenses.push(this.buildExpenseGroup({ label: '', amount: null, category: 'OTHER' }));
+    this.expenses.push(
+      buildExpenseGroup(this.fb, { label: '', amount: null, category: 'OTHER' }, (v) =>
+        this.emptyNum(v),
+      ),
+    );
   }
 
   removeExpense(index: number): void {
