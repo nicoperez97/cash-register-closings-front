@@ -10,7 +10,6 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -23,7 +22,6 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import {
   ReservationArea,
-  ReservationRequestRow,
   ReservationRow,
   ReservationsApiService,
   ReservationsDaySummary,
@@ -35,8 +33,12 @@ import {
   ReservationNoteDialogComponent,
   ReservationNoteDialogData,
 } from './reservation-note-dialog';
-
-type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
+import {
+  ReservationRequestsPanelComponent,
+  ReservationRequestAccepted,
+} from './reservation-requests-panel';
+import { ReservationDayNoticeComponent } from './reservation-day-notice';
+import { copyTextNow, igConfirmMessage } from './reservation-messaging.util';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -113,8 +115,9 @@ interface CalendarCell {
     MatDatepickerModule,
     MatTimepickerModule,
     MatTooltipModule,
-    MatSlideToggleModule,
     PageHeaderComponent,
+    ReservationRequestsPanelComponent,
+    ReservationDayNoticeComponent,
   ],
   template: `
     <app-page-header
@@ -126,168 +129,7 @@ interface CalendarCell {
     />
 
     @if (canManage()) {
-      <section class="panel-card req-panel" [class.req-panel--closed]="!signupOpen()">
-        <div class="req-panel__head">
-          <div class="req-panel__intro">
-            <h2 class="guy-section-title">Solicitudes web</h2>
-            <p class="text-muted small req-panel__lead">
-              @if (signupOpen()) {
-                @if (pendingRequests().length) {
-                  {{ pendingRequests().length }} para aceptar o rechazar · aviso por mail
-                } @else {
-                  Cuando alguien reserve desde el link, aparece acá
-                }
-              } @else {
-                Cerrado · ingreso por orden de llegada
-                @if (pendingRequests().length) {
-                  · {{ pendingRequests().length }} pendiente{{ pendingRequests().length === 1 ? '' : 's' }} por resolver
-                }
-              }
-            </p>
-          </div>
-          <div class="req-panel__tools">
-            <div class="req-panel__toggles">
-              <mat-slide-toggle
-                color="primary"
-                [checked]="signupOpen()"
-                [disabled]="signupBusy()"
-                (change)="toggleSignup($event.checked)"
-              >
-                {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
-              </mat-slide-toggle>
-              <div class="req-areas">
-                <mat-slide-toggle
-                  color="primary"
-                  [checked]="insideOpen()"
-                  [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
-                  (change)="toggleArea('INSIDE', $event.checked)"
-                >
-                  Adentro
-                </mat-slide-toggle>
-                <mat-slide-toggle
-                  color="primary"
-                  [checked]="outsideOpen()"
-                  [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
-                  (change)="toggleArea('OUTSIDE', $event.checked)"
-                >
-                  Afuera
-                </mat-slide-toggle>
-              </div>
-            </div>
-            <div class="req-panel__links">
-              @if (shopSlug()) {
-                <a
-                  class="floor-public-btn"
-                  [href]="signupUrl()"
-                  target="_blank"
-                  rel="noopener"
-                  matTooltip="Formulario público"
-                >
-                  <mat-icon>link</mat-icon>
-                  <span class="req-panel__btn-label">Formulario público</span>
-                </a>
-                <button
-                  type="button"
-                  class="floor-public-btn floor-public-btn--ghost"
-                  (click)="copySignupUrl()"
-                  matTooltip="Copiar link"
-                >
-                  <mat-icon>content_copy</mat-icon>
-                  <span class="req-panel__btn-label">Copiar link</span>
-                </button>
-              }
-              <button
-                type="button"
-                class="floor-public-btn floor-public-btn--ghost"
-                (click)="reloadRequests()"
-                [disabled]="requestsBusy()"
-                matTooltip="Recargar solicitudes"
-              >
-                <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
-                <span class="req-panel__btn-label">Recargar</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <ul class="req-list" [class.req-list--hidden]="!signupOpen() && !pendingRequests().length">
-          @for (req of pendingRequests(); track req.id) {
-            <li class="req-card">
-              <div class="req-card__main">
-                <strong>{{ req.guestName }}</strong>
-                <div class="req-card__chips">
-                  <span class="req-chip">
-                    {{ req.partySize }} {{ req.partySize === 1 ? 'persona' : 'personas' }}
-                  </span>
-                  <span class="req-chip" [class.req-chip--out]="req.area === 'OUTSIDE'">
-                    {{ req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
-                  </span>
-                  <span class="req-chip">{{ requestWhen(req) }}</span>
-                </div>
-                <span class="req-card__contact">
-                  <a [href]="'mailto:' + req.guestEmail">{{ req.guestEmail }}</a>
-                  @if (req.instagramHandle) {
-                    <span>·</span>
-                    <a
-                      [href]="req.instagramUrl || 'https://www.instagram.com/' + req.instagramHandle + '/'"
-                      target="_blank"
-                      rel="noopener"
-                    >@{{ req.instagramHandle }}</a>
-                  }
-                </span>
-                @if (req.guestComment) {
-                  <span class="req-card__comment">{{ req.guestComment }}</span>
-                }
-              </div>
-              <div class="req-card__actions">
-                @if (req.instagramHandle) {
-                  <button
-                    type="button"
-                    class="req-ig"
-                    matTooltip="Copiar mensaje y abrir perfil"
-                    (click)="openGuestInstagram(req, true)"
-                  >
-                    <mat-icon>photo_camera</mat-icon>
-                    IG
-                  </button>
-                }
-                <button
-                  type="button"
-                  class="req-btn req-btn--no"
-                  [disabled]="busyRequestId() === req.id"
-                  (click)="rejectRequest(req)"
-                >
-                  Rechazar
-                </button>
-                <button
-                  type="button"
-                  class="req-btn req-btn--yes"
-                  [disabled]="busyRequestId() === req.id"
-                  (click)="acceptRequest(req)"
-                >
-                  Aceptar
-                </button>
-                @if (req.instagramHandle) {
-                  <button
-                    type="button"
-                    class="req-btn req-btn--yes-ig"
-                    [disabled]="busyRequestId() === req.id"
-                    matTooltip="Aceptar, copiar mensaje y abrir Instagram"
-                    (click)="acceptRequest(req, true)"
-                  >
-                    <mat-icon>photo_camera</mat-icon>
-                    Aceptar e IG
-                  </button>
-                }
-              </div>
-            </li>
-          } @empty {
-            @if (signupOpen()) {
-              <li class="floor-empty">Sin solicitudes pendientes</li>
-            }
-          }
-        </ul>
-      </section>
+      <app-reservation-requests-panel (accepted)="onRequestAccepted($event)" />
     }
 
     <section class="panel-card floor-panel" #floorPanel>
@@ -466,66 +308,14 @@ interface CalendarCell {
         </form>
       }
 
-      <div class="floor-notice">
-        <div class="floor-notice__head">
-          <mat-icon>campaign</mat-icon>
-          <div>
-            <strong>Aviso del día</strong>
-            <span class="text-muted small">Se muestra en la pantalla pública</span>
-          </div>
-        </div>
-        @if (canManage()) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-notice__field">
-            <mat-label>Mensaje para la web pública</mat-label>
-            <textarea
-              matInput
-              rows="2"
-              [ngModel]="noticeDraft()"
-              (ngModelChange)="noticeDraft.set($event)"
-              maxlength="2000"
-              placeholder="Ej: Hoy solo menú del día · Terraza cerrada por lluvia"
-            ></textarea>
-          </mat-form-field>
-          <div class="floor-notice__actions">
-            <button
-              mat-stroked-button
-              type="button"
-              [disabled]="savingNotice() || !noticeDirty()"
-              (click)="saveNotice()"
-            >
-              <mat-icon>save</mat-icon>
-              {{ noticeDraft().trim() ? 'Guardar aviso' : 'Quitar aviso' }}
-            </button>
-            @if (savedNotice()) {
-              <button mat-button type="button" [disabled]="savingNotice()" (click)="clearNotice()">
-                Limpiar
-              </button>
-            }
-          </div>
-          <div class="floor-day-settings">
-            <div class="floor-day-settings__row">
-              <span class="floor-day-settings__label">Formulario web</span>
-              <mat-button-toggle-group
-                class="floor-form-mode-toggle"
-                hideSingleSelectionIndicator
-                [value]="dayFormMode()"
-                [disabled]="savingDaySettings()"
-                (change)="onDayFormMode($event.value)"
-                aria-label="Configuración del formulario web para este día"
-              >
-                <mat-button-toggle value="normal">Normal</mat-button-toggle>
-                <mat-button-toggle value="closed">Cerrar</mat-button-toggle>
-                <mat-button-toggle value="no-inside">Sin adentro</mat-button-toggle>
-                <mat-button-toggle value="no-outside">Sin afuera</mat-button-toggle>
-              </mat-button-toggle-group>
-            </div>
-          </div>
-        } @else if (savedNotice()) {
-          <p class="floor-notice__preview">{{ savedNotice() }}</p>
-        } @else {
-          <p class="floor-notice__empty text-muted small">Sin aviso para este día</p>
-        }
-      </div>
+      <app-reservation-day-notice
+        [businessDate]="businessDate()"
+        [canManage]="canManage()"
+        [notice]="savedNotice()"
+        [daySettings]="savedDaySettings()"
+        (noticeUpdated)="savedNotice.set($event)"
+        (daySettingsUpdated)="savedDaySettings.set($event)"
+      />
 
       <div class="floor-stats">
         <div class="floor-stat">
@@ -624,7 +414,7 @@ interface CalendarCell {
       </ul>
     </section>
   `,
-  
+  styleUrl: './reservations-page.scss',
 })
 export class ReservationsPage implements OnInit, OnDestroy {
   private readonly api = inject(ReservationsApiService);
@@ -644,25 +434,8 @@ export class ReservationsPage implements OnInit, OnDestroy {
   readonly showCalendar = signal(false);
   readonly calendarMonth = signal(monthKeyFromIso(this.defaultDate()));
   readonly todayIso = signal(this.defaultDate());
-  readonly noticeDraft = signal('');
   readonly savedNotice = signal<string | null>(null);
-  readonly savingNotice = signal(false);
   readonly savedDaySettings = signal<ReservationDaySettings | null>(null);
-  readonly daySignupOverride = signal<boolean | null>(null);
-  readonly dayInsideOverride = signal<boolean | null>(null);
-  readonly dayOutsideOverride = signal<boolean | null>(null);
-  readonly savingDaySettings = signal(false);
-
-  readonly dayFormMode = computed((): DayFormMode => {
-    if (this.daySignupOverride() === false) return 'closed';
-    if (this.dayInsideOverride() === false) return 'no-inside';
-    if (this.dayOutsideOverride() === false) return 'no-outside';
-    return 'normal';
-  });
-
-  readonly noticeDirty = computed(
-    () => this.noticeDraft().trim() !== (this.savedNotice() ?? '').trim(),
-  );
 
   readonly selectedDay = computed(() => toDateInput(this.businessDate()));
 
@@ -678,23 +451,9 @@ export class ReservationsPage implements OnInit, OnDestroy {
   });
 
   readonly shopSlug = computed(() => this.shops.selectedShop()?.slug ?? '');
-  readonly pendingRequests = signal<ReservationRequestRow[]>([]);
-  readonly busyRequestId = signal<string | null>(null);
-  readonly signupBusy = signal(false);
-  readonly requestsBusy = signal(false);
   readonly highlightedReservationId = signal<string | null>(null);
-  private requestsPoll: ReturnType<typeof setInterval> | null = null;
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly floorPanel = viewChild<ElementRef<HTMLElement>>('floorPanel');
-  readonly signupOpen = computed(
-    () => this.shops.selectedShop()?.reservationSignupEnabled !== false,
-  );
-  readonly insideOpen = computed(
-    () => this.shops.selectedShop()?.reservationInsideEnabled !== false,
-  );
-  readonly outsideOpen = computed(
-    () => this.shops.selectedShop()?.reservationOutsideEnabled !== false,
-  );
 
   readonly dateLabel = computed(() => formatIsoDateDisplay(this.businessDate()));
 
@@ -792,7 +551,6 @@ export class ReservationsPage implements OnInit, OnDestroy {
     usePageRefresh(() => {
       this.loadReservations();
       this.loadSummary();
-      this.loadRequests();
       this.inbox.refresh();
     });
   }
@@ -808,19 +566,25 @@ export class ReservationsPage implements OnInit, OnDestroy {
     this.calendarMonth.set(monthKeyFromIso(today));
     this.loadReservations();
     this.loadSummary();
-    this.loadRequests();
-    this.requestsPoll = setInterval(() => this.loadRequests(), 45_000);
   }
 
   ngOnDestroy(): void {
-    if (this.requestsPoll) {
-      clearInterval(this.requestsPoll);
-      this.requestsPoll = null;
-    }
     if (this.highlightTimer) {
       clearTimeout(this.highlightTimer);
       this.highlightTimer = null;
     }
+  }
+
+  onRequestAccepted(event: ReservationRequestAccepted): void {
+    const day = event.businessDate;
+    if (day && day !== this.businessDate()) {
+      this.businessDate.set(day);
+      this.calendarMonth.set(monthKeyFromIso(day));
+    }
+    this.highlightReservation(event.reservationId);
+    this.loadReservations();
+    this.loadSummary();
+    this.scrollToDayReservations();
   }
 
   private defaultDate(): string {
@@ -835,85 +599,6 @@ export class ReservationsPage implements OnInit, OnDestroy {
     return `${window.location.origin}/r/${encodeURIComponent(slug)}`;
   }
 
-  signupUrl(): string {
-    const slug = this.shopSlug();
-    return `${window.location.origin}/reservar/${encodeURIComponent(slug)}`;
-  }
-
-  async copySignupUrl(): Promise<void> {
-    await this.copyText(this.signupUrl(), 'Link del formulario copiado');
-  }
-
-  toggleArea(area: ReservationArea, enabled: boolean): void {
-    const shop = this.shops.selectedShop();
-    const shopId = this.shops.selectedShopId();
-    if (!shop || !shopId || this.signupBusy()) return;
-    const inside = area === 'INSIDE' ? enabled : this.insideOpen();
-    const outside = area === 'OUTSIDE' ? enabled : this.outsideOpen();
-    if (!inside && !outside) {
-      this.snack.open('Dejá al menos un sector habilitado', 'OK', { duration: 2800 });
-      return;
-    }
-    this.signupBusy.set(true);
-    this.api.setReservationAreasEnabled(shopId, { inside, outside }).subscribe({
-      next: (res) => {
-        this.signupBusy.set(false);
-        this.shops.upsertShop({
-          ...shop,
-          reservationInsideEnabled: res.reservationInsideEnabled,
-          reservationOutsideEnabled: res.reservationOutsideEnabled,
-        });
-        this.auth.scheduleRefreshMe(200);
-        this.snack.open(
-          area === 'OUTSIDE'
-            ? res.reservationOutsideEnabled
-              ? 'Sector afuera habilitado'
-              : 'Sector afuera deshabilitado'
-            : res.reservationInsideEnabled
-              ? 'Sector adentro habilitado'
-              : 'Sector adentro deshabilitado',
-          'OK',
-          { duration: 2200 },
-        );
-      },
-      error: (err) => {
-        this.signupBusy.set(false);
-        const msg =
-          (err?.error?.message as string | string[] | undefined) ??
-          'No se pudo cambiar el sector';
-        this.snack.open(Array.isArray(msg) ? msg[0] : String(msg), 'OK', { duration: 3000 });
-      },
-    });
-  }
-
-  toggleSignup(enabled: boolean): void {
-    const shop = this.shops.selectedShop();
-    const shopId = this.shops.selectedShopId();
-    if (!shop || !shopId || this.signupBusy()) return;
-    this.signupBusy.set(true);
-    this.api.setReservationSignupEnabled(shopId, enabled).subscribe({
-      next: (res) => {
-        this.signupBusy.set(false);
-        this.shops.upsertShop({
-          ...shop,
-          reservationSignupEnabled: res.reservationSignupEnabled,
-        });
-        this.auth.scheduleRefreshMe(200);
-        this.snack.open(
-          res.reservationSignupEnabled
-            ? 'Formulario público abierto'
-            : 'Formulario público cerrado',
-          'OK',
-          { duration: 2200 },
-        );
-      },
-      error: () => {
-        this.signupBusy.set(false);
-        this.snack.open('No se pudo cambiar el formulario', 'OK', { duration: 3000 });
-      },
-    });
-  }
-
   instagramFromNotes(notes?: string | null): { handle: string; url: string; dmUrl: string } | null {
     const m = String(notes ?? '').match(/(?:^|[\s·])@([A-Za-z0-9._]{1,30})\b/);
     const handle = m?.[1]?.replace(/\.+$/, '');
@@ -925,99 +610,8 @@ export class ReservationsPage implements OnInit, OnDestroy {
     };
   }
 
-  requestWhen(req: ReservationRequestRow): string {
-    const iso = req.businessDate?.slice(0, 10) ?? '';
-    const [y, m, d] = iso.split('-');
-    const label = d && m ? `${d}/${m}${y ? `/${y}` : ''}` : iso;
-    return req.reservationTime ? `${label} · ${req.reservationTime}` : label;
-  }
-
-  acceptRequest(req: ReservationRequestRow, openIg = false): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    if (openIg) {
-      this.openGuestInstagram(req, true, { snack: false });
-    }
-    this.busyRequestId.set(req.id);
-    this.api.acceptReservationRequest(shopId, req.id).subscribe({
-      next: (row) => {
-        this.busyRequestId.set(null);
-        this.snack.open(
-          openIg
-            ? 'Reserva aceptada. Pegá el mensaje en Instagram.'
-            : 'Reserva aceptada. Ya está en reservas del día.',
-          'OK',
-          { duration: 3200 },
-        );
-        const day = String(row.businessDate || req.businessDate || '').slice(0, 10);
-        if (day && day !== this.businessDate()) {
-          this.businessDate.set(day);
-          this.calendarMonth.set(monthKeyFromIso(day));
-        }
-        this.highlightReservation(row.reservationId ?? null);
-        this.loadRequests();
-        this.loadReservations();
-        this.loadSummary();
-        this.inbox.refresh();
-        this.scrollToDayReservations();
-      },
-      error: () => {
-        this.busyRequestId.set(null);
-        this.snack.open('No se pudo aceptar', 'OK', { duration: 3000 });
-      },
-    });
-  }
-
-  rejectRequest(req: ReservationRequestRow): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.busyRequestId.set(req.id);
-    this.api.rejectReservationRequest(shopId, req.id).subscribe({
-      next: () => {
-        this.busyRequestId.set(null);
-        this.snack.open('Solicitud rechazada. Se avisó por mail.', 'OK', { duration: 2800 });
-        this.loadRequests();
-        this.inbox.refresh();
-      },
-      error: () => {
-        this.busyRequestId.set(null);
-        this.snack.open('No se pudo rechazar', 'OK', { duration: 3000 });
-      },
-    });
-  }
-
-  openGuestInstagram(
-    req: ReservationRequestRow,
-    accepted = true,
-    opts?: { snack?: boolean },
-  ): void {
-    if (!req.instagramHandle) return;
-    const text = this.igConfirmMessage({
-      guestName: req.guestName,
-      partySize: req.partySize,
-      when: this.requestWhen(req),
-      area: req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro',
-      accepted,
-    });
-    const copied = this.copyTextNow(text);
-    window.open(
-      req.instagramUrl || `https://www.instagram.com/${req.instagramHandle}/`,
-      '_blank',
-      'noopener',
-    );
-    if (opts?.snack !== false) {
-      this.snack.open(
-        copied
-          ? 'Mensaje copiado: pegalo en el chat de Instagram'
-          : 'No se pudo copiar. Copiá el mensaje a mano',
-        'OK',
-        { duration: 2800 },
-      );
-    }
-  }
-
   copyReservationMessage(r: ReservationRow): void {
-    const copied = this.copyTextNow(this.reservationConfirmText(r));
+    const copied = copyTextNow(this.reservationConfirmText(r));
     this.snack.open(
       copied ? 'Mensaje copiado' : 'No se pudo copiar. Intentá de nuevo',
       'OK',
@@ -1028,7 +622,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
   openReservationInstagram(r: ReservationRow): void {
     const ig = this.instagramFromNotes(r.notes);
     if (!ig) return;
-    this.copyTextNow(this.reservationConfirmText(r));
+    copyTextNow(this.reservationConfirmText(r));
     window.open(ig.dmUrl, '_blank', 'noopener');
   }
 
@@ -1037,34 +631,17 @@ export class ReservationsPage implements OnInit, OnDestroy {
     const [y, m, d] = iso.split('-');
     const label = d && m ? `${d}/${m}${y ? `/${y}` : ''}` : iso;
     const when = r.reservationTime ? `${label} · ${r.reservationTime}` : label;
-    return this.igConfirmMessage({
-      guestName: r.guestName || 'Reserva',
-      partySize: r.partySize,
-      when,
-      area: r.area === 'OUTSIDE' ? 'Afuera' : 'Adentro',
-      accepted: true,
-    });
-  }
-
-  private igConfirmMessage(opts: {
-    guestName: string;
-    partySize: number;
-    when: string;
-    area: string;
-    accepted: boolean;
-  }): string {
     const shop = this.shops.selectedShop()?.name ?? 'el local';
-    const first = opts.guestName.split(' ')[0] || '';
-    const pers = opts.partySize === 1 ? 'persona' : 'personas';
-    if (!opts.accepted) {
-      return `Hola ${first}! Esta vez no pudimos confirmar tu reserva en ${shop} (${opts.when}). Gracias por escribirnos.`;
-    }
-    return `Hola ${first}! Te confirmamos la reserva en ${shop} (${opts.partySize} ${pers} · ${opts.area} · ${opts.when}). ¡Te esperamos!`;
-  }
-
-  reloadRequests(): void {
-    this.loadRequests();
-    this.inbox.refresh();
+    return igConfirmMessage(
+      {
+        guestName: r.guestName || 'Reserva',
+        partySize: r.partySize,
+        when,
+        area: r.area === 'OUTSIDE' ? 'Afuera' : 'Adentro',
+        accepted: true,
+      },
+      shop,
+    );
   }
 
   private highlightReservation(id: string | null): void {
@@ -1084,55 +661,6 @@ export class ReservationsPage implements OnInit, OnDestroy {
     const el = this.floorPanel()?.nativeElement;
     if (!el) return;
     queueMicrotask(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }
-
-  private loadRequests(): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) {
-      this.pendingRequests.set([]);
-      return;
-    }
-    this.requestsBusy.set(true);
-    this.api.listReservationRequests(shopId, 'PENDING').subscribe({
-      next: (rows) => {
-        this.requestsBusy.set(false);
-        this.pendingRequests.set(rows ?? []);
-      },
-      error: () => {
-        this.requestsBusy.set(false);
-        this.pendingRequests.set([]);
-      },
-    });
-  }
-
-  /** Copia síncrona en el clic; hay que hacerlo antes de window.open o el navegador lo bloquea. */
-  private copyTextNow(text: string): boolean {
-    const el = document.createElement('textarea');
-    el.value = text;
-    el.setAttribute('readonly', '');
-    el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
-    document.body.appendChild(el);
-    el.focus();
-    el.select();
-    el.setSelectionRange(0, text.length);
-    let ok = false;
-    try {
-      ok = document.execCommand('copy');
-    } catch {
-      ok = false;
-    }
-    el.remove();
-    if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(text).catch(() => undefined);
-    }
-    return ok;
-  }
-
-  private async copyText(text: string, okMsg: string, showSnack = true): Promise<void> {
-    const copied = this.copyTextNow(text);
-    if (showSnack) {
-      this.snack.open(copied ? okMsg : 'No se pudo copiar', 'OK', { duration: 2200 });
-    }
   }
 
   async copyPublicUrl(): Promise<void> {
@@ -1264,120 +792,10 @@ export class ReservationsPage implements OnInit, OnDestroy {
         this.reservations.set(res.reservations ?? []);
         const notice = String(res.notice ?? '').trim() || null;
         this.savedNotice.set(notice);
-        this.noticeDraft.set(notice ?? '');
-        this.applyDaySettings(res.daySettings ?? null);
+        this.savedDaySettings.set(res.daySettings ?? null);
       },
       error: () => this.snack.open('No se pudieron cargar las reservas', 'OK', { duration: 3000 }),
     });
-  }
-
-  saveNotice(): void {
-    if (!this.canManage() || this.savingNotice()) return;
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    const message = this.noticeDraft().trim();
-    this.savingNotice.set(true);
-    this.api
-      .upsertDayNotice(shopId, {
-        businessDate: this.businessDate(),
-        message,
-      })
-      .subscribe({
-        next: (res) => {
-          this.savingNotice.set(false);
-          const notice = String(res.notice ?? '').trim() || null;
-          this.savedNotice.set(notice);
-          this.noticeDraft.set(notice ?? '');
-          this.snack.open(notice ? 'Aviso guardado' : 'Aviso quitado', 'OK', {
-            duration: 2200,
-          });
-        },
-        error: (err) => {
-          this.savingNotice.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar el aviso';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-        },
-      });
-  }
-
-  clearNotice(): void {
-    this.noticeDraft.set('');
-    this.saveNotice();
-  }
-
-  onDayFormMode(value: string | null | undefined): void {
-    const mode = this.parseDayFormMode(value);
-    if (!mode || mode === this.dayFormMode()) return;
-    switch (mode) {
-      case 'normal':
-        this.daySignupOverride.set(null);
-        this.dayInsideOverride.set(null);
-        this.dayOutsideOverride.set(null);
-        break;
-      case 'closed':
-        this.daySignupOverride.set(false);
-        this.dayInsideOverride.set(null);
-        this.dayOutsideOverride.set(null);
-        break;
-      case 'no-inside':
-        this.daySignupOverride.set(null);
-        this.dayInsideOverride.set(false);
-        this.dayOutsideOverride.set(null);
-        break;
-      case 'no-outside':
-        this.daySignupOverride.set(null);
-        this.dayInsideOverride.set(null);
-        this.dayOutsideOverride.set(false);
-        break;
-    }
-    this.saveDaySettings(true);
-  }
-
-  private parseDayFormMode(value: string | null | undefined): DayFormMode | null {
-    if (
-      value === 'normal' ||
-      value === 'closed' ||
-      value === 'no-inside' ||
-      value === 'no-outside'
-    ) {
-      return value;
-    }
-    return null;
-  }
-
-  saveDaySettings(silent = false): void {
-    if (!this.canManage() || this.savingDaySettings()) return;
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.savingDaySettings.set(true);
-    this.api
-      .upsertDayNotice(shopId, {
-        businessDate: this.businessDate(),
-        signupEnabled: this.daySignupOverride(),
-        insideEnabled: this.dayInsideOverride(),
-        outsideEnabled: this.dayOutsideOverride(),
-      })
-      .subscribe({
-        next: (res) => {
-          this.savingDaySettings.set(false);
-          this.applyDaySettings(res.daySettings ?? null);
-          if (!silent) {
-            this.snack.open('Formulario del día guardado', 'OK', { duration: 2200 });
-          }
-        },
-        error: (err) => {
-          this.savingDaySettings.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar el formulario';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-        },
-      });
-  }
-
-  private applyDaySettings(settings: ReservationDaySettings | null): void {
-    this.savedDaySettings.set(settings);
-    this.daySignupOverride.set(settings?.signupEnabled ?? null);
-    this.dayInsideOverride.set(settings?.insideEnabled ?? null);
-    this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
   }
 
   saveReservation(): void {
