@@ -28,6 +28,7 @@ import {
   ReservationRow,
   ReservationsApiService,
   ReservationsDaySummary,
+  ReservationDaySettings,
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { isActiveReservationStatus } from './reservation-status';
@@ -590,6 +591,54 @@ interface CalendarCell {
                 Limpiar
               </button>
             }
+          </div>
+          <div class="floor-day-settings">
+            <div class="floor-day-settings__head">
+              <strong>Formulario web ({{ dateLabel() }})</strong>
+              <span class="text-muted small">Solo para este día; desactivado hereda la config del local</span>
+            </div>
+            <mat-slide-toggle
+              [checked]="dayWebOpen()"
+              (change)="onDayWebToggle($event.checked)"
+              [disabled]="savingDaySettings()"
+            >
+              Reservas web abiertas
+            </mat-slide-toggle>
+            <mat-slide-toggle
+              [checked]="dayInsideOpen()"
+              (change)="onDayInsideToggle($event.checked)"
+              [disabled]="savingDaySettings() || dayWebClosedOverride()"
+            >
+              Adentro disponible
+            </mat-slide-toggle>
+            <mat-slide-toggle
+              [checked]="dayOutsideOpen()"
+              (change)="onDayOutsideToggle($event.checked)"
+              [disabled]="savingDaySettings() || dayWebClosedOverride()"
+            >
+              Afuera disponible
+            </mat-slide-toggle>
+            <div class="floor-day-settings__actions">
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="savingDaySettings() || !daySettingsDirty()"
+                (click)="saveDaySettings()"
+              >
+                <mat-icon>save</mat-icon>
+                Guardar formulario
+              </button>
+              @if (hasDaySettingsOverride()) {
+                <button
+                  mat-button
+                  type="button"
+                  [disabled]="savingDaySettings()"
+                  (click)="resetDaySettings()"
+                >
+                  Usar config del local
+                </button>
+              }
+            </div>
           </div>
         } @else if (savedNotice()) {
           <p class="floor-notice__preview">{{ savedNotice() }}</p>
@@ -1562,6 +1611,32 @@ interface CalendarCell {
         margin: 0;
       }
 
+      .floor-day-settings {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        margin-top: 0.85rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+      }
+
+      .floor-day-settings__head strong {
+        display: block;
+        font-size: 0.92rem;
+      }
+
+      .floor-day-settings__head span {
+        display: block;
+        font-size: 0.78rem;
+      }
+
+      .floor-day-settings__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.15rem;
+      }
+
       .floor-stat {
         display: flex;
         flex-direction: column;
@@ -1714,10 +1789,35 @@ export class ReservationsPage implements OnInit, OnDestroy {
   readonly noticeDraft = signal('');
   readonly savedNotice = signal<string | null>(null);
   readonly savingNotice = signal(false);
+  readonly savedDaySettings = signal<ReservationDaySettings | null>(null);
+  readonly daySignupOverride = signal<boolean | null>(null);
+  readonly dayInsideOverride = signal<boolean | null>(null);
+  readonly dayOutsideOverride = signal<boolean | null>(null);
+  readonly savingDaySettings = signal(false);
 
   readonly noticeDirty = computed(
     () => this.noticeDraft().trim() !== (this.savedNotice() ?? '').trim(),
   );
+  readonly daySettingsDirty = computed(() => {
+    const saved = this.savedDaySettings();
+    const eq = (a: boolean | null | undefined, b: boolean | null) =>
+      (a ?? null) === (b ?? null);
+    return (
+      !eq(saved?.signupEnabled, this.daySignupOverride()) ||
+      !eq(saved?.insideEnabled, this.dayInsideOverride()) ||
+      !eq(saved?.outsideEnabled, this.dayOutsideOverride())
+    );
+  });
+  readonly hasDaySettingsOverride = computed(
+    () =>
+      this.daySignupOverride() !== null ||
+      this.dayInsideOverride() !== null ||
+      this.dayOutsideOverride() !== null,
+  );
+  readonly dayWebClosedOverride = computed(() => this.daySignupOverride() === false);
+  readonly dayWebOpen = computed(() => this.daySignupOverride() !== false);
+  readonly dayInsideOpen = computed(() => this.dayInsideOverride() !== false);
+  readonly dayOutsideOpen = computed(() => this.dayOutsideOverride() !== false);
 
   readonly selectedDay = computed(() => toDateInput(this.businessDate()));
 
@@ -2320,6 +2420,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
         const notice = String(res.notice ?? '').trim() || null;
         this.savedNotice.set(notice);
         this.noticeDraft.set(notice ?? '');
+        this.applyDaySettings(res.daySettings ?? null);
       },
       error: () => this.snack.open('No se pudieron cargar las reservas', 'OK', { duration: 3000 }),
     });
@@ -2357,6 +2458,58 @@ export class ReservationsPage implements OnInit, OnDestroy {
   clearNotice(): void {
     this.noticeDraft.set('');
     this.saveNotice();
+  }
+
+  onDayWebToggle(open: boolean): void {
+    this.daySignupOverride.set(open ? null : false);
+  }
+
+  onDayInsideToggle(open: boolean): void {
+    this.dayInsideOverride.set(open ? null : false);
+  }
+
+  onDayOutsideToggle(open: boolean): void {
+    this.dayOutsideOverride.set(open ? null : false);
+  }
+
+  saveDaySettings(): void {
+    if (!this.canManage() || this.savingDaySettings()) return;
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.savingDaySettings.set(true);
+    this.api
+      .upsertDayNotice(shopId, {
+        businessDate: this.businessDate(),
+        signupEnabled: this.daySignupOverride(),
+        insideEnabled: this.dayInsideOverride(),
+        outsideEnabled: this.dayOutsideOverride(),
+      })
+      .subscribe({
+        next: (res) => {
+          this.savingDaySettings.set(false);
+          this.applyDaySettings(res.daySettings ?? null);
+          this.snack.open('Formulario del día guardado', 'OK', { duration: 2200 });
+        },
+        error: (err) => {
+          this.savingDaySettings.set(false);
+          const msg = err?.error?.message ?? 'No se pudo guardar el formulario';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  resetDaySettings(): void {
+    this.daySignupOverride.set(null);
+    this.dayInsideOverride.set(null);
+    this.dayOutsideOverride.set(null);
+    this.saveDaySettings();
+  }
+
+  private applyDaySettings(settings: ReservationDaySettings | null): void {
+    this.savedDaySettings.set(settings);
+    this.daySignupOverride.set(settings?.signupEnabled ?? null);
+    this.dayInsideOverride.set(settings?.insideEnabled ?? null);
+    this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
   }
 
   saveReservation(): void {
