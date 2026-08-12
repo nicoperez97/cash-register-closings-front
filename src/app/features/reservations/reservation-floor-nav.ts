@@ -72,27 +72,15 @@ import {
     </div>
 
     <div class="floor-week" aria-label="Días de la semana">
-      <div class="floor-week__nav">
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Semana anterior"
-          (click)="shiftWeek.emit(-1)"
-        >
-          <mat-icon>chevron_left</mat-icon>
-        </button>
-        <button mat-stroked-button type="button" class="floor-week__today" (click)="goToday.emit()">
-          Hoy
-        </button>
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Semana siguiente"
-          (click)="shiftWeek.emit(1)"
-        >
-          <mat-icon>chevron_right</mat-icon>
-        </button>
-      </div>
+      <button
+        mat-icon-button
+        type="button"
+        class="floor-week__shift floor-week__shift--prev"
+        aria-label="Semana anterior"
+        (click)="shiftWeek.emit(-1)"
+      >
+        <mat-icon>chevron_left</mat-icon>
+      </button>
       <div class="floor-week__days">
         @for (d of weekDays(); track d.iso) {
           <button
@@ -113,6 +101,18 @@ import {
           </button>
         }
       </div>
+      <button
+        mat-icon-button
+        type="button"
+        class="floor-week__shift floor-week__shift--next"
+        aria-label="Semana siguiente"
+        (click)="shiftWeek.emit(1)"
+      >
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button mat-stroked-button type="button" class="floor-week__today" (click)="goToday.emit()">
+        Hoy
+      </button>
     </div>
 
     @if (showCalendar()) {
