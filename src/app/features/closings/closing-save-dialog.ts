@@ -227,13 +227,13 @@ export class ClosingSaveDialogComponent {
       `Efectivo: ${this.data.cash}`,
       `Cuenta DNI: ${this.data.accountDni}`,
       `Caja sistema: ${this.data.posSystem}`,
-      `Total: ${this.data.total}`,
     ];
     appendClosingUnitsAndCarrier(fallbackLines, {
       unitsLabel: this.data.unitsLabel,
       unitsSold: this.data.unitsSold,
       cashWithdrawnByName: this.data.cashWithdrawnByName,
     });
+    fallbackLines.push(`Total: ${this.data.total}`);
 
     this.sharing.set(true);
     const result = await shareText({

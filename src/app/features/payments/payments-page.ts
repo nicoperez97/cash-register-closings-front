@@ -4,6 +4,7 @@ import { FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -46,6 +47,7 @@ import {
   paymentDeepLink,
   paymentPaidDialogData,
   paymentSharePayload,
+  paymentsSharePayload,
 } from '../../shared/components/record-share-builders';
 import { copyText, shareText } from '../../shared/utils/share-text';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
@@ -104,6 +106,7 @@ function daysUntilDue(iso: string | null | undefined): number | null {
     ReactiveFormsModule,
     MatButtonModule,
     MatButtonToggleModule,
+    MatCheckboxModule,
     MatIconModule,
     MatSelectModule,
     MatFormFieldModule,
@@ -157,6 +160,16 @@ function daysUntilDue(iso: string | null | undefined): number | null {
               <mat-icon>view_list</mat-icon>
             </mat-button-toggle>
           </mat-button-toggle-group>
+          <button
+            mat-stroked-button
+            type="button"
+            class="pay-select-btn"
+            [class.pay-select-btn--on]="selecting()"
+            (click)="toggleSelecting()"
+          >
+            <mat-icon>{{ selecting() ? 'close' : 'checklist' }}</mat-icon>
+            {{ selecting() ? 'Listo' : 'Seleccionar' }}
+          </button>
           <button
             mat-stroked-button
             type="button"
@@ -310,12 +323,24 @@ function daysUntilDue(iso: string | null | undefined): number | null {
           <article
             class="panel-card pay-card"
             [class.pay-card--list]="viewMode() === 'list'"
+            [class.pay-card--selected]="isSelected(p.id)"
+            [class.pay-card--pick]="selecting()"
             [attr.id]="'payment-' + p.id"
             [attr.data-status]="p.status"
             [attr.data-priority]="p.priority || null"
             [attr.data-due]="dueUrgency(p)"
             [class.pay-card--focus]="focusedPaymentId() === p.id"
+            (click)="onCardClick(p, $event)"
           >
+            @if (selecting()) {
+              <mat-checkbox
+                class="pay-card__check"
+                [checked]="isSelected(p.id)"
+                (click)="$event.stopPropagation()"
+                (change)="toggleSelected(p)"
+                [attr.aria-label]="'Seleccionar ' + (p.title || 'pago')"
+              />
+            }
             <div class="pay-card__top">
               <div>
                 <h3 class="pay-card__title">
@@ -634,6 +659,25 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       hidden
       (change)="onSharedReceiptPicked($event)"
     />
+
+    @if (selecting()) {
+      <div class="pay-select-bar" role="toolbar" aria-label="Pagos seleccionados">
+        <span class="pay-select-bar__count">{{ selectedCount() }} seleccionados</span>
+        <button mat-stroked-button type="button" (click)="selectAllVisible()">
+          Todos
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="!selectedCount()"
+          (click)="shareSelected()"
+        >
+          <mat-icon>share</mat-icon>
+          Compartir
+        </button>
+      </div>
+    }
   `,
   styles: [
     `
@@ -682,9 +726,15 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       }
       .pay-list--cards {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
-        gap: 0.85rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem;
         align-items: stretch;
+      }
+      @media (min-width: 720px) {
+        .pay-list--cards {
+          grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+          gap: 0.85rem;
+        }
       }
       .pay-list--cards > .guy-empty {
         grid-column: 1 / -1;
@@ -699,7 +749,36 @@ function daysUntilDue(iso: string | null | undefined): number | null {
         margin-top: auto;
       }
       .pay-list--cards .pay-card__grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
+      }
+      @media (max-width: 719px) {
+        .pay-list--cards .pay-card {
+          padding: 0.7rem 0.75rem;
+        }
+        .pay-list--cards .pay-card__title {
+          font-size: 0.92rem;
+        }
+        .pay-list--cards .pay-card__amount {
+          font-size: 1rem;
+        }
+        .pay-list--cards .pay-card__top {
+          flex-direction: column;
+          gap: 0.25rem;
+          margin-bottom: 0.5rem;
+        }
+        .pay-list--cards .pay-card__grid,
+        .pay-list--cards .pay-card__invoice,
+        .pay-list--cards .pay-card__pay-data,
+        .pay-list--cards .pay-card__notes {
+          display: none;
+        }
+        .pay-list--cards .pay-card__actions {
+          gap: 0.35rem;
+        }
+        .pay-list--cards .pay-card__actions .mat-mdc-button {
+          min-width: 0;
+          padding: 0 0.55rem;
+        }
       }
       .pay-card--list .pay-card__grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -711,6 +790,7 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       }
       .pay-view {
         height: 2.5rem;
+        flex: 0 0 auto;
       }
       .pay-view .mat-button-toggle {
         height: 100%;
@@ -718,6 +798,50 @@ function daysUntilDue(iso: string | null | undefined): number | null {
       .pay-view .mat-button-toggle-label-content {
         line-height: 2.35rem;
         padding: 0 0.65rem;
+      }
+      .pay-select-btn--on {
+        border-color: var(--guy-green, #2e7d32);
+        color: var(--guy-green, #2e7d32);
+      }
+      .pay-card {
+        position: relative;
+      }
+      .pay-card__check {
+        position: absolute;
+        top: 0.45rem;
+        right: 0.35rem;
+        z-index: 1;
+      }
+      .pay-card--pick {
+        cursor: pointer;
+      }
+      .pay-card--pick .pay-card__actions {
+        pointer-events: none;
+        opacity: 0.4;
+      }
+      .pay-card--selected {
+        outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 70%, transparent);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-green, #2e7d32) 12%, transparent);
+      }
+      .pay-select-bar {
+        position: sticky;
+        bottom: 0.75rem;
+        z-index: 4;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.85rem;
+        padding: 0.65rem 0.85rem;
+        border-radius: 14px;
+        background: var(--guy-surface, #fff);
+        border: 1px solid var(--guy-border, #d7e0d9);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      }
+      .pay-select-bar__count {
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+        margin-right: auto;
       }
       .guy-filters__tools {
         display: flex;
@@ -979,6 +1103,9 @@ export class PaymentsPage {
   readonly loading = signal(true);
   readonly actionBusyId = signal<string | null>(null);
   readonly viewMode = signal<PaymentsViewMode>(loadPaymentsViewMode());
+  readonly selecting = signal(false);
+  readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+  readonly selectedCount = computed(() => this.selectedIds().size);
   readonly users = signal<
     Array<{
       id: string;
@@ -1295,6 +1422,8 @@ export class PaymentsPage {
       if (!shopId) {
         this.rows.set([]);
         this.loading.set(false);
+        this.selecting.set(false);
+        this.selectedIds.set(new Set());
         return;
       }
       this.reloadMeta(shopId);
@@ -1363,6 +1492,50 @@ export class PaymentsPage {
       localStorage.setItem(PAYMENTS_VIEW_KEY, mode);
     } catch {
       // ignore
+    }
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedIds().has(id);
+  }
+
+  toggleSelecting(): void {
+    if (this.selecting()) {
+      this.selecting.set(false);
+      this.selectedIds.set(new Set());
+      return;
+    }
+    this.selecting.set(true);
+  }
+
+  toggleSelected(p: ShopPayment): void {
+    const next = new Set(this.selectedIds());
+    if (next.has(p.id)) next.delete(p.id);
+    else next.add(p.id);
+    this.selectedIds.set(next);
+  }
+
+  onCardClick(p: ShopPayment, ev: Event): void {
+    if (!this.selecting()) return;
+    const t = ev.target as HTMLElement | null;
+    if (t?.closest('button, a, mat-checkbox, input, .pay-card__actions')) return;
+    this.toggleSelected(p);
+  }
+
+  selectAllVisible(): void {
+    this.selectedIds.set(new Set(this.visibleRows().map((p) => p.id)));
+  }
+
+  async shareSelected(): Promise<void> {
+    const selected = this.visibleRows().filter((p) => this.selectedIds().has(p.id));
+    if (!selected.length) return;
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const payload = paymentsSharePayload(selected, shopName);
+    const result = await shareText(payload);
+    if (result === 'copied') {
+      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+    } else if (result === 'failed') {
+      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
     }
   }
 
