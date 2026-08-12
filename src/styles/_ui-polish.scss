@@ -30,13 +30,11 @@
   }
 }
 
-/* Focus accesible coherente */
+/* Focus accesible coherente (botones/links). Los inputs de Material
+   ya tienen borde outline propio: un ring extra dibuja el “recuadro” interno. */
 :where(
   a,
   button,
-  input,
-  select,
-  textarea,
   [tabindex]:not([tabindex='-1']),
   .mat-mdc-button,
   .mat-mdc-icon-button,
@@ -45,6 +43,18 @@
 ):focus-visible {
   outline: none;
   box-shadow: var(--guy-focus-ring);
+}
+
+:where(input, select, textarea, .mat-mdc-input-element):focus,
+:where(input, select, textarea, .mat-mdc-input-element):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.mat-mdc-form-field .mat-mdc-input-element:focus,
+.mat-mdc-form-field .mat-mdc-input-element:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 ::selection {
