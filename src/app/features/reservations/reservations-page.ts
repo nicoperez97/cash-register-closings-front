@@ -22,7 +22,7 @@ import {
 } from './reservation-requests-panel';
 import { ReservationDayNoticeComponent } from './reservation-day-notice';
 import { ReservationFloorNavComponent } from './reservation-floor-nav';
-import { ReservationComposeFormComponent } from './reservation-compose-form';
+import { ReservationComposeFormComponent, ReservationComposeSaved } from './reservation-compose-form';
 import { ReservationFloorListComponent } from './reservation-floor-list';
 import {
   addDaysIso,
@@ -75,12 +75,18 @@ import {
         (dayPicked)="onDayPicked($event)"
       />
 
-      <app-reservation-compose-form
-        [businessDate]="businessDate()"
-        [canManage]="canManage()"
-        [daySettings]="savedDaySettings()"
-        (saved)="onReservationSaved()"
-      />
+      <div
+        id="reservation-compose-anchor"
+        class="floor-compose-anchor"
+        [class.floor-compose-anchor--pulse]="composePulse()"
+      >
+        <app-reservation-compose-form
+          [businessDate]="businessDate()"
+          [canManage]="canManage()"
+          [daySettings]="savedDaySettings()"
+          (saved)="onReservationSaved($event)"
+        />
+      </div>
 
       <app-reservation-day-notice
         [businessDate]="businessDate()"
@@ -118,9 +124,11 @@ export class ReservationsPage implements OnInit, OnDestroy {
   readonly savedDaySettings = signal<ReservationDaySettings | null>(null);
   readonly shopSlug = computed(() => this.shops.selectedShop()?.slug ?? '');
   readonly highlightedReservationId = signal<string | null>(null);
-
+  readonly composePulse = signal(false);
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+  private composePulseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly floorPanel = viewChild<ElementRef<HTMLElement>>('floorPanel');
+  private readonly composeForm = viewChild(ReservationComposeFormComponent);
 
   readonly dateLabel = computed(() => formatIsoDateDisplay(this.businessDate()));
 
@@ -169,6 +177,10 @@ export class ReservationsPage implements OnInit, OnDestroy {
       clearTimeout(this.highlightTimer);
       this.highlightTimer = null;
     }
+    if (this.composePulseTimer) {
+      clearTimeout(this.composePulseTimer);
+      this.composePulseTimer = null;
+    }
   }
 
   onRequestAccepted(event: ReservationRequestAccepted): void {
@@ -184,9 +196,20 @@ export class ReservationsPage implements OnInit, OnDestroy {
     });
   }
 
-  onReservationSaved(): void {
-    this.loadReservations();
+  onReservationSaved(event: ReservationComposeSaved): void {
+    const name = event.guestName.trim() || 'Sin nombre';
+    const people =
+      event.partySize === 1 ? '1 persona' : `${event.partySize} personas`;
+    const areaLabel = event.area === 'OUTSIDE' ? 'Afuera' : 'Adentro';
+    const when = event.reservationTime ? ` · ${event.reservationTime}` : '';
+    this.snack.open(`Agregada: ${name} · ${people} · ${areaLabel}${when}`, 'OK', {
+      duration: 4000,
+    });
     this.loadSummary();
+    this.loadReservations(() => {
+      this.highlightReservation(event.id);
+      this.scrollToReservation(event.id);
+    });
   }
 
   onFloorListChanged(): void {
@@ -241,12 +264,40 @@ export class ReservationsPage implements OnInit, OnDestroy {
       this.snack.open('No tenés permiso para crear reservas', 'OK', { duration: 2500 });
       return;
     }
-    const form = document.getElementById('reservation-compose');
-    form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (this.showCalendar()) {
+      this.showCalendar.set(false);
+    }
+    this.pulseComposeForm();
+    const tryFocus = (attempt = 0) => {
+      const anchor =
+        document.getElementById('reservation-compose-anchor') ??
+        document.getElementById('reservation-compose');
+      if (!anchor) {
+        if (attempt < 8) {
+          window.setTimeout(() => tryFocus(attempt + 1), 40 + attempt * 30);
+        }
+        return;
+      }
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.setTimeout(() => {
+        this.composeForm()?.focusGuestName();
+      }, 280);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => tryFocus()));
+  }
+
+  private pulseComposeForm(): void {
+    if (this.composePulseTimer) {
+      clearTimeout(this.composePulseTimer);
+      this.composePulseTimer = null;
+    }
+    this.composePulse.set(false);
     requestAnimationFrame(() => {
-      const input = document.getElementById('reservation-guest-name') as HTMLInputElement | null;
-      input?.focus();
-      input?.select();
+      this.composePulse.set(true);
+      this.composePulseTimer = setTimeout(() => {
+        this.composePulse.set(false);
+        this.composePulseTimer = null;
+      }, 1600);
     });
   }
 

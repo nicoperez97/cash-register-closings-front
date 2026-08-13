@@ -16,6 +16,14 @@ import {
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
 
+export type ReservationComposeSaved = {
+  id: string;
+  guestName: string;
+  partySize: number;
+  area: ReservationArea;
+  reservationTime: string | null;
+};
+
 @Component({
   selector: 'app-reservation-compose-form',
   imports: [
@@ -94,7 +102,7 @@ export class ReservationComposeFormComponent {
   readonly canManage = input(false);
   readonly daySettings = input<ReservationDaySettings | null>(null);
 
-  readonly saved = output<void>();
+  readonly saved = output<ReservationComposeSaved>();
 
   readonly form = this.fb.group({
     guestName: this.fb.nonNullable.control(''),
@@ -204,7 +212,9 @@ export class ReservationComposeFormComponent {
         reservationTime: toTimeString(raw.reservationTime),
       })
       .subscribe({
-        next: () => {
+        next: (created) => {
+          const guestName = (raw.guestName ?? '').trim();
+          const reservationTime = toTimeString(raw.reservationTime) ?? null;
           this.form.patchValue({
             guestName: '',
             partySize: Math.min(2, this.partyMax()),
@@ -212,13 +222,24 @@ export class ReservationComposeFormComponent {
             reservationTime: null,
           });
           this.inbox.refresh();
-          this.saved.emit();
-          this.snack.open('Reserva agregada', 'OK', { duration: 2000 });
+          this.saved.emit({
+            id: created.id,
+            guestName,
+            partySize,
+            area,
+            reservationTime,
+          });
         },
         error: (err) => {
           const msg = err?.error?.message ?? 'No se pudo guardar';
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
+  }
+
+  focusGuestName(): void {
+    const input = document.getElementById('reservation-guest-name') as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
   }
 }

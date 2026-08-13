@@ -79,6 +79,8 @@
   border-radius: 14px;
   border: 1px solid var(--guy-border, #d7e0d9);
   background: #fff;
+  scroll-margin-top: 5.5rem;
+  scroll-margin-bottom: calc(1rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
 }
 
 .floor-card--out {
