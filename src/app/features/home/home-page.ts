@@ -19,6 +19,7 @@ import { ClosingsApiService } from '../closings/closings-api.service';
 import { MovementsApiService } from '../movements/movements-api.service';
 import { QuickExpenseDialogComponent } from '../movements/quick-expense-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
+import { ReservationsInboxService } from '../reservations/reservations-inbox.service';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
@@ -69,6 +70,33 @@ interface BalanceRowExt extends BalanceAccountRow {
 
     @if (kpis().length) {
       <app-kpi-strip [items]="kpis()" class="mb-3" />
+    }
+
+    @if (canOpenReservations()) {
+      <a
+        class="panel-card mb-3 pending-reservations-card guy-enter-scale"
+        [class.pending-reservations-card--warn]="pendingReservations() > 0"
+        routerLink="/reservations"
+      >
+        <div class="pending-reservations-card__body">
+          <div>
+            <h2 class="pending-reservations-card__title">Reservas pendientes</h2>
+            <p class="pending-reservations-card__hint">
+              @if (pendingReservations() === 0) {
+                Sin solicitudes web por aceptar
+              } @else if (pendingReservations() === 1) {
+                1 solicitud web por aceptar o rechazar
+              } @else {
+                {{ pendingReservations() }} solicitudes web por aceptar o rechazar
+              }
+            </p>
+          </div>
+          <div class="pending-reservations-card__right">
+            <strong class="pending-reservations-card__count">{{ pendingReservations() }}</strong>
+            <mat-icon>chevron_right</mat-icon>
+          </div>
+        </div>
+      </a>
     }
 
     <div class="home-shortcuts guy-shortcuts guy-stagger mb-3">
@@ -277,6 +305,58 @@ interface BalanceRowExt extends BalanceAccountRow {
         opacity: 0.7;
         cursor: default;
       }
+      .pending-reservations-card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      .pending-reservations-card:hover {
+        border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.08);
+      }
+      .pending-reservations-card--warn {
+        border-color: color-mix(in srgb, #c62828 28%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, #c62828 5%, var(--guy-card, #fff));
+      }
+      .pending-reservations-card__body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.85rem;
+      }
+      .pending-reservations-card__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .pending-reservations-card__hint {
+        margin: 0.2rem 0 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .pending-reservations-card__right {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        flex-shrink: 0;
+      }
+      .pending-reservations-card__count {
+        font-size: 1.55rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--guy-navy, #003366);
+        font-variant-numeric: tabular-nums;
+      }
+      .pending-reservations-card--warn .pending-reservations-card__count {
+        color: #c62828;
+      }
+      .pending-reservations-card__right mat-icon {
+        color: var(--guy-muted, #5f6f76);
+      }
     `,
   ],
 })
@@ -287,6 +367,7 @@ export class HomePageComponent {
   private readonly api = inject(ClosingsApiService);
   private readonly movementsApi = inject(MovementsApiService);
   private readonly paymentsApi = inject(PaymentsApiService);
+  private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
@@ -307,6 +388,7 @@ export class HomePageComponent {
   readonly employeePaymentsPending = signal<number | null>(null);
   readonly employeePaymentsToValidateMine = signal<number | null>(null);
   readonly employeePaymentsToPayMine = signal<number | null>(null);
+  readonly pendingReservations = computed(() => this.reservationsInbox.pendingRequests());
 
   private readonly todayIso = this.toIso(new Date());
 
@@ -440,7 +522,10 @@ export class HomePageComponent {
   });
 
   constructor() {
-    usePageRefresh(() => this.refreshTick.update((n) => n + 1));
+    usePageRefresh(() => {
+      this.refreshTick.update((n) => n + 1);
+      if (this.canOpenReservations()) this.reservationsInbox.refresh();
+    });
     effect(() => {
       this.refreshTick();
       const shopId = this.shopContext.selectedShopId();

@@ -13,7 +13,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
-import { resolveShopCalendarDate } from '../../core/shop/business-date';
+import { formatIsoDateWithWeekday, resolveShopCalendarDate } from '../../core/shop/business-date';
 import { resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicReservationSignup,
@@ -121,10 +121,22 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
               <span class="lbl">¿Qué día?</span>
               <div class="split">
                 <div class="pills">
-                  <button type="button" class="pill" [class.pill--on]="isOffset(0)" (click)="setOffset(0)">
+                  <button
+                    type="button"
+                    class="pill"
+                    [class.pill--on]="isOffset(0)"
+                    [disabled]="isClosedOffset(0)"
+                    (click)="setOffset(0)"
+                  >
                     Hoy
                   </button>
-                  <button type="button" class="pill" [class.pill--on]="isOffset(1)" (click)="setOffset(1)">
+                  <button
+                    type="button"
+                    class="pill"
+                    [class.pill--on]="isOffset(1)"
+                    [disabled]="isClosedOffset(1)"
+                    (click)="setOffset(1)"
+                  >
                     Mañana
                   </button>
                   <button
@@ -141,6 +153,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                   class="date-sr"
                   [matDatepicker]="otherPicker"
                   [min]="minAsDate"
+                  [matDatepickerFilter]="dateFilter"
                   [value]="selectedAsDate"
                   (dateChange)="onDatePicked($event.value)"
                   tabindex="-1"
@@ -250,10 +263,22 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             <p class="hint">Elegí otro día para pedir mesa:</p>
             <div class="block day-closed__pick">
               <div class="pills">
-                <button type="button" class="pill" [class.pill--on]="isOffset(0)" (click)="setOffset(0)">
+                <button
+                  type="button"
+                  class="pill"
+                  [class.pill--on]="isOffset(0)"
+                  [disabled]="isClosedOffset(0)"
+                  (click)="setOffset(0)"
+                >
                   Hoy
                 </button>
-                <button type="button" class="pill" [class.pill--on]="isOffset(1)" (click)="setOffset(1)">
+                <button
+                  type="button"
+                  class="pill"
+                  [class.pill--on]="isOffset(1)"
+                  [disabled]="isClosedOffset(1)"
+                  (click)="setOffset(1)"
+                >
                   Mañana
                 </button>
                 <button
@@ -270,6 +295,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                 class="date-sr"
                 [matDatepicker]="closedDayPicker"
                 [min]="minAsDate"
+                [matDatepickerFilter]="dateFilter"
                 [value]="selectedAsDate"
                 (dateChange)="onDatePicked($event.value)"
                 tabindex="-1"
@@ -300,6 +326,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     insideEnabled: boolean;
     outsideEnabled: boolean;
   } | null>(null);
+  readonly closedWeekdays = signal<number[]>([]);
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
   readonly sent = signal(false);
@@ -375,6 +402,19 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     this.api.publicSignupInfo(slug, this.businessDate).subscribe({
       next: (info) => {
         this.info.set(info);
+        this.closedWeekdays.set(
+          Array.isArray(info.closedWeekdays) ? info.closedWeekdays : [],
+        );
+        if (info.closedDay || this.isIsoClosed(this.businessDate)) {
+          const nextOpen = this.nextOpenIso(this.businessDate);
+          if (nextOpen && nextOpen !== this.businessDate) {
+            this.businessDate = nextOpen;
+            this.refreshDateFlags();
+            this.title.setTitle(`Reservar · ${info.shop.name}`);
+            applyStatusBar('#0e0c0b', 'dark');
+            return;
+          }
+        }
         this.applyDateFlags(info);
         this.syncArea(this.insideEnabled(), this.outsideEnabled());
         this.title.setTitle(`Reservar · ${info.shop.name}`);
@@ -385,6 +425,9 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   private applyDateFlags(info: PublicReservationSignup): void {
+    if (Array.isArray(info.closedWeekdays)) {
+      this.closedWeekdays.set(info.closedWeekdays);
+    }
     this.dateFlags.set({
       signupEnabled: info.signupEnabled,
       insideEnabled: info.insideEnabled !== false,
@@ -401,6 +444,39 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
         this.syncArea(this.insideEnabled(), this.outsideEnabled());
       },
     });
+  }
+
+  readonly dateFilter = (date: Date | null): boolean => {
+    if (!date || Number.isNaN(date.getTime())) return false;
+    const closed = this.closedWeekdays();
+    if (!closed.length) return true;
+    return !closed.includes(date.getDay());
+  };
+
+  isIsoClosed(iso: string): boolean {
+    const closed = this.closedWeekdays();
+    if (!closed.length) return false;
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) return false;
+    const weekday = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).getUTCDay();
+    return closed.includes(weekday);
+  }
+
+  isClosedOffset(days: number): boolean {
+    return this.isIsoClosed(this.isoPlus(days));
+  }
+
+  nextOpenIso(fromIso: string): string | null {
+    const closed = this.closedWeekdays();
+    if (!closed.length) return fromIso;
+    const [y, m, d] = fromIso.split('-').map(Number);
+    if (!y || !m || !d) return fromIso;
+    for (let i = 0; i < 14; i++) {
+      const dt = new Date(Date.UTC(y, m - 1, d + i, 12, 0, 0));
+      const iso = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+      if (!this.isIsoClosed(iso)) return iso;
+    }
+    return null;
   }
 
   bump(delta: number): void {
@@ -426,6 +502,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   setOffset(days: number): void {
+    if (this.isClosedOffset(days)) return;
     this.businessDate = this.isoPlus(days);
     this.refreshDateFlags();
   }
@@ -444,6 +521,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   onDatePicked(value: Date | null): void {
     if (!value || Number.isNaN(value.getTime())) return;
+    if (!this.dateFilter(value)) return;
     this.businessDate = this.localDateToIso(value);
     this.refreshDateFlags();
   }
@@ -468,6 +546,10 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     }
     if (!this.businessDate) {
       this.formError.set('Elegí el día.');
+      return;
+    }
+    if (this.isIsoClosed(this.businessDate)) {
+      this.formError.set('El local no abre ese día (franco).');
       return;
     }
     if (!this.dateSignupOpen()) {
@@ -558,8 +640,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   formatWhen(iso: string, time?: string): string {
-    const [y, m, d] = iso.split('-');
-    const label = `${d}/${m}/${y}`;
+    const label = formatIsoDateWithWeekday(iso) || iso;
     return time ? `${label} a las ${time}` : label;
   }
 }

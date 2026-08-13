@@ -119,6 +119,25 @@ export function formatIsoDateDisplay(isoDate: string): string {
   return `${p.day}/${p.month}/${p.year}`;
 }
 
+/** Día de la semana en español (sin timezone): Sábado */
+export function formatIsoWeekday(isoDate: string): string {
+  const p = parseIsoDateParts(isoDate);
+  if (!p) return '';
+  const dt = new Date(Date.UTC(p.year, p.month - 1, p.day, 12, 0, 0));
+  const weekday = new Intl.DateTimeFormat('es-AR', {
+    weekday: 'long',
+    timeZone: 'UTC',
+  }).format(dt);
+  return weekday ? weekday.charAt(0).toUpperCase() + weekday.slice(1) : '';
+}
+
+/** Display con día: sábado 12/8/2026 */
+export function formatIsoDateWithWeekday(isoDate: string): string {
+  const date = formatIsoDateDisplay(isoDate);
+  const weekday = formatIsoWeekday(isoDate);
+  return weekday ? `${weekday} ${date}` : date;
+}
+
 /** Display largo en español sin timezone: domingo 2 de agosto */
 export function formatIsoDateLong(isoDate: string): string {
   const p = parseIsoDateParts(isoDate);

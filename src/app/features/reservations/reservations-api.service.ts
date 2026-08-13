@@ -32,6 +32,10 @@ export interface PublicReservationSignup {
   outsideEnabled?: boolean;
   /** Config global del local (sin override del día). */
   shopSignupEnabled?: boolean;
+  /** 0=domingo … 6=sábado */
+  closedWeekdays?: number[];
+  /** true si businessDate cae en un franco del local */
+  closedDay?: boolean;
   businessDate?: string;
   shop: {
     id?: string;

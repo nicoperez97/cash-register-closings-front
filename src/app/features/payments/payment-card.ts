@@ -87,6 +87,9 @@ import {
           @if (payment().paidAt) {
             · Pagado {{ formatDate(payment().paidAt) }}
           }
+          @if (payment().createdAt) {
+            · Creado {{ formatDate(payment().createdAt) }}
+          }
         </p>
       </div>
       <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
@@ -123,6 +126,10 @@ import {
       <div>
         <span class="pay-card__label">Creado por</span>
         <strong>{{ payment().createdByName || '—' }}</strong>
+      </div>
+      <div>
+        <span class="pay-card__label">Fecha de creación</span>
+        <strong>{{ formatDate(payment().createdAt) || '—' }}</strong>
       </div>
       <div>
         <span class="pay-card__label">Cuenta que paga</span>

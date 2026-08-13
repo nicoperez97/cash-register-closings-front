@@ -1,3 +1,5 @@
+import { formatIsoDateWithWeekday } from '../../core/shop/business-date';
+
 export function copyTextNow(text: string): boolean {
   const el = document.createElement('textarea');
   el.value = text;
@@ -25,8 +27,7 @@ export function requestWhenLabel(req: {
   reservationTime?: string | null;
 }): string {
   const iso = req.businessDate?.slice(0, 10) ?? '';
-  const [y, m, d] = iso.split('-');
-  const label = d && m ? `${d}/${m}${y ? `/${y}` : ''}` : iso;
+  const label = formatIsoDateWithWeekday(iso) || iso;
   return req.reservationTime ? `${label} · ${req.reservationTime}` : label;
 }
 
