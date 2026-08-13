@@ -3,7 +3,11 @@
   grid-template-columns: 1fr 5.5rem 8rem auto auto;
   gap: 0.55rem;
   align-items: center;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.floor-form__capacity-hint {
+  margin: 0 0 0.85rem;
 }
 
 .floor-area-toggle {

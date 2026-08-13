@@ -76,6 +76,49 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
               <mat-button-toggle value="no-outside">Sin afuera</mat-button-toggle>
             </mat-button-toggle-group>
           </div>
+          <div class="floor-day-settings__capacity">
+            <span class="floor-day-settings__label">Cupo restante (personas)</span>
+            <p class="floor-day-settings__hint text-muted small">
+              Vacío = sin límite. Si ponés 2 adentro, una mesa de 4 no puede pedir ese sector.
+            </p>
+            <div class="floor-day-settings__capacity-row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cupo adentro</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  max="999"
+                  inputmode="numeric"
+                  [ngModel]="insideCapacityDraft()"
+                  (ngModelChange)="insideCapacityDraft.set($event)"
+                  placeholder="Sin límite"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cupo afuera</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  max="999"
+                  inputmode="numeric"
+                  [ngModel]="outsideCapacityDraft()"
+                  (ngModelChange)="outsideCapacityDraft.set($event)"
+                  placeholder="Sin límite"
+                />
+              </mat-form-field>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="savingDaySettings() || !capacityDirty()"
+                (click)="saveCapacity()"
+              >
+                <mat-icon>event_seat</mat-icon>
+                Guardar cupos
+              </button>
+            </div>
+          </div>
         </div>
       } @else if (savedNotice()) {
         <p class="floor-notice__preview">{{ savedNotice() }}</p>
@@ -106,6 +149,10 @@ export class ReservationDayNoticeComponent {
   readonly daySignupOverride = signal<boolean | null>(null);
   readonly dayInsideOverride = signal<boolean | null>(null);
   readonly dayOutsideOverride = signal<boolean | null>(null);
+  readonly insideCapacityDraft = signal<number | null>(null);
+  readonly outsideCapacityDraft = signal<number | null>(null);
+  readonly savedInsideCapacity = signal<number | null>(null);
+  readonly savedOutsideCapacity = signal<number | null>(null);
   readonly savingDaySettings = signal(false);
 
   readonly dayFormMode = computed((): DayFormMode => {
@@ -118,6 +165,13 @@ export class ReservationDayNoticeComponent {
   readonly noticeDirty = computed(
     () => this.noticeDraft().trim() !== (this.savedNotice() ?? '').trim(),
   );
+
+  readonly capacityDirty = computed(() => {
+    return (
+      this.normalizeCapacity(this.insideCapacityDraft()) !== this.savedInsideCapacity() ||
+      this.normalizeCapacity(this.outsideCapacityDraft()) !== this.savedOutsideCapacity()
+    );
+  });
 
   constructor() {
     effect(() => {
@@ -132,6 +186,12 @@ export class ReservationDayNoticeComponent {
       this.daySignupOverride.set(settings?.signupEnabled ?? null);
       this.dayInsideOverride.set(settings?.insideEnabled ?? null);
       this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
+      const insideCap = this.normalizeCapacity(settings?.insideCapacityRemaining ?? null);
+      const outsideCap = this.normalizeCapacity(settings?.outsideCapacityRemaining ?? null);
+      this.savedInsideCapacity.set(insideCap);
+      this.savedOutsideCapacity.set(outsideCap);
+      this.insideCapacityDraft.set(insideCap);
+      this.outsideCapacityDraft.set(outsideCap);
     });
   }
 
@@ -153,6 +213,7 @@ export class ReservationDayNoticeComponent {
           this.savedNotice.set(notice);
           this.noticeDraft.set(notice ?? '');
           this.noticeUpdated.emit(notice);
+          this.applySettingsFromResponse(res.daySettings ?? null);
           this.snack.open(notice ? 'Aviso guardado' : 'Aviso quitado', 'OK', {
             duration: 2200,
           });
@@ -198,6 +259,11 @@ export class ReservationDayNoticeComponent {
     this.saveDaySettings(true);
   }
 
+  saveCapacity(): void {
+    if (!this.canManage() || this.savingDaySettings() || !this.capacityDirty()) return;
+    this.saveDaySettings(false, true);
+  }
+
   private parseDayFormMode(value: string | null | undefined): DayFormMode | null {
     if (
       value === 'normal' ||
@@ -210,36 +276,66 @@ export class ReservationDayNoticeComponent {
     return null;
   }
 
-  private saveDaySettings(silent = false): void {
+  private saveDaySettings(silent = false, includeCapacity = false): void {
     if (!this.canManage() || this.savingDaySettings()) return;
     const shopId = this.shopId();
     if (!shopId) return;
     this.savingDaySettings.set(true);
-    this.api
-      .upsertDayNotice(shopId, {
-        businessDate: this.businessDate(),
-        signupEnabled: this.daySignupOverride(),
-        insideEnabled: this.dayInsideOverride(),
-        outsideEnabled: this.dayOutsideOverride(),
-      })
-      .subscribe({
-        next: (res) => {
-          this.savingDaySettings.set(false);
-          const settings = res.daySettings ?? null;
-          this.daySignupOverride.set(settings?.signupEnabled ?? null);
-          this.dayInsideOverride.set(settings?.insideEnabled ?? null);
-          this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
-          this.daySettingsUpdated.emit(settings);
-          if (!silent) {
-            this.snack.open('Formulario del día guardado', 'OK', { duration: 2200 });
-          }
-        },
-        error: (err) => {
-          this.savingDaySettings.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar el formulario';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-        },
-      });
+    const body: {
+      businessDate: string;
+      signupEnabled: boolean | null;
+      insideEnabled: boolean | null;
+      outsideEnabled: boolean | null;
+      insideCapacityRemaining?: number | null;
+      outsideCapacityRemaining?: number | null;
+    } = {
+      businessDate: this.businessDate(),
+      signupEnabled: this.daySignupOverride(),
+      insideEnabled: this.dayInsideOverride(),
+      outsideEnabled: this.dayOutsideOverride(),
+    };
+    if (includeCapacity) {
+      body.insideCapacityRemaining = this.normalizeCapacity(this.insideCapacityDraft());
+      body.outsideCapacityRemaining = this.normalizeCapacity(this.outsideCapacityDraft());
+    }
+    this.api.upsertDayNotice(shopId, body).subscribe({
+      next: (res) => {
+        this.savingDaySettings.set(false);
+        this.applySettingsFromResponse(res.daySettings ?? null);
+        this.daySettingsUpdated.emit(res.daySettings ?? null);
+        if (!silent) {
+          this.snack.open(
+            includeCapacity ? 'Cupos del día guardados' : 'Formulario del día guardado',
+            'OK',
+            { duration: 2200 },
+          );
+        }
+      },
+      error: (err) => {
+        this.savingDaySettings.set(false);
+        const msg = err?.error?.message ?? 'No se pudo guardar el formulario';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  private applySettingsFromResponse(settings: ReservationDaySettings | null): void {
+    this.daySignupOverride.set(settings?.signupEnabled ?? null);
+    this.dayInsideOverride.set(settings?.insideEnabled ?? null);
+    this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
+    const insideCap = this.normalizeCapacity(settings?.insideCapacityRemaining ?? null);
+    const outsideCap = this.normalizeCapacity(settings?.outsideCapacityRemaining ?? null);
+    this.savedInsideCapacity.set(insideCap);
+    this.savedOutsideCapacity.set(outsideCap);
+    this.insideCapacityDraft.set(insideCap);
+    this.outsideCapacityDraft.set(outsideCap);
+  }
+
+  private normalizeCapacity(raw: number | string | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < 0) return null;
+    return Math.min(n, 999);
   }
 
   private shopId(): string | null {

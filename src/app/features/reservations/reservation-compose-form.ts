@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -8,7 +8,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { ReservationArea, ReservationsApiService } from './reservations-api.service';
+import {
+  ReservationArea,
+  ReservationDaySettings,
+  ReservationsApiService,
+} from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
 
@@ -47,6 +51,7 @@ import { toTimeString } from './reservation-date.util';
             matInput
             type="number"
             min="1"
+            [max]="partyMax()"
             inputmode="numeric"
             pattern="[0-9]*"
             formControlName="partySize"
@@ -63,14 +68,17 @@ import { toTimeString } from './reservation-date.util';
           class="floor-area-toggle"
           hideSingleSelectionIndicator
         >
-          <mat-button-toggle value="INSIDE">Adentro</mat-button-toggle>
-          <mat-button-toggle value="OUTSIDE">Afuera</mat-button-toggle>
+          <mat-button-toggle value="INSIDE" [disabled]="!insideOpen()">Adentro</mat-button-toggle>
+          <mat-button-toggle value="OUTSIDE" [disabled]="!outsideOpen()">Afuera</mat-button-toggle>
         </mat-button-toggle-group>
         <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
           <mat-icon>add</mat-icon>
           Agregar
         </button>
       </form>
+      @if (capacityHint(); as hint) {
+        <p class="floor-form__capacity-hint text-muted small">{{ hint }}</p>
+      }
     }
   `,
   styleUrl: './reservation-compose-form.scss',
@@ -84,6 +92,7 @@ export class ReservationComposeFormComponent {
 
   readonly businessDate = input.required<string>();
   readonly canManage = input(false);
+  readonly daySettings = input<ReservationDaySettings | null>(null);
 
   readonly saved = output<void>();
 
@@ -98,25 +107,108 @@ export class ReservationComposeFormComponent {
     reservationTime: this.fb.control<Date | null>(null),
   });
 
+  readonly insideOpen = computed(() => {
+    const settings = this.daySettings();
+    if (settings?.insideEnabled === false) return false;
+    const cap = settings?.insideCapacityRemaining;
+    return !(cap != null && Number(cap) <= 0);
+  });
+
+  readonly outsideOpen = computed(() => {
+    const settings = this.daySettings();
+    if (settings?.outsideEnabled === false) return false;
+    const cap = settings?.outsideCapacityRemaining;
+    return !(cap != null && Number(cap) <= 0);
+  });
+
+  readonly capacityHint = computed(() => {
+    const settings = this.daySettings();
+    const parts: string[] = [];
+    if (settings?.insideCapacityRemaining != null) {
+      parts.push(`Adentro: ${settings.insideCapacityRemaining}`);
+    }
+    if (settings?.outsideCapacityRemaining != null) {
+      parts.push(`Afuera: ${settings.outsideCapacityRemaining}`);
+    }
+    return parts.length ? `Cupo restante · ${parts.join(' · ')}` : '';
+  });
+
+  private readonly selectedArea = signal<ReservationArea>('INSIDE');
+
+  readonly partyMax = computed(() => {
+    const area = this.selectedArea();
+    const settings = this.daySettings();
+    const cap =
+      area === 'OUTSIDE'
+        ? settings?.outsideCapacityRemaining
+        : settings?.insideCapacityRemaining;
+    if (cap == null || !Number.isFinite(Number(cap))) return 99;
+    return Math.max(1, Math.min(99, Number(cap)));
+  });
+
+  constructor() {
+    this.form.controls.area.valueChanges.subscribe((area) => {
+      if (area) this.selectedArea.set(area);
+    });
+
+    effect(() => {
+      const inside = this.insideOpen();
+      const outside = this.outsideOpen();
+      const area = this.selectedArea();
+      if (area === 'INSIDE' && !inside && outside) {
+        this.form.controls.area.setValue('OUTSIDE');
+      } else if (area === 'OUTSIDE' && !outside && inside) {
+        this.form.controls.area.setValue('INSIDE');
+      }
+      const max = this.partyMax();
+      const size = Number(this.form.controls.partySize.value ?? 2);
+      if (size > max) {
+        this.form.controls.partySize.setValue(max);
+      }
+      this.form.controls.partySize.setValidators([
+        Validators.required,
+        Validators.min(1),
+        Validators.max(max),
+      ]);
+      this.form.controls.partySize.updateValueAndValidity({ emitEvent: false });
+    });
+  }
+
   save(): void {
     if (this.form.invalid || !this.canManage()) return;
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     const raw = this.form.getRawValue();
+    const area = raw.area ?? 'INSIDE';
+    const partySize = Number(raw.partySize);
+    if (area === 'INSIDE' && !this.insideOpen()) {
+      this.snack.open('No quedan lugares adentro', 'OK', { duration: 3000 });
+      return;
+    }
+    if (area === 'OUTSIDE' && !this.outsideOpen()) {
+      this.snack.open('No quedan lugares afuera', 'OK', { duration: 3000 });
+      return;
+    }
+    if (partySize > this.partyMax()) {
+      this.snack.open(`Solo quedan ${this.partyMax()} lugares en ese sector`, 'OK', {
+        duration: 3000,
+      });
+      return;
+    }
     this.api
       .createReservation(shopId, {
         businessDate: this.businessDate(),
         guestName: (raw.guestName ?? '').trim(),
-        partySize: Number(raw.partySize),
-        area: raw.area ?? 'INSIDE',
+        partySize,
+        area,
         reservationTime: toTimeString(raw.reservationTime),
       })
       .subscribe({
         next: () => {
           this.form.patchValue({
             guestName: '',
-            partySize: 2,
-            area: 'INSIDE',
+            partySize: Math.min(2, this.partyMax()),
+            area: this.insideOpen() ? 'INSIDE' : 'OUTSIDE',
             reservationTime: null,
           });
           this.inbox.refresh();

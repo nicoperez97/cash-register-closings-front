@@ -165,7 +165,12 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     −
                   </button>
                   <strong>{{ partySize }}</strong>
-                  <button type="button" class="stepper__btn" (click)="bump(1)" [disabled]="partySize >= 20">
+                  <button
+                    type="button"
+                    class="stepper__btn"
+                    (click)="bump(1)"
+                    [disabled]="partySize >= maxPartySize()"
+                  >
                     +
                   </button>
                 </div>
@@ -195,10 +200,18 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                   −
                 </button>
                 <strong>{{ partySize }}</strong>
-                <button type="button" class="stepper__btn" (click)="bump(1)" [disabled]="partySize >= 20">
+                <button
+                  type="button"
+                  class="stepper__btn"
+                  (click)="bump(1)"
+                  [disabled]="partySize >= maxPartySize()"
+                >
                   +
                 </button>
               </div>
+              @if (capacityHint(); as hint) {
+                <p class="capacity-hint">{{ hint }}</p>
+              }
             </div>
 
             @if (insideEnabled() && outsideEnabled()) {
@@ -209,17 +222,23 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     type="button"
                     class="pill"
                     [class.pill--on]="area === 'INSIDE'"
-                    (click)="area = 'INSIDE'"
+                    (click)="setArea('INSIDE')"
                   >
                     Adentro
+                    @if (insideCapacityLabel(); as cap) {
+                      <em>· {{ cap }}</em>
+                    }
                   </button>
                   <button
                     type="button"
                     class="pill"
                     [class.pill--on]="area === 'OUTSIDE'"
-                    (click)="area = 'OUTSIDE'"
+                    (click)="setArea('OUTSIDE')"
                   >
                     Afuera
+                    @if (outsideCapacityLabel(); as cap) {
+                      <em>· {{ cap }}</em>
+                    }
                   </button>
                 </div>
               </div>
@@ -325,6 +344,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     signupEnabled: boolean;
     insideEnabled: boolean;
     outsideEnabled: boolean;
+    insideCapacityRemaining: number | null;
+    outsideCapacityRemaining: number | null;
   } | null>(null);
   readonly closedWeekdays = signal<number[]>([]);
   readonly error = signal<string | null>(null);
@@ -432,7 +453,13 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
       signupEnabled: info.signupEnabled,
       insideEnabled: info.insideEnabled !== false,
       outsideEnabled: info.outsideEnabled !== false,
+      insideCapacityRemaining:
+        info.insideCapacityRemaining == null ? null : Number(info.insideCapacityRemaining),
+      outsideCapacityRemaining:
+        info.outsideCapacityRemaining == null ? null : Number(info.outsideCapacityRemaining),
     });
+    this.syncArea(this.insideEnabled(), this.outsideEnabled());
+    this.clampPartySize();
   }
 
   private refreshDateFlags(): void {
@@ -480,7 +507,47 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   bump(delta: number): void {
-    this.partySize = Math.min(20, Math.max(1, this.partySize + delta));
+    this.partySize = Math.min(this.maxPartySize(), Math.max(1, this.partySize + delta));
+  }
+
+  setArea(next: 'INSIDE' | 'OUTSIDE'): void {
+    this.area = next;
+    this.clampPartySize();
+  }
+
+  maxPartySize(): number {
+    const df = this.dateFlags();
+    const cap =
+      this.area === 'OUTSIDE' ? df?.outsideCapacityRemaining : df?.insideCapacityRemaining;
+    if (cap == null || !Number.isFinite(cap)) return 20;
+    return Math.max(1, Math.min(20, Number(cap)));
+  }
+
+  capacityHint(): string {
+    const max = this.maxPartySize();
+    const df = this.dateFlags();
+    const cap =
+      this.area === 'OUTSIDE' ? df?.outsideCapacityRemaining : df?.insideCapacityRemaining;
+    if (cap == null || !Number.isFinite(cap)) return '';
+    const sector = this.area === 'OUTSIDE' ? 'afuera' : 'adentro';
+    return `Máximo ${max} persona${max === 1 ? '' : 's'} ${sector}`;
+  }
+
+  insideCapacityLabel(): string {
+    const cap = this.dateFlags()?.insideCapacityRemaining;
+    if (cap == null || !Number.isFinite(cap)) return '';
+    return `${cap}`;
+  }
+
+  outsideCapacityLabel(): string {
+    const cap = this.dateFlags()?.outsideCapacityRemaining;
+    if (cap == null || !Number.isFinite(cap)) return '';
+    return `${cap}`;
+  }
+
+  private clampPartySize(): void {
+    const max = this.maxPartySize();
+    if (this.partySize > max) this.partySize = max;
   }
 
   toggleTime(slot: string): void {
@@ -562,6 +629,10 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     }
     if (this.area === 'OUTSIDE' && !this.outsideEnabled()) {
       this.formError.set('El sector afuera no está disponible.');
+      return;
+    }
+    if (this.partySize > this.maxPartySize()) {
+      this.formError.set(`Solo quedan ${this.maxPartySize()} lugares en ese sector.`);
       return;
     }
     this.busy.set(true);

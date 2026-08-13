@@ -30,6 +30,8 @@ export interface PublicReservationSignup {
   signupEnabled: boolean;
   insideEnabled?: boolean;
   outsideEnabled?: boolean;
+  insideCapacityRemaining?: number | null;
+  outsideCapacityRemaining?: number | null;
   /** Config global del local (sin override del día). */
   shopSignupEnabled?: boolean;
   /** 0=domingo … 6=sábado */
@@ -89,6 +91,9 @@ export interface ReservationDaySettings {
   signupEnabled: boolean | null;
   insideEnabled: boolean | null;
   outsideEnabled: boolean | null;
+  /** NULL = sin límite; 0 = sin cupo. */
+  insideCapacityRemaining?: number | null;
+  outsideCapacityRemaining?: number | null;
 }
 
 export interface ReservationsDaySummary {
@@ -220,6 +225,8 @@ export class ReservationsApiService {
       signupEnabled?: boolean | null;
       insideEnabled?: boolean | null;
       outsideEnabled?: boolean | null;
+      insideCapacityRemaining?: number | null;
+      outsideCapacityRemaining?: number | null;
     },
   ) {
     return this.http.put<{

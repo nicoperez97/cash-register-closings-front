@@ -78,6 +78,7 @@ import {
       <app-reservation-compose-form
         [businessDate]="businessDate()"
         [canManage]="canManage()"
+        [daySettings]="savedDaySettings()"
         (saved)="onReservationSaved()"
       />
 

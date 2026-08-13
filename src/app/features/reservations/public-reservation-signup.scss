@@ -288,6 +288,19 @@
         font-weight: 800;
       }
 
+      .capacity-hint {
+        margin: 0.45rem 0 0;
+        text-align: center;
+        font-size: 0.88rem;
+        color: color-mix(in srgb, #fff 72%, transparent);
+      }
+
+      .pills--area .pill em {
+        font-style: normal;
+        opacity: 0.75;
+        font-weight: 600;
+      }
+
       .pill {
         appearance: none;
         flex: 1;
