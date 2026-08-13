@@ -11,24 +11,59 @@
 .floor-compose-anchor {
   scroll-margin-top: 5.5rem;
   scroll-margin-bottom: calc(1rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
-  border-radius: 12px;
-  transition: box-shadow 0.25s ease, outline-color 0.25s ease;
+  border-radius: 14px;
+  padding: 0.35rem;
+  margin: -0.35rem;
+  transition:
+    box-shadow 0.28s ease,
+    outline-color 0.28s ease,
+    background-color 0.28s ease;
 }
 
 .floor-compose-anchor--pulse {
-  outline: 2px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 70%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-primary, #1d65a0) 16%, transparent);
-  animation: floor-compose-pulse 0.9s ease-out 2;
+  outline: 2px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 72%, transparent);
+  background: color-mix(in srgb, var(--guy-primary, #1d65a0) 7%, transparent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, transparent);
+  animation: floor-compose-pulse 0.85s ease-out 2;
+}
+
+.floor-compose-anchor--success {
+  outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 72%, transparent);
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, transparent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--guy-green, #2e7d32) 14%, transparent);
+  animation: floor-compose-success 0.9s ease-out 1;
 }
 
 @keyframes floor-compose-pulse {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--guy-primary, #1d65a0) 30%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--guy-primary, #1d65a0) 28%, transparent);
   }
   45% {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, transparent);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-primary, #1d65a0) 16%, transparent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, transparent);
+  }
+}
+
+@keyframes floor-compose-success {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--guy-green, #2e7d32) 30%, transparent);
+  }
+  40% {
+    transform: scale(1.008);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--guy-green, #2e7d32) 10%, transparent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--guy-green, #2e7d32) 14%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor-compose-anchor--pulse,
+  .floor-compose-anchor--success {
+    animation: none;
   }
 }

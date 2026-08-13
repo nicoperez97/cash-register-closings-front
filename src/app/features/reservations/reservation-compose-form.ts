@@ -11,6 +11,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
   ReservationArea,
   ReservationDaySettings,
+  ReservationRow,
   ReservationsApiService,
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
@@ -22,6 +23,7 @@ export type ReservationComposeSaved = {
   partySize: number;
   area: ReservationArea;
   reservationTime: string | null;
+  row: ReservationRow;
 };
 
 @Component({
@@ -41,6 +43,8 @@ export type ReservationComposeSaved = {
       <form
         id="reservation-compose"
         class="floor-form"
+        [class.floor-form--saving]="saving()"
+        [class.floor-form--just-saved]="justSaved()"
         [formGroup]="form"
         (ngSubmit)="save()"
       >
@@ -51,6 +55,8 @@ export type ReservationComposeSaved = {
             formControlName="guestName"
             placeholder="Opcional"
             id="reservation-guest-name"
+            autocomplete="name"
+            enterkeyhint="next"
           />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -79,9 +85,15 @@ export type ReservationComposeSaved = {
           <mat-button-toggle value="INSIDE" [disabled]="!insideOpen()">Adentro</mat-button-toggle>
           <mat-button-toggle value="OUTSIDE" [disabled]="!outsideOpen()">Afuera</mat-button-toggle>
         </mat-button-toggle-group>
-        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
-          <mat-icon>add</mat-icon>
-          Agregar
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="floor-form__submit"
+          [disabled]="form.invalid || saving()"
+        >
+          <mat-icon>{{ saving() ? 'hourglass_empty' : justSaved() ? 'check' : 'add' }}</mat-icon>
+          {{ saving() ? 'Agregando…' : justSaved() ? 'Agregada' : 'Agregar' }}
         </button>
       </form>
       @if (capacityHint(); as hint) {
@@ -103,6 +115,9 @@ export class ReservationComposeFormComponent {
   readonly daySettings = input<ReservationDaySettings | null>(null);
 
   readonly saved = output<ReservationComposeSaved>();
+  readonly saving = signal(false);
+  readonly justSaved = signal(false);
+  private justSavedTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly form = this.fb.group({
     guestName: this.fb.nonNullable.control(''),
@@ -183,7 +198,7 @@ export class ReservationComposeFormComponent {
   }
 
   save(): void {
-    if (this.form.invalid || !this.canManage()) return;
+    if (this.form.invalid || !this.canManage() || this.saving()) return;
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     const raw = this.form.getRawValue();
@@ -203,6 +218,7 @@ export class ReservationComposeFormComponent {
       });
       return;
     }
+    this.saving.set(true);
     this.api
       .createReservation(shopId, {
         businessDate: this.businessDate(),
@@ -221,6 +237,8 @@ export class ReservationComposeFormComponent {
             area: this.insideOpen() ? 'INSIDE' : 'OUTSIDE',
             reservationTime: null,
           });
+          this.saving.set(false);
+          this.flashJustSaved();
           this.inbox.refresh();
           this.saved.emit({
             id: created.id,
@@ -228,9 +246,13 @@ export class ReservationComposeFormComponent {
             partySize,
             area,
             reservationTime,
+            row: created,
           });
+          // Mantener el flujo de carga rápida de varias reservas seguidas.
+          requestAnimationFrame(() => this.focusGuestName());
         },
         error: (err) => {
+          this.saving.set(false);
           const msg = err?.error?.message ?? 'No se pudo guardar';
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
@@ -239,7 +261,20 @@ export class ReservationComposeFormComponent {
 
   focusGuestName(): void {
     const input = document.getElementById('reservation-guest-name') as HTMLInputElement | null;
-    input?.focus();
-    input?.select();
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    input.select();
+  }
+
+  private flashJustSaved(): void {
+    if (this.justSavedTimer) {
+      clearTimeout(this.justSavedTimer);
+      this.justSavedTimer = null;
+    }
+    this.justSaved.set(true);
+    this.justSavedTimer = setTimeout(() => {
+      this.justSaved.set(false);
+      this.justSavedTimer = null;
+    }, 1200);
   }
 }

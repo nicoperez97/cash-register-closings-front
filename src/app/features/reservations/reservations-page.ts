@@ -78,7 +78,8 @@ import {
       <div
         id="reservation-compose-anchor"
         class="floor-compose-anchor"
-        [class.floor-compose-anchor--pulse]="composePulse()"
+        [class.floor-compose-anchor--pulse]="composePulse() === 'focus'"
+        [class.floor-compose-anchor--success]="composePulse() === 'success'"
       >
         <app-reservation-compose-form
           [businessDate]="businessDate()"
@@ -124,7 +125,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
   readonly savedDaySettings = signal<ReservationDaySettings | null>(null);
   readonly shopSlug = computed(() => this.shops.selectedShop()?.slug ?? '');
   readonly highlightedReservationId = signal<string | null>(null);
-  readonly composePulse = signal(false);
+  readonly composePulse = signal<'off' | 'focus' | 'success'>('off');
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
   private composePulseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly floorPanel = viewChild<ElementRef<HTMLElement>>('floorPanel');
@@ -202,13 +203,28 @@ export class ReservationsPage implements OnInit, OnDestroy {
       event.partySize === 1 ? '1 persona' : `${event.partySize} personas`;
     const areaLabel = event.area === 'OUTSIDE' ? 'Afuera' : 'Adentro';
     const when = event.reservationTime ? ` · ${event.reservationTime}` : '';
-    this.snack.open(`Agregada: ${name} · ${people} · ${areaLabel}${when}`, 'OK', {
-      duration: 4000,
+
+    // Feedback inmediato: aparece arriba (orden API = más reciente primero).
+    this.reservations.update((list) => {
+      if (list.some((r) => r.id === event.id)) return list;
+      return [event.row, ...list];
     });
+    this.highlightReservation(event.id);
+    this.pulseComposeForm('success');
+
+    const snackRef = this.snack.open(
+      `Agregada: ${name} · ${people} · ${areaLabel}${when}`,
+      'Ver',
+      { duration: 3500 },
+    );
+    snackRef.onAction().subscribe(() => this.scrollToReservation(event.id, true));
+
+    // Solo scrollear a la card si no está a la vista; el foco queda en el form para seguir cargando.
+    this.scrollToReservation(event.id, false);
     this.loadSummary();
     this.loadReservations(() => {
       this.highlightReservation(event.id);
-      this.scrollToReservation(event.id);
+      this.composeForm()?.focusGuestName();
     });
   }
 
@@ -267,7 +283,12 @@ export class ReservationsPage implements OnInit, OnDestroy {
     if (this.showCalendar()) {
       this.showCalendar.set(false);
     }
-    this.pulseComposeForm();
+    this.pulseComposeForm('focus');
+
+    const focusNow = () => {
+      this.composeForm()?.focusGuestName();
+    };
+
     const tryFocus = (attempt = 0) => {
       const anchor =
         document.getElementById('reservation-compose-anchor') ??
@@ -278,27 +299,46 @@ export class ReservationsPage implements OnInit, OnDestroy {
         }
         return;
       }
+
+      if (this.isComfortablyInView(anchor)) {
+        focusNow();
+        return;
+      }
+
       anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      window.setTimeout(() => {
-        this.composeForm()?.focusGuestName();
-      }, 280);
+      let done = false;
+      const onDone = () => {
+        if (done) return;
+        done = true;
+        window.removeEventListener('scrollend', onDone);
+        focusNow();
+      };
+      window.addEventListener('scrollend', onDone, { once: true });
+      window.setTimeout(onDone, 450);
     };
     requestAnimationFrame(() => requestAnimationFrame(() => tryFocus()));
   }
 
-  private pulseComposeForm(): void {
+  private pulseComposeForm(kind: 'focus' | 'success'): void {
     if (this.composePulseTimer) {
       clearTimeout(this.composePulseTimer);
       this.composePulseTimer = null;
     }
-    this.composePulse.set(false);
+    this.composePulse.set('off');
     requestAnimationFrame(() => {
-      this.composePulse.set(true);
+      this.composePulse.set(kind);
       this.composePulseTimer = setTimeout(() => {
-        this.composePulse.set(false);
+        this.composePulse.set('off');
         this.composePulseTimer = null;
-      }, 1600);
+      }, kind === 'success' ? 1400 : 1800);
     });
+  }
+
+  private isComfortablyInView(el: HTMLElement): boolean {
+    const rect = el.getBoundingClientRect();
+    const topGap = 72;
+    const bottomGap = 72 + (Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('--guy-bottom-nav-height') || '0', 10) || 0);
+    return rect.top >= topGap && rect.bottom <= window.innerHeight - bottomGap;
   }
 
   private defaultDate(): string {
@@ -321,19 +361,21 @@ export class ReservationsPage implements OnInit, OnDestroy {
     }, 5500);
   }
 
-  private scrollToReservation(id: string | null): void {
+  private scrollToReservation(id: string | null, force = true): void {
     const tryScroll = (attempt = 0) => {
       const target = id ? document.getElementById(`reservation-${id}`) : null;
-      const el = target ?? this.floorPanel()?.nativeElement ?? null;
+      const el = target ?? (force ? this.floorPanel()?.nativeElement ?? null : null);
       if (!el) {
         if (attempt < 8) {
           window.setTimeout(() => tryScroll(attempt + 1), 50 + attempt * 40);
         }
         return;
       }
+      if (!force && this.isComfortablyInView(el)) {
+        return;
+      }
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
-    // Esperar a que Angular pinte la lista recargada.
     requestAnimationFrame(() => requestAnimationFrame(() => tryScroll()));
   }
 

@@ -97,7 +97,18 @@
 .floor-card--new {
   outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 75%, transparent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
-  animation: floor-card-pulse 1.1s ease-out 2;
+  animation: floor-card-enter 0.55s ease-out, floor-card-pulse 1.1s ease-out 2;
+}
+
+@keyframes floor-card-enter {
+  from {
+    opacity: 0.35;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes floor-card-pulse {
@@ -112,6 +123,12 @@
   100% {
     transform: scale(1);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor-card--new {
+    animation: none;
   }
 }
 

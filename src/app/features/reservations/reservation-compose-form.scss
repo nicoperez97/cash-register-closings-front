@@ -4,6 +4,21 @@
   gap: 0.55rem;
   align-items: center;
   margin-bottom: 0.35rem;
+  transition: opacity 0.2s ease;
+}
+
+.floor-form--saving {
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.floor-form--just-saved .floor-form__submit {
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 88%, #000) !important;
+}
+
+.floor-form__submit {
+  min-height: 2.75rem;
+  white-space: nowrap;
 }
 
 .floor-form__capacity-hint {
