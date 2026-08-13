@@ -79,7 +79,8 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
           <div class="floor-day-settings__capacity">
             <span class="floor-day-settings__label">Cupo restante (personas)</span>
             <p class="floor-day-settings__hint text-muted small">
-              Vacío = sin límite. Si ponés 2 adentro, una mesa de 4 no puede pedir ese sector.
+              Vacío = sin límite (queda pendiente de aceptar). Con cupo, las reservas web que
+              entren se confirman solas y se descuenta el número; al llegar a 0 el sector se cierra.
             </p>
             <div class="floor-day-settings__capacity-row">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">

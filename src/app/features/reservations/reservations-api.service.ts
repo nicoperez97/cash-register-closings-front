@@ -320,7 +320,13 @@ export class ReservationsApiService {
       website?: string;
     },
   ) {
-    return this.http.post<{ ok: boolean; id?: string; status?: string }>(
+    return this.http.post<{
+      ok: boolean;
+      id?: string;
+      status?: string;
+      autoAccepted?: boolean;
+      capacityRemaining?: number | null;
+    }>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/reservation-requests`,
       body,
     );

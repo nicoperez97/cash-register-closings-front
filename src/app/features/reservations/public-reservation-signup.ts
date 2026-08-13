@@ -66,10 +66,21 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             <div class="done__mark" aria-hidden="true">✓</div>
             <h2>¡Listo, {{ sentName() }}!</h2>
             <p>
-              Pedido para <strong>{{ sentPeople() }}</strong> el
-              <strong>{{ sentWhen() }}</strong>.
+              @if (sentConfirmed()) {
+                Reserva confirmada para <strong>{{ sentPeople() }}</strong> el
+                <strong>{{ sentWhen() }}</strong>.
+              } @else {
+                Pedido para <strong>{{ sentPeople() }}</strong> el
+                <strong>{{ sentWhen() }}</strong>.
+              }
             </p>
-            <p class="done__mail">Te avisamos a <strong>{{ sentEmail() }}</strong> cuando el local confirme.</p>
+            <p class="done__mail">
+              @if (sentConfirmed()) {
+                Te enviamos la confirmación a <strong>{{ sentEmail() }}</strong>.
+              } @else {
+                Te avisamos a <strong>{{ sentEmail() }}</strong> cuando el local confirme.
+              }
+            </p>
             <button type="button" class="ghost" (click)="reset()">Hacer otra reserva</button>
           </section>
         } @else if (dateSignupOpen()) {
@@ -269,7 +280,10 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             <button type="submit" class="submit" [disabled]="busy()">
               {{ busy() ? 'Enviando…' : 'Pedir reserva' }}
             </button>
-            <p class="hint">Sin pago. Queda pendiente hasta que el local la acepte.</p>
+            <p class="hint">
+              Si el local tiene cupo abierto para ese sector, la reserva se confirma al instante.
+              Si no, queda pendiente hasta que la acepten.
+            </p>
           </form>
         } @else {
           <section class="card closed day-closed" role="status">
@@ -351,6 +365,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
   readonly sent = signal(false);
+  readonly sentConfirmed = signal(false);
   readonly formError = signal<string | null>(null);
   readonly sentName = signal('');
   readonly sentEmail = signal('');
@@ -649,9 +664,12 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
         website: this.website,
       })
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.busy.set(false);
           this.sent.set(true);
+          this.sentConfirmed.set(
+            !!res?.autoAccepted || String(res?.status ?? '').toUpperCase() === 'ACCEPTED',
+          );
           this.sentName.set(name.split(' ')[0] || name);
           this.sentEmail.set(email);
           this.sentPeople.set(
@@ -671,6 +689,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   reset(): void {
     this.sent.set(false);
+    this.sentConfirmed.set(false);
     this.guestName = '';
     this.guestEmail = '';
     this.instagram = '';
