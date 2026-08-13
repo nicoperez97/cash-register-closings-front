@@ -177,10 +177,11 @@ export class ReservationsPage implements OnInit, OnDestroy {
       this.businessDate.set(day);
       this.calendarMonth.set(monthKeyFromIso(day));
     }
-    this.highlightReservation(event.reservationId);
-    this.loadReservations();
     this.loadSummary();
-    this.scrollToDayReservations();
+    this.loadReservations(() => {
+      this.highlightReservation(event.reservationId);
+      this.scrollToReservation(event.reservationId);
+    });
   }
 
   onReservationSaved(): void {
@@ -266,13 +267,23 @@ export class ReservationsPage implements OnInit, OnDestroy {
     this.highlightTimer = setTimeout(() => {
       this.highlightedReservationId.set(null);
       this.highlightTimer = null;
-    }, 4500);
+    }, 5500);
   }
 
-  private scrollToDayReservations(): void {
-    const el = this.floorPanel()?.nativeElement;
-    if (!el) return;
-    queueMicrotask(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  private scrollToReservation(id: string | null): void {
+    const tryScroll = (attempt = 0) => {
+      const target = id ? document.getElementById(`reservation-${id}`) : null;
+      const el = target ?? this.floorPanel()?.nativeElement ?? null;
+      if (!el) {
+        if (attempt < 8) {
+          window.setTimeout(() => tryScroll(attempt + 1), 50 + attempt * 40);
+        }
+        return;
+      }
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    // Esperar a que Angular pinte la lista recargada.
+    requestAnimationFrame(() => requestAnimationFrame(() => tryScroll()));
   }
 
   private summaryRange(): { from: string; to: string } {
@@ -319,7 +330,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
     });
   }
 
-  private loadReservations(): void {
+  private loadReservations(afterLoad?: () => void): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     this.api.listReservations(shopId, this.businessDate()).subscribe({
@@ -330,6 +341,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
         const notice = String(res.notice ?? '').trim() || null;
         this.savedNotice.set(notice);
         this.savedDaySettings.set(res.daySettings ?? null);
+        afterLoad?.();
       },
       error: () => this.snack.open('No se pudieron cargar las reservas', 'OK', { duration: 3000 }),
     });

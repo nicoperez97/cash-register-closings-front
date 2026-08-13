@@ -30,6 +30,11 @@ import {
 export type ReservationRequestAccepted = {
   reservationId: string | null;
   businessDate: string;
+  guestName: string;
+  partySize: number;
+  area: ReservationArea | string | null;
+  reservationTime?: string | null;
+  whenLabel: string;
 };
 
 @Component({
@@ -358,24 +363,38 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     this.api.acceptReservationRequest(shopId, req.id).subscribe({
       next: (row) => {
         this.busyRequestId.set(null);
+        const day = String(row.businessDate || req.businessDate || '').slice(0, 10);
+        const guestName = String(row.guestName || req.guestName || 'Reserva').trim();
+        const partySize = Number(row.partySize ?? req.partySize ?? 0);
+        const area = row.area || req.area || 'INSIDE';
+        const whenLabel = this.requestWhen(req);
+        const areaLabel = area === 'OUTSIDE' ? 'Afuera' : 'Adentro';
+        const people =
+          partySize === 1 ? '1 persona' : `${partySize || '?'} personas`;
+        const detail = `${guestName} · ${people} · ${areaLabel} · ${whenLabel}`;
         this.snack.open(
           openIg
-            ? 'Reserva aceptada. Pegá el mensaje en Instagram.'
-            : 'Reserva aceptada. Ya está en reservas del día.',
+            ? `Confirmada: ${detail}. Pegá el mensaje en Instagram.`
+            : `Confirmada: ${detail}`,
           'OK',
-          { duration: 3200 },
+          { duration: 4500 },
         );
-        const day = String(row.businessDate || req.businessDate || '').slice(0, 10);
         this.loadRequests();
         this.inbox.refresh();
         this.accepted.emit({
           reservationId: row.reservationId ?? null,
           businessDate: day,
+          guestName,
+          partySize,
+          area,
+          reservationTime: row.reservationTime ?? req.reservationTime ?? null,
+          whenLabel,
         });
       },
-      error: () => {
+      error: (err) => {
         this.busyRequestId.set(null);
-        this.snack.open('No se pudo aceptar', 'OK', { duration: 3000 });
+        const msg = err?.error?.message ?? 'No se pudo aceptar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
   }

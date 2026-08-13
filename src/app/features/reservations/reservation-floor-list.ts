@@ -44,6 +44,7 @@ import { copyTextNow, igConfirmMessage } from './reservation-messaging.util';
       @for (r of activeReservations(); track r.id) {
         <li
           class="floor-card"
+          [attr.id]="'reservation-' + r.id"
           [class.floor-card--out]="r.area === 'OUTSIDE'"
           [class.floor-card--seated]="r.status === 'SEATED'"
           [class.floor-card--new]="highlightedId() === r.id"
