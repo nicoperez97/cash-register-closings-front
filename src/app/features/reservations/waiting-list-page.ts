@@ -16,6 +16,11 @@ import {
   ReservationsApiService,
   WaitingListRow,
 } from './reservations-api.service';
+import {
+  hasWhatsAppPhone,
+  openWhatsAppUrl,
+  whatsappUrlFromPhone,
+} from './whatsapp.util';
 
 @Component({
   selector: 'app-waiting-list-page',
@@ -116,18 +121,17 @@ import {
                 · {{ w.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
               </span>
             </div>
-            <a
+            <button
+              type="button"
               class="wait-item__wa"
-              [href]="w.whatsappUrl || whatsappHref(w.phone)"
-              target="_blank"
-              rel="noopener"
-              [class.wait-item__wa--disabled]="!hasPhone(w.phone)"
-              [attr.aria-disabled]="!hasPhone(w.phone)"
-              (click)="!hasPhone(w.phone) && $event.preventDefault()"
+              [class.wait-item__wa--disabled]="!canWhatsApp(w)"
+              [disabled]="!canWhatsApp(w)"
+              [attr.aria-disabled]="!canWhatsApp(w)"
+              (click)="openWhatsApp(w)"
             >
               <mat-icon>chat</mat-icon>
               WhatsApp
-            </a>
+            </button>
             @if (canManage()) {
               <div class="wait-item__actions">
                 <button mat-stroked-button type="button" (click)="seatWaiting(w)">Sentar</button>
@@ -224,13 +228,33 @@ export class WaitingListPage implements OnInit {
     }
   }
 
-  whatsappHref(phone: string): string {
-    const digits = String(phone ?? '').replace(/\D/g, '');
-    return digits ? `https://wa.me/${digits}` : '#';
+  hasPhone(phone?: string | null): boolean {
+    return hasWhatsAppPhone(phone);
   }
 
-  hasPhone(phone?: string | null): boolean {
-    return String(phone ?? '').replace(/\D/g, '').length >= 6;
+  canWhatsApp(row: WaitingListRow): boolean {
+    if (row.whatsappUrl?.startsWith('https://wa.me/') || row.whatsappUrl?.startsWith('https://api.whatsapp.com/')) {
+      return true;
+    }
+    return hasWhatsAppPhone(row.phone);
+  }
+
+  openWhatsApp(row: WaitingListRow): void {
+    if (!this.canWhatsApp(row)) {
+      this.snack.open('Agregá un teléfono para avisar por WhatsApp', 'OK', { duration: 3000 });
+      return;
+    }
+    const name = String(row.guestName ?? '').trim() || 'hola';
+    const built = whatsappUrlFromPhone(
+      row.phone,
+      `Hola ${name}, ya tenemos lugar para ustedes 🙌`,
+    );
+    const url =
+      built ??
+      (row.whatsappUrl?.startsWith('http') ? row.whatsappUrl : null);
+    if (!url || !openWhatsAppUrl(url)) {
+      this.snack.open('No se pudo abrir WhatsApp', 'OK', { duration: 3000 });
+    }
   }
 
   private loadWaiting(): void {

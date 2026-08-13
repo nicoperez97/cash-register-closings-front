@@ -271,6 +271,9 @@
       }
 
       .wait-item__wa {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
@@ -279,21 +282,24 @@
         background: #25d366;
         color: #083b1f;
         text-decoration: none;
+        font: inherit;
         font-weight: 750;
         font-size: 0.88rem;
         white-space: nowrap;
         transition: transform 160ms ease, filter 160ms ease;
       }
 
-      .wait-item__wa:hover {
+      .wait-item__wa:hover:not(:disabled) {
         transform: translateY(-1px);
         filter: brightness(1.05);
       }
 
-      .wait-item__wa--disabled {
+      .wait-item__wa--disabled,
+      .wait-item__wa:disabled {
         opacity: 0.35;
         pointer-events: none;
         filter: grayscale(0.6);
+        cursor: not-allowed;
       }
 
       .wait-item__wa mat-icon {
