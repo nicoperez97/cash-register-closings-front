@@ -3,12 +3,16 @@ import {
   OnDestroy,
   OnInit,
   computed,
+  effect,
   inject,
   output,
   signal,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -40,8 +44,11 @@ export type ReservationRequestAccepted = {
 @Component({
   selector: 'app-reservation-requests-panel',
   imports: [
+    FormsModule,
     MatButtonModule,
+    MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatSlideToggleModule,
     MatSnackBarModule,
     MatTooltipModule,
@@ -97,6 +104,42 @@ export type ReservationRequestAccepted = {
                 Afuera
               </mat-slide-toggle>
             </div>
+            <div class="req-party-rules">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Máx. adentro</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="1"
+                  max="99"
+                  inputmode="numeric"
+                  [ngModel]="insideMaxDraft()"
+                  (ngModelChange)="insideMaxDraft.set($event)"
+                  placeholder="Sin tope"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Afuera desde</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="1"
+                  max="99"
+                  inputmode="numeric"
+                  [ngModel]="outsideMinDraft()"
+                  (ngModelChange)="outsideMinDraft.set($event)"
+                  placeholder="Sin regla"
+                />
+              </mat-form-field>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="partyRulesBusy() || !partyRulesDirty()"
+                (click)="savePartyRules()"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
           <div class="req-panel__links">
             @if (shopSlug()) {
@@ -136,7 +179,13 @@ export type ReservationRequestAccepted = {
 
       <ul class="req-list" [class.req-list--hidden]="!signupOpen() && !pendingRequests().length">
         @for (req of pendingRequests(); track req.id) {
-          <li class="req-card">
+          <li
+            class="req-card"
+            [id]="'reservation-request-' + req.id"
+            [class.req-card--working]="busyRequestId() === req.id"
+            [class.req-card--working-reject]="busyRequestId() === req.id && busyAction() === 'reject'"
+            [class.req-card--locked]="!!busyRequestId() && busyRequestId() !== req.id"
+          >
             <div class="req-card__main">
               <strong>{{ req.guestName }}</strong>
               <div class="req-card__chips">
@@ -173,6 +222,7 @@ export type ReservationRequestAccepted = {
                   type="button"
                   class="req-ig"
                   matTooltip="Copiar mensaje y abrir perfil"
+                  [disabled]="!!busyRequestId()"
                   (click)="openGuestInstagram(req, true)"
                 >
                   <mat-icon>photo_camera</mat-icon>
@@ -182,32 +232,54 @@ export type ReservationRequestAccepted = {
               <button
                 type="button"
                 class="req-btn req-btn--no"
-                [disabled]="busyRequestId() === req.id"
+                [disabled]="!!busyRequestId()"
                 (click)="rejectRequest(req)"
               >
-                Rechazar
+                @if (busyRequestId() === req.id && busyAction() === 'reject') {
+                  Rechazando…
+                } @else {
+                  Rechazar
+                }
               </button>
               <button
                 type="button"
                 class="req-btn req-btn--yes"
-                [disabled]="busyRequestId() === req.id"
+                [disabled]="!!busyRequestId()"
                 (click)="acceptRequest(req)"
               >
-                Aceptar
+                @if (busyRequestId() === req.id && busyAction() === 'accept') {
+                  <mat-icon class="req-spin">sync</mat-icon>
+                  Aceptando…
+                } @else {
+                  Aceptar
+                }
               </button>
               @if (req.instagramHandle) {
                 <button
                   type="button"
                   class="req-btn req-btn--yes-ig"
-                  [disabled]="busyRequestId() === req.id"
+                  [disabled]="!!busyRequestId()"
                   matTooltip="Aceptar, copiar mensaje y abrir Instagram"
                   (click)="acceptRequest(req, true)"
                 >
                   <mat-icon>photo_camera</mat-icon>
-                  Aceptar e IG
+                  @if (busyRequestId() === req.id && busyAction() === 'accept') {
+                    Aceptando…
+                  } @else {
+                    Aceptar e IG
+                  }
                 </button>
               }
             </div>
+            @if (busyRequestId() === req.id) {
+              <p class="req-card__status" role="status">
+                {{
+                  busyAction() === 'reject'
+                    ? 'Rechazando solicitud…'
+                    : 'Aceptando y cargando en el piso…'
+                }}
+              </p>
+            }
           </li>
         } @empty {
           @if (signupOpen()) {
@@ -230,8 +302,13 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
 
   readonly pendingRequests = signal<ReservationRequestRow[]>([]);
   readonly busyRequestId = signal<string | null>(null);
+  readonly busyAction = signal<'accept' | 'reject' | null>(null);
   readonly signupBusy = signal(false);
   readonly requestsBusy = signal(false);
+  readonly partyRulesBusy = signal(false);
+  readonly insideMaxDraft = signal<number | null>(null);
+  readonly outsideMinDraft = signal<number | null>(null);
+  private partyRulesShopId: string | null = null;
 
   private requestsPoll: ReturnType<typeof setInterval> | null = null;
 
@@ -250,6 +327,14 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     usePageRefresh(() => {
       this.loadRequests();
       this.inbox.refresh();
+    });
+    effect(() => {
+      const shop = this.shops.selectedShop();
+      const id = shop?.id ?? null;
+      if (id === this.partyRulesShopId) return;
+      this.partyRulesShopId = id;
+      this.insideMaxDraft.set(this.normalizePartyRule(shop?.reservationInsideMaxPartySize));
+      this.outsideMinDraft.set(this.normalizePartyRule(shop?.reservationOutsideMinPartySize));
     });
   }
 
@@ -353,16 +438,71 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     return requestWhenLabel(req);
   }
 
+  partyRulesDirty(): boolean {
+    const shop = this.shops.selectedShop();
+    return (
+      this.normalizePartyRule(this.insideMaxDraft()) !==
+        this.normalizePartyRule(shop?.reservationInsideMaxPartySize) ||
+      this.normalizePartyRule(this.outsideMinDraft()) !==
+        this.normalizePartyRule(shop?.reservationOutsideMinPartySize)
+    );
+  }
+
+  savePartyRules(): void {
+    const shop = this.shops.selectedShop();
+    const shopId = this.shops.selectedShopId();
+    if (!shop || !shopId || this.partyRulesBusy()) return;
+    this.partyRulesBusy.set(true);
+    this.api
+      .setReservationPartyRules(shopId, {
+        insideMaxPartySize: this.normalizePartyRule(this.insideMaxDraft()),
+        outsideMinPartySize: this.normalizePartyRule(this.outsideMinDraft()),
+      })
+      .subscribe({
+        next: (res) => {
+          this.partyRulesBusy.set(false);
+          this.shops.upsertShop({
+            ...shop,
+            reservationInsideMaxPartySize: res.reservationInsideMaxPartySize,
+            reservationOutsideMinPartySize: res.reservationOutsideMinPartySize,
+          });
+          this.insideMaxDraft.set(this.normalizePartyRule(res.reservationInsideMaxPartySize));
+          this.outsideMinDraft.set(this.normalizePartyRule(res.reservationOutsideMinPartySize));
+          this.auth.scheduleRefreshMe(200);
+          this.snack.open('Regla de personas actualizada', 'OK', { duration: 2200 });
+        },
+        error: (err) => {
+          this.partyRulesBusy.set(false);
+          const msg =
+            (err?.error?.message as string | string[] | undefined) ??
+            'No se pudo guardar';
+          this.snack.open(Array.isArray(msg) ? msg[0] : String(msg), 'OK', { duration: 3000 });
+        },
+      });
+  }
+
+  private normalizePartyRule(raw: number | string | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(99, n);
+  }
+
   acceptRequest(req: ReservationRequestRow, openIg = false): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId || this.busyRequestId()) return;
     if (openIg) {
       this.openGuestInstagram(req, true, { snack: false });
     }
     this.busyRequestId.set(req.id);
+    this.busyAction.set('accept');
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`reservation-request-${req.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
     this.api.acceptReservationRequest(shopId, req.id).subscribe({
       next: (row) => {
-        this.busyRequestId.set(null);
         const day = String(row.businessDate || req.businessDate || '').slice(0, 10);
         const guestName = String(row.guestName || req.guestName || 'Reserva').trim();
         const partySize = Number(row.partySize ?? req.partySize ?? 0);
@@ -379,7 +519,6 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
           'OK',
           { duration: 4500 },
         );
-        this.loadRequests();
         this.inbox.refresh();
         this.accepted.emit({
           reservationId: row.reservationId ?? null,
@@ -390,9 +529,14 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
           reservationTime: row.reservationTime ?? req.reservationTime ?? null,
           whenLabel,
         });
+        this.loadRequests(() => {
+          this.busyRequestId.set(null);
+          this.busyAction.set(null);
+        });
       },
       error: (err) => {
         this.busyRequestId.set(null);
+        this.busyAction.set(null);
         const msg = err?.error?.message ?? 'No se pudo aceptar';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
@@ -401,17 +545,20 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
 
   rejectRequest(req: ReservationRequestRow): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId || this.busyRequestId()) return;
     this.busyRequestId.set(req.id);
+    this.busyAction.set('reject');
     this.api.rejectReservationRequest(shopId, req.id).subscribe({
       next: () => {
         this.busyRequestId.set(null);
+        this.busyAction.set(null);
         this.snack.open('Solicitud rechazada. Se avisó por mail.', 'OK', { duration: 2800 });
         this.loadRequests();
         this.inbox.refresh();
       },
       error: () => {
         this.busyRequestId.set(null);
+        this.busyAction.set(null);
         this.snack.open('No se pudo rechazar', 'OK', { duration: 3000 });
       },
     });
@@ -456,10 +603,11 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     this.inbox.refresh();
   }
 
-  private loadRequests(): void {
+  private loadRequests(afterLoad?: () => void): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
       this.pendingRequests.set([]);
+      afterLoad?.();
       return;
     }
     this.requestsBusy.set(true);
@@ -467,10 +615,12 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       next: (rows) => {
         this.requestsBusy.set(false);
         this.pendingRequests.set(rows ?? []);
+        afterLoad?.();
       },
       error: () => {
         this.requestsBusy.set(false);
         this.pendingRequests.set([]);
+        afterLoad?.();
       },
     });
   }

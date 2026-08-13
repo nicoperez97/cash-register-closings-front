@@ -19,6 +19,7 @@ import {
   PublicReservationSignup,
   ReservationsApiService,
 } from './reservations-api.service';
+import { partyMustSitOutside, partyOutsideHint } from './reservation-party-rules.util';
 
 const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 
@@ -233,6 +234,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     type="button"
                     class="pill"
                     [class.pill--on]="area === 'INSIDE'"
+                    [disabled]="!insideAllowedForParty()"
                     (click)="setArea('INSIDE')"
                   >
                     Adentro
@@ -252,12 +254,18 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     }
                   </button>
                 </div>
+                @if (partyAreaHint(); as hint) {
+                  <p class="area-note">{{ hint }}</p>
+                }
               </div>
             } @else if (onlyAreaLabel(); as only) {
               <p class="area-note">
                 La reserva es <strong>{{ only.open }}</strong>.
                 El sector {{ only.full }} está lleno.
               </p>
+              @if (partyAreaHint(); as hint) {
+                <p class="area-note">{{ hint }}</p>
+              }
             }
 
             <label class="field">
@@ -277,7 +285,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
               <p class="form-error">{{ formError() }}</p>
             }
 
-            <button type="submit" class="submit" [disabled]="busy()">
+            <button type="submit" class="submit" [disabled]="busy() || !canSubmitArea()">
               {{ busy() ? 'Enviando…' : 'Pedir reserva' }}
             </button>
             <p class="hint">
@@ -523,11 +531,27 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   bump(delta: number): void {
     this.partySize = Math.min(this.maxPartySize(), Math.max(1, this.partySize + delta));
+    this.syncArea(this.insideEnabled(), this.outsideEnabled());
   }
 
   setArea(next: 'INSIDE' | 'OUTSIDE'): void {
+    if (next === 'INSIDE' && !this.insideAllowedForParty()) return;
     this.area = next;
     this.clampPartySize();
+  }
+
+  insideAllowedForParty(): boolean {
+    if (!this.insideEnabled()) return false;
+    return !partyMustSitOutside(this.partySize, this.info());
+  }
+
+  canSubmitArea(): boolean {
+    if (this.area === 'OUTSIDE') return this.outsideEnabled();
+    return this.insideAllowedForParty();
+  }
+
+  partyAreaHint(): string {
+    return partyOutsideHint(this.partySize, this.info());
   }
 
   maxPartySize(): number {
@@ -638,8 +662,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
       this.formError.set('No tomamos reservas web para este día.');
       return;
     }
-    if (this.area === 'INSIDE' && !this.insideEnabled()) {
-      this.formError.set('El sector adentro no está disponible.');
+    if (this.area === 'INSIDE' && !this.insideAllowedForParty()) {
+      this.formError.set(this.partyAreaHint() || 'El sector adentro no está disponible.');
       return;
     }
     if (this.area === 'OUTSIDE' && !this.outsideEnabled()) {
@@ -701,10 +725,11 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   private syncArea(inside: boolean, outside: boolean): void {
-    if (this.area === 'INSIDE' && !inside && outside) this.area = 'OUTSIDE';
-    else if (this.area === 'OUTSIDE' && !outside && inside) this.area = 'INSIDE';
-    else if (!inside && outside) this.area = 'OUTSIDE';
-    else if (inside) this.area = 'INSIDE';
+    const insideOk = inside && !partyMustSitOutside(this.partySize, this.info());
+    if (this.area === 'INSIDE' && !insideOk && outside) this.area = 'OUTSIDE';
+    else if (this.area === 'OUTSIDE' && !outside && insideOk) this.area = 'INSIDE';
+    else if (!insideOk && outside) this.area = 'OUTSIDE';
+    else if (insideOk) this.area = 'INSIDE';
   }
 
   private slug(): string {

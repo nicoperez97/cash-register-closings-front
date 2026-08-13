@@ -32,6 +32,8 @@ export interface PublicReservationSignup {
   outsideEnabled?: boolean;
   insideCapacityRemaining?: number | null;
   outsideCapacityRemaining?: number | null;
+  insideMaxPartySize?: number | null;
+  outsideMinPartySize?: number | null;
   /** Config global del local (sin override del día). */
   shopSignupEnabled?: boolean;
   /** 0=domingo … 6=sábado */
@@ -359,6 +361,16 @@ export class ReservationsApiService {
       reservationInsideEnabled: boolean;
       reservationOutsideEnabled: boolean;
     }>(`${this.base}/shops/${shopId}/reservation-areas`, patch);
+  }
+
+  setReservationPartyRules(
+    shopId: string,
+    patch: { insideMaxPartySize?: number | null; outsideMinPartySize?: number | null },
+  ) {
+    return this.http.patch<{
+      reservationInsideMaxPartySize: number | null;
+      reservationOutsideMinPartySize: number | null;
+    }>(`${this.base}/shops/${shopId}/reservation-party-rules`, patch);
   }
 
   acceptReservationRequest(shopId: string, id: string, staffNote?: string | null) {

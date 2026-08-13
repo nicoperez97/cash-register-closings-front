@@ -561,6 +561,34 @@ const TIMEZONE_OPTIONS = [
                   aria-label="Sector afuera"
                 />
               </div>
+              <div class="shop-admin__party-rules">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Máx. personas adentro</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    min="1"
+                    max="99"
+                    inputmode="numeric"
+                    formControlName="reservationInsideMaxPartySize"
+                    placeholder="Sin tope"
+                  />
+                  <mat-hint>Hasta cuántas personas pueden pedir mesa adentro</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Afuera obligatorio desde</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    min="1"
+                    max="99"
+                    inputmode="numeric"
+                    formControlName="reservationOutsideMinPartySize"
+                    placeholder="Sin regla"
+                  />
+                  <mat-hint>A partir de cuántas personas la mesa es sí o sí afuera</mat-hint>
+                </mat-form-field>
+              </div>
               <div class="shop-admin__toggle">
                 <div>
                   <strong>Lista de espera</strong>
@@ -1031,6 +1059,16 @@ const TIMEZONE_OPTIONS = [
       .shop-admin__toggle-list .shop-admin__toggle + .shop-admin__toggle {
         border-top: 1px solid var(--guy-border, #e4ebe6);
       }
+      .shop-admin__party-rules {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+        gap: 0.85rem 1rem;
+        padding: 0.85rem 1rem 1rem;
+        border-top: 1px solid var(--guy-border, #e4ebe6);
+      }
+      .shop-admin__party-rules mat-form-field {
+        width: 100%;
+      }
       .shop-admin__toggle {
         display: flex;
         align-items: center;
@@ -1288,6 +1326,13 @@ export class AdminShopPage implements OnInit {
     return LINKED_PAYMENT_METHOD_OPTIONS.find((o) => o.value === value)?.label ?? value;
   }
 
+  private toPartyRule(raw: number | string | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(99, n);
+  }
+
   isSuperAdmin(): boolean {
     return this.auth.isSuperAdmin();
   }
@@ -1321,6 +1366,8 @@ export class AdminShopPage implements OnInit {
     reservationSignupEnabled: [true],
     reservationInsideEnabled: [true],
     reservationOutsideEnabled: [true],
+    reservationInsideMaxPartySize: this.fb.control<number | null>(null),
+    reservationOutsideMinPartySize: this.fb.control<number | null>(null),
     waitingListEnabled: [true],
     tipsEnabled: [false],
     active: [true],
@@ -1446,6 +1493,8 @@ export class AdminShopPage implements OnInit {
       reservationSignupEnabled: shop.reservationSignupEnabled !== false,
       reservationInsideEnabled: shop.reservationInsideEnabled !== false,
       reservationOutsideEnabled: shop.reservationOutsideEnabled !== false,
+      reservationInsideMaxPartySize: shop.reservationInsideMaxPartySize ?? null,
+      reservationOutsideMinPartySize: shop.reservationOutsideMinPartySize ?? null,
       waitingListEnabled: !!shop.waitingListEnabled,
       tipsEnabled: !!shop.tipsEnabled,
       active: shop.active ?? true,
@@ -1483,6 +1532,8 @@ export class AdminShopPage implements OnInit {
             reservationSignupEnabled: s.reservationSignupEnabled !== false,
             reservationInsideEnabled: s.reservationInsideEnabled !== false,
             reservationOutsideEnabled: s.reservationOutsideEnabled !== false,
+            reservationInsideMaxPartySize: s.reservationInsideMaxPartySize ?? null,
+            reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
             waitingListEnabled: !!s.waitingListEnabled,
             tipsEnabled: !!s.tipsEnabled,
             active: !!s.active,
@@ -1805,6 +1856,8 @@ export class AdminShopPage implements OnInit {
       reservationSignupEnabled: raw.reservationSignupEnabled,
       reservationInsideEnabled: raw.reservationInsideEnabled,
       reservationOutsideEnabled: raw.reservationOutsideEnabled,
+      reservationInsideMaxPartySize: this.toPartyRule(raw.reservationInsideMaxPartySize),
+      reservationOutsideMinPartySize: this.toPartyRule(raw.reservationOutsideMinPartySize),
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
       active: raw.active,

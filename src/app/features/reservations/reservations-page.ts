@@ -193,7 +193,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
     this.loadSummary();
     this.loadReservations(() => {
       this.highlightReservation(event.reservationId);
-      this.scrollToReservation(event.reservationId);
+      this.scrollToReservation(event.reservationId, true);
     });
   }
 

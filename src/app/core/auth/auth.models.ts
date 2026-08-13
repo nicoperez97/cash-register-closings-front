@@ -567,6 +567,10 @@ export interface ShopSummary {
   reservationInsideEnabled?: boolean;
   /** Si es false, no se toman reservas afuera. */
   reservationOutsideEnabled?: boolean;
+  /** Máximo de personas adentro. null = sin tope. */
+  reservationInsideMaxPartySize?: number | null;
+  /** A partir de esta cantidad la mesa es sí o sí afuera. null = sin regla. */
+  reservationOutsideMinPartySize?: number | null;
   /** Si es false, lista de espera no está disponible en este local. */
   waitingListEnabled?: boolean;
   /** Si es false, módulo de propinas no está disponible en este local. */

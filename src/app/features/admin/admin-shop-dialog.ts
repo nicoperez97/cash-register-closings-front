@@ -23,6 +23,8 @@ export interface AdminShopRow {
   reservationSignupEnabled?: boolean;
   reservationInsideEnabled?: boolean;
   reservationOutsideEnabled?: boolean;
+  reservationInsideMaxPartySize?: number | null;
+  reservationOutsideMinPartySize?: number | null;
   waitingListEnabled?: boolean;
   tipsEnabled?: boolean;
   defaultChangeAmount?: number;
@@ -167,6 +169,14 @@ function slugify(raw: string): string {
         <mat-slide-toggle formControlName="reservationSignupEnabled">Formulario público de reservas</mat-slide-toggle>
         <mat-slide-toggle formControlName="reservationInsideEnabled">Sector adentro</mat-slide-toggle>
         <mat-slide-toggle formControlName="reservationOutsideEnabled">Sector afuera</mat-slide-toggle>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Máx. personas adentro</mat-label>
+          <input matInput type="number" min="1" max="99" formControlName="reservationInsideMaxPartySize" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Afuera obligatorio desde</mat-label>
+          <input matInput type="number" min="1" max="99" formControlName="reservationOutsideMinPartySize" />
+        </mat-form-field>
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
         <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>
 
@@ -237,6 +247,8 @@ export class AdminShopDialogComponent {
     reservationSignupEnabled: [this.shop ? this.shop.reservationSignupEnabled !== false : true],
     reservationInsideEnabled: [this.shop ? this.shop.reservationInsideEnabled !== false : true],
     reservationOutsideEnabled: [this.shop ? this.shop.reservationOutsideEnabled !== false : true],
+    reservationInsideMaxPartySize: [this.shop?.reservationInsideMaxPartySize ?? null],
+    reservationOutsideMinPartySize: [this.shop?.reservationOutsideMinPartySize ?? null],
     waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
     tipsEnabled: [this.shop ? !!this.shop.tipsEnabled : false],
     active: [this.shop?.active ?? true],
@@ -277,6 +289,8 @@ export class AdminShopDialogComponent {
       reservationSignupEnabled: raw.reservationSignupEnabled,
       reservationInsideEnabled: raw.reservationInsideEnabled,
       reservationOutsideEnabled: raw.reservationOutsideEnabled,
+      reservationInsideMaxPartySize: this.toPartyRule(raw.reservationInsideMaxPartySize),
+      reservationOutsideMinPartySize: this.toPartyRule(raw.reservationOutsideMinPartySize),
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
     };
@@ -309,5 +323,12 @@ export class AdminShopDialogComponent {
     this.busy.set(false);
     const msg = err?.error?.message ?? 'No se pudo guardar';
     this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+  }
+
+  private toPartyRule(raw: number | string | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(99, n);
   }
 }

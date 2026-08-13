@@ -87,6 +87,53 @@
   border-left: 1px solid color-mix(in srgb, var(--guy-muted, #5f6f76) 28%, transparent);
 }
 
+.req-party-rules {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.req-party-rules mat-form-field {
+  width: 8.5rem;
+}
+
+.req-card--working {
+  position: relative;
+  outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--guy-green, #2e7d32) 14%, transparent);
+  cursor: wait;
+}
+
+.req-card--working-reject {
+  outline-color: color-mix(in srgb, #c62828 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, #c62828 14%, transparent);
+}
+
+.req-card--working-reject .req-card__status {
+  color: #c62828;
+}
+
+.req-card--locked {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.req-card__status {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--guy-green, #2e7d32);
+}
+
+.req-btn:disabled,
+.req-ig:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .req-list {
   list-style: none;
   margin: 0;

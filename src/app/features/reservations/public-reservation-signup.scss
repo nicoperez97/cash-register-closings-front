@@ -323,6 +323,11 @@
         color: #102010;
       }
 
+      .pill:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
       .date-sr {
         position: absolute;
         width: 0;

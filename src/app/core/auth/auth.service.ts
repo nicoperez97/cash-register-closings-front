@@ -166,6 +166,8 @@ export class AuthService {
         reservationSignupEnabled: s.reservationSignupEnabled !== false,
         reservationInsideEnabled: s.reservationInsideEnabled !== false,
         reservationOutsideEnabled: s.reservationOutsideEnabled !== false,
+        reservationInsideMaxPartySize: s.reservationInsideMaxPartySize ?? null,
+        reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
         waitingListEnabled: s.waitingListEnabled,
         tipsEnabled: s.tipsEnabled,
         timezone: s.timezone ?? null,

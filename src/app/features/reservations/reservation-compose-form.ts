@@ -16,6 +16,7 @@ import {
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
+import { partyMustSitOutside, partyOutsideHint } from './reservation-party-rules.util';
 
 export type ReservationComposeSaved = {
   id: string;
@@ -99,6 +100,9 @@ export type ReservationComposeSaved = {
       @if (capacityHint(); as hint) {
         <p class="floor-form__capacity-hint text-muted small">{{ hint }}</p>
       }
+      @if (partyAreaHint(); as hint) {
+        <p class="floor-form__capacity-hint text-muted small">{{ hint }}</p>
+      }
     }
   `,
   styleUrl: './reservation-compose-form.scss',
@@ -134,7 +138,8 @@ export class ReservationComposeFormComponent {
     const settings = this.daySettings();
     if (settings?.insideEnabled === false) return false;
     const cap = settings?.insideCapacityRemaining;
-    return !(cap != null && Number(cap) <= 0);
+    if (cap != null && Number(cap) <= 0) return false;
+    return !partyMustSitOutside(this.partySizeValue(), this.shops.selectedShop());
   });
 
   readonly outsideOpen = computed(() => {
@@ -156,7 +161,12 @@ export class ReservationComposeFormComponent {
     return parts.length ? `Cupo restante · ${parts.join(' · ')}` : '';
   });
 
+  readonly partyAreaHint = computed(() =>
+    partyOutsideHint(this.partySizeValue(), this.shops.selectedShop()),
+  );
+
   private readonly selectedArea = signal<ReservationArea>('INSIDE');
+  private readonly partySizeValue = signal(2);
 
   readonly partyMax = computed(() => {
     const area = this.selectedArea();
@@ -172,6 +182,9 @@ export class ReservationComposeFormComponent {
   constructor() {
     this.form.controls.area.valueChanges.subscribe((area) => {
       if (area) this.selectedArea.set(area);
+    });
+    this.form.controls.partySize.valueChanges.subscribe((size) => {
+      this.partySizeValue.set(Number(size ?? 2));
     });
 
     effect(() => {
