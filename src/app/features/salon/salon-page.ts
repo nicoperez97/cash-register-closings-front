@@ -16,25 +16,23 @@ import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { SalonApiService } from './salon-api.service';
 import {
-  DEFAULT_RULE_SIZES,
   formatSlots,
   formatTableInventory,
+  nextRuleSize,
   remainingAfterJoining,
+  shopRuleHint as formatShopRuleHint,
+  suggestedRuleSizes,
 } from './salon-combine.util';
 import { SalonArea, SalonAreaRule, SalonRuleSlot, SalonTable } from './salon.models';
 
 type SalonView = 'diagrama' | 'reglas';
-type RuleDraft = Record<SalonArea, Record<number, number | ''>>;
+type RuleRow = { key: string; partySize: number | ''; maxCount: number | '' };
+type RuleDraft = Record<SalonArea, RuleRow[]>;
 
 const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }> = [
   { id: 'INSIDE', label: 'Adentro', hint: 'Salón', icon: 'home' },
   { id: 'OUTSIDE', label: 'Afuera', hint: 'Vereda / patio', icon: 'deck' },
 ];
-
-const EMPTY_RULES = (): RuleDraft => ({
-  INSIDE: { 2: '', 3: '', 4: '', 6: '' },
-  OUTSIDE: { 2: '', 3: '', 4: '', 6: '' },
-});
 
 @Component({
   selector: 'app-salon-page',
@@ -176,8 +174,10 @@ const EMPTY_RULES = (): RuleDraft => ({
       </div>
     } @else {
       <p class="salon-lead text-muted">
-        Hasta cuántas mesas armadas de cada tamaño. Juntar mesas grandes descuenta de estas
-        cantidades: si adentro hay 3 de 4 y armás una de 6, queda 1 de 4.
+        Hasta cuántas mesas armadas de cada tamaño, según el local
+        ({{ shopRuleHint('INSIDE') }} · {{ shopRuleHint('OUTSIDE') }}).
+        Si falta uno, sumalo: por ejemplo 1 de 8. Tamaño y cantidad se pueden cambiar.
+        Juntar mesas grandes descuenta de estas cantidades.
       </p>
       <div class="salon-sectors">
         @for (sector of areas; track sector.id) {
@@ -188,7 +188,7 @@ const EMPTY_RULES = (): RuleDraft => ({
               </span>
               <div>
                 <h2>{{ sector.label }}</h2>
-                <p>{{ sector.hint }} · {{ inventoryLabel(sector.id) }}</p>
+                <p>{{ sector.hint }} · {{ shopRuleHint(sector.id) }} · {{ inventoryLabel(sector.id) }}</p>
               </div>
               @if (canManage()) {
                 <button
@@ -210,20 +210,50 @@ const EMPTY_RULES = (): RuleDraft => ({
             </header>
 
             <div class="salon-rules">
-              @for (size of sizesFor(sector.id); track size) {
+              @for (row of rulesOf(sector.id); track row.key) {
                 <label class="salon-num">
-                  <span>de {{ size }}</span>
+                  <span>de</span>
                   <input
+                    class="salon-num__size"
+                    type="number"
+                    min="2"
+                    max="20"
+                    inputmode="numeric"
+                    [ngModel]="row.partySize"
+                    (ngModelChange)="setRowSize(sector.id, row.key, $event)"
+                    [disabled]="!canManage()"
+                    placeholder="8"
+                    [attr.aria-label]="'Personas por mesa ' + sector.label"
+                  />
+                  <input
+                    class="salon-num__count"
                     type="number"
                     min="0"
                     max="99"
                     inputmode="numeric"
-                    [ngModel]="ruleCount(sector.id, size)"
-                    (ngModelChange)="setRuleCount(sector.id, size, $event)"
+                    [ngModel]="row.maxCount"
+                    (ngModelChange)="setRowCount(sector.id, row.key, $event)"
                     [disabled]="!canManage()"
                     placeholder="0"
+                    [attr.aria-label]="'Cantidad de mesas de ' + (row.partySize || '?')"
                   />
+                  @if (canManage()) {
+                    <button
+                      type="button"
+                      class="salon-num__del"
+                      aria-label="Quitar tamaño"
+                      (click)="removeRuleRow(sector.id, row.key)"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
                 </label>
+              }
+              @if (canManage()) {
+                <button type="button" class="salon-num-add" (click)="addRuleRow(sector.id)">
+                  <mat-icon>add</mat-icon>
+                  tamaño
+                </button>
               }
             </div>
 
@@ -253,10 +283,11 @@ export class SalonPage {
   readonly loading = signal(true);
   readonly tables = signal<SalonTable[]>([]);
   readonly savedRules = signal<SalonAreaRule[]>([]);
-  readonly rulesDraft = signal<RuleDraft>(EMPTY_RULES());
+  readonly rulesDraft = signal<RuleDraft>({ INSIDE: [], OUTSIDE: [] });
   readonly addingArea = signal<SalonArea | null>(null);
   readonly savingArea = signal<SalonArea | null>(null);
   readonly labelDrafts = signal<Record<string, string>>({});
+  private rowSeq = 0;
 
   readonly view = toSignal(
     this.router.events.pipe(
@@ -294,24 +325,43 @@ export class SalonPage {
     return Array.from({ length: seats }, (_, i) => i);
   }
 
-  sizesFor(area: SalonArea): number[] {
-    const draft = this.rulesDraft()[area];
-    const extra = Object.keys(draft)
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && !(DEFAULT_RULE_SIZES as readonly number[]).includes(n));
-    return [...DEFAULT_RULE_SIZES, ...extra].sort((a, b) => a - b);
+  shopRuleHint(area: SalonArea): string {
+    return formatShopRuleHint(area, this.shops.selectedShop());
   }
 
-  ruleCount(area: SalonArea, size: number): number | '' {
-    return this.rulesDraft()[area][size] ?? '';
+  rulesOf(area: SalonArea): RuleRow[] {
+    return this.rulesDraft()[area];
   }
 
-  setRuleCount(area: SalonArea, size: number, raw: string | number): void {
+  setRowSize(area: SalonArea, key: string, raw: string | number): void {
     const text = String(raw ?? '').trim();
-    const value: number | '' = text === '' ? '' : Math.max(0, Math.min(99, Math.round(Number(text)) || 0));
+    const partySize: number | '' =
+      text === '' ? '' : Math.max(2, Math.min(20, Math.round(Number(text)) || 2));
+    this.patchRow(area, key, { partySize });
+  }
+
+  setRowCount(area: SalonArea, key: string, raw: string | number): void {
+    const text = String(raw ?? '').trim();
+    const maxCount: number | '' =
+      text === '' ? '' : Math.max(0, Math.min(99, Math.round(Number(text)) || 0));
+    this.patchRow(area, key, { maxCount });
+  }
+
+  addRuleRow(area: SalonArea): void {
+    const existing = this.rulesDraft()[area]
+      .map((r) => Number(r.partySize))
+      .filter((n) => Number.isFinite(n) && n >= 2);
+    const partySize = nextRuleSize(existing);
     this.rulesDraft.update((draft) => ({
       ...draft,
-      [area]: { ...draft[area], [size]: value },
+      [area]: [...draft[area], { key: this.nextRowKey(), partySize, maxCount: '' }],
+    }));
+  }
+
+  removeRuleRow(area: SalonArea, key: string): void {
+    this.rulesDraft.update((draft) => ({
+      ...draft,
+      [area]: draft[area].filter((r) => r.key !== key),
     }));
   }
 
@@ -322,12 +372,17 @@ export class SalonPage {
   joinHint(area: SalonArea): string | null {
     const slots = this.slotsFromDraft(area);
     if (!slots.length) return null;
-    const pool = slots.filter((s) => s.partySize <= 4);
-    const left = pool.length ? remainingAfterJoining(pool, 6, 1) : null;
+    const joinSize =
+      slots.map((s) => s.partySize).find((n) => n >= 6) ??
+      (Math.max(...slots.map((s) => s.partySize)) > 3
+        ? Math.max(...slots.map((s) => s.partySize))
+        : 6);
+    const pool = slots.filter((s) => s.partySize < joinSize);
+    const left = pool.length ? remainingAfterJoining(pool, joinSize, 1) : null;
     if (!left) {
       return `Hasta ${formatSlots(slots)}.`;
     }
-    return `Hasta ${formatSlots(slots)}. Si armás 1 de 6, quedan ${formatSlots(left)}.`;
+    return `Hasta ${formatSlots(slots)}. Si armás 1 de ${joinSize}, quedan ${formatSlots(left)}.`;
   }
 
   onLabelDraft(id: string, value: string): void {
@@ -407,11 +462,20 @@ export class SalonPage {
   saveRules(area: SalonArea): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.savingArea()) return;
-    this.savingArea.set(area);
     const slots = this.slotsFromDraft(area);
+    const sizes = slots.map((s) => s.partySize);
+    if (new Set(sizes).size !== sizes.length) {
+      this.snack.open('Hay dos reglas con el mismo tamaño de mesa', 'OK', { duration: 3200 });
+      return;
+    }
+    this.savingArea.set(area);
     this.api.replaceRules(shopId, area, slots).subscribe({
       next: (rows) => {
         this.savedRules.update((list) => [...list.filter((r) => r.area !== area), ...rows]);
+        this.rulesDraft.update((draft) => ({
+          ...draft,
+          [area]: this.rowsForArea(area, rows),
+        }));
         this.savingArea.set(null);
         this.snack.open('Reglas guardadas', 'OK', { duration: 2200 });
       },
@@ -427,13 +491,12 @@ export class SalonPage {
   }
 
   private slotsFromDraft(area: SalonArea): SalonRuleSlot[] {
-    const draft = this.rulesDraft()[area];
-    return Object.entries(draft)
-      .map(([size, count]) => ({
-        partySize: Number(size),
-        maxCount: count === '' ? 0 : Number(count),
+    return this.rulesDraft()[area]
+      .map((r) => ({
+        partySize: r.partySize === '' ? 0 : Number(r.partySize),
+        maxCount: r.maxCount === '' ? 0 : Number(r.maxCount),
       }))
-      .filter((s) => s.maxCount > 0)
+      .filter((s) => s.partySize >= 2 && s.maxCount > 0)
       .sort((a, b) => a.partySize - b.partySize);
   }
 
@@ -455,7 +518,10 @@ export class SalonPage {
       next: (floor) => {
         this.tables.set(floor.tables);
         this.savedRules.set(floor.rules);
-        this.rulesDraft.set(this.draftFromRules(floor.rules));
+        this.rulesDraft.set({
+          INSIDE: this.rowsForArea('INSIDE', floor.rules),
+          OUTSIDE: this.rowsForArea('OUTSIDE', floor.rules),
+        });
         this.labelDrafts.set({});
         this.loading.set(false);
       },
@@ -466,12 +532,32 @@ export class SalonPage {
     });
   }
 
-  private draftFromRules(rules: SalonAreaRule[]): RuleDraft {
-    const draft = EMPTY_RULES();
-    for (const rule of rules) {
-      draft[rule.area][rule.partySize] = rule.maxCount;
-    }
-    return draft;
+  private rowsForArea(area: SalonArea, rules: SalonAreaRule[]): RuleRow[] {
+    const saved = rules.filter((r) => r.area === area);
+    const counts = new Map(saved.map((r) => [r.partySize, r.maxCount]));
+    const sizes = new Set<number>([
+      ...suggestedRuleSizes(area, this.shops.selectedShop()),
+      ...saved.map((r) => r.partySize),
+    ]);
+    return [...sizes]
+      .sort((a, b) => a - b)
+      .map((partySize) => ({
+        key: this.nextRowKey(),
+        partySize,
+        maxCount: counts.get(partySize) ?? '',
+      }));
+  }
+
+  private patchRow(area: SalonArea, key: string, patch: Partial<RuleRow>): void {
+    this.rulesDraft.update((draft) => ({
+      ...draft,
+      [area]: draft[area].map((r) => (r.key === key ? { ...r, ...patch } : r)),
+    }));
+  }
+
+  private nextRowKey(): string {
+    this.rowSeq += 1;
+    return `r${this.rowSeq}`;
   }
 
   private fail(err: { error?: { message?: string | string[] } }, fallback: string): void {

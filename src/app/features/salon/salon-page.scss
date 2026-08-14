@@ -264,15 +264,24 @@
 .salon-num {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.28rem;
   min-height: 2rem;
-  padding: 0 0.2rem 0 0.55rem;
+  padding: 0 0.15rem 0 0.5rem;
   border-radius: 999px;
   background: #fff;
   border: 1px solid var(--guy-border, #d7e0d9);
   color: var(--guy-muted, #5f6f76);
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.salon-num__size {
+  width: 2.1rem;
+}
+
+.salon-num__count {
+  width: 2.4rem;
+  border-left: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent) !important;
 }
 
 .salon-num input {
@@ -295,6 +304,50 @@
 
 .salon-num input[type='number'] {
   appearance: textfield;
+}
+
+.salon-num__del {
+  appearance: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 0 0.1rem 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--guy-muted, #5f6f76);
+  cursor: pointer;
+}
+
+.salon-num__del mat-icon {
+  font-size: 0.9rem;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.salon-num-add {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 2rem;
+  padding: 0 0.7rem 0 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 10%, #fff);
+  border: 1px dashed color-mix(in srgb, var(--guy-green, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+  color: var(--guy-green, #2e7d32);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.salon-num-add mat-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 .salon-preview {

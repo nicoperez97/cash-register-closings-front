@@ -1,7 +1,57 @@
-import { SalonRuleSlot } from './salon.models';
+import { SalonArea, SalonRuleSlot } from './salon.models';
 
-/** Tamaños que se muestran siempre en el editor de reglas. */
-export const DEFAULT_RULE_SIZES = [2, 3, 4, 6] as const;
+type ShopPartyCfg = {
+  reservationInsideMaxPartySize?: number | null;
+  reservationOutsideMinPartySize?: number | null;
+};
+
+function readInt(raw: unknown): number | null {
+  if (raw == null || raw === '') return null;
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+export function shopInsideMax(shop: ShopPartyCfg | null | undefined): number | null {
+  return readInt(shop?.reservationInsideMaxPartySize);
+}
+
+export function shopOutsideMin(shop: ShopPartyCfg | null | undefined): number | null {
+  return readInt(shop?.reservationOutsideMinPartySize);
+}
+
+/** Tamaños iniciales según Adentro hasta / Afuera desde. El resto se agrega a mano. */
+export function suggestedRuleSizes(
+  area: SalonArea,
+  shop: ShopPartyCfg | null | undefined,
+): number[] {
+  const maxIn = shopInsideMax(shop);
+  const minOut = shopOutsideMin(shop);
+  if (area === 'INSIDE') {
+    const max = maxIn ?? 3;
+    const sizes: number[] = [];
+    for (let n = 2; n <= Math.max(2, max); n++) sizes.push(n);
+    return sizes;
+  }
+  const min = minOut ?? (maxIn != null ? maxIn + 1 : 4);
+  return [Math.max(2, min)];
+}
+
+export function shopRuleHint(area: SalonArea, shop: ShopPartyCfg | null | undefined): string {
+  if (area === 'INSIDE') {
+    const max = shopInsideMax(shop);
+    return max != null ? `adentro hasta ${max}` : 'sin tope adentro';
+  }
+  const min = shopOutsideMin(shop);
+  return min != null ? `afuera desde ${min}` : 'sin mínimo afuera';
+}
+
+export function nextRuleSize(existing: number[]): number {
+  const have = new Set(existing.filter((n) => n >= 2));
+  for (const n of [2, 3, 4, 5, 6, 8, 10, 12, 14, 16]) {
+    if (!have.has(n)) return n;
+  }
+  return Math.max(8, ...have) + 2;
+}
 
 /**
  * Al armar mesas más grandes se descuenta del cupo más chico más cercano.
