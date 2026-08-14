@@ -368,6 +368,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     outsideEnabled: boolean;
     insideCapacityRemaining: number | null;
     outsideCapacityRemaining: number | null;
+    insideMaxPartySize: number | null;
+    outsideMinPartySize: number | null;
   } | null>(null);
   readonly closedWeekdays = signal<number[]>([]);
   readonly error = signal<string | null>(null);
@@ -408,6 +410,14 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     const df = this.dateFlags();
     const v = df?.outsideEnabled ?? this.info()?.outsideEnabled;
     return v !== false;
+  });
+  readonly dayPartyRules = computed(() => {
+    const df = this.dateFlags();
+    const info = this.info();
+    return {
+      insideMaxPartySize: df?.insideMaxPartySize ?? info?.insideMaxPartySize ?? null,
+      outsideMinPartySize: df?.outsideMinPartySize ?? info?.outsideMinPartySize ?? null,
+    };
   });
   readonly onlyAreaLabel = computed(() => {
     const inside = this.insideEnabled();
@@ -472,6 +482,22 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     if (Array.isArray(info.closedWeekdays)) {
       this.closedWeekdays.set(info.closedWeekdays);
     }
+    this.info.update((prev) =>
+      prev
+        ? {
+            ...prev,
+            signupEnabled: info.signupEnabled,
+            insideEnabled: info.insideEnabled,
+            outsideEnabled: info.outsideEnabled,
+            insideCapacityRemaining: info.insideCapacityRemaining,
+            outsideCapacityRemaining: info.outsideCapacityRemaining,
+            insideMaxPartySize: info.insideMaxPartySize ?? null,
+            outsideMinPartySize: info.outsideMinPartySize ?? null,
+            closedDay: info.closedDay,
+            businessDate: info.businessDate,
+          }
+        : info,
+    );
     this.dateFlags.set({
       signupEnabled: info.signupEnabled,
       insideEnabled: info.insideEnabled !== false,
@@ -480,6 +506,10 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
         info.insideCapacityRemaining == null ? null : Number(info.insideCapacityRemaining),
       outsideCapacityRemaining:
         info.outsideCapacityRemaining == null ? null : Number(info.outsideCapacityRemaining),
+      insideMaxPartySize:
+        info.insideMaxPartySize == null ? null : Number(info.insideMaxPartySize),
+      outsideMinPartySize:
+        info.outsideMinPartySize == null ? null : Number(info.outsideMinPartySize),
     });
     this.syncArea(this.insideEnabled(), this.outsideEnabled());
     this.clampPartySize();
@@ -542,7 +572,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   insideAllowedForParty(): boolean {
     if (!this.insideEnabled()) return false;
-    return !partyMustSitOutside(this.partySize, this.info());
+    return !partyMustSitOutside(this.partySize, this.dayPartyRules());
   }
 
   canSubmitArea(): boolean {
@@ -551,7 +581,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   partyAreaHint(): string {
-    return partyOutsideHint(this.partySize, this.info());
+    return partyOutsideHint(this.partySize, this.dayPartyRules());
   }
 
   maxPartySize(): number {
@@ -722,10 +752,11 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     this.syncArea(this.insideEnabled(), this.outsideEnabled());
     this.guestComment = '';
     this.businessDate = this.todayIso();
+    this.refreshDateFlags();
   }
 
   private syncArea(inside: boolean, outside: boolean): void {
-    const insideOk = inside && !partyMustSitOutside(this.partySize, this.info());
+    const insideOk = inside && !partyMustSitOutside(this.partySize, this.dayPartyRules());
     if (this.area === 'INSIDE' && !insideOk && outside) this.area = 'OUTSIDE';
     else if (this.area === 'OUTSIDE' && !outside && insideOk) this.area = 'INSIDE';
     else if (!insideOk && outside) this.area = 'OUTSIDE';
