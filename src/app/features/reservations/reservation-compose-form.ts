@@ -16,7 +16,7 @@ import {
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
-import { partyMustSitOutside, partyOutsideHint } from './reservation-party-rules.util';
+import { partyMustSitOutside, partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
 
 export type ReservationComposeSaved = {
   id: string;
@@ -139,7 +139,10 @@ export class ReservationComposeFormComponent {
     if (settings?.insideEnabled === false) return false;
     const cap = settings?.insideCapacityRemaining;
     if (cap != null && Number(cap) <= 0) return false;
-    return !partyMustSitOutside(this.partySizeValue(), this.shops.selectedShop());
+    return !partyMustSitOutside(
+      this.partySizeValue(),
+      effectivePartyRules(this.shops.selectedShop(), this.daySettings()),
+    );
   });
 
   readonly outsideOpen = computed(() => {
@@ -162,7 +165,10 @@ export class ReservationComposeFormComponent {
   });
 
   readonly partyAreaHint = computed(() =>
-    partyOutsideHint(this.partySizeValue(), this.shops.selectedShop()),
+    partyOutsideHint(
+      this.partySizeValue(),
+      effectivePartyRules(this.shops.selectedShop(), this.daySettings()),
+    ),
   );
 
   private readonly selectedArea = signal<ReservationArea>('INSIDE');

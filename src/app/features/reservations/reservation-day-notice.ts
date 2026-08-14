@@ -129,6 +129,46 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
                   </button>
                 </div>
               </div>
+              <div class="floor-day-settings__party">
+                <span class="floor-day-settings__label">Personas por mesa</span>
+                <p class="floor-day-settings__hint text-muted small">
+                  Vacío = usa la regla del local. Adentro hasta N; afuera desde N.
+                </p>
+                <div class="floor-day-settings__pills">
+                  <label class="floor-num">
+                    <span>Adentro hasta</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      inputmode="numeric"
+                      [ngModel]="insideMaxDraft()"
+                      (ngModelChange)="insideMaxDraft.set($event)"
+                      [placeholder]="shopInsideMaxPlaceholder()"
+                    />
+                  </label>
+                  <label class="floor-num">
+                    <span>Afuera desde</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      inputmode="numeric"
+                      [ngModel]="outsideMinDraft()"
+                      (ngModelChange)="outsideMinDraft.set($event)"
+                      [placeholder]="shopOutsideMinPlaceholder()"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    class="floor-num-save"
+                    [disabled]="savingDaySettings() || !partyRulesDirty()"
+                    (click)="savePartyRules()"
+                  >
+                    {{ savingDaySettings() && partyRulesDirty() ? '…' : 'Guardar' }}
+                  </button>
+                </div>
+              </div>
             </div>
           } @else if (savedNotice()) {
             <p class="floor-notice__preview">{{ savedNotice() }}</p>
@@ -165,6 +205,10 @@ export class ReservationDayNoticeComponent {
   readonly outsideCapacityDraft = signal<number | null>(null);
   readonly savedInsideCapacity = signal<number | null>(null);
   readonly savedOutsideCapacity = signal<number | null>(null);
+  readonly insideMaxDraft = signal<number | null>(null);
+  readonly outsideMinDraft = signal<number | null>(null);
+  readonly savedInsideMax = signal<number | null>(null);
+  readonly savedOutsideMin = signal<number | null>(null);
   readonly savingDaySettings = signal(false);
   readonly collapsed = signal(this.readCollapsed());
 
@@ -193,6 +237,10 @@ export class ReservationDayNoticeComponent {
     if (inside != null) parts.push(`adentro ${inside}`);
     if (outside != null) parts.push(`afuera ${outside}`);
     if (inside == null && outside == null) parts.push('sin cupo');
+    const maxInside = this.savedInsideMax();
+    const minOutside = this.savedOutsideMin();
+    if (maxInside != null) parts.push(`hasta ${maxInside}`);
+    if (minOutside != null) parts.push(`desde ${minOutside}`);
     return parts.join(' · ');
   });
 
@@ -204,6 +252,13 @@ export class ReservationDayNoticeComponent {
     return (
       this.normalizeCapacity(this.insideCapacityDraft()) !== this.savedInsideCapacity() ||
       this.normalizeCapacity(this.outsideCapacityDraft()) !== this.savedOutsideCapacity()
+    );
+  });
+
+  readonly partyRulesDirty = computed(() => {
+    return (
+      this.normalizePartyRule(this.insideMaxDraft()) !== this.savedInsideMax() ||
+      this.normalizePartyRule(this.outsideMinDraft()) !== this.savedOutsideMin()
     );
   });
 
@@ -226,6 +281,12 @@ export class ReservationDayNoticeComponent {
       this.savedOutsideCapacity.set(outsideCap);
       this.insideCapacityDraft.set(insideCap);
       this.outsideCapacityDraft.set(outsideCap);
+      const insideMax = this.normalizePartyRule(settings?.insideMaxPartySize);
+      const outsideMin = this.normalizePartyRule(settings?.outsideMinPartySize);
+      this.savedInsideMax.set(insideMax);
+      this.savedOutsideMin.set(outsideMin);
+      this.insideMaxDraft.set(insideMax);
+      this.outsideMinDraft.set(outsideMin);
     });
   }
 
@@ -310,6 +371,21 @@ export class ReservationDayNoticeComponent {
     this.saveDaySettings(false, true);
   }
 
+  savePartyRules(): void {
+    if (!this.canManage() || this.savingDaySettings() || !this.partyRulesDirty()) return;
+    this.saveDaySettings(false, false, true);
+  }
+
+  shopInsideMaxPlaceholder(): string {
+    const n = this.normalizePartyRule(this.shops.selectedShop()?.reservationInsideMaxPartySize);
+    return n == null ? '—' : String(n);
+  }
+
+  shopOutsideMinPlaceholder(): string {
+    const n = this.normalizePartyRule(this.shops.selectedShop()?.reservationOutsideMinPartySize);
+    return n == null ? '—' : String(n);
+  }
+
   private parseDayFormMode(value: string | null | undefined): DayFormMode | null {
     if (
       value === 'normal' ||
@@ -322,7 +398,11 @@ export class ReservationDayNoticeComponent {
     return null;
   }
 
-  private saveDaySettings(silent = false, includeCapacity = false): void {
+  private saveDaySettings(
+    silent = false,
+    includeCapacity = false,
+    includeParty = false,
+  ): void {
     if (!this.canManage() || this.savingDaySettings()) return;
     const shopId = this.shopId();
     if (!shopId) return;
@@ -334,6 +414,8 @@ export class ReservationDayNoticeComponent {
       outsideEnabled: boolean | null;
       insideCapacityRemaining?: number | null;
       outsideCapacityRemaining?: number | null;
+      insideMaxPartySize?: number | null;
+      outsideMinPartySize?: number | null;
     } = {
       businessDate: this.businessDate(),
       signupEnabled: this.daySignupOverride(),
@@ -344,6 +426,10 @@ export class ReservationDayNoticeComponent {
       body.insideCapacityRemaining = this.normalizeCapacity(this.insideCapacityDraft());
       body.outsideCapacityRemaining = this.normalizeCapacity(this.outsideCapacityDraft());
     }
+    if (includeParty) {
+      body.insideMaxPartySize = this.normalizePartyRule(this.insideMaxDraft());
+      body.outsideMinPartySize = this.normalizePartyRule(this.outsideMinDraft());
+    }
     this.api.upsertDayNotice(shopId, body).subscribe({
       next: (res) => {
         this.savingDaySettings.set(false);
@@ -351,7 +437,11 @@ export class ReservationDayNoticeComponent {
         this.daySettingsUpdated.emit(res.daySettings ?? null);
         if (!silent) {
           this.snack.open(
-            includeCapacity ? 'Cupos del día guardados' : 'Formulario del día guardado',
+            includeParty
+              ? 'Regla del día guardada'
+              : includeCapacity
+                ? 'Cupos del día guardados'
+                : 'Formulario del día guardado',
             'OK',
             { duration: 2200 },
           );
@@ -375,6 +465,12 @@ export class ReservationDayNoticeComponent {
     this.savedOutsideCapacity.set(outsideCap);
     this.insideCapacityDraft.set(insideCap);
     this.outsideCapacityDraft.set(outsideCap);
+    const insideMax = this.normalizePartyRule(settings?.insideMaxPartySize);
+    const outsideMin = this.normalizePartyRule(settings?.outsideMinPartySize);
+    this.savedInsideMax.set(insideMax);
+    this.savedOutsideMin.set(outsideMin);
+    this.insideMaxDraft.set(insideMax);
+    this.outsideMinDraft.set(outsideMin);
   }
 
   private normalizeCapacity(raw: number | string | null | undefined): number | null {
@@ -382,6 +478,13 @@ export class ReservationDayNoticeComponent {
     const n = Math.round(Number(raw));
     if (!Number.isFinite(n) || n < 0) return null;
     return Math.min(n, 999);
+  }
+
+  private normalizePartyRule(raw: number | string | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(99, n);
   }
 
   private shopId(): string | null {

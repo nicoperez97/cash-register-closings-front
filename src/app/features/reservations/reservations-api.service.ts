@@ -97,6 +97,9 @@ export interface ReservationDaySettings {
   /** NULL = sin límite; 0 = sin cupo. */
   insideCapacityRemaining?: number | null;
   outsideCapacityRemaining?: number | null;
+  /** NULL = hereda del local. */
+  insideMaxPartySize?: number | null;
+  outsideMinPartySize?: number | null;
 }
 
 export interface ReservationsDaySummary {
@@ -237,6 +240,8 @@ export class ReservationsApiService {
       outsideEnabled?: boolean | null;
       insideCapacityRemaining?: number | null;
       outsideCapacityRemaining?: number | null;
+      insideMaxPartySize?: number | null;
+      outsideMinPartySize?: number | null;
     },
   ) {
     return this.http.put<{

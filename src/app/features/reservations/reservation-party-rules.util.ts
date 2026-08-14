@@ -47,3 +47,22 @@ export function partyOutsideHint(
   if (from == null) return 'Para este grupo la mesa es afuera.';
   return `A partir de ${from} ${from === 1 ? 'persona' : 'personas'} la mesa es afuera.`;
 }
+
+export function effectivePartyRules(
+  shop: ShopPartyRules | null | undefined,
+  day?: {
+    insideMaxPartySize?: number | null;
+    outsideMinPartySize?: number | null;
+  } | null,
+): ShopPartyRules {
+  return {
+    reservationInsideMaxPartySize:
+      day?.insideMaxPartySize != null
+        ? Number(day.insideMaxPartySize)
+        : readMaxInside(shop),
+    reservationOutsideMinPartySize:
+      day?.outsideMinPartySize != null
+        ? Number(day.outsideMinPartySize)
+        : readMinOutside(shop),
+  };
+}
