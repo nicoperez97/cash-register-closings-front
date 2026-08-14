@@ -193,6 +193,10 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
       salon.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
     }
+    if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
+      salon.push({ label: 'Diagrama', route: '/salon/diagrama', icon: 'grid_view' });
+      salon.push({ label: 'Reglas', route: '/salon/reglas', icon: 'tune' });
+    }
     if (salon.length) {
       items.push({
         label: 'Salón',
@@ -502,6 +506,11 @@ export class MainLayoutComponent {
     if (path.startsWith('/waiting-list')) {
       return (
         hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')
+      );
+    }
+    if (path.startsWith('/salon')) {
+      return (
+        hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')
       );
     }
     if (path.startsWith('/tips')) {

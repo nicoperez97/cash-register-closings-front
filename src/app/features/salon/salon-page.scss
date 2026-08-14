@@ -1,0 +1,309 @@
+.salon-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0.28rem;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, var(--guy-card, #fff));
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+}
+
+.salon-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 10px;
+  color: var(--guy-navy, #003366);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.salon-tabs__link mat-icon {
+  font-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.salon-tabs__link--on {
+  background: var(--guy-green, #2e7d32);
+  color: #fff;
+}
+
+.salon-lead {
+  margin: 0 0 1rem;
+  max-width: 62ch;
+  line-height: 1.45;
+  font-size: 0.9rem;
+}
+
+.salon-sectors {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 960px) {
+  .salon-sectors {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.salon-sector {
+  padding: 1rem 1.05rem 1.1rem;
+}
+
+.salon-sector__head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.salon-sector__head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--guy-navy, #003366);
+  line-height: 1.2;
+}
+
+.salon-sector__head p {
+  margin: 0.12rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.salon-sector__icon {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 14%, #fff);
+  color: var(--guy-green, #2e7d32);
+  flex-shrink: 0;
+}
+
+.salon-sector__icon mat-icon {
+  font-size: 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.salon-add,
+.salon-save {
+  appearance: none;
+  margin-left: auto;
+  min-height: 2rem;
+  padding: 0.3rem 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.salon-add {
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);
+  color: var(--guy-green, #2e7d32);
+  border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 22%, transparent);
+}
+
+.salon-add:disabled,
+.salon-save:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.salon-save {
+  background: var(--guy-green, #2e7d32);
+  color: #fff;
+}
+
+.salon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.6rem, 1fr));
+  gap: 0.65rem;
+}
+
+.salon-empty {
+  grid-column: 1 / -1;
+  margin: 0.2rem 0 0;
+  color: var(--guy-muted, #5f6f76);
+  font-size: 0.85rem;
+}
+
+.salon-table {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.55rem 0.45rem 0.5rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 7%, #fff);
+  border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 18%, var(--guy-border, #d7e0d9));
+}
+
+.salon-table--two {
+  background: color-mix(in srgb, var(--guy-navy, #003366) 6%, #fff);
+  border-color: color-mix(in srgb, var(--guy-navy, #003366) 14%, var(--guy-border, #d7e0d9));
+}
+
+.salon-table__top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 1.4rem;
+}
+
+.salon-table__label {
+  width: 2.4rem;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--guy-navy, #003366);
+  outline: none;
+}
+
+.salon-table__del {
+  appearance: none;
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--guy-muted, #5f6f76);
+  cursor: pointer;
+}
+
+.salon-table__del mat-icon {
+  font-size: 0.95rem;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.salon-table__seats {
+  display: flex;
+  gap: 0.22rem;
+  min-height: 0.7rem;
+}
+
+.salon-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--guy-green, #2e7d32);
+}
+
+.salon-table--two .salon-dot {
+  background: var(--guy-navy, #003366);
+}
+
+.salon-table__cap {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.salon-table__toggle {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.salon-table__toggle button {
+  appearance: none;
+  min-width: 1.7rem;
+  height: 1.45rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  background: #fff;
+  color: var(--guy-muted, #5f6f76);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.salon-table__toggle .salon-table__opt--on,
+.salon-table__toggle button.salon-table__opt--on {
+  background: var(--guy-green, #2e7d32);
+  border-color: transparent;
+  color: #fff;
+}
+
+.salon-table--two .salon-table__toggle .salon-table__opt--on {
+  background: var(--guy-navy, #003366);
+}
+
+.salon-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.salon-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0 0.2rem 0 0.55rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  color: var(--guy-muted, #5f6f76);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.salon-num input {
+  width: 2.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--guy-ink, #1b2420);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-align: center;
+  outline: none;
+}
+
+.salon-num input::-webkit-outer-spin-button,
+.salon-num input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.salon-num input[type='number'] {
+  appearance: textfield;
+}
+
+.salon-preview {
+  margin: 0.85rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--guy-primary, #1d65a0) 7%, #fff);
+  color: var(--guy-navy, #003366);
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.4;
+}

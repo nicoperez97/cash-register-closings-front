@@ -118,6 +118,29 @@ export const routes: Routes = [
         title: 'Lista de espera',
       },
       {
+        path: 'salon',
+        pathMatch: 'full',
+        redirectTo: '/salon/diagrama',
+      },
+      {
+        path: 'salon/diagrama',
+        canActivate: [
+          permissionGuard('reservations.read'),
+          shopFeatureGuard('reservations'),
+        ],
+        loadComponent: () => import('./features/salon/salon-page').then((m) => m.SalonPage),
+        title: 'Diagrama',
+      },
+      {
+        path: 'salon/reglas',
+        canActivate: [
+          permissionGuard('reservations.read'),
+          shopFeatureGuard('reservations'),
+        ],
+        loadComponent: () => import('./features/salon/salon-page').then((m) => m.SalonPage),
+        title: 'Reglas',
+      },
+      {
         path: 'tips',
         canActivate: [permissionGuard('tips.read'), shopFeatureGuard('tips')],
         loadComponent: () =>
