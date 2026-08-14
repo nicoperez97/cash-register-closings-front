@@ -217,6 +217,82 @@
   }
 }
 
+/* Botones Material: icono + texto centrados (el container-height de MDC
+   queda en 36/40px y el min-height custom deja las palabras arriba). */
+.mat-mdc-button.mat-mdc-button-base,
+.mat-mdc-unelevated-button.mat-mdc-button-base,
+.mat-mdc-outlined-button.mat-mdc-button-base,
+.mat-mdc-raised-button.mat-mdc-button-base,
+a.mat-mdc-button.mat-mdc-button-base,
+a.mat-mdc-unelevated-button.mat-mdc-button-base,
+a.mat-mdc-outlined-button.mat-mdc-button-base {
+  --mdc-text-button-container-height: 42px;
+  --mdc-filled-button-container-height: 42px;
+  --mdc-outlined-button-container-height: 42px;
+  --mdc-protected-button-container-height: 42px;
+  --mdc-text-button-label-text-line-height: 1.2;
+  --mdc-filled-button-label-text-line-height: 1.2;
+  --mdc-outlined-button-label-text-line-height: 1.2;
+  --mdc-protected-button-label-text-line-height: 1.2;
+  --mat-text-button-icon-offset: 0;
+  --mat-filled-button-icon-offset: 0;
+  --mat-outlined-button-icon-offset: 0;
+  --mat-protected-button-icon-offset: 0;
+  --mat-text-button-icon-spacing: 0.4rem;
+  --mat-filled-button-icon-spacing: 0.4rem;
+  --mat-outlined-button-icon-spacing: 0.4rem;
+  --mat-protected-button-icon-spacing: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  min-height: 42px;
+}
+
+.mat-mdc-button .mdc-button__label,
+.mat-mdc-unelevated-button .mdc-button__label,
+.mat-mdc-outlined-button .mdc-button__label,
+.mat-mdc-raised-button .mdc-button__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  line-height: 1.2;
+}
+
+.mat-mdc-button .mat-icon,
+.mat-mdc-unelevated-button .mat-icon,
+.mat-mdc-outlined-button .mat-icon,
+.mat-mdc-raised-button .mat-icon,
+.guy-busy-label .mat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.125rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  line-height: 1;
+  overflow: hidden;
+  margin: 0;
+}
+
+.guy-busy-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+.mat-button-toggle-label-content {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .guy-skeleton,
   .guy-skeleton-line {

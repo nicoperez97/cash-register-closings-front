@@ -35,15 +35,22 @@ import { SpinnerComponent, SpinnerSize, SpinnerTone } from './spinner';
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
+        gap: 0.4rem;
         min-width: 0;
+        line-height: 1.2;
+        vertical-align: middle;
       }
 
       :host ::ng-deep mat-icon {
-        font-size: 1.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
+        font-size: 1.125rem;
+        width: 1.125rem;
+        height: 1.125rem;
+        line-height: 1;
         margin: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
       }
     `,
   ],

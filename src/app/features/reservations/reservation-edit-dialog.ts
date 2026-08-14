@@ -64,10 +64,17 @@ export type ReservationEditDialogData = {
             <input matInput type="time" formControlName="reservationTime" />
           </mat-form-field>
         </div>
-        <mat-button-toggle-group formControlName="area" hideSingleSelectionIndicator class="floor-area-toggle">
-          <mat-button-toggle value="INSIDE">Adentro</mat-button-toggle>
-          <mat-button-toggle value="OUTSIDE">Afuera</mat-button-toggle>
-        </mat-button-toggle-group>
+        <div class="res-edit__area">
+          <span class="res-edit__area-label">Sector</span>
+          <mat-button-toggle-group
+            formControlName="area"
+            hideSingleSelectionIndicator
+            class="floor-area-toggle"
+          >
+            <mat-button-toggle value="INSIDE">Adentro</mat-button-toggle>
+            <mat-button-toggle value="OUTSIDE">Afuera</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Mail</mat-label>
           <input matInput type="email" formControlName="guestEmail" autocomplete="email" />
@@ -120,8 +127,18 @@ export type ReservationEditDialogData = {
   styles: `
     .res-edit__row {
       display: grid;
-      grid-template-columns: 6.5rem 1fr 7rem;
+      grid-template-columns: 5.75rem minmax(0, 1.15fr) 7.25rem;
       gap: 0.65rem;
+      align-items: start;
+    }
+    .res-edit__area {
+      display: grid;
+      gap: 0.35rem;
+    }
+    .res-edit__area-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--guy-muted, #5f6f76);
     }
     .res-edit__mail {
       display: grid;
