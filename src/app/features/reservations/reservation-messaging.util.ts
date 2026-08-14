@@ -49,6 +49,17 @@ export function igConfirmMessage(
   return `Hola ${first}! Te confirmamos la reserva en ${shopName} (${opts.partySize} ${pers} · ${opts.area} · ${opts.when}). ¡Te esperamos!`;
 }
 
+/** Notas visibles en pizarra pública: sin mail ni Instagram. */
+export function publicBoardNotes(notes?: string | null): string | null {
+  const cleaned = String(notes ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^mail:\s*/i.test(line) && !/^ig:\s*/i.test(line))
+    .join('\n')
+    .trim();
+  return cleaned || null;
+}
+
 export function emailFromNotes(notes?: string | null): string | null {
   const text = String(notes ?? '');
   const labeled = text.match(/(?:^|\n)\s*Mail:\s*([^\s\n]+@[^\s\n]+)/i);

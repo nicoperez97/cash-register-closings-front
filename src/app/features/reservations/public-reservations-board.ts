@@ -9,6 +9,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, interval, merge, startWith, switchMap, tap } from 'rxjs';
 import { formatIsoDateLong } from '../../core/shop/business-date';
+import { publicBoardNotes } from './reservation-messaging.util';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicReservationsBoard,
@@ -144,8 +145,8 @@ import { BoardPwaService } from './board-pwa.service';
                       <span class="board__badge board__badge--removed">Liberada</span>
                     }
                   </span>
-                  @if (r.notes?.trim()) {
-                    <span class="board__note">{{ r.notes }}</span>
+                  @if (publicNote(r.notes); as note) {
+                    <span class="board__note">{{ note }}</span>
                   }
                   <span class="board__meta">
                     @if (r.reservationTime) {
@@ -195,8 +196,8 @@ import { BoardPwaService } from './board-pwa.service';
                       <span class="board__badge board__badge--removed">Liberada</span>
                     }
                   </span>
-                  @if (r.notes?.trim()) {
-                    <span class="board__note">{{ r.notes }}</span>
+                  @if (publicNote(r.notes); as note) {
+                    <span class="board__note">{{ note }}</span>
                   }
                   <span class="board__meta">
                     @if (r.reservationTime) {
@@ -338,6 +339,10 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   isNew(id: string): boolean {
     this.highlightTick();
     return this.highlightIds.has(id);
+  }
+
+  publicNote(notes?: string | null): string | null {
+    return publicBoardNotes(notes);
   }
 
   canToggleSeat(r: {
