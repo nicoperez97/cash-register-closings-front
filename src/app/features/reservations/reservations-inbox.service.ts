@@ -4,6 +4,7 @@ import {
   catchError,
   combineLatest,
   distinctUntilChanged,
+  EMPTY,
   forkJoin,
   interval,
   map,
@@ -17,6 +18,10 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ReservationsApiService } from './reservations-api.service';
 import { isActiveReservationStatus } from './reservation-status';
+import {
+  bindReservationAlertSoundUnlock,
+  playReservationPendingSound,
+} from './reservation-alert-sound';
 
 /** Comensales del día y solicitudes pendientes para badge de menú «Reservas». */
 @Injectable({ providedIn: 'root' })
@@ -31,7 +36,12 @@ export class ReservationsInboxService {
   readonly pendingRequests = signal(0);
   readonly menuBadge = computed(() => this.pendingRequests() || this.todayGuests());
 
+  private lastShopId: string | null = null;
+  private lastPending: number | null = null;
+  private lastChimeAt = 0;
+
   constructor() {
+    bindReservationAlertSoundUnlock();
     combineLatest([
       toObservable(this.shops.selectedShopId),
       toObservable(this.shops.selectedShop),
@@ -53,21 +63,20 @@ export class ReservationsInboxService {
         ),
         switchMap(({ shopId, enabled, allowed, timezone }) => {
           if (!shopId || !enabled || !allowed) {
+            this.lastShopId = shopId;
+            this.lastPending = null;
             this.todayGuests.set(0);
             this.pendingRequests.set(0);
-            return of({ guests: 0, pending: 0 });
+            return EMPTY;
           }
-          return interval(45000).pipe(
+          return interval(15000).pipe(
             startWith(0),
             switchMap(() => this.fetchInbox(shopId, timezone)),
           );
         }),
         distinctUntilChanged((a, b) => a.guests === b.guests && a.pending === b.pending),
       )
-      .subscribe(({ guests, pending }) => {
-        this.todayGuests.set(guests);
-        this.pendingRequests.set(pending);
-      });
+      .subscribe((inbox) => this.applyInbox(inbox));
   }
 
   refresh(): void {
@@ -79,14 +88,31 @@ export class ReservationsInboxService {
       !shop?.reservationsEnabled ||
       !hasShopPermission(user, shopId, 'reservations.read')
     ) {
+      this.lastPending = null;
       this.todayGuests.set(0);
       this.pendingRequests.set(0);
       return;
     }
-    this.fetchInbox(shopId, shop.timezone).subscribe(({ guests, pending }) => {
-      this.todayGuests.set(guests);
-      this.pendingRequests.set(pending);
-    });
+    this.fetchInbox(shopId, shop.timezone).subscribe((inbox) => this.applyInbox(inbox));
+  }
+
+  private applyInbox(inbox: { guests: number; pending: number }): void {
+    const shopId = this.shops.selectedShopId();
+    if (shopId !== this.lastShopId) {
+      this.lastShopId = shopId;
+      this.lastPending = null;
+    }
+    const pending = inbox.pending;
+    if (this.lastPending != null && pending > this.lastPending) {
+      const now = Date.now();
+      if (now - this.lastChimeAt > 2500) {
+        this.lastChimeAt = now;
+        playReservationPendingSound();
+      }
+    }
+    this.lastPending = pending;
+    this.todayGuests.set(inbox.guests);
+    this.pendingRequests.set(pending);
   }
 
   private fetchInbox(shopId: string, timezone?: string | null) {
