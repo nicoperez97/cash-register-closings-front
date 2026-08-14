@@ -9,11 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -53,136 +49,126 @@ export type ReservationRequestAccepted = {
   selector: 'app-reservation-requests-panel',
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
     MatIconModule,
-    MatInputModule,
-    MatSlideToggleModule,
     MatSnackBarModule,
     MatTooltipModule,
     MatDialogModule,
   ],
   template: `
     <section class="panel-card req-panel" [class.req-panel--closed]="!signupOpen()">
-      <div class="req-panel__head">
-        <div class="req-panel__top">
-          <div class="req-panel__intro">
-            <h2 class="guy-section-title">Solicitudes web</h2>
-            <p class="text-muted small req-panel__lead">
-              @if (signupOpen()) {
-                @if (pendingRequests().length) {
-                  {{ pendingRequests().length }} para aceptar o rechazar · aviso por mail
-                } @else {
-                  Cuando alguien reserve desde el link, aparece acá
-                }
+      <header class="req-head">
+        <div class="req-head__title">
+          <h2 class="guy-section-title">Solicitudes web</h2>
+          @if (pendingRequests().length) {
+            <span class="req-count">{{ pendingRequests().length }}</span>
+          }
+          <p class="req-head__lead">
+            @if (signupOpen()) {
+              @if (pendingRequests().length) {
+                Para aceptar o rechazar · se avisa por mail
               } @else {
-                Cerrado · ingreso por orden de llegada
-                @if (pendingRequests().length) {
-                  · {{ pendingRequests().length }} pendiente{{
-                    pendingRequests().length === 1 ? '' : 's'
-                  }}
-                  por resolver
-                }
+                Cuando alguien reserve desde el link, aparece acá
               }
-            </p>
-          </div>
-          <div class="req-panel__links">
-            @if (shopSlug()) {
-              <a
-                class="floor-public-btn"
-                [href]="signupUrl()"
-                target="_blank"
-                rel="noopener"
-                matTooltip="Formulario público"
-              >
-                <mat-icon>link</mat-icon>
-                <span class="req-panel__btn-label">Formulario</span>
-              </a>
-              <button
-                type="button"
-                class="floor-public-btn floor-public-btn--ghost"
-                (click)="copySignupUrl()"
-                matTooltip="Copiar link"
-              >
-                <mat-icon>content_copy</mat-icon>
-                <span class="req-panel__btn-label">Copiar</span>
-              </button>
+            } @else {
+              Cerrado · ingreso por orden de llegada
             }
+          </p>
+        </div>
+        <div class="req-head__tools">
+          @if (shopSlug()) {
+            <a
+              class="req-icon-btn req-icon-btn--accent"
+              [href]="signupUrl()"
+              target="_blank"
+              rel="noopener"
+              matTooltip="Abrir formulario público"
+            >
+              <mat-icon>open_in_new</mat-icon>
+            </a>
             <button
               type="button"
-              class="floor-public-btn floor-public-btn--ghost"
-              (click)="reloadRequests()"
-              [disabled]="requestsBusy()"
-              matTooltip="Recargar solicitudes"
+              class="req-icon-btn"
+              (click)="copySignupUrl()"
+              matTooltip="Copiar link"
             >
-              <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
+              <mat-icon>content_copy</mat-icon>
             </button>
-          </div>
+          }
+          <button
+            type="button"
+            class="req-icon-btn"
+            (click)="reloadRequests()"
+            [disabled]="requestsBusy()"
+            matTooltip="Recargar"
+          >
+            <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
+          </button>
         </div>
-        <div class="req-panel__config">
-          <div class="req-panel__toggles">
-            <mat-slide-toggle
-              color="primary"
-              [checked]="signupOpen()"
-              [disabled]="signupBusy()"
-              (change)="toggleSignup($event.checked)"
-            >
-              {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
-            </mat-slide-toggle>
-            <mat-slide-toggle
-              color="primary"
-              [checked]="insideOpen()"
-              [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
-              (change)="toggleArea('INSIDE', $event.checked)"
-            >
-              Adentro
-            </mat-slide-toggle>
-            <mat-slide-toggle
-              color="primary"
-              [checked]="outsideOpen()"
-              [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
-              (change)="toggleArea('OUTSIDE', $event.checked)"
-            >
-              Afuera
-            </mat-slide-toggle>
-          </div>
-          <div class="req-party-rules">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Máx. adentro</mat-label>
-              <input
-                matInput
-                type="number"
-                min="1"
-                max="99"
-                inputmode="numeric"
-                [ngModel]="insideMaxDraft()"
-                (ngModelChange)="insideMaxDraft.set($event)"
-                placeholder="Sin tope"
-              />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Afuera desde</mat-label>
-              <input
-                matInput
-                type="number"
-                min="1"
-                max="99"
-                inputmode="numeric"
-                [ngModel]="outsideMinDraft()"
-                (ngModelChange)="outsideMinDraft.set($event)"
-                placeholder="Sin regla"
-              />
-            </mat-form-field>
-            <button
-              mat-stroked-button
-              type="button"
-              [disabled]="partyRulesBusy() || !partyRulesDirty()"
-              (click)="savePartyRules()"
-            >
-              Guardar
-            </button>
-          </div>
+      </header>
+
+      <div class="req-settings">
+        <button
+          type="button"
+          class="req-live"
+          [class.req-live--on]="signupOpen()"
+          [disabled]="signupBusy()"
+          (click)="toggleSignup(!signupOpen())"
+        >
+          <span class="req-live__dot"></span>
+          {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
+        </button>
+        <div class="req-seg" role="group" aria-label="Sectores">
+          <button
+            type="button"
+            class="req-seg__btn"
+            [class.req-seg__btn--on]="insideOpen()"
+            [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
+            (click)="toggleArea('INSIDE', !insideOpen())"
+          >
+            Adentro
+          </button>
+          <button
+            type="button"
+            class="req-seg__btn"
+            [class.req-seg__btn--on]="outsideOpen()"
+            [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
+            (click)="toggleArea('OUTSIDE', !outsideOpen())"
+          >
+            Afuera
+          </button>
         </div>
+        <label class="req-num">
+          <span>Máx. adentro</span>
+          <input
+            type="number"
+            min="1"
+            max="99"
+            inputmode="numeric"
+            [ngModel]="insideMaxDraft()"
+            (ngModelChange)="insideMaxDraft.set($event)"
+            placeholder="—"
+          />
+        </label>
+        <label class="req-num">
+          <span>Afuera desde</span>
+          <input
+            type="number"
+            min="1"
+            max="99"
+            inputmode="numeric"
+            [ngModel]="outsideMinDraft()"
+            (ngModelChange)="outsideMinDraft.set($event)"
+            placeholder="—"
+          />
+        </label>
+        <button
+          type="button"
+          class="req-save"
+          [disabled]="partyRulesBusy() || !partyRulesDirty()"
+          (click)="savePartyRules()"
+        >
+          {{ partyRulesBusy() ? '…' : 'Guardar' }}
+        </button>
       </div>
 
       <ul class="req-list" [class.req-list--hidden]="!signupOpen() && !pendingRequests().length">
@@ -190,28 +176,28 @@ export type ReservationRequestAccepted = {
           <li
             class="req-card"
             [id]="'reservation-request-' + req.id"
+            [class.req-card--out]="req.area === 'OUTSIDE' || mustSitOutside(req)"
             [class.req-card--working]="busyRequestId() === req.id"
             [class.req-card--working-reject]="busyRequestId() === req.id && busyAction() === 'reject'"
             [class.req-card--locked]="!!busyRequestId() && busyRequestId() !== req.id"
           >
-            <div class="req-card__main">
-              <strong>{{ req.guestName }}</strong>
-              <div class="req-card__chips">
-                <span class="req-chip">
-                  {{ req.partySize }} {{ req.partySize === 1 ? 'persona' : 'personas' }}
-                </span>
-                <span class="req-chip" [class.req-chip--out]="req.area === 'OUTSIDE'">
-                  {{ req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
-                </span>
-                @if (mustSitOutside(req)) {
-                  <span class="req-chip req-chip--warn">Según la regla, afuera</span>
-                }
-                <span class="req-chip">{{ requestWhen(req) }}</span>
+            <span class="req-card__avatar" aria-hidden="true">{{ initials(req.guestName) }}</span>
+            <div class="req-card__body">
+              <div class="req-card__top">
+                <strong>{{ req.guestName }}</strong>
+                <span class="req-card__when">{{ requestWhen(req) }}</span>
               </div>
-              <span class="req-card__contact">
+              <p class="req-card__meta">
+                {{ req.partySize }} {{ req.partySize === 1 ? 'persona' : 'personas' }}
+                <span>·</span>
+                {{ req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
+              </p>
+              @if (mustSitOutside(req)) {
+                <p class="req-card__rule">Al aceptar queda afuera</p>
+              }
+              <div class="req-card__contact">
                 <a [href]="'mailto:' + req.guestEmail">{{ req.guestEmail }}</a>
                 @if (req.instagramHandle) {
-                  <span>·</span>
                   <a
                     [href]="
                       req.instagramUrl ||
@@ -222,36 +208,21 @@ export type ReservationRequestAccepted = {
                     >@{{ req.instagramHandle }}</a
                   >
                 }
-              </span>
+              </div>
               @if (req.guestComment) {
-                <span class="req-card__comment">{{ req.guestComment }}</span>
+                <p class="req-card__comment">{{ req.guestComment }}</p>
+              }
+              @if (busyRequestId() === req.id) {
+                <p class="req-card__status" role="status">
+                  {{
+                    busyAction() === 'reject'
+                      ? 'Rechazando…'
+                      : 'Aceptando y cargando en el piso…'
+                  }}
+                </p>
               }
             </div>
             <div class="req-card__actions">
-              @if (req.instagramHandle) {
-                <button
-                  type="button"
-                  class="req-ig"
-                  matTooltip="Copiar mensaje y abrir perfil"
-                  [disabled]="!!busyRequestId()"
-                  (click)="openGuestInstagram(req, true)"
-                >
-                  <mat-icon>photo_camera</mat-icon>
-                  IG
-                </button>
-              }
-              <button
-                type="button"
-                class="req-btn req-btn--no"
-                [disabled]="!!busyRequestId()"
-                (click)="rejectRequest(req)"
-              >
-                @if (busyRequestId() === req.id && busyAction() === 'reject') {
-                  Rechazando…
-                } @else {
-                  Rechazar
-                }
-              </button>
               <button
                 type="button"
                 class="req-btn req-btn--yes"
@@ -268,33 +239,38 @@ export type ReservationRequestAccepted = {
               @if (req.instagramHandle) {
                 <button
                   type="button"
-                  class="req-btn req-btn--yes-ig"
+                  class="req-btn req-btn--ig"
                   [disabled]="!!busyRequestId()"
                   matTooltip="Aceptar, copiar mensaje y abrir Instagram"
                   (click)="acceptRequest(req, true)"
                 >
+                  Aceptar + IG
+                </button>
+              }
+              <button
+                type="button"
+                class="req-btn req-btn--ghost"
+                [disabled]="!!busyRequestId()"
+                (click)="rejectRequest(req)"
+              >
+                {{ busyRequestId() === req.id && busyAction() === 'reject' ? '…' : 'Rechazar' }}
+              </button>
+              @if (req.instagramHandle) {
+                <button
+                  type="button"
+                  class="req-icon-btn"
+                  matTooltip="Copiar mensaje y abrir Instagram"
+                  [disabled]="!!busyRequestId()"
+                  (click)="openGuestInstagram(req, true)"
+                >
                   <mat-icon>photo_camera</mat-icon>
-                  @if (busyRequestId() === req.id && busyAction() === 'accept') {
-                    Aceptando…
-                  } @else {
-                    Aceptar e IG
-                  }
                 </button>
               }
             </div>
-            @if (busyRequestId() === req.id) {
-              <p class="req-card__status" role="status">
-                {{
-                  busyAction() === 'reject'
-                    ? 'Rechazando solicitud…'
-                    : 'Aceptando y cargando en el piso…'
-                }}
-              </p>
-            }
           </li>
         } @empty {
           @if (signupOpen()) {
-            <li class="floor-empty">Sin solicitudes pendientes</li>
+            <li class="req-empty">Sin solicitudes pendientes</li>
           }
         }
       </ul>
@@ -449,6 +425,14 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
 
   requestWhen(req: ReservationRequestRow): string {
     return requestWhenLabel(req);
+  }
+
+  initials(name: string): string {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    const first = parts[0][0] ?? '';
+    const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : (parts[0][1] ?? '');
+    return `${first}${last}`.toUpperCase();
   }
 
   mustSitOutside(req: ReservationRequestRow): boolean {
