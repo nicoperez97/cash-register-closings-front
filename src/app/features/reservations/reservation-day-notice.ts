@@ -23,108 +23,119 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
     MatSnackBarModule,
   ],
   template: `
-    <div class="floor-notice">
-      <div class="floor-notice__head">
-        <mat-icon>campaign</mat-icon>
-        <div>
-          <strong>Aviso del día</strong>
-          <span class="text-muted small">Se muestra en la pantalla pública</span>
-        </div>
-      </div>
-      @if (canManage()) {
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-notice__field">
-          <mat-label>Mensaje para la web pública</mat-label>
-          <textarea
-            matInput
-            rows="2"
-            [ngModel]="noticeDraft()"
-            (ngModelChange)="noticeDraft.set($event)"
-            maxlength="2000"
-            placeholder="Ej: Hoy solo menú del día · Terraza cerrada por lluvia"
-          ></textarea>
-        </mat-form-field>
-        <div class="floor-notice__actions">
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="savingNotice() || !noticeDirty()"
-            (click)="saveNotice()"
-          >
-            <mat-icon>save</mat-icon>
-            {{ noticeDraft().trim() ? 'Guardar aviso' : 'Quitar aviso' }}
-          </button>
-          @if (savedNotice()) {
-            <button mat-button type="button" [disabled]="savingNotice()" (click)="clearNotice()">
-              Limpiar
-            </button>
-          }
-        </div>
-        <div class="floor-day-settings">
-          <div class="floor-day-settings__row">
-            <span class="floor-day-settings__label">Formulario web</span>
-            <mat-button-toggle-group
-              class="floor-form-mode-toggle"
-              hideSingleSelectionIndicator
-              [value]="dayFormMode()"
-              [disabled]="savingDaySettings()"
-              (change)="onDayFormMode($event.value)"
-              aria-label="Configuración del formulario web para este día"
-            >
-              <mat-button-toggle value="normal">Normal</mat-button-toggle>
-              <mat-button-toggle value="closed">Cerrar</mat-button-toggle>
-              <mat-button-toggle value="no-inside">Sin adentro</mat-button-toggle>
-              <mat-button-toggle value="no-outside">Sin afuera</mat-button-toggle>
-            </mat-button-toggle-group>
-          </div>
-          <div class="floor-day-settings__capacity">
-            <span class="floor-day-settings__label">Cupo restante (personas)</span>
-            <p class="floor-day-settings__hint text-muted small">
-              Vacío = sin límite (queda pendiente de aceptar). Con cupo, las reservas web que
-              entren se confirman solas y se descuenta el número; al llegar a 0 el sector se cierra.
-            </p>
-            <div class="floor-day-settings__capacity-row">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cupo adentro</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  min="0"
-                  max="999"
-                  inputmode="numeric"
-                  [ngModel]="insideCapacityDraft()"
-                  (ngModelChange)="insideCapacityDraft.set($event)"
-                  placeholder="Sin límite"
-                />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cupo afuera</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  min="0"
-                  max="999"
-                  inputmode="numeric"
-                  [ngModel]="outsideCapacityDraft()"
-                  (ngModelChange)="outsideCapacityDraft.set($event)"
-                  placeholder="Sin límite"
-                />
-              </mat-form-field>
+    <div class="floor-notice" [class.floor-notice--open]="!collapsed()">
+      <button
+        type="button"
+        class="floor-notice__toggle"
+        [attr.aria-expanded]="!collapsed()"
+        (click)="toggleCollapsed()"
+      >
+        <mat-icon class="floor-notice__icon">tune</mat-icon>
+        <span class="floor-notice__titles">
+          <strong>Aviso y cupos</strong>
+          <span class="floor-notice__summary">{{ summary() }}</span>
+        </span>
+        <mat-icon class="floor-notice__chevron">{{ collapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+      </button>
+
+      @if (!collapsed()) {
+        <div class="floor-notice__body">
+          @if (canManage()) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-notice__field">
+              <mat-label>Mensaje para la web pública</mat-label>
+              <textarea
+                matInput
+                rows="2"
+                [ngModel]="noticeDraft()"
+                (ngModelChange)="noticeDraft.set($event)"
+                maxlength="2000"
+                placeholder="Ej: Hoy solo menú del día · Terraza cerrada por lluvia"
+              ></textarea>
+            </mat-form-field>
+            <div class="floor-notice__actions">
               <button
                 mat-stroked-button
                 type="button"
-                [disabled]="savingDaySettings() || !capacityDirty()"
-                (click)="saveCapacity()"
+                [disabled]="savingNotice() || !noticeDirty()"
+                (click)="saveNotice()"
               >
-                <mat-icon>event_seat</mat-icon>
-                Guardar cupos
+                <mat-icon>save</mat-icon>
+                {{ noticeDraft().trim() ? 'Guardar aviso' : 'Quitar aviso' }}
               </button>
+              @if (savedNotice()) {
+                <button mat-button type="button" [disabled]="savingNotice()" (click)="clearNotice()">
+                  Limpiar
+                </button>
+              }
             </div>
-          </div>
+            <div class="floor-day-settings">
+              <div class="floor-day-settings__row">
+                <span class="floor-day-settings__label">Formulario web</span>
+                <mat-button-toggle-group
+                  class="floor-form-mode-toggle"
+                  hideSingleSelectionIndicator
+                  [value]="dayFormMode()"
+                  [disabled]="savingDaySettings()"
+                  (change)="onDayFormMode($event.value)"
+                  aria-label="Configuración del formulario web para este día"
+                >
+                  <mat-button-toggle value="normal">Normal</mat-button-toggle>
+                  <mat-button-toggle value="closed">Cerrar</mat-button-toggle>
+                  <mat-button-toggle value="no-inside">Sin adentro</mat-button-toggle>
+                  <mat-button-toggle value="no-outside">Sin afuera</mat-button-toggle>
+                </mat-button-toggle-group>
+              </div>
+              <div class="floor-day-settings__capacity">
+                <span class="floor-day-settings__label">Cupo restante (personas)</span>
+                <p class="floor-day-settings__hint text-muted small">
+                  Vacío = sin límite (queda pendiente de aceptar). Con cupo, las reservas web que
+                  entren se confirman solas y se descuenta el número; al llegar a 0 el sector se cierra.
+                </p>
+                <div class="floor-day-settings__capacity-row">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Cupo adentro</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      min="0"
+                      max="999"
+                      inputmode="numeric"
+                      [ngModel]="insideCapacityDraft()"
+                      (ngModelChange)="insideCapacityDraft.set($event)"
+                      placeholder="Sin límite"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Cupo afuera</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      min="0"
+                      max="999"
+                      inputmode="numeric"
+                      [ngModel]="outsideCapacityDraft()"
+                      (ngModelChange)="outsideCapacityDraft.set($event)"
+                      placeholder="Sin límite"
+                    />
+                  </mat-form-field>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="savingDaySettings() || !capacityDirty()"
+                    (click)="saveCapacity()"
+                  >
+                    <mat-icon>event_seat</mat-icon>
+                    Guardar cupos
+                  </button>
+                </div>
+              </div>
+            </div>
+          } @else if (savedNotice()) {
+            <p class="floor-notice__preview">{{ savedNotice() }}</p>
+          } @else {
+            <p class="floor-notice__empty text-muted small">Sin aviso para este día</p>
+          }
         </div>
-      } @else if (savedNotice()) {
-        <p class="floor-notice__preview">{{ savedNotice() }}</p>
-      } @else {
-        <p class="floor-notice__empty text-muted small">Sin aviso para este día</p>
       }
     </div>
   `,
@@ -155,12 +166,34 @@ export class ReservationDayNoticeComponent {
   readonly savedInsideCapacity = signal<number | null>(null);
   readonly savedOutsideCapacity = signal<number | null>(null);
   readonly savingDaySettings = signal(false);
+  readonly collapsed = signal(this.readCollapsed());
 
   readonly dayFormMode = computed((): DayFormMode => {
     if (this.daySignupOverride() === false) return 'closed';
     if (this.dayInsideOverride() === false) return 'no-inside';
     if (this.dayOutsideOverride() === false) return 'no-outside';
     return 'normal';
+  });
+
+  readonly summary = computed(() => {
+    const parts: string[] = [];
+    const mode = this.dayFormMode();
+    parts.push(
+      mode === 'closed'
+        ? 'Cerrado'
+        : mode === 'no-inside'
+          ? 'Sin adentro'
+          : mode === 'no-outside'
+            ? 'Sin afuera'
+            : 'Normal',
+    );
+    if (this.savedNotice()) parts.push('aviso');
+    const inside = this.savedInsideCapacity();
+    const outside = this.savedOutsideCapacity();
+    if (inside != null) parts.push(`adentro ${inside}`);
+    if (outside != null) parts.push(`afuera ${outside}`);
+    if (inside == null && outside == null) parts.push('sin cupo');
+    return parts.join(' · ');
   });
 
   readonly noticeDirty = computed(
@@ -193,6 +226,18 @@ export class ReservationDayNoticeComponent {
       this.savedOutsideCapacity.set(outsideCap);
       this.insideCapacityDraft.set(insideCap);
       this.outsideCapacityDraft.set(outsideCap);
+    });
+  }
+
+  toggleCollapsed(): void {
+    this.collapsed.update((v) => {
+      const next = !v;
+      try {
+        sessionStorage.setItem('guy-day-notice-collapsed', next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
     });
   }
 
@@ -341,5 +386,16 @@ export class ReservationDayNoticeComponent {
 
   private shopId(): string | null {
     return this.shops.selectedShopId();
+  }
+
+  private readCollapsed(): boolean {
+    if (typeof window === 'undefined') return true;
+    try {
+      const stored = sessionStorage.getItem('guy-day-notice-collapsed');
+      if (stored === '0') return false;
+    } catch {
+      // ignore
+    }
+    return true;
   }
 }
