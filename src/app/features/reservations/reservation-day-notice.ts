@@ -35,10 +35,14 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
           <strong>Aviso y cupos</strong>
           <span class="floor-notice__summary">{{ summary() }}</span>
         </span>
-        <mat-icon class="floor-notice__chevron">{{ collapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+        <mat-icon class="floor-notice__chevron">expand_more</mat-icon>
       </button>
 
-      @if (!collapsed()) {
+      <div
+        class="floor-notice__panel"
+        [class.floor-notice__panel--open]="!collapsed()"
+        [attr.aria-hidden]="collapsed()"
+      >
         <div class="floor-notice__body">
           @if (canManage()) {
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="floor-notice__field">
@@ -176,7 +180,7 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
             <p class="floor-notice__empty text-muted small">Sin aviso para este día</p>
           }
         </div>
-      }
+      </div>
     </div>
   `,
   styleUrl: './reservation-day-notice.scss',
