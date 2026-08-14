@@ -16,9 +16,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import {
   ReservationArea,
   ReservationRequestRow,
@@ -30,6 +33,11 @@ import {
   igConfirmMessage,
   requestWhenLabel,
 } from './reservation-messaging.util';
+import { partyMustSitOutside } from './reservation-party-rules.util';
+import {
+  ReservationDecideDialogComponent,
+  ReservationDecideDialogData,
+} from './reservation-decide-dialog';
 
 export type ReservationRequestAccepted = {
   reservationId: string | null;
@@ -52,94 +60,31 @@ export type ReservationRequestAccepted = {
     MatSlideToggleModule,
     MatSnackBarModule,
     MatTooltipModule,
+    MatDialogModule,
   ],
   template: `
     <section class="panel-card req-panel" [class.req-panel--closed]="!signupOpen()">
       <div class="req-panel__head">
-        <div class="req-panel__intro">
-          <h2 class="guy-section-title">Solicitudes web</h2>
-          <p class="text-muted small req-panel__lead">
-            @if (signupOpen()) {
-              @if (pendingRequests().length) {
-                {{ pendingRequests().length }} para aceptar o rechazar · aviso por mail
+        <div class="req-panel__top">
+          <div class="req-panel__intro">
+            <h2 class="guy-section-title">Solicitudes web</h2>
+            <p class="text-muted small req-panel__lead">
+              @if (signupOpen()) {
+                @if (pendingRequests().length) {
+                  {{ pendingRequests().length }} para aceptar o rechazar · aviso por mail
+                } @else {
+                  Cuando alguien reserve desde el link, aparece acá
+                }
               } @else {
-                Cuando alguien reserve desde el link, aparece acá
+                Cerrado · ingreso por orden de llegada
+                @if (pendingRequests().length) {
+                  · {{ pendingRequests().length }} pendiente{{
+                    pendingRequests().length === 1 ? '' : 's'
+                  }}
+                  por resolver
+                }
               }
-            } @else {
-              Cerrado · ingreso por orden de llegada
-              @if (pendingRequests().length) {
-                · {{ pendingRequests().length }} pendiente{{
-                  pendingRequests().length === 1 ? '' : 's'
-                }}
-                por resolver
-              }
-            }
-          </p>
-        </div>
-        <div class="req-panel__tools">
-          <div class="req-panel__toggles">
-            <mat-slide-toggle
-              color="primary"
-              [checked]="signupOpen()"
-              [disabled]="signupBusy()"
-              (change)="toggleSignup($event.checked)"
-            >
-              {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
-            </mat-slide-toggle>
-            <div class="req-areas">
-              <mat-slide-toggle
-                color="primary"
-                [checked]="insideOpen()"
-                [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
-                (change)="toggleArea('INSIDE', $event.checked)"
-              >
-                Adentro
-              </mat-slide-toggle>
-              <mat-slide-toggle
-                color="primary"
-                [checked]="outsideOpen()"
-                [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
-                (change)="toggleArea('OUTSIDE', $event.checked)"
-              >
-                Afuera
-              </mat-slide-toggle>
-            </div>
-            <div class="req-party-rules">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Máx. adentro</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  min="1"
-                  max="99"
-                  inputmode="numeric"
-                  [ngModel]="insideMaxDraft()"
-                  (ngModelChange)="insideMaxDraft.set($event)"
-                  placeholder="Sin tope"
-                />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Afuera desde</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  min="1"
-                  max="99"
-                  inputmode="numeric"
-                  [ngModel]="outsideMinDraft()"
-                  (ngModelChange)="outsideMinDraft.set($event)"
-                  placeholder="Sin regla"
-                />
-              </mat-form-field>
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="partyRulesBusy() || !partyRulesDirty()"
-                (click)="savePartyRules()"
-              >
-                Guardar
-              </button>
-            </div>
+            </p>
           </div>
           <div class="req-panel__links">
             @if (shopSlug()) {
@@ -151,7 +96,7 @@ export type ReservationRequestAccepted = {
                 matTooltip="Formulario público"
               >
                 <mat-icon>link</mat-icon>
-                <span class="req-panel__btn-label">Formulario público</span>
+                <span class="req-panel__btn-label">Formulario</span>
               </a>
               <button
                 type="button"
@@ -160,7 +105,7 @@ export type ReservationRequestAccepted = {
                 matTooltip="Copiar link"
               >
                 <mat-icon>content_copy</mat-icon>
-                <span class="req-panel__btn-label">Copiar link</span>
+                <span class="req-panel__btn-label">Copiar</span>
               </button>
             }
             <button
@@ -171,7 +116,70 @@ export type ReservationRequestAccepted = {
               matTooltip="Recargar solicitudes"
             >
               <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
-              <span class="req-panel__btn-label">Recargar</span>
+            </button>
+          </div>
+        </div>
+        <div class="req-panel__config">
+          <div class="req-panel__toggles">
+            <mat-slide-toggle
+              color="primary"
+              [checked]="signupOpen()"
+              [disabled]="signupBusy()"
+              (change)="toggleSignup($event.checked)"
+            >
+              {{ signupOpen() ? 'Abierto' : 'Cerrado' }}
+            </mat-slide-toggle>
+            <mat-slide-toggle
+              color="primary"
+              [checked]="insideOpen()"
+              [disabled]="signupBusy() || (insideOpen() && !outsideOpen())"
+              (change)="toggleArea('INSIDE', $event.checked)"
+            >
+              Adentro
+            </mat-slide-toggle>
+            <mat-slide-toggle
+              color="primary"
+              [checked]="outsideOpen()"
+              [disabled]="signupBusy() || (outsideOpen() && !insideOpen())"
+              (change)="toggleArea('OUTSIDE', $event.checked)"
+            >
+              Afuera
+            </mat-slide-toggle>
+          </div>
+          <div class="req-party-rules">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Máx. adentro</mat-label>
+              <input
+                matInput
+                type="number"
+                min="1"
+                max="99"
+                inputmode="numeric"
+                [ngModel]="insideMaxDraft()"
+                (ngModelChange)="insideMaxDraft.set($event)"
+                placeholder="Sin tope"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Afuera desde</mat-label>
+              <input
+                matInput
+                type="number"
+                min="1"
+                max="99"
+                inputmode="numeric"
+                [ngModel]="outsideMinDraft()"
+                (ngModelChange)="outsideMinDraft.set($event)"
+                placeholder="Sin regla"
+              />
+            </mat-form-field>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="partyRulesBusy() || !partyRulesDirty()"
+              (click)="savePartyRules()"
+            >
+              Guardar
             </button>
           </div>
         </div>
@@ -195,6 +203,9 @@ export type ReservationRequestAccepted = {
                 <span class="req-chip" [class.req-chip--out]="req.area === 'OUTSIDE'">
                   {{ req.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
                 </span>
+                @if (mustSitOutside(req)) {
+                  <span class="req-chip req-chip--warn">Según la regla, afuera</span>
+                }
                 <span class="req-chip">{{ requestWhen(req) }}</span>
               </div>
               <span class="req-card__contact">
@@ -296,6 +307,8 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   private readonly inbox = inject(ReservationsInboxService);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
 
   readonly accepted = output<ReservationRequestAccepted>();
@@ -438,6 +451,11 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     return requestWhenLabel(req);
   }
 
+  mustSitOutside(req: ReservationRequestRow): boolean {
+    if (req.area === 'OUTSIDE') return false;
+    return partyMustSitOutside(req.partySize, this.shops.selectedShop());
+  }
+
   partyRulesDirty(): boolean {
     const shop = this.shops.selectedShop();
     return (
@@ -488,10 +506,32 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     return Math.min(99, n);
   }
 
-  acceptRequest(req: ReservationRequestRow, openIg = false): void {
+  private async askDecision(
+    req: ReservationRequestRow,
+    action: 'accept' | 'reject',
+    openIg = false,
+  ) {
+    return firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(ReservationDecideDialogComponent, {
+            width: '440px',
+            maxWidth: '96vw',
+            panelClass: 'guy-dialog',
+            data: { request: req, action, openIg } satisfies ReservationDecideDialogData,
+          }),
+          action === 'accept' ? 'Aceptar reserva' : 'Rechazar reserva',
+        )
+        .afterClosed(),
+    );
+  }
+
+  async acceptRequest(req: ReservationRequestRow, openIg = false): Promise<void> {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.busyRequestId()) return;
-    if (openIg) {
+    const decision = await this.askDecision(req, 'accept', openIg);
+    if (!decision) return;
+    if (decision.openIg) {
       this.openGuestInstagram(req, true, { snack: false });
     }
     this.busyRequestId.set(req.id);
@@ -501,7 +541,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
         .getElementById(`reservation-request-${req.id}`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-    this.api.acceptReservationRequest(shopId, req.id).subscribe({
+    this.api.acceptReservationRequest(shopId, req.id, decision.note || null).subscribe({
       next: (row) => {
         const day = String(row.businessDate || req.businessDate || '').slice(0, 10);
         const guestName = String(row.guestName || req.guestName || 'Reserva').trim();
@@ -543,12 +583,14 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     });
   }
 
-  rejectRequest(req: ReservationRequestRow): void {
+  async rejectRequest(req: ReservationRequestRow): Promise<void> {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.busyRequestId()) return;
+    const decision = await this.askDecision(req, 'reject');
+    if (!decision) return;
     this.busyRequestId.set(req.id);
     this.busyAction.set('reject');
-    this.api.rejectReservationRequest(shopId, req.id).subscribe({
+    this.api.rejectReservationRequest(shopId, req.id, decision.note || null).subscribe({
       next: () => {
         this.busyRequestId.set(null);
         this.busyAction.set(null);

@@ -10,10 +10,10 @@ import { ReservationRow, ReservationsApiService } from './reservations-api.servi
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { isActiveReservationStatus } from './reservation-status';
 import {
-  ReservationNoteDialogComponent,
-  ReservationNoteDialogData,
-} from './reservation-note-dialog';
-import { copyTextNow, igConfirmMessage } from './reservation-messaging.util';
+  ReservationEditDialogComponent,
+  ReservationEditDialogData,
+} from './reservation-edit-dialog';
+import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-messaging.util';
 
 @Component({
   selector: 'app-reservation-floor-list',
@@ -69,6 +69,9 @@ import { copyTextNow, igConfirmMessage } from './reservation-messaging.util';
             @if (r.notes?.trim()) {
               <span class="floor-card__note">{{ r.notes }}</span>
             }
+            @if (guestEmailOf(r); as mail) {
+              <span class="floor-card__note">{{ mail }}</span>
+            }
           </div>
           @if (canManage()) {
             <div class="floor-card__actions">
@@ -105,11 +108,11 @@ import { copyTextNow, igConfirmMessage } from './reservation-messaging.util';
               <button
                 mat-icon-button
                 type="button"
-                [matTooltip]="r.notes?.trim() ? 'Editar nota' : 'Agregar nota'"
-                [attr.aria-label]="r.notes?.trim() ? 'Editar nota' : 'Agregar nota'"
-                (click)="editNote(r)"
+                matTooltip="Editar reserva"
+                aria-label="Editar reserva"
+                (click)="editReservation(r)"
               >
-                <mat-icon>{{ r.notes?.trim() ? 'sticky_note_2' : 'note_add' }}</mat-icon>
+                <mat-icon>edit</mat-icon>
               </button>
               <button
                 mat-icon-button
@@ -162,6 +165,10 @@ export class ReservationFloorListComponent {
       .filter((r) => r.area === 'OUTSIDE')
       .reduce((s, r) => s + Number(r.partySize || 0), 0),
   );
+
+  guestEmailOf(r: ReservationRow): string | null {
+    return r.guestEmail?.trim() || emailFromNotes(r.notes);
+  }
 
   instagramFromNotes(notes?: string | null): { handle: string; url: string; dmUrl: string } | null {
     const m = String(notes ?? '').match(/(?:^|[\s·])@([A-Za-z0-9._]{1,30})\b/);
@@ -223,18 +230,18 @@ export class ReservationFloorListComponent {
     });
   }
 
-  editNote(row: ReservationRow): void {
+  editReservation(row: ReservationRow): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManage()) return;
     this.dialogTitle
       .track(
-        this.dialog.open(ReservationNoteDialogComponent, {
-          width: '420px',
+        this.dialog.open(ReservationEditDialogComponent, {
+          width: '520px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
-          data: { shopId, reservation: row } satisfies ReservationNoteDialogData,
+          data: { shopId, reservation: row } satisfies ReservationEditDialogData,
         }),
-        'Nota de reserva',
+        'Editar reserva',
       )
       .afterClosed()
       .subscribe((ok) => {

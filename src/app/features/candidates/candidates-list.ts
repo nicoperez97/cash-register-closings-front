@@ -143,6 +143,14 @@ export class CandidatesListPage {
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Teléfono' },
     {
+      key: 'cvFiles',
+      label: 'CV',
+      format: (r) => {
+        const n = Array.isArray(r['cvFiles']) ? r['cvFiles'].length : 0;
+        return n ? `${n} archivo${n === 1 ? '' : 's'}` : '—';
+      },
+    },
+    {
       key: 'status',
       label: 'Estado',
       format: (r) => STATUS_LABEL[r['status'] as CandidateStatus] ?? String(r['status'] ?? ''),

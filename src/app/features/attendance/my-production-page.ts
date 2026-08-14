@@ -14,6 +14,11 @@ import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { shareText } from '../../shared/utils/share-text';
+import {
+  attendanceRangeSharePayload,
+  formatIsoShareLabel,
+} from '../../shared/utils/attendance-share';
 
 type ViewMode = 'day' | 'week' | 'month';
 type ScopeMode = 'self' | 'team';
@@ -144,6 +149,15 @@ function distributeHours(total: number, n: number): number[] {
           <mat-icon>chevron_right</mat-icon>
         </button>
         <button mat-stroked-button type="button" (click)="goToday()">Hoy</button>
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="sharing() || loading()"
+          (click)="shareCurrent()"
+        >
+          <mat-icon>share</mat-icon>
+          Compartir
+        </button>
       </div>
     </div>
 
@@ -377,6 +391,7 @@ export class MyProductionPage {
   readonly anchor = signal(new Date());
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly sharing = signal(false);
   readonly error = signal<string | null>(null);
   readonly data = signal<MyProdRangeResponse | null>(null);
   /** Borrador editable: iso → horas o null (vacío). */
@@ -528,6 +543,37 @@ export class MyProductionPage {
 
   goToday(): void {
     this.anchor.set(new Date());
+  }
+
+  async shareCurrent(): Promise<void> {
+    const name = this.data()?.employee?.fullName || 'Productor';
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const hours = this.draftHours();
+    const days = this.dayList().map((day) => {
+      const h = Number(hours[day.iso] ?? 0) || 0;
+      return {
+        dateLabel: formatIsoShareLabel(day.iso),
+        employees: [{ fullName: name, present: h > 0, hours: h }],
+      };
+    });
+    this.sharing.set(true);
+    try {
+      const payload = attendanceRangeSharePayload({
+        shopName,
+        fromLabel: formatIsoShareLabel(this.range().from),
+        toLabel: formatIsoShareLabel(this.range().to),
+        kind: 'produccion',
+        days,
+      });
+      const result = await shareText(payload);
+      if (result === 'copied') {
+        this.snack.open('Presentismo copiado al portapapeles', 'OK', { duration: 2200 });
+      } else if (result === 'failed') {
+        this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+      }
+    } finally {
+      this.sharing.set(false);
+    }
   }
 
   shift(dir: -1 | 1): void {

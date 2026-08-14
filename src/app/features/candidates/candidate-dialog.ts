@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
@@ -74,7 +74,7 @@ const STATUS_OPTIONS: Array<{ value: CandidateStatus; label: string }> = [
         <div class="cv-pick">
           <p class="cv-pick__hint">
             Podés sacar varias fotos o cargar varios archivos del mismo CV. Se lee el texto de todas
-            y se completa un solo registro (las imágenes no se guardan).
+            y al guardar también se almacenan los archivos.
           </p>
           <div class="cv-pick__actions">
             <button mat-stroked-button type="button" (click)="cameraInput.click()">
@@ -157,6 +157,23 @@ const STATUS_OPTIONS: Array<{ value: CandidateStatus; label: string }> = [
         </div>
       } @else {
         <form class="guy-dialog__form candidate-form" [formGroup]="form" (ngSubmit)="save()">
+          @if (pendingFiles().length || storedCvFiles().length) {
+            <div class="cv-files">
+              <p class="cv-files__label">Archivos del CV</p>
+              @for (item of storedCvFiles(); track item.index) {
+                <button type="button" class="cv-files__item" (click)="openStoredFile(item.index)">
+                  <mat-icon>attach_file</mat-icon>
+                  {{ item.originalName }}
+                </button>
+              }
+              @for (item of pendingFiles(); track item.id) {
+                <span class="cv-files__item cv-files__item--pending">
+                  <mat-icon>upload_file</mat-icon>
+                  {{ item.file.name }}
+                </span>
+              }
+            </div>
+          }
           <div class="guy-form-grid guy-form-grid--2">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Nombre</mat-label>
@@ -383,6 +400,41 @@ const STATUS_OPTIONS: Array<{ value: CandidateStatus; label: string }> = [
         color: var(--guy-muted, #666);
         line-height: 1.45;
       }
+      .cv-files {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        align-items: center;
+        margin-bottom: 0.35rem;
+      }
+      .cv-files__label {
+        width: 100%;
+        margin: 0;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .cv-files__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: #fff;
+        border-radius: 999px;
+        padding: 0.2rem 0.65rem;
+        font: inherit;
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
+      .cv-files__item--pending {
+        cursor: default;
+        background: color-mix(in srgb, var(--guy-green, #2e7d32) 10%, #fff);
+      }
+      .cv-files__item mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+      }
       .cv-pick__actions {
         display: flex;
         flex-wrap: wrap;
@@ -586,7 +638,7 @@ const STATUS_OPTIONS: Array<{ value: CandidateStatus; label: string }> = [
     `,
   ],
 })
-export class CandidateDialogComponent {
+export class CandidateDialogComponent implements OnDestroy {
   readonly data = inject<CandidateDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<CandidateDialogComponent, boolean>);
   private readonly fb = inject(FormBuilder);
@@ -604,6 +656,7 @@ export class CandidateDialogComponent {
 
   readonly isEdit = this.data.mode === 'edit';
   private readonly candidate = this.data.mode === 'edit' ? this.data.candidate : null;
+  readonly storedCvFiles = signal(this.candidate?.cvFiles ?? []);
   private pendingId = 0;
 
   readonly form = this.fb.nonNullable.group({
@@ -717,7 +770,6 @@ export class CandidateDialogComponent {
     this.step.set('parsing');
     this.api.parse(this.data.shopId, files).subscribe({
       next: (parsed) => {
-        this.clearPendingPreviews();
         this.applyParsed(parsed);
         this.step.set('form');
       },
@@ -783,24 +835,58 @@ export class CandidateDialogComponent {
     this.busy.set(true);
     if (this.isEdit && this.candidate) {
       this.api.update(this.data.shopId, this.candidate.id, body).subscribe({
-        next: () => {
-          this.busy.set(false);
-          this.snack.open('Candidato actualizado', 'OK', { duration: 2500 });
-          this.ref.close(true);
-        },
+        next: (row) => this.afterSave(row.id, 'Candidato actualizado'),
         error: (err) => this.fail(err),
       });
       return;
     }
 
     this.api.create(this.data.shopId, body).subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.snack.open('Candidato creado', 'OK', { duration: 2500 });
-        this.ref.close(true);
-      },
+      next: (row) => this.afterSave(row.id, 'Candidato creado'),
       error: (err) => this.fail(err),
     });
+  }
+
+  private afterSave(id: string, okMsg: string): void {
+    const files = this.pendingFiles().map((p) => p.file);
+    if (!files.length) {
+      this.busy.set(false);
+      this.snack.open(okMsg, 'OK', { duration: 2500 });
+      this.ref.close(true);
+      return;
+    }
+    this.api.uploadCvFiles(this.data.shopId, id, files).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.clearPendingPreviews();
+        this.snack.open(okMsg, 'OK', { duration: 2500 });
+        this.ref.close(true);
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open(`${okMsg}, pero no se pudieron guardar los archivos`, 'OK', {
+          duration: 4000,
+        });
+        this.ref.close(true);
+      },
+    });
+  }
+
+  openStoredFile(index: number): void {
+    const id = this.candidate?.id;
+    if (!id) return;
+    this.api.downloadCvFile(this.data.shopId, id, index).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      },
+      error: () => this.snack.open('No se pudo abrir el archivo', 'OK', { duration: 3000 }),
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.clearPendingPreviews();
   }
 
   private applyParsed(p: ParsedCv): void {

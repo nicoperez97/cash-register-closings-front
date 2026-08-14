@@ -44,6 +44,7 @@ export interface Candidate {
   languages?: CandidateLanguageItem[];
   rawText?: string | null;
   notes?: string | null;
+  cvFiles?: Array<{ index: number; originalName: string; mime: string }>;
   status: CandidateStatus;
   active: boolean;
   createdAt?: string;
@@ -94,6 +95,21 @@ export class CandidatesApiService {
 
   update(shopId: string, id: string, body: Partial<CandidatePayload>) {
     return this.http.patch<Candidate>(`${this.base}/shops/${shopId}/candidates/${id}`, body);
+  }
+
+  uploadCvFiles(shopId: string, id: string, files: File | File[]) {
+    const list = Array.isArray(files) ? files : [files];
+    const form = new FormData();
+    for (const file of list) {
+      form.append('files', file, file.name);
+    }
+    return this.http.post<Candidate>(`${this.base}/shops/${shopId}/candidates/${id}/cv-files`, form);
+  }
+
+  downloadCvFile(shopId: string, id: string, index: number) {
+    return this.http.get(`${this.base}/shops/${shopId}/candidates/${id}/cv-files/${index}`, {
+      responseType: 'blob',
+    });
   }
 
   remove(shopId: string, id: string) {

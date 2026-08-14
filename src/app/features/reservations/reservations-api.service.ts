@@ -65,6 +65,7 @@ export interface ReservationRow {
   status: ReservationStatus;
   reservationTime?: string | null;
   number?: number;
+  guestEmail?: string | null;
   createdAt?: string;
 }
 
@@ -212,6 +213,13 @@ export class ReservationsApiService {
     return this.http.patch<ReservationRow>(
       `${this.base}/shops/${shopId}/reservations/${id}`,
       body,
+    );
+  }
+
+  sendReservationMessage(shopId: string, id: string, message: string) {
+    return this.http.post<{ ok: boolean; to: string }>(
+      `${this.base}/shops/${shopId}/reservations/${id}/message`,
+      { message },
     );
   }
 

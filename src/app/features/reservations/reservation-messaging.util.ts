@@ -48,3 +48,11 @@ export function igConfirmMessage(
   }
   return `Hola ${first}! Te confirmamos la reserva en ${shopName} (${opts.partySize} ${pers} · ${opts.area} · ${opts.when}). ¡Te esperamos!`;
 }
+
+export function emailFromNotes(notes?: string | null): string | null {
+  const text = String(notes ?? '');
+  const labeled = text.match(/(?:^|\n)\s*Mail:\s*([^\s\n]+@[^\s\n]+)/i);
+  if (labeled?.[1]) return labeled[1].trim();
+  const any = text.match(/[^\s\n]+@[^\s\n]+\.[^\s\n]+/);
+  return any?.[0]?.trim() || null;
+}
