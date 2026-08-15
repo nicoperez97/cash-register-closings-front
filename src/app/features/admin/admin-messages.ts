@@ -33,7 +33,8 @@ import {
     />
 
     <p class="msg-hint">
-      Vacío = texto automático. Placeholders:
+      Cada mensaje viene con el texto que se envía hoy. Reiniciá uno para volver a ese original.
+      Placeholders:
       <code>{{ placeholders }}</code>
     </p>
 
@@ -42,7 +43,13 @@ import {
         <h2>Al equipo</h2>
         @for (opt of staffOptions; track opt.value) {
           <article class="msg-card">
-            <h3>{{ opt.label }}</h3>
+            <div class="msg-card__head">
+              <h3>{{ opt.label }}</h3>
+              <button mat-stroked-button type="button" (click)="resetMessage(opt)">
+                <mat-icon>restart_alt</mat-icon>
+                Reiniciar
+              </button>
+            </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Asunto</mat-label>
               <input matInput [formControlName]="opt.value + '_subject'" [placeholder]="opt.defaultSubject" />
@@ -64,7 +71,13 @@ import {
         <h2>Al comensal</h2>
         @for (opt of guestOptions; track opt.value) {
           <article class="msg-card">
-            <h3>{{ opt.label }}</h3>
+            <div class="msg-card__head">
+              <h3>{{ opt.label }}</h3>
+              <button mat-stroked-button type="button" (click)="resetMessage(opt)">
+                <mat-icon>restart_alt</mat-icon>
+                Reiniciar
+              </button>
+            </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Asunto</mat-label>
               <input matInput [formControlName]="opt.value + '_subject'" [placeholder]="opt.defaultSubject" />
@@ -114,10 +127,19 @@ import {
       gap: 0.55rem;
       margin-bottom: 1rem;
     }
+    .msg-card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
     .msg-card h3 {
       margin: 0;
       font-size: 0.88rem;
       font-weight: 700;
+    }
+    .msg-card__head button {
+      flex-shrink: 0;
     }
     .msg-actions {
       display: flex;
@@ -172,8 +194,10 @@ export class AdminMessagesPage {
         const templates = shop.emailMessageTemplates ?? {};
         const patch: Record<string, string> = {};
         for (const opt of EMAIL_MESSAGE_TYPE_OPTIONS) {
-          patch[`${opt.value}_subject`] = templates[opt.value]?.subject ?? '';
-          patch[`${opt.value}_body`] = templates[opt.value]?.body ?? '';
+          patch[`${opt.value}_subject`] =
+            String(templates[opt.value]?.subject ?? '').trim() || opt.defaultSubject;
+          patch[`${opt.value}_body`] =
+            String(templates[opt.value]?.body ?? '').trim() || opt.defaultBody;
         }
         this.form.patchValue(patch);
       },
@@ -184,6 +208,18 @@ export class AdminMessagesPage {
     });
   }
 
+  resetMessage(opt: (typeof EMAIL_MESSAGE_TYPE_OPTIONS)[number]): void {
+    this.form.patchValue({
+      [`${opt.value}_subject`]: opt.defaultSubject,
+      [`${opt.value}_body`]: opt.defaultBody,
+    });
+    this.form.markAsDirty();
+  }
+
+  private sameText(a: string, b: string): boolean {
+    return a.replace(/\r\n/g, '\n').trim() === b.replace(/\r\n/g, '\n').trim();
+  }
+
   save(): void {
     const shopId = this.shopId();
     if (!shopId || this.saving()) return;
@@ -192,10 +228,12 @@ export class AdminMessagesPage {
     for (const opt of EMAIL_MESSAGE_TYPE_OPTIONS) {
       const subject = String(raw[`${opt.value}_subject`] ?? '').trim();
       const body = String(raw[`${opt.value}_body`] ?? '').trim();
-      if (!subject && !body) continue;
+      const persistSubject = subject && !this.sameText(subject, opt.defaultSubject) ? subject : '';
+      const persistBody = body && !this.sameText(body, opt.defaultBody) ? body : '';
+      if (!persistSubject && !persistBody) continue;
       emailMessageTemplates[opt.value] = {
-        ...(subject ? { subject } : {}),
-        ...(body ? { body } : {}),
+        ...(persistSubject ? { subject: persistSubject } : {}),
+        ...(persistBody ? { body: persistBody } : {}),
       };
     }
     this.saving.set(true);

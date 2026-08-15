@@ -94,6 +94,80 @@
     });
   }
 
+  function partyMix(rows) {
+    var counts = {};
+    var i;
+    var n;
+    var keys = [];
+    for (i = 0; i < (rows || []).length; i++) {
+      if (rows[i].removedAfterSeated) continue;
+      n = Math.round(Number(rows[i].partySize) || 0);
+      if (n < 1) continue;
+      if (!counts[n]) {
+        counts[n] = 0;
+        keys.push(n);
+      }
+      counts[n] += 1;
+    }
+    keys.sort(function (a, b) {
+      return a - b;
+    });
+    return keys.map(function (size) {
+      return { partySize: size, tables: counts[size] };
+    });
+  }
+
+  function formatMixItem(item) {
+    var mesa = item.tables === 1 ? 'mesa' : 'mesas';
+    var pers = item.partySize === 1 ? 'persona' : 'personas';
+    return item.tables + ' ' + mesa + ' de ' + item.partySize + ' ' + pers;
+  }
+
+  function formatMix(items) {
+    return items
+      .map(formatMixItem)
+      .join(', ');
+  }
+
+  function renderMix(rows) {
+    var all = partyMix(rows);
+    if (!all.length) return '';
+    var chips = '';
+    var i;
+    for (i = 0; i < all.length; i++) {
+      chips += '<span class="board-mix-chip">' + escapeHtml(formatMixItem(all[i])) + '</span>';
+    }
+    var inside = partyMix(
+      (rows || []).filter(function (r) {
+        return !r.removedAfterSeated && r.area !== 'OUTSIDE';
+      }),
+    );
+    var outside = partyMix(
+      (rows || []).filter(function (r) {
+        return !r.removedAfterSeated && r.area === 'OUTSIDE';
+      }),
+    );
+    var areas = '';
+    if (inside.length && outside.length) {
+      areas =
+        '<p class="board-mix-areas">' +
+        '<span>Adentro: ' +
+        escapeHtml(formatMix(inside)) +
+        '</span>' +
+        '<span>Afuera: ' +
+        escapeHtml(formatMix(outside)) +
+        '</span></p>';
+    }
+    return (
+      '<section class="board-mix"><p class="board-mix-label">Composición</p>' +
+      '<p class="board-mix-chips">' +
+      chips +
+      '</p>' +
+      areas +
+      '</section>'
+    );
+  }
+
   function canToggle(r) {
     return !r.removedAfterSeated && (r.status === 'CONFIRMED' || r.status === 'SEATED');
   }
@@ -260,6 +334,7 @@
       escapeHtml(b.totals.outside) +
       '</strong><span>afuera</span></div></div>' +
       '<div style="clear:both"></div></section>' +
+      renderMix(b.reservations) +
       '<section class="board-lists">' +
       '<div class="board-col"><div class="board-col-inner"><h2>Adentro <span>' +
       inside.length +

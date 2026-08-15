@@ -319,6 +319,56 @@
         text-transform: uppercase;
       }
 
+      .board__mix {
+        max-width: 52rem;
+        width: 100%;
+        margin: -0.35rem auto 1rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-sizing: border-box;
+        text-align: center;
+      }
+
+      .board__mix-label {
+        margin: 0 0 0.45rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: color-mix(in srgb, var(--accent, #c45c26) 75%, #fff);
+      }
+
+      .board__mix-chips {
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.4rem;
+      }
+
+      .board__mix-chip {
+        display: inline-flex;
+        padding: 0.32rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 650;
+        color: #fff8f1;
+        background: color-mix(in srgb, var(--accent, #c45c26) 28%, rgba(0, 0, 0, 0.35));
+        border: 1px solid color-mix(in srgb, var(--accent, #c45c26) 45%, transparent);
+      }
+
+      .board__mix-areas {
+        margin: 0.5rem 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.65rem 1.1rem;
+        font-size: 0.78rem;
+        color: #cfc6ba;
+      }
+
       .board__lists {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -661,6 +711,17 @@
           flex-shrink: 0;
         }
 
+        .board__mix {
+          margin: -0.15rem auto 0.55rem;
+          padding: 0.5rem 0.65rem;
+          flex-shrink: 0;
+        }
+
+        .board__mix-chip {
+          font-size: 0.72rem;
+          padding: 0.22rem 0.55rem;
+        }
+
         .board__total {
           padding: 0.45rem 0.2rem;
           border-radius: 10px;
@@ -776,6 +837,7 @@
         .board__notice,
         .board__waiting,
         .board__totals,
+        .board__mix,
         .board__lists {
           max-width: none;
           width: 100%;

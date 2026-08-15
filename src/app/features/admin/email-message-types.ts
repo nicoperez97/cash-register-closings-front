@@ -131,13 +131,13 @@ export const EMAIL_MESSAGE_TYPE_OPTIONS: Array<{
     group: 'guest',
     defaultSubject: 'No pudimos confirmar tu reserva en {shop}',
     defaultBody:
-      'Hola {guest}, esta vez no pudimos confirmar tu reserva.\n\n{detail}\n\nSi querés, podés intentar otra fecha o escribirnos. Gracias por pensarnos.',
+      'Hola {guest}, esta vez no pudimos confirmar tu reserva ({detail}).{body}\n\nSi querés, podés intentar otra fecha o escribirnos. Gracias por pensarnos.',
   },
   {
     value: 'RESERVATION_STAFF_MESSAGE',
     label: 'Comensal · mensaje del local',
     group: 'guest',
     defaultSubject: 'Mensaje de {shop}',
-    defaultBody: 'Hola {guest},\n\n{body}',
+    defaultBody: 'Hola {guest},\n\n{body}\n\nTu reserva: {detail}\n\n{shop}',
   },
 ];

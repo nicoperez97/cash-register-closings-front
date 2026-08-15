@@ -62,6 +62,52 @@
   color: var(--guy-muted, #5f6f76);
 }
 
+.floor-mix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: -0.35rem 0 0.85rem;
+}
+
+.floor-mix__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--guy-muted, #5f6f76);
+  margin-right: 0.15rem;
+}
+
+.floor-mix__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--guy-navy, #003366);
+  background: color-mix(in srgb, var(--guy-navy, #003366) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 14%, transparent);
+}
+
+.floor-mix--areas {
+  margin-top: -0.55rem;
+  gap: 0.75rem;
+}
+
+.floor-mix--areas p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.floor-mix--areas span {
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+  margin-right: 0.3rem;
+}
+
 .floor-list {
   list-style: none;
   margin: 0;

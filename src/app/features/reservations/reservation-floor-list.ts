@@ -10,6 +10,10 @@ import { ReservationRow, ReservationsApiService } from './reservations-api.servi
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { isActiveReservationStatus } from './reservation-status';
 import {
+  formatPartyMixItem,
+  partyMixFromReservations,
+} from './reservation-party-summary.util';
+import {
   ReservationEditDialogComponent,
   ReservationEditDialogData,
 } from './reservation-edit-dialog';
@@ -39,6 +43,30 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
         <span>afuera</span>
       </div>
     </div>
+    @if (partyMix().length) {
+      <div class="floor-mix" [attr.aria-label]="'Mesas: ' + partyMixLabel()">
+        <span class="floor-mix__label">Mesas</span>
+        @for (item of partyMix(); track item.partySize) {
+          <span class="floor-mix__chip">{{ formatMix(item) }}</span>
+        }
+      </div>
+      @if (showAreaMix()) {
+        <div class="floor-mix floor-mix--areas">
+          @if (partyMixInside().length) {
+            <p>
+              <span>Adentro</span>
+              {{ mixLabel(partyMixInside()) }}
+            </p>
+          }
+          @if (partyMixOutside().length) {
+            <p>
+              <span>Afuera</span>
+              {{ mixLabel(partyMixOutside()) }}
+            </p>
+          }
+        </div>
+      }
+    }
 
     <ul class="floor-list">
       @for (r of activeReservations(); track r.id) {
@@ -181,6 +209,24 @@ export class ReservationFloorListComponent {
       .filter((r) => r.area === 'OUTSIDE')
       .reduce((s, r) => s + Number(r.partySize || 0), 0),
   );
+
+  readonly partyMix = computed(() => partyMixFromReservations(this.activeReservations()));
+  readonly partyMixInside = computed(() =>
+    partyMixFromReservations(this.activeReservations().filter((r) => r.area !== 'OUTSIDE')),
+  );
+  readonly partyMixOutside = computed(() =>
+    partyMixFromReservations(this.activeReservations().filter((r) => r.area === 'OUTSIDE')),
+  );
+  readonly showAreaMix = computed(
+    () => this.partyMixInside().length > 0 && this.partyMixOutside().length > 0,
+  );
+  readonly partyMixLabel = computed(() => this.mixLabel(this.partyMix()));
+
+  formatMix = formatPartyMixItem;
+
+  mixLabel(items: { partySize: number; tables: number }[]): string {
+    return items.map(formatPartyMixItem).join(', ');
+  }
 
   guestEmailOf(r: ReservationRow): string | null {
     return r.guestEmail?.trim() || emailFromNotes(r.notes);
