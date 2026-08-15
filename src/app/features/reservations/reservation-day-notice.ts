@@ -136,7 +136,7 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
               <div class="floor-day-settings__party">
                 <span class="floor-day-settings__label">Personas por mesa</span>
                 <p class="floor-day-settings__hint text-muted small">
-                  Vacío = usa la regla del local. Adentro hasta N; afuera desde N.
+                  Vacío = usa la regla del local. Adentro hasta N; afuera hasta N. Vacío = ilimitado.
                 </p>
                 <div class="floor-day-settings__pills">
                   <label class="floor-num">
@@ -152,7 +152,7 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
                     />
                   </label>
                   <label class="floor-num">
-                    <span>Afuera desde</span>
+                    <span>Afuera hasta</span>
                     <input
                       type="number"
                       min="1"
@@ -243,8 +243,8 @@ export class ReservationDayNoticeComponent {
     if (inside == null && outside == null) parts.push('sin cupo');
     const maxInside = this.savedInsideMax();
     const minOutside = this.savedOutsideMin();
-    if (maxInside != null) parts.push(`hasta ${maxInside}`);
-    if (minOutside != null) parts.push(`desde ${minOutside}`);
+    if (maxInside != null) parts.push(`adentro hasta ${maxInside}`);
+    if (minOutside != null) parts.push(`afuera hasta ${minOutside}`);
     return parts.join(' · ');
   });
 
@@ -286,7 +286,9 @@ export class ReservationDayNoticeComponent {
       this.insideCapacityDraft.set(insideCap);
       this.outsideCapacityDraft.set(outsideCap);
       const insideMax = this.normalizePartyRule(settings?.insideMaxPartySize);
-      const outsideMin = this.normalizePartyRule(settings?.outsideMinPartySize);
+      const outsideMin = this.normalizePartyRule(
+        settings?.outsideMaxPartySize ?? settings?.outsideMinPartySize,
+      );
       this.savedInsideMax.set(insideMax);
       this.savedOutsideMin.set(outsideMin);
       this.insideMaxDraft.set(insideMax);
@@ -419,6 +421,7 @@ export class ReservationDayNoticeComponent {
       insideCapacityRemaining?: number | null;
       outsideCapacityRemaining?: number | null;
       insideMaxPartySize?: number | null;
+      outsideMaxPartySize?: number | null;
       outsideMinPartySize?: number | null;
     } = {
       businessDate: this.businessDate(),
@@ -432,6 +435,7 @@ export class ReservationDayNoticeComponent {
     }
     if (includeParty) {
       body.insideMaxPartySize = this.normalizePartyRule(this.insideMaxDraft());
+      body.outsideMaxPartySize = this.normalizePartyRule(this.outsideMinDraft());
       body.outsideMinPartySize = this.normalizePartyRule(this.outsideMinDraft());
     }
     this.api.upsertDayNotice(shopId, body).subscribe({
@@ -470,7 +474,9 @@ export class ReservationDayNoticeComponent {
     this.insideCapacityDraft.set(insideCap);
     this.outsideCapacityDraft.set(outsideCap);
     const insideMax = this.normalizePartyRule(settings?.insideMaxPartySize);
-    const outsideMin = this.normalizePartyRule(settings?.outsideMinPartySize);
+    const outsideMin = this.normalizePartyRule(
+      settings?.outsideMaxPartySize ?? settings?.outsideMinPartySize,
+    );
     this.savedInsideMax.set(insideMax);
     this.savedOutsideMin.set(outsideMin);
     this.insideMaxDraft.set(insideMax);

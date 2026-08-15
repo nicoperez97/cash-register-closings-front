@@ -24,6 +24,7 @@ export type QuickExpenseDialogData = {
   shopName: string;
   accounts: LedgerAccount[];
   concepts: Concept[];
+  employees?: Array<{ id: string; fullName: string }>;
 };
 
 function todayIso(timezone?: string | null): string {
@@ -104,6 +105,17 @@ function todayIso(timezone?: string | null): string {
             <mat-select formControlName="fromAccountId">
               @for (a of fromAccounts(); track a.id) {
                 <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>A quién (opcional)</mat-label>
+            <mat-icon matPrefix>person</mat-icon>
+            <mat-select formControlName="employeeId">
+              <mat-option value="">Nadie</mat-option>
+              @for (e of employees(); track e.id) {
+                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -210,10 +222,13 @@ export class QuickExpenseDialogComponent {
     ),
   );
 
+  readonly employees = computed(() => this.data.employees ?? []);
+
   readonly form = this.fb.nonNullable.group({
     amountUyu: [null as number | null, [Validators.required, Validators.min(0.01)]],
     conceptId: ['', Validators.required],
     fromAccountId: ['', Validators.required],
+    employeeId: [''],
     description: [''],
   });
 
@@ -267,6 +282,7 @@ export class QuickExpenseDialogComponent {
         fromAccountId: raw.fromAccountId,
         toAccountId: this.egresoAccountId()!,
         conceptId: raw.conceptId,
+        employeeId: raw.employeeId || null,
         description: raw.description.trim() || null,
         amountUyu: Number(raw.amountUyu),
         invoiced: false,

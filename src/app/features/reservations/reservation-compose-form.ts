@@ -16,7 +16,7 @@ import {
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
-import { partyMustSitOutside, partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
+import { partyFitsArea, partyMustSitOutside, partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
 
 export type ReservationComposeSaved = {
   id: string;
@@ -78,6 +78,10 @@ export type ReservationComposeSaved = {
           <mat-timepicker-toggle matIconSuffix [for]="timePicker" />
           <mat-timepicker #timePicker interval="15m" />
         </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Mesa</mat-label>
+          <input matInput formControlName="tableNumber" placeholder="Opcional" maxlength="20" />
+        </mat-form-field>
         <mat-button-toggle-group
           formControlName="area"
           class="floor-area-toggle"
@@ -132,6 +136,7 @@ export class ReservationComposeFormComponent {
     ]),
     area: this.fb.nonNullable.control<ReservationArea>('INSIDE'),
     reservationTime: this.fb.control<Date | null>(null),
+    tableNumber: this.fb.nonNullable.control(''),
   });
 
   readonly insideOpen = computed(() => {
@@ -149,7 +154,12 @@ export class ReservationComposeFormComponent {
     const settings = this.daySettings();
     if (settings?.outsideEnabled === false) return false;
     const cap = settings?.outsideCapacityRemaining;
-    return !(cap != null && Number(cap) <= 0);
+    if (cap != null && Number(cap) <= 0) return false;
+    return partyFitsArea(
+      'OUTSIDE',
+      this.partySizeValue(),
+      effectivePartyRules(this.shops.selectedShop(), this.daySettings()),
+    );
   });
 
   readonly capacityHint = computed(() => {
@@ -245,6 +255,7 @@ export class ReservationComposeFormComponent {
         partySize,
         area,
         reservationTime: toTimeString(raw.reservationTime),
+        tableNumber: (raw.tableNumber ?? '').trim() || null,
       })
       .subscribe({
         next: (created) => {
@@ -255,6 +266,7 @@ export class ReservationComposeFormComponent {
             partySize: Math.min(2, this.partyMax()),
             area: this.insideOpen() ? 'INSIDE' : 'OUTSIDE',
             reservationTime: null,
+            tableNumber: '',
           });
           this.saving.set(false);
           this.flashJustSaved();

@@ -346,6 +346,7 @@ export class MovementsListPage {
             shopName: this.shops.selectedShop()?.name ?? 'Local',
             accounts: this.accounts(),
             concepts: this.concepts(),
+            employees: this.employees(),
           },
         }),
         'Gasto rápido',

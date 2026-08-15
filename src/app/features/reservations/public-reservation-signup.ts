@@ -19,7 +19,7 @@ import {
   PublicReservationSignup,
   ReservationsApiService,
 } from './reservations-api.service';
-import { partyMustSitOutside, partyOutsideHint } from './reservation-party-rules.util';
+import { partyFitsArea, partyOutsideHint } from './reservation-party-rules.util';
 
 const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 
@@ -246,6 +246,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     type="button"
                     class="pill"
                     [class.pill--on]="area === 'OUTSIDE'"
+                    [disabled]="!outsideAllowedForParty()"
                     (click)="setArea('OUTSIDE')"
                   >
                     Afuera
@@ -369,6 +370,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     insideCapacityRemaining: number | null;
     outsideCapacityRemaining: number | null;
     insideMaxPartySize: number | null;
+    outsideMaxPartySize: number | null;
     outsideMinPartySize: number | null;
   } | null>(null);
   readonly closedWeekdays = signal<number[]>([]);
@@ -416,7 +418,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     const info = this.info();
     return {
       insideMaxPartySize: df?.insideMaxPartySize ?? info?.insideMaxPartySize ?? null,
-      outsideMinPartySize: df?.outsideMinPartySize ?? info?.outsideMinPartySize ?? null,
+      outsideMaxPartySize: df?.outsideMaxPartySize ?? info?.outsideMaxPartySize ?? df?.outsideMinPartySize ?? info?.outsideMinPartySize ?? null,
+      outsideMinPartySize: df?.outsideMaxPartySize ?? info?.outsideMaxPartySize ?? df?.outsideMinPartySize ?? info?.outsideMinPartySize ?? null,
     };
   });
   readonly onlyAreaLabel = computed(() => {
@@ -492,7 +495,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
             insideCapacityRemaining: info.insideCapacityRemaining,
             outsideCapacityRemaining: info.outsideCapacityRemaining,
             insideMaxPartySize: info.insideMaxPartySize ?? null,
-            outsideMinPartySize: info.outsideMinPartySize ?? null,
+            outsideMaxPartySize: info.outsideMaxPartySize ?? info.outsideMinPartySize ?? null,
+            outsideMinPartySize: info.outsideMaxPartySize ?? info.outsideMinPartySize ?? null,
             closedDay: info.closedDay,
             businessDate: info.businessDate,
           }
@@ -508,8 +512,14 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
         info.outsideCapacityRemaining == null ? null : Number(info.outsideCapacityRemaining),
       insideMaxPartySize:
         info.insideMaxPartySize == null ? null : Number(info.insideMaxPartySize),
+      outsideMaxPartySize:
+        (info.outsideMaxPartySize ?? info.outsideMinPartySize) == null
+          ? null
+          : Number(info.outsideMaxPartySize ?? info.outsideMinPartySize),
       outsideMinPartySize:
-        info.outsideMinPartySize == null ? null : Number(info.outsideMinPartySize),
+        (info.outsideMaxPartySize ?? info.outsideMinPartySize) == null
+          ? null
+          : Number(info.outsideMaxPartySize ?? info.outsideMinPartySize),
     });
     this.syncArea(this.insideEnabled(), this.outsideEnabled());
     this.clampPartySize();
@@ -566,17 +576,23 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
 
   setArea(next: 'INSIDE' | 'OUTSIDE'): void {
     if (next === 'INSIDE' && !this.insideAllowedForParty()) return;
+    if (next === 'OUTSIDE' && !this.outsideAllowedForParty()) return;
     this.area = next;
     this.clampPartySize();
   }
 
   insideAllowedForParty(): boolean {
     if (!this.insideEnabled()) return false;
-    return !partyMustSitOutside(this.partySize, this.dayPartyRules());
+    return partyFitsArea('INSIDE', this.partySize, this.dayPartyRules());
+  }
+
+  outsideAllowedForParty(): boolean {
+    if (!this.outsideEnabled()) return false;
+    return partyFitsArea('OUTSIDE', this.partySize, this.dayPartyRules());
   }
 
   canSubmitArea(): boolean {
-    if (this.area === 'OUTSIDE') return this.outsideEnabled();
+    if (this.area === 'OUTSIDE') return this.outsideAllowedForParty();
     return this.insideAllowedForParty();
   }
 
@@ -756,10 +772,11 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   private syncArea(inside: boolean, outside: boolean): void {
-    const insideOk = inside && !partyMustSitOutside(this.partySize, this.dayPartyRules());
-    if (this.area === 'INSIDE' && !insideOk && outside) this.area = 'OUTSIDE';
-    else if (this.area === 'OUTSIDE' && !outside && insideOk) this.area = 'INSIDE';
-    else if (!insideOk && outside) this.area = 'OUTSIDE';
+    const insideOk = inside && partyFitsArea('INSIDE', this.partySize, this.dayPartyRules());
+    const outsideOk = outside && partyFitsArea('OUTSIDE', this.partySize, this.dayPartyRules());
+    if (this.area === 'INSIDE' && !insideOk && outsideOk) this.area = 'OUTSIDE';
+    else if (this.area === 'OUTSIDE' && !outsideOk && insideOk) this.area = 'INSIDE';
+    else if (!insideOk && outsideOk) this.area = 'OUTSIDE';
     else if (insideOk) this.area = 'INSIDE';
   }
 

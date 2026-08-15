@@ -89,6 +89,49 @@ export function formatIsoShareLabel(iso: string): string {
   });
 }
 
+export function formatIsoWeekday(iso: string): string {
+  const d = parseIsoLocal(iso);
+  if (!d) return iso;
+  return d.toLocaleDateString('es-AR', { weekday: 'long' }).toLowerCase();
+}
+
+/** Share compacto de producción: solo días con horas, el productor y sus asignados. */
+export function productionHoursSharePayload(opts: {
+  shopName: string;
+  fromIso: string;
+  toIso: string;
+  people: Array<{ name: string; hoursByDate: Record<string, number> }>;
+}): { title: string; text: string } {
+  const title = `Producción · ${opts.shopName}`;
+  const lines: string[] = [`Producción — ${opts.shopName}`];
+  if (opts.fromIso === opts.toIso) {
+    lines.push(formatIsoShareLabel(opts.fromIso));
+  } else {
+    lines.push(`Del ${formatIsoShareLabel(opts.fromIso)} al ${formatIsoShareLabel(opts.toIso)}`);
+  }
+  lines.push('');
+  const dates = isoDatesInRange(opts.fromIso, opts.toIso);
+  let any = false;
+  for (const iso of dates) {
+    const bits: string[] = [];
+    for (const person of opts.people) {
+      const h = Number(person.hoursByDate[iso] ?? 0) || 0;
+      if (h <= 0) continue;
+      bits.push(`${firstName(person.name)} ${formatHours(h)}h`);
+    }
+    if (!bits.length) continue;
+    any = true;
+    lines.push(`${formatIsoWeekday(iso)}: ${bits.join(', ')}`);
+  }
+  if (!any) lines.push('', 'Sin horas en el período');
+  return { title, text: lines.join('\n') };
+}
+
+function firstName(full: string): string {
+  const n = String(full ?? '').trim();
+  return n.split(/\s+/)[0] || n;
+}
+
 function kindLabel(kind: 'servicio' | 'produccion'): string {
   return kind === 'produccion' ? 'Presentismo producción' : 'Presentismo';
 }

@@ -563,7 +563,7 @@ const TIMEZONE_OPTIONS = [
               </div>
               <div class="shop-admin__party-rules">
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Máx. personas adentro</mat-label>
+                  <mat-label>Adentro hasta</mat-label>
                   <input
                     matInput
                     type="number"
@@ -571,12 +571,12 @@ const TIMEZONE_OPTIONS = [
                     max="99"
                     inputmode="numeric"
                     formControlName="reservationInsideMaxPartySize"
-                    placeholder="Sin tope"
+                    placeholder="Ilimitado"
                   />
-                  <mat-hint>Hasta cuántas personas pueden pedir mesa adentro</mat-hint>
+                  <mat-hint>Vacío = sin tope de personas adentro</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Afuera obligatorio desde</mat-label>
+                  <mat-label>Afuera hasta</mat-label>
                   <input
                     matInput
                     type="number"
@@ -584,9 +584,9 @@ const TIMEZONE_OPTIONS = [
                     max="99"
                     inputmode="numeric"
                     formControlName="reservationOutsideMinPartySize"
-                    placeholder="Sin regla"
+                    placeholder="Ilimitado"
                   />
-                  <mat-hint>A partir de cuántas personas la mesa es sí o sí afuera</mat-hint>
+                  <mat-hint>Vacío = sin tope de personas afuera</mat-hint>
                 </mat-form-field>
               </div>
               <div class="shop-admin__toggle">

@@ -63,6 +63,10 @@ export type ReservationEditDialogData = {
             <mat-label>Hora</mat-label>
             <input matInput type="time" formControlName="reservationTime" />
           </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Mesa</mat-label>
+            <input matInput formControlName="tableNumber" maxlength="20" />
+          </mat-form-field>
         </div>
         <div class="res-edit__area">
           <span class="res-edit__area-label">Sector</span>
@@ -127,7 +131,7 @@ export type ReservationEditDialogData = {
   styles: `
     .res-edit__row {
       display: grid;
-      grid-template-columns: 5.75rem minmax(0, 1.15fr) 7.25rem;
+      grid-template-columns: 5.75rem minmax(0, 1.15fr) 7.25rem 5.5rem;
       gap: 0.65rem;
       align-items: start;
     }
@@ -173,6 +177,7 @@ export class ReservationEditDialogComponent {
     partySize: [this.data.reservation.partySize ?? 2, [Validators.required, Validators.min(1), Validators.max(99)]],
     businessDate: [String(this.data.reservation.businessDate ?? '').slice(0, 10), Validators.required],
     reservationTime: [this.data.reservation.reservationTime ?? ''],
+    tableNumber: [this.data.reservation.tableNumber ?? ''],
     area: [this.data.reservation.area ?? ('INSIDE' as ReservationArea)],
     guestEmail: [this.data.reservation.guestEmail || emailFromNotes(this.data.reservation.notes) || ''],
     notes: [this.data.reservation.notes ?? ''],
@@ -196,6 +201,7 @@ export class ReservationEditDialogComponent {
         partySize: Number(raw.partySize),
         businessDate: raw.businessDate,
         reservationTime: raw.reservationTime || null,
+        tableNumber: raw.tableNumber.trim() || null,
         area: raw.area,
         guestEmail: raw.guestEmail.trim() || null,
         notes: raw.notes.trim() || null,

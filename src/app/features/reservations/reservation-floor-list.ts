@@ -55,6 +55,9 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
                 <span class="floor-num">#{{ r.number }}</span>
               }
               {{ r.guestName || 'Reserva' }}
+              @if (r.tableNumber) {
+                <span class="floor-badge">Mesa {{ r.tableNumber }}</span>
+              }
               @if (r.status === 'SEATED') {
                 <span class="floor-badge">Marcada</span>
               }

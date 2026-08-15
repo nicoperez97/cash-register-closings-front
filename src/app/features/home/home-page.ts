@@ -25,7 +25,8 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { forkJoin } from 'rxjs';
+import { EmployeesApiService } from '../employees/employees-api.service';
+import { catchError, forkJoin, of } from 'rxjs';
 
 interface AttendanceEmployee {
   employeeId: string;
@@ -366,6 +367,7 @@ export class HomePageComponent {
   readonly auth = inject(AuthService);
   private readonly api = inject(ClosingsApiService);
   private readonly movementsApi = inject(MovementsApiService);
+  private readonly employeesApi = inject(EmployeesApiService);
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly http = inject(HttpClient);
@@ -676,8 +678,9 @@ export class HomePageComponent {
     forkJoin({
       accounts: this.movementsApi.accounts(shopId),
       concepts: this.movementsApi.concepts(shopId),
+      employees: this.employeesApi.list(shopId).pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ accounts, concepts }) => {
+      next: ({ accounts, concepts, employees }) => {
         this.quickExpenseBusy.set(false);
         this.dialogTitle
           .track(
@@ -690,6 +693,7 @@ export class HomePageComponent {
                 shopName: this.shopContext.selectedShop()?.name ?? 'Local',
                 accounts: accounts ?? [],
                 concepts: concepts ?? [],
+                employees: employees ?? [],
               },
             }),
             'Gasto rápido',

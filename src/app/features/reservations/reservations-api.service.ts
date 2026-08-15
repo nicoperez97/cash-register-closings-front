@@ -33,6 +33,7 @@ export interface PublicReservationSignup {
   insideCapacityRemaining?: number | null;
   outsideCapacityRemaining?: number | null;
   insideMaxPartySize?: number | null;
+  outsideMaxPartySize?: number | null;
   outsideMinPartySize?: number | null;
   /** Config global del local (sin override del día). */
   shopSignupEnabled?: boolean;
@@ -64,6 +65,7 @@ export interface ReservationRow {
   notes?: string | null;
   status: ReservationStatus;
   reservationTime?: string | null;
+  tableNumber?: string | null;
   number?: number;
   guestEmail?: string | null;
   createdAt?: string;
@@ -99,6 +101,7 @@ export interface ReservationDaySettings {
   outsideCapacityRemaining?: number | null;
   /** NULL = hereda del local. */
   insideMaxPartySize?: number | null;
+  outsideMaxPartySize?: number | null;
   outsideMinPartySize?: number | null;
 }
 
@@ -144,6 +147,7 @@ export interface PublicReservationsBoard {
     partySize: number;
     area: ReservationArea;
     reservationTime?: string | null;
+    tableNumber?: string | null;
     notes?: string | null;
     status: ReservationStatus;
     number?: number;
@@ -207,6 +211,7 @@ export class ReservationsApiService {
       area?: ReservationArea;
       notes?: string;
       reservationTime?: string;
+      tableNumber?: string | null;
     },
   ) {
     return this.http.post<ReservationRow>(`${this.base}/shops/${shopId}/reservations`, body);
@@ -241,6 +246,7 @@ export class ReservationsApiService {
       insideCapacityRemaining?: number | null;
       outsideCapacityRemaining?: number | null;
       insideMaxPartySize?: number | null;
+      outsideMaxPartySize?: number | null;
       outsideMinPartySize?: number | null;
     },
   ) {
@@ -290,14 +296,17 @@ export class ReservationsApiService {
     );
   }
 
-  publicSeatReservation(slug: string, id: string) {
+  publicSeatReservation(slug: string, id: string, tableNumber?: string | null) {
     return this.http.post<{
       id: string;
       status: ReservationStatus;
       guestName: string;
       partySize: number;
       area: ReservationArea;
-    }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/reservations/${id}/seat`, {});
+      tableNumber?: string | null;
+    }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/reservations/${id}/seat`, {
+      tableNumber: tableNumber ?? null,
+    });
   }
 
   publicDismissRemovedReservation(slug: string, id: string) {
@@ -378,10 +387,15 @@ export class ReservationsApiService {
 
   setReservationPartyRules(
     shopId: string,
-    patch: { insideMaxPartySize?: number | null; outsideMinPartySize?: number | null },
+    patch: {
+      insideMaxPartySize?: number | null;
+      outsideMaxPartySize?: number | null;
+      outsideMinPartySize?: number | null;
+    },
   ) {
     return this.http.patch<{
       reservationInsideMaxPartySize: number | null;
+      reservationOutsideMaxPartySize?: number | null;
       reservationOutsideMinPartySize: number | null;
     }>(`${this.base}/shops/${shopId}/reservation-party-rules`, patch);
   }

@@ -167,6 +167,8 @@ export class AuthService {
         reservationInsideEnabled: s.reservationInsideEnabled !== false,
         reservationOutsideEnabled: s.reservationOutsideEnabled !== false,
         reservationInsideMaxPartySize: s.reservationInsideMaxPartySize ?? null,
+        reservationOutsideMaxPartySize:
+          s.reservationOutsideMaxPartySize ?? s.reservationOutsideMinPartySize ?? null,
         reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
         waitingListEnabled: s.waitingListEnabled,
         tipsEnabled: s.tipsEnabled,

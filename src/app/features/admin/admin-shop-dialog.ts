@@ -170,12 +170,12 @@ function slugify(raw: string): string {
         <mat-slide-toggle formControlName="reservationInsideEnabled">Sector adentro</mat-slide-toggle>
         <mat-slide-toggle formControlName="reservationOutsideEnabled">Sector afuera</mat-slide-toggle>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Máx. personas adentro</mat-label>
-          <input matInput type="number" min="1" max="99" formControlName="reservationInsideMaxPartySize" />
+          <mat-label>Adentro hasta</mat-label>
+          <input matInput type="number" min="1" max="99" formControlName="reservationInsideMaxPartySize" placeholder="Ilimitado" />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Afuera obligatorio desde</mat-label>
-          <input matInput type="number" min="1" max="99" formControlName="reservationOutsideMinPartySize" />
+          <mat-label>Afuera hasta</mat-label>
+          <input matInput type="number" min="1" max="99" formControlName="reservationOutsideMinPartySize" placeholder="Ilimitado" />
         </mat-form-field>
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
         <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>

@@ -12,7 +12,7 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -34,6 +34,7 @@ import { ShopContextService } from '../../shop/shop-context.service';
 import { PageRefreshService } from '../../page-refresh.service';
 import { DialogTitleService } from '../../../shared/services/dialog-title.service';
 import { MovementsApiService } from '../../../features/movements/movements-api.service';
+import { EmployeesApiService } from '../../../features/employees/employees-api.service';
 import { QuickExpenseDialogComponent } from '../../../features/movements/quick-expense-dialog';
 import {
   AppNotification,
@@ -88,6 +89,7 @@ export class ToolbarComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly movementsApi = inject(MovementsApiService);
+  private readonly employeesApi = inject(EmployeesApiService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject(ElementRef<HTMLElement>);
@@ -411,8 +413,9 @@ export class ToolbarComponent implements OnInit {
     forkJoin({
       accounts: this.movementsApi.accounts(shopId),
       concepts: this.movementsApi.concepts(shopId),
+      employees: this.employeesApi.list(shopId).pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ accounts, concepts }) => {
+      next: ({ accounts, concepts, employees }) => {
         this.quickExpenseBusy.set(false);
         this.dialogTitle
           .track(
@@ -425,6 +428,7 @@ export class ToolbarComponent implements OnInit {
                 shopName: this.shopContext.selectedShop()?.name ?? 'Local',
                 accounts: accounts ?? [],
                 concepts: concepts ?? [],
+                employees: employees ?? [],
               },
             }),
             'Gasto rápido',

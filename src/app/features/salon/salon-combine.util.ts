@@ -2,6 +2,7 @@ import { SalonArea, SalonRuleSlot } from './salon.models';
 
 type ShopPartyCfg = {
   reservationInsideMaxPartySize?: number | null;
+  reservationOutsideMaxPartySize?: number | null;
   reservationOutsideMinPartySize?: number | null;
 };
 
@@ -15,34 +16,29 @@ export function shopInsideMax(shop: ShopPartyCfg | null | undefined): number | n
   return readInt(shop?.reservationInsideMaxPartySize);
 }
 
-export function shopOutsideMin(shop: ShopPartyCfg | null | undefined): number | null {
-  return readInt(shop?.reservationOutsideMinPartySize);
+export function shopOutsideMax(shop: ShopPartyCfg | null | undefined): number | null {
+  return readInt(shop?.reservationOutsideMaxPartySize ?? shop?.reservationOutsideMinPartySize);
 }
 
-/** Tamaños iniciales según Adentro hasta / Afuera desde. El resto se agrega a mano. */
+/** Tamaños iniciales según Adentro hasta / Afuera hasta. El resto se agrega a mano. */
 export function suggestedRuleSizes(
   area: SalonArea,
   shop: ShopPartyCfg | null | undefined,
 ): number[] {
-  const maxIn = shopInsideMax(shop);
-  const minOut = shopOutsideMin(shop);
-  if (area === 'INSIDE') {
-    const max = maxIn ?? 3;
-    const sizes: number[] = [];
-    for (let n = 2; n <= Math.max(2, max); n++) sizes.push(n);
-    return sizes;
-  }
-  const min = minOut ?? (maxIn != null ? maxIn + 1 : 4);
-  return [Math.max(2, min)];
+  const max = area === 'INSIDE' ? shopInsideMax(shop) : shopOutsideMax(shop);
+  const top = max ?? 3;
+  const sizes: number[] = [];
+  for (let n = 2; n <= Math.max(2, top); n++) sizes.push(n);
+  return sizes;
 }
 
 export function shopRuleHint(area: SalonArea, shop: ShopPartyCfg | null | undefined): string {
   if (area === 'INSIDE') {
     const max = shopInsideMax(shop);
-    return max != null ? `adentro hasta ${max}` : 'sin tope adentro';
+    return max != null ? `adentro hasta ${max}` : 'ilimitado adentro';
   }
-  const min = shopOutsideMin(shop);
-  return min != null ? `afuera desde ${min}` : 'sin mínimo afuera';
+  const max = shopOutsideMax(shop);
+  return max != null ? `afuera hasta ${max}` : 'ilimitado afuera';
 }
 
 export function nextRuleSize(existing: number[]): number {

@@ -79,58 +79,17 @@ import { BoardPwaService } from './board-pwa.service';
           [accent]="accent()"
         />
 
-        <section class="board__totals" aria-label="Totales">
-          <div class="board__total">
-            <strong>{{ b.totals.guests }}</strong>
-            <span>pers.</span>
-          </div>
-          <div class="board__total">
-            <strong>{{ b.totals.parties }}</strong>
-            <span>grupos</span>
-          </div>
-          <div class="board__total">
-            <strong>{{ b.totals.inside }}</strong>
-            <span>adentro</span>
-          </div>
-          <div class="board__total">
-            <strong>{{ b.totals.outside }}</strong>
-            <span>afuera</span>
-          </div>
-        </section>
-
-        <section class="board__lists">
-          <div class="board__col">
-            <h2>Adentro <span>{{ inside().length }}</span></h2>
-            <ul>
-              @for (w of inside(); track w.id) {
-                <li [class.board__item--new]="isNew(w.id)">
-                  <span class="board__position">#{{ w.position }}</span>
-                  <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
-                  <span class="board__pax" [attr.aria-label]="w.partySize + ' personas'">
-                    <strong>{{ w.partySize }}</strong><span>p</span>
-                  </span>
-                </li>
-              } @empty {
-                <li class="board__empty">Sin espera</li>
-              }
-            </ul>
-          </div>
-          <div class="board__col board__col--out">
-            <h2>Afuera <span>{{ outside().length }}</span></h2>
-            <ul>
-              @for (w of outside(); track w.id) {
-                <li [class.board__item--new]="isNew(w.id)">
-                  <span class="board__position">#{{ w.position }}</span>
-                  <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
-                  <span class="board__pax" [attr.aria-label]="w.partySize + ' personas'">
-                    <strong>{{ w.partySize }}</strong><span>p</span>
-                  </span>
-                </li>
-              } @empty {
-                <li class="board__empty">Sin espera</li>
-              }
-            </ul>
-          </div>
+        <section class="board__names" aria-label="En espera">
+          <h2>En espera <span>{{ names().length }}</span></h2>
+          <ul>
+            @for (w of names(); track w.id) {
+              <li [class.board__item--new]="isNew(w.id)">
+                <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
+              </li>
+            } @empty {
+              <li class="board__empty">Sin espera</li>
+            }
+          </ul>
         </section>
       </div>
     } @else {
@@ -346,6 +305,43 @@ import { BoardPwaService } from './board-pwa.service';
         100% {
           box-shadow: 0 0 0 0 rgba(61, 186, 110, 0);
         }
+      }
+
+      .board__names {
+        max-width: 52rem;
+        width: 100%;
+        margin: 0 auto;
+        padding: 0.85rem 1rem 1rem;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-sizing: border-box;
+      }
+
+      .board__names h2 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0 0 0.65rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--accent) 75%, #fff);
+      }
+
+      .board__names ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+
+      .board__names li {
+        padding: 0.7rem 0.85rem;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.22);
       }
 
       .board__totals {
@@ -673,14 +669,9 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
     return resolveShopLogoSrc(raw, shopId) || normalizeLogoUrl(raw) || raw?.trim() || null;
   });
 
-  readonly inside = computed(() => {
+  readonly names = computed(() => {
     this.highlightTick();
-    return (this.board()?.waiting ?? []).filter((w) => w.area !== 'OUTSIDE');
-  });
-
-  readonly outside = computed(() => {
-    this.highlightTick();
-    return (this.board()?.waiting ?? []).filter((w) => w.area === 'OUTSIDE');
+    return this.board()?.waiting ?? [];
   });
 
   ngOnInit(): void {
@@ -762,11 +753,8 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
   ): void {
     const first = rows[0];
     const label = first.guestName?.trim() || 'Invitado';
-    const detail = `#${first.position} · ${first.partySize} pers.`;
     const message =
-      rows.length === 1
-        ? `Nuevo en lista: ${label} (${detail})`
-        : `${rows.length} nuevos en lista (último: ${label})`;
+      rows.length === 1 ? `Nuevo en lista: ${label}` : `${rows.length} nuevos en lista (último: ${label})`;
 
     this.showToast(message);
 

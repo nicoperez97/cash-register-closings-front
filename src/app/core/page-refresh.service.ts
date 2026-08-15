@@ -5,33 +5,36 @@ const MIN_SPINNER_MS = 500;
 
 /**
  * Registro de “recargar esta pantalla” para pull-to-refresh móvil.
- * Cada página con datos de API llama `usePageRefresh(() => this.reload())`.
+ * Varios componentes pueden registrar handlers; todos corren juntos.
  */
 @Injectable({ providedIn: 'root' })
 export class PageRefreshService {
-  private handler: (() => void | Promise<void>) | null = null;
+  private readonly auth = inject(AuthService);
+  private readonly handlers = new Map<symbol, () => void | Promise<void>>();
 
   readonly hasHandler = signal(false);
   readonly refreshing = signal(false);
 
   register(handler: () => void | Promise<void>, destroyRef: DestroyRef): void {
-    this.handler = handler;
+    const id = Symbol('page-refresh');
+    this.handlers.set(id, handler);
     this.hasHandler.set(true);
     destroyRef.onDestroy(() => {
-      if (this.handler === handler) {
-        this.handler = null;
-        this.hasHandler.set(false);
-        this.refreshing.set(false);
-      }
+      this.handlers.delete(id);
+      this.hasHandler.set(this.handlers.size > 0);
+      if (!this.handlers.size) this.refreshing.set(false);
     });
   }
 
   async refresh(): Promise<void> {
-    if (!this.handler || this.refreshing()) return;
+    if (!this.handlers.size || this.refreshing()) return;
     this.refreshing.set(true);
     const started = Date.now();
     try {
-      await Promise.resolve(this.handler());
+      await Promise.all(
+        [...this.handlers.values()].map((handler) => Promise.resolve(handler())),
+      );
+      void this.auth.refreshMe().catch(() => undefined);
     } finally {
       const wait = MIN_SPINNER_MS - (Date.now() - started);
       if (wait > 0) {
@@ -46,9 +49,5 @@ export class PageRefreshService {
 export function usePageRefresh(handler: () => void | Promise<void>): void {
   const svc = inject(PageRefreshService);
   const destroyRef = inject(DestroyRef);
-  const auth = inject(AuthService);
-  svc.register(async () => {
-    await Promise.resolve(handler());
-    void auth.refreshMe().catch(() => undefined);
-  }, destroyRef);
+  svc.register(handler, destroyRef);
 }

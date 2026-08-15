@@ -213,6 +213,13 @@ export const routes: Routes = [
         title: 'Local',
       },
       {
+        path: 'admin/messages',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-messages').then((m) => m.AdminMessagesPage),
+        title: 'Mensajes',
+      },
+      {
         path: 'admin/users',
         canActivate: [shopUsersGuard],
         loadComponent: () =>

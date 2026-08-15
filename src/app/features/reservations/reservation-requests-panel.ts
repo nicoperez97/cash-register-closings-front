@@ -150,7 +150,7 @@ export type ReservationRequestAccepted = {
           />
         </label>
         <label class="req-num">
-          <span>Afuera desde</span>
+          <span>Afuera hasta</span>
           <input
             type="number"
             min="1"
@@ -458,6 +458,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     this.api
       .setReservationPartyRules(shopId, {
         insideMaxPartySize: this.normalizePartyRule(this.insideMaxDraft()),
+        outsideMaxPartySize: this.normalizePartyRule(this.outsideMinDraft()),
         outsideMinPartySize: this.normalizePartyRule(this.outsideMinDraft()),
       })
       .subscribe({
@@ -469,7 +470,11 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
             reservationOutsideMinPartySize: res.reservationOutsideMinPartySize,
           });
           this.insideMaxDraft.set(this.normalizePartyRule(res.reservationInsideMaxPartySize));
-          this.outsideMinDraft.set(this.normalizePartyRule(res.reservationOutsideMinPartySize));
+          this.outsideMinDraft.set(
+            this.normalizePartyRule(
+              res.reservationOutsideMaxPartySize ?? res.reservationOutsideMinPartySize,
+            ),
+          );
           this.auth.scheduleRefreshMe(200);
           this.snack.open('Regla de personas actualizada', 'OK', { duration: 2200 });
         },

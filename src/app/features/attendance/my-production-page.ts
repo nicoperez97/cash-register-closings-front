@@ -14,11 +14,9 @@ import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { forkJoin, firstValueFrom } from 'rxjs';
 import { shareText } from '../../shared/utils/share-text';
-import {
-  attendanceRangeSharePayload,
-  formatIsoShareLabel,
-} from '../../shared/utils/attendance-share';
+import { productionHoursSharePayload } from '../../shared/utils/attendance-share';
 
 type ViewMode = 'day' | 'week' | 'month';
 type ScopeMode = 'self' | 'team';
@@ -546,28 +544,46 @@ export class MyProductionPage {
   }
 
   async shareCurrent(): Promise<void> {
-    const name = this.data()?.employee?.fullName || 'Productor';
+    const shopId = this.shopId();
+    if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const hours = this.draftHours();
-    const days = this.dayList().map((day) => {
-      const h = Number(hours[day.iso] ?? 0) || 0;
-      return {
-        dateLabel: formatIsoShareLabel(day.iso),
-        employees: [{ fullName: name, present: h > 0, hours: h }],
-      };
-    });
+    const { from, to } = this.range();
+    const params = { from, to };
     this.sharing.set(true);
     try {
-      const payload = attendanceRangeSharePayload({
+      const self$ = this.http.get<MyProdRangeResponse>(
+        `${environment.apiUrl}/shops/${shopId}/production-attendance/me`,
+        { params },
+      );
+      const teamReqs = this.team().map((m) =>
+        this.http.get<MyProdRangeResponse>(
+          `${environment.apiUrl}/shops/${shopId}/production-attendance/me/team/${m.employeeId}`,
+          { params },
+        ),
+      );
+      const rows = await firstValueFrom(forkJoin([self$, ...teamReqs]));
+      const people = rows.map((res, i) => {
+        const hoursByDate: Record<string, number> = {};
+        const isCurrentView =
+          (this.scope() !== 'team' && i === 0) ||
+          (this.scope() === 'team' && res.employee.employeeId === this.selectedTeamId());
+        for (const day of this.dayList()) {
+          const draft = isCurrentView ? this.draftHours()[day.iso] : null;
+          const saved = Number(res.days?.[day.iso]?.hours ?? 0) || 0;
+          hoursByDate[day.iso] =
+            draft != null && Number.isFinite(Number(draft)) ? Number(draft) : saved;
+        }
+        return { name: res.employee.fullName, hoursByDate };
+      });
+      const payload = productionHoursSharePayload({
         shopName,
-        fromLabel: formatIsoShareLabel(this.range().from),
-        toLabel: formatIsoShareLabel(this.range().to),
-        kind: 'produccion',
-        days,
+        fromIso: from,
+        toIso: to,
+        people,
       });
       const result = await shareText(payload);
       if (result === 'copied') {
-        this.snack.open('Presentismo copiado al portapapeles', 'OK', { duration: 2200 });
+        this.snack.open('Horas copiadas al portapapeles', 'OK', { duration: 2200 });
       } else if (result === 'failed') {
         this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
       }

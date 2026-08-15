@@ -569,8 +569,10 @@ export interface ShopSummary {
   reservationOutsideEnabled?: boolean;
   /** Máximo de personas adentro. null = sin tope. */
   reservationInsideMaxPartySize?: number | null;
-  /** A partir de esta cantidad la mesa es sí o sí afuera. null = sin regla. */
+  /** Máximo de personas afuera. null = ilimitado. */
   reservationOutsideMinPartySize?: number | null;
+  reservationOutsideMaxPartySize?: number | null;
+  emailMessageTemplates?: Record<string, { subject?: string; body?: string }> | null;
   /** Si es false, lista de espera no está disponible en este local. */
   waitingListEnabled?: boolean;
   /** Si es false, módulo de propinas no está disponible en este local. */

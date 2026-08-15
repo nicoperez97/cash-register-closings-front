@@ -29,6 +29,33 @@ import { BoardPwaService } from './board-pwa.service';
       </div>
     }
 
+    @if (seatPrompt(); as p) {
+      <div class="board-overlay" role="dialog" aria-modal="true">
+        <div class="board-overlay__card">
+          <p class="board-overlay__title">Marcar {{ p.guestName || 'reserva' }}</p>
+          <label class="board-overlay__field">
+            <span>Mesa (opcional)</span>
+            <input
+              type="text"
+              maxlength="20"
+              inputmode="numeric"
+              [value]="seatTableDraft()"
+              (input)="seatTableDraft.set($any($event.target).value)"
+              placeholder="Nº de mesa"
+            />
+          </label>
+          <div class="board-overlay__actions">
+            <button type="button" class="board-overlay__ghost" (click)="cancelSeatPrompt()">
+              Cancelar
+            </button>
+            <button type="button" class="board-overlay__ok" (click)="confirmSeatPrompt()">
+              Marcar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (error()) {
       <div class="board board--error">
         <p>{{ error() }}</p>
@@ -152,6 +179,9 @@ import { BoardPwaService } from './board-pwa.service';
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
                     }
+                    @if (r.tableNumber) {
+                      <span class="board__time">Mesa {{ r.tableNumber }}</span>
+                    }
                     <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
                       <strong>{{ r.partySize }}</strong><span>p</span>
                     </span>
@@ -202,6 +232,9 @@ import { BoardPwaService } from './board-pwa.service';
                   <span class="board__meta">
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
+                    }
+                    @if (r.tableNumber) {
+                      <span class="board__time">Mesa {{ r.tableNumber }}</span>
                     }
                     <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
                       <strong>{{ r.partySize }}</strong><span>p</span>
@@ -254,6 +287,8 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   readonly refreshing = signal(false);
   readonly toast = signal('');
   readonly highlightTick = signal(0);
+  readonly seatPrompt = signal<{ id: string; guestName: string } | null>(null);
+  readonly seatTableDraft = signal('');
 
   readonly accent = computed(() => this.board()?.shop.accentColor || '#c45c26');
 
@@ -363,19 +398,45 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     removedAfterSeated?: boolean;
   }): void {
     if (!this.canToggleSeat(r) || this.seating) return;
-    const nextStatus = r.status === 'SEATED' ? 'CONFIRMED' : 'SEATED';
+    if (r.status === 'CONFIRMED') {
+      this.seatTableDraft.set('');
+      this.seatPrompt.set({ id: r.id, guestName: r.guestName });
+      return;
+    }
+    this.toggleSeat(r.id, r.status as 'CONFIRMED' | 'SEATED');
+  }
+
+  cancelSeatPrompt(): void {
+    this.seatPrompt.set(null);
+    this.seatTableDraft.set('');
+  }
+
+  confirmSeatPrompt(): void {
+    const p = this.seatPrompt();
+    if (!p || this.seating) return;
+    const mesa = this.seatTableDraft().trim() || null;
+    this.seatPrompt.set(null);
+    this.toggleSeat(p.id, 'CONFIRMED', mesa);
+  }
+
+  private toggleSeat(
+    id: string,
+    currentStatus: 'CONFIRMED' | 'SEATED',
+    tableNumber?: string | null,
+  ): void {
+    const nextStatus = currentStatus === 'SEATED' ? 'CONFIRMED' : 'SEATED';
     this.seating = true;
-    this.patchLocalStatus(r.id, nextStatus as 'CONFIRMED' | 'SEATED');
-    this.api.publicSeatReservation(this.slug, r.id).subscribe({
+    this.patchLocalStatus(id, nextStatus, tableNumber);
+    this.api.publicSeatReservation(this.slug, id, tableNumber).subscribe({
       next: (res) => {
         this.seating = false;
         if (res.status === 'CONFIRMED' || res.status === 'SEATED') {
-          this.patchLocalStatus(r.id, res.status);
+          this.patchLocalStatus(id, res.status, res.tableNumber);
         }
       },
       error: () => {
         this.seating = false;
-        this.patchLocalStatus(r.id, r.status as 'CONFIRMED' | 'SEATED');
+        this.patchLocalStatus(id, currentStatus);
         this.showToast('No se pudo marcar la mesa');
       },
     });
@@ -408,13 +469,24 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private patchLocalStatus(id: string, status: 'CONFIRMED' | 'SEATED'): void {
+  private patchLocalStatus(
+    id: string,
+    status: 'CONFIRMED' | 'SEATED',
+    tableNumber?: string | null,
+  ): void {
     const prev = this.board();
     if (!prev) return;
     this.board.set({
       ...prev,
       reservations: prev.reservations.map((r) =>
-        r.id === id ? { ...r, status, removedAfterSeated: false } : r,
+        r.id === id
+          ? {
+              ...r,
+              status,
+              removedAfterSeated: false,
+              ...(tableNumber !== undefined ? { tableNumber } : {}),
+            }
+          : r,
       ),
     });
   }
