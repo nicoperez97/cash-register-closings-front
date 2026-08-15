@@ -16,11 +16,12 @@ export function attendanceDaySharePayload(opts: {
   const kind = opts.kind ?? 'servicio';
   const label = kindLabel(kind);
   const title = `${label} · ${opts.shopName}`;
+  const body = dayBody(opts.employees, kind);
   const lines = [
     `${label} — ${opts.shopName}`,
     `Fecha: ${opts.dateLabel}`,
     '',
-    ...dayBody(opts.employees, kind),
+    ...(body.length ? body : ['Sin presentes']),
   ];
   return { title, text: lines.join('\n') };
 }
@@ -48,9 +49,14 @@ export function attendanceRangeSharePayload(opts: {
     `${label} — ${opts.shopName}`,
     `Del ${opts.fromLabel} al ${opts.toLabel}`,
   ];
+  let any = false;
   for (const day of opts.days) {
-    lines.push('', `— ${day.dateLabel} —`, ...dayBody(day.employees, kind));
+    const body = dayBody(day.employees, kind);
+    if (!body.length) continue;
+    any = true;
+    lines.push('', `— ${day.dateLabel} —`, ...body);
   }
+  if (!any) lines.push('', 'Sin presentes');
   return { title, text: lines.join('\n') };
 }
 
@@ -141,29 +147,14 @@ function dayBody(
   kind: 'servicio' | 'produccion',
 ): string[] {
   const present = employees.filter((e) => e.present);
-  const holiday = employees.filter((e) => !e.present && e.holiday);
-  const absent = employees.filter((e) => !e.present && !e.holiday);
-  const lines: string[] = [`Presentes (${present.length}):`];
-  if (present.length) {
-    for (const e of present) {
-      const hours =
-        kind === 'produccion' && e.hours != null && e.hours > 0
-          ? ` — ${formatHours(e.hours)} h`
-          : '';
-      lines.push(`✓ ${e.fullName}${hours}`);
-    }
-  } else {
-    lines.push('—');
-  }
-  if (holiday.length) {
-    lines.push('', `Licencia / feriado (${holiday.length}):`);
-    for (const e of holiday) lines.push(`◇ ${e.fullName}`);
-  }
-  lines.push('', `Ausentes (${absent.length}):`);
-  if (absent.length) {
-    for (const e of absent) lines.push(`○ ${e.fullName}`);
-  } else {
-    lines.push('—');
+  if (!present.length) return [];
+  const lines: string[] = [];
+  for (const e of present) {
+    const hours =
+      kind === 'produccion' && e.hours != null && e.hours > 0
+        ? ` — ${formatHours(e.hours)} h`
+        : '';
+    lines.push(`✓ ${e.fullName}${hours}`);
   }
   return lines;
 }

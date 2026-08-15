@@ -29,33 +29,6 @@ import { BoardPwaService } from './board-pwa.service';
       </div>
     }
 
-    @if (seatPrompt(); as p) {
-      <div class="board-overlay" role="dialog" aria-modal="true">
-        <div class="board-overlay__card">
-          <p class="board-overlay__title">Marcar {{ p.guestName || 'reserva' }}</p>
-          <label class="board-overlay__field">
-            <span>Mesa (opcional)</span>
-            <input
-              type="text"
-              maxlength="20"
-              inputmode="numeric"
-              [value]="seatTableDraft()"
-              (input)="seatTableDraft.set($any($event.target).value)"
-              placeholder="Nº de mesa"
-            />
-          </label>
-          <div class="board-overlay__actions">
-            <button type="button" class="board-overlay__ghost" (click)="cancelSeatPrompt()">
-              Cancelar
-            </button>
-            <button type="button" class="board-overlay__ok" (click)="confirmSeatPrompt()">
-              Marcar
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-
     @if (error()) {
       <div class="board board--error">
         <p>{{ error() }}</p>
@@ -179,7 +152,20 @@ import { BoardPwaService } from './board-pwa.service';
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
                     }
-                    @if (r.tableNumber) {
+                    @if (!r.removedAfterSeated) {
+                      <input
+                        class="board__mesa"
+                        type="text"
+                        maxlength="20"
+                        inputmode="numeric"
+                        [value]="mesaValue(r)"
+                        placeholder="Mesa"
+                        aria-label="Número de mesa"
+                        (click)="$event.stopPropagation()"
+                        (pointerdown)="$event.stopPropagation()"
+                        (input)="setMesaDraft(r.id, $any($event.target).value)"
+                      />
+                    } @else if (r.tableNumber) {
                       <span class="board__time">Mesa {{ r.tableNumber }}</span>
                     }
                     <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
@@ -233,7 +219,20 @@ import { BoardPwaService } from './board-pwa.service';
                     @if (r.reservationTime) {
                       <span class="board__time">{{ r.reservationTime }}</span>
                     }
-                    @if (r.tableNumber) {
+                    @if (!r.removedAfterSeated) {
+                      <input
+                        class="board__mesa"
+                        type="text"
+                        maxlength="20"
+                        inputmode="numeric"
+                        [value]="mesaValue(r)"
+                        placeholder="Mesa"
+                        aria-label="Número de mesa"
+                        (click)="$event.stopPropagation()"
+                        (pointerdown)="$event.stopPropagation()"
+                        (input)="setMesaDraft(r.id, $any($event.target).value)"
+                      />
+                    } @else if (r.tableNumber) {
                       <span class="board__time">Mesa {{ r.tableNumber }}</span>
                     }
                     <span class="board__pax" [attr.aria-label]="r.partySize + ' personas'">
@@ -287,8 +286,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   readonly refreshing = signal(false);
   readonly toast = signal('');
   readonly highlightTick = signal(0);
-  readonly seatPrompt = signal<{ id: string; guestName: string } | null>(null);
-  readonly seatTableDraft = signal('');
+  readonly mesaDrafts = signal<Record<string, string>>({});
 
   readonly accent = computed(() => this.board()?.shop.accentColor || '#c45c26');
 
@@ -395,28 +393,20 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     guestName: string;
     partySize: number;
     status: string;
+    tableNumber?: string | null;
     removedAfterSeated?: boolean;
   }): void {
     if (!this.canToggleSeat(r) || this.seating) return;
-    if (r.status === 'CONFIRMED') {
-      this.seatTableDraft.set('');
-      this.seatPrompt.set({ id: r.id, guestName: r.guestName });
-      return;
-    }
-    this.toggleSeat(r.id, r.status as 'CONFIRMED' | 'SEATED');
+    const mesa = r.status === 'CONFIRMED' ? this.mesaValue(r).trim() || null : undefined;
+    this.toggleSeat(r.id, r.status as 'CONFIRMED' | 'SEATED', mesa);
   }
 
-  cancelSeatPrompt(): void {
-    this.seatPrompt.set(null);
-    this.seatTableDraft.set('');
+  mesaValue(r: { id: string; tableNumber?: string | null }): string {
+    return this.mesaDrafts()[r.id] ?? r.tableNumber ?? '';
   }
 
-  confirmSeatPrompt(): void {
-    const p = this.seatPrompt();
-    if (!p || this.seating) return;
-    const mesa = this.seatTableDraft().trim() || null;
-    this.seatPrompt.set(null);
-    this.toggleSeat(p.id, 'CONFIRMED', mesa);
+  setMesaDraft(id: string, value: string): void {
+    this.mesaDrafts.update((prev) => ({ ...prev, [id]: value }));
   }
 
   private toggleSeat(

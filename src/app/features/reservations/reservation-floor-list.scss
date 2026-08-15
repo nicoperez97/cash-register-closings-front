@@ -184,6 +184,21 @@
   white-space: pre-wrap;
 }
 
+.floor-mesa {
+  width: 4.25rem;
+  margin-top: 0.35rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  background: #fff;
+  color: var(--guy-navy, #003366);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .floor-empty {
   padding: 1.25rem 0.5rem;
   text-align: center;

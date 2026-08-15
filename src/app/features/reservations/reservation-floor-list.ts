@@ -55,9 +55,6 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
                 <span class="floor-num">#{{ r.number }}</span>
               }
               {{ r.guestName || 'Reserva' }}
-              @if (r.tableNumber) {
-                <span class="floor-badge">Mesa {{ r.tableNumber }}</span>
-              }
               @if (r.status === 'SEATED') {
                 <span class="floor-badge">Marcada</span>
               }
@@ -69,6 +66,21 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
                 · {{ r.reservationTime }}
               }
             </span>
+            @if (canManage()) {
+              <input
+                class="floor-mesa"
+                type="text"
+                maxlength="20"
+                inputmode="numeric"
+                [value]="mesaValue(r)"
+                placeholder="Mesa"
+                aria-label="Número de mesa"
+                (input)="setMesaDraft(r.id, $any($event.target).value)"
+                (blur)="saveTableNumber(r)"
+              />
+            } @else if (r.tableNumber) {
+              <span class="floor-badge">Mesa {{ r.tableNumber }}</span>
+            }
             @if (r.notes?.trim()) {
               <span class="floor-card__note">{{ r.notes }}</span>
             }
@@ -148,6 +160,7 @@ export class ReservationFloorListComponent {
   readonly highlightedId = input<string | null>(null);
 
   readonly changed = output<void>();
+  private mesaDrafts: Record<string, string> = {};
 
   readonly activeReservations = computed(() =>
     this.reservations().filter((r) => isActiveReservationStatus(r.status)),
@@ -171,6 +184,26 @@ export class ReservationFloorListComponent {
 
   guestEmailOf(r: ReservationRow): string | null {
     return r.guestEmail?.trim() || emailFromNotes(r.notes);
+  }
+
+  mesaValue(r: ReservationRow): string {
+    return this.mesaDrafts[r.id] ?? r.tableNumber ?? '';
+  }
+
+  setMesaDraft(id: string, value: string): void {
+    this.mesaDrafts[id] = value;
+  }
+
+  saveTableNumber(row: ReservationRow): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canManage()) return;
+    const next = this.mesaValue(row).trim() || null;
+    const prev = (row.tableNumber ?? '').trim() || null;
+    if (next === prev) return;
+    this.api.updateReservation(shopId, row.id, { tableNumber: next }).subscribe({
+      next: () => this.changed.emit(),
+      error: () => this.snack.open('No se pudo guardar la mesa', 'OK', { duration: 3000 }),
+    });
   }
 
   instagramFromNotes(notes?: string | null): { handle: string; url: string; dmUrl: string } | null {
@@ -204,7 +237,8 @@ export class ReservationFloorListComponent {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManage()) return;
     const status = marked ? 'SEATED' : 'CONFIRMED';
-    this.api.updateReservation(shopId, row.id, { status }).subscribe({
+    const tableNumber = marked ? this.mesaValue(row).trim() || null : undefined;
+    this.api.updateReservation(shopId, row.id, { status, tableNumber }).subscribe({
       next: () => {
         this.inbox.refresh();
         this.changed.emit();

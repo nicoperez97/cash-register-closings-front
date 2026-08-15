@@ -43,79 +43,6 @@
         }
       }
 
-      .board-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        display: grid;
-        place-items: center;
-        padding: 1.25rem;
-        background: rgba(0, 0, 0, 0.55);
-      }
-
-      .board-overlay__card {
-        width: min(92vw, 22rem);
-        padding: 1.15rem 1.2rem 1.05rem;
-        border-radius: 16px;
-        background: #161210;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        color: #f4efe6;
-        display: grid;
-        gap: 0.85rem;
-      }
-
-      .board-overlay__title {
-        margin: 0;
-        font-weight: 750;
-        font-size: 1.05rem;
-      }
-
-      .board-overlay__field {
-        display: grid;
-        gap: 0.35rem;
-        font-size: 0.78rem;
-        color: #a89f93;
-      }
-
-      .board-overlay__field input {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 0.7rem 0.8rem;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        background: rgba(255, 255, 255, 0.06);
-        color: #f4efe6;
-        font: inherit;
-        font-size: 1rem;
-      }
-
-      .board-overlay__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-      }
-
-      .board-overlay__ghost,
-      .board-overlay__ok {
-        font: inherit;
-        font-weight: 700;
-        border-radius: 999px;
-        padding: 0.5rem 0.95rem;
-        cursor: pointer;
-      }
-
-      .board-overlay__ghost {
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        background: transparent;
-        color: #f4efe6;
-      }
-
-      .board-overlay__ok {
-        border: 0;
-        background: var(--accent, #c45c26);
-        color: #fff;
-      }
-
       .board {
         --accent: #c45c26;
         min-height: 100dvh;
@@ -607,6 +534,26 @@
         font-size: 0.78rem;
         color: #b5aa9c;
         font-variant-numeric: tabular-nums;
+      }
+
+      .board__mesa {
+        width: 3.4rem;
+        min-height: 1.7rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.28);
+        color: #f4efe6;
+        font: inherit;
+        font-size: 0.78rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+      }
+
+      .board__mesa::placeholder {
+        color: #8a8176;
+        font-weight: 600;
       }
 
       .board__pax {
