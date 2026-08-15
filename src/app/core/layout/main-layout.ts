@@ -321,6 +321,7 @@ export class MainLayoutComponent {
     if (shopId && canManageShop(user, shopId)) {
       admin.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
       admin.push({ label: 'Mensajes', route: '/admin/messages', icon: 'mail' });
+      admin.push({ label: 'QR', route: '/admin/qr', icon: 'qr_code_2' });
     }
     if (canManageShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
       admin.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
@@ -470,6 +471,9 @@ export class MainLayoutComponent {
       return canManageShop(user, shopId);
     }
     if (path.startsWith('/admin/messages')) {
+      return canManageShop(user, shopId);
+    }
+    if (path.startsWith('/admin/qr')) {
       return canManageShop(user, shopId);
     }
     if (path.startsWith('/admin/users')) {

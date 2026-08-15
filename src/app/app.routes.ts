@@ -220,6 +220,13 @@ export const routes: Routes = [
         title: 'Mensajes',
       },
       {
+        path: 'admin/qr',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-qr').then((m) => m.AdminQrPage),
+        title: 'QR',
+      },
+      {
         path: 'admin/users',
         canActivate: [shopUsersGuard],
         loadComponent: () =>
