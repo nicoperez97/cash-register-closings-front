@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
 export type ReservationArea = 'INSIDE' | 'OUTSIDE';
-export type ReservationStatus = 'CONFIRMED' | 'SEATED' | 'CANCELLED' | 'NO_SHOW';
+export type ReservationStatus = 'CONFIRMED' | 'MARKED' | 'SEATED' | 'CANCELLED' | 'NO_SHOW';
 export type WaitingListStatus = 'WAITING' | 'SEATED' | 'CANCELLED' | 'LEFT';
 export type ReservationRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
 

@@ -10,6 +10,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, interval, merge, startWith, switchMap, tap } from 'rxjs';
 import { formatIsoDateLong } from '../../core/shop/business-date';
 import { publicBoardNotes } from './reservation-messaging.util';
+import { nextPublicReservationStatus } from './reservation-status';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicReservationsBoard,
@@ -157,6 +158,7 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
                 <li
                   class="board__item"
                   [class.board__item--new]="isNew(r.id)"
+                  [class.board__item--marked]="r.status === 'MARKED' && !r.removedAfterSeated"
                   [class.board__item--seated]="r.status === 'SEATED' && !r.removedAfterSeated"
                   [class.board__item--removed]="!!r.removedAfterSeated"
                   [class.board__item--tappable]="canToggleSeat(r)"
@@ -167,6 +169,9 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
                       <span class="board__num">#{{ r.number }}</span>
                     }
                     {{ r.guestName || 'Reserva' }}
+                    @if (r.status === 'MARKED' && !r.removedAfterSeated) {
+                      <span class="board__badge board__badge--marked">Marcada</span>
+                    }
                     @if (r.status === 'SEATED' && !r.removedAfterSeated) {
                       <span class="board__badge board__badge--seated">Sentada</span>
                     }
@@ -224,6 +229,7 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
                 <li
                   class="board__item"
                   [class.board__item--new]="isNew(r.id)"
+                  [class.board__item--marked]="r.status === 'MARKED' && !r.removedAfterSeated"
                   [class.board__item--seated]="r.status === 'SEATED' && !r.removedAfterSeated"
                   [class.board__item--removed]="!!r.removedAfterSeated"
                   [class.board__item--tappable]="canToggleSeat(r)"
@@ -234,6 +240,9 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
                       <span class="board__num">#{{ r.number }}</span>
                     }
                     {{ r.guestName || 'Reserva' }}
+                    @if (r.status === 'MARKED' && !r.removedAfterSeated) {
+                      <span class="board__badge board__badge--marked">Marcada</span>
+                    }
                     @if (r.status === 'SEATED' && !r.removedAfterSeated) {
                       <span class="board__badge board__badge--seated">Sentada</span>
                     }
@@ -425,7 +434,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   }): boolean {
     return (
       !r.removedAfterSeated &&
-      (r.status === 'CONFIRMED' || r.status === 'SEATED')
+      (r.status === 'CONFIRMED' || r.status === 'MARKED' || r.status === 'SEATED')
     );
   }
 
@@ -438,8 +447,8 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     removedAfterSeated?: boolean;
   }): void {
     if (!this.canToggleSeat(r) || this.seating) return;
-    const mesa = r.status === 'CONFIRMED' ? this.mesaValue(r).trim() || null : undefined;
-    this.toggleSeat(r.id, r.status as 'CONFIRMED' | 'SEATED', mesa);
+    const mesa = this.mesaValue(r).trim() || null;
+    this.toggleSeat(r.id, r.status as 'CONFIRMED' | 'MARKED' | 'SEATED', mesa);
   }
 
   mesaValue(r: { id: string; tableNumber?: string | null }): string {
@@ -452,16 +461,16 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
 
   private toggleSeat(
     id: string,
-    currentStatus: 'CONFIRMED' | 'SEATED',
+    currentStatus: 'CONFIRMED' | 'MARKED' | 'SEATED',
     tableNumber?: string | null,
   ): void {
-    const nextStatus = currentStatus === 'SEATED' ? 'CONFIRMED' : 'SEATED';
+    const nextStatus = nextPublicReservationStatus(currentStatus);
     this.seating = true;
     this.patchLocalStatus(id, nextStatus, tableNumber);
     this.api.publicSeatReservation(this.slug, id, tableNumber).subscribe({
       next: (res) => {
         this.seating = false;
-        if (res.status === 'CONFIRMED' || res.status === 'SEATED') {
+        if (res.status === 'CONFIRMED' || res.status === 'MARKED' || res.status === 'SEATED') {
           this.patchLocalStatus(id, res.status, res.tableNumber);
         }
       },
@@ -502,7 +511,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
 
   private patchLocalStatus(
     id: string,
-    status: 'CONFIRMED' | 'SEATED',
+    status: 'CONFIRMED' | 'MARKED' | 'SEATED',
     tableNumber?: string | null,
   ): void {
     const prev = this.board();

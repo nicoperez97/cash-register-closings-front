@@ -70,6 +70,7 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
           class="floor-card"
           [attr.id]="'reservation-' + r.id"
           [class.floor-card--out]="r.area === 'OUTSIDE'"
+          [class.floor-card--marked]="r.status === 'MARKED'"
           [class.floor-card--seated]="r.status === 'SEATED'"
           [class.floor-card--new]="highlightedId() === r.id"
         >
@@ -79,8 +80,11 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
                 <span class="floor-num">#{{ r.number }}</span>
               }
               {{ r.guestName || 'Reserva' }}
+              @if (r.status === 'MARKED') {
+                <span class="floor-badge floor-badge--marked">Marcada</span>
+              }
               @if (r.status === 'SEATED') {
-                <span class="floor-badge">Marcada</span>
+                <span class="floor-badge floor-badge--seated">Sentada</span>
               }
             </strong>
             <span>
@@ -135,12 +139,20 @@ import { copyTextNow, emailFromNotes, igConfirmMessage } from './reservation-mes
                 </button>
               }
               @if (r.status === 'CONFIRMED') {
-                <button mat-stroked-button type="button" (click)="markReservation(r, true)">
+                <button mat-stroked-button type="button" (click)="setReservationStatus(r, 'MARKED')">
                   Marcar
                 </button>
               }
+              @if (r.status === 'MARKED') {
+                <button mat-stroked-button type="button" (click)="setReservationStatus(r, 'SEATED')">
+                  Sentar
+                </button>
+                <button mat-stroked-button type="button" (click)="setReservationStatus(r, 'CONFIRMED')">
+                  Desmarcar
+                </button>
+              }
               @if (r.status === 'SEATED') {
-                <button mat-stroked-button type="button" (click)="markReservation(r, false)">
+                <button mat-stroked-button type="button" (click)="setReservationStatus(r, 'CONFIRMED')">
                   Desmarcar
                 </button>
               }
@@ -266,22 +278,18 @@ export class ReservationFloorListComponent {
     window.open(ig.dmUrl, '_blank', 'noopener');
   }
 
-  markReservation(row: ReservationRow, marked: boolean): void {
+  setReservationStatus(row: ReservationRow, status: 'CONFIRMED' | 'MARKED' | 'SEATED'): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManage()) return;
-    const status = marked ? 'SEATED' : 'CONFIRMED';
-    const tableNumber = marked ? this.mesaValue(row).trim() || null : undefined;
+    const tableNumber =
+      status === 'MARKED' || status === 'SEATED' ? this.mesaValue(row).trim() || null : undefined;
     this.api.updateReservation(shopId, row.id, { status, tableNumber }).subscribe({
       next: () => {
         this.inbox.refresh();
         this.changed.emit();
-        this.snack.open(
-          marked
-            ? `${row.guestName || 'Reserva'} marcada`
-            : `${row.guestName || 'Reserva'} desmarcada`,
-          'OK',
-          { duration: 2000 },
-        );
+        const label =
+          status === 'MARKED' ? 'marcada' : status === 'SEATED' ? 'sentada' : 'desmarcada';
+        this.snack.open(`${row.guestName || 'Reserva'} ${label}`, 'OK', { duration: 2000 });
       },
       error: () => this.snack.open('No se pudo actualizar', 'OK', { duration: 3000 }),
     });

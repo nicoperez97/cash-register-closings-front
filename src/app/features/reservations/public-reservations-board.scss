@@ -445,6 +445,23 @@
         background: color-mix(in srgb, var(--accent) 18%, rgba(0, 0, 0, 0.22));
       }
 
+      .board__item--marked {
+        opacity: 1;
+        border: 1px solid color-mix(in srgb, #eab308 70%, transparent);
+        background: color-mix(in srgb, #eab308 22%, rgba(0, 0, 0, 0.28));
+        color: #fef9c3;
+        box-shadow: 0 0 0 1px color-mix(in srgb, #facc15 25%, transparent);
+      }
+
+      .board__item--marked .board__num {
+        color: #fde047;
+      }
+
+      .board__item--marked .board__pax {
+        background: color-mix(in srgb, #eab308 35%, transparent);
+        color: #fef08a;
+      }
+
       .board__item--seated {
         opacity: 1;
         border: 1px solid color-mix(in srgb, #ef4444 80%, transparent);
@@ -460,11 +477,6 @@
       .board__item--seated .board__pax {
         background: color-mix(in srgb, #ef4444 42%, transparent);
         color: #fecaca;
-      }
-
-      .board__badge--seated {
-        background: color-mix(in srgb, #ef4444 58%, transparent);
-        color: #fee2e2;
       }
 
       .board__dismiss {
@@ -545,8 +557,17 @@
         color: #fecaca;
       }
 
+      .board__item--marked .board__note {
+        color: #fef08a;
+      }
+
       .board__item--seated .board__note {
         color: #fecaca;
+      }
+
+      .board__item--new.board__item--marked {
+        outline-color: color-mix(in srgb, #eab308 70%, transparent);
+        background: color-mix(in srgb, #eab308 22%, rgba(0, 0, 0, 0.28));
       }
 
       .board__item--new.board__item--seated {
@@ -570,6 +591,16 @@
         border-radius: 999px;
         background: color-mix(in srgb, var(--accent) 28%, transparent);
         color: #f8f0e8;
+      }
+
+      .board__badge--marked {
+        background: color-mix(in srgb, #eab308 55%, transparent);
+        color: #fef9c3;
+      }
+
+      .board__badge--seated {
+        background: color-mix(in srgb, #ef4444 58%, transparent);
+        color: #fee2e2;
       }
 
       .board__badge--removed {

@@ -125,10 +125,14 @@
   background: color-mix(in srgb, #ef6c00 6%, #fff);
 }
 
+.floor-card--marked {
+  border-color: color-mix(in srgb, #ca8a04 45%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, #eab308 12%, #fff);
+}
+
 .floor-card--seated {
-  opacity: 0.78;
-  border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 40%, var(--guy-border, #d7e0d9));
-  background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+  border-color: color-mix(in srgb, #ef4444 45%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, #ef4444 10%, #fff);
 }
 
 .floor-card--new {
@@ -187,6 +191,16 @@
   color: var(--guy-primary, #1d65a0);
   background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff);
   vertical-align: middle;
+}
+
+.floor-badge--marked {
+  color: #854d0e;
+  background: color-mix(in srgb, #eab308 22%, #fff);
+}
+
+.floor-badge--seated {
+  color: #991b1b;
+  background: color-mix(in srgb, #ef4444 18%, #fff);
 }
 
 .floor-card__actions {
