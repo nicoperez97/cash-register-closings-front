@@ -17,11 +17,7 @@ import {
 } from './reservations-api.service';
 import { BoardInstallBannerComponent } from './board-install-banner';
 import { BoardPwaService } from './board-pwa.service';
-import {
-  formatPartyMix,
-  formatPartyMixItem,
-  partyMixFromReservations,
-} from './reservation-party-summary.util';
+import { formatPartyMixItem, partyMixFromReservations } from './reservation-party-summary.util';
 
 @Component({
   selector: 'app-public-reservations-board',
@@ -124,23 +120,31 @@ import {
             <span>afuera</span>
           </div>
         </section>
-        @if (partyMix().length) {
-          <section class="board__mix" [attr.aria-label]="'Mesas: ' + partyMixLabel()">
-            <p class="board__mix-label">Composición</p>
-            <p class="board__mix-chips">
-              @for (item of partyMix(); track item.partySize) {
-                <span class="board__mix-chip">{{ formatMix(item) }}</span>
-              }
-            </p>
-            @if (showAreaMix()) {
-              <p class="board__mix-areas">
-                @if (partyMixInside().length) {
-                  <span>Adentro: {{ mixLabel(partyMixInside()) }}</span>
-                }
-                @if (partyMixOutside().length) {
-                  <span>Afuera: {{ mixLabel(partyMixOutside()) }}</span>
-                }
-              </p>
+        @if (partyMixInside().length || partyMixOutside().length) {
+          <section
+            class="board__mix"
+            [class.board__mix--one]="!(partyMixInside().length && partyMixOutside().length)"
+            aria-label="Mesas por sector"
+          >
+            @if (partyMixInside().length) {
+              <div class="board__mix-col">
+                <p class="board__mix-label">Adentro</p>
+                <p class="board__mix-chips">
+                  @for (item of partyMixInside(); track item.partySize) {
+                    <span class="board__mix-chip">{{ formatMix(item) }}</span>
+                  }
+                </p>
+              </div>
+            }
+            @if (partyMixOutside().length) {
+              <div class="board__mix-col">
+                <p class="board__mix-label">Afuera</p>
+                <p class="board__mix-chips">
+                  @for (item of partyMixOutside(); track item.partySize) {
+                    <span class="board__mix-chip">{{ formatMix(item) }}</span>
+                  }
+                </p>
+              </div>
             }
           </section>
         }
@@ -342,23 +346,14 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   readonly activeBoardRows = computed(() =>
     (this.board()?.reservations ?? []).filter((r) => !r.removedAfterSeated),
   );
-  readonly partyMix = computed(() => partyMixFromReservations(this.activeBoardRows()));
   readonly partyMixInside = computed(() =>
     partyMixFromReservations(this.activeBoardRows().filter((r) => r.area !== 'OUTSIDE')),
   );
   readonly partyMixOutside = computed(() =>
     partyMixFromReservations(this.activeBoardRows().filter((r) => r.area === 'OUTSIDE')),
   );
-  readonly showAreaMix = computed(
-    () => this.partyMixInside().length > 0 && this.partyMixOutside().length > 0,
-  );
-  readonly partyMixLabel = computed(() => formatPartyMix(this.partyMix()));
 
   formatMix = formatPartyMixItem;
-
-  mixLabel(items: { partySize: number; tables: number }[]): string {
-    return formatPartyMix(items);
-  }
 
   ngOnInit(): void {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';

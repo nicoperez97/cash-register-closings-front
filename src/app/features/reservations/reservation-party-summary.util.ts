@@ -20,7 +20,3 @@ export function formatPartyMixItem(item: PartyMixItem): string {
   const pers = item.partySize === 1 ? 'persona' : 'personas';
   return `${item.tables} ${mesa} de ${item.partySize} ${pers}`;
 }
-
-export function formatPartyMix(items: PartyMixItem[], sep = ', '): string {
-  return items.map(formatPartyMixItem).join(sep);
-}

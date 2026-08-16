@@ -320,14 +320,24 @@
       }
 
       .board__mix {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
         max-width: 52rem;
         width: 100%;
         margin: -0.35rem auto 1rem;
+        box-sizing: border-box;
+      }
+
+      .board__mix--one {
+        grid-template-columns: 1fr;
+      }
+
+      .board__mix-col {
         padding: 0.75rem 0.9rem;
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.04);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        box-sizing: border-box;
         text-align: center;
       }
 
@@ -357,16 +367,6 @@
         color: #fff8f1;
         background: color-mix(in srgb, var(--accent, #c45c26) 28%, rgba(0, 0, 0, 0.35));
         border: 1px solid color-mix(in srgb, var(--accent, #c45c26) 45%, transparent);
-      }
-
-      .board__mix-areas {
-        margin: 0.5rem 0 0;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.65rem 1.1rem;
-        font-size: 0.78rem;
-        color: #cfc6ba;
       }
 
       .board__lists {
@@ -718,8 +718,12 @@
 
         .board__mix {
           margin: -0.15rem auto 0.55rem;
-          padding: 0.5rem 0.65rem;
           flex-shrink: 0;
+          gap: 0.35rem;
+        }
+
+        .board__mix-col {
+          padding: 0.5rem 0.55rem;
         }
 
         .board__mix-chip {

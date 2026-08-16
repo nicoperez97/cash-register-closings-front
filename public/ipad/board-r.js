@@ -123,20 +123,23 @@
     return item.tables + ' ' + mesa + ' de ' + item.partySize + ' ' + pers;
   }
 
-  function formatMix(items) {
-    return items
-      .map(formatMixItem)
-      .join(', ');
+  function renderMixCol(label, items) {
+    if (!items.length) return '';
+    var chips = '';
+    var i;
+    for (i = 0; i < items.length; i++) {
+      chips += '<span class="board-mix-chip">' + escapeHtml(formatMixItem(items[i])) + '</span>';
+    }
+    return (
+      '<div class="board-mix-col"><p class="board-mix-label">' +
+      escapeHtml(label) +
+      '</p><p class="board-mix-chips">' +
+      chips +
+      '</p></div>'
+    );
   }
 
   function renderMix(rows) {
-    var all = partyMix(rows);
-    if (!all.length) return '';
-    var chips = '';
-    var i;
-    for (i = 0; i < all.length; i++) {
-      chips += '<span class="board-mix-chip">' + escapeHtml(formatMixItem(all[i])) + '</span>';
-    }
     var inside = partyMix(
       (rows || []).filter(function (r) {
         return !r.removedAfterSeated && r.area !== 'OUTSIDE';
@@ -147,24 +150,15 @@
         return !r.removedAfterSeated && r.area === 'OUTSIDE';
       }),
     );
-    var areas = '';
-    if (inside.length && outside.length) {
-      areas =
-        '<p class="board-mix-areas">' +
-        '<span>Adentro: ' +
-        escapeHtml(formatMix(inside)) +
-        '</span>' +
-        '<span>Afuera: ' +
-        escapeHtml(formatMix(outside)) +
-        '</span></p>';
-    }
+    if (!inside.length && !outside.length) return '';
+    var both = inside.length && outside.length;
     return (
-      '<section class="board-mix"><p class="board-mix-label">Composición</p>' +
-      '<p class="board-mix-chips">' +
-      chips +
-      '</p>' +
-      areas +
-      '</section>'
+      '<section class="board-mix' +
+      (both ? '' : ' board-mix-one') +
+      '">' +
+      renderMixCol('Adentro', inside) +
+      renderMixCol('Afuera', outside) +
+      '<div style="clear:both"></div></section>'
     );
   }
 
