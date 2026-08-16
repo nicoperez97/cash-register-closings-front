@@ -164,7 +164,7 @@ import {
                     }
                     {{ r.guestName || 'Reserva' }}
                     @if (r.status === 'SEATED' && !r.removedAfterSeated) {
-                      <span class="board__badge board__badge--seated">Marcada</span>
+                      <span class="board__badge board__badge--seated">Sentada</span>
                     }
                     @if (r.removedAfterSeated) {
                       <span class="board__badge board__badge--removed">Liberada</span>
@@ -231,7 +231,7 @@ import {
                     }
                     {{ r.guestName || 'Reserva' }}
                     @if (r.status === 'SEATED' && !r.removedAfterSeated) {
-                      <span class="board__badge board__badge--seated">Marcada</span>
+                      <span class="board__badge board__badge--seated">Sentada</span>
                     }
                     @if (r.removedAfterSeated) {
                       <span class="board__badge board__badge--removed">Liberada</span>

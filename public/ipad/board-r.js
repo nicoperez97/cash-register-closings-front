@@ -180,7 +180,7 @@
 
     var badges = '';
     if (r.status === 'SEATED' && !r.removedAfterSeated) {
-      badges += '<span class="board-badge">Marcada</span>';
+      badges += '<span class="board-badge board-badge-seated">Sentada</span>';
     }
     if (r.removedAfterSeated) {
       badges += '<span class="board-badge board-badge-removed">Liberada</span>';

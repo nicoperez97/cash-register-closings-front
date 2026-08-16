@@ -447,24 +447,24 @@
 
       .board__item--seated {
         opacity: 1;
-        border: 1px solid color-mix(in srgb, #eab308 70%, transparent);
-        background: color-mix(in srgb, #eab308 22%, rgba(0, 0, 0, 0.28));
-        color: #fef9c3;
-        box-shadow: 0 0 0 1px color-mix(in srgb, #facc15 25%, transparent);
+        border: 1px solid color-mix(in srgb, #ef4444 80%, transparent);
+        background: color-mix(in srgb, #dc2626 34%, rgba(0, 0, 0, 0.28));
+        color: #fee2e2;
+        box-shadow: 0 0 0 1px color-mix(in srgb, #f87171 35%, transparent);
       }
 
       .board__item--seated .board__num {
-        color: #fde047;
+        color: #fca5a5;
       }
 
       .board__item--seated .board__pax {
-        background: color-mix(in srgb, #eab308 35%, transparent);
-        color: #fef08a;
+        background: color-mix(in srgb, #ef4444 42%, transparent);
+        color: #fecaca;
       }
 
       .board__badge--seated {
-        background: color-mix(in srgb, #eab308 45%, transparent);
-        color: #fef9c3;
+        background: color-mix(in srgb, #ef4444 58%, transparent);
+        color: #fee2e2;
       }
 
       .board__dismiss {
@@ -546,7 +546,12 @@
       }
 
       .board__item--seated .board__note {
-        color: #fef08a;
+        color: #fecaca;
+      }
+
+      .board__item--new.board__item--seated {
+        outline-color: color-mix(in srgb, #ef4444 70%, transparent);
+        background: color-mix(in srgb, #dc2626 34%, rgba(0, 0, 0, 0.28));
       }
 
       .board__num {

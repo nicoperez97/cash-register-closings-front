@@ -296,9 +296,9 @@ body {
 }
 
 .board-item-seated {
-  border: 1px solid rgba(234, 179, 8, 0.7);
-  background: rgba(234, 179, 8, 0.22);
-  color: #fef9c3;
+  border: 1px solid rgba(239, 68, 68, 0.8);
+  background: rgba(220, 38, 38, 0.34);
+  color: #fee2e2;
 }
 
 .board-item-removed {
@@ -329,9 +329,14 @@ body {
   font-weight: bold;
   text-transform: uppercase;
   text-decoration: none;
-  background: rgba(234, 179, 8, 0.45);
-  color: #fef9c3;
+  background: rgba(239, 68, 68, 0.58);
+  color: #fee2e2;
   vertical-align: middle;
+}
+
+.board-badge-seated {
+  background: rgba(239, 68, 68, 0.58);
+  color: #fee2e2;
 }
 
 .board-badge-removed {
