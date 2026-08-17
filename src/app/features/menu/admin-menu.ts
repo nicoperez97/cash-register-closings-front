@@ -31,6 +31,9 @@ export type ShopMenu = {
   slug: string;
   title?: string | null;
   note?: string | null;
+  sourceFile?: string | null;
+  sourceFileName?: string | null;
+  sourceMime?: string | null;
   sections: ShopMenuSection[];
 };
 
@@ -74,6 +77,9 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
     slug: menu.slug || 'carta',
     title: menu.title ?? '',
     note: menu.note ?? '',
+    sourceFile: menu.sourceFile ?? null,
+    sourceFileName: menu.sourceFileName ?? null,
+    sourceMime: menu.sourceMime ?? null,
     sections: (menu.sections ?? []).map((s) => ({
       name: s.name ?? '',
       items: (s.items ?? []).map((it) => ({
@@ -251,6 +257,16 @@ function toPrice(value: unknown): number | null {
                 ></textarea>
               </mat-form-field>
             </div>
+            @if (sourceFileName) {
+              <p class="menu-admin__source">
+                Carta física: <strong>{{ sourceFileName }}</strong>
+                — se muestra con el botón “Ver carta física” en la página pública.
+              </p>
+            } @else {
+              <p class="menu-admin__hint">
+                Para mostrar la carta física en la web, subí o reemplazá esta carta con el PDF/foto y guardá.
+              </p>
+            }
 
             @for (section of sections(); track $index; let si = $index) {
               <article class="menu-section">
@@ -338,10 +354,18 @@ function toPrice(value: unknown): number | null {
     .menu-admin__hint,
     .menu-admin__warn,
     .menu-admin__parse,
-    .menu-admin__url {
+    .menu-admin__url,
+    .menu-admin__source {
       margin: 0 0 0.85rem;
       font-size: 0.9rem;
       color: var(--guy-muted, #5f6f76);
+    }
+    .menu-admin__source {
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, #fff);
+      border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 22%, #d7e0d9);
+      color: var(--guy-navy, #003366);
     }
     .menu-admin__warn {
       color: #b45309;
@@ -475,6 +499,9 @@ export class AdminMenuPage {
   title = '';
   menuSlug = '';
   note = '';
+  sourceFileName = '';
+  private sourceFile: string | null = null;
+  private sourceMime: string | null = null;
   readonly sections = signal<ShopMenuSection[]>([]);
 
   constructor() {
@@ -536,6 +563,9 @@ export class AdminMenuPage {
     this.title = menu.title ?? '';
     this.menuSlug = menu.slug ?? '';
     this.note = menu.note ?? '';
+    this.sourceFile = menu.sourceFile ?? null;
+    this.sourceFileName = menu.sourceFileName ?? '';
+    this.sourceMime = menu.sourceMime ?? null;
     this.sections.set(menu.sections.length ? menu.sections : emptySections());
     this.slugTouched = !!menu.slug;
   }
@@ -544,6 +574,9 @@ export class AdminMenuPage {
     this.title = '';
     this.menuSlug = '';
     this.note = '';
+    this.sourceFile = null;
+    this.sourceFileName = '';
+    this.sourceMime = null;
     this.sections.set([]);
     this.slugTouched = false;
   }
@@ -554,6 +587,9 @@ export class AdminMenuPage {
       slug: uniqueSlug(this.menuSlug || this.title || 'carta', this.menus(), id),
       title: this.title.trim() || 'Carta',
       note: this.note.trim() || null,
+      sourceFile: this.sourceFile,
+      sourceFileName: this.sourceFileName || null,
+      sourceMime: this.sourceMime,
       sections: this.sections().map((s) => ({
         name: String(s.name ?? '').trim() || 'Carta',
         items: (s.items ?? [])
@@ -676,6 +712,9 @@ export class AdminMenuPage {
             ...res.menu,
             id: mode === 'replace' && this.activeId() ? this.activeId()! : newMenuId(),
             slug: uniqueSlug(res.menu.slug || res.menu.title || 'carta', this.menus(), mode === 'replace' ? this.activeId() ?? undefined : undefined),
+            sourceFile: res.menu.sourceFile ?? null,
+            sourceFileName: res.menu.sourceFileName ?? res.fileName ?? null,
+            sourceMime: res.menu.sourceMime ?? null,
           });
           if (mode === 'replace' && this.activeId()) {
             this.menus.update((list) => list.map((m) => (m.id === this.activeId() ? parsed : m)));

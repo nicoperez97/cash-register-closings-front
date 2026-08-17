@@ -1,5 +1,6 @@
 import { Component, OnInit, afterNextRender, computed, inject, signal, DestroyRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -34,6 +35,9 @@ type ShopMenu = {
   slug?: string;
   title?: string | null;
   note?: string | null;
+  hasSourceFile?: boolean;
+  sourceFileName?: string | null;
+  sourceKind?: 'pdf' | 'image' | 'other' | null;
   sections: MenuSection[];
 };
 
@@ -88,6 +92,17 @@ type FilterOpt = { id: FilterId; label: string };
               </svg>
               Ver QR
             </button>
+            @if (hasSourceFile()) {
+              <button type="button" class="menu__btn menu__btn--ghost" (click)="openSource()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 13h8v2H8v-2zm0 4h5v2H8v-2z"
+                  />
+                </svg>
+                Ver carta física
+              </button>
+            }
           </div>
         </header>
 
@@ -104,6 +119,42 @@ type FilterOpt = { id: FilterId; label: string };
               <div class="menu__qr-actions">
                 <button type="button" class="menu__btn menu__btn--light" (click)="downloadQr()">Descargar</button>
                 <button type="button" class="menu__btn menu__btn--light" (click)="closeQr()">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (sourceOpen()) {
+          <div class="menu__qr-mask" (click)="closeSource()">
+            <div
+              class="menu__source-card"
+              (click)="$event.stopPropagation()"
+              role="dialog"
+              aria-label="Carta física"
+            >
+              <div class="menu__source-head">
+                <div>
+                  <p class="menu__qr-title">Carta física</p>
+                  <p class="menu__qr-shop">{{ data()?.menu?.sourceFileName || s.name }}</p>
+                </div>
+                <button type="button" class="menu__btn menu__btn--light" (click)="closeSource()">Cerrar</button>
+              </div>
+              @if (sourceLoading()) {
+                <p class="menu__qr-wait">Cargando el archivo…</p>
+              } @else if (sourceError()) {
+                <p class="menu__qr-wait">{{ sourceError() }}</p>
+              } @else if (sourceKind() === 'image' && sourceBlobUrl()) {
+                <img class="menu__source-img" [src]="sourceBlobUrl()!" alt="Carta física" />
+              } @else if (sourceSafeUrl(); as url) {
+                <iframe class="menu__source-frame" [src]="url" title="Carta física"></iframe>
+              }
+              <div class="menu__qr-actions">
+                @if (sourceHref()) {
+                  <a class="menu__btn menu__btn--light" [href]="sourceHref()!" target="_blank" rel="noopener">
+                    Abrir
+                  </a>
+                }
+                <button type="button" class="menu__btn menu__btn--light" (click)="closeSource()">Cerrar</button>
               </div>
             </div>
           </div>
@@ -305,6 +356,10 @@ type FilterOpt = { id: FilterId; label: string };
       }
       .menu__hero-actions {
         margin-top: 0.9rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.45rem;
       }
       .menu__btn {
         display: inline-flex;
@@ -563,6 +618,41 @@ type FilterOpt = { id: FilterId; label: string };
         gap: 0.5rem;
         margin-top: 0.55rem;
       }
+      .menu__qr-actions a {
+        text-decoration: none;
+      }
+      .menu__source-card {
+        width: min(100%, 42rem);
+        max-height: min(92dvh, 56rem);
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 0.55rem;
+        padding: 1rem 1rem 1.05rem;
+        border-radius: 1.25rem;
+        background: #f7f1e8;
+        color: #1a1512;
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+      }
+      .menu__source-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .menu__source-frame {
+        width: 100%;
+        min-height: min(70dvh, 40rem);
+        border: 0;
+        border-radius: 12px;
+        background: #fff;
+      }
+      .menu__source-img {
+        width: 100%;
+        max-height: min(70dvh, 40rem);
+        object-fit: contain;
+        border-radius: 12px;
+        background: #fff;
+      }
     `,
   ],
 })
@@ -570,10 +660,12 @@ export class PublicMenuPageComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly sanitizer = inject(DomSanitizer);
   private shopSlug = '';
   private menuSlug = '';
   private observer: IntersectionObserver | null = null;
   private jumping = false;
+  private sourceObjectUrl: string | null = null;
 
   readonly data = signal<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu } | null>(null);
   readonly error = signal('');
@@ -583,6 +675,7 @@ export class PublicMenuPageComponent implements OnInit {
   readonly shop = computed(() => this.data()?.shop ?? null);
   readonly menus = computed(() => this.data()?.menus ?? []);
   readonly currentSlug = computed(() => this.data()?.menu?.slug || this.menuSlug || this.menus()[0]?.slug || '');
+  readonly hasSourceFile = computed(() => !!this.data()?.menu?.hasSourceFile);
   readonly accent = computed(() => this.shop()?.accentColor || '#2e7d32');
   readonly logoUrl = computed(() => {
     const raw = this.shop()?.logoUrl;
@@ -619,6 +712,13 @@ export class PublicMenuPageComponent implements OnInit {
   );
   readonly qrOpen = signal(false);
   readonly qrSrc = signal<string | null>(null);
+  readonly sourceOpen = signal(false);
+  readonly sourceLoading = signal(false);
+  readonly sourceError = signal('');
+  readonly sourceKind = signal<'pdf' | 'image' | 'other' | null>(null);
+  readonly sourceBlobUrl = signal<string | null>(null);
+  readonly sourceSafeUrl = signal<SafeResourceUrl | null>(null);
+  readonly sourceHref = signal<string | null>(null);
 
   constructor() {
     afterNextRender(() => this.watchSections());
@@ -638,12 +738,16 @@ export class PublicMenuPageComponent implements OnInit {
       this.load();
     });
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') this.closeQr();
+      if (ev.key === 'Escape') {
+        this.closeQr();
+        this.closeSource();
+      }
     };
     window.addEventListener('keydown', onKey);
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', onKey);
       this.observer?.disconnect();
+      this.revokeSourceUrl();
     });
   }
 
@@ -668,6 +772,7 @@ export class PublicMenuPageComponent implements OnInit {
 
   load(): void {
     this.error.set('');
+    this.closeSource();
     const base = `${environment.apiUrl}/public/shops/${encodeURIComponent(this.shopSlug)}/menu`;
     const url = this.menuSlug ? `${base}/${encodeURIComponent(this.menuSlug)}` : base;
     this.http.get<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu }>(url).subscribe({
@@ -686,6 +791,13 @@ export class PublicMenuPageComponent implements OnInit {
     return `${window.location.origin}/m/${encodeURIComponent(slug)}`;
   }
 
+  sourceFileApiUrl(): string {
+    const shop = this.shop()?.slug || this.shopSlug;
+    const menu = this.currentSlug();
+    if (!shop || !menu) return '';
+    return `${environment.apiUrl}/public/shops/${encodeURIComponent(shop)}/menu/${encodeURIComponent(menu)}/file`;
+  }
+
   openQr(): void {
     this.qrOpen.set(true);
     if (!this.qrSrc()) void this.renderQr();
@@ -693,6 +805,52 @@ export class PublicMenuPageComponent implements OnInit {
 
   closeQr(): void {
     this.qrOpen.set(false);
+  }
+
+  openSource(): void {
+    const api = this.sourceFileApiUrl();
+    if (!api) return;
+    this.sourceOpen.set(true);
+    this.sourceLoading.set(true);
+    this.sourceError.set('');
+    this.sourceKind.set(this.data()?.menu?.sourceKind ?? null);
+    this.sourceHref.set(api);
+    this.revokeSourceUrl();
+    this.http.get(api, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        this.sourceLoading.set(false);
+        const kind =
+          this.data()?.menu?.sourceKind ||
+          (blob.type.startsWith('image/') ? 'image' : blob.type.includes('pdf') ? 'pdf' : 'other');
+        this.sourceKind.set(kind);
+        const url = URL.createObjectURL(blob);
+        this.sourceObjectUrl = url;
+        this.sourceBlobUrl.set(url);
+        this.sourceHref.set(url);
+        this.sourceSafeUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
+      },
+      error: () => {
+        this.sourceLoading.set(false);
+        this.sourceError.set('No se pudo abrir el archivo. Probá Abrir en otra pestaña.');
+        this.sourceHref.set(api);
+      },
+    });
+  }
+
+  closeSource(): void {
+    this.sourceOpen.set(false);
+    this.sourceLoading.set(false);
+    this.sourceError.set('');
+    this.revokeSourceUrl();
+  }
+
+  private revokeSourceUrl(): void {
+    if (this.sourceObjectUrl) {
+      URL.revokeObjectURL(this.sourceObjectUrl);
+      this.sourceObjectUrl = null;
+    }
+    this.sourceBlobUrl.set(null);
+    this.sourceSafeUrl.set(null);
   }
 
   downloadQr(): void {
