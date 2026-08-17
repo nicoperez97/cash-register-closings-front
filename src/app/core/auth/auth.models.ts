@@ -577,6 +577,10 @@ export interface ShopSummary {
   waitingListEnabled?: boolean;
   /** Si es false, módulo de propinas no está disponible en este local. */
   tipsEnabled?: boolean;
+  /** Pantalla pública de presentismo para el personal. */
+  publicAttendanceEnabled?: boolean;
+  /** Carta pública del local. */
+  menuEnabled?: boolean;
   defaultChangeAmount: number;
   currency: string;
   timezone?: string;

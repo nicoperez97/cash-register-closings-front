@@ -172,6 +172,8 @@ export class AuthService {
         reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
         waitingListEnabled: s.waitingListEnabled,
         tipsEnabled: s.tipsEnabled,
+        publicAttendanceEnabled: !!s.publicAttendanceEnabled,
+        menuEnabled: !!s.menuEnabled,
         timezone: s.timezone ?? null,
         openingTime: s.openingTime ?? null,
       })),

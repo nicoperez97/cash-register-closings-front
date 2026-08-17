@@ -27,7 +27,7 @@ import {
   isoDatesInRange,
   monthKeysInRange,
 } from '../../shared/utils/attendance-share';
-import { shareText } from '../../shared/utils/share-text';
+import { copyText, shareText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
 import {
   AttendanceShareRangeDialogComponent,
@@ -91,6 +91,19 @@ const MONTH_LABELS = [
       actionIcon="upload_file"
       (action)="openExcelImport()"
     />
+
+    @if (publicAttendanceUrl()) {
+      <div class="att-public">
+        <a class="att-public__btn" [href]="publicAttendanceUrl()" target="_blank" rel="noopener">
+          <mat-icon>open_in_new</mat-icon>
+          Pantalla pública
+        </a>
+        <button type="button" class="att-public__btn att-public__btn--ghost" (click)="copyPublicAttendanceUrl()">
+          <mat-icon>content_copy</mat-icon>
+          Copiar link
+        </button>
+      </div>
+    }
 
     @if (shopId() && employees().length) {
       <div class="panel-card mb-3 today-panel">
@@ -443,6 +456,35 @@ const MONTH_LABELS = [
   `,
   styles: [
     `
+      .att-public {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 0 0 1rem;
+      }
+      .att-public__btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: var(--guy-green, #2e7d32);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 650;
+        font-size: 0.86rem;
+        cursor: pointer;
+      }
+      .att-public__btn mat-icon {
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+      .att-public__btn--ghost {
+        background: #fff;
+        color: var(--guy-navy, #003366);
+      }
       .att-table-wrap {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
@@ -1088,6 +1130,21 @@ export class AttendancePage {
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'attendance.manage');
+  }
+
+  publicAttendanceUrl(): string {
+    const shop = this.shops.selectedShop();
+    if (!shop?.publicAttendanceEnabled || !shop.slug) return '';
+    return `${window.location.origin}/p/${encodeURIComponent(shop.slug)}`;
+  }
+
+  async copyPublicAttendanceUrl(): Promise<void> {
+    const url = this.publicAttendanceUrl();
+    if (!url) return;
+    const ok = await copyText(url);
+    this.snack.open(ok ? 'Link de presentismo copiado' : 'No se pudo copiar la URL', 'OK', {
+      duration: 2500,
+    });
   }
 
   unlockMarking(): void {

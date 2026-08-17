@@ -27,6 +27,8 @@ export interface AdminShopRow {
   reservationOutsideMinPartySize?: number | null;
   waitingListEnabled?: boolean;
   tipsEnabled?: boolean;
+  publicAttendanceEnabled?: boolean;
+  menuEnabled?: boolean;
   defaultChangeAmount?: number;
   openingTime?: string;
   logoUrl?: string | null;
@@ -179,6 +181,8 @@ function slugify(raw: string): string {
         </mat-form-field>
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
         <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>
+        <mat-slide-toggle formControlName="publicAttendanceEnabled">Presentismo público</mat-slide-toggle>
+        <mat-slide-toggle formControlName="menuEnabled">Carta pública</mat-slide-toggle>
 
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Local habilitado</mat-slide-toggle>
@@ -251,6 +255,8 @@ export class AdminShopDialogComponent {
     reservationOutsideMinPartySize: [this.shop?.reservationOutsideMinPartySize ?? null],
     waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
     tipsEnabled: [this.shop ? !!this.shop.tipsEnabled : false],
+    publicAttendanceEnabled: [this.shop ? !!this.shop.publicAttendanceEnabled : false],
+    menuEnabled: [this.shop ? !!this.shop.menuEnabled : false],
     active: [this.shop?.active ?? true],
   });
 
@@ -293,6 +299,8 @@ export class AdminShopDialogComponent {
       reservationOutsideMinPartySize: this.toPartyRule(raw.reservationOutsideMinPartySize),
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
+      publicAttendanceEnabled: raw.publicAttendanceEnabled,
+      menuEnabled: raw.menuEnabled,
     };
     this.busy.set(true);
 

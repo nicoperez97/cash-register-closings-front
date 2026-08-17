@@ -613,6 +613,30 @@ const TIMEZONE_OPTIONS = [
                   aria-label="Propinas habilitadas"
                 />
               </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Presentismo público</strong>
+                  <p class="text-muted small mb-0">
+                    El personal entra con el link y ve su mes, sin usuario de la app.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="publicAttendanceEnabled"
+                  aria-label="Presentismo público"
+                />
+              </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Carta pública</strong>
+                  <p class="text-muted small mb-0">
+                    Página con el menú del local. Se carga en Administración → Carta.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="menuEnabled"
+                  aria-label="Carta pública"
+                />
+              </div>
             </div>
           </div>
         </section>
@@ -1370,6 +1394,8 @@ export class AdminShopPage implements OnInit {
     reservationOutsideMinPartySize: this.fb.control<number | null>(null),
     waitingListEnabled: [true],
     tipsEnabled: [false],
+    publicAttendanceEnabled: [false],
+    menuEnabled: [false],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
     posnets: this.fb.array([]),
@@ -1497,6 +1523,8 @@ export class AdminShopPage implements OnInit {
       reservationOutsideMinPartySize: shop.reservationOutsideMinPartySize ?? null,
       waitingListEnabled: !!shop.waitingListEnabled,
       tipsEnabled: !!shop.tipsEnabled,
+      publicAttendanceEnabled: !!shop.publicAttendanceEnabled,
+      menuEnabled: !!shop.menuEnabled,
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
@@ -1536,6 +1564,8 @@ export class AdminShopPage implements OnInit {
             reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
             waitingListEnabled: !!s.waitingListEnabled,
             tipsEnabled: !!s.tipsEnabled,
+            publicAttendanceEnabled: !!s.publicAttendanceEnabled,
+            menuEnabled: !!s.menuEnabled,
             active: !!s.active,
           });
           this.applyLogoFromShop(s.logoUrl);
@@ -1860,6 +1890,8 @@ export class AdminShopPage implements OnInit {
       reservationOutsideMinPartySize: this.toPartyRule(raw.reservationOutsideMinPartySize),
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
+      publicAttendanceEnabled: raw.publicAttendanceEnabled,
+      menuEnabled: raw.menuEnabled,
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
       posnets: (raw.posnets as ShopPosnet[])

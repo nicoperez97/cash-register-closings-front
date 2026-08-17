@@ -36,6 +36,20 @@ export const routes: Routes = [
     title: 'Reservar',
   },
   {
+    path: 'p/:slug',
+    loadComponent: () =>
+      import('./features/attendance/public-attendance-board').then(
+        (m) => m.PublicAttendanceBoardComponent,
+      ),
+    title: 'Presentismo',
+  },
+  {
+    path: 'm/:slug',
+    loadComponent: () =>
+      import('./features/menu/public-menu-page').then((m) => m.PublicMenuPageComponent),
+    title: 'Carta',
+  },
+  {
     path: '',
     component: MainLayoutComponent,
     canActivate: [authGuard],
@@ -218,6 +232,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/admin-messages').then((m) => m.AdminMessagesPage),
         title: 'Mensajes',
+      },
+      {
+        path: 'admin/menu',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/menu/admin-menu').then((m) => m.AdminMenuPage),
+        title: 'Carta',
       },
       {
         path: 'admin/qr',
