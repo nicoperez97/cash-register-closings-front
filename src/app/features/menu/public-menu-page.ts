@@ -61,210 +61,195 @@ type FilterOpt = { id: FilterId; label: string };
       </div>
     } @else if (shop(); as s) {
       <div class="menu" [style.--accent]="accent()">
-        <header class="menu__hero">
-          <div class="menu__glow" aria-hidden="true"></div>
-          @if (logoUrl()) {
-            <img class="menu__logo" [src]="logoUrl()!" [alt]="s.name" />
-          }
-          <p class="menu__eyebrow">Carta</p>
-          <h1>{{ s.name }}</h1>
-          @if (s.instagramHandle || s.phone) {
-            <p class="menu__contact">
-              @if (s.instagramHandle) {
-                <a
-                  [href]="'https://instagram.com/' + s.instagramHandle"
-                  target="_blank"
-                  rel="noopener"
-                >@{{ s.instagramHandle }}</a>
-              }
-              @if (s.phone) {
-                <a [href]="'tel:' + s.phone">{{ s.phone }}</a>
-              }
-            </p>
-          }
-          <div class="menu__hero-actions">
-            <button type="button" class="menu__btn menu__btn--ghost" (click)="openQr()">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm12-2h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v6h-2v-2h-2v-2h2v-2zm-4 4h2v2h-2v-2z"
-                />
-              </svg>
-              Ver QR
-            </button>
-            @if (hasSourceFile()) {
-              <button type="button" class="menu__btn menu__btn--ghost" (click)="openSource()">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 13h8v2H8v-2zm0 4h5v2H8v-2z"
-                  />
-                </svg>
-                Ver carta física
-              </button>
+        <div class="menu__sheet">
+          <header class="menu__hero">
+            @if (logoUrl()) {
+              <img class="menu__logo" [src]="logoUrl()!" [alt]="s.name" />
             }
-          </div>
-        </header>
-
-        @if (qrOpen()) {
-          <div class="menu__qr-mask" (click)="closeQr()">
-            <div class="menu__qr-card" (click)="$event.stopPropagation()" role="dialog" aria-label="QR de la carta">
-              <p class="menu__qr-title">Escaneá para abrir la carta</p>
-              <p class="menu__qr-shop">{{ s.name }}</p>
-              @if (qrSrc(); as src) {
-                <img class="menu__qr-img" [src]="src" alt="Código QR de la carta" />
-              } @else {
-                <p class="menu__qr-wait">Armando el código…</p>
-              }
-              <div class="menu__qr-actions">
-                <button type="button" class="menu__btn menu__btn--light" (click)="downloadQr()">Descargar</button>
-                <button type="button" class="menu__btn menu__btn--light" (click)="closeQr()">Cerrar</button>
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (sourceOpen()) {
-          <div class="menu__qr-mask" (click)="closeSource()">
-            <div
-              class="menu__source-card"
-              (click)="$event.stopPropagation()"
-              role="dialog"
-              aria-label="Carta física"
-            >
-              <div class="menu__source-head">
-                <div>
-                  <p class="menu__qr-title">Carta física</p>
-                  <p class="menu__qr-shop">{{ data()?.menu?.sourceFileName || s.name }}</p>
-                </div>
-                <button type="button" class="menu__btn menu__btn--light" (click)="closeSource()">Cerrar</button>
-              </div>
-              @if (sourceLoading()) {
-                <p class="menu__qr-wait">Cargando el archivo…</p>
-              } @else if (sourceError()) {
-                <p class="menu__qr-wait">{{ sourceError() }}</p>
-              } @else if (sourceKind() === 'image' && sourceBlobUrl()) {
-                <img class="menu__source-img" [src]="sourceBlobUrl()!" alt="Carta física" />
-              } @else if (sourceSafeUrl(); as url) {
-                <iframe class="menu__source-frame" [src]="url" title="Carta física"></iframe>
-              }
-              <div class="menu__qr-actions">
-                @if (sourceHref()) {
-                  <a class="menu__btn menu__btn--light" [href]="sourceHref()!" target="_blank" rel="noopener">
-                    Abrir
-                  </a>
+            <p class="menu__eyebrow">Carta</p>
+            <h1>{{ s.name }}</h1>
+            @if (s.instagramHandle || s.phone) {
+              <p class="menu__contact">
+                @if (s.instagramHandle) {
+                  <a
+                    [href]="'https://instagram.com/' + s.instagramHandle"
+                    target="_blank"
+                    rel="noopener"
+                  >@{{ s.instagramHandle }}</a>
                 }
-                <button type="button" class="menu__btn menu__btn--light" (click)="closeSource()">Cerrar</button>
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (menus().length > 1) {
-          <nav class="menu__books" aria-label="Cartas">
-            @for (m of menus(); track m.slug) {
-              <a
-                class="menu__book"
-                [class.menu__book--on]="m.slug === currentSlug()"
-                [routerLink]="['/m', s.slug, m.slug]"
-              >
-                {{ m.title }}
-              </a>
+                @if (s.instagramHandle && s.phone) {
+                  <span aria-hidden="true">·</span>
+                }
+                @if (s.phone) {
+                  <a [href]="'tel:' + s.phone">{{ s.phone }}</a>
+                }
+              </p>
             }
-          </nav>
-        }
-
-        <div class="menu__dock">
-          <label class="menu__search">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"
-              />
-            </svg>
-            <input
-              type="search"
-              placeholder="Buscar un plato, vino, ingrediente…"
-              [ngModel]="query()"
-              (ngModelChange)="onQuery($event)"
-              autocomplete="off"
-            />
-            @if (query()) {
-              <button type="button" class="menu__search-clear" (click)="onQuery('')" aria-label="Limpiar búsqueda">
-                ×
-              </button>
-            }
-          </label>
-
-          @if (filterOpts().length > 1) {
-            <div class="menu__filters" role="tablist" aria-label="Filtros">
-              @for (opt of filterOpts(); track opt.id) {
-                <button
-                  type="button"
-                  class="menu__chip"
-                  [class.menu__chip--on]="filter() === opt.id"
-                  (click)="setFilter(opt.id)"
-                >
-                  {{ opt.label }}
-                </button>
+            <div class="menu__hero-actions">
+              <button type="button" class="menu__link-btn" (click)="openQr()">Ver QR</button>
+              @if (hasSourceFile()) {
+                <span aria-hidden="true">·</span>
+                <button type="button" class="menu__link-btn" (click)="openSource()">Carta física</button>
               }
+            </div>
+          </header>
+
+          @if (qrOpen()) {
+            <div class="menu__mask" (click)="closeQr()">
+              <div class="menu__dialog" (click)="$event.stopPropagation()" role="dialog" aria-label="QR de la carta">
+                <p class="menu__dialog-title">Escaneá para abrir la carta</p>
+                <p class="menu__dialog-sub">{{ s.name }}</p>
+                @if (qrSrc(); as src) {
+                  <img class="menu__qr-img" [src]="src" alt="Código QR de la carta" />
+                } @else {
+                  <p class="menu__dialog-wait">Armando el código…</p>
+                }
+                <div class="menu__dialog-actions">
+                  <button type="button" class="menu__btn" (click)="downloadQr()">Descargar</button>
+                  <button type="button" class="menu__btn menu__btn--ghost" (click)="closeQr()">Cerrar</button>
+                </div>
+              </div>
             </div>
           }
 
-          @if (visibleSections().length > 1 && !query()) {
-            <nav class="menu__cats" aria-label="Categorías">
-              @for (sec of visibleSections(); track sec.id) {
-                <button
-                  type="button"
-                  class="menu__cat"
-                  [class.menu__cat--on]="activeSection() === sec.id"
-                  (click)="scrollTo(sec.id)"
+          @if (sourceOpen()) {
+            <div class="menu__mask" (click)="closeSource()">
+              <div
+                class="menu__dialog menu__dialog--wide"
+                (click)="$event.stopPropagation()"
+                role="dialog"
+                aria-label="Carta física"
+              >
+                <div class="menu__dialog-head">
+                  <div>
+                    <p class="menu__dialog-title">Carta física</p>
+                    <p class="menu__dialog-sub">{{ data()?.menu?.sourceFileName || s.name }}</p>
+                  </div>
+                  <button type="button" class="menu__btn menu__btn--ghost" (click)="closeSource()">Cerrar</button>
+                </div>
+                @if (sourceLoading()) {
+                  <p class="menu__dialog-wait">Cargando el archivo…</p>
+                } @else if (sourceError()) {
+                  <p class="menu__dialog-wait">{{ sourceError() }}</p>
+                } @else if (sourceKind() === 'image' && sourceBlobUrl()) {
+                  <img class="menu__source-img" [src]="sourceBlobUrl()!" alt="Carta física" />
+                } @else if (sourceSafeUrl(); as url) {
+                  <iframe class="menu__source-frame" [src]="url" title="Carta física"></iframe>
+                }
+                <div class="menu__dialog-actions">
+                  @if (sourceHref()) {
+                    <a class="menu__btn" [href]="sourceHref()!" target="_blank" rel="noopener">Abrir</a>
+                  }
+                  <button type="button" class="menu__btn menu__btn--ghost" (click)="closeSource()">Cerrar</button>
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (menus().length > 1) {
+            <nav class="menu__books" aria-label="Cartas">
+              @for (m of menus(); track m.slug) {
+                <a
+                  class="menu__book"
+                  [class.menu__book--on]="m.slug === currentSlug()"
+                  [routerLink]="['/m', s.slug, m.slug]"
                 >
-                  {{ sec.label }}
-                </button>
+                  {{ m.title }}
+                </a>
               }
             </nav>
           }
-        </div>
 
-        @if (query() || filter() !== 'all') {
-          <p class="menu__count">
-            {{ resultCount() }} resultado{{ resultCount() === 1 ? '' : 's' }}
-            @if (query()) {
-              <span> para “{{ query() }}”</span>
-            }
-          </p>
-        }
-
-        @for (section of visibleSections(); track section.id) {
-          <section class="menu__section" [id]="section.id" [attr.data-sec]="section.id">
-            <div class="menu__section-head">
-              <h2>{{ section.label }}</h2>
-              <span>{{ section.items.length }}</span>
-            </div>
-            <ul>
-              @for (item of section.items; track $index) {
-                <li class="menu__item">
-                  <div class="menu__row">
-                    <span class="menu__name">{{ item.name }}</span>
-                    @if (priceOf(item); as price) {
-                      <span class="menu__price">{{ price }}</span>
-                    }
-                  </div>
-                  @if (item.description) {
-                    <p class="menu__desc">{{ item.description }}</p>
-                  }
-                </li>
+          <div class="menu__dock">
+            <label class="menu__search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"
+                />
+              </svg>
+              <input
+                type="search"
+                placeholder="Buscar plato o ingrediente…"
+                [ngModel]="query()"
+                (ngModelChange)="onQuery($event)"
+                autocomplete="off"
+              />
+              @if (query()) {
+                <button type="button" class="menu__search-clear" (click)="onQuery('')" aria-label="Limpiar">
+                  ×
+                </button>
               }
-            </ul>
-          </section>
-        } @empty {
-          <p class="menu__empty">No encontramos eso en la carta. Probá con otra palabra.</p>
-        }
+            </label>
 
-        @if (data()?.menu?.note) {
-          <p class="menu__note">{{ data()?.menu?.note }}</p>
-        }
+            @if (filterOpts().length > 1) {
+              <div class="menu__filters" role="tablist" aria-label="Filtros">
+                @for (opt of filterOpts(); track opt.id) {
+                  <button
+                    type="button"
+                    class="menu__chip"
+                    [class.menu__chip--on]="filter() === opt.id"
+                    (click)="setFilter(opt.id)"
+                  >
+                    {{ opt.label }}
+                  </button>
+                }
+              </div>
+            }
+
+            @if (visibleSections().length > 1 && !query()) {
+              <nav class="menu__cats" aria-label="Categorías">
+                @for (sec of visibleSections(); track sec.id) {
+                  <button
+                    type="button"
+                    class="menu__cat"
+                    [class.menu__cat--on]="activeSection() === sec.id"
+                    (click)="scrollTo(sec.id)"
+                  >
+                    {{ sec.label }}
+                  </button>
+                }
+              </nav>
+            }
+          </div>
+
+          @if (query() || filter() !== 'all') {
+            <p class="menu__count">
+              {{ resultCount() }} resultado{{ resultCount() === 1 ? '' : 's' }}
+              @if (query()) {
+                <span> para “{{ query() }}”</span>
+              }
+            </p>
+          }
+
+          @for (section of visibleSections(); track section.id) {
+            <section class="menu__section" [id]="section.id" [attr.data-sec]="section.id">
+              <h2 class="menu__section-title">{{ section.label }}</h2>
+              <ul>
+                @for (item of section.items; track $index) {
+                  <li class="menu__item">
+                    <div class="menu__row">
+                      <span class="menu__name">{{ item.name }}</span>
+                      @if (priceOf(item); as price) {
+                        <span class="menu__dots" aria-hidden="true"></span>
+                        <span class="menu__price">{{ price }}</span>
+                      }
+                    </div>
+                    @if (item.description) {
+                      <p class="menu__desc">{{ item.description }}</p>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          } @empty {
+            <p class="menu__empty">No encontramos eso en la carta. Probá con otra palabra.</p>
+          }
+
+          @if (data()?.menu?.note) {
+            <p class="menu__note">{{ data()?.menu?.note }}</p>
+          }
+        </div>
       </div>
     } @else {
       <div class="menu menu--error">
@@ -274,28 +259,38 @@ type FilterOpt = { id: FilterId; label: string };
   `,
   styles: [
     `
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,700&family=Outfit:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Figtree:wght@400;500;600;700&display=swap');
 
       :host {
         display: block;
         min-height: 100dvh;
-        font-family: Outfit, 'Segoe UI', sans-serif;
+        font-family: Figtree, 'Segoe UI', sans-serif;
       }
       .menu {
-        --accent: #2e7d32;
-        --paper: #f4efe6;
-        --muted: #b8aea2;
+        --accent: #2f6b45;
+        --ink: #1a221c;
+        --muted: #6b756e;
+        --line: color-mix(in srgb, var(--accent) 22%, #c8d0c6);
+        --paper: #f5f6f2;
+        --sheet: #fbfcf9;
         min-height: 100dvh;
-        padding: calc(1.1rem + env(safe-area-inset-top, 0px)) 1.1rem
-          calc(2rem + env(safe-area-inset-bottom, 0px));
-        color: var(--paper);
+        color: var(--ink);
         background:
-          radial-gradient(
-            ellipse 90% 42% at 50% -8%,
-            color-mix(in srgb, var(--accent) 28%, transparent),
-            transparent 68%
-          ),
-          linear-gradient(168deg, #171310 0%, #0c0a09 48%, #14110f 100%);
+          radial-gradient(ellipse 70% 40% at 50% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+          linear-gradient(180deg, #e8ece6 0%, var(--paper) 28%, #eef1ec 100%);
+        padding: calc(0.85rem + env(safe-area-inset-top, 0px)) 0.85rem
+          calc(2rem + env(safe-area-inset-bottom, 0px));
+      }
+      .menu__sheet {
+        max-width: 38rem;
+        margin: 0 auto;
+        background: var(--sheet);
+        border: 1px solid color-mix(in srgb, var(--accent) 12%, #d5dcd2);
+        border-radius: 1.35rem;
+        padding: 1.35rem 1.15rem 1.75rem;
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.7) inset,
+          0 18px 40px rgba(28, 40, 30, 0.08);
       }
       .menu--error {
         display: grid;
@@ -303,132 +298,143 @@ type FilterOpt = { id: FilterId; label: string };
         gap: 1rem;
         text-align: center;
         color: var(--muted);
+        min-height: 100dvh;
       }
       .menu__hero {
-        position: relative;
         text-align: center;
-        max-width: 40rem;
-        margin: 0 auto 1.15rem;
-      }
-      .menu__glow {
-        position: absolute;
-        inset: -1.2rem 8% auto;
-        height: 7rem;
-        background: radial-gradient(circle, color-mix(in srgb, var(--accent) 38%, transparent), transparent 70%);
-        pointer-events: none;
+        margin-bottom: 1.15rem;
+        padding-bottom: 1.05rem;
+        border-bottom: 1px solid var(--line);
       }
       .menu__logo {
-        position: relative;
-        width: 5.1rem;
-        height: 5.1rem;
+        width: 4.4rem;
+        height: 4.4rem;
         object-fit: contain;
-        border-radius: 1.15rem;
+        border-radius: 50%;
         background: #fff;
-        padding: 0.28rem;
-        margin-bottom: 0.7rem;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        padding: 0.2rem;
+        margin-bottom: 0.55rem;
+        border: 1px solid var(--line);
       }
       .menu__eyebrow {
         margin: 0;
-        letter-spacing: 0.28em;
+        letter-spacing: 0.34em;
         text-transform: uppercase;
         font-size: 0.68rem;
-        font-weight: 650;
-        color: color-mix(in srgb, var(--accent) 78%, #f6e7c8);
+        font-weight: 600;
+        color: color-mix(in srgb, var(--accent) 82%, #1a221c);
       }
       .menu h1 {
-        margin: 0.2rem 0 0;
-        font-family: Fraunces, Georgia, serif;
-        font-size: clamp(1.85rem, 6vw, 2.45rem);
-        font-weight: 650;
+        margin: 0.15rem 0 0;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: clamp(2.15rem, 8vw, 2.85rem);
+        font-weight: 600;
         letter-spacing: -0.02em;
+        line-height: 1.05;
+        color: var(--ink);
       }
       .menu__contact {
-        margin: 0.45rem 0 0;
+        margin: 0.4rem 0 0;
         display: flex;
         justify-content: center;
-        gap: 0.9rem;
+        align-items: center;
+        gap: 0.45rem;
         font-size: 0.88rem;
+        color: var(--muted);
       }
       .menu__contact a {
         color: var(--muted);
         text-decoration: none;
       }
+      .menu__contact a:hover {
+        color: var(--accent);
+      }
       .menu__hero-actions {
-        margin-top: 0.9rem;
+        margin-top: 0.7rem;
         display: flex;
-        flex-wrap: wrap;
         justify-content: center;
+        align-items: center;
         gap: 0.45rem;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+      .menu__link-btn {
+        border: 0;
+        background: transparent;
+        color: color-mix(in srgb, var(--accent) 75%, #1a221c);
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.86rem;
+        text-decoration: underline;
+        text-underline-offset: 0.18em;
+        cursor: pointer;
+        padding: 0;
       }
       .menu__btn {
         display: inline-flex;
         align-items: center;
-        gap: 0.4rem;
-        border: 1px solid color-mix(in srgb, var(--accent) 45%, #3a332c);
-        background: color-mix(in srgb, var(--accent) 18%, #1c1815);
-        color: var(--paper);
+        justify-content: center;
+        gap: 0.35rem;
+        border: 1px solid color-mix(in srgb, var(--accent) 45%, #b7c2b6);
+        background: var(--accent);
+        color: #fff;
         border-radius: 999px;
         padding: 0.5rem 1rem;
         font: inherit;
         font-weight: 650;
         font-size: 0.88rem;
         cursor: pointer;
-      }
-      .menu__btn svg {
-        width: 1.12rem;
-        height: 1.12rem;
+        text-decoration: none;
       }
       .menu__btn--ghost {
-        background: color-mix(in srgb, #fff 6%, transparent);
-      }
-      .menu__btn--light {
-        color: #1a1512;
-        background: #fff;
-        border-color: #d7cfc4;
+        background: transparent;
+        color: var(--ink);
+        border-color: #c9d1c7;
       }
       .menu__books {
         display: flex;
         justify-content: center;
-        gap: 0.4rem;
-        max-width: 40rem;
-        margin: 0 auto 0.85rem;
+        gap: 0;
+        margin: 0 auto 0.95rem;
+        border-bottom: 1px solid var(--line);
       }
       .menu__book {
+        flex: 1;
+        text-align: center;
         text-decoration: none;
-        color: var(--paper);
-        border: 1px solid color-mix(in srgb, var(--accent) 35%, #3a332c);
-        background: color-mix(in srgb, #fff 5%, transparent);
-        border-radius: 999px;
-        padding: 0.48rem 1.05rem;
-        font-weight: 650;
-        font-size: 0.9rem;
+        color: var(--muted);
+        padding: 0.55rem 0.4rem 0.7rem;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
       }
       .menu__book--on {
-        background: color-mix(in srgb, var(--accent) 72%, #1c1815);
-        border-color: color-mix(in srgb, var(--accent) 85%, #fff);
+        color: var(--ink);
+        border-bottom-color: var(--accent);
       }
       .menu__dock {
         position: sticky;
         top: 0;
         z-index: 8;
-        max-width: 40rem;
-        margin: 0 auto 1rem;
-        padding: 0.55rem 0 0.65rem;
-        background: linear-gradient(180deg, #0c0a09 70%, color-mix(in srgb, #0c0a09 0%, transparent));
+        margin: 0 0 1.1rem;
+        padding: 0.45rem 0 0.55rem;
+        background: color-mix(in srgb, var(--sheet) 92%, transparent);
+        backdrop-filter: blur(10px);
       }
       .menu__search {
         display: flex;
         align-items: center;
-        gap: 0.45rem;
-        padding: 0.55rem 0.8rem;
-        border-radius: 14px;
-        background: color-mix(in srgb, #fff 7%, #161310);
-        border: 1px solid color-mix(in srgb, var(--accent) 22%, #3a332c);
+        gap: 0.4rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid var(--line);
       }
       .menu__search svg {
-        width: 1.2rem;
-        height: 1.2rem;
+        width: 1.1rem;
+        height: 1.1rem;
         flex-shrink: 0;
         color: var(--muted);
       }
@@ -437,29 +443,29 @@ type FilterOpt = { id: FilterId; label: string };
         min-width: 0;
         border: 0;
         background: transparent;
-        color: var(--paper);
+        color: var(--ink);
         font: inherit;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         outline: none;
       }
       .menu__search input::placeholder {
-        color: #8d8478;
+        color: #8a938b;
       }
       .menu__search-clear {
         border: 0;
         background: transparent;
         color: var(--muted);
-        font-size: 1.3rem;
+        font-size: 1.25rem;
         line-height: 1;
         cursor: pointer;
       }
       .menu__filters,
       .menu__cats {
         display: flex;
-        gap: 0.4rem;
+        gap: 0.15rem 0.85rem;
         overflow-x: auto;
         scrollbar-width: none;
-        padding: 0.55rem 0 0.1rem;
+        padding: 0.65rem 0.1rem 0.1rem;
         -webkit-overflow-scrolling: touch;
       }
       .menu__filters::-webkit-scrollbar,
@@ -469,137 +475,166 @@ type FilterOpt = { id: FilterId; label: string };
       .menu__chip,
       .menu__cat {
         flex-shrink: 0;
-        border: 1px solid color-mix(in srgb, #fff 12%, #3a332c);
-        background: color-mix(in srgb, #fff 5%, transparent);
-        color: var(--paper);
-        border-radius: 999px;
-        padding: 0.38rem 0.8rem;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        padding: 0.15rem 0;
         font: inherit;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 600;
         cursor: pointer;
+        border-bottom: 1.5px solid transparent;
       }
       .menu__chip--on,
       .menu__cat--on {
-        background: color-mix(in srgb, var(--accent) 70%, #1c1815);
-        border-color: color-mix(in srgb, var(--accent) 80%, #fff);
+        color: var(--ink);
+        border-bottom-color: var(--accent);
+      }
+      .menu__cats {
+        border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+        margin-top: 0.35rem;
+        padding-top: 0.55rem;
+      }
+      .menu__cat {
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.05rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
       }
       .menu__count,
       .menu__empty {
-        max-width: 40rem;
-        margin: 0 auto 0.9rem;
+        margin: 0 0 0.9rem;
         text-align: center;
         color: var(--muted);
         font-size: 0.86rem;
       }
       .menu__section {
-        max-width: 40rem;
-        margin: 0 auto 1.55rem;
-        scroll-margin-top: 8.5rem;
+        margin: 0 0 1.65rem;
+        scroll-margin-top: 7.5rem;
       }
-      .menu__section-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-        padding-bottom: 0.45rem;
-        border-bottom: 1px solid color-mix(in srgb, var(--accent) 32%, #3a332c);
+      .menu__section-title {
+        margin: 0 0 0.85rem;
+        text-align: center;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.55rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--accent) 55%, #1a221c);
       }
-      .menu__section-head h2 {
-        margin: 0;
-        font-family: Fraunces, Georgia, serif;
-        font-size: 1.35rem;
-        font-weight: 650;
-        letter-spacing: -0.01em;
-        text-transform: none;
-        color: #f6e7c8;
-      }
-      .menu__section-head span {
-        font-size: 0.75rem;
-        color: var(--muted);
+      .menu__section-title::after {
+        content: '';
+        display: block;
+        width: 2.4rem;
+        height: 1px;
+        margin: 0.45rem auto 0;
+        background: var(--line);
       }
       .menu__section ul {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        gap: 0.55rem;
+        gap: 0.85rem;
       }
       .menu__item {
-        padding: 0.7rem 0.85rem 0.75rem;
-        border-radius: 14px;
-        background: color-mix(in srgb, #fff 5.5%, transparent);
-        border: 1px solid color-mix(in srgb, #fff 8%, #2a2420);
+        padding: 0;
+        background: transparent;
+        border: 0;
       }
       .menu__row {
         display: flex;
         align-items: baseline;
-        justify-content: space-between;
-        gap: 0.75rem;
+        gap: 0.45rem;
       }
       .menu__name {
         font-weight: 650;
         font-size: 0.98rem;
-        line-height: 1.3;
+        line-height: 1.25;
+        color: var(--ink);
+      }
+      .menu__dots {
+        flex: 1;
+        min-width: 1rem;
+        border-bottom: 1px dotted color-mix(in srgb, var(--accent) 28%, #b7c0b5);
+        transform: translateY(-0.25em);
       }
       .menu__price {
         flex-shrink: 0;
         font-variant-numeric: tabular-nums;
-        font-weight: 700;
-        font-size: 0.86rem;
-        color: #f6e7c8;
-        background: color-mix(in srgb, var(--accent) 22%, transparent);
-        border-radius: 999px;
-        padding: 0.18rem 0.55rem;
+        font-weight: 650;
+        font-size: 0.92rem;
+        color: var(--ink);
         white-space: nowrap;
       }
       .menu__desc {
-        margin: 0.28rem 0 0;
-        font-size: 0.82rem;
+        margin: 0.18rem 0 0;
+        font-size: 0.84rem;
         line-height: 1.4;
         color: var(--muted);
+        max-width: 92%;
       }
       .menu__note {
-        max-width: 40rem;
-        margin: 1.5rem auto 0;
+        margin: 1.25rem 0 0;
         text-align: center;
         font-size: 0.8rem;
         line-height: 1.45;
-        color: #9d9488;
+        color: var(--muted);
+        font-style: italic;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1rem;
       }
-      .menu__qr-mask {
+      .menu__mask {
         position: fixed;
         inset: 0;
         z-index: 40;
         display: grid;
         place-items: center;
         padding: 1.25rem;
-        background: rgba(8, 6, 5, 0.72);
+        background: rgba(20, 28, 22, 0.55);
         backdrop-filter: blur(8px);
       }
-      .menu__qr-card {
+      .menu__dialog {
         width: min(100%, 22rem);
         display: grid;
         justify-items: center;
-        gap: 0.45rem;
+        gap: 0.4rem;
         padding: 1.25rem 1.1rem 1.15rem;
-        border-radius: 1.25rem;
-        background: #f7f1e8;
-        color: #1a1512;
-        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+        border-radius: 1.15rem;
+        background: #fbfcf9;
+        color: var(--ink);
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
       }
-      .menu__qr-title {
+      .menu__dialog--wide {
+        width: min(100%, 42rem);
+        max-height: min(92dvh, 56rem);
+        grid-template-rows: auto 1fr auto;
+        justify-items: stretch;
+      }
+      .menu__dialog-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .menu__dialog-title {
         margin: 0;
-        font-family: Fraunces, Georgia, serif;
+        font-family: 'Cormorant Garamond', Georgia, serif;
         font-weight: 650;
-        font-size: 1.15rem;
+        font-size: 1.35rem;
         text-align: center;
       }
-      .menu__qr-shop {
+      .menu__dialog-head .menu__dialog-title {
+        text-align: left;
+      }
+      .menu__dialog-sub {
         margin: 0 0 0.35rem;
-        color: #5c534a;
+        color: var(--muted);
         font-size: 0.88rem;
+        text-align: center;
+      }
+      .menu__dialog-head .menu__dialog-sub {
+        text-align: left;
       }
       .menu__qr-img {
         width: min(100%, 16rem);
@@ -607,37 +642,17 @@ type FilterOpt = { id: FilterId; label: string };
         background: #fff;
         border-radius: 12px;
       }
-      .menu__qr-wait {
+      .menu__dialog-wait {
         margin: 1rem 0;
-        color: #5c534a;
+        color: var(--muted);
+        text-align: center;
       }
-      .menu__qr-actions {
+      .menu__dialog-actions {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
         gap: 0.5rem;
         margin-top: 0.55rem;
-      }
-      .menu__qr-actions a {
-        text-decoration: none;
-      }
-      .menu__source-card {
-        width: min(100%, 42rem);
-        max-height: min(92dvh, 56rem);
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        gap: 0.55rem;
-        padding: 1rem 1rem 1.05rem;
-        border-radius: 1.25rem;
-        background: #f7f1e8;
-        color: #1a1512;
-        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
-      }
-      .menu__source-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem;
       }
       .menu__source-frame {
         width: 100%;
@@ -652,6 +667,12 @@ type FilterOpt = { id: FilterId; label: string };
         object-fit: contain;
         border-radius: 12px;
         background: #fff;
+      }
+      @media (max-width: 420px) {
+        .menu__sheet {
+          padding-left: 0.95rem;
+          padding-right: 0.95rem;
+        }
       }
     `,
   ],
@@ -676,7 +697,7 @@ export class PublicMenuPageComponent implements OnInit {
   readonly menus = computed(() => this.data()?.menus ?? []);
   readonly currentSlug = computed(() => this.data()?.menu?.slug || this.menuSlug || this.menus()[0]?.slug || '');
   readonly hasSourceFile = computed(() => !!this.data()?.menu?.hasSourceFile);
-  readonly accent = computed(() => this.shop()?.accentColor || '#2e7d32');
+  readonly accent = computed(() => this.shop()?.accentColor || '#2f6b45');
   readonly logoUrl = computed(() => {
     const raw = this.shop()?.logoUrl;
     const shopId = this.shop()?.id;
@@ -925,13 +946,72 @@ function slugify(raw: string): string {
     .slice(0, 40);
 }
 
+const SECTION_SPLIT =
+  /^(la\s*)?(pasta|pizze?|panini|panino|dolci|stuzzichini|aperitivi|birre|bibite|vini|entradas?|postres?|bebidas?|tragos?|ensaladas?|hamburguesas?|sandwiches?|platos?|principales?|minutas?|vinos?|cervezas?|cocktails?)\b/i;
+
 function prettySection(name: string): string {
-  const t = String(name ?? '').trim();
+  let t = String(name ?? '').trim();
   if (!t) return 'Carta';
+  const known: Record<string, string> = {
+    lapasta: 'La pasta',
+    aperitivilebirre: 'Aperitivi e birre',
+    aperitivibirre: 'Aperitivi e birre',
+    stuzzichini: 'Stuzzichini',
+    dolci: 'Dolci',
+    bibite: 'Bibite',
+    carta: 'Carta',
+    vini: 'Vini',
+    panini: 'Panini',
+  };
+  const key = normalizeText(t).replace(/\s+/g, '');
+  if (known[key]) return known[key];
+
+  // "Aperitivilebirre" / "Lapasta" → insert spaces before known words
+  if (!/\s/.test(t) && t.length > 8) {
+    const lower = t.toLowerCase();
+    const parts = [
+      'aperitivi',
+      'stuzzichini',
+      'hamburguesas',
+      'sandwiches',
+      'principales',
+      'entradas',
+      'ensaladas',
+      'cocktails',
+      'cervezas',
+      'bebidas',
+      'postres',
+      'panini',
+      'panino',
+      'pasta',
+      'pizze',
+      'pizza',
+      'dolci',
+      'birre',
+      'bibite',
+      'vini',
+      'vinos',
+      'tragos',
+    ];
+    for (const part of parts) {
+      const idx = lower.indexOf(part);
+      if (idx > 0) {
+        const left = t.slice(0, idx).trim();
+        const right = t.slice(idx);
+        if (SECTION_SPLIT.test(right) || parts.includes(part)) {
+          t = `${left} ${right}`.replace(/\s+/g, ' ').trim();
+          if (/^la$/i.test(left) && /^pasta/i.test(right)) t = `La ${right}`;
+          if (/aperitivi/i.test(left) && /^birre/i.test(right)) t = 'Aperitivi e birre';
+          break;
+        }
+      }
+    }
+  }
+
   if (t === t.toUpperCase() && /[A-ZÁÉÍÓÚÜÑ]/.test(t)) {
     return t.charAt(0) + t.slice(1).toLowerCase();
   }
-  return t;
+  return t.replace(/\s+/g, ' ');
 }
 
 function blobOf(item: MenuItem, section: MenuSection): string {
