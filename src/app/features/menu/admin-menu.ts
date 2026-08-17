@@ -212,6 +212,9 @@ function toPrice(value: unknown): number | null {
           @if (parseNote()) {
             <p class="menu-admin__parse">{{ parseNote() }}</p>
           }
+          @if (geminiWarning()) {
+            <p class="menu-admin__warn">{{ geminiWarning() }}</p>
+          }
           @if (rawText()) {
             <details class="menu-admin__raw">
               <summary>Texto leído del archivo</summary>
@@ -528,6 +531,7 @@ export class AdminMenuPage {
   readonly enabled = signal(false);
   readonly shopSlug = signal('');
   readonly parseNote = signal('');
+  readonly geminiWarning = signal('');
   readonly rawText = signal('');
   readonly menus = signal<ShopMenu[]>([]);
   readonly activeId = signal<string | null>(null);
@@ -742,13 +746,17 @@ export class AdminMenuPage {
         : { sourceFile: null, sourceFileName: null, sourceMime: null };
     this.parsing.set(true);
     this.parseNote.set('');
+    this.geminiWarning.set('');
     const fd = new FormData();
     fd.append('file', file, safeUploadFileName(file.name));
     this.http
-      .post<{ menu: ShopMenu; rawText?: string; fileName?: string; engine?: string }>(
-        `${environment.apiUrl}/shops/${shopId}/menu/parse`,
-        fd,
-      )
+      .post<{
+        menu: ShopMenu;
+        rawText?: string;
+        fileName?: string;
+        engine?: string;
+        geminiWarning?: string | null;
+      }>(`${environment.apiUrl}/shops/${shopId}/menu/parse`, fd)
       .subscribe({
         next: (res) => {
           this.parsing.set(false);
@@ -774,12 +782,24 @@ export class AdminMenuPage {
           this.loadEditor(parsed);
           this.rawText.set((res.rawText ?? '').trim());
           const count = parsed.sections.reduce((n, s) => n + s.items.length, 0);
-          const via = res.engine === 'gemini' ? ' (mejorado con IA)' : '';
-          this.parseNote.set(
-            count
-              ? `Leímos ${count} ítem${count === 1 ? '' : 's'} de ${res.fileName || 'el archivo'}${via}. Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
-              : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
-          );
+          if (res.engine === 'gemini') {
+            this.parseNote.set(
+              count
+                ? `Leímos ${count} ítem${count === 1 ? '' : 's'} con Gemini de ${res.fileName || 'el archivo'}. Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
+                : 'Gemini no encontró ítems claros.',
+            );
+            this.geminiWarning.set('');
+          } else {
+            this.parseNote.set(
+              count
+                ? `Leímos ${count} ítem${count === 1 ? '' : 's'} con parseo local de ${res.fileName || 'el archivo'}. Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
+                : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
+            );
+            this.geminiWarning.set(
+              res.geminiWarning ||
+                'No se usó Gemini. Se usó el parseo local.',
+            );
+          }
         },
         error: (err: HttpErrorResponse) => {
           this.parsing.set(false);
