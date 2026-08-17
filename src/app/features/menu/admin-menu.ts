@@ -166,6 +166,13 @@ function toPrice(value: unknown): number | null {
                 accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
                 (change)="onFilePicked(replaceInput, 'replace')"
               />
+              <input
+                #sourceInput
+                type="file"
+                hidden
+                accept=".pdf,image/*,.jpg,.jpeg,.png,.webp"
+                (change)="onSourcePicked(sourceInput)"
+              />
               <button
                 mat-flat-button
                 color="primary"
@@ -183,7 +190,8 @@ function toPrice(value: unknown): number | null {
             </div>
           </div>
           <p class="menu-admin__hint">
-            Podés tener varias: la de comidas, la de vinos, tragos, etc. Cada una se arma desde un PDF, una foto o a mano.
+            <strong>Agregar / Reemplazar</strong> lee el PDF para armar ítems.
+            <strong>Cargar carta física</strong> sube el archivo que el cliente ve en la web (sin cambiar los ítems).
           </p>
           @if (menus().length) {
             <div class="menu-admin__tabs" role="tablist">
@@ -229,7 +237,16 @@ function toPrice(value: unknown): number | null {
                 }
                 <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
                   <mat-icon>sync</mat-icon>
-                  Reemplazar con archivo
+                  Reemplazar contenido
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="uploadingSource() || parsing()"
+                  (click)="sourceInput.click()"
+                >
+                  <mat-icon>picture_as_pdf</mat-icon>
+                  {{ uploadingSource() ? 'Subiendo…' : 'Cargar carta física' }}
                 </button>
                 <button mat-stroked-button type="button" (click)="removeActive()">
                   <mat-icon>delete</mat-icon>
@@ -258,13 +275,24 @@ function toPrice(value: unknown): number | null {
               </mat-form-field>
             </div>
             @if (sourceFileName) {
-              <p class="menu-admin__source">
-                Carta física: <strong>{{ sourceFileName }}</strong>
-                — se muestra con el botón “Ver carta física” en la página pública.
-              </p>
+              <div class="menu-admin__source">
+                <p>
+                  Carta física lista: <strong>{{ sourceFileName }}</strong>
+                  — el cliente la ve con “Carta física” en la página pública.
+                </p>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="uploadingSource()"
+                  (click)="clearSource()"
+                >
+                  <mat-icon>link_off</mat-icon>
+                  Quitar archivo físico
+                </button>
+              </div>
             } @else {
               <p class="menu-admin__hint">
-                Para mostrar la carta física en la web, subí o reemplazá esta carta con el PDF/foto y guardá.
+                Todavía no hay PDF/foto para la vista pública. Usá <strong>Cargar carta física</strong> (no hace falta reemplazar el contenido).
               </p>
             }
 
@@ -361,11 +389,19 @@ function toPrice(value: unknown): number | null {
       color: var(--guy-muted, #5f6f76);
     }
     .menu-admin__source {
+      margin: 0 0 0.85rem;
       padding: 0.65rem 0.85rem;
       border-radius: 12px;
       background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, #fff);
       border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 22%, #d7e0d9);
       color: var(--guy-navy, #003366);
+      display: grid;
+      gap: 0.55rem;
+      justify-items: start;
+    }
+    .menu-admin__source p {
+      margin: 0;
+      font-size: 0.9rem;
     }
     .menu-admin__warn {
       color: #b45309;
@@ -488,6 +524,7 @@ export class AdminMenuPage {
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly parsing = signal(false);
+  readonly uploadingSource = signal(false);
   readonly enabled = signal(false);
   readonly shopSlug = signal('');
   readonly parseNote = signal('');
@@ -692,9 +729,17 @@ export class AdminMenuPage {
     const shopId = this.shopId();
     if (!shopId) return;
     if (mode === 'replace' && this.sections().some((s) => s.items.some((it) => it.name.trim()))) {
-      const ok = window.confirm('Esto reemplaza el contenido de esta carta. ¿Seguimos?');
+      const ok = window.confirm('Esto reemplaza el contenido (ítems) de esta carta. El archivo físico no se toca. ¿Seguimos?');
       if (!ok) return;
     }
+    const keepSource =
+      mode === 'replace'
+        ? {
+            sourceFile: this.sourceFile,
+            sourceFileName: this.sourceFileName || null,
+            sourceMime: this.sourceMime,
+          }
+        : { sourceFile: null, sourceFileName: null, sourceMime: null };
     this.parsing.set(true);
     this.parseNote.set('');
     const fd = new FormData();
@@ -711,10 +756,14 @@ export class AdminMenuPage {
           const parsed = cloneMenu({
             ...res.menu,
             id: mode === 'replace' && this.activeId() ? this.activeId()! : newMenuId(),
-            slug: uniqueSlug(res.menu.slug || res.menu.title || 'carta', this.menus(), mode === 'replace' ? this.activeId() ?? undefined : undefined),
-            sourceFile: res.menu.sourceFile ?? null,
-            sourceFileName: res.menu.sourceFileName ?? res.fileName ?? null,
-            sourceMime: res.menu.sourceMime ?? null,
+            slug: uniqueSlug(
+              res.menu.slug || res.menu.title || 'carta',
+              this.menus(),
+              mode === 'replace' ? this.activeId() ?? undefined : undefined,
+            ),
+            sourceFile: keepSource.sourceFile,
+            sourceFileName: keepSource.sourceFileName,
+            sourceMime: keepSource.sourceMime,
           });
           if (mode === 'replace' && this.activeId()) {
             this.menus.update((list) => list.map((m) => (m.id === this.activeId() ? parsed : m)));
@@ -728,7 +777,7 @@ export class AdminMenuPage {
           const via = res.engine === 'gemini' ? ' (mejorado con IA)' : '';
           this.parseNote.set(
             count
-              ? `Leímos ${count} ítem${count === 1 ? '' : 's'} de ${res.fileName || 'el archivo'}${via}. Revisá y guardá.`
+              ? `Leímos ${count} ítem${count === 1 ? '' : 's'} de ${res.fileName || 'el archivo'}${via}. Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
               : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
           );
         },
@@ -738,6 +787,74 @@ export class AdminMenuPage {
             (err.error && typeof err.error === 'object' && (err.error.message as string)) ||
             'No se pudo leer el archivo';
           this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
+        },
+      });
+  }
+
+  async onSourcePicked(input: HTMLInputElement): Promise<void> {
+    const file = await takeInputFile(input);
+    if (!file) return;
+    const shopId = this.shopId();
+    const menuId = this.activeId();
+    if (!shopId || !menuId) return;
+    this.flushActive();
+    this.uploadingSource.set(true);
+    // Guardamos primero para que el menuId exista en el servidor
+    this.http.put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, { menus: this.menus() }).subscribe({
+      next: (saved) => {
+        this.applyPayload(saved);
+        const id = this.activeId() || menuId;
+        const fd = new FormData();
+        fd.append('file', file, safeUploadFileName(file.name));
+        this.http
+          .post<MenuAdminResponse & { attached?: { sourceFileName?: string | null } }>(
+            `${environment.apiUrl}/shops/${shopId}/menu/${encodeURIComponent(id)}/source`,
+            fd,
+          )
+          .subscribe({
+            next: (res) => {
+              this.uploadingSource.set(false);
+              this.applyPayload(res);
+              this.snack.open(
+                `Carta física lista: ${res.attached?.sourceFileName || file.name}`,
+                'OK',
+                { duration: 2800 },
+              );
+            },
+            error: (err: HttpErrorResponse) => {
+              this.uploadingSource.set(false);
+              const msg =
+                (err.error && typeof err.error === 'object' && (err.error.message as string)) ||
+                'No se pudo cargar la carta física';
+              this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
+            },
+          });
+      },
+      error: () => {
+        this.uploadingSource.set(false);
+        this.snack.open('Guardá la carta antes de cargar el archivo físico', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  clearSource(): void {
+    const shopId = this.shopId();
+    const menuId = this.activeId();
+    if (!shopId || !menuId) return;
+    if (!window.confirm('¿Quitar el archivo de la carta física? Los ítems no se borran.')) return;
+    this.flushActive();
+    this.uploadingSource.set(true);
+    this.http
+      .delete<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu/${encodeURIComponent(menuId)}/source`)
+      .subscribe({
+        next: (res) => {
+          this.uploadingSource.set(false);
+          this.applyPayload(res);
+          this.snack.open('Archivo físico quitado', 'OK', { duration: 2200 });
+        },
+        error: () => {
+          this.uploadingSource.set(false);
+          this.snack.open('No se pudo quitar el archivo', 'OK', { duration: 3000 });
         },
       });
   }
