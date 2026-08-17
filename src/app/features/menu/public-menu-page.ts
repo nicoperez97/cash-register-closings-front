@@ -1,6 +1,7 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, DestroyRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { environment } from '../../../environments/environment';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 
@@ -27,13 +28,21 @@ type MenuSection = {
 };
 
 type ShopMenu = {
+  id?: string;
+  slug?: string;
   title?: string | null;
   note?: string | null;
   sections: MenuSection[];
 };
 
+type MenuSummary = {
+  slug: string;
+  title: string;
+};
+
 @Component({
   selector: 'app-public-menu-page',
+  imports: [RouterLink],
   template: `
     @if (error()) {
       <div class="menu menu--error" [style.--accent]="accent()">
@@ -48,10 +57,7 @@ type ShopMenu = {
             <img class="menu__logo" [src]="logoUrl()!" [alt]="s.name" />
           }
           <p class="menu__eyebrow">Carta</p>
-          <h1>{{ data()?.menu?.title || s.name }}</h1>
-          @if (data()?.menu?.title && data()?.menu?.title !== s.name) {
-            <p class="menu__shop">{{ s.name }}</p>
-          }
+          <h1>{{ s.name }}</h1>
           @if (s.instagramHandle || s.phone) {
             <p class="menu__contact">
               @if (s.instagramHandle) {
@@ -63,6 +69,24 @@ type ShopMenu = {
             </p>
           }
         </header>
+
+        @if (menus().length > 1) {
+          <nav class="menu__tabs" aria-label="Cartas">
+            @for (m of menus(); track m.slug) {
+              <a
+                class="menu__tab"
+                [class.menu__tab--on]="m.slug === currentSlug()"
+                [routerLink]="['/m', s.slug, m.slug]"
+              >
+                {{ m.title }}
+              </a>
+            }
+          </nav>
+        }
+
+        @if (data()?.menu?.title && data()?.menu?.title !== s.name) {
+          <h2 class="menu__current">{{ data()?.menu?.title }}</h2>
+        }
 
         @for (section of sections(); track $index) {
           <section class="menu__section">
@@ -128,7 +152,7 @@ type ShopMenu = {
         position: relative;
         text-align: center;
         max-width: 36rem;
-        margin: 0 auto 1.5rem;
+        margin: 0 auto 1.15rem;
       }
       .menu__glow {
         position: absolute;
@@ -160,16 +184,43 @@ type ShopMenu = {
         font-size: 1.7rem;
         font-weight: 750;
       }
-      .menu__shop,
       .menu__contact {
         margin: 0.35rem 0 0;
         color: #cfc6ba;
         font-size: 0.9rem;
-      }
-      .menu__contact {
         display: flex;
         justify-content: center;
         gap: 0.85rem;
+      }
+      .menu__tabs {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.45rem;
+        max-width: 36rem;
+        margin: 0 auto 1.15rem;
+      }
+      .menu__tab {
+        text-decoration: none;
+        color: #f4efe6;
+        border: 1px solid color-mix(in srgb, var(--accent) 40%, #3a332c);
+        background: color-mix(in srgb, var(--accent) 12%, #1c1815);
+        border-radius: 999px;
+        padding: 0.45rem 0.95rem;
+        font-weight: 650;
+        font-size: 0.88rem;
+      }
+      .menu__tab--on {
+        background: color-mix(in srgb, var(--accent) 55%, #1c1815);
+        border-color: color-mix(in srgb, var(--accent) 80%, #3a332c);
+      }
+      .menu__current {
+        max-width: 36rem;
+        margin: 0 auto 1rem;
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #f6e7c8;
       }
       .menu__section {
         max-width: 36rem;
@@ -239,11 +290,15 @@ type ShopMenu = {
 export class PublicMenuPageComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
-  private slug = '';
+  private readonly destroyRef = inject(DestroyRef);
+  private shopSlug = '';
+  private menuSlug = '';
 
-  readonly data = signal<{ shop: PublicShop; menu: ShopMenu } | null>(null);
+  readonly data = signal<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu } | null>(null);
   readonly error = signal('');
   readonly shop = computed(() => this.data()?.shop ?? null);
+  readonly menus = computed(() => this.data()?.menus ?? []);
+  readonly currentSlug = computed(() => this.data()?.menu?.slug || this.menuSlug || this.menus()[0]?.slug || '');
   readonly accent = computed(() => this.shop()?.accentColor || '#2e7d32');
   readonly logoUrl = computed(() => {
     const raw = this.shop()?.logoUrl;
@@ -251,28 +306,29 @@ export class PublicMenuPageComponent implements OnInit {
     return resolveShopLogoSrc(raw, shopId) || normalizeLogoUrl(raw) || raw?.trim() || null;
   });
   readonly sections = computed(() =>
-    (this.data()?.menu.sections ?? []).filter((s) => (s.items ?? []).some((it) => it.name)),
+    (this.data()?.menu?.sections ?? []).filter((s) => (s.items ?? []).some((it) => it.name)),
   );
 
   ngOnInit(): void {
-    this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
-    if (!this.slug) {
-      this.error.set('Local no encontrado');
-      return;
-    }
-    this.load();
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.shopSlug = params.get('slug') ?? '';
+      this.menuSlug = params.get('menuSlug') ?? '';
+      if (!this.shopSlug) {
+        this.error.set('Local no encontrado');
+        return;
+      }
+      this.load();
+    });
   }
 
   load(): void {
     this.error.set('');
-    this.http
-      .get<{ shop: PublicShop; menu: ShopMenu }>(
-        `${environment.apiUrl}/public/shops/${encodeURIComponent(this.slug)}/menu`,
-      )
-      .subscribe({
-        next: (res) => this.data.set(res),
-        error: () => this.error.set('Carta no disponible en este local'),
-      });
+    const base = `${environment.apiUrl}/public/shops/${encodeURIComponent(this.shopSlug)}/menu`;
+    const url = this.menuSlug ? `${base}/${encodeURIComponent(this.menuSlug)}` : base;
+    this.http.get<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu }>(url).subscribe({
+      next: (res) => this.data.set(res),
+      error: () => this.error.set('Carta no disponible en este local'),
+    });
   }
 
   priceOf(item: MenuItem): string {

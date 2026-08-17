@@ -27,6 +27,8 @@ export type ShopMenuSection = {
 };
 
 export type ShopMenu = {
+  id: string;
+  slug: string;
   title?: string | null;
   note?: string | null;
   sections: ShopMenuSection[];
@@ -35,25 +37,44 @@ export type ShopMenu = {
 type MenuAdminResponse = {
   enabled: boolean;
   slug: string;
-  menu: ShopMenu;
+  menus: ShopMenu[];
 };
 
-function emptyMenu(): ShopMenu {
-  return { title: '', note: '', sections: [] };
+function newMenuId(): string {
+  return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function toPrice(value: unknown): number | null {
-  if (value == null || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function slugify(raw: string): string {
+  return String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
 }
 
-function cloneMenu(menu?: ShopMenu | null): ShopMenu {
-  const src = menu ?? emptyMenu();
+function uniqueSlug(base: string, menus: ShopMenu[], exceptId?: string): string {
+  const root = slugify(base) || 'carta';
+  const used = new Set(menus.filter((m) => m.id !== exceptId).map((m) => m.slug));
+  let slug = root;
+  let n = 2;
+  while (used.has(slug)) slug = `${root}-${n++}`.slice(0, 40);
+  return slug;
+}
+
+function emptySections(): ShopMenuSection[] {
+  return [];
+}
+
+function cloneMenu(menu: ShopMenu): ShopMenu {
   return {
-    title: src.title ?? '',
-    note: src.note ?? '',
-    sections: (src.sections ?? []).map((s) => ({
+    id: menu.id || newMenuId(),
+    slug: menu.slug || 'carta',
+    title: menu.title ?? '',
+    note: menu.note ?? '',
+    sections: (menu.sections ?? []).map((s) => ({
       name: s.name ?? '',
       items: (s.items ?? []).map((it) => ({
         name: it.name ?? '',
@@ -63,6 +84,12 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
       })),
     })),
   };
+}
+
+function toPrice(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 @Component({
@@ -79,8 +106,8 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
   ],
   template: `
     <app-page-header
-      title="Carta"
-      [subtitle]="shops.selectedShop()?.name ?? 'Menú público del local'"
+      title="Cartas"
+      [subtitle]="shops.selectedShop()?.name ?? 'Menús públicos del local'"
     />
 
     @if (!shopId()) {
@@ -89,7 +116,7 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
       <app-loading-state
         [loading]="true"
         title="Cargando…"
-        message="Obteniendo la carta del local"
+        message="Obteniendo las cartas del local"
       />
     } @else {
       <div class="menu-admin">
@@ -100,44 +127,74 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
               La carta pública está apagada. Activala en Administración → Local → Módulos públicos.
             </p>
           }
-          @if (slug()) {
+          @if (shopSlug()) {
             <div class="menu-admin__links">
-              <a class="menu-admin__btn" [href]="publicUrl()" target="_blank" rel="noopener">
+              <a class="menu-admin__btn" [href]="hubUrl()" target="_blank" rel="noopener">
                 <mat-icon>open_in_new</mat-icon>
-                Ver carta
+                Ver cartas
               </a>
-              <button type="button" class="menu-admin__btn menu-admin__btn--ghost" (click)="copyPublicUrl()">
+              <button type="button" class="menu-admin__btn menu-admin__btn--ghost" (click)="copyUrl(hubUrl(), 'Link de las cartas copiado')">
                 <mat-icon>content_copy</mat-icon>
                 Copiar link
               </button>
             </div>
-            <p class="menu-admin__url">{{ publicUrl() }}</p>
+            <p class="menu-admin__url">{{ hubUrl() }}</p>
           }
         </section>
 
         <section class="panel-card">
-          <h2>Cargar desde archivo</h2>
+          <div class="menu-admin__tabs-head">
+            <h2>Cartas del local</h2>
+            <div class="menu-admin__tab-actions">
+              <input
+                #fileInput
+                type="file"
+                hidden
+                accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
+                (change)="onFilePicked(fileInput, 'add')"
+              />
+              <input
+                #replaceInput
+                type="file"
+                hidden
+                accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
+                (change)="onFilePicked(replaceInput, 'replace')"
+              />
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="parsing() || menus().length >= 8"
+                (click)="fileInput.click()"
+              >
+                <mat-icon>upload_file</mat-icon>
+                {{ parsing() ? 'Leyendo…' : 'Agregar carta' }}
+              </button>
+              <button mat-stroked-button type="button" [disabled]="menus().length >= 8" (click)="addBlank()">
+                <mat-icon>note_add</mat-icon>
+                En blanco
+              </button>
+            </div>
+          </div>
           <p class="menu-admin__hint">
-            Subí un PDF, una foto o un .txt de la carta. El sistema lee el texto y arma secciones y precios
-            para que los revises antes de publicar.
+            Podés tener varias: la de comidas, la de vinos, tragos, etc. Cada una se arma desde un PDF, una foto o a mano.
           </p>
-          <input
-            #fileInput
-            type="file"
-            hidden
-            accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
-            (change)="onFilePicked(fileInput)"
-          />
-          <button
-            mat-flat-button
-            color="primary"
-            type="button"
-            [disabled]="parsing()"
-            (click)="fileInput.click()"
-          >
-            <mat-icon>upload_file</mat-icon>
-            {{ parsing() ? 'Leyendo…' : 'Elegir archivo' }}
-          </button>
+          @if (menus().length) {
+            <div class="menu-admin__tabs" role="tablist">
+              @for (m of menus(); track m.id) {
+                <button
+                  type="button"
+                  class="menu-admin__tab"
+                  [class.menu-admin__tab--on]="m.id === activeId()"
+                  (click)="selectMenu(m.id)"
+                >
+                  {{ m.title || 'Carta' }}
+                </button>
+              }
+            </div>
+          } @else {
+            <p class="menu-admin__hint">Todavía no hay cartas. Subí un archivo o creá una en blanco.</p>
+          }
           @if (parseNote()) {
             <p class="menu-admin__parse">{{ parseNote() }}</p>
           }
@@ -149,80 +206,109 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
           }
         </section>
 
-        <section class="panel-card">
-          <h2>Editar carta</h2>
-          <div class="menu-admin__meta">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Título</mat-label>
-              <input matInput [(ngModel)]="title" placeholder="Carta" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Nota al pie</mat-label>
-              <textarea
-                matInput
-                rows="2"
-                [(ngModel)]="note"
-                placeholder="Precios sujetos a cambio, IVA incluido…"
-              ></textarea>
-            </mat-form-field>
-          </div>
-
-          @for (section of sections(); track $index; let si = $index) {
-            <article class="menu-section">
-              <div class="menu-section__head">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-section__name">
-                  <mat-label>Sección</mat-label>
-                  <input matInput [(ngModel)]="section.name" placeholder="Entradas" />
-                </mat-form-field>
-                <button
-                  mat-icon-button
-                  type="button"
-                  aria-label="Quitar sección"
-                  (click)="removeSection(si)"
-                >
+        @if (activeId()) {
+          <section class="panel-card">
+            <div class="menu-admin__editor-head">
+              <h2>Editar {{ title || 'carta' }}</h2>
+              <div class="menu-admin__links">
+                @if (activePublicUrl()) {
+                  <a class="menu-admin__btn menu-admin__btn--ghost" [href]="activePublicUrl()" target="_blank" rel="noopener">
+                    <mat-icon>open_in_new</mat-icon>
+                    Esta carta
+                  </a>
+                  <button type="button" class="menu-admin__btn menu-admin__btn--ghost" (click)="copyUrl(activePublicUrl(), 'Link de esta carta copiado')">
+                    <mat-icon>content_copy</mat-icon>
+                    Copiar
+                  </button>
+                }
+                <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
+                  <mat-icon>sync</mat-icon>
+                  Reemplazar con archivo
+                </button>
+                <button mat-stroked-button type="button" (click)="removeActive()">
                   <mat-icon>delete</mat-icon>
+                  Quitar
                 </button>
               </div>
-              @for (item of section.items; track $index; let ii = $index) {
-                <div class="menu-item">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Plato</mat-label>
-                    <input matInput [(ngModel)]="item.name" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Descripción</mat-label>
-                    <input matInput [(ngModel)]="item.description" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
-                    <mat-label>Precio</mat-label>
-                    <input matInput type="number" min="0" step="1" [(ngModel)]="item.price" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Precio (texto)</mat-label>
-                    <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
+            </div>
+            <div class="menu-admin__meta">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Nombre</mat-label>
+                <input matInput [(ngModel)]="title" placeholder="Carta" (ngModelChange)="onTitleChange()" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Link</mat-label>
+                <input matInput [(ngModel)]="menuSlug" placeholder="vinos" />
+                <span matPrefix>/m/{{ shopSlug() }}/&nbsp;</span>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Nota al pie</mat-label>
+                <textarea
+                  matInput
+                  rows="2"
+                  [(ngModel)]="note"
+                  placeholder="Precios sujetos a cambio, IVA incluido…"
+                ></textarea>
+              </mat-form-field>
+            </div>
+
+            @for (section of sections(); track $index; let si = $index) {
+              <article class="menu-section">
+                <div class="menu-section__head">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-section__name">
+                    <mat-label>Sección</mat-label>
+                    <input matInput [(ngModel)]="section.name" placeholder="Entradas" />
                   </mat-form-field>
                   <button
                     mat-icon-button
                     type="button"
-                    aria-label="Quitar plato"
-                    (click)="removeItem(si, ii)"
+                    aria-label="Quitar sección"
+                    (click)="removeSection(si)"
                   >
-                    <mat-icon>close</mat-icon>
+                    <mat-icon>delete</mat-icon>
                   </button>
                 </div>
-              }
-              <button mat-stroked-button type="button" (click)="addItem(si)">
-                <mat-icon>add</mat-icon>
-                Plato
-              </button>
-            </article>
-          }
+                @for (item of section.items; track $index; let ii = $index) {
+                  <div class="menu-item">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Ítem</mat-label>
+                      <input matInput [(ngModel)]="item.name" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Descripción</mat-label>
+                      <input matInput [(ngModel)]="item.description" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
+                      <mat-label>Precio</mat-label>
+                      <input matInput type="number" min="0" step="1" [(ngModel)]="item.price" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Precio (texto)</mat-label>
+                      <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
+                    </mat-form-field>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      aria-label="Quitar ítem"
+                      (click)="removeItem(si, ii)"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                }
+                <button mat-stroked-button type="button" (click)="addItem(si)">
+                  <mat-icon>add</mat-icon>
+                  Ítem
+                </button>
+              </article>
+            }
 
-          <button mat-stroked-button type="button" (click)="addSection()">
-            <mat-icon>playlist_add</mat-icon>
-            Sección
-          </button>
-        </section>
+            <button mat-stroked-button type="button" (click)="addSection()">
+              <mat-icon>playlist_add</mat-icon>
+              Sección
+            </button>
+          </section>
+        }
 
         <div class="menu-admin__save">
           <button
@@ -233,7 +319,7 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
             (click)="save()"
           >
             <mat-icon>save</mat-icon>
-            {{ saving() ? 'Guardando…' : 'Guardar carta' }}
+            {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
           </button>
         </div>
       </div>
@@ -260,11 +346,41 @@ function cloneMenu(menu?: ShopMenu | null): ShopMenu {
     .menu-admin__warn {
       color: #b45309;
     }
+    .menu-admin__tabs-head,
+    .menu-admin__editor-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .menu-admin__tab-actions,
     .menu-admin__links {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
       margin-bottom: 0.5rem;
+    }
+    .menu-admin__tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.35rem 0 0.85rem;
+    }
+    .menu-admin__tab {
+      border: 1px solid var(--guy-border, #d7e0d9);
+      background: #fff;
+      color: var(--guy-navy, #003366);
+      border-radius: 999px;
+      padding: 0.45rem 0.9rem;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .menu-admin__tab--on {
+      background: var(--guy-green, #2e7d32);
+      border-color: var(--guy-green, #2e7d32);
+      color: #fff;
     }
     .menu-admin__btn {
       display: inline-flex;
@@ -349,11 +465,15 @@ export class AdminMenuPage {
   readonly saving = signal(false);
   readonly parsing = signal(false);
   readonly enabled = signal(false);
-  readonly slug = signal('');
+  readonly shopSlug = signal('');
   readonly parseNote = signal('');
   readonly rawText = signal('');
+  readonly menus = signal<ShopMenu[]>([]);
+  readonly activeId = signal<string | null>(null);
+  private slugTouched = false;
 
   title = '';
+  menuSlug = '';
   note = '';
   readonly sections = signal<ShopMenuSection[]>([]);
 
@@ -366,19 +486,23 @@ export class AdminMenuPage {
     });
   }
 
-  publicUrl(): string {
-    const slug = this.slug();
+  hubUrl(): string {
+    const slug = this.shopSlug();
     if (!slug || typeof window === 'undefined') return '';
     return `${window.location.origin}/m/${encodeURIComponent(slug)}`;
   }
 
-  async copyPublicUrl(): Promise<void> {
-    const url = this.publicUrl();
+  activePublicUrl(): string {
+    const hub = this.hubUrl();
+    const s = slugify(this.menuSlug);
+    if (!hub || !s) return hub;
+    return `${hub}/${encodeURIComponent(s)}`;
+  }
+
+  async copyUrl(url: string, okMsg: string): Promise<void> {
     if (!url) return;
     const ok = await copyText(url);
-    this.snack.open(ok ? 'Link de la carta copiado' : 'No se pudo copiar la URL', 'OK', {
-      duration: 2500,
-    });
+    this.snack.open(ok ? okMsg : 'No se pudo copiar la URL', 'OK', { duration: 2500 });
   }
 
   reload(): void {
@@ -388,27 +512,47 @@ export class AdminMenuPage {
     this.http.get<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`).subscribe({
       next: (res) => {
         this.loading.set(false);
-        this.applyMenu(res);
+        this.applyPayload(res);
       },
       error: () => {
         this.loading.set(false);
-        this.snack.open('No se pudo cargar la carta', 'OK', { duration: 3000 });
+        this.snack.open('No se pudieron cargar las cartas', 'OK', { duration: 3000 });
       },
     });
   }
 
-  private applyMenu(res: MenuAdminResponse): void {
+  private applyPayload(res: MenuAdminResponse): void {
     this.enabled.set(!!res.enabled);
-    this.slug.set(res.slug ?? this.shops.selectedShop()?.slug ?? '');
-    const menu = cloneMenu(res.menu);
-    this.title = menu.title ?? '';
-    this.note = menu.note ?? '';
-    this.sections.set(menu.sections.length ? menu.sections : []);
+    this.shopSlug.set(res.slug ?? this.shops.selectedShop()?.slug ?? '');
+    const menus = (res.menus ?? []).map((m) => cloneMenu(m));
+    this.menus.set(menus);
+    const keep = menus.find((m) => m.id === this.activeId()) ?? menus[0];
+    this.activeId.set(keep?.id ?? null);
+    if (keep) this.loadEditor(keep);
+    else this.clearEditor();
   }
 
-  private currentMenu(): ShopMenu {
+  private loadEditor(menu: ShopMenu): void {
+    this.title = menu.title ?? '';
+    this.menuSlug = menu.slug ?? '';
+    this.note = menu.note ?? '';
+    this.sections.set(menu.sections.length ? menu.sections : emptySections());
+    this.slugTouched = !!menu.slug;
+  }
+
+  private clearEditor(): void {
+    this.title = '';
+    this.menuSlug = '';
+    this.note = '';
+    this.sections.set([]);
+    this.slugTouched = false;
+  }
+
+  private editorMenu(id: string): ShopMenu {
     return {
-      title: this.title.trim() || null,
+      id,
+      slug: uniqueSlug(this.menuSlug || this.title || 'carta', this.menus(), id),
+      title: this.title.trim() || 'Carta',
       note: this.note.trim() || null,
       sections: this.sections().map((s) => ({
         name: String(s.name ?? '').trim() || 'Carta',
@@ -424,8 +568,64 @@ export class AdminMenuPage {
     };
   }
 
+  private flushActive(): void {
+    const id = this.activeId();
+    if (!id) return;
+    const next = this.editorMenu(id);
+    this.menus.update((list) => list.map((m) => (m.id === id ? next : m)));
+    this.menuSlug = next.slug;
+  }
+
+  selectMenu(id: string): void {
+    if (id === this.activeId()) return;
+    this.flushActive();
+    const menu = this.menus().find((m) => m.id === id);
+    if (!menu) return;
+    this.activeId.set(id);
+    this.loadEditor(menu);
+  }
+
+  onTitleChange(): void {
+    if (this.slugTouched) return;
+    this.menuSlug = uniqueSlug(this.title || 'carta', this.menus(), this.activeId() ?? undefined);
+  }
+
+  addBlank(): void {
+    this.flushActive();
+    const menu = cloneMenu({
+      id: newMenuId(),
+      slug: uniqueSlug('carta', this.menus()),
+      title: this.menus().length ? 'Carta' : 'Carta',
+      note: '',
+      sections: [{ name: '', items: [{ name: '', description: '', price: null, priceLabel: '' }] }],
+    });
+    if (this.menus().some((m) => m.slug === 'carta')) {
+      menu.title = 'Nueva carta';
+      menu.slug = uniqueSlug('nueva-carta', this.menus());
+    }
+    this.menus.update((list) => [...list, menu]);
+    this.activeId.set(menu.id);
+    this.loadEditor(menu);
+  }
+
+  removeActive(): void {
+    const id = this.activeId();
+    if (!id) return;
+    const name = this.title || 'esta carta';
+    if (!window.confirm(`¿Quitar ${name}?`)) return;
+    const next = this.menus().filter((m) => m.id !== id);
+    this.menus.set(next);
+    const keep = next[0];
+    this.activeId.set(keep?.id ?? null);
+    if (keep) this.loadEditor(keep);
+    else this.clearEditor();
+  }
+
   addSection(): void {
-    this.sections.update((list) => [...list, { name: '', items: [{ name: '', description: '', price: null, priceLabel: '' }] }]);
+    this.sections.update((list) => [
+      ...list,
+      { name: '', items: [{ name: '', description: '', price: null, priceLabel: '' }] },
+    ]);
   }
 
   removeSection(index: number): void {
@@ -450,15 +650,13 @@ export class AdminMenuPage {
     );
   }
 
-  async onFilePicked(input: HTMLInputElement): Promise<void> {
+  async onFilePicked(input: HTMLInputElement, mode: 'add' | 'replace'): Promise<void> {
     const file = await takeInputFile(input);
     if (!file) return;
     const shopId = this.shopId();
     if (!shopId) return;
-    if (this.sections().some((s) => s.items.some((it) => it.name.trim()))) {
-      const ok = window.confirm(
-        'Esto reemplaza la carta actual por lo que se lea del archivo. ¿Seguimos?',
-      );
+    if (mode === 'replace' && this.sections().some((s) => s.items.some((it) => it.name.trim()))) {
+      const ok = window.confirm('Esto reemplaza el contenido de esta carta. ¿Seguimos?');
       if (!ok) return;
     }
     this.parsing.set(true);
@@ -473,16 +671,25 @@ export class AdminMenuPage {
       .subscribe({
         next: (res) => {
           this.parsing.set(false);
-          const menu = cloneMenu(res.menu);
-          this.title = menu.title || this.title;
-          this.note = menu.note || this.note;
-          this.sections.set(menu.sections.length ? menu.sections : []);
+          this.flushActive();
+          const parsed = cloneMenu({
+            ...res.menu,
+            id: mode === 'replace' && this.activeId() ? this.activeId()! : newMenuId(),
+            slug: uniqueSlug(res.menu.slug || res.menu.title || 'carta', this.menus(), mode === 'replace' ? this.activeId() ?? undefined : undefined),
+          });
+          if (mode === 'replace' && this.activeId()) {
+            this.menus.update((list) => list.map((m) => (m.id === this.activeId() ? parsed : m)));
+          } else {
+            this.menus.update((list) => [...list, parsed]);
+            this.activeId.set(parsed.id);
+          }
+          this.loadEditor(parsed);
           this.rawText.set((res.rawText ?? '').trim());
-          const count = menu.sections.reduce((n, s) => n + s.items.length, 0);
+          const count = parsed.sections.reduce((n, s) => n + s.items.length, 0);
           this.parseNote.set(
             count
               ? `Leímos ${count} ítem${count === 1 ? '' : 's'} de ${res.fileName || 'el archivo'}. Revisá y guardá.`
-              : 'No encontramos platos claros. Revisá el texto leído y cargalos a mano.',
+              : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
           );
         },
         error: (err: HttpErrorResponse) => {
@@ -498,17 +705,20 @@ export class AdminMenuPage {
   save(): void {
     const shopId = this.shopId();
     if (!shopId) return;
+    this.flushActive();
     this.saving.set(true);
-    this.http.put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.currentMenu()).subscribe({
-      next: (res) => {
-        this.saving.set(false);
-        this.applyMenu(res);
-        this.snack.open('Carta guardada', 'OK', { duration: 2200 });
-      },
-      error: () => {
-        this.saving.set(false);
-        this.snack.open('No se pudo guardar la carta', 'OK', { duration: 3000 });
-      },
-    });
+    this.http
+      .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, { menus: this.menus() })
+      .subscribe({
+        next: (res) => {
+          this.saving.set(false);
+          this.applyPayload(res);
+          this.snack.open('Cartas guardadas', 'OK', { duration: 2200 });
+        },
+        error: () => {
+          this.saving.set(false);
+          this.snack.open('No se pudieron guardar las cartas', 'OK', { duration: 3000 });
+        },
+      });
   }
 }

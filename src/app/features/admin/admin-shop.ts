@@ -629,7 +629,7 @@ const TIMEZONE_OPTIONS = [
                 <div>
                   <strong>Carta pública</strong>
                   <p class="text-muted small mb-0">
-                    Página con el menú del local. Se carga en Administración → Carta.
+                    Página con las cartas del local (menú, vinos, etc.). Se cargan en Administración → Carta.
                   </p>
                 </div>
                 <mat-slide-toggle

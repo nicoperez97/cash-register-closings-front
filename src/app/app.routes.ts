@@ -50,6 +50,12 @@ export const routes: Routes = [
     title: 'Carta',
   },
   {
+    path: 'm/:slug/:menuSlug',
+    loadComponent: () =>
+      import('./features/menu/public-menu-page').then((m) => m.PublicMenuPageComponent),
+    title: 'Carta',
+  },
+  {
     path: '',
     component: MainLayoutComponent,
     canActivate: [authGuard],
