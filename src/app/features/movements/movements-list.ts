@@ -167,6 +167,8 @@ import { shareText } from '../../shared/utils/share-text';
             title="Saldos"
             subtitle="Acumulados · canales y socios"
             [accounts]="balanceRows()"
+            [shopId]="shopId()"
+            [fileSlug]="shops.selectedShop()?.name ?? shops.selectedShop()?.slug ?? 'local'"
           />
         </div>
 

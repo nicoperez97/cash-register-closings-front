@@ -206,6 +206,10 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
             title="Saldos"
             subtitle="Período filtrado · movimientos"
             [accounts]="balanceRows()"
+            [shopId]="shops.selectedShopId()"
+            [from]="formatDate(range.controls.start.value)"
+            [to]="formatDate(range.controls.end.value)"
+            [fileSlug]="shops.selectedShop()?.name ?? shops.selectedShop()?.slug ?? 'local'"
           />
         </div>
       }
@@ -369,7 +373,7 @@ export class ReportsPage {
     this.load();
   }
 
-  private formatDate(d: Date | null): string | null {
+  formatDate(d: Date | null): string | null {
     if (!d) return null;
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');

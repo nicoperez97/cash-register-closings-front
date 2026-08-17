@@ -255,6 +255,8 @@ interface BalanceRowExt extends BalanceAccountRow {
           subtitle="Cuentas del local activo"
           [accounts]="balanceRows()"
           [showFooter]="false"
+          [shopId]="shopContext.selectedShopId()"
+          [fileSlug]="shopContext.selectedShop()?.name ?? shopContext.selectedShop()?.slug ?? 'local'"
         />
       </div>
     }

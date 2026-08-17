@@ -1,14 +1,26 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MovementsApiService } from '../../features/movements/movements-api.service';
 
 export interface BalanceAccountRow {
   name: string;
   balance: number;
 }
 
+function downloadBlobFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 @Component({
   selector: 'app-balances-table',
-  imports: [MatIconModule],
+  imports: [MatButtonModule, MatIconModule, MatSnackBarModule],
   template: `
     <div class="guy-saldos" role="region" [attr.aria-label]="title">
       @if (showHeader) {
@@ -24,13 +36,28 @@ export interface BalanceAccountRow {
               }
             </div>
           </div>
-          <div
-            class="guy-saldos__total-pill"
-            [class.guy-saldos__total-pill--neg]="total < 0"
-            [class.guy-saldos__total-pill--pos]="total > 0"
-          >
-            <span class="guy-saldos__total-label">Total</span>
-            <strong class="guy-saldos__total-value">{{ formatMoney(total) }}</strong>
+          <div class="guy-saldos__head-actions">
+            @if (shopId) {
+              <button
+                mat-stroked-button
+                type="button"
+                class="guy-saldos__export"
+                [disabled]="exporting() || !accounts.length"
+                (click)="exportExcel()"
+                aria-label="Descargar saldos en Excel"
+              >
+                <mat-icon>download</mat-icon>
+                Excel
+              </button>
+            }
+            <div
+              class="guy-saldos__total-pill"
+              [class.guy-saldos__total-pill--neg]="total < 0"
+              [class.guy-saldos__total-pill--pos]="total > 0"
+            >
+              <span class="guy-saldos__total-label">Total</span>
+              <strong class="guy-saldos__total-value">{{ formatMoney(total) }}</strong>
+            </div>
           </div>
         </header>
       }
@@ -108,6 +135,25 @@ export interface BalanceAccountRow {
       align-items: center;
       gap: 0.7rem;
       min-width: 0;
+    }
+
+    .guy-saldos__head-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .guy-saldos__export {
+      flex: none;
+    }
+
+    .guy-saldos__export mat-icon {
+      margin-right: 0.2rem;
+      font-size: 1.1rem;
+      width: 1.1rem;
+      height: 1.1rem;
     }
 
     .guy-saldos__badge {
@@ -366,15 +412,56 @@ export interface BalanceAccountRow {
   `,
 })
 export class BalancesTableComponent {
+  private readonly api = inject(MovementsApiService);
+  private readonly snack = inject(MatSnackBar);
+
   @Input() title = 'Saldos';
   @Input() subtitle = '';
   @Input() showHeader = true;
   /** Pie con total; en home conviene false si el total ya va en el header. */
   @Input() showFooter = true;
   @Input() accounts: BalanceAccountRow[] = [];
+  /** Si hay shopId se muestra el botón de descarga Excel. */
+  @Input() shopId: string | null = null;
+  @Input() from: string | null = null;
+  @Input() to: string | null = null;
+  @Input() fileSlug = 'local';
+
+  readonly exporting = signal(false);
 
   get total(): number {
     return this.accounts.reduce((sum, row) => sum + Number(row.balance ?? 0), 0);
+  }
+
+  exportExcel(): void {
+    const shopId = this.shopId;
+    if (!shopId || this.exporting()) return;
+    this.exporting.set(true);
+    const from = this.from || undefined;
+    const to = this.to || undefined;
+    this.api.exportBalancesExcel(shopId, { from, to }).subscribe({
+      next: (blob) => {
+        this.exporting.set(false);
+        const stamp = new Date().toISOString().slice(0, 10);
+        const range =
+          from || to ? `-${from || 'inicio'}_${to || 'hoy'}` : `-${stamp}`;
+        downloadBlobFile(blob, `saldos-${this.shopFileSlug(this.fileSlug)}${range}.xlsx`);
+      },
+      error: () => {
+        this.exporting.set(false);
+        this.snack.open('No se pudo descargar el Excel de saldos', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  private shopFileSlug(name?: string | null): string {
+    return (name ?? 'local')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'local';
   }
 
   formatMoney(value: number): string {

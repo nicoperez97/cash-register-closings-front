@@ -104,6 +104,13 @@ export class MovementsApiService {
     });
   }
 
+  exportBalancesExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to'> = {}) {
+    return this.http.get(`${this.base}/shops/${shopId}/movements/balances/export.xlsx`, {
+      params: filtersToParams(filters),
+      responseType: 'blob',
+    });
+  }
+
   downloadImportTemplate(shopId: string) {
     return this.http.get(`${this.base}/shops/${shopId}/movements/import-template.xlsx`, {
       responseType: 'blob',
