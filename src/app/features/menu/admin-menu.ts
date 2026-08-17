@@ -700,7 +700,7 @@ export class AdminMenuPage {
     const fd = new FormData();
     fd.append('file', file, safeUploadFileName(file.name));
     this.http
-      .post<{ menu: ShopMenu; rawText?: string; fileName?: string }>(
+      .post<{ menu: ShopMenu; rawText?: string; fileName?: string; engine?: string }>(
         `${environment.apiUrl}/shops/${shopId}/menu/parse`,
         fd,
       )
@@ -725,9 +725,10 @@ export class AdminMenuPage {
           this.loadEditor(parsed);
           this.rawText.set((res.rawText ?? '').trim());
           const count = parsed.sections.reduce((n, s) => n + s.items.length, 0);
+          const via = res.engine === 'gemini' ? ' (mejorado con IA)' : '';
           this.parseNote.set(
             count
-              ? `Leímos ${count} ítem${count === 1 ? '' : 's'} de ${res.fileName || 'el archivo'}. Revisá y guardá.`
+              ? `Leímos ${count} ítem${count === 1 ? '' : 's'} de ${res.fileName || 'el archivo'}${via}. Revisá y guardá.`
               : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
           );
         },
