@@ -282,28 +282,46 @@ export function buildMenuPrintHtml(input: MenuPrintInput): string {
 }
 
 export function openMenuPrintWindow(input: MenuPrintInput): boolean {
-  const win = window.open('', '_blank', 'noopener,width=720,height=900');
-  if (!win) return false;
-  win.document.write(buildMenuPrintHtml(input));
-  win.document.close();
+  const html = buildMenuPrintHtml(input);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  // No usar "noopener": en Chromium window.open devuelve null y la pestaña queda en blanco.
+  const win = window.open(url, '_blank', 'width=720,height=900');
+  if (!win) {
+    URL.revokeObjectURL(url);
+    return false;
+  }
+  try {
+    win.opener = null;
+  } catch {
+    /* ignore */
+  }
+
+  const cleanup = () => {
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   const trigger = () => {
     try {
       win.focus();
       win.print();
     } catch {
       /* ignore */
+    } finally {
+      cleanup();
     }
   };
-  const waitImages = () => {
-    const imgs = Array.from(win.document.images);
+
+  const waitReady = () => {
+    const imgs = Array.from(win.document.images ?? []);
     if (!imgs.length) {
-      window.setTimeout(trigger, 250);
+      window.setTimeout(trigger, 350);
       return;
     }
     let left = imgs.length;
     const done = () => {
       left -= 1;
-      if (left <= 0) window.setTimeout(trigger, 200);
+      if (left <= 0) window.setTimeout(trigger, 250);
     };
     for (const img of imgs) {
       if (img.complete) done();
@@ -313,7 +331,14 @@ export function openMenuPrintWindow(input: MenuPrintInput): boolean {
       }
     }
   };
-  if (win.document.readyState === 'complete') waitImages();
-  else win.addEventListener('load', waitImages, { once: true });
+
+  try {
+    if (win.document.readyState === 'complete') waitReady();
+    else win.addEventListener('load', waitReady, { once: true });
+  } catch {
+    // Cross-origin edge case: still try print after a short delay.
+    window.setTimeout(trigger, 600);
+  }
   return true;
 }
+
