@@ -13,6 +13,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile, safeUploadFileName } from '../../shared/utils/input-file';
 import { copyText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
+import { openMenuPrintWindow } from './menu-print';
 
 export type ShopMenuItem = {
   name: string;
@@ -192,6 +193,7 @@ function toPrice(value: unknown): number | null {
           <p class="menu-admin__hint">
             <strong>Agregar / Reemplazar</strong> lee el PDF para armar ítems.
             <strong>Cargar carta física</strong> sube el archivo que el cliente ve en la web (sin cambiar los ítems).
+            <strong>PDF estilo web</strong> genera un PDF con el look de la página pública (tipografía y layout), no el archivo cargado.
           </p>
           @if (menus().length) {
             <div class="menu-admin__tabs" role="tablist">
@@ -238,6 +240,15 @@ function toPrice(value: unknown): number | null {
                     Copiar
                   </button>
                 }
+                <button
+                  type="button"
+                  class="menu-admin__btn menu-admin__btn--ghost"
+                  (click)="downloadStyledPdf()"
+                  title="PDF con el estilo de la página pública (no el archivo físico)"
+                >
+                  <mat-icon>print</mat-icon>
+                  PDF estilo web
+                </button>
                 <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
                   <mat-icon>sync</mat-icon>
                   Reemplazar contenido
@@ -565,6 +576,35 @@ export class AdminMenuPage {
     const s = slugify(this.menuSlug);
     if (!hub || !s) return hub;
     return `${hub}/${encodeURIComponent(s)}`;
+  }
+
+  downloadStyledPdf(): void {
+    const shop = this.shops.selectedShop();
+    if (!shop) {
+      this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
+      return;
+    }
+    const sections = this.sections();
+    const hasItems = sections.some((s) => (s.items ?? []).some((it) => String(it.name ?? '').trim()));
+    if (!hasItems) {
+      this.snack.open('Agregá ítems a la carta antes de generar el PDF', 'OK', { duration: 3000 });
+      return;
+    }
+    const ok = openMenuPrintWindow({
+      shopName: shop.name ?? 'Carta',
+      logoUrl: this.shops.logoUrl(),
+      accentColor: this.shops.accentColor() || shop.accentColor,
+      phone: shop.phone ?? null,
+      instagramHandle: shop.instagramHandle ?? null,
+      menuTitle: this.title || this.menuSlug || 'Carta',
+      note: this.note,
+      sections,
+    });
+    if (!ok) {
+      this.snack.open('Permití ventanas emergentes para descargar el PDF', 'OK', { duration: 3500 });
+      return;
+    }
+    this.snack.open('En el diálogo de impresión elegí “Guardar como PDF”', 'OK', { duration: 4500 });
   }
 
   async copyUrl(url: string, okMsg: string): Promise<void> {
