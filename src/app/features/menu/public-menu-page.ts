@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal, DestroyRef } from '@angula
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { toDataURL } from 'qrcode';
 import { environment } from '../../../environments/environment';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 
@@ -68,7 +69,34 @@ type MenuSummary = {
               }
             </p>
           }
+          <button type="button" class="menu__qr-btn" (click)="openQr()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm12-2h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v6h-2v-2h-2v-2h2v-2zm-4 4h2v2h-2v-2z"
+              />
+            </svg>
+            Ver QR
+          </button>
         </header>
+
+        @if (qrOpen()) {
+          <div class="menu__qr-mask" (click)="closeQr()">
+            <div class="menu__qr-card" (click)="$event.stopPropagation()" role="dialog" aria-label="QR de la carta">
+              <p class="menu__qr-title">Escaneá para abrir la carta</p>
+              <p class="menu__qr-shop">{{ s.name }}</p>
+              @if (qrSrc(); as src) {
+                <img class="menu__qr-img" [src]="src" alt="Código QR de la carta" />
+              } @else {
+                <p class="menu__qr-wait">Armando el código…</p>
+              }
+              <div class="menu__qr-actions">
+                <button type="button" class="menu__retry" (click)="downloadQr()">Descargar</button>
+                <button type="button" class="menu__retry" (click)="closeQr()">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        }
 
         @if (menus().length > 1) {
           <nav class="menu__tabs" aria-label="Cartas">
@@ -284,6 +312,79 @@ type MenuSummary = {
         font-weight: 650;
         cursor: pointer;
       }
+      .menu__qr-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.85rem;
+        border: 1px solid color-mix(in srgb, var(--accent) 45%, #3a332c);
+        background: color-mix(in srgb, var(--accent) 18%, #1c1815);
+        color: #f4efe6;
+        border-radius: 999px;
+        padding: 0.45rem 0.95rem;
+        font: inherit;
+        font-weight: 650;
+        font-size: 0.88rem;
+        cursor: pointer;
+      }
+      .menu__qr-btn svg {
+        width: 1.15rem;
+        height: 1.15rem;
+      }
+      .menu__qr-mask {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+        background: rgba(8, 6, 5, 0.72);
+        backdrop-filter: blur(8px);
+      }
+      .menu__qr-card {
+        width: min(100%, 22rem);
+        display: grid;
+        justify-items: center;
+        gap: 0.45rem;
+        padding: 1.25rem 1.1rem 1.15rem;
+        border-radius: 1.25rem;
+        background: #f7f1e8;
+        color: #1a1512;
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+      }
+      .menu__qr-title {
+        margin: 0;
+        font-weight: 750;
+        font-size: 1.02rem;
+        text-align: center;
+      }
+      .menu__qr-shop {
+        margin: 0 0 0.35rem;
+        color: #5c534a;
+        font-size: 0.88rem;
+      }
+      .menu__qr-img {
+        width: min(100%, 16rem);
+        height: auto;
+        background: #fff;
+        border-radius: 12px;
+      }
+      .menu__qr-wait {
+        margin: 1rem 0;
+        color: #5c534a;
+      }
+      .menu__qr-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.55rem;
+      }
+      .menu__qr-actions .menu__retry {
+        color: #1a1512;
+        background: #fff;
+        border-color: #d7cfc4;
+      }
     `,
   ],
 })
@@ -308,6 +409,8 @@ export class PublicMenuPageComponent implements OnInit {
   readonly sections = computed(() =>
     (this.data()?.menu?.sections ?? []).filter((s) => (s.items ?? []).some((it) => it.name)),
   );
+  readonly qrOpen = signal(false);
+  readonly qrSrc = signal<string | null>(null);
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
@@ -319,6 +422,11 @@ export class PublicMenuPageComponent implements OnInit {
       }
       this.load();
     });
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') this.closeQr();
+    };
+    window.addEventListener('keydown', onKey);
+    this.destroyRef.onDestroy(() => window.removeEventListener('keydown', onKey));
   }
 
   load(): void {
@@ -326,9 +434,53 @@ export class PublicMenuPageComponent implements OnInit {
     const base = `${environment.apiUrl}/public/shops/${encodeURIComponent(this.shopSlug)}/menu`;
     const url = this.menuSlug ? `${base}/${encodeURIComponent(this.menuSlug)}` : base;
     this.http.get<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu }>(url).subscribe({
-      next: (res) => this.data.set(res),
+      next: (res) => {
+        this.data.set(res);
+        void this.renderQr();
+      },
       error: () => this.error.set('Carta no disponible en este local'),
     });
+  }
+
+  menuLink(): string {
+    const slug = this.shop()?.slug || this.shopSlug;
+    if (!slug || typeof window === 'undefined') return '';
+    return `${window.location.origin}/m/${encodeURIComponent(slug)}`;
+  }
+
+  openQr(): void {
+    this.qrOpen.set(true);
+    if (!this.qrSrc()) void this.renderQr();
+  }
+
+  closeQr(): void {
+    this.qrOpen.set(false);
+  }
+
+  downloadQr(): void {
+    const src = this.qrSrc();
+    const slug = this.shop()?.slug || 'carta';
+    if (!src) return;
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = `carta-${slug}.png`;
+    a.click();
+  }
+
+  private async renderQr(): Promise<void> {
+    const link = this.menuLink();
+    if (!link) return;
+    try {
+      const url = await toDataURL(link, {
+        width: 640,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+        color: { dark: qrDarkColor(this.accent()), light: '#ffffff' },
+      });
+      this.qrSrc.set(url);
+    } catch {
+      this.qrSrc.set(null);
+    }
   }
 
   priceOf(item: MenuItem): string {
@@ -341,4 +493,18 @@ export class PublicMenuPageComponent implements OnInit {
       maximumFractionDigits: 0,
     }).format(Number(item.price));
   }
+}
+
+function qrDarkColor(raw?: string | null): string {
+  const hex = String(raw ?? '').trim();
+  const m = hex.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return '#111111';
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const n = parseInt(h, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return lum > 0.42 ? '#111111' : `#${h}`;
 }
