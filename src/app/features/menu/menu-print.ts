@@ -32,6 +32,40 @@ function escapeHtml(raw: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/** blob:/about:blank no resuelven rutas relativas como `/api/v1/...` o `icons/icon.svg`. */
+function toAbsoluteUrl(raw: string): string {
+  const v = String(raw ?? '').trim();
+  if (!v) return '';
+  if (/^(data:|blob:|https?:)/i.test(v)) return v;
+  try {
+    return new URL(v, typeof window !== 'undefined' ? window.location.origin : undefined).href;
+  } catch {
+    return v;
+  }
+}
+
+/** Embebe el logo para que el PDF no dependa de URLs relativas ni CORS al imprimir. */
+async function embedLogoAsDataUrl(raw?: string | null): Promise<string | null> {
+  const abs = toAbsoluteUrl(String(raw ?? ''));
+  if (!abs) return null;
+  if (abs.startsWith('data:')) return abs;
+  try {
+    const res = await fetch(abs, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+    if (!res.ok) return abs;
+    const blob = await res.blob();
+    if (!blob.size) return abs;
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error ?? new Error('read failed'));
+      reader.readAsDataURL(blob);
+    });
+    return dataUrl || abs;
+  } catch {
+    return abs;
+  }
+}
+
 function priceOf(item: MenuPrintItem): string {
   const label = String(item.priceLabel ?? '').trim();
   if (label) return label;
@@ -281,25 +315,37 @@ export function buildMenuPrintHtml(input: MenuPrintInput): string {
 </html>`;
 }
 
-export function openMenuPrintWindow(input: MenuPrintInput): boolean {
-  const html = buildMenuPrintHtml(input);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  // No usar "noopener": en Chromium window.open devuelve null y la pestaña queda en blanco.
-  const win = window.open(url, '_blank', 'width=720,height=900');
-  if (!win) {
-    URL.revokeObjectURL(url);
-    return false;
-  }
+export async function openMenuPrintWindow(input: MenuPrintInput): Promise<boolean> {
+  // Abrir en el mismo tick del click (antes del await) para no perder el gesto del usuario.
+  const win = window.open('about:blank', '_blank', 'width=720,height=900');
+  if (!win) return false;
   try {
     win.opener = null;
   } catch {
     /* ignore */
   }
+  try {
+    win.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Preparando…</title></head><body style="font-family:system-ui;padding:2rem;color:#555">Preparando carta…</body></html>`,
+    );
+    win.document.close();
+  } catch {
+    /* ignore */
+  }
 
-  const cleanup = () => {
+  const logoUrl = await embedLogoAsDataUrl(input.logoUrl);
+  const html = buildMenuPrintHtml({ ...input, logoUrl });
+
+  try {
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  } catch {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    win.location.href = url;
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
+  }
 
   const trigger = () => {
     try {
@@ -307,8 +353,6 @@ export function openMenuPrintWindow(input: MenuPrintInput): boolean {
       win.print();
     } catch {
       /* ignore */
-    } finally {
-      cleanup();
     }
   };
 
@@ -336,7 +380,6 @@ export function openMenuPrintWindow(input: MenuPrintInput): boolean {
     if (win.document.readyState === 'complete') waitReady();
     else win.addEventListener('load', waitReady, { once: true });
   } catch {
-    // Cross-origin edge case: still try print after a short delay.
     window.setTimeout(trigger, 600);
   }
   return true;

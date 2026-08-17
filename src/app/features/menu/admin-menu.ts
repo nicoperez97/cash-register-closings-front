@@ -590,21 +590,23 @@ export class AdminMenuPage {
       this.snack.open('Agregá ítems a la carta antes de generar el PDF', 'OK', { duration: 3000 });
       return;
     }
-    const ok = openMenuPrintWindow({
-      shopName: shop.name ?? 'Carta',
-      logoUrl: this.shops.logoUrl(),
-      accentColor: this.shops.accentColor() || shop.accentColor,
-      phone: shop.phone ?? null,
-      instagramHandle: shop.instagramHandle ?? null,
-      menuTitle: this.title || this.menuSlug || 'Carta',
-      note: this.note,
-      sections,
-    });
-    if (!ok) {
-      this.snack.open('Permití ventanas emergentes para descargar el PDF', 'OK', { duration: 3500 });
-      return;
-    }
-    this.snack.open('En el diálogo de impresión elegí “Guardar como PDF”', 'OK', { duration: 4500 });
+    void (async () => {
+      const ok = await openMenuPrintWindow({
+        shopName: shop.name ?? 'Carta',
+        logoUrl: this.shops.logoUrl(),
+        accentColor: this.shops.accentColor() || shop.accentColor,
+        phone: shop.phone ?? null,
+        instagramHandle: shop.instagramHandle ?? null,
+        menuTitle: this.title || this.menuSlug || 'Carta',
+        note: this.note,
+        sections,
+      });
+      if (!ok) {
+        this.snack.open('Permití ventanas emergentes para descargar el PDF', 'OK', { duration: 3500 });
+        return;
+      }
+      this.snack.open('En el diálogo de impresión elegí “Guardar como PDF”', 'OK', { duration: 4500 });
+    })();
   }
 
   async copyUrl(url: string, okMsg: string): Promise<void> {
