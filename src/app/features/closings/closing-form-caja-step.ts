@@ -57,7 +57,7 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
         >
           <div>
             <span>Diferencia</span>
-            <small>Calculado − Caja</small>
+            <small>Caja − Calculado</small>
           </div>
           <strong>{{ differenceLabel() }}</strong>
         </div>

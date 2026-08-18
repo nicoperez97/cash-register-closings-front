@@ -299,7 +299,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     coversCount: raw.coversCount || null,
     declaredTotal: declared,
     calculatedTotal: declared,
-    difference: declared - pos,
+    difference: pos - declared,
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,
     expenses,

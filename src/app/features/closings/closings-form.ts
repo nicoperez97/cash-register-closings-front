@@ -472,7 +472,7 @@ export class ClosingsFormPage implements OnInit {
   });
 
   readonly cajaDifference = computed(() =>
-    this.cajaEntered() ? this.declaredTotal() - this.posAmount() : null,
+    this.cajaEntered() ? this.posAmount() - this.declaredTotal() : null,
   );
 
   readonly cajaDifferenceLabel = computed(() => {
