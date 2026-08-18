@@ -86,6 +86,17 @@ export interface ClosingSourceAmount {
   lines?: number[] | null;
 }
 
+/** Payload al guardar: el API toma name/kind/includeInDeclared del catálogo del local. */
+export type ClosingSourceAmountInput = {
+  sourceId: string;
+  amount: number;
+  lines?: number[];
+};
+
+export type CashClosingInput = Omit<Partial<CashClosing>, 'sourceAmounts'> & {
+  sourceAmounts?: ClosingSourceAmountInput[];
+};
+
 export interface ShopUserAccountOption {
   id: string;
   name: string;
@@ -116,11 +127,11 @@ export class ClosingsApiService {
     return this.http.get<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}`);
   }
 
-  create(shopId: string, body: Partial<CashClosing>) {
+  create(shopId: string, body: CashClosingInput) {
     return this.http.post<CashClosing>(`${this.base}/shops/${shopId}/closings`, body);
   }
 
-  update(shopId: string, id: string, body: Partial<CashClosing>) {
+  update(shopId: string, id: string, body: CashClosingInput) {
     return this.http.patch<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}`, body);
   }
 

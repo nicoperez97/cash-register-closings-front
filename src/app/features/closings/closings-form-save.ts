@@ -2,6 +2,7 @@ import { newId } from '../../core/utils/id';
 import type { TipsEditorState } from '../tips/tips-editor';
 import type {
   CashClosing,
+  CashClosingInput,
   ClosingPosnetAmount,
   ClosingSourceAmount,
   ShopUserOption,
@@ -110,7 +111,7 @@ export type PrepareClosingSaveBodyInput = {
 };
 
 export type PrepareClosingSaveBodyResult =
-  | { ok: true; shopId: string; body: Partial<CashClosing> }
+  | { ok: true; shopId: string; body: CashClosingInput }
   | { ok: false; reason: 'no_shop' | 'missing_account' | 'tips_invalid' };
 
 export function prepareClosingSaveBody(
@@ -164,7 +165,7 @@ export function prepareClosingSaveBody(
     .filter((s) => s.amount > 0);
   const cobrosSum = cobros.reduce((sum, s) => sum + s.amount, 0);
 
-  const body: Partial<CashClosing> & Record<string, unknown> = {
+  const body: CashClosingInput & Record<string, unknown> = {
     ...raw,
     businessDate: toDateString(raw.businessDate as Date | string | null),
     posSystemAmount: closingNum(raw.posSystemAmount),

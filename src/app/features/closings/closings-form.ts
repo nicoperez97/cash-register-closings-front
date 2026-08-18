@@ -23,7 +23,7 @@ import {
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopClosingSource, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ShopClosingSource, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { shareText } from '../../shared/utils/share-text';
 import {
@@ -934,7 +934,7 @@ export class ClosingsFormPage implements OnInit {
   }
 
   /** Arma el body de guardado o null si la validación falla (snacks en el componente). */
-  private tryPrepareSaveBody(): { shopId: string; body: Partial<CashClosing> } | null {
+  private tryPrepareSaveBody(): { shopId: string; body: CashClosingInput } | null {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return null;
@@ -1011,7 +1011,7 @@ export class ClosingsFormPage implements OnInit {
 
   private async saveNewWithDialog(
     shopId: string,
-    body: Partial<CashClosing>,
+    body: CashClosingInput,
     opts?: { shareAfterSave?: boolean },
   ): Promise<void> {
     const shopName = this.shop()?.name ?? 'Local';
