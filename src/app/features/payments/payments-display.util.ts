@@ -56,6 +56,10 @@ export function paymentStatusLabel(status: PaymentStatus): string {
   return PAYMENT_STATUS_LABEL[status] ?? status;
 }
 
+export const PAYMENT_STATUS_OPTIONS: Array<{ value: PaymentStatus; label: string }> = (
+  Object.entries(PAYMENT_STATUS_LABEL) as Array<[PaymentStatus, string]>
+).map(([value, label]) => ({ value, label }));
+
 export function paymentMethodDisplay(method: ShopPayment['paymentMethod']): string {
   return paymentMethodLabel(method);
 }

@@ -98,6 +98,7 @@ export interface UpsertPaymentBody {
   amount?: number | null;
   dueDate?: string | null;
   paidAt?: string | null;
+  status?: PaymentStatus | null;
   priority?: PaymentPriority | null;
   payerUserId?: string | null;
   validatorUserId?: string | null;

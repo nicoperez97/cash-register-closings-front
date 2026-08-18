@@ -16,13 +16,15 @@ import {
   PAYMENT_PRIORITY_OPTIONS,
   PaymentMethod,
   PaymentPriority,
+  PaymentStatus,
   ShopPayment,
 } from './payments-api.service';
+import { PAYMENT_STATUS_OPTIONS } from './payments-display.util';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
 import { Employee } from '../employees/employees-api.service';
 import { takeInputFile } from '../../shared/utils/input-file';
-import { Observable, catchError, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, concatMap, from, map, of, switchMap } from 'rxjs';
 
 export type PaymentDialogKind = 'supplier' | 'employee';
 
@@ -42,6 +44,14 @@ export type PaymentDialogData = {
   | { mode: 'duplicate'; payment: ShopPayment }
   | { mode: 'edit'; payment: ShopPayment }
 );
+
+type PaymentDraft = {
+  values: Record<string, unknown>;
+  invoiceFile: File | null;
+  invoiceExpanded: boolean;
+  newSupplierName: string;
+  newSupplierAlias: string;
+};
 
 @Component({
   selector: 'app-payment-dialog',
@@ -145,6 +155,32 @@ export type PaymentDialogData = {
         border-color: #1565c0;
         color: #1565c0;
       }
+      .pay-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 0 0 0.85rem;
+      }
+      .pay-tab {
+        min-height: 36px;
+        border-radius: 999px !important;
+        font-weight: 700 !important;
+      }
+      .pay-tab--on {
+        background: color-mix(in srgb, var(--guy-accent, #3d5a40) 14%, #fff);
+      }
+      .pay-tab__x {
+        margin-left: 0.15rem;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      .pay-add-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 0.15rem 0 0.35rem;
+      }
     `,
   ],
   template: `
@@ -159,6 +195,26 @@ export type PaymentDialogData = {
     </h2>
 
     <mat-dialog-content>
+      @if (!isEdit && drafts().length > 1) {
+        <div class="pay-tabs">
+          @for (d of drafts(); track $index) {
+            <button
+              mat-stroked-button
+              type="button"
+              class="pay-tab"
+              [class.pay-tab--on]="$index === activeDraft()"
+              [disabled]="busy()"
+              (click)="selectDraft($index)"
+            >
+              Pago {{ $index + 1 }}
+              @if (drafts().length > 1) {
+                <mat-icon class="pay-tab__x" (click)="removeDraft($index, $event)">close</mat-icon>
+              }
+            </button>
+          }
+        </div>
+      }
+
       <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Concepto</mat-label>
@@ -197,13 +253,28 @@ export type PaymentDialogData = {
           </div>
         </div>
 
-        @if (isPaidEdit) {
+        @if (!isEdit) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Estado</mat-label>
+            <mat-select formControlName="status">
+              @for (opt of statusOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+
+        @if (isPaidEdit || isPaidStatus()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Fecha de pago</mat-label>
             <input matInput [matDatepicker]="paidPicker" formControlName="paidAt" />
             <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
             <mat-datepicker #paidPicker />
-            <mat-hint>Actualiza también el movimiento contable</mat-hint>
+            @if (isPaidEdit) {
+              <mat-hint>Actualiza también el movimiento contable</mat-hint>
+            } @else {
+              <mat-hint>Si está vacía, usa la fecha de hoy</mat-hint>
+            }
           </mat-form-field>
         }
 
@@ -414,6 +485,19 @@ export type PaymentDialogData = {
           <mat-label>Notas</mat-label>
           <textarea matInput rows="2" formControlName="notes"></textarea>
         </mat-form-field>
+
+        @if (!isEdit) {
+          <div class="pay-add-row">
+            <button mat-stroked-button type="button" [disabled]="busy() || parsingInvoice()" (click)="duplicateActive()">
+              <mat-icon>content_copy</mat-icon>
+              Duplicar este
+            </button>
+            <button mat-stroked-button type="button" [disabled]="busy() || parsingInvoice()" (click)="addBlank()">
+              <mat-icon>add</mat-icon>
+              Agregar otro
+            </button>
+          </div>
+        }
       </form>
     </mat-dialog-content>
 
@@ -428,7 +512,7 @@ export type PaymentDialogData = {
       >
         <app-busy-label [busy]="busy()" busyLabel="Guardando…">
           <mat-icon>save</mat-icon>
-          {{ isEdit ? 'Guardar' : isDuplicate ? 'Duplicar' : 'Crear' }}
+          {{ isEdit ? 'Guardar' : saveLabel }}
         </app-busy-label>
       </button>
     </mat-dialog-actions>
@@ -462,13 +546,16 @@ export class PaymentDialogComponent {
   readonly payment = this.data.mode === 'edit' ? this.data.payment : null;
 
   readonly titleIcon = this.isEdit ? 'edit' : this.isDuplicate ? 'content_copy' : 'payments';
-  readonly titleText = this.isEdit
-    ? this.isPaidEdit
-      ? 'Editar pago abonado'
-      : 'Editar pago'
-    : this.isDuplicate
-      ? 'Duplicar pago'
-      : 'Nuevo pago';
+  get titleText(): string {
+    if (this.isEdit) return this.isPaidEdit ? 'Editar pago abonado' : 'Editar pago';
+    if (this.drafts().length > 1) return 'Nuevos pagos';
+    return this.isDuplicate ? 'Duplicar pago' : 'Nuevo pago';
+  }
+  get saveLabel(): string {
+    const n = this.drafts().length;
+    if (n > 1) return `Crear ${n} pagos`;
+    return this.isDuplicate ? 'Duplicar' : 'Crear';
+  }
 
   readonly busy = signal(false);
   readonly creatingSupplier = signal(false);
@@ -516,6 +603,11 @@ export class PaymentDialogComponent {
     amount: [this.seed?.amount ?? (null as number | null)],
     dueDate: [this.parseDate(this.seed?.dueDate) as Date | null],
     paidAt: [this.parseDate(this.seed?.paidAt) as Date | null],
+    status: [
+      this.isEdit
+        ? ((this.seed?.status ?? 'PENDING_VALIDATION') as PaymentStatus)
+        : ('PENDING_VALIDATION' as PaymentStatus),
+    ],
     priority: [this.seed?.priority ?? (null as PaymentPriority | null)],
     supplierId: [
       this.isSupplierKind ? (this.seed?.supplierId ?? null) : (null as string | null),
@@ -539,6 +631,118 @@ export class PaymentDialogComponent {
     ],
     invoiceOtherTaxesAmount: [this.seed?.invoiceOtherTaxesAmount ?? (null as number | null)],
   });
+
+  readonly statusOptions = PAYMENT_STATUS_OPTIONS;
+  readonly activeDraft = signal(0);
+  readonly drafts = signal<PaymentDraft[]>([this.snapshot()]);
+
+  isPaidStatus(): boolean {
+    return !this.isEdit && this.form.controls.status.value === 'PAID';
+  }
+
+  private snapshot(): PaymentDraft {
+    return {
+      values: { ...this.form.getRawValue() },
+      invoiceFile: this.pendingInvoiceFile(),
+      invoiceExpanded: this.invoiceExpanded(),
+      newSupplierName: this.newSupplierName.value,
+      newSupplierAlias: this.newSupplierAlias.value,
+    };
+  }
+
+  private restore(draft: PaymentDraft): void {
+    this.form.reset(draft.values, { emitEvent: false });
+    this.pendingInvoiceFile.set(draft.invoiceFile);
+    this.invoiceExpanded.set(draft.invoiceExpanded);
+    this.newSupplierName.setValue(draft.newSupplierName, { emitEvent: false });
+    this.newSupplierAlias.setValue(draft.newSupplierAlias, { emitEvent: false });
+  }
+
+  private persistActive(): void {
+    const list = this.drafts().slice();
+    list[this.activeDraft()] = this.snapshot();
+    this.drafts.set(list);
+  }
+
+  private blankDraft(): PaymentDraft {
+    return {
+      values: {
+        title: '',
+        amount: null,
+        dueDate: null,
+        paidAt: null,
+        status: 'PENDING_VALIDATION',
+        priority: null,
+        supplierId: null,
+        employeeId: null,
+        payerUserId: null,
+        validatorUserId: null,
+        accountId: null,
+        paymentMethod: null,
+        notes: '',
+        invoiceLegalName: '',
+        invoiceTaxId: '',
+        invoiceType: '',
+        invoiceNumber: '',
+        invoiceNetAmount: null,
+        invoiceIvaAmount: null,
+        invoicePerceptionsAmount: null,
+        invoiceOtherTaxesAmount: null,
+      },
+      invoiceFile: null,
+      invoiceExpanded: false,
+      newSupplierName: '',
+      newSupplierAlias: '',
+    };
+  }
+
+  selectDraft(index: number): void {
+    if (index === this.activeDraft() || this.busy()) return;
+    this.persistActive();
+    this.activeDraft.set(index);
+    this.restore(this.drafts()[index]);
+  }
+
+  removeDraft(index: number, ev?: Event): void {
+    ev?.preventDefault();
+    ev?.stopPropagation();
+    if (this.drafts().length <= 1 || this.busy()) return;
+    this.persistActive();
+    const list = this.drafts().filter((_, i) => i !== index);
+    let next = this.activeDraft();
+    if (index === next) next = Math.min(index, list.length - 1);
+    else if (index < next) next -= 1;
+    this.drafts.set(list);
+    this.activeDraft.set(next);
+    this.restore(list[next]);
+  }
+
+  duplicateActive(): void {
+    if (this.busy()) return;
+    this.persistActive();
+    const copy = this.snapshot();
+    const list = [...this.drafts(), copy];
+    this.drafts.set(list);
+    this.activeDraft.set(list.length - 1);
+    this.restore(copy);
+  }
+
+  addBlank(): void {
+    if (this.busy()) return;
+    this.persistActive();
+    const list = [...this.drafts(), this.blankDraft()];
+    this.drafts.set(list);
+    this.activeDraft.set(list.length - 1);
+    this.restore(list[list.length - 1]);
+  }
+
+  private dropCreatedPrefix(count: number): void {
+    const rest = this.drafts().slice(count);
+    const list = rest.length ? rest : [this.blankDraft()];
+    this.drafts.set(list);
+    this.activeDraft.set(0);
+    this.restore(list[0]);
+  }
 
   onSupplierChange(supplierId: string | null): void {
     if (!supplierId) return;
@@ -772,6 +976,10 @@ export class PaymentDialogComponent {
   }
 
   save(): void {
+    if (!this.isEdit) {
+      this.saveBatch();
+      return;
+    }
     const raw = this.form.getRawValue();
     const amountRaw = raw.amount;
     const amount =
@@ -911,37 +1119,7 @@ export class PaymentDialogComponent {
             );
           }
 
-          return this.api
-            .create(this.data.shopId, {
-              title: next.title,
-              amount: next.amount,
-              dueDate: next.dueDate,
-              priority: next.priority,
-              supplierId: next.supplierId,
-              employeeId: next.employeeId,
-              payerUserId: next.payerUserId,
-              validatorUserId: next.validatorUserId,
-              accountId: next.accountId,
-              paymentMethod: next.paymentMethod,
-              notes: next.notes,
-              ...invoice,
-            })
-            .pipe(
-              switchMap((created) => {
-                const file = this.pendingInvoiceFile();
-                if (!file || !this.isSupplierKind) {
-                  return of({ kind: 'created' as const, saved: created, invoiceOk: true });
-                }
-                return this.api
-                  .uploadInvoiceFile(this.data.shopId, created.id, file, false)
-                  .pipe(
-                    map((s) => ({ kind: 'created' as const, saved: s, invoiceOk: true })),
-                    catchError(() =>
-                      of({ kind: 'created' as const, saved: created, invoiceOk: false }),
-                    ),
-                  );
-              }),
-            );
+          return of({ kind: 'noop' as const });
         }),
       )
       .subscribe({
@@ -957,15 +1135,9 @@ export class PaymentDialogComponent {
             this.newSupplierAlias.setValue('');
           }
           const msg =
-            result.kind === 'updated'
-              ? result.invoiceOk === false
-                ? 'Pago actualizado, pero no se pudo subir la factura. Volvé a adjuntarla desde el listado.'
-                : 'Pago actualizado'
-              : result.invoiceOk === false
-                ? 'Pago creado, pero no se pudo subir la factura. Abrí el pago y volvé a adjuntarla.'
-                : this.isDuplicate
-                  ? 'Pago duplicado'
-                  : 'Pago creado';
+            result.invoiceOk === false
+              ? 'Pago actualizado, pero no se pudo subir la factura. Volvé a adjuntarla desde el listado.'
+              : 'Pago actualizado';
           this.snack.open(msg, 'OK', {
             duration: result.invoiceOk === false ? 5500 : 2500,
           });
@@ -977,5 +1149,144 @@ export class PaymentDialogComponent {
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });
+  }
+
+  private paidError(raw: {
+    amount?: unknown;
+    accountId?: unknown;
+    paymentMethod?: unknown;
+  }): string | null {
+    const amountRaw = raw.amount;
+    const amount =
+      amountRaw === null || amountRaw === undefined || amountRaw === ''
+        ? null
+        : Number(amountRaw);
+    if (!(amount != null && amount > 0) || !raw.accountId || !raw.paymentMethod) {
+      return !raw.accountId
+        ? 'Indicá la cuenta que paga'
+        : !raw.paymentMethod
+          ? 'Indicá la forma de pago'
+          : 'Un pago abonado necesita un monto mayor a 0';
+    }
+    return null;
+  }
+
+  private saveBatch(): void {
+    this.persistActive();
+    const list = this.drafts();
+    for (let i = 0; i < list.length; i++) {
+      const raw = list[i].values as {
+        status?: PaymentStatus;
+        amount?: unknown;
+        accountId?: unknown;
+        paymentMethod?: unknown;
+      };
+      if (raw.status === 'PAID') {
+        const msg = this.paidError(raw);
+        if (msg) {
+          this.activeDraft.set(i);
+          this.restore(list[i]);
+          this.snack.open(`Pago ${i + 1}: ${msg}`, 'OK', { duration: 3500 });
+          return;
+        }
+      }
+    }
+
+    this.busy.set(true);
+    let created = 0;
+    let invoiceFail = 0;
+    from(list.map((_, i) => i))
+      .pipe(
+        concatMap((i) => {
+          this.restore(this.drafts()[i]);
+          this.activeDraft.set(i);
+          return this.createCurrent$();
+        }),
+      )
+      .subscribe({
+        next: (result) => {
+          created += 1;
+          if (!result.invoiceOk) invoiceFail += 1;
+        },
+        error: (err) => {
+          this.busy.set(false);
+          this.dropCreatedPrefix(created);
+          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const prefix = created
+            ? `Se crearon ${created} pago${created === 1 ? '' : 's'}. El siguiente falló: `
+            : '';
+          this.snack.open(`${prefix}${Array.isArray(msg) ? msg.join(', ') : msg}`, 'OK', {
+            duration: 5000,
+          });
+        },
+        complete: () => {
+          this.busy.set(false);
+          const n = created;
+          const msg = invoiceFail
+            ? `${n === 1 ? 'Pago creado' : `${n} pagos creados`}, pero no se pudo subir alguna factura.`
+            : n === 1
+              ? this.isDuplicate
+                ? 'Pago duplicado'
+                : 'Pago creado'
+              : `${n} pagos creados`;
+          this.snack.open(msg, 'OK', { duration: invoiceFail ? 5500 : 2500 });
+          this.ref.close(true);
+        },
+      });
+  }
+
+  private createCurrent$() {
+    const raw = this.form.getRawValue();
+    const amountRaw = raw.amount;
+    const amount =
+      amountRaw === null || amountRaw === undefined || (amountRaw as any) === ''
+        ? null
+        : Number(amountRaw);
+    const invoice = this.isSupplierKind
+      ? this.invoiceBody()
+      : {
+          invoiceLegalName: null,
+          invoiceTaxId: null,
+          invoiceType: null,
+          invoiceNumber: null,
+          invoiceNetAmount: null,
+          invoiceIvaAmount: null,
+          invoicePerceptionsAmount: null,
+          invoiceOtherTaxesAmount: null,
+        };
+    const status = (raw.status as PaymentStatus) || 'PENDING_VALIDATION';
+    return this.resolveSupplierId$().pipe(
+      switchMap((supplierId) =>
+        this.api
+          .create(this.data.shopId, {
+            title: (raw.title ?? '').trim() || null,
+            amount,
+            dueDate: this.toIsoDate(raw.dueDate),
+            paidAt: status === 'PAID' ? this.toIsoDate(raw.paidAt) : null,
+            status,
+            priority: (raw.priority as PaymentPriority | null) || null,
+            supplierId: this.isSupplierKind ? supplierId : null,
+            employeeId: this.isSupplierKind ? null : raw.employeeId || null,
+            payerUserId: raw.payerUserId || null,
+            validatorUserId: raw.validatorUserId || null,
+            accountId: raw.accountId ? String(raw.accountId) : null,
+            paymentMethod: (raw.paymentMethod as PaymentMethod | null) || null,
+            notes: (raw.notes ?? '').trim() || null,
+            ...invoice,
+          })
+          .pipe(
+            switchMap((created) => {
+              const file = this.pendingInvoiceFile();
+              if (!file || !this.isSupplierKind) {
+                return of({ invoiceOk: true as const });
+              }
+              return this.api.uploadInvoiceFile(this.data.shopId, created.id, file, false).pipe(
+                map(() => ({ invoiceOk: true as const })),
+                catchError(() => of({ invoiceOk: false as const })),
+              );
+            }),
+          ),
+      ),
+    );
   }
 }

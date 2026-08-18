@@ -743,7 +743,7 @@ export class PaymentsPage {
     this.dialogTitle
       .track(
         this.dialog.open(PaymentDialogComponent, {
-          width: '520px',
+          width: '560px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
           data: {
