@@ -32,6 +32,7 @@ import { CashWithdrawalsInboxService } from '../../features/cash-withdrawals/cas
 import { SettlementsInboxService } from '../../features/settlements/settlements-inbox.service';
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
+import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -81,6 +82,7 @@ export class MainLayoutComponent {
   private readonly settlementsInbox = inject(SettlementsInboxService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly tipsInbox = inject(TipsInboxService);
+  private readonly reimbursementsInbox = inject(ReimbursementsInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
   readonly pageRefresh = inject(PageRefreshService);
 
@@ -124,6 +126,9 @@ export class MainLayoutComponent {
       const items: NavItem[] = [
         { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
       ];
+      if (shopId && hasShopPermission(user, shopId, 'reimbursements.self')) {
+        items.push({ label: 'Mis reintegros', route: '/reimbursements', icon: 'receipt_long' });
+      }
       const stockChildren: NonNullable<NavItem['children']> = [];
       if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
         stockChildren.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
@@ -257,6 +262,18 @@ export class MainLayoutComponent {
         icon: 'restaurant',
       });
     }
+    if (
+      shopId &&
+      hasShopPermission(user, shopId, 'reimbursements.self') &&
+      !hasShopPermission(user, shopId, 'reimbursements.read') &&
+      !isProducerOnly(user, shopId)
+    ) {
+      items.push({
+        label: 'Mis reintegros',
+        route: '/reimbursements',
+        icon: 'receipt_long',
+      });
+    }
 
     const pagos: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'payments.read')) {
@@ -304,6 +321,7 @@ export class MainLayoutComponent {
         defaultRoute: '/reports',
         children: [
           { label: 'Cierres', route: '/reports', icon: 'insights' },
+          { label: 'Conceptos', route: '/reports/concepts', icon: 'category' },
           { label: 'Ventas POS', route: '/reports/products', icon: 'restaurant_menu' },
           { label: 'Estadísticas', route: '/reports/stats', icon: 'analytics' },
         ],
@@ -322,6 +340,18 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'commissions.read')) {
       personal.push({ label: 'Comisiones', route: '/commissions', icon: 'percent' });
+    }
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'reimbursements.read') ||
+        hasShopPermission(user, shopId, 'reimbursements.manage'))
+    ) {
+      personal.push({
+        label: 'Reintegros',
+        route: '/reimbursements',
+        icon: 'receipt_long',
+        badge: this.reimbursementsInbox.pendingCount() || null,
+      });
     }
     if (personal.length) {
       items.push({
@@ -428,6 +458,8 @@ export class MainLayoutComponent {
       if (isProducerOnly(user, shopId)) {
         const allowed =
           path === '/my-production' ||
+          (path.startsWith('/reimbursements') &&
+            hasShopPermission(user, shopId, 'reimbursements.self')) ||
           (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
           (path === '/beverage-stock' &&
             hasShopPermission(user, shopId, 'beverageStock.read')) ||
@@ -576,6 +608,13 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/commissions')) {
       return hasShopPermission(user, shopId, 'commissions.read');
+    }
+    if (path.startsWith('/reimbursements')) {
+      return (
+        hasShopPermission(user, shopId, 'reimbursements.read') ||
+        hasShopPermission(user, shopId, 'reimbursements.manage') ||
+        hasShopPermission(user, shopId, 'reimbursements.self')
+      );
     }
     return true;
   }

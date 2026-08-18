@@ -37,6 +37,7 @@ import { PaymentPayDialogComponent } from './payment-pay-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
 import { ServicesApiService, ShopService } from '../services/services-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
+import { MovementsApiService, Concept } from '../movements/movements-api.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
@@ -205,6 +206,7 @@ export class PaymentsPage {
   private readonly suppliersApi = inject(SuppliersApiService);
   private readonly servicesApi = inject(ServicesApiService);
   private readonly employeesApi = inject(EmployeesApiService);
+  private readonly movementsApi = inject(MovementsApiService);
   private readonly closingsApi = inject(ClosingsApiService);
   private readonly paymentsInbox = inject(PaymentsInboxService);
   private readonly http = inject(HttpClient);
@@ -282,6 +284,7 @@ export class PaymentsPage {
   readonly suppliers = signal<ShopSupplier[]>([]);
   readonly services = signal<ShopService[]>([]);
   readonly employees = signal<Employee[]>([]);
+  readonly concepts = signal<Array<{ id: string; name: string; description?: string | null }>>([]);
   readonly statusFilter = new FormControl<PaymentStatus[]>(
     ['PENDING_VALIDATION', 'VALIDATED'],
     { nonNullable: true },
@@ -586,6 +589,11 @@ export class PaymentsPage {
       next: (rows) => this.employees.set(rows),
       error: () => this.employees.set([]),
     });
+    this.movementsApi.concepts(shopId, this.kind()).subscribe({
+      next: (rows: Concept[]) =>
+        this.concepts.set(rows.map((c) => ({ id: c.id, name: c.name, description: c.description }))),
+      error: () => this.concepts.set([]),
+    });
   }
 
   reload(opts?: { preserveScroll?: boolean }): void {
@@ -795,6 +803,7 @@ export class PaymentsPage {
             employees: this.employees(),
             canManageSuppliers: this.canManageSuppliers(),
             canManageServices: this.canManageServices(),
+            concepts: this.concepts(),
             ...(payment && (mode === 'edit' || mode === 'duplicate') ? { payment } : {}),
             ...(mode === 'create' && prefill ? { prefill } : {}),
           },

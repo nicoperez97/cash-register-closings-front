@@ -304,7 +304,7 @@ export class MovementsListPage {
         next: (rows) => this.accounts.set(rows),
         error: () => this.accounts.set([]),
       });
-      this.api.concepts(shopId).subscribe({
+      this.api.concepts(shopId, 'movement').subscribe({
         next: (rows) => this.concepts.set(rows),
         error: () => this.concepts.set([]),
       });
@@ -504,6 +504,22 @@ export class MovementsListPage {
     });
   }
 
+  /** Al editar, incluye el concepto actual aunque no esté validado. */
+  private dialogConcepts(movement?: Movement): Concept[] {
+    const list = [...this.concepts()];
+    if (!movement?.conceptId || list.some((c) => c.id === movement.conceptId)) return list;
+    list.unshift({
+      id: movement.conceptId,
+      shopId: movement.shopId,
+      name: movement.conceptName || 'Concepto',
+      kind: (movement.conceptKind as Concept['kind']) || 'EXPENSE',
+      description: null,
+      validated: false,
+      active: true,
+    });
+    return list;
+  }
+
   private openDialog(mode: { mode: 'create' } | { mode: 'edit'; movement: Movement }): void {
     const shopId = this.shopId();
     if (!shopId) return;
@@ -525,7 +541,7 @@ export class MovementsListPage {
             shopId,
             shopName,
             accounts: this.accounts(),
-            concepts: this.concepts(),
+            concepts: this.dialogConcepts(mode.mode === 'edit' ? mode.movement : undefined),
             employees: this.employees(),
             users: this.users().filter(
               (u) => isUserVisible(u, 'movements') || keepIds.has(u.id),

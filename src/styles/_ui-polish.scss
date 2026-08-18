@@ -286,11 +286,29 @@ a.mat-mdc-outlined-button.mat-mdc-button-base {
   vertical-align: middle;
 }
 
+.mat-button-toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
 .mat-button-toggle-label-content {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  line-height: 1.2;
+  line-height: 1;
+}
+
+.pay-view .mat-button-toggle-button,
+.stock-view .mat-button-toggle-button {
+  min-width: 2.75rem;
+}
+
+.pay-view .mat-button-toggle-label-content,
+.stock-view .mat-button-toggle-label-content {
+  padding: 0 !important;
+  height: 100%;
 }
 
 /* Material 3 dibuja un tilde (mat-pseudo-checkbox) al lado del ícono seleccionado. */

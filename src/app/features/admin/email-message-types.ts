@@ -125,6 +125,13 @@ export const EMAIL_MESSAGE_TYPE_OPTIONS: Array<{
     defaultBody: '{body}',
   },
   {
+    value: 'REIMBURSEMENT_CREATED',
+    label: 'Reintegros · gasto de productor',
+    group: 'staff',
+    defaultSubject: '{title}',
+    defaultBody: '{body}',
+  },
+  {
     value: 'RESERVATION_ACCEPTED',
     label: 'Comensal · reserva confirmada',
     group: 'guest',

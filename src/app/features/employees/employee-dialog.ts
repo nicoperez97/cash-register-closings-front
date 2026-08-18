@@ -122,6 +122,13 @@ function toDateString(value: Date | null): string | null {
             </mat-select>
             <mat-hint>Podés elegir varios; este productor cargará sus horas</mat-hint>
           </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Alias o CBU (reintegros)</mat-label>
+            <mat-icon matPrefix>account_balance</mat-icon>
+            <input matInput formControlName="bankAlias" maxlength="120" />
+            <mat-hint>El productor también puede cargarlo desde Mis reintegros</mat-hint>
+          </mat-form-field>
         }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -134,7 +141,7 @@ function toDateString(value: Date | null): string | null {
             }
           </mat-select>
           <mat-hint>
-            Para que cargue sus horas: vincular usuario + preset “Productor” en Usuarios
+            Para que cargue horas y reintegros: vincular usuario + preset “Productor” en Usuarios
           </mat-hint>
         </mat-form-field>
 
@@ -206,6 +213,7 @@ export class EmployeeDialogComponent {
     userId: this.fb.control<string | null>(this.employee?.userId ?? null),
     hireDate: this.fb.control<Date | null>(toDateInput(this.employee?.hireDate)),
     notes: [this.employee?.notes ?? ''],
+    bankAlias: [this.employee?.bankAlias ?? ''],
     active: [this.employee?.active ?? true],
   });
 
@@ -231,6 +239,7 @@ export class EmployeeDialogComponent {
       userId: raw.userId || null,
       hireDate: toDateString(raw.hireDate),
       notes: raw.notes.trim() || null,
+      bankAlias: producesFood ? raw.bankAlias.trim() || null : null,
     };
     this.busy.set(true);
 

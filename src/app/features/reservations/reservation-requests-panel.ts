@@ -18,6 +18,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import {
   ReservationArea,
   ReservationRequestRow,
@@ -65,7 +66,7 @@ export type ReservationRequestAccepted = {
           <p class="req-head__lead">
             @if (signupOpen()) {
               @if (pendingRequests().length) {
-                Para aceptar o rechazar · se avisa por mail
+                Aceptar o rechazar avisa por mail · Borrar no avisa
               } @else {
                 Cuando alguien reserve desde el link, aparece acá
               }
@@ -99,7 +100,7 @@ export type ReservationRequestAccepted = {
             class="req-icon-btn"
             (click)="reloadRequests()"
             [disabled]="requestsBusy()"
-            matTooltip="Recargar"
+            matTooltip="Recargar solicitudes y reservas"
           >
             <mat-icon [class.req-spin]="requestsBusy()">refresh</mat-icon>
           </button>
@@ -179,6 +180,7 @@ export type ReservationRequestAccepted = {
             [class.req-card--out]="req.area === 'OUTSIDE' || mustSitOutside(req)"
             [class.req-card--working]="busyRequestId() === req.id"
             [class.req-card--working-reject]="busyRequestId() === req.id && busyAction() === 'reject'"
+            [class.req-card--working-delete]="busyRequestId() === req.id && busyAction() === 'delete'"
             [class.req-card--locked]="!!busyRequestId() && busyRequestId() !== req.id"
           >
             <span class="req-card__avatar" aria-hidden="true">{{ initials(req.guestName) }}</span>
@@ -217,7 +219,9 @@ export type ReservationRequestAccepted = {
                   {{
                     busyAction() === 'reject'
                       ? 'Rechazando…'
-                      : 'Aceptando y cargando en el piso…'
+                      : busyAction() === 'delete'
+                        ? 'Borrando…'
+                        : 'Aceptando y cargando en el piso…'
                   }}
                 </p>
               }
@@ -255,6 +259,15 @@ export type ReservationRequestAccepted = {
               >
                 {{ busyRequestId() === req.id && busyAction() === 'reject' ? '…' : 'Rechazar' }}
               </button>
+              <button
+                type="button"
+                class="req-btn req-btn--mute"
+                [disabled]="!!busyRequestId()"
+                matTooltip="La saca de la lista. No envía mail."
+                (click)="deleteRequest(req)"
+              >
+                {{ busyRequestId() === req.id && busyAction() === 'delete' ? '…' : 'Borrar' }}
+              </button>
               @if (req.instagramHandle) {
                 <button
                   type="button"
@@ -285,13 +298,15 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly confirm = inject(ConfirmDialogService);
   readonly shops = inject(ShopContextService);
 
   readonly accepted = output<ReservationRequestAccepted>();
+  readonly refreshAll = output<void>();
 
   readonly pendingRequests = signal<ReservationRequestRow[]>([]);
   readonly busyRequestId = signal<string | null>(null);
-  readonly busyAction = signal<'accept' | 'reject' | null>(null);
+  readonly busyAction = signal<'accept' | 'reject' | 'delete' | null>(null);
   readonly signupBusy = signal(false);
   readonly requestsBusy = signal(false);
   readonly partyRulesBusy = signal(false);
@@ -595,6 +610,34 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     });
   }
 
+  async deleteRequest(req: ReservationRequestRow): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.busyRequestId()) return;
+    const when = this.requestWhen(req);
+    const ok = await this.confirm.confirm(
+      'Borrar solicitud',
+      `¿Borrar la solicitud de ${req.guestName} (${when})? No se avisa por mail.`,
+      { confirmLabel: 'Borrar', icon: 'delete' },
+    );
+    if (!ok) return;
+    this.busyRequestId.set(req.id);
+    this.busyAction.set('delete');
+    this.api.removeReservationRequest(shopId, req.id).subscribe({
+      next: () => {
+        this.busyRequestId.set(null);
+        this.busyAction.set(null);
+        this.snack.open('Solicitud borrada. No se envió mail.', 'OK', { duration: 2800 });
+        this.loadRequests();
+        this.inbox.refresh();
+      },
+      error: () => {
+        this.busyRequestId.set(null);
+        this.busyAction.set(null);
+        this.snack.open('No se pudo borrar', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
   openGuestInstagram(
     req: ReservationRequestRow,
     accepted = true,
@@ -632,6 +675,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   reloadRequests(): void {
     this.loadRequests();
     this.inbox.refresh();
+    this.refreshAll.emit();
   }
 
   private loadRequests(afterLoad?: () => void): void {

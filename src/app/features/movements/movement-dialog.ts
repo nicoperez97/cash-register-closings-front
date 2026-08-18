@@ -12,6 +12,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { UserVisibility } from '../../shared/user-visibility';
@@ -74,6 +79,7 @@ function toDateString(value: Date | null): string {
     MatSnackBarModule,
     MatCheckboxModule,
     BusyLabelComponent,
+    SelectSearchComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -110,21 +116,31 @@ function toDateString(value: Date | null): string {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta</mat-label>
               <mat-icon matPrefix>account_balance_wallet</mat-icon>
-              <mat-select formControlName="fromAccountId">
+              <mat-select
+                formControlName="fromAccountId"
+                panelClass="guy-select-search-panel"
+                (openedChange)="onSelectSearchOpened($event, fromQuery)"
+              >
+                <mat-option disabled class="select-search-opt">
+                  <app-select-search [(query)]="fromQuery" placeholder="Buscar cuenta…" />
+                </mat-option>
                 <mat-option value="">Sin cuenta</mat-option>
-                @if (localAccounts().length) {
+                @if (filteredLocalFrom().length) {
                   <mat-optgroup label="Local">
-                    @for (a of localAccounts(); track a.id) {
+                    @for (a of filteredLocalFrom(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
-                @if (otherAccounts().length) {
+                @if (filteredOtherFrom().length) {
                   <mat-optgroup label="Otras cuentas">
-                    @for (a of otherAccounts(); track a.id) {
+                    @for (a of filteredOtherFrom(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
+                }
+                @if (fromQuery() && !filteredLocalFrom().length && !filteredOtherFrom().length) {
+                  <mat-option disabled>Sin resultados</mat-option>
                 }
               </mat-select>
             </mat-form-field>
@@ -147,21 +163,31 @@ function toDateString(value: Date | null): string {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta (opcional)</mat-label>
               <mat-icon matPrefix>account_balance_wallet</mat-icon>
-              <mat-select formControlName="toAccountId">
+              <mat-select
+                formControlName="toAccountId"
+                panelClass="guy-select-search-panel"
+                (openedChange)="onSelectSearchOpened($event, toQuery)"
+              >
+                <mat-option disabled class="select-search-opt">
+                  <app-select-search [(query)]="toQuery" placeholder="Buscar cuenta…" />
+                </mat-option>
                 <mat-option value="">Sin cuenta</mat-option>
-                @if (localAccounts().length) {
+                @if (filteredLocalTo().length) {
                   <mat-optgroup label="Local">
-                    @for (a of localAccounts(); track a.id) {
+                    @for (a of filteredLocalTo(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
-                @if (otherAccounts().length) {
+                @if (filteredOtherTo().length) {
                   <mat-optgroup label="Otras cuentas">
-                    @for (a of otherAccounts(); track a.id) {
+                    @for (a of filteredOtherTo(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
+                }
+                @if (toQuery() && !filteredLocalTo().length && !filteredOtherTo().length) {
+                  <mat-option disabled>Sin resultados</mat-option>
                 }
               </mat-select>
             </mat-form-field>
@@ -171,10 +197,20 @@ function toDateString(value: Date | null): string {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Concepto</mat-label>
           <mat-icon matPrefix>sell</mat-icon>
-          <mat-select formControlName="conceptId">
+          <mat-select
+            formControlName="conceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+            </mat-option>
             <mat-option [value]="null">Sin concepto</mat-option>
-            @for (c of data.concepts; track c.id) {
+            @for (c of filteredConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+            @if (conceptQuery() && !filteredConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -575,6 +611,53 @@ export class MovementDialogComponent {
 
   readonly otherAccounts = computed(() =>
     this.selectableAccounts().filter((a) => a.type !== 'CHANNEL' && a.type !== 'SYSTEM'),
+  );
+
+  readonly fromQuery = signal('');
+  readonly toQuery = signal('');
+  readonly conceptQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+
+  readonly filteredConcepts = computed(() =>
+    filterBySelectQuery(
+      this.data.concepts,
+      this.conceptQuery(),
+      (c) => c.name,
+      this.form.controls.conceptId.value,
+    ),
+  );
+
+  readonly filteredLocalFrom = computed(() =>
+    filterBySelectQuery(
+      this.localAccounts(),
+      this.fromQuery(),
+      (a) => this.accountLabel(a),
+      this.form.controls.fromAccountId.value,
+    ),
+  );
+  readonly filteredOtherFrom = computed(() =>
+    filterBySelectQuery(
+      this.otherAccounts(),
+      this.fromQuery(),
+      (a) => this.accountLabel(a),
+      this.form.controls.fromAccountId.value,
+    ),
+  );
+  readonly filteredLocalTo = computed(() =>
+    filterBySelectQuery(
+      this.localAccounts(),
+      this.toQuery(),
+      (a) => this.accountLabel(a),
+      this.form.controls.toAccountId.value,
+    ),
+  );
+  readonly filteredOtherTo = computed(() =>
+    filterBySelectQuery(
+      this.otherAccounts(),
+      this.toQuery(),
+      (a) => this.accountLabel(a),
+      this.form.controls.toAccountId.value,
+    ),
   );
 
   accountLabel(account: LedgerAccount): string {

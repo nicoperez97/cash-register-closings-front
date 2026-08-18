@@ -22,6 +22,11 @@ import {
 } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
+import {
   USER_VISIBILITY_OPTIONS,
   UserVisibility,
   normalizeUserVisibility,
@@ -105,6 +110,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
     MatSnackBarModule,
     MatTooltipModule,
     BusyLabelComponent,
+    SelectSearchComponent,
   ],
   styles: [
     `
@@ -662,9 +668,20 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Cuentas asociadas</mat-label>
             <mat-icon matPrefix>account_balance</mat-icon>
-            <mat-select formControlName="ledgerAccountIds" multiple>
-              @for (a of accounts(); track a.id) {
+            <mat-select
+              formControlName="ledgerAccountIds"
+              multiple
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, accountQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+              </mat-option>
+              @for (a of filteredAccounts(); track a.id) {
                 <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+              @if (accountQuery() && !filteredAccounts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
             <mat-hint>Opcional · saldos / retiros asociados a este usuario</mat-hint>
@@ -770,6 +787,16 @@ export class AdminUserDialogComponent implements OnInit {
 
   readonly busy = signal(false);
   readonly accounts = signal<AccountOption[]>([]);
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredAccounts = computed(() =>
+    filterBySelectQuery(
+      this.accounts(),
+      this.accountQuery(),
+      (a) => a.name,
+      this.form.controls.ledgerAccountIds.value,
+    ),
+  );
   readonly activePreset = signal<string | null>(null);
   /** Fuerza refresco de resumen al cambiar pills. */
   readonly modulesTick = signal(0);

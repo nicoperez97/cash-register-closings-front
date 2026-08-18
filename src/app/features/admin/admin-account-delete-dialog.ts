@@ -1,4 +1,4 @@
-import { Component, Injectable, inject } from '@angular/core';
+import { Component, computed, Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog, MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -11,6 +11,11 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import { AdminAccountRow } from './admin-account-dialog';
 
 export interface AccountDeleteTarget {
@@ -38,6 +43,7 @@ export type AdminAccountDeleteDialogResult =
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
+    SelectSearchComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -57,9 +63,19 @@ export type AdminAccountDeleteDialogResult =
       <form [formGroup]="form" class="delete-transfer-form">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-100">
           <mat-label>Cuenta destino</mat-label>
-          <mat-select formControlName="transferToAccountId">
-            @for (t of data.targets; track t.id) {
+          <mat-select
+            formControlName="transferToAccountId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, accountQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+            </mat-option>
+            @for (t of filteredTargets(); track t.id) {
               <mat-option [value]="t.id">{{ t.name }}</mat-option>
+            }
+            @if (accountQuery() && !filteredTargets().length) {
+              <mat-option disabled>Sin resultados</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -91,6 +107,17 @@ export class AdminAccountDeleteDialogComponent {
   readonly form = this.fb.nonNullable.group({
     transferToAccountId: ['', Validators.required],
   });
+
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredTargets = computed(() =>
+    filterBySelectQuery(
+      this.data.targets,
+      this.accountQuery(),
+      (t) => t.name,
+      this.form.controls.transferToAccountId.value,
+    ),
+  );
 
   money(value: number): string {
     return `$ ${Number(value).toLocaleString('es-AR', {

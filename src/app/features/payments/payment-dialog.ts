@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import {
   PaymentsApiService,
   PAYMENT_METHOD_OPTIONS,
@@ -40,6 +45,8 @@ export type PaymentDialogData = {
   employees: Employee[];
   canManageSuppliers: boolean;
   canManageServices: boolean;
+  /** Conceptos validados para el campo Concepto. */
+  concepts: Array<{ id: string; name: string; description?: string | null }>;
   /** Determina si se pide proveedor, servicio o empleado. */
   kind: PaymentDialogKind;
 } & (
@@ -72,6 +79,7 @@ type PaymentDraft = {
     MatSnackBarModule,
     MatExpansionModule,
     BusyLabelComponent,
+    SelectSearchComponent,
   ],
   styles: [
     `
@@ -223,7 +231,23 @@ type PaymentDraft = {
       <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Concepto</mat-label>
-          <input matInput formControlName="title" />
+          <mat-select
+            formControlName="conceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+            (selectionChange)="onConceptChange($event.value)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+            </mat-option>
+            <mat-option [value]="null">Sin concepto</mat-option>
+            @for (c of filteredConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+            @if (conceptQuery() && !filteredConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -506,10 +530,20 @@ type PaymentDraft = {
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Cuenta que paga</mat-label>
-          <mat-select formControlName="accountId">
+          <mat-select
+            formControlName="accountId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, accountQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+            </mat-option>
             <mat-option [value]="null">Sin asignar</mat-option>
-            @for (a of data.accounts; track a.id) {
+            @for (a of filteredAccounts(); track a.id) {
               <mat-option [value]="a.id">{{ a.name }}</mat-option>
+            }
+            @if (accountQuery() && !filteredAccounts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
             }
           </mat-select>
           <mat-hint>Cuenta desde la que sale el dinero (egreso)</mat-hint>
@@ -526,8 +560,13 @@ type PaymentDraft = {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Notas</mat-label>
-          <textarea matInput rows="2" formControlName="notes"></textarea>
+          <mat-label>Notas / descripción</mat-label>
+          <textarea
+            matInput
+            rows="2"
+            formControlName="notes"
+            placeholder="Si queda vacío, se usa la descripción del concepto"
+          ></textarea>
         </mat-form-field>
 
         @if (!isEdit) {
@@ -592,6 +631,43 @@ export class PaymentDialogComponent {
       : (this.data.prefill ?? null);
   readonly payment = this.data.mode === 'edit' ? this.data.payment : null;
 
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredAccounts = computed(() =>
+    filterBySelectQuery(
+      this.data.accounts,
+      this.accountQuery(),
+      (a) => a.name,
+      this.form.controls.accountId.value,
+    ),
+  );
+
+  readonly conceptQuery = signal('');
+  readonly filteredConcepts = computed(() =>
+    filterBySelectQuery(
+      this.data.concepts,
+      this.conceptQuery(),
+      (c) => c.name,
+      this.form.controls.conceptId.value,
+    ),
+  );
+
+  onConceptChange(id: string | null): void {
+    const concept = this.data.concepts.find((c) => c.id === id) ?? null;
+    this.form.controls.title.setValue(concept?.name ?? '');
+    const notes = String(this.form.controls.notes.value ?? '').trim();
+    if (!notes && concept?.description) {
+      this.form.controls.notes.setValue(concept.description);
+    }
+  }
+
+  private initialConceptId(): string | null {
+    if (this.seed?.conceptId) return this.seed.conceptId;
+    const title = (this.seed?.title ?? '').trim();
+    if (!title) return null;
+    return this.data.concepts.find((c) => c.name === title)?.id ?? null;
+  }
+
   readonly titleIcon = this.isEdit ? 'edit' : this.isDuplicate ? 'content_copy' : 'payments';
   get titleText(): string {
     if (this.isEdit) return this.isPaidEdit ? 'Editar pago abonado' : 'Editar pago';
@@ -651,6 +727,7 @@ export class PaymentDialogComponent {
 
   readonly form = this.fb.group({
     title: [this.seed?.title ?? ''],
+    conceptId: [this.initialConceptId() as string | null],
     amount: [this.seed?.amount ?? (null as number | null)],
     dueDate: [this.parseDate(this.seed?.dueDate) as Date | null],
     paidAt: [this.parseDate(this.seed?.paidAt) as Date | null],
@@ -726,6 +803,7 @@ export class PaymentDialogComponent {
     return {
       values: {
         title: '',
+        conceptId: null,
         amount: null,
         dueDate: null,
         paidAt: null,
@@ -1235,6 +1313,7 @@ export class PaymentDialogComponent {
         switchMap((party) => {
           const next = {
             title: (raw.title ?? '').trim() || null,
+            conceptId: raw.conceptId ? String(raw.conceptId) : null,
             amount,
             dueDate: this.toIsoDate(raw.dueDate),
             paidAt: this.isPaidEdit ? this.toIsoDate(raw.paidAt) : null,
@@ -1259,6 +1338,7 @@ export class PaymentDialogComponent {
 
             const body: Record<string, string | number | null> = {};
             if (!sameStr(next.title, prev.title)) body['title'] = next.title;
+            if (!sameStr(next.conceptId, prev.conceptId)) body['conceptId'] = next.conceptId;
             if (!sameAmount(next.amount, prev.amount ?? null)) body['amount'] = next.amount;
             if (!sameStr(next.dueDate, prev.dueDate)) body['dueDate'] = next.dueDate;
             if (!sameStr(next.priority, prev.priority)) body['priority'] = next.priority;
@@ -1484,6 +1564,7 @@ export class PaymentDialogComponent {
         this.api
           .create(this.data.shopId, {
             title: (raw.title ?? '').trim() || null,
+            conceptId: raw.conceptId ? String(raw.conceptId) : null,
             amount,
             dueDate: this.toIsoDate(raw.dueDate),
             paidAt: status === 'PAID' ? this.toIsoDate(raw.paidAt) : null,

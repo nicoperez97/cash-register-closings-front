@@ -19,6 +19,8 @@ export interface Employee {
   producesFood?: boolean;
   /** Productor supervisor a cargo. */
   supervisorEmployeeId?: string | null;
+  /** Alias o CBU para reintegros. */
+  bankAlias?: string | null;
   active: boolean;
 }
 

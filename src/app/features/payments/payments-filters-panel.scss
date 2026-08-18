@@ -50,8 +50,11 @@
 }
 
 .pay-view {
+  --mat-button-toggle-height: 2.5rem;
   height: 2.5rem;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: stretch;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -61,27 +64,15 @@
   flex: 1 1 0;
 }
 
-.pay-view .mat-button-toggle-button {
-  width: 100%;
-  height: 100%;
-  padding: 0;
-}
-
-.pay-view .mat-button-toggle-label-content {
-  display: inline-flex;
+.pay-view mat-icon {
+  display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
-  padding: 0;
-  min-width: 2.75rem;
-  width: 100%;
-}
-
-.pay-view mat-icon {
   margin: 0;
   font-size: 1.2rem;
   width: 1.2rem;
   height: 1.2rem;
+  line-height: 1;
 }
 
 .pay-select-btn--on {

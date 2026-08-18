@@ -188,8 +188,8 @@ import {
       </div>
     }
 
-    @if (payment().notes) {
-      <p class="pay-card__notes">{{ payment().notes }}</p>
+    @if (payment().notes || payment().conceptDescription) {
+      <p class="pay-card__notes">{{ payment().notes || payment().conceptDescription }}</p>
     }
 
     @if (billedKind() && hasInvoiceData(payment())) {

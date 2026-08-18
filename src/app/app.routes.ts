@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import {
   permissionGuard,
+  anyPermissionGuard,
   shopFeatureGuard,
   shopUsersGuard,
   superAdminGuard,
@@ -109,6 +110,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/reports/stats-page').then((m) => m.StatsPage),
         title: 'Estadísticas',
+      },
+      {
+        path: 'reports/concepts',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reports/concepts-report-page').then(
+            (m) => m.ConceptsReportPage,
+          ),
+        title: 'Conceptos',
       },
       {
         path: 'reports/products',
@@ -337,6 +347,21 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/attendance/my-production-page').then((m) => m.MyProductionPage),
         title: 'Mis horas de producción',
+      },
+      {
+        path: 'reimbursements',
+        canActivate: [
+          anyPermissionGuard(
+            'reimbursements.self',
+            'reimbursements.read',
+            'reimbursements.manage',
+          ),
+        ],
+        loadComponent: () =>
+          import('./features/reimbursements/reimbursements-page').then(
+            (m) => m.ReimbursementsPage,
+          ),
+        title: 'Reintegros',
       },
       {
         path: 'attendance',

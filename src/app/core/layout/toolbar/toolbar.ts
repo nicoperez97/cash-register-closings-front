@@ -140,6 +140,15 @@ export class ToolbarComponent implements OnInit {
           route: '/my-production',
         },
       ];
+      if (hasShopPermission(user, shopId, 'reimbursements.self')) {
+        items.push({
+          id: 'my-reimbursements',
+          kind: 'route',
+          label: 'Reintegros',
+          icon: 'receipt_long',
+          route: '/reimbursements',
+        });
+      }
       if (hasShopPermission(user, shopId, 'stock.read')) {
         items.push({
           id: 'stock',
@@ -412,7 +421,7 @@ export class ToolbarComponent implements OnInit {
     this.quickExpenseBusy.set(true);
     forkJoin({
       accounts: this.movementsApi.accounts(shopId),
-      concepts: this.movementsApi.concepts(shopId),
+      concepts: this.movementsApi.concepts(shopId, 'movement'),
       employees: this.employeesApi.list(shopId).pipe(catchError(() => of([]))),
     }).subscribe({
       next: ({ accounts, concepts, employees }) => {
@@ -554,6 +563,10 @@ export class ToolbarComponent implements OnInit {
     }
     if (n.type === 'MOVEMENT_CREATED') {
       void this.router.navigateByUrl('/movements');
+      return;
+    }
+    if (n.type === 'REIMBURSEMENT_CREATED') {
+      void this.router.navigateByUrl('/reimbursements');
     }
   }
 

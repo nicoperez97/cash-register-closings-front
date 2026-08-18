@@ -12,6 +12,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
@@ -29,6 +34,11 @@ import { ShopBackupApiService } from './shop-backup-api.service';
 import { AdminAccountDialogComponent, AdminAccountRow, LINKED_PAYMENT_METHOD_OPTIONS } from './admin-account-dialog';
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { activeLabel } from '../../core/i18n/labels';
+import {
+  CONCEPT_CATEGORY_OPTIONS,
+  DEFAULT_PAYMENT_CONCEPT_CATEGORIES,
+  normalizePaymentConceptCategories,
+} from '../../shared/concept-categories';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
@@ -56,6 +66,7 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'SHORTAGE_RESOLVED', label: 'Faltantes · resuelto' },
   { value: 'RESERVATION_REQUEST', label: 'Reservas · solicitud nueva' },
   { value: 'MOVEMENT_CREATED', label: 'Movimientos y gastos rápidos' },
+  { value: 'REIMBURSEMENT_CREATED', label: 'Reintegros · gasto de productor' },
 ] as const;
 
 const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);
@@ -111,6 +122,7 @@ const TIMEZONE_OPTIONS = [
     MatDialogModule,
     PageHeaderComponent,
     DataTableComponent,
+    SelectSearchComponent,
   ],
   template: `
     <app-page-header
@@ -512,6 +524,49 @@ const TIMEZONE_OPTIONS = [
             </mat-form-field>
           </div>
 
+          <div class="shop-admin__op-block" id="shop-sec-conceptos" formGroupName="paymentConceptCategories">
+            <h3 class="shop-admin__op-title">Conceptos en pagos</h3>
+            <p class="text-muted small mb-3">
+              Qué categorías de concepto se listan al cargar cada tipo de pago. Un concepto puede
+              tener varias categorías (Administración → Conceptos).
+            </p>
+            <div class="guy-form-grid guy-form-grid--2">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Pagos a proveedores</mat-label>
+                <mat-select formControlName="supplier" multiple>
+                  @for (opt of conceptCategoryOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Pagos a servicios</mat-label>
+                <mat-select formControlName="service" multiple>
+                  @for (opt of conceptCategoryOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+                <mat-hint>Ej. Servicios y Proveedores</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Pagos a empleados</mat-label>
+                <mat-select formControlName="employee" multiple>
+                  @for (opt of conceptCategoryOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Movimientos</mat-label>
+                <mat-select formControlName="movement" multiple>
+                  @for (opt of conceptCategoryOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </div>
+
           <div class="shop-admin__op-block shop-admin__op-block--last">
             <h3 class="shop-admin__op-title">Módulos públicos</h3>
             <div class="shop-admin__toggle-list">
@@ -756,10 +811,20 @@ const TIMEZONE_OPTIONS = [
                 @if (sourceNeedsAccount(i)) {
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Cuenta destino</mat-label>
-                    <mat-select formControlName="accountId">
+                    <mat-select
+                      formControlName="accountId"
+                      panelClass="guy-select-search-panel"
+                      (openedChange)="onSelectSearchOpened($event, accountSearchQuery)"
+                    >
+                      <mat-option disabled class="select-search-opt">
+                        <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
+                      </mat-option>
                       <mat-option [value]="null">Elegí una cuenta</mat-option>
-                      @for (a of sourceAccountOptions(); track a.id) {
+                      @for (a of filteredSourceAccounts(row.get('accountId')?.value); track a.id) {
                         <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                      }
+                      @if (accountSearchQuery() && !filteredSourceAccounts(row.get('accountId')?.value).length) {
+                        <mat-option disabled>Sin resultados</mat-option>
                       }
                     </mat-select>
                   </mat-form-field>
@@ -811,10 +876,20 @@ const TIMEZONE_OPTIONS = [
                   <span class="shop-admin__deposit-label">{{ field.label }}</span>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Cuenta destino</mat-label>
-                    <mat-select [formControlName]="field.value">
+                    <mat-select
+                      [formControlName]="field.value"
+                      panelClass="guy-select-search-panel"
+                      (openedChange)="onSelectSearchOpened($event, accountSearchQuery)"
+                    >
+                      <mat-option disabled class="select-search-opt">
+                        <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
+                      </mat-option>
                       <mat-option [value]="null">Sin vincular</mat-option>
-                      @for (a of accounts(); track a.id) {
+                      @for (a of filteredDepositAccounts(depositForm.get(field.value)?.value); track a.id) {
                         <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                      }
+                      @if (accountSearchQuery() && !filteredDepositAccounts(depositForm.get(field.value)?.value).length) {
+                        <mat-option disabled>Sin resultados</mat-option>
                       }
                     </mat-select>
                   </mat-form-field>
@@ -1503,18 +1578,34 @@ export class AdminShopPage implements OnInit {
     menuEnabled: [false],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
+    paymentConceptCategories: this.fb.nonNullable.group({
+      supplier: this.fb.nonNullable.control<string[]>([
+        ...DEFAULT_PAYMENT_CONCEPT_CATEGORIES.supplier,
+      ]),
+      service: this.fb.nonNullable.control<string[]>([
+        ...DEFAULT_PAYMENT_CONCEPT_CATEGORIES.service,
+      ]),
+      employee: this.fb.nonNullable.control<string[]>([
+        ...DEFAULT_PAYMENT_CONCEPT_CATEGORIES.employee,
+      ]),
+      movement: this.fb.nonNullable.control<string[]>([
+        ...DEFAULT_PAYMENT_CONCEPT_CATEGORIES.movement,
+      ]),
+    }),
     posnets: this.fb.array([]),
     closingSources: this.fb.array([]),
   });
 
   readonly weekdayOptions = WEEKDAY_OPTIONS;
   readonly timezoneOptions = TIMEZONE_OPTIONS;
+  readonly conceptCategoryOptions = CONCEPT_CATEGORY_OPTIONS;
 
   readonly tocSections = [
     { id: 'shop-sec-identidad', label: 'Identidad' },
     { id: 'shop-sec-notificaciones', label: 'Mails' },
     { id: 'shop-sec-apariencia', label: 'Apariencia' },
     { id: 'shop-sec-operacion', label: 'Operación' },
+    { id: 'shop-sec-conceptos', label: 'Conceptos' },
     { id: 'shop-sec-francos', label: 'Francos' },
     { id: 'shop-sec-posnets', label: 'Posnets' },
     { id: 'shop-sec-closing-sources', label: 'Cuentas aparte' },
@@ -1540,6 +1631,22 @@ export class AdminShopPage implements OnInit {
   readonly sourceAccountOptions = computed(() =>
     this.allLedgerAccounts().filter((a) => a.active && a.type !== 'SYSTEM'),
   );
+
+  readonly accountSearchQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+
+  filteredSourceAccounts(keepId?: string | null) {
+    return filterBySelectQuery(
+      this.sourceAccountOptions(),
+      this.accountSearchQuery(),
+      (a) => a.name,
+      keepId,
+    );
+  }
+
+  filteredDepositAccounts(keepId?: string | null) {
+    return filterBySelectQuery(this.accounts(), this.accountSearchQuery(), (a) => a.name, keepId);
+  }
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
@@ -1651,6 +1758,7 @@ export class AdminShopPage implements OnInit {
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
     });
+    this.applyPaymentConceptCategories(shop.paymentConceptCategories);
     this.applyLogoFromShop(shop.logoUrl);
     this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
@@ -1696,6 +1804,7 @@ export class AdminShopPage implements OnInit {
           this.clearSmtpPasswordOnSave.set(false);
           this.applyEmailLists(s.emailNotificationTypes, s.emailNotificationUserIds);
           this.setPosnets(s.posnets ?? []);
+          this.applyPaymentConceptCategories(s.paymentConceptCategories);
           this.shops.upsertShop(s);
           this.loadShopUsers(shopId, s.emailNotificationUserIds ?? null);
         },
@@ -1824,6 +1933,11 @@ export class AdminShopPage implements OnInit {
 
   removePosnet(index: number): void {
     this.posnets.removeAt(index);
+  }
+
+  private applyPaymentConceptCategories(raw?: unknown): void {
+    const next = normalizePaymentConceptCategories(raw);
+    this.form.controls.paymentConceptCategories.patchValue(next, { emitEvent: false });
   }
 
   private setPosnets(rows: ShopPosnet[]): void {
@@ -2131,6 +2245,7 @@ export class AdminShopPage implements OnInit {
       menuEnabled: raw.menuEnabled,
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
+      paymentConceptCategories: { ...raw.paymentConceptCategories },
       posnets: (raw.posnets as ShopPosnet[])
         .map((p) => ({
           id: p.id,
