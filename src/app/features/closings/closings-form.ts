@@ -212,6 +212,7 @@ import {
             <mat-step label="Caja y otros">
               <app-closing-form-caja-otros-step
                 [sourceAmounts]="sourceAmounts"
+                [sourceCount]="sourceCount()"
                 [otherCobros]="otherCobros"
                 [cobrosHint]="cobrosPanelHint()"
                 [cobrosTotal]="money(cobrosTotal())"
@@ -379,6 +380,7 @@ export class ClosingsFormPage implements OnInit {
 
   private catalogSources: ShopClosingSource[] = [];
   private savedSourceAmounts: CashClosing['sourceAmounts'] | null = null;
+  readonly sourceCount = signal(0);
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(
@@ -729,6 +731,8 @@ export class ClosingsFormPage implements OnInit {
       this.savedSourceAmounts,
       (v) => this.emptyNum(v),
     );
+    this.sourceCount.set(this.sourceAmounts.length);
+    this.sourceAmounts.updateValueAndValidity();
   }
 
   private syncOtherCobros(rows: Array<{ label: string; amount?: number | null }>): void {

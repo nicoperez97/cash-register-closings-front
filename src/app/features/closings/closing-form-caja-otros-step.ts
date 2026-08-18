@@ -87,7 +87,7 @@ import { closingMoney, closingNum } from './closings-form.utils';
         </div>
       </div>
     </div>
-    @if (sourceAmounts().length) {
+    @if (sourceCount() > 0) {
       <div class="closing-form__block">
         <div class="closing-form__block-head">
           <div class="closing-form__block-title">
@@ -163,6 +163,7 @@ import { closingMoney, closingNum } from './closings-form.utils';
 })
 export class ClosingFormCajaOtrosStepComponent {
   readonly sourceAmounts = input.required<FormArray>();
+  readonly sourceCount = input(0);
   readonly otherCobros = input.required<FormArray>();
   readonly cobrosHint = input('');
   readonly cobrosTotal = input('');
