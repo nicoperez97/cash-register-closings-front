@@ -247,9 +247,23 @@ export function closingSharePayload(
   pushMoneyLine(lines, 'Mercado Pago', closing.mercadoPagoAmount);
   pushMoneyLine(lines, 'Efectivo', closing.cashAmount, true);
   pushMoneyLine(lines, 'Cuenta DNI', closing.accountDniAmount, true);
-  pushMoneyLine(lines, 'Delivery', closing.deliveryAppsAmount);
-  pushMoneyLine(lines, 'Transferencia', closing.transferAmount);
-  pushMoneyLine(lines, 'Otros', closing.otherAmount);
+
+  const cobros = (closing.extraLines ?? []).filter(
+    (e) => e.type === 'OTHER' && Number(e.amount || 0) !== 0,
+  );
+  const cobrosSum = cobros.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  if (cobros.length) {
+    lines.push('Cobros:');
+    for (const e of cobros) {
+      const name = String(e.label || '').trim() || 'Cobro';
+      lines.push(`· ${name}: ${formatMoneyAr(e.amount)}`);
+    }
+    pushMoneyLine(lines, 'Total cobros', cobrosSum, true);
+  } else {
+    pushMoneyLine(lines, 'Delivery', closing.deliveryAppsAmount);
+    pushMoneyLine(lines, 'Transferencia', closing.transferAmount);
+    pushMoneyLine(lines, 'Otros', closing.otherAmount);
+  }
 
   const sourceRows = (closing.sourceAmounts ?? []).filter((s) => Number(s.amount || 0) !== 0);
   const sourcesInDeclared = sourceRows.filter((s) => s.includeInDeclared);

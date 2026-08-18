@@ -88,6 +88,77 @@ export function buildExpenseGroup(
   });
 }
 
+export type OtherCobroRow = { label: string; amount?: number | null };
+
+export function buildOtherCobroGroup(
+  fb: FormBuilder,
+  value: OtherCobroRow,
+  emptyNum: (v: unknown) => number | null,
+) {
+  return fb.group({
+    label: [value.label || ''],
+    amount: [emptyNum(value.amount)],
+  });
+}
+
+export function cobrosFromClosing(closing: CashClosing): OtherCobroRow[] {
+  const extras = (closing.extraLines ?? []).filter(
+    (e) => e.type === 'OTHER' && closingNum(e.amount) > 0,
+  );
+  if (extras.length) {
+    return extras.map((e, i) => ({
+      label: String(e.label ?? '').trim() || `Cobro ${i + 1}`,
+      amount: e.amount,
+    }));
+  }
+  const seeded: OtherCobroRow[] = [];
+  if (closingNum(closing.deliveryAppsAmount) > 0) {
+    seeded.push({ label: 'PedidosYa / delivery', amount: closing.deliveryAppsAmount });
+  }
+  if (closingNum(closing.transferAmount) > 0) {
+    seeded.push({ label: 'Transferencia', amount: closing.transferAmount });
+  }
+  if (closingNum(closing.otherAmount) > 0) {
+    seeded.push({ label: 'Otros', amount: closing.otherAmount });
+  }
+  return seeded;
+}
+
+export function populateOtherCobros(
+  fb: FormBuilder,
+  formArray: FormArray,
+  rows: OtherCobroRow[] | null | undefined,
+  emptyNum: (v: unknown) => number | null,
+): void {
+  formArray.clear({ emitEvent: false });
+  for (const row of rows ?? []) {
+    formArray.push(buildOtherCobroGroup(fb, row, emptyNum), { emitEvent: false });
+  }
+  ensureTrailingOtherCobro(fb, formArray, emptyNum);
+}
+
+/** Deja siempre una fila vacía al final para cargar el siguiente cobro. */
+export function ensureTrailingOtherCobro(
+  fb: FormBuilder,
+  formArray: FormArray,
+  emptyNum: (v: unknown) => number | null,
+): void {
+  const amountOf = (i: number) => closingNum(formArray.at(i)?.get('amount')?.value);
+  while (formArray.length > 1 && amountOf(formArray.length - 1) <= 0 && amountOf(formArray.length - 2) <= 0) {
+    formArray.removeAt(formArray.length - 1, { emitEvent: false });
+  }
+  if (formArray.length === 0 || amountOf(formArray.length - 1) > 0) {
+    formArray.push(
+      buildOtherCobroGroup(
+        fb,
+        { label: `Cobro ${formArray.length + 1}`, amount: null },
+        emptyNum,
+      ),
+      { emitEvent: false },
+    );
+  }
+}
+
 /** Resuelve la cuenta destino al cambiar el usuario de retiro de efectivo. */
 export function resolveWithdrawnAccountId(
   users: ShopUserOption[],
@@ -212,5 +283,6 @@ export function resetClosingFormForNext(opts: {
     posnetAmounts: [] as unknown[],
     dniTransfers: [] as unknown[],
     sourceAmounts: [] as unknown[],
+    otherCobros: [] as unknown[],
   };
 }

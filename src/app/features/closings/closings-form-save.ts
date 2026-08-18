@@ -48,6 +48,10 @@ export type ClosingFormRawValue = {
     kind: string;
     amount: unknown;
   }>;
+  otherCobros: Array<{
+    label: string;
+    amount: unknown;
+  }>;
   [key: string]: unknown;
 };
 
@@ -150,6 +154,14 @@ export function prepareClosingSaveBody(
   });
   if (tip.invalid) return { ok: false, reason: 'tips_invalid' };
 
+  const cobros = ((raw.otherCobros ?? []) as ClosingFormRawValue['otherCobros'])
+    .map((s, i) => ({
+      label: String(s.label ?? '').trim() || `Cobro ${i + 1}`,
+      amount: closingNum(s.amount),
+    }))
+    .filter((s) => s.amount > 0);
+  const cobrosSum = cobros.reduce((sum, s) => sum + s.amount, 0);
+
   const body: Partial<CashClosing> & Record<string, unknown> = {
     ...raw,
     businessDate: toDateString(raw.businessDate as Date | string | null),
@@ -157,9 +169,10 @@ export function prepareClosingSaveBody(
     cardAmount: closingNum(raw.cardAmount),
     cashAmount: closingNum(raw.cashAmount),
     mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
-    deliveryAppsAmount: closingNum(raw.deliveryAppsAmount),
-    transferAmount: closingNum(raw.transferAmount),
+    deliveryAppsAmount: 0,
+    transferAmount: 0,
     accountDniAmount: closingNum(raw.accountDniAmount),
+    otherAmount: cobrosSum,
     cashLeftInRegister: closingNum(raw.cashLeftInRegister),
     cashWithdrawn: closingNum(raw.cashWithdrawn),
     tipsAmount: closingNum(raw.tipsAmount),
@@ -191,6 +204,11 @@ export function prepareClosingSaveBody(
         amount: closingNum(e.amount),
         category: e.category,
       })),
+    extraLines: cobros.map((s) => ({
+      type: 'OTHER',
+      label: s.label,
+      amount: s.amount,
+    })),
     notes: String(raw.notes ?? '').trim() || null,
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
       .filter((s) => !!s.sourceId)
@@ -203,8 +221,9 @@ export function prepareClosingSaveBody(
       })),
     ...tip.payload,
   };
-  // dniTransfers es solo UI; no lo mandamos al API
+  // dniTransfers / otherCobros son solo UI; no los mandamos al API
   delete (body as { dniTransfers?: unknown }).dniTransfers;
+  delete (body as { otherCobros?: unknown }).otherCobros;
   return { ok: true, shopId, body };
 }
 
@@ -243,6 +262,15 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
       category: e.category,
     }));
 
+  const cobros = ((raw.otherCobros ?? []) as ClosingFormRawValue['otherCobros'])
+    .map((s, i) => ({
+      type: 'OTHER',
+      label: String(s.label ?? '').trim() || `Cobro ${i + 1}`,
+      amount: closingNum(s.amount),
+    }))
+    .filter((s) => s.amount > 0);
+  const cobrosSum = cobros.reduce((sum, s) => sum + s.amount, 0);
+
   return {
     id: input.closingId ?? '',
     shopId: input.shopId ?? '',
@@ -252,10 +280,10 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     cardAmount: closingNum(raw.cardAmount),
     cashAmount: closingNum(raw.cashAmount),
     mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
-    deliveryAppsAmount: closingNum(raw.deliveryAppsAmount),
-    transferAmount: closingNum(raw.transferAmount),
+    deliveryAppsAmount: 0,
+    transferAmount: 0,
     accountDniAmount: closingNum(raw.accountDniAmount),
-    otherAmount: 0,
+    otherAmount: cobrosSum,
     tipsAmount: closingNum(raw.tipsAmount),
     cashLeftInRegister: closingNum(raw.cashLeftInRegister),
     cashPendingPickup: 0,
@@ -269,6 +297,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,
     expenses,
+    extraLines: cobros,
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
       .filter((s) => !!s.sourceId && closingNum(s.amount) > 0)
       .map(

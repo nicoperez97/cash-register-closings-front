@@ -1,17 +1,26 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import {
   ControlContainer,
   FormArray,
   FormGroupDirective,
   ReactiveFormsModule,
 } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 
 @Component({
   selector: 'app-closing-form-caja-otros-step',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, ClosingFormStepNavComponent],
+  imports: [
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    ClosingFormStepNavComponent,
+  ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     <div class="closing-form__block">
@@ -39,20 +48,52 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
     <div class="closing-form__block">
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
-          <h3>Otros cobros</h3>
-          <span class="closing-form__meta">Delivery y transferencias</span>
+          <h3>Cobros</h3>
+          <span class="closing-form__meta">{{ cobrosHint() }}</span>
         </div>
       </div>
       <div class="closing-form__block-body">
-        <div class="closing-form__fields">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>PedidosYa / delivery</mat-label>
-            <input matInput type="number" inputmode="decimal" formControlName="deliveryAppsAmount" />
-            <mat-hint>Suma al total declarado</mat-hint>
-          </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Transferencia</mat-label>
-            <input matInput type="number" inputmode="decimal" formControlName="transferAmount" />
+        <div class="closing-form__stack" formArrayName="otherCobros">
+          @for (row of otherCobros().controls; track row; let i = $index) {
+            <div class="closing-form__cobro-row" [formGroupName]="i">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cobro {{ i + 1 }}</mat-label>
+                <input matInput formControlName="label" [placeholder]="'Cobro ' + (i + 1)" />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                floatLabel="always"
+                class="closing-field--money"
+              >
+                <mat-label>Monto</mat-label>
+                <span matTextPrefix class="closing-field__prefix">$</span>
+                <input matInput type="number" inputmode="decimal" formControlName="amount" />
+              </mat-form-field>
+              @if (otherCobros().length > 1 && i < otherCobros().length - 1) {
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="closing-form__row-remove"
+                  aria-label="Quitar cobro"
+                  (click)="remove.emit(i)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              }
+            </div>
+          }
+        </div>
+        <div class="closing-form__fields closing-form__fields--single closing-form__fields--totals">
+          <mat-form-field
+            appearance="outline"
+            subscriptSizing="dynamic"
+            floatLabel="always"
+            class="closing-field--money"
+          >
+            <mat-label>Total cobros</mat-label>
+            <span matTextPrefix class="closing-field__prefix">$</span>
+            <input matInput [value]="cobrosTotal()" readonly />
           </mat-form-field>
         </div>
       </div>
@@ -93,6 +134,11 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 })
 export class ClosingFormCajaOtrosStepComponent {
   readonly sourceAmounts = input.required<FormArray>();
+  readonly otherCobros = input.required<FormArray>();
+  readonly cobrosHint = input('');
+  readonly cobrosTotal = input('');
+
+  readonly remove = output<number>();
 
   rowName(index: number): string {
     const row = this.sourceAmounts().at(index);

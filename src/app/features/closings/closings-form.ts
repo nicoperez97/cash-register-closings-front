@@ -53,8 +53,11 @@ import {
 import {
   applyTipDayToForm,
   buildExpenseGroup,
+  cobrosFromClosing,
   defaultNewClosingPatch,
+  ensureTrailingOtherCobro,
   patchClosingFormValues,
+  populateOtherCobros,
   populateSourceAmounts,
   resetClosingFormForNext,
   resolveWithdrawnAccountId,
@@ -204,7 +207,13 @@ import {
             </mat-step>
 
             <mat-step label="Caja y otros">
-              <app-closing-form-caja-otros-step [sourceAmounts]="sourceAmounts" />
+              <app-closing-form-caja-otros-step
+                [sourceAmounts]="sourceAmounts"
+                [otherCobros]="otherCobros"
+                [cobrosHint]="cobrosPanelHint()"
+                [cobrosTotal]="money(cobrosTotal())"
+                (remove)="removeOtherCobro($event)"
+              />
             </mat-step>
 
             <mat-step label="Retiro y egresos">
@@ -341,6 +350,7 @@ export class ClosingsFormPage implements OnInit {
     posnetAmounts: this.fb.array([]),
     dniTransfers: this.fb.array([]),
     sourceAmounts: this.fb.array([]),
+    otherCobros: this.fb.array([]),
   });
 
   get expenses(): FormArray {
@@ -357,6 +367,10 @@ export class ClosingsFormPage implements OnInit {
 
   get sourceAmounts(): FormArray {
     return this.form.get('sourceAmounts') as FormArray;
+  }
+
+  get otherCobros(): FormArray {
+    return this.form.get('otherCobros') as FormArray;
   }
 
   private catalogSources: ShopClosingSource[] = [];
@@ -397,15 +411,21 @@ export class ClosingsFormPage implements OnInit {
     const fromSources = sources
       .filter((s) => !!s.includeInDeclared)
       .reduce((sum, s) => sum + this.n(s.amount), 0);
+    const cobros = (v.otherCobros ?? []) as Array<{ amount?: number | null }>;
+    const cobrosSum = cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
     return (
       this.n(v.cardAmount) +
       this.n(v.cashAmount) +
       this.n(v.mercadoPagoAmount) +
-      this.n(v.deliveryAppsAmount) +
-      this.n(v.transferAmount) +
       this.n(v.accountDniAmount) +
+      cobrosSum +
       fromSources
     );
+  });
+
+  readonly cobrosTotal = computed(() => {
+    const cobros = (this.formValue().otherCobros ?? []) as Array<{ amount?: number | null }>;
+    return cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
   });
 
   readonly asideLines = computed(() => {
@@ -509,6 +529,14 @@ export class ClosingsFormPage implements OnInit {
     return n === 1 ? '1 transferencia' : `${n} transferencias`;
   }
 
+  cobrosPanelHint(): string {
+    const filled = (this.formValue().otherCobros ?? []).filter(
+      (s: { amount?: number | null }) => this.n(s?.amount) > 0,
+    ).length;
+    if (!filled) return 'Se van sumando';
+    return this.money(this.cobrosTotal());
+  }
+
   withdrawPanelHint(): string {
     const amount = this.n(this.formValue().cashWithdrawn);
     if (amount > 0) return this.money(amount);
@@ -557,6 +585,10 @@ export class ClosingsFormPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.runSyncDerivedTotals());
 
+    this.otherCobros.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.ensureTrailingCobro());
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new' && shopId) {
       this.isEdit.set(true);
@@ -585,6 +617,7 @@ export class ClosingsFormPage implements OnInit {
         this.loadTipDay(c.businessDate);
         this.savedSourceAmounts = c.sourceAmounts ?? [];
         this.syncSourceAmounts();
+        this.syncOtherCobros(cobrosFromClosing(c));
       });
     } else {
       const today = this.currentBusinessDate();
@@ -595,6 +628,7 @@ export class ClosingsFormPage implements OnInit {
       this.loadTipDay(today);
       this.savedSourceAmounts = null;
       this.syncSourceAmounts();
+      this.syncOtherCobros([]);
     }
 
     this.form
@@ -685,6 +719,20 @@ export class ClosingsFormPage implements OnInit {
       this.savedSourceAmounts,
       (v) => this.emptyNum(v),
     );
+  }
+
+  private syncOtherCobros(rows: Array<{ label: string; amount?: number | null }>): void {
+    populateOtherCobros(this.fb, this.otherCobros, rows, (v) => this.emptyNum(v));
+  }
+
+  private ensureTrailingCobro(): void {
+    ensureTrailingOtherCobro(this.fb, this.otherCobros, (v) => this.emptyNum(v));
+  }
+
+  removeOtherCobro(index: number): void {
+    if (index < 0 || index >= this.otherCobros.length) return;
+    this.otherCobros.removeAt(index);
+    this.ensureTrailingCobro();
   }
 
   addPosnet(): void {
@@ -1006,6 +1054,7 @@ export class ClosingsFormPage implements OnInit {
     this.initPaymentLines();
     this.savedSourceAmounts = null;
     this.syncSourceAmounts();
+    this.syncOtherCobros([]);
   }
 
   addExpense(): void {
