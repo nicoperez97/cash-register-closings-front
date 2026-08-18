@@ -3,6 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
 import { Permission, canManageShopUsers, defaultHomeRoute, hasShopPermission } from '../auth/auth.models';
+import { SettlementsInboxService } from '../../features/settlements/settlements-inbox.service';
 
 /** Permisos que un super admin puede usar sin local seleccionado. */
 const GLOBAL_ADMIN_WITHOUT_SHOP: Permission[] = ['shops.manage'];
@@ -92,9 +93,9 @@ export const shopUsersGuard: CanActivateFn = () => {
   return true;
 };
 
-/** Feature flag del local (reservas / lista de espera / propinas). Combinar con permissionGuard. */
+/** Feature flag del local (reservas / lista de espera / propinas / rendiciones). Combinar con permissionGuard. */
 export const shopFeatureGuard = (
-  feature: 'reservations' | 'waitingList' | 'tips',
+  feature: 'reservations' | 'waitingList' | 'tips' | 'settlements',
 ): CanActivateFn => {
   return () => {
     const auth = inject(AuthService);
@@ -110,7 +111,9 @@ export const shopFeatureGuard = (
         ? !!shop?.reservationsEnabled
         : feature === 'waitingList'
           ? !!shop?.waitingListEnabled
-          : !!shop?.tipsEnabled;
+          : feature === 'settlements'
+            ? !!shop?.settlementsEnabled || inject(SettlementsInboxService).enabled()
+            : !!shop?.tipsEnabled;
     if (!shopId || !enabled) {
       return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
     }

@@ -59,6 +59,11 @@ export function closingSourceKindNeedsAccount(kind: string | null | undefined): 
   return kind === 'OWN_ACCOUNT' || kind === 'SETTLE_ACCOUNT';
 }
 
+/** Fuentes que dejan montos para el módulo Rendiciones. */
+export function closingSourceKindEnablesSettlements(kind: string | null | undefined): boolean {
+  return kind === 'SETTLE_CASH' || kind === 'SETTLE_ACCOUNT';
+}
+
 export function closingSourceKindLabel(kind: string | null | undefined): string {
   return CLOSING_SOURCE_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? 'Cuenta aparte';
 }

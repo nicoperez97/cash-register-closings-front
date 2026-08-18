@@ -84,7 +84,7 @@ export const routes: Routes = [
       },
       {
         path: 'settlements',
-        canActivate: [permissionGuard('closings.read')],
+        canActivate: [permissionGuard('closings.read'), shopFeatureGuard('settlements')],
         loadComponent: () =>
           import('./features/settlements/settlements-page').then((m) => m.SettlementsPage),
         title: 'Rendiciones',

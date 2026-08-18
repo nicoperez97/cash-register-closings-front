@@ -159,12 +159,14 @@ export class MainLayoutComponent {
         icon: 'payments',
         badge: this.cashWithdrawalsInbox.pendingCount() || null,
       });
-      operacion.push({
-        label: 'Rendiciones',
-        route: '/settlements',
-        icon: 'account_balance_wallet',
-        badge: this.settlementsInbox.pendingCount() || null,
-      });
+      if (this.settlementsInbox.enabled()) {
+        operacion.push({
+          label: 'Rendiciones',
+          route: '/settlements',
+          icon: 'account_balance_wallet',
+          badge: this.settlementsInbox.pendingCount() || null,
+        });
+      }
     }
     if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
       operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
@@ -471,7 +473,10 @@ export class MainLayoutComponent {
       return hasShopPermission(user, shopId, 'closings.read');
     }
     if (path.startsWith('/settlements')) {
-      return hasShopPermission(user, shopId, 'closings.read');
+      return (
+        hasShopPermission(user, shopId, 'closings.read') &&
+        (this.settlementsInbox.enabled() || !!this.shopContext.selectedShop()?.settlementsEnabled)
+      );
     }
     if (path.startsWith('/reports')) {
       return hasShopPermission(user, shopId, 'reports.view');

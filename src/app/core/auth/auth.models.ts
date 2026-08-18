@@ -577,6 +577,8 @@ export interface ShopSummary {
   waitingListEnabled?: boolean;
   /** Si es false, módulo de propinas no está disponible en este local. */
   tipsEnabled?: boolean;
+  /** Si el local tiene cuentas aparte que rinden después (efectivo o depósito). */
+  settlementsEnabled?: boolean;
   /** Pantalla pública de presentismo para el personal. */
   publicAttendanceEnabled?: boolean;
   /** Carta pública del local. */

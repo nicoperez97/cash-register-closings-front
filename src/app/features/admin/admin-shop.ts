@@ -20,6 +20,7 @@ import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
 import { ClosingsApiService, CLOSING_SOURCE_KIND_OPTIONS, closingSourceKindNeedsAccount, SalesSystemOption, ShopClosingSource } from '../closings/closings-api.service';
+import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { firstValueFrom, startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
@@ -1390,6 +1391,7 @@ export class AdminShopPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
   private readonly api = inject(ClosingsApiService);
+  private readonly settlementsInbox = inject(SettlementsInboxService);
   private readonly backupApi = inject(ShopBackupApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
@@ -1922,6 +1924,8 @@ export class AdminShopPage implements OnInit {
       }
       this.snack.open('Fuentes extra actualizadas', 'OK', { duration: 2500 });
       this.reloadClosingSources();
+      await this.auth.refreshMe();
+      this.settlementsInbox.refresh();
     } catch (err) {
       const msg = (err as { error?: { message?: string | string[] } })?.error?.message ?? 'No se pudieron guardar las fuentes';
       this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
