@@ -550,6 +550,10 @@ export class ToolbarComponent implements OnInit {
     }
     if (n.type === 'RESERVATION_REQUEST') {
       void this.router.navigateByUrl('/reservations');
+      return;
+    }
+    if (n.type === 'MOVEMENT_CREATED') {
+      void this.router.navigateByUrl('/movements');
     }
   }
 

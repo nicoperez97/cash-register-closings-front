@@ -55,6 +55,7 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'SHORTAGE_LEVEL_LOW', label: 'Faltantes · bajó a crítico' },
   { value: 'SHORTAGE_RESOLVED', label: 'Faltantes · resuelto' },
   { value: 'RESERVATION_REQUEST', label: 'Reservas · solicitud nueva' },
+  { value: 'MOVEMENT_CREATED', label: 'Movimientos y gastos rápidos' },
 ] as const;
 
 const ALL_EMAIL_NOTIFICATION_TYPES = EMAIL_NOTIFICATION_TYPE_OPTIONS.map((o) => o.value);

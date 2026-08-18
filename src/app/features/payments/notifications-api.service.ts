@@ -17,7 +17,8 @@ export type NotificationType =
   | 'SHORTAGE_CREATED'
   | 'SHORTAGE_LEVEL_LOW'
   | 'SHORTAGE_RESOLVED'
-  | 'RESERVATION_REQUEST';
+  | 'RESERVATION_REQUEST'
+  | 'MOVEMENT_CREATED';
 
 export interface AppNotification {
   id: string;
@@ -64,6 +65,8 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'check_circle';
     case 'RESERVATION_REQUEST':
       return 'table_restaurant';
+    case 'MOVEMENT_CREATED':
+      return 'swap_horiz';
     default:
       return 'notifications';
   }
@@ -99,6 +102,8 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--green';
     case 'RESERVATION_REQUEST':
       return 'notif-tone--amber';
+    case 'MOVEMENT_CREATED':
+      return 'notif-tone--navy';
     default:
       return 'notif-tone--muted';
   }

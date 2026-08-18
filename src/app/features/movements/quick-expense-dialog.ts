@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -43,6 +44,7 @@ function todayIso(timezone?: string | null): string {
     MatSelectModule,
     MatIconModule,
     MatSnackBarModule,
+    MatCheckboxModule,
     BusyLabelComponent,
   ],
   template: `
@@ -126,6 +128,14 @@ function todayIso(timezone?: string | null): string {
             <mat-icon matPrefix>notes</mat-icon>
             <input matInput formControlName="description" autocomplete="off" />
           </mat-form-field>
+
+          <label class="quick-exp__notify">
+            <mat-checkbox formControlName="notifyAdmins"></mat-checkbox>
+            <span>
+              <strong>Enviar notificación a administradores</strong>
+              <small>Aviso en la app y por mail</small>
+            </span>
+          </label>
         </form>
       </mat-dialog-content>
 
@@ -186,6 +196,27 @@ function todayIso(timezone?: string | null): string {
     .quick-exp__total dd {
       font-size: 1.05rem;
     }
+    .quick-exp__notify {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.35rem;
+      cursor: pointer;
+    }
+    .quick-exp__notify span {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      padding-top: 0.2rem;
+    }
+    .quick-exp__notify strong {
+      font-size: 0.9rem;
+      font-weight: 650;
+      color: var(--guy-navy, #003366);
+    }
+    .quick-exp__notify small {
+      font-size: 0.75rem;
+      color: var(--guy-muted, #5f6f76);
+    }
   `,
 })
 export class QuickExpenseDialogComponent {
@@ -232,6 +263,7 @@ export class QuickExpenseDialogComponent {
     fromAccountId: ['', Validators.required],
     employeeId: [''],
     description: [''],
+    notifyAdmins: [true],
   });
 
   constructor() {
@@ -288,6 +320,7 @@ export class QuickExpenseDialogComponent {
         description: raw.description.trim() || null,
         amountUyu: Number(raw.amountUyu),
         invoiced: false,
+        notifyAdmins: !!raw.notifyAdmins,
       })
       .subscribe({
         next: (saved) => {

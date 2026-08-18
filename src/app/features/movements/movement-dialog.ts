@@ -10,6 +10,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { environment } from '../../../environments/environment';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
@@ -86,6 +87,7 @@ function partnerCodeFromName(fullName: string): string {
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    MatCheckboxModule,
     BusyLabelComponent,
   ],
   template: `
@@ -266,6 +268,16 @@ function partnerCodeFromName(fullName: string): string {
             <mat-error>Ingresá un monto</mat-error>
           }
         </mat-form-field>
+
+        @if (!isEdit) {
+          <label class="mov-notify">
+            <mat-checkbox formControlName="notifyAdmins"></mat-checkbox>
+            <span>
+              <strong>Enviar notificación a administradores</strong>
+              <small>Aviso en la app y por mail</small>
+            </span>
+          </label>
+        }
 
         <div class="mov-more">
           <button
@@ -509,6 +521,32 @@ function partnerCodeFromName(fullName: string): string {
         margin-top: 0.15rem;
       }
 
+      .mov-notify {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.35rem;
+        margin: 0.05rem 0 0.1rem;
+        cursor: pointer;
+      }
+
+      .mov-notify span {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        padding-top: 0.2rem;
+      }
+
+      .mov-notify strong {
+        font-size: 0.9rem;
+        font-weight: 650;
+        color: var(--guy-navy, #003366);
+      }
+
+      .mov-notify small {
+        font-size: 0.75rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+
       .mov-more {
         display: flex;
         flex-direction: column;
@@ -656,6 +694,7 @@ export class MovementDialogComponent {
     employeeId: this.fb.control<string | null>(this.movement?.employeeId ?? null),
     invoiced: [this.movement?.invoiced ?? false],
     invoiceNumber: [this.movement?.invoiceNumber ?? ''],
+    notifyAdmins: [true],
   });
 
   private readonly formValue = signal(this.form.getRawValue());
@@ -807,6 +846,9 @@ export class MovementDialogComponent {
       invoiced: raw.invoiced,
       invoiceNumber: raw.invoiced ? raw.invoiceNumber.trim() || null : null,
     };
+    if (!this.isEdit) {
+      (body as Partial<Movement> & { notifyAdmins?: boolean }).notifyAdmins = !!raw.notifyAdmins;
+    }
     this.busy.set(true);
 
     const req =

@@ -118,6 +118,13 @@ export const EMAIL_MESSAGE_TYPE_OPTIONS: Array<{
     defaultBody: '{body}',
   },
   {
+    value: 'MOVEMENT_CREATED',
+    label: 'Movimientos y gastos rápidos',
+    group: 'staff',
+    defaultSubject: '{title}',
+    defaultBody: '{body}',
+  },
+  {
     value: 'RESERVATION_ACCEPTED',
     label: 'Comensal · reserva confirmada',
     group: 'guest',

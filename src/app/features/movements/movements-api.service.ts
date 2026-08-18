@@ -78,7 +78,7 @@ export class MovementsApiService {
     });
   }
 
-  create(shopId: string, body: Partial<Movement>) {
+  create(shopId: string, body: Partial<Movement> & { notifyAdmins?: boolean }) {
     return this.http.post<Movement>(`${this.base}/shops/${shopId}/movements`, body);
   }
 
