@@ -22,6 +22,7 @@ import {
   ShopUserOption,
 } from '../closings/closings-api.service';
 import {
+  CashWithdrawalHistoryGroup,
   CashWithdrawalsApiService,
   PendingCashWithdrawal,
 } from './cash-withdrawals-api.service';
@@ -64,27 +65,28 @@ function formatMoney(value: number): string {
           <div class="small">Para ver los retiros pendientes de efectivo.</div>
         </div>
       </div>
-    } @else if (loading()) {
-      <div class="panel-card guy-loading" aria-live="polite" aria-busy="true">
-        <app-spinner [size]="28" tone="accent" />
-        <div>
-          <strong>Cargando…</strong>
-          <div class="small">Obteniendo retiros pendientes</div>
-        </div>
-      </div>
-    } @else if (!rows().length) {
-      <div class="panel-card guy-empty">
-        <mat-icon>payments</mat-icon>
-        <div>
-          <strong>Nada pendiente</strong>
-          <div class="small">
-            Cuando un cierre se guarda sin quién se lleva el efectivo y hay monto a retirar
-            (efectivo − lo dejado en caja − egresos), aparece acá.
+    } @else {
+      @if (loading()) {
+        <div class="panel-card guy-loading" aria-live="polite" aria-busy="true">
+          <app-spinner [size]="28" tone="accent" />
+          <div>
+            <strong>Cargando…</strong>
+            <div class="small">Obteniendo retiros pendientes</div>
           </div>
         </div>
-      </div>
-    } @else {
-      <div class="withdrawals-toolbar panel-card">
+      } @else if (!rows().length) {
+        <div class="panel-card guy-empty">
+          <mat-icon>payments</mat-icon>
+          <div>
+            <strong>Nada pendiente</strong>
+            <div class="small">
+              Cuando un cierre se guarda sin quién se lleva el efectivo y hay monto a retirar
+              (efectivo − lo dejado en caja − egresos), aparece acá.
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="withdrawals-toolbar panel-card">
         <div class="withdrawals-toolbar__select">
           <mat-checkbox
             [checked]="allSelected()"
@@ -161,6 +163,70 @@ function formatMoney(value: number): string {
           </article>
         }
       </div>
+    }
+
+      @if (!loading()) {
+        <section class="history" aria-label="Historial de retiros">
+        <header class="history__head">
+          <div>
+            <p class="history__eyebrow">Cierres</p>
+            <h2 class="history__title">Historial de retiros</h2>
+            <p class="history__sub">Quién se lo llevó, cuenta, monto y cierres incluidos</p>
+          </div>
+        </header>
+        @if (historyLoading()) {
+          <div class="panel-card guy-loading" aria-live="polite" aria-busy="true">
+            <app-spinner [size]="24" tone="accent" />
+            <div>
+              <strong>Cargando historial…</strong>
+              <div class="small">Retiros confirmados de este local</div>
+            </div>
+          </div>
+        } @else if (!history().length) {
+          <div class="panel-card guy-empty">
+            <mat-icon>history</mat-icon>
+            <div>
+              <strong>Todavía no hay retiros confirmados</strong>
+              <div class="small">Cuando confirmes un retiro, queda registrado acá con todos los datos.</div>
+            </div>
+          </div>
+        } @else {
+          <div class="withdrawals-list">
+            @for (group of history(); track group.id) {
+              <article class="panel-card history-card">
+                <div class="history-card__main">
+                  <div>
+                    <h3 class="withdrawal-card__date">{{ formatDateTime(group.pickedAt) }}</h3>
+                    <p class="history-card__who">
+                      {{ group.pickedByName }}
+                      @if (group.accountName) {
+                        <span> → {{ group.accountName }}</span>
+                      }
+                    </p>
+                    @if (group.confirmedByName && group.confirmedByName !== group.pickedByName) {
+                      <p class="history-card__meta">Confirmó {{ group.confirmedByName }}</p>
+                    }
+                    <p class="history-card__meta">
+                      {{ group.closingsCount }} cierre{{ group.closingsCount === 1 ? '' : 's' }}
+                    </p>
+                  </div>
+                  <strong class="withdrawal-card__amount">{{ money(group.totalAmount) }}</strong>
+                </div>
+                <ul class="history-card__items">
+                  @for (item of group.items; track item.id) {
+                    <li>
+                      <span>{{ formatDate(item.businessDate) }}</span>
+                      <a [routerLink]="['/closings', item.closingId]">Ver cierre</a>
+                      <strong>{{ money(item.amount) }}</strong>
+                    </li>
+                  }
+                </ul>
+              </article>
+            }
+          </div>
+        }
+      </section>
+      }
     }
   `,
   styles: [
@@ -249,6 +315,71 @@ function formatMoney(value: number): string {
         font-size: 0.85rem;
         color: var(--guy-muted, #5a6b5e);
       }
+      .history {
+        margin-top: 1.75rem;
+      }
+      .history__head {
+        margin: 0 0 0.85rem;
+      }
+      .history__eyebrow {
+        margin: 0 0 0.15rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--guy-primary, #0b5cab);
+      }
+      .history__title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--guy-navy, #1a2b22);
+      }
+      .history__sub {
+        margin: 0.2rem 0 0;
+        font-size: 0.9rem;
+        color: var(--guy-muted, #5a6b5e);
+      }
+      .history-card {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .history-card__main {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .history-card__who {
+        margin: 0.15rem 0 0;
+        font-size: 0.95rem;
+        font-weight: 650;
+      }
+      .history-card__meta {
+        margin: 0.15rem 0 0;
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5a6b5e);
+      }
+      .history-card__items {
+        list-style: none;
+        margin: 0;
+        padding: 0.55rem 0 0;
+        border-top: 1px solid var(--guy-border, #d7e0d9);
+        display: grid;
+        gap: 0.4rem;
+      }
+      .history-card__items li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 0.75rem;
+        align-items: center;
+        font-size: 0.88rem;
+      }
+      .history-card__items a {
+        color: var(--guy-primary, #0b5cab);
+        text-decoration: none;
+        font-size: 0.82rem;
+      }
     `,
   ],
 })
@@ -274,6 +405,8 @@ export class CashWithdrawalsPage {
   readonly loading = signal(true);
   readonly picking = signal(false);
   readonly rows = signal<PendingCashWithdrawal[]>([]);
+  readonly history = signal<CashWithdrawalHistoryGroup[]>([]);
+  readonly historyLoading = signal(false);
   readonly users = signal<ShopUserOption[]>([]);
   readonly selectedIds = signal<Set<string>>(new Set());
 
@@ -340,6 +473,7 @@ export class CashWithdrawalsPage {
       const shopId = this.shopId();
       if (!shopId) {
         this.rows.set([]);
+        this.history.set([]);
         this.users.set([]);
         this.loading.set(false);
         return;
@@ -354,6 +488,20 @@ export class CashWithdrawalsPage {
 
   formatDate(iso: string): string {
     return formatIsoDateDisplay(iso);
+  }
+
+  formatDateTime(iso: string): string {
+    const raw = String(iso ?? '').trim();
+    if (!raw) return '';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return new Intl.DateTimeFormat('es-AR', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
   }
 
   isSelected(id: string): boolean {
@@ -390,6 +538,7 @@ export class CashWithdrawalsPage {
     const shopId = this.shopId();
     if (!shopId) return;
     this.loading.set(true);
+    this.historyLoading.set(true);
     this.selectedIds.set(new Set());
     this.api.listPending(shopId).subscribe({
       next: (rows) => {
@@ -402,6 +551,16 @@ export class CashWithdrawalsPage {
         this.snack.open('No se pudieron cargar los retiros pendientes', 'OK', {
           duration: 3000,
         });
+      },
+    });
+    this.api.listHistory(shopId).subscribe({
+      next: (rows) => {
+        this.history.set(rows);
+        this.historyLoading.set(false);
+      },
+      error: () => {
+        this.historyLoading.set(false);
+        this.history.set([]);
       },
     });
     this.closingsApi.shopUsers(shopId).subscribe({
