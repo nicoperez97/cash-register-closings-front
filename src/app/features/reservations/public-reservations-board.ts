@@ -125,36 +125,41 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
             <span>afuera</span>
           </div>
         </section>
-        @if (partyMixInside().length || partyMixOutside().length) {
-          <section
-            class="board__mix"
-            [class.board__mix--one]="!(partyMixInside().length && partyMixOutside().length)"
-            aria-label="Mesas por sector"
-          >
-            @if (partyMixInside().length) {
-              <div class="board__mix-col">
-                <p class="board__mix-label">Adentro</p>
-                <p class="board__mix-chips">
-                  @for (item of partyMixInside(); track item.partySize) {
-                    <span class="board__mix-chip">{{ formatMix(item) }}</span>
-                  }
-                </p>
-              </div>
-            }
-            @if (partyMixOutside().length) {
-              <div class="board__mix-col">
-                <p class="board__mix-label">Afuera</p>
-                <p class="board__mix-chips">
-                  @for (item of partyMixOutside(); track item.partySize) {
-                    <span class="board__mix-chip">{{ formatMix(item) }}</span>
-                  }
-                </p>
-              </div>
-            }
-          </section>
-        }
+        <div
+          class="board__stage"
+          [class.board__stage--has-mix]="hasPartyMix()"
+        >
+          @if (hasPartyMix()) {
+            <aside
+              class="board__mix"
+              [class.board__mix--one]="!(partyMixInside().length && partyMixOutside().length)"
+              aria-label="Composición de mesas"
+            >
+              <h2 class="board__mix-title">Composición</h2>
+              @if (partyMixInside().length) {
+                <div class="board__mix-col">
+                  <p class="board__mix-label">Adentro</p>
+                  <p class="board__mix-chips">
+                    @for (item of partyMixInside(); track item.partySize) {
+                      <span class="board__mix-chip">{{ formatMix(item) }}</span>
+                    }
+                  </p>
+                </div>
+              }
+              @if (partyMixOutside().length) {
+                <div class="board__mix-col">
+                  <p class="board__mix-label">Afuera</p>
+                  <p class="board__mix-chips">
+                    @for (item of partyMixOutside(); track item.partySize) {
+                      <span class="board__mix-chip">{{ formatMix(item) }}</span>
+                    }
+                  </p>
+                </div>
+              }
+            </aside>
+          }
 
-        <section class="board__lists">
+          <section class="board__lists">
           <div class="board__col">
             <h2>Adentro <span>{{ inside().length }}</span></h2>
             <ul>
@@ -298,6 +303,7 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
             </ul>
           </div>
         </section>
+        </div>
       </div>
     } @else {
       <div class="board board--loading">
@@ -364,6 +370,9 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   );
   readonly partyMixOutside = computed(() =>
     partyMixFromReservations(this.activeBoardRows().filter((r) => r.area === 'OUTSIDE')),
+  );
+  readonly hasPartyMix = computed(
+    () => this.partyMixInside().length > 0 || this.partyMixOutside().length > 0,
   );
 
   readonly longestColumn = computed(() =>

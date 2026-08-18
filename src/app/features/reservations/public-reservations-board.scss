@@ -332,15 +332,24 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.5rem;
-        max-width: 52rem;
+        order: 2;
         width: 100%;
-        margin: -0.35rem auto 1rem;
+        margin: 0.55rem 0 0;
         box-sizing: border-box;
         flex-shrink: 0;
       }
 
       .board__mix--one {
         grid-template-columns: 1fr;
+      }
+
+      .board__mix-title {
+        display: none;
+        margin: 0;
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--accent) 75%, #fff);
       }
 
       .board__mix-col {
@@ -379,13 +388,24 @@
         border: 1px solid color-mix(in srgb, var(--accent, #c45c26) 45%, transparent);
       }
 
+      .board__stage {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        max-width: 52rem;
+        width: 100%;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
       .board__lists {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0.75rem;
-        max-width: 52rem;
+        order: 1;
         width: 100%;
-        margin: 0 auto;
+        margin: 0;
         flex: 1 1 auto;
         min-height: 0;
         box-sizing: border-box;
@@ -742,9 +762,6 @@
       .board[data-scale='2'] .board__waiting {
         margin-bottom: 0.55rem;
       }
-      .board[data-scale='2'] .board__mix {
-        margin: -0.15rem auto 0.55rem;
-      }
       .board[data-scale='2'] .board__col ul {
         gap: 0.32rem;
       }
@@ -780,9 +797,6 @@
         margin-top: 0.3rem;
       }
       .board[data-scale='3'] .board__glow {
-        display: none;
-      }
-      .board[data-scale='3'] .board__mix {
         display: none;
       }
       .board[data-scale='3'] .board__totals {
@@ -830,8 +844,7 @@
       .board[data-scale='4'] .board__date {
         display: none;
       }
-      .board[data-scale='4'] .board__glow,
-      .board[data-scale='4'] .board__mix {
+      .board[data-scale='4'] .board__glow {
         display: none;
       }
       .board[data-scale='4'] .board__live-row {
@@ -906,7 +919,6 @@
       .board[data-scale='5'] .board__eyebrow,
       .board[data-scale='5'] .board__date,
       .board[data-scale='5'] .board__glow,
-      .board[data-scale='5'] .board__mix,
       .board[data-scale='5'] .board__live {
         display: none;
       }
@@ -1067,9 +1079,14 @@
           flex-shrink: 0;
         }
 
+        .board[data-scale='3'] .board__mix,
+        .board[data-scale='4'] .board__mix,
+        .board[data-scale='5'] .board__mix {
+          display: none;
+        }
+
         .board__mix {
-          margin: -0.15rem auto 0.55rem;
-          flex-shrink: 0;
+          margin: 0.45rem 0 0;
           gap: 0.35rem;
         }
 
@@ -1149,6 +1166,77 @@
         }
       }
 
+      /* Web ancha: composición como columna lateral, Adentro / Afuera al lado. */
+      @media (min-width: 960px) {
+        .board__stage {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: minmax(0, 1fr);
+          gap: 0.75rem;
+          max-width: min(96rem, 100%);
+          align-items: stretch;
+        }
+
+        .board__stage--has-mix {
+          grid-template-columns: minmax(14rem, 18rem) 1fr 1fr;
+        }
+
+        .board__mix {
+          order: 0;
+          grid-column: 1;
+          grid-row: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          margin: 0;
+          padding: 0.75rem 0.8rem 0.85rem;
+          overflow: auto;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.035);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .board__mix-title {
+          display: block;
+          flex-shrink: 0;
+          font-weight: 700;
+        }
+
+        .board__mix-col {
+          text-align: left;
+          background: rgba(0, 0, 0, 0.22);
+          padding: 0.7rem 0.75rem;
+        }
+
+        .board__mix-chips {
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: flex-start;
+        }
+
+        .board__mix-chip {
+          justify-content: center;
+          border-radius: 10px;
+          text-align: center;
+        }
+
+        .board__lists {
+          display: contents;
+        }
+
+        .board__stage:not(.board__stage--has-mix) .board__lists {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-column: 1 / -1;
+          grid-row: 1;
+          height: 100%;
+          min-height: 0;
+        }
+      }
+
       /*
        * iPad / tablet táctil: misma composición que desktop
        * (hero centrado, logo grande, 2 columnas) pero a pantalla completa.
@@ -1196,8 +1284,7 @@
         .board__notice,
         .board__waiting,
         .board__totals,
-        .board__mix,
-        .board__lists {
+        .board__stage {
           max-width: none;
           width: 100%;
         }
