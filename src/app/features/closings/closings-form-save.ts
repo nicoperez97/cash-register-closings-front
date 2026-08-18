@@ -218,9 +218,6 @@ export function prepareClosingSaveBody(
         const lines = sourceLinesFromRaw(s);
         return {
           sourceId: s.sourceId,
-          name: String(s.name ?? '').trim() || 'Fuente',
-          includeInDeclared: !!s.includeInDeclared,
-          kind: (s.kind as ClosingSourceAmount['kind']) || 'RECORD_ONLY',
           amount: sourceRowTotal(s),
           lines: lines.length ? lines : undefined,
         };
