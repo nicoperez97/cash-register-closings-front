@@ -39,8 +39,7 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
     } @else if (board(); as b) {
       <div
         class="board"
-        [class.board--dense]="isDense()"
-        [class.board--packed]="isPacked()"
+        [attr.data-scale]="headerScale()"
         [style.--accent]="accent()"
       >
         <header class="board__hero">
@@ -368,10 +367,19 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   );
 
   readonly longestColumn = computed(() =>
-    Math.max(this.inside().length, this.outside().length),
+    Math.max(this.inside().length, this.outside().length, 0),
   );
-  readonly isDense = computed(() => this.longestColumn() >= 8);
-  readonly isPacked = computed(() => this.longestColumn() >= 14);
+
+  /** 0 vacío → 5 muy cargado: achica logo, título y KPIs a medida que crece la lista. */
+  readonly headerScale = computed(() => {
+    const n = this.longestColumn();
+    if (n <= 0) return 0;
+    if (n <= 3) return 1;
+    if (n <= 6) return 2;
+    if (n <= 10) return 3;
+    if (n <= 16) return 4;
+    return 5;
+  });
 
   formatMix = formatPartyMixItem;
 

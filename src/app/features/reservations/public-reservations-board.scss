@@ -694,141 +694,295 @@
         flex-shrink: 0;
       }
 
-      .board--dense .board__hero {
-        padding: 0.55rem 0.5rem 0.7rem;
+      .board__logo,
+      .board__brand,
+      .board__hero,
+      .board__col li,
+      .board__total {
+        transition:
+          width 180ms ease,
+          height 180ms ease,
+          font-size 180ms ease,
+          padding 180ms ease,
+          margin 180ms ease;
       }
 
-      .board--dense .board__logo {
+      /* Escala 0 (vacío) → 5 (muy cargado): achica header a medida que crece la lista. */
+      .board[data-scale='1'] .board__hero {
+        padding: 0.85rem 0.5rem 0.95rem;
+      }
+      .board[data-scale='1'] .board__logo {
+        width: 4.6rem;
+        height: 4.6rem;
+      }
+      .board[data-scale='1'] .board__brand {
+        font-size: clamp(1.7rem, 4.8vw, 2.7rem);
+      }
+
+      .board[data-scale='2'] .board__hero {
+        padding: 0.55rem 0.45rem 0.65rem;
+      }
+      .board[data-scale='2'] .board__logo {
         width: 3.6rem;
         height: 3.6rem;
         border-radius: 14px;
       }
-
-      .board--dense .board__brand {
-        font-size: clamp(1.45rem, 3.6vw, 2.15rem);
+      .board[data-scale='2'] .board__brand {
+        font-size: clamp(1.45rem, 4vw, 2.2rem);
       }
-
-      .board--dense .board__date {
-        margin-top: 0.15rem;
-        font-size: 0.82rem;
+      .board[data-scale='2'] .board__date {
+        font-size: 0.85rem;
+        margin-top: 0.2rem;
       }
-
-      .board--dense .board__live-row {
+      .board[data-scale='2'] .board__live-row {
         margin-top: 0.4rem;
       }
-
-      .board--dense .board__totals,
-      .board--dense .board__notice,
-      .board--dense .board__waiting {
+      .board[data-scale='2'] .board__totals,
+      .board[data-scale='2'] .board__notice,
+      .board[data-scale='2'] .board__waiting {
         margin-bottom: 0.55rem;
       }
-
-      .board--dense .board__mix {
+      .board[data-scale='2'] .board__mix {
         margin: -0.15rem auto 0.55rem;
       }
-
-      .board--dense .board__col {
-        padding: 0.55rem 0.6rem 0.6rem;
+      .board[data-scale='2'] .board__col ul {
+        gap: 0.32rem;
+      }
+      .board[data-scale='2'] .board__col li {
+        padding: 0.42rem 0.55rem;
       }
 
-      .board--dense .board__col h2 {
-        margin-bottom: 0.35rem;
+      .board[data-scale='3'] .board__hero {
+        padding: 0.35rem 0.4rem 0.45rem;
       }
-
-      .board--dense .board__col ul {
-        gap: 0.28rem;
+      .board[data-scale='3'] .board__identity {
+        flex-direction: row;
+        text-align: left;
+        justify-content: center;
+        gap: 0.7rem;
       }
-
-      .board--dense .board__col li {
-        padding: 0.38rem 0.5rem;
-        gap: 0;
+      .board[data-scale='3'] .board__logo {
+        width: 2.9rem;
+        height: 2.9rem;
+        border-radius: 12px;
       }
-
-      .board--dense .board__name {
+      .board[data-scale='3'] .board__eyebrow {
+        font-size: 0.62rem;
+      }
+      .board[data-scale='3'] .board__brand {
+        font-size: clamp(1.25rem, 3.2vw, 1.75rem);
+      }
+      .board[data-scale='3'] .board__date {
+        font-size: 0.78rem;
+        margin-top: 0.08rem;
+      }
+      .board[data-scale='3'] .board__live-row {
+        margin-top: 0.3rem;
+      }
+      .board[data-scale='3'] .board__glow {
+        display: none;
+      }
+      .board[data-scale='3'] .board__mix {
+        display: none;
+      }
+      .board[data-scale='3'] .board__totals {
+        margin-bottom: 0.45rem;
+      }
+      .board[data-scale='3'] .board__total {
+        padding: 0.42rem 0.25rem;
+      }
+      .board[data-scale='3'] .board__total strong {
+        font-size: 1.15rem;
+      }
+      .board[data-scale='3'] .board__note {
+        display: none;
+      }
+      .board[data-scale='3'] .board__col ul {
+        gap: 0.24rem;
+      }
+      .board[data-scale='3'] .board__col li {
+        padding: 0.32rem 0.48rem;
+      }
+      .board[data-scale='3'] .board__name {
         font-size: 0.9rem;
       }
 
-      .board--dense .board__note {
+      .board[data-scale='4'] .board__hero {
+        padding: 0.2rem 0.3rem 0.3rem;
+      }
+      .board[data-scale='4'] .board__identity {
+        flex-direction: row;
+        text-align: left;
+        justify-content: center;
+        gap: 0.55rem;
+      }
+      .board[data-scale='4'] .board__eyebrow {
         display: none;
       }
-
-      .board--dense .board__pax strong {
-        font-size: 1.02rem;
+      .board[data-scale='4'] .board__logo {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 9px;
       }
-
-      .board--packed .board__hero {
-        padding: 0.35rem 0.4rem 0.45rem;
+      .board[data-scale='4'] .board__brand {
+        font-size: clamp(1.05rem, 2.6vw, 1.4rem);
       }
-
-      .board--packed .board__eyebrow {
+      .board[data-scale='4'] .board__date {
         display: none;
       }
-
-      .board--packed .board__logo {
-        width: 2.7rem;
-        height: 2.7rem;
-        border-radius: 10px;
-      }
-
-      .board--packed .board__brand {
-        font-size: clamp(1.2rem, 2.8vw, 1.7rem);
-      }
-
-      .board--packed .board__date {
+      .board[data-scale='4'] .board__glow,
+      .board[data-scale='4'] .board__mix {
         display: none;
       }
-
-      .board--packed .board__mix {
+      .board[data-scale='4'] .board__live-row {
+        margin-top: 0.2rem;
+      }
+      .board[data-scale='4'] .board__refresh-label {
         display: none;
       }
-
-      .board--packed .board__totals {
-        margin-bottom: 0.4rem;
+      .board[data-scale='4'] .board__totals {
+        margin-bottom: 0.35rem;
       }
-
-      .board--packed .board__total {
-        padding: 0.4rem 0.25rem;
+      .board[data-scale='4'] .board__total {
+        padding: 0.28rem 0.15rem;
       }
-
-      .board--packed .board__col ul {
-        gap: 0.18rem;
+      .board[data-scale='4'] .board__total strong {
+        font-size: 1rem;
       }
-
-      .board--packed .board__col li {
+      .board[data-scale='4'] .board__total span {
+        font-size: 0.55rem;
+      }
+      .board[data-scale='4'] .board__note,
+      .board[data-scale='4'] .board__badge {
+        display: none;
+      }
+      .board[data-scale='4'] .board__col {
+        padding: 0.45rem 0.5rem 0.5rem;
+      }
+      .board[data-scale='4'] .board__col h2 {
+        margin-bottom: 0.28rem;
+        font-size: 0.68rem;
+      }
+      .board[data-scale='4'] .board__col ul {
+        gap: 0.16rem;
+      }
+      .board[data-scale='4'] .board__col li {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
-        padding: 0.26rem 0.42rem;
+        padding: 0.24rem 0.4rem;
       }
-
-      .board--packed .board__meta {
+      .board[data-scale='4'] .board__meta {
         flex-wrap: nowrap;
         margin-left: auto;
       }
-
-      .board--packed .board__name {
+      .board[data-scale='4'] .board__name {
         font-size: 0.82rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      .board[data-scale='4'] .board__pax strong {
+        font-size: 0.95rem;
+      }
+      .board[data-scale='4'] .board__mesa {
+        width: 2.7rem;
+        min-height: 1.4rem;
+        font-size: 0.7rem;
+      }
 
-      .board--packed .board__badge {
+      .board[data-scale='5'] .board__hero {
+        padding: 0.1rem 0.2rem 0.2rem;
+      }
+      .board[data-scale='5'] .board__identity {
+        flex-direction: row;
+        text-align: left;
+        justify-content: space-between;
+        width: 100%;
+        max-width: 52rem;
+        margin: 0 auto;
+        gap: 0.45rem;
+      }
+      .board[data-scale='5'] .board__eyebrow,
+      .board[data-scale='5'] .board__date,
+      .board[data-scale='5'] .board__glow,
+      .board[data-scale='5'] .board__mix,
+      .board[data-scale='5'] .board__live {
         display: none;
       }
-
-      .board--packed .board__pax {
-        padding: 0.12rem 0.32rem 0.14rem;
+      .board[data-scale='5'] .board__logo {
+        width: 1.85rem;
+        height: 1.85rem;
+        border-radius: 8px;
       }
-
-      .board--packed .board__pax strong {
-        font-size: 0.92rem;
+      .board[data-scale='5'] .board__brand {
+        font-size: 1.05rem;
       }
-
-      .board--packed .board__mesa {
-        width: 2.8rem;
-        min-height: 1.45rem;
-        font-size: 0.7rem;
+      .board[data-scale='5'] .board__live-row {
+        margin-top: 0;
+      }
+      .board[data-scale='5'] .board__refresh-label {
+        display: none;
+      }
+      .board[data-scale='5'] .board__totals {
+        margin-bottom: 0.28rem;
+        gap: 0.28rem;
+      }
+      .board[data-scale='5'] .board__total {
+        padding: 0.18rem 0.1rem;
+        border-radius: 8px;
+      }
+      .board[data-scale='5'] .board__total strong {
+        font-size: 0.9rem;
+      }
+      .board[data-scale='5'] .board__total span {
+        font-size: 0.5rem;
+      }
+      .board[data-scale='5'] .board__note,
+      .board[data-scale='5'] .board__badge {
+        display: none;
+      }
+      .board[data-scale='5'] .board__col {
+        padding: 0.35rem 0.4rem 0.4rem;
+      }
+      .board[data-scale='5'] .board__col h2 {
+        margin-bottom: 0.2rem;
+        font-size: 0.62rem;
+      }
+      .board[data-scale='5'] .board__col ul {
+        gap: 0.1rem;
+      }
+      .board[data-scale='5'] .board__col li {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.16rem 0.32rem;
+        border-radius: 8px;
+      }
+      .board[data-scale='5'] .board__meta {
+        flex-wrap: nowrap;
+        margin-left: auto;
+        gap: 0.28rem;
+      }
+      .board[data-scale='5'] .board__name {
+        font-size: 0.76rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .board[data-scale='5'] .board__time {
+        font-size: 0.68rem;
+      }
+      .board[data-scale='5'] .board__pax {
+        padding: 0.08rem 0.28rem 0.1rem;
+      }
+      .board[data-scale='5'] .board__pax strong {
+        font-size: 0.85rem;
+      }
+      .board[data-scale='5'] .board__mesa {
+        width: 2.4rem;
+        min-height: 1.25rem;
+        font-size: 0.65rem;
       }
 
       /* Teléfono: layout compacto */
@@ -849,12 +1003,29 @@
           width: 100%;
         }
 
-        .board__logo {
+        .board[data-scale='0'] .board__logo,
+        .board[data-scale='1'] .board__logo {
           width: 3rem;
           height: 3rem;
           border-radius: 11px;
           flex-shrink: 0;
           box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+        }
+
+        .board[data-scale='2'] .board__logo {
+          width: 2.55rem;
+          height: 2.55rem;
+        }
+
+        .board[data-scale='3'] .board__logo {
+          width: 2.2rem;
+          height: 2.2rem;
+        }
+
+        .board[data-scale='4'] .board__logo,
+        .board[data-scale='5'] .board__logo {
+          width: 1.85rem;
+          height: 1.85rem;
         }
 
         .board__eyebrow {
@@ -994,23 +1165,27 @@
           padding: 0.65rem 0.35rem 0.9rem;
         }
 
-        .board__identity {
+        .board[data-scale='0'] .board__identity,
+        .board[data-scale='1'] .board__identity {
           flex-direction: column;
           align-items: center;
           text-align: center;
         }
 
-        .board__logo {
+        .board[data-scale='0'] .board__logo,
+        .board[data-scale='1'] .board__logo {
           width: 5rem;
           height: 5rem;
           border-radius: 16px;
         }
 
-        .board__brand {
+        .board[data-scale='0'] .board__brand,
+        .board[data-scale='1'] .board__brand {
           font-size: clamp(2rem, 3.6vw, 2.85rem);
         }
 
-        .board__date {
+        .board[data-scale='0'] .board__date,
+        .board[data-scale='1'] .board__date {
           font-size: 1rem;
         }
 
