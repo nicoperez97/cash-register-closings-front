@@ -125,6 +125,11 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
             <span>afuera</span>
           </div>
         </section>
+        @if (hasPartyMix()) {
+          <button type="button" class="board__mix-open" (click)="mixOpen.set(true)">
+            Ver composición
+          </button>
+        }
         <div
           class="board__stage"
           [class.board__stage--has-mix]="hasPartyMix()"
@@ -304,6 +309,49 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
           </div>
         </section>
         </div>
+        @if (mixOpen()) {
+          <div class="board__mix-overlay" (click)="mixOpen.set(false)">
+            <aside
+              class="board__mix-sheet"
+              (click)="$event.stopPropagation()"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="board-mix-title"
+            >
+              <div class="board__mix-sheet-head">
+                <h2 id="board-mix-title">Composición</h2>
+                <button
+                  type="button"
+                  class="board__mix-close"
+                  aria-label="Cerrar"
+                  (click)="mixOpen.set(false)"
+                >
+                  ✕
+                </button>
+              </div>
+              @if (partyMixInside().length) {
+                <div class="board__mix-col">
+                  <p class="board__mix-label">Adentro</p>
+                  <p class="board__mix-chips">
+                    @for (item of partyMixInside(); track item.partySize) {
+                      <span class="board__mix-chip">{{ formatMix(item) }}</span>
+                    }
+                  </p>
+                </div>
+              }
+              @if (partyMixOutside().length) {
+                <div class="board__mix-col">
+                  <p class="board__mix-label">Afuera</p>
+                  <p class="board__mix-chips">
+                    @for (item of partyMixOutside(); track item.partySize) {
+                      <span class="board__mix-chip">{{ formatMix(item) }}</span>
+                    }
+                  </p>
+                </div>
+              }
+            </aside>
+          </div>
+        }
       </div>
     } @else {
       <div class="board board--loading">
@@ -374,6 +422,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   readonly hasPartyMix = computed(
     () => this.partyMixInside().length > 0 || this.partyMixOutside().length > 0,
   );
+  readonly mixOpen = signal(false);
 
   readonly longestColumn = computed(() =>
     Math.max(this.inside().length, this.outside().length, 0),
