@@ -219,6 +219,7 @@ function loadViewMode(kind: StockKind): ViewMode {
       <div class="stock-toolbar mb-3">
         <mat-button-toggle-group
           class="stock-sort"
+          hideSingleSelectionIndicator
           [value]="sortMode()"
           (change)="onSortMode($event.value)"
           aria-label="Ordenar productos"
@@ -235,6 +236,7 @@ function loadViewMode(kind: StockKind): ViewMode {
 
         <mat-button-toggle-group
           class="stock-view"
+          hideSingleSelectionIndicator
           [value]="viewMode()"
           (change)="onViewMode($event.value)"
           aria-label="Vista de productos"

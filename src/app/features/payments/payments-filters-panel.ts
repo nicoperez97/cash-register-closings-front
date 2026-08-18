@@ -55,6 +55,7 @@ type FilterUser = {
       <div class="guy-filters__tools">
         <mat-button-toggle-group
           class="pay-view"
+          hideSingleSelectionIndicator
           [value]="viewMode()"
           (change)="viewModeChange.emit($event.value)"
           aria-label="Vista de pagos"
