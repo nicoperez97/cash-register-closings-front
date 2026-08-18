@@ -51,14 +51,14 @@ function formatDelta(pct: number | null | undefined): string {
   return `${sign}${pct.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
 }
 
-function money(value: number): string {
+function money(value: unknown): string {
   return `$ ${Number(value || 0).toLocaleString('es-AR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
-function percent(share: number): string {
+function percent(share: unknown): string {
   return `${(Number(share || 0) * 100).toLocaleString('es-AR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -231,8 +231,8 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
               @for (row of conceptRows(); track row['conceptId'] ?? row['name']) {
                 <tr>
                   <td>{{ row['name'] }}</td>
-                  <td class="num">{{ money(Number(row['amount'] ?? 0)) }}</td>
-                  <td class="num">{{ percent(Number(row['share'] ?? 0)) }}</td>
+                  <td class="num">{{ money(row['amount'] ?? 0) }}</td>
+                  <td class="num">{{ percent(row['share'] ?? 0) }}</td>
                 </tr>
               }
             </tbody>

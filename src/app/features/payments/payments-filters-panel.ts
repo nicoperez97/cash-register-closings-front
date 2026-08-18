@@ -56,7 +56,7 @@ type FilterUser = {
       </div>
       <div class="guy-filters__tools">
         <mat-button-toggle-group
-          class="pay-view"
+          class="pay-view guy-icon-toggle"
           hideSingleSelectionIndicator
           [value]="viewMode()"
           (change)="viewModeChange.emit($event.value)"
