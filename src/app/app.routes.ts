@@ -196,11 +196,26 @@ export const routes: Routes = [
         title: 'Pagos a empleados',
       },
       {
+        path: 'payments/services',
+        canActivate: [permissionGuard('payments.read')],
+        data: { paymentKind: 'service' },
+        loadComponent: () =>
+          import('./features/payments/payments-page').then((m) => m.PaymentsPage),
+        title: 'Pagos a servicios',
+      },
+      {
         path: 'suppliers',
         canActivate: [permissionGuard('suppliers.read')],
         loadComponent: () =>
           import('./features/suppliers/suppliers-list').then((m) => m.SuppliersListPage),
         title: 'Proveedores',
+      },
+      {
+        path: 'services',
+        canActivate: [permissionGuard('services.read')],
+        loadComponent: () =>
+          import('./features/services/services-list').then((m) => m.ServicesListPage),
+        title: 'Servicios',
       },
       {
         path: 'stock',

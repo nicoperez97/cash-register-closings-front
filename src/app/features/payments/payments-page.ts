@@ -35,6 +35,7 @@ import type { UserVisibility } from '../../shared/user-visibility';
 import { PaymentDialogComponent } from './payment-dialog';
 import { PaymentPayDialogComponent } from './payment-pay-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
+import { ServicesApiService, ShopService } from '../services/services-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile } from '../../shared/utils/input-file';
@@ -61,6 +62,7 @@ import {
   mapShopUsersForPayments,
   paymentsExportFilename,
   savePaymentsViewMode,
+  paymentMatchesKind,
   shouldRedirectPaymentKind,
   type PaymentKind,
   type PaymentsViewMode,
@@ -97,11 +99,12 @@ import {
       [exporting]="exporting()"
       [shopId]="shopId()"
       [mineOnly]="mineOnly()"
-      [supplierKind]="isSupplierKind()"
+      [kind]="kind()"
       [currentUserId]="currentUserId()"
       [statusOptions]="statusOptions"
       [filterUsers]="filterUsers()"
       [suppliers]="suppliers()"
+      [services]="services()"
       [employees]="employees()"
       [statusFilter]="statusFilter"
       [validatorFilter]="validatorFilter"
@@ -109,6 +112,7 @@ import {
       [dueRange]="dueRange"
       [paidRange]="paidRange"
       [supplierFilter]="supplierFilter"
+      [serviceFilter]="serviceFilter"
       [employeeFilter]="employeeFilter"
       [amountMinFilter]="amountMinFilter"
       [amountMaxFilter]="amountMaxFilter"
@@ -141,7 +145,7 @@ import {
             [selected]="isSelected(p.id)"
             [focused]="focusedPaymentId() === p.id"
             [payBusy]="actionBusyId() === p.id"
-            [supplierKind]="isSupplierKind()"
+            [kind]="kind()"
             [canManage]="canManage()"
             (click)="onCardClick(p, $event)"
             (toggleSelected)="toggleSelected(p)"
@@ -153,7 +157,7 @@ import {
           />
         } @empty {
         <div class="panel-card guy-empty">
-          <mat-icon>{{ isSupplierKind() ? 'local_shipping' : 'badge' }}</mat-icon>
+          <mat-icon>{{ emptyIcon() }}</mat-icon>
           <div>
             <strong>{{ emptyTitle() }}</strong>
             <div class="small">{{ emptyHint() }}</div>
@@ -199,6 +203,7 @@ export class PaymentsPage {
 
   private readonly api = inject(PaymentsApiService);
   private readonly suppliersApi = inject(SuppliersApiService);
+  private readonly servicesApi = inject(ServicesApiService);
   private readonly employeesApi = inject(EmployeesApiService);
   private readonly closingsApi = inject(ClosingsApiService);
   private readonly paymentsInbox = inject(PaymentsInboxService);
@@ -224,28 +229,39 @@ export class PaymentsPage {
     initialValue: this.route.snapshot.data,
   });
 
-  readonly kind = computed<PaymentKind>(() =>
-    this.routeData()['paymentKind'] === 'employee' ? 'employee' : 'supplier',
-  );
+  readonly kind = computed<PaymentKind>(() => {
+    const k = this.routeData()['paymentKind'];
+    if (k === 'employee') return 'employee';
+    if (k === 'service') return 'service';
+    return 'supplier';
+  });
   readonly isSupplierKind = computed(() => this.kind() === 'supplier');
 
-  readonly pageTitle = computed(() =>
-    this.isSupplierKind() ? 'Pagos a proveedores' : 'Pagos a empleados',
-  );
+  readonly pageTitle = computed(() => {
+    if (this.kind() === 'service') return 'Pagos a servicios';
+    return this.isSupplierKind() ? 'Pagos a proveedores' : 'Pagos a empleados';
+  });
   readonly pageSubtitle = computed(() => {
     const shop = this.shops.selectedShop()?.name ?? 'Sin local';
+    if (this.kind() === 'service') return `${shop} · con servicio asignado`;
     return this.isSupplierKind()
       ? `${shop} · con proveedor asignado`
       : `${shop} · internos (sueldos, reintegros, etc.)`;
   });
-  readonly emptyTitle = computed(() =>
-    this.isSupplierKind() ? 'Sin pagos a proveedores' : 'Sin pagos a empleados',
-  );
-  readonly emptyHint = computed(() =>
-    this.isSupplierKind()
+  readonly emptyTitle = computed(() => {
+    if (this.kind() === 'service') return 'Sin pagos a servicios';
+    return this.isSupplierKind() ? 'Sin pagos a proveedores' : 'Sin pagos a empleados';
+  });
+  readonly emptyHint = computed(() => {
+    if (this.kind() === 'service') return 'Creá un pago y asignale un servicio.';
+    return this.isSupplierKind()
       ? 'Creá un pago y asignale un proveedor.'
-      : 'Creá un pago sin proveedor para esta sección.',
-  );
+      : 'Creá un pago sin proveedor ni servicio para esta sección.';
+  });
+  readonly emptyIcon = computed(() => {
+    if (this.kind() === 'service') return 'home_repair_service';
+    return this.isSupplierKind() ? 'local_shipping' : 'badge';
+  });
 
   readonly rows = signal<ShopPayment[]>([]);
   readonly loading = signal(true);
@@ -264,6 +280,7 @@ export class PaymentsPage {
   >([]);
   readonly accounts = signal<Array<{ id: string; name: string }>>([]);
   readonly suppliers = signal<ShopSupplier[]>([]);
+  readonly services = signal<ShopService[]>([]);
   readonly employees = signal<Employee[]>([]);
   readonly statusFilter = new FormControl<PaymentStatus[]>(
     ['PENDING_VALIDATION', 'VALIDATED'],
@@ -280,6 +297,7 @@ export class PaymentsPage {
     end: this.fb.control<Date | null>(null),
   });
   readonly supplierFilter = new FormControl<string[]>([], { nonNullable: true });
+  readonly serviceFilter = new FormControl<string[]>([], { nonNullable: true });
   readonly employeeFilter = new FormControl<string[]>([], { nonNullable: true });
   readonly amountMinFilter = new FormControl<number | null>(null);
   readonly amountMaxFilter = new FormControl<number | null>(null);
@@ -307,6 +325,9 @@ export class PaymentsPage {
   });
   private readonly supplierFilterValue = toSignal(this.supplierFilter.valueChanges, {
     initialValue: this.supplierFilter.value,
+  });
+  private readonly serviceFilterValue = toSignal(this.serviceFilter.valueChanges, {
+    initialValue: this.serviceFilter.value,
   });
   private readonly employeeFilterValue = toSignal(this.employeeFilter.valueChanges, {
     initialValue: this.employeeFilter.value,
@@ -339,7 +360,9 @@ export class PaymentsPage {
       paidStart: this.paidRangeValue()?.start,
       paidEnd: this.paidRangeValue()?.end,
       isSupplierKind: this.isSupplierKind(),
+      kind: this.kind(),
       supplierCount: this.supplierFilterValue()?.length ?? 0,
+      serviceCount: this.serviceFilterValue()?.length ?? 0,
       employeeCount: this.employeeFilterValue()?.length ?? 0,
       amountMin: this.amountMinFilterValue(),
       amountMax: this.amountMaxFilterValue(),
@@ -349,9 +372,7 @@ export class PaymentsPage {
   readonly shopId = computed(() => this.shops.selectedShopId());
 
   readonly visibleRows = computed(() => {
-    const list = this.rows().filter((p) =>
-      this.isSupplierKind() ? !!p.supplierId : !p.supplierId,
-    );
+    const list = this.rows().filter((p) => paymentMatchesKind(p, this.kind()));
     return [...list].sort((a, b) => {
       const byPrio = paymentPriorityRank(a.priority) - paymentPriorityRank(b.priority);
       if (byPrio !== 0) return byPrio;
@@ -365,6 +386,10 @@ export class PaymentsPage {
 
   canManageSuppliers(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'suppliers.manage');
+  }
+
+  canManageServices(): boolean {
+    return hasShopPermission(this.auth.currentUser(), this.shopId(), 'services.manage');
   }
 
   async onReceiptPicked(ev: Event, p: ShopPayment): Promise<void> {
@@ -436,6 +461,7 @@ export class PaymentsPage {
     this.dueRange.valueChanges.subscribe(() => this.reload());
     this.paidRange.valueChanges.subscribe(() => this.reload());
     this.supplierFilter.valueChanges.subscribe(() => this.reload());
+    this.serviceFilter.valueChanges.subscribe(() => this.reload());
     this.employeeFilter.valueChanges.subscribe(() => this.reload());
     this.amountMinFilter.valueChanges.subscribe(() => this.reload());
     this.amountMaxFilter.valueChanges.subscribe(() => this.reload());
@@ -463,7 +489,9 @@ export class PaymentsPage {
       amountMin: this.amountMinFilter.value,
       amountMax: this.amountMaxFilter.value,
       isSupplierKind: this.isSupplierKind(),
+      kind: this.kind(),
       supplierIds: this.supplierFilter.value,
+      serviceIds: this.serviceFilter.value,
       employeeIds: this.employeeFilter.value,
       validatorIds: this.validatorFilter.value,
       payerIds: this.payerFilter.value,
@@ -550,6 +578,10 @@ export class PaymentsPage {
       next: (rows) => this.suppliers.set(rows),
       error: () => this.suppliers.set([]),
     });
+    this.servicesApi.list(shopId).subscribe({
+      next: (rows) => this.services.set(rows),
+      error: () => this.services.set([]),
+    });
     this.employeesApi.list(shopId).subscribe({
       next: (rows) => this.employees.set(rows),
       error: () => this.employees.set([]),
@@ -623,7 +655,7 @@ export class PaymentsPage {
 
     this.api.get(shopId, focusId).subscribe({
       next: (p) => {
-        const redirectPath = shouldRedirectPaymentKind(p, this.isSupplierKind());
+        const redirectPath = shouldRedirectPaymentKind(p, this.kind());
         if (redirectPath) {
           void this.router.navigate([redirectPath], {
             queryParams: { payment: p.id, shop: p.shopId },
@@ -638,6 +670,7 @@ export class PaymentsPage {
         this.validatorFilter.setValue(cleared.validatorFilter, { emitEvent: false });
         this.payerFilter.setValue(cleared.payerFilter, { emitEvent: false });
         this.supplierFilter.setValue(cleared.supplierFilter, { emitEvent: false });
+        this.serviceFilter.setValue(cleared.serviceFilter, { emitEvent: false });
         this.employeeFilter.setValue(cleared.employeeFilter, { emitEvent: false });
         this.amountMinFilter.setValue(cleared.amountMin, { emitEvent: false });
         this.amountMaxFilter.setValue(cleared.amountMax, { emitEvent: false });
@@ -736,8 +769,12 @@ export class PaymentsPage {
     const title =
       mode === 'edit' ? 'Editar pago' : mode === 'duplicate' ? 'Duplicar pago' : 'Nuevo pago';
     const prefill =
-      mode === 'create' && kind === 'employee'
-        ? { supplierId: null as string | null }
+      mode === 'create'
+        ? kind === 'employee'
+          ? { supplierId: null as string | null, serviceId: null as string | null }
+          : kind === 'service'
+            ? { supplierId: null as string | null, employeeId: null as string | null }
+            : { serviceId: null as string | null, employeeId: null as string | null }
         : undefined;
     const accounts = buildPaymentDialogAccounts(this.accounts(), payment);
     this.dialogTitle
@@ -754,8 +791,10 @@ export class PaymentsPage {
             users: buildPaymentDialogUsers(this.users(), payment),
             accounts,
             suppliers: this.suppliers(),
+            services: this.services(),
             employees: this.employees(),
             canManageSuppliers: this.canManageSuppliers(),
+            canManageServices: this.canManageServices(),
             ...(payment && (mode === 'edit' || mode === 'duplicate') ? { payment } : {}),
             ...(mode === 'create' && prefill ? { prefill } : {}),
           },

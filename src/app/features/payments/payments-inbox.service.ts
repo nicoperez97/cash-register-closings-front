@@ -27,6 +27,7 @@ export class PaymentsInboxService {
 
   readonly pendingCount = signal(0);
   readonly pendingSupplierCount = signal(0);
+  readonly pendingServiceCount = signal(0);
   readonly pendingEmployeeCount = signal(0);
 
   constructor() {
@@ -36,14 +37,14 @@ export class PaymentsInboxService {
           const user = this.auth.currentUser();
           if (!shopId || !hasShopPermission(user, shopId, 'payments.read')) {
             this.clear();
-            return of({ total: 0, suppliers: 0, employees: 0 });
+            return of({ total: 0, suppliers: 0, services: 0, employees: 0 });
           }
           return interval(45000).pipe(
             startWith(0),
             switchMap(() =>
               this.api.list(shopId).pipe(
                 map((rows) => this.countsFrom(rows)),
-                catchError(() => of({ total: 0, suppliers: 0, employees: 0 })),
+                catchError(() => of({ total: 0, suppliers: 0, services: 0, employees: 0 })),
               ),
             ),
           );
@@ -52,6 +53,7 @@ export class PaymentsInboxService {
           (a, b) =>
             a.total === b.total &&
             a.suppliers === b.suppliers &&
+            a.services === b.services &&
             a.employees === b.employees,
         ),
       )
@@ -76,17 +78,19 @@ export class PaymentsInboxService {
     return {
       total: pending.length,
       suppliers: pending.filter((p) => !!p.supplierId).length,
-      employees: pending.filter((p) => !p.supplierId).length,
+      services: pending.filter((p) => !!p.serviceId).length,
+      employees: pending.filter((p) => !p.supplierId && !p.serviceId).length,
     };
   }
 
-  private apply(c: { total: number; suppliers: number; employees: number }) {
+  private apply(c: { total: number; suppliers: number; services: number; employees: number }) {
     this.pendingCount.set(c.total);
     this.pendingSupplierCount.set(c.suppliers);
+    this.pendingServiceCount.set(c.services);
     this.pendingEmployeeCount.set(c.employees);
   }
 
   private clear() {
-    this.apply({ total: 0, suppliers: 0, employees: 0 });
+    this.apply({ total: 0, suppliers: 0, services: 0, employees: 0 });
   }
 }

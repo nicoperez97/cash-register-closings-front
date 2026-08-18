@@ -2,7 +2,7 @@ import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
 import type { PaymentStatus, ShopPayment } from './payments-api.service';
 
-export type PaymentKind = 'supplier' | 'employee';
+export type PaymentKind = 'supplier' | 'employee' | 'service';
 export type PaymentsViewMode = 'cards' | 'list';
 
 const PAYMENTS_VIEW_KEY = 'crc.payments.viewMode';
@@ -74,6 +74,7 @@ export function filterActivePaymentAccounts(
       (a) =>
         a.active !== false &&
         a.type !== 'SUPPLIER' &&
+        a.type !== 'SERVICE' &&
         a.type !== 'SYSTEM',
     )
     .map((a) => ({ id: a.id, name: a.name }));
@@ -93,7 +94,8 @@ export function paymentsExportFilename(
   shopNameOrSlug: string | null | undefined,
   stamp: string,
 ): string {
-  const kindSlug = kind === 'supplier' ? 'proveedores' : 'empleados';
+  const kindSlug =
+    kind === 'supplier' ? 'proveedores' : kind === 'service' ? 'servicios' : 'empleados';
   return `pagos-${kindSlug}-${shopFileSlug(shopNameOrSlug)}-${stamp}.xlsx`;
 }
 
@@ -126,14 +128,35 @@ export function buildPaymentDialogUsers<
   );
 }
 
+export function kindOfPayment(
+  payment: Pick<ShopPayment, 'supplierId' | 'serviceId'>,
+): PaymentKind {
+  if (payment.serviceId) return 'service';
+  if (payment.supplierId) return 'supplier';
+  return 'employee';
+}
+
+export function paymentKindPath(kind: PaymentKind): string {
+  if (kind === 'supplier') return '/payments/suppliers';
+  if (kind === 'service') return '/payments/services';
+  return '/payments/employees';
+}
+
+export function paymentMatchesKind(
+  payment: Pick<ShopPayment, 'supplierId' | 'serviceId'>,
+  kind: PaymentKind,
+): boolean {
+  return kindOfPayment(payment) === kind;
+}
+
 /** Si el pago del deep-link es de otra sección, ruta destino; si no, null. */
 export function shouldRedirectPaymentKind(
-  payment: Pick<ShopPayment, 'supplierId'>,
-  isSupplierKind: boolean,
-): '/payments/suppliers' | '/payments/employees' | null {
-  const wantsSupplier = !!payment.supplierId;
-  if (wantsSupplier === isSupplierKind) return null;
-  return wantsSupplier ? '/payments/suppliers' : '/payments/employees';
+  payment: Pick<ShopPayment, 'supplierId' | 'serviceId'>,
+  currentKind: PaymentKind,
+): string | null {
+  const wanted = kindOfPayment(payment);
+  if (wanted === currentKind) return null;
+  return paymentKindPath(wanted);
 }
 
 export type ClearedFiltersForDeepLink = {
@@ -141,6 +164,7 @@ export type ClearedFiltersForDeepLink = {
   validatorFilter: string[];
   payerFilter: string[];
   supplierFilter: string[];
+  serviceFilter: string[];
   employeeFilter: string[];
   amountMin: null;
   amountMax: null;
@@ -158,6 +182,7 @@ export function clearedFiltersForDeepLink(
     validatorFilter: [],
     payerFilter: [],
     supplierFilter: [],
+    serviceFilter: [],
     employeeFilter: [],
     amountMin: null,
     amountMax: null,

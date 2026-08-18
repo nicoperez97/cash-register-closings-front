@@ -12,6 +12,8 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { Employee } from '../employees/employees-api.service';
 import { PaymentStatus } from './payments-api.service';
 import { ShopSupplier } from '../suppliers/suppliers-api.service';
+import { ShopService } from '../services/services-api.service';
+import type { PaymentKind } from './payments-page-actions';
 
 type PaymentsViewMode = 'cards' | 'list';
 
@@ -146,11 +148,20 @@ type FilterUser = {
         <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
         <mat-date-range-picker #paidPicker />
       </mat-form-field>
-      @if (supplierKind()) {
+      @if (kind() === 'supplier') {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Proveedor</mat-label>
           <mat-select [formControl]="supplierFilter()" multiple>
             @for (s of suppliers(); track s.id) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      } @else if (kind() === 'service') {
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Servicio</mat-label>
+          <mat-select [formControl]="serviceFilter()" multiple>
+            @for (s of services(); track s.id) {
               <mat-option [value]="s.id">{{ s.name }}</mat-option>
             }
           </mat-select>
@@ -213,11 +224,12 @@ export class PaymentsFiltersPanelComponent {
   readonly exporting = input(false);
   readonly shopId = input<string | null>(null);
   readonly mineOnly = input(false);
-  readonly supplierKind = input(true);
+  readonly kind = input<PaymentKind>('supplier');
   readonly currentUserId = input('');
   readonly statusOptions = input<Array<{ value: PaymentStatus; label: string }>>([]);
   readonly filterUsers = input<FilterUser[]>([]);
   readonly suppliers = input<ShopSupplier[]>([]);
+  readonly services = input<ShopService[]>([]);
   readonly employees = input<Employee[]>([]);
 
   readonly statusFilter = input.required<FormControl<PaymentStatus[]>>();
@@ -226,6 +238,7 @@ export class PaymentsFiltersPanelComponent {
   readonly dueRange = input.required<FormGroup>();
   readonly paidRange = input.required<FormGroup>();
   readonly supplierFilter = input.required<FormControl<string[]>>();
+  readonly serviceFilter = input.required<FormControl<string[]>>();
   readonly employeeFilter = input.required<FormControl<string[]>>();
   readonly amountMinFilter = input.required<FormControl<number | null>>();
   readonly amountMaxFilter = input.required<FormControl<number | null>>();

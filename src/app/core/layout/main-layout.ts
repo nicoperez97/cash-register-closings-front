@@ -267,6 +267,12 @@ export class MainLayoutComponent {
         badge: this.paymentsInbox.pendingSupplierCount() || null,
       });
       pagos.push({
+        label: 'A servicios',
+        route: '/payments/services',
+        icon: 'home_repair_service',
+        badge: this.paymentsInbox.pendingServiceCount() || null,
+      });
+      pagos.push({
         label: 'A empleados',
         route: '/payments/employees',
         icon: 'badge',
@@ -275,6 +281,9 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'suppliers.read')) {
       pagos.push({ label: 'Proveedores', route: '/suppliers', icon: 'inventory_2' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'services.read')) {
+      pagos.push({ label: 'Servicios', route: '/services', icon: 'home_repair_service' });
     }
     if (pagos.length) {
       items.push({
@@ -549,6 +558,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/suppliers')) {
       return hasShopPermission(user, shopId, 'suppliers.read');
+    }
+    if (path.startsWith('/services')) {
+      return hasShopPermission(user, shopId, 'services.read');
     }
     if (path === '/stock' || path.startsWith('/stock/')) {
       return hasShopPermission(user, shopId, 'stock.read');

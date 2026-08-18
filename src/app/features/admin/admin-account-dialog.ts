@@ -17,7 +17,7 @@ export interface AdminAccountRow {
   id: string;
   name: string;
   code: string;
-  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER';
+  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
   linkedPaymentMethod?: string | null;
   userIds?: string[];
   userId?: string | null;
@@ -37,19 +37,20 @@ export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string
 ];
 
 export const ACCOUNT_TYPE_OPTIONS: Array<{
-  value: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER';
+  value: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
   label: string;
 }> = [
   { value: 'PARTNER', label: accountTypeLabel('PARTNER') },
   { value: 'CHANNEL', label: accountTypeLabel('CHANNEL') },
   { value: 'SYSTEM', label: accountTypeLabel('SYSTEM') },
   { value: 'SUPPLIER', label: accountTypeLabel('SUPPLIER') },
+  { value: 'SERVICE', label: accountTypeLabel('SERVICE') },
 ];
 
 export type AdminAccountDialogData = {
   shopId?: string;
   /** Prefijo de tipo al crear (ej. CHANNEL desde config del local). */
-  defaultType?: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER';
+  defaultType?: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
 } & (
   | { mode: 'create' }
   | { mode: 'edit'; account: AdminAccountRow }
@@ -226,7 +227,8 @@ export class AdminAccountDialogComponent implements OnInit {
       type: raw.type,
       linkedPaymentMethod: raw.linkedPaymentMethod || null,
       userIds: raw.userIds ?? [],
-      hideFromCashWithdraw: raw.type === 'SUPPLIER' ? true : !!raw.hideFromCashWithdraw,
+      hideFromCashWithdraw:
+        raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? true : !!raw.hideFromCashWithdraw,
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);

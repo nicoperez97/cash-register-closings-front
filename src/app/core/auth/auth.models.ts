@@ -35,6 +35,8 @@ export type Permission =
   | 'payments.manage'
   | 'suppliers.read'
   | 'suppliers.manage'
+  | 'services.read'
+  | 'services.manage'
   | 'stock.read'
   | 'stock.manage'
   | 'beverageStock.read'
@@ -77,6 +79,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'payments.manage',
   'suppliers.read',
   'suppliers.manage',
+  'services.read',
+  'services.manage',
   'stock.read',
   'stock.manage',
   'beverageStock.read',
@@ -122,6 +126,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'payments.manage',
     'suppliers.read',
     'suppliers.manage',
+    'services.read',
+    'services.manage',
     'stock.read',
     'stock.manage',
     'beverageStock.read',
@@ -146,6 +152,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reservations.read',
     'payments.read',
     'suppliers.read',
+    'services.read',
     'stock.read',
     'beverageStock.read',
     'shortages.read',
@@ -158,6 +165,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'movements.read',
     'payments.read',
     'suppliers.read',
+    'services.read',
   ],
 };
 
@@ -176,6 +184,7 @@ export type ModuleKey =
   | 'waitingList'
   | 'payments'
   | 'suppliers'
+  | 'services'
   | 'stock'
   | 'beverageStock'
   | 'shortages'
@@ -358,6 +367,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     icon: 'local_shipping',
     group: 'config',
     hint: 'Proveedores y su cuenta asociada',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'services',
+    label: 'Servicios',
+    icon: 'home_repair_service',
+    group: 'config',
+    hint: 'Servicios y su cuenta asociada',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },

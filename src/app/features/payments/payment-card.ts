@@ -1,4 +1,4 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -14,6 +14,7 @@ import { paymentDeepLink, paymentSharePayload } from '../../shared/components/re
 import { copyText, shareText } from '../../shared/utils/share-text';
 import { PaymentsApiService, ShopPayment } from './payments-api.service';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
+import type { PaymentKind } from './payments-page-actions';
 import {
   formatPaymentAmount,
   formatPaymentDate,
@@ -104,10 +105,15 @@ import {
         <span class="pay-card__label">Prioridad</span>
         <strong>{{ priorityLabel(payment().priority) }}</strong>
       </div>
-      @if (supplierKind()) {
+      @if (kind() === 'supplier') {
         <div>
           <span class="pay-card__label">Proveedor</span>
           <strong>{{ payment().supplierName || '—' }}</strong>
+        </div>
+      } @else if (kind() === 'service') {
+        <div>
+          <span class="pay-card__label">Servicio</span>
+          <strong>{{ payment().serviceName || '—' }}</strong>
         </div>
       } @else {
         <div>
@@ -143,13 +149,13 @@ import {
 
     @if (payment().status === 'PENDING_VALIDATION' || payment().status === 'VALIDATED') {
       <div class="pay-card__pay-data">
-        @if (supplierKind()) {
+        @if (kind() === 'supplier' || kind() === 'service') {
           <div class="pay-card__pay-row">
             <div>
               <span class="pay-card__label">Alias / CBU</span>
-              <code class="pay-card__code">{{ payment().supplierBankAlias || '—' }}</code>
+              <code class="pay-card__code">{{ partyBankAlias() || '—' }}</code>
             </div>
-            @if (payment().status === 'VALIDATED' && payment().supplierBankAlias) {
+            @if (payment().status === 'VALIDATED' && partyBankAlias()) {
               <button
                 mat-icon-button
                 type="button"
@@ -186,7 +192,7 @@ import {
       <p class="pay-card__notes">{{ payment().notes }}</p>
     }
 
-    @if (supplierKind() && hasInvoiceData(payment())) {
+    @if (billedKind() && hasInvoiceData(payment())) {
       <details class="pay-card__invoice">
         <summary>
           <mat-icon>receipt_long</mat-icon>
@@ -388,7 +394,12 @@ export class PaymentCardComponent {
   readonly selected = input(false);
   readonly focused = input(false);
   readonly payBusy = input(false);
-  readonly supplierKind = input(true);
+  readonly kind = input<PaymentKind>('supplier');
+  readonly billedKind = computed(() => this.kind() !== 'employee');
+  readonly partyBankAlias = computed(() => {
+    const p = this.payment();
+    return this.kind() === 'service' ? p.serviceBankAlias : p.supplierBankAlias;
+  });
   readonly canManage = input(false);
 
   readonly toggleSelected = output<void>();
@@ -576,7 +587,9 @@ export class PaymentCardComponent {
   }
 
   async copyAlias(p: ShopPayment): Promise<void> {
-    const text = (p.supplierBankAlias ?? '').trim();
+    const text = (
+      (this.kind() === 'service' ? p.serviceBankAlias : p.supplierBankAlias) ?? ''
+    ).trim();
     if (!text) return;
     const ok = await copyText(text);
     this.snack.open(ok ? 'Alias / CBU copiado' : 'No se pudo copiar', 'OK', {

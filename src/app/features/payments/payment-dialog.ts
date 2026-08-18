@@ -22,22 +22,25 @@ import {
 import { PAYMENT_STATUS_OPTIONS } from './payments-display.util';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
+import { ShopService, ServicesApiService } from '../services/services-api.service';
 import { Employee } from '../employees/employees-api.service';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { Observable, catchError, concatMap, from, map, of, switchMap } from 'rxjs';
 
-export type PaymentDialogKind = 'supplier' | 'employee';
+export type PaymentDialogKind = 'supplier' | 'employee' | 'service';
 
 export type PaymentDialogData = {
   shopId: string;
   shopName: string;
   users: Array<{ id: string; fullName: string }>;
-  /** Cuentas con las que se puede pagar (no proveedores / sistema). */
+  /** Cuentas con las que se puede pagar (no proveedores / servicios / sistema). */
   accounts: Array<{ id: string; name: string }>;
   suppliers: ShopSupplier[];
+  services: ShopService[];
   employees: Employee[];
   canManageSuppliers: boolean;
-  /** Determina si se pide proveedor o empleado. */
+  canManageServices: boolean;
+  /** Determina si se pide proveedor, servicio o empleado. */
   kind: PaymentDialogKind;
 } & (
   | { mode: 'create'; prefill?: Partial<ShopPayment> | null }
@@ -51,6 +54,8 @@ type PaymentDraft = {
   invoiceExpanded: boolean;
   newSupplierName: string;
   newSupplierAlias: string;
+  newServiceName: string;
+  newServiceAlias: string;
 };
 
 @Component({
@@ -315,7 +320,57 @@ type PaymentDraft = {
               </button>
             </div>
           }
+        } @else if (isServiceKind) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Servicio</mat-label>
+            <mat-select formControlName="serviceId" (selectionChange)="onServiceChange($event.value)">
+              <mat-option [value]="null">Sin servicio</mat-option>
+              @for (s of services(); track s.id) {
+                <mat-option [value]="s.id">
+                  {{ s.name }}
+                  @if (s.bankAlias) {
+                    · {{ s.bankAlias }}
+                  }
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
+          @if (data.canManageServices) {
+            <div class="supplier-create">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Nuevo servicio</mat-label>
+                <input matInput [formControl]="newServiceName" placeholder="Nombre" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Alias / CBU</mat-label>
+                <input matInput [formControl]="newServiceAlias" placeholder="Opcional" />
+              </mat-form-field>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="!newServiceName.value.trim() || creatingService()"
+                (click)="createService()"
+              >
+                <mat-icon>add</mat-icon>
+                Crear
+              </button>
+            </div>
+          }
+        } @else {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Empleado</mat-label>
+            <mat-select formControlName="employeeId">
+              <mat-option [value]="null">Sin empleado</mat-option>
+              @for (e of data.employees; track e.id) {
+                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>A quién corresponde este pago interno</mat-hint>
+          </mat-form-field>
+        }
+
+        @if (isBilledKind) {
           <mat-accordion class="invoice-panel">
             <mat-expansion-panel [expanded]="invoiceExpanded()">
               <mat-expansion-panel-header>
@@ -427,17 +482,6 @@ type PaymentDraft = {
               </div>
             </mat-expansion-panel>
           </mat-accordion>
-        } @else {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Empleado</mat-label>
-            <mat-select formControlName="employeeId">
-              <mat-option [value]="null">Sin empleado</mat-option>
-              @for (e of data.employees; track e.id) {
-                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
-              }
-            </mat-select>
-            <mat-hint>A quién corresponde este pago interno</mat-hint>
-          </mat-form-field>
         }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -524,12 +568,15 @@ export class PaymentDialogComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(PaymentsApiService);
   private readonly suppliersApi = inject(SuppliersApiService);
+  private readonly servicesApi = inject(ServicesApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
   readonly isEdit = this.data.mode === 'edit';
   readonly isDuplicate = this.data.mode === 'duplicate';
-  readonly isSupplierKind = this.data.kind !== 'employee';
+  readonly isSupplierKind = this.data.kind === 'supplier';
+  readonly isServiceKind = this.data.kind === 'service';
+  readonly isBilledKind = this.isSupplierKind || this.isServiceKind;
   readonly isPaidEdit =
     this.data.mode === 'edit' && this.data.payment.status === 'PAID';
   readonly paymentMethods = PAYMENT_METHOD_OPTIONS;
@@ -559,6 +606,7 @@ export class PaymentDialogComponent {
 
   readonly busy = signal(false);
   readonly creatingSupplier = signal(false);
+  readonly creatingService = signal(false);
   readonly parsingInvoice = signal(false);
   readonly invoiceExpanded = signal(
     !!(
@@ -572,8 +620,11 @@ export class PaymentDialogComponent {
     this.isEdit && this.seed?.hasInvoiceFile ? (this.seed.invoiceFileName ?? 'factura') : null,
   );
   readonly suppliers = signal<ShopSupplier[]>([...this.data.suppliers]);
+  readonly services = signal<ShopService[]>([...(this.data.services ?? [])]);
   readonly newSupplierName = this.fb.nonNullable.control('');
   readonly newSupplierAlias = this.fb.nonNullable.control('');
+  readonly newServiceName = this.fb.nonNullable.control('');
+  readonly newServiceAlias = this.fb.nonNullable.control('');
 
   private parseDate(value: string | Date | null | undefined): Date | null {
     if (!value) return null;
@@ -612,8 +663,11 @@ export class PaymentDialogComponent {
     supplierId: [
       this.isSupplierKind ? (this.seed?.supplierId ?? null) : (null as string | null),
     ],
+    serviceId: [
+      this.isServiceKind ? (this.seed?.serviceId ?? null) : (null as string | null),
+    ],
     employeeId: [
-      !this.isSupplierKind ? (this.seed?.employeeId ?? null) : (null as string | null),
+      !this.isBilledKind ? (this.seed?.employeeId ?? null) : (null as string | null),
     ],
     payerUserId: [this.seed?.payerUserId ?? (null as string | null)],
     validatorUserId: [this.seed?.validatorUserId ?? (null as string | null)],
@@ -647,6 +701,8 @@ export class PaymentDialogComponent {
       invoiceExpanded: this.invoiceExpanded(),
       newSupplierName: this.newSupplierName.value,
       newSupplierAlias: this.newSupplierAlias.value,
+      newServiceName: this.newServiceName.value,
+      newServiceAlias: this.newServiceAlias.value,
     };
   }
 
@@ -656,6 +712,8 @@ export class PaymentDialogComponent {
     this.invoiceExpanded.set(draft.invoiceExpanded);
     this.newSupplierName.setValue(draft.newSupplierName, { emitEvent: false });
     this.newSupplierAlias.setValue(draft.newSupplierAlias, { emitEvent: false });
+    this.newServiceName.setValue(draft.newServiceName, { emitEvent: false });
+    this.newServiceAlias.setValue(draft.newServiceAlias, { emitEvent: false });
   }
 
   private persistActive(): void {
@@ -674,6 +732,7 @@ export class PaymentDialogComponent {
         status: 'PENDING_VALIDATION',
         priority: null,
         supplierId: null,
+        serviceId: null,
         employeeId: null,
         payerUserId: null,
         validatorUserId: null,
@@ -693,6 +752,8 @@ export class PaymentDialogComponent {
       invoiceExpanded: false,
       newSupplierName: '',
       newSupplierAlias: '',
+      newServiceName: '',
+      newServiceAlias: '',
     };
   }
 
@@ -747,6 +808,18 @@ export class PaymentDialogComponent {
   onSupplierChange(supplierId: string | null): void {
     if (!supplierId) return;
     const s = this.suppliers().find((x) => x.id === supplierId);
+    if (!s) return;
+    if (!this.form.controls.invoiceLegalName.value && s.legalName) {
+      this.form.controls.invoiceLegalName.setValue(s.legalName);
+    }
+    if (!this.form.controls.invoiceTaxId.value && s.taxId) {
+      this.form.controls.invoiceTaxId.setValue(s.taxId);
+    }
+  }
+
+  onServiceChange(serviceId: string | null): void {
+    if (!serviceId) return;
+    const s = this.services().find((x) => x.id === serviceId);
     if (!s) return;
     if (!this.form.controls.invoiceLegalName.value && s.legalName) {
       this.form.controls.invoiceLegalName.setValue(s.legalName);
@@ -838,6 +911,58 @@ export class PaymentDialogComponent {
     return false;
   }
 
+  private findServiceMatch(legalName: string | null, taxId: string | null): ShopService | null {
+    const taxDigits = this.normalizeTaxId(taxId);
+    if (taxDigits.length === 11) {
+      const byTax = this.services().find((s) => this.normalizeTaxId(s.taxId) === taxDigits);
+      if (byTax) return byTax;
+    }
+
+    const candidates = this.services().filter(
+      (s) =>
+        this.namesMatch(s.name, legalName) || this.namesMatch(s.legalName, legalName),
+    );
+    if (candidates.length === 1) return candidates[0];
+    if (candidates.length > 1) {
+      const exact = candidates.find(
+        (s) =>
+          this.normalizeName(s.name) === this.normalizeName(legalName) ||
+          this.normalizeName(s.legalName) === this.normalizeName(legalName),
+      );
+      return exact ?? candidates[0];
+    }
+    return null;
+  }
+
+  private suggestNewServiceFromInvoice(legalName: string | null, taxId: string | null): boolean {
+    const match = this.findServiceMatch(legalName, taxId);
+    if (match) {
+      const currentId = this.form.controls.serviceId.value;
+      this.form.controls.serviceId.setValue(match.id);
+      this.newServiceName.setValue('');
+      if (!this.form.controls.invoiceLegalName.value && (match.legalName || match.name)) {
+        this.form.controls.invoiceLegalName.setValue(match.legalName || match.name);
+      }
+      if (!this.form.controls.invoiceTaxId.value && match.taxId) {
+        this.form.controls.invoiceTaxId.setValue(match.taxId);
+      }
+      if (currentId !== match.id) {
+        this.snack.open(`Servicio seleccionado: ${match.name}`, 'OK', { duration: 2800 });
+      } else {
+        this.snack.open('Datos de factura cargados', 'OK', { duration: 2500 });
+      }
+      return true;
+    }
+
+    if (!this.form.controls.serviceId.value) {
+      const name = (legalName ?? '').trim();
+      if (name && !this.newServiceName.value.trim()) {
+        this.newServiceName.setValue(name);
+      }
+    }
+    return false;
+  }
+
   async onInvoicePicked(ev: Event): Promise<void> {
     const file = await takeInputFile(ev.target as HTMLInputElement);
     if (!file) {
@@ -865,7 +990,9 @@ export class PaymentDialogComponent {
         if (parsed.totalAmount != null && !this.form.controls.amount.value) {
           this.form.controls.amount.setValue(parsed.totalAmount);
         }
-        const matched = this.suggestNewSupplierFromInvoice(parsed.legalName, parsed.taxId);
+        const matched = this.isServiceKind
+          ? this.suggestNewServiceFromInvoice(parsed.legalName, parsed.taxId)
+          : this.suggestNewSupplierFromInvoice(parsed.legalName, parsed.taxId);
         if (!matched) {
           this.snack.open('Datos de factura cargados', 'OK', { duration: 2500 });
         }
@@ -920,6 +1047,25 @@ export class PaymentDialogComponent {
     });
   }
 
+  createService(): void {
+    const name = this.newServiceName.value.trim();
+    if (!name || this.creatingService()) return;
+    this.creatingService.set(true);
+    this.ensureServiceCreated$(name).subscribe({
+      next: () => {
+        this.creatingService.set(false);
+        this.newServiceName.setValue('');
+        this.newServiceAlias.setValue('');
+        this.snack.open('Servicio creado', 'OK', { duration: 2000 });
+      },
+      error: (err) => {
+        this.creatingService.set(false);
+        const msg = err?.error?.message ?? 'No se pudo crear el servicio';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+
   private ensureSupplierCreated$(name: string): Observable<string> {
     const legalName =
       (this.form.controls.invoiceLegalName.value ?? '').trim() || name;
@@ -961,6 +1107,76 @@ export class PaymentDialogComponent {
     return this.ensureSupplierCreated$(name);
   }
 
+  private ensureServiceCreated$(name: string): Observable<string> {
+    const legalName =
+      (this.form.controls.invoiceLegalName.value ?? '').trim() || name;
+    const taxId = (this.form.controls.invoiceTaxId.value ?? '').trim() || null;
+    const match = this.findServiceMatch(legalName, taxId) ?? this.findServiceMatch(name, taxId);
+    if (match) {
+      this.form.controls.serviceId.setValue(match.id);
+      return of(match.id);
+    }
+    return this.servicesApi
+      .create(this.data.shopId, {
+        name,
+        legalName: legalName || null,
+        taxId,
+        bankAlias: this.newServiceAlias.value.trim() || null,
+      })
+      .pipe(
+        switchMap((row) => {
+          this.services.update((list) =>
+            [...list, row].sort((a, b) => a.name.localeCompare(b.name)),
+          );
+          this.form.controls.serviceId.setValue(row.id);
+          return of(row.id);
+        }),
+      );
+  }
+
+  private resolveServiceId$(): Observable<string | null> {
+    if (!this.isServiceKind) return of(null);
+    const current = this.form.controls.serviceId.value || null;
+    if (current) return of(current);
+    if (!this.data.canManageServices) return of(null);
+
+    const fromField = this.newServiceName.value.trim();
+    const fromInvoice = (this.form.controls.invoiceLegalName.value ?? '').trim();
+    const name = fromField || fromInvoice;
+    if (!name) return of(null);
+    return this.ensureServiceCreated$(name);
+  }
+
+  private resolveParty$(): Observable<{
+    supplierId: string | null;
+    serviceId: string | null;
+    employeeId: string | null;
+  }> {
+    if (this.isSupplierKind) {
+      return this.resolveSupplierId$().pipe(
+        map((supplierId) => ({
+          supplierId,
+          serviceId: null,
+          employeeId: null,
+        })),
+      );
+    }
+    if (this.isServiceKind) {
+      return this.resolveServiceId$().pipe(
+        map((serviceId) => ({
+          supplierId: null,
+          serviceId,
+          employeeId: null,
+        })),
+      );
+    }
+    return of({
+      supplierId: null,
+      serviceId: null,
+      employeeId: this.form.controls.employeeId.value || null,
+    });
+  }
+
   private invoiceBody() {
     const raw = this.form.getRawValue();
     return {
@@ -999,7 +1215,7 @@ export class PaymentDialogComponent {
       return;
     }
 
-    const invoice = this.isSupplierKind
+    const invoice = this.isBilledKind
       ? this.invoiceBody()
       : {
           invoiceLegalName: null,
@@ -1014,17 +1230,18 @@ export class PaymentDialogComponent {
 
     this.busy.set(true);
 
-    this.resolveSupplierId$()
+    this.resolveParty$()
       .pipe(
-        switchMap((supplierId) => {
+        switchMap((party) => {
           const next = {
             title: (raw.title ?? '').trim() || null,
             amount,
             dueDate: this.toIsoDate(raw.dueDate),
             paidAt: this.isPaidEdit ? this.toIsoDate(raw.paidAt) : null,
             priority: (raw.priority as PaymentPriority | null) || null,
-            supplierId: this.isSupplierKind ? supplierId : null,
-            employeeId: this.isSupplierKind ? null : raw.employeeId || null,
+            supplierId: party.supplierId,
+            serviceId: party.serviceId,
+            employeeId: party.employeeId,
             payerUserId: raw.payerUserId || null,
             validatorUserId: raw.validatorUserId || null,
             accountId: raw.accountId ? String(raw.accountId) : null,
@@ -1051,7 +1268,10 @@ export class PaymentDialogComponent {
             if (this.isSupplierKind && !sameStr(next.supplierId, prev.supplierId)) {
               body['supplierId'] = next.supplierId;
             }
-            if (!this.isSupplierKind && !sameStr(next.employeeId, prev.employeeId)) {
+            if (this.isServiceKind && !sameStr(next.serviceId, prev.serviceId)) {
+              body['serviceId'] = next.serviceId;
+            }
+            if (!this.isBilledKind && !sameStr(next.employeeId, prev.employeeId)) {
               body['employeeId'] = next.employeeId;
             }
             if (!sameStr(next.payerUserId, prev.payerUserId)) body['payerUserId'] = next.payerUserId;
@@ -1063,7 +1283,7 @@ export class PaymentDialogComponent {
               body['paymentMethod'] = next.paymentMethod;
             }
             if (!sameStr(next.notes, prev.notes)) body['notes'] = next.notes;
-            if (this.isSupplierKind) {
+            if (this.isBilledKind) {
               if (!sameStr(next.invoiceLegalName, prev.invoiceLegalName)) {
                 body['invoiceLegalName'] = next.invoiceLegalName;
               }
@@ -1106,7 +1326,7 @@ export class PaymentDialogComponent {
             return req$.pipe(
               switchMap((saved) => {
                 const file = this.pendingInvoiceFile();
-                if (!file || !this.isSupplierKind) {
+                if (!file || !this.isBilledKind) {
                   return of({ kind: 'updated' as const, saved, invoiceOk: true });
                 }
                 return this.api.uploadInvoiceFile(this.data.shopId, saved.id, file, false).pipe(
@@ -1133,6 +1353,10 @@ export class PaymentDialogComponent {
           if (this.isSupplierKind && this.newSupplierName.value.trim()) {
             this.newSupplierName.setValue('');
             this.newSupplierAlias.setValue('');
+          }
+          if (this.isServiceKind && this.newServiceName.value.trim()) {
+            this.newServiceName.setValue('');
+            this.newServiceAlias.setValue('');
           }
           const msg =
             result.invoiceOk === false
@@ -1242,7 +1466,7 @@ export class PaymentDialogComponent {
       amountRaw === null || amountRaw === undefined || (amountRaw as any) === ''
         ? null
         : Number(amountRaw);
-    const invoice = this.isSupplierKind
+    const invoice = this.isBilledKind
       ? this.invoiceBody()
       : {
           invoiceLegalName: null,
@@ -1255,8 +1479,8 @@ export class PaymentDialogComponent {
           invoiceOtherTaxesAmount: null,
         };
     const status = (raw.status as PaymentStatus) || 'PENDING_VALIDATION';
-    return this.resolveSupplierId$().pipe(
-      switchMap((supplierId) =>
+    return this.resolveParty$().pipe(
+      switchMap((party) =>
         this.api
           .create(this.data.shopId, {
             title: (raw.title ?? '').trim() || null,
@@ -1265,8 +1489,9 @@ export class PaymentDialogComponent {
             paidAt: status === 'PAID' ? this.toIsoDate(raw.paidAt) : null,
             status,
             priority: (raw.priority as PaymentPriority | null) || null,
-            supplierId: this.isSupplierKind ? supplierId : null,
-            employeeId: this.isSupplierKind ? null : raw.employeeId || null,
+            supplierId: party.supplierId,
+            serviceId: party.serviceId,
+            employeeId: party.employeeId,
             payerUserId: raw.payerUserId || null,
             validatorUserId: raw.validatorUserId || null,
             accountId: raw.accountId ? String(raw.accountId) : null,
@@ -1277,7 +1502,7 @@ export class PaymentDialogComponent {
           .pipe(
             switchMap((created) => {
               const file = this.pendingInvoiceFile();
-              if (!file || !this.isSupplierKind) {
+              if (!file || !this.isBilledKind) {
                 return of({ invoiceOk: true as const });
               }
               return this.api.uploadInvoiceFile(this.data.shopId, created.id, file, false).pipe(

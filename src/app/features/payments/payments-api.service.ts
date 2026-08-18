@@ -70,6 +70,11 @@ export interface ShopPayment {
   supplierTaxId?: string | null;
   employeeId: string | null;
   employeeName: string | null;
+  serviceId: string | null;
+  serviceName: string | null;
+  serviceBankAlias: string | null;
+  serviceLegalName?: string | null;
+  serviceTaxId?: string | null;
   status: PaymentStatus;
   paidAt: string | null;
   validatedAt: string | null;
@@ -106,6 +111,7 @@ export interface UpsertPaymentBody {
   paymentMethod?: PaymentMethod | null;
   supplierId?: string | null;
   employeeId?: string | null;
+  serviceId?: string | null;
   invoiceLegalName?: string | null;
   invoiceTaxId?: string | null;
   invoiceType?: string | null;
@@ -147,6 +153,7 @@ export class PaymentsApiService {
       paidTo?: string | null;
       supplierId?: string | string[] | null;
       employeeId?: string | string[] | null;
+      serviceId?: string | string[] | null;
       amountMin?: number | null;
       amountMax?: number | null;
     },
@@ -172,6 +179,8 @@ export class PaymentsApiService {
     if (suppliers) params['supplierId'] = suppliers;
     const employees = join(opts?.employeeId);
     if (employees) params['employeeId'] = employees;
+    const services = join(opts?.serviceId);
+    if (services) params['serviceId'] = services;
     if (opts?.amountMin != null && Number.isFinite(opts.amountMin)) {
       params['amountMin'] = String(opts.amountMin);
     }
@@ -191,7 +200,7 @@ export class PaymentsApiService {
     shopId: string,
     opts?: {
       status?: string | string[];
-      kind?: 'supplier' | 'employee';
+      kind?: 'supplier' | 'employee' | 'service';
       payerUserId?: string | string[] | null;
       validatorUserId?: string | string[] | null;
       mine?: boolean;
@@ -201,6 +210,7 @@ export class PaymentsApiService {
       paidTo?: string | null;
       supplierId?: string | string[] | null;
       employeeId?: string | string[] | null;
+      serviceId?: string | string[] | null;
       amountMin?: number | null;
       amountMax?: number | null;
     },
@@ -227,6 +237,8 @@ export class PaymentsApiService {
     if (suppliers) params['supplierId'] = suppliers;
     const employees = join(opts?.employeeId);
     if (employees) params['employeeId'] = employees;
+    const services = join(opts?.serviceId);
+    if (services) params['serviceId'] = services;
     if (opts?.amountMin != null && Number.isFinite(opts.amountMin)) {
       params['amountMin'] = String(opts.amountMin);
     }

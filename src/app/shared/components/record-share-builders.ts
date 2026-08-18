@@ -53,21 +53,37 @@ export function movementSavedDialogData(
   };
 }
 
+function paymentParty(payment: ShopPayment): { label: string; name: string } {
+  if (payment.serviceId) return { label: 'Servicio', name: payment.serviceName || '—' };
+  if (payment.supplierId) return { label: 'Proveedor', name: payment.supplierName || '—' };
+  return { label: 'Empleado', name: payment.employeeName || '—' };
+}
+
+function paymentPartyAlias(payment: ShopPayment): string | null {
+  const alias = payment.serviceId ? payment.serviceBankAlias : payment.supplierBankAlias;
+  return alias?.trim() || null;
+}
+
+function paymentKindSegment(payment: ShopPayment): 'suppliers' | 'services' | 'employees' {
+  if (payment.serviceId) return 'services';
+  if (payment.supplierId) return 'suppliers';
+  return 'employees';
+}
+
 export function paymentPaidDialogData(
   payment: ShopPayment,
   shopName: string,
 ): RecordSavedDialogData {
   const amount = formatMoneyAr(payment.amount);
   const paidAt = formatDateAr(payment.paidAt);
-  const target = payment.supplierName || payment.employeeName || '—';
-  const targetLabel = payment.supplierId ? 'Proveedor' : 'Empleado';
+  const party = paymentParty(payment);
   const account = payment.accountName || '—';
   const title = payment.title?.trim() || 'Sin concepto';
 
   const fields = [
     { label: 'Local', value: shopName },
     { label: 'Concepto', value: title },
-    { label: targetLabel, value: target },
+    { label: party.label, value: party.name },
     { label: 'Cuenta', value: account },
     { label: 'Forma de pago', value: paymentMethodLabel(payment.paymentMethod) },
     { label: 'Fecha de pago', value: paidAt },
@@ -110,21 +126,21 @@ export function buildPaymentShareLines(
 ): string[] {
   const title = payment.title?.trim() || 'Sin concepto';
   const amount = formatMoneyAr(payment.amount);
-  const target = payment.supplierName || payment.employeeName || '—';
-  const targetLabel = payment.supplierId ? 'Proveedor' : 'Empleado';
+  const party = paymentParty(payment);
   const lines = [
     `Pago — ${shopName}`,
     `Concepto: ${title}`,
     `Estado: ${PAYMENT_STATUS_SHARE_LABEL[payment.status] ?? payment.status}`,
     `Monto: ${amount}`,
-    `${targetLabel}: ${target}`,
+    `${party.label}: ${party.name}`,
   ];
   if (payment.priority) {
     lines.push(`Prioridad: ${paymentPriorityLabel(payment.priority)}`);
   }
 
-  if (payment.supplierBankAlias?.trim()) {
-    lines.push(`Alias / CBU: ${payment.supplierBankAlias.trim()}`);
+  const alias = paymentPartyAlias(payment);
+  if (alias) {
+    lines.push(`Alias / CBU: ${alias}`);
   }
   if (payment.payerName?.trim()) {
     lines.push(`Paga: ${payment.payerName.trim()}`);
@@ -196,13 +212,14 @@ export function paymentsSharePayload(
   const lines = [`Pagos — ${shopName}`, `${rows.length} pagos`, ''];
   for (const p of rows) {
     const title = p.title?.trim() || 'Sin concepto';
-    const target = (p.supplierName || p.employeeName || '').trim();
+    const target = (p.serviceName || p.supplierName || p.employeeName || '').trim();
     const status = PAYMENT_STATUS_SHARE_LABEL[p.status] ?? p.status;
     lines.push(`· ${title}${target ? ` · ${target}` : ''}`);
     lines.push(`  ${formatMoneyAr(p.amount)} · ${status}`);
     if (p.dueDate) lines.push(`  Vence: ${formatDateAr(p.dueDate)}`);
-    if (p.supplierBankAlias?.trim()) {
-      lines.push(`  Alias / CBU: ${p.supplierBankAlias.trim()}`);
+    const alias = paymentPartyAlias(p);
+    if (alias) {
+      lines.push(`  Alias / CBU: ${alias}`);
     }
   }
   lines.push('', `Total: ${formatMoneyAr(total)}`);
@@ -215,10 +232,10 @@ export function paymentsSharePayload(
 /** URL directa al pago en la app (mismo origen). */
 export function paymentDeepLink(payment: ShopPayment): string {
   if (typeof window === 'undefined' || !window.location?.origin) {
-    const kind = payment.supplierId ? 'suppliers' : 'employees';
+    const kind = paymentKindSegment(payment);
     return `/payments/${kind}?payment=${encodeURIComponent(payment.id)}`;
   }
-  const kind = payment.supplierId ? 'suppliers' : 'employees';
+  const kind = paymentKindSegment(payment);
   const url = new URL(`/payments/${kind}`, window.location.origin);
   url.searchParams.set('payment', payment.id);
   if (payment.shopId) url.searchParams.set('shop', payment.shopId);

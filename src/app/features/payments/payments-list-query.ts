@@ -1,4 +1,5 @@
 import { PaymentStatus } from './payments-api.service';
+import type { PaymentKind } from './payments-page-actions';
 
 export function toIsoDate(value: Date | string | null | undefined): string | null {
   if (!value) return null;
@@ -25,7 +26,9 @@ export type PaymentsListFilterInput = {
   amountMin: number | null | undefined;
   amountMax: number | null | undefined;
   isSupplierKind: boolean;
+  kind: PaymentKind;
   supplierIds: string[];
+  serviceIds: string[];
   employeeIds: string[];
   validatorIds: string[];
   payerIds: string[];
@@ -42,13 +45,12 @@ export function buildPaymentsListFilterOpts(input: PaymentsListFilterInput) {
     amountMin: amountOrUndefined(input.amountMin),
     amountMax: amountOrUndefined(input.amountMax),
   };
-  const party = input.isSupplierKind
-    ? {
-        supplierId: input.supplierIds.length ? input.supplierIds : undefined,
-      }
-    : {
-        employeeId: input.employeeIds.length ? input.employeeIds : undefined,
-      };
+  const party =
+    input.kind === 'supplier'
+      ? { supplierId: input.supplierIds.length ? input.supplierIds : undefined }
+      : input.kind === 'service'
+        ? { serviceId: input.serviceIds.length ? input.serviceIds : undefined }
+        : { employeeId: input.employeeIds.length ? input.employeeIds : undefined };
   if (input.mineOnly) {
     return {
       status: input.statuses.length ? input.statuses : undefined,
@@ -78,7 +80,9 @@ export type ActivePaymentFiltersInput = {
   paidStart: Date | string | null | undefined;
   paidEnd: Date | string | null | undefined;
   isSupplierKind: boolean;
+  kind: PaymentKind;
   supplierCount: number;
+  serviceCount: number;
   employeeCount: number;
   amountMin: number | null | undefined;
   amountMax: number | null | undefined;
@@ -93,7 +97,8 @@ export function countActivePaymentFilters(input: ActivePaymentFiltersInput): num
   }
   if (input.dueStart || input.dueEnd) n += 1;
   if (input.paidStart || input.paidEnd) n += 1;
-  if (input.isSupplierKind) n += input.supplierCount;
+  if (input.kind === 'supplier') n += input.supplierCount;
+  else if (input.kind === 'service') n += input.serviceCount;
   else n += input.employeeCount;
   const min = input.amountMin;
   const max = input.amountMax;

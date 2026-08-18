@@ -389,6 +389,9 @@ export class HomePageComponent {
   readonly supplierPaymentsPending = signal<number | null>(null);
   readonly supplierPaymentsToValidateMine = signal<number | null>(null);
   readonly supplierPaymentsToPayMine = signal<number | null>(null);
+  readonly servicePaymentsPending = signal<number | null>(null);
+  readonly servicePaymentsToValidateMine = signal<number | null>(null);
+  readonly servicePaymentsToPayMine = signal<number | null>(null);
   readonly employeePaymentsPending = signal<number | null>(null);
   readonly employeePaymentsToValidateMine = signal<number | null>(null);
   readonly employeePaymentsToPayMine = signal<number | null>(null);
@@ -499,6 +502,14 @@ export class HomePageComponent {
         'storefront',
       );
       pushPaymentKpi(
+        'Pagos servicios',
+        this.servicePaymentsPending(),
+        this.servicePaymentsToValidateMine(),
+        this.servicePaymentsToPayMine(),
+        '/payments/services',
+        'home_repair_service',
+      );
+      pushPaymentKpi(
         'Pagos empleados',
         this.employeePaymentsPending(),
         this.employeePaymentsToValidateMine(),
@@ -573,6 +584,9 @@ export class HomePageComponent {
         this.supplierPaymentsPending.set(null);
         this.supplierPaymentsToValidateMine.set(null);
         this.supplierPaymentsToPayMine.set(null);
+        this.servicePaymentsPending.set(null);
+        this.servicePaymentsToValidateMine.set(null);
+        this.servicePaymentsToPayMine.set(null);
         this.employeePaymentsPending.set(null);
         this.employeePaymentsToValidateMine.set(null);
         this.employeePaymentsToPayMine.set(null);
@@ -584,7 +598,8 @@ export class HomePageComponent {
               (p) => p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED',
             );
             const suppliers = pending.filter((p) => !!p.supplierId);
-            const employees = pending.filter((p) => !!p.employeeId);
+            const services = pending.filter((p) => !!p.serviceId);
+            const employees = pending.filter((p) => !p.supplierId && !p.serviceId);
 
             const mineValidate = (list: typeof pending) =>
               uid
@@ -602,6 +617,9 @@ export class HomePageComponent {
             this.supplierPaymentsPending.set(suppliers.length);
             this.supplierPaymentsToValidateMine.set(mineValidate(suppliers));
             this.supplierPaymentsToPayMine.set(minePay(suppliers));
+            this.servicePaymentsPending.set(services.length);
+            this.servicePaymentsToValidateMine.set(mineValidate(services));
+            this.servicePaymentsToPayMine.set(minePay(services));
             this.employeePaymentsPending.set(employees.length);
             this.employeePaymentsToValidateMine.set(mineValidate(employees));
             this.employeePaymentsToPayMine.set(minePay(employees));
@@ -610,6 +628,9 @@ export class HomePageComponent {
             this.supplierPaymentsPending.set(null);
             this.supplierPaymentsToValidateMine.set(null);
             this.supplierPaymentsToPayMine.set(null);
+            this.servicePaymentsPending.set(null);
+            this.servicePaymentsToValidateMine.set(null);
+            this.servicePaymentsToPayMine.set(null);
             this.employeePaymentsPending.set(null);
             this.employeePaymentsToValidateMine.set(null);
             this.employeePaymentsToPayMine.set(null);
