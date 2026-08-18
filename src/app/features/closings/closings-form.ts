@@ -41,8 +41,8 @@ import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions
 import { ClosingFormSummaryComponent } from './closing-form-summary';
 import { ClosingFormPosnetsStepComponent } from './closing-form-posnets-step';
 import { ClosingFormCajaOtrosStepComponent } from './closing-form-caja-otros-step';
+import { ClosingFormCajaStepComponent } from './closing-form-caja-step';
 import { ClosingFormEfectivoStepComponent } from './closing-form-efectivo-step';
-import { ClosingFormDniStepComponent } from './closing-form-dni-step';
 import { ClosingFormRetiroStepComponent } from './closing-form-retiro-step';
 import {
   buildDniTransferGroup,
@@ -100,8 +100,8 @@ import {
     ClosingFormSummaryComponent,
     ClosingFormPosnetsStepComponent,
     ClosingFormCajaOtrosStepComponent,
+    ClosingFormCajaStepComponent,
     ClosingFormEfectivoStepComponent,
-    ClosingFormDniStepComponent,
     ClosingFormRetiroStepComponent,
   ],
   host: {
@@ -199,25 +199,20 @@ import {
               />
             </mat-step>
 
-            <mat-step label="Cuenta DNI">
-              <app-closing-form-dni-step
-                [dniTransfers]="dniTransfers"
-                [panelHint]="dniPanelHint()"
-                [locksDni]="locksDni()"
-                (add)="addDniTransfer()"
-                (remove)="removeDniTransfer($event)"
-              />
-            </mat-step>
-
-            <mat-step label="Caja y otros">
+            <mat-step label="Cobros">
               <app-closing-form-caja-otros-step
                 [sourceAmounts]="sourceAmounts"
                 [sourceCount]="sourceCount()"
                 [otherCobros]="otherCobros"
                 [cobrosHint]="cobrosPanelHint()"
                 [cobrosTotal]="money(cobrosTotal())"
+                [dniTransfers]="dniTransfers"
+                [dniHint]="dniPanelHint()"
+                [locksDni]="locksDni()"
                 (remove)="removeOtherCobro($event)"
                 (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
+                (addDni)="addDniTransfer()"
+                (removeDni)="removeDniTransfer($event)"
               />
             </mat-step>
 
@@ -236,6 +231,15 @@ import {
                 (addExpense)="addExpense()"
                 (removeExpense)="removeExpense($event)"
                 (tipChange)="onTipEditorChange($event)"
+              />
+            </mat-step>
+
+            <mat-step label="Caja">
+              <app-closing-form-caja-step
+                [calculated]="money(declaredTotal())"
+                [breakdown]="cajaBreakdown()"
+                [difference]="cajaDifference()"
+                [differenceLabel]="cajaDifferenceLabel()"
               />
             </mat-step>
 
@@ -314,9 +318,9 @@ export class ClosingsFormPage implements OnInit {
   readonly stepLabels = [
     'Posnets',
     'Efectivo',
-    'Cuenta DNI',
-    'Caja y otros',
+    'Cobros',
     'Retiro y egresos',
+    'Caja',
     'Resumen',
   ] as const;
   readonly isLastStep = computed(() => this.stepIndex() === this.stepLabels.length - 1);
@@ -433,6 +437,47 @@ export class ClosingsFormPage implements OnInit {
   readonly cobrosTotal = computed(() => {
     const cobros = (this.formValue().otherCobros ?? []) as Array<{ amount?: number | null }>;
     return cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
+  });
+
+  readonly cajaBreakdown = computed(() => {
+    const v = this.formValue();
+    const rows: Array<{ name: string; amount: string }> = [];
+    const push = (name: string, value: number) => {
+      if (value > 0) rows.push({ name, amount: this.money(value) });
+    };
+    push('PVS', this.n(v.cardAmount));
+    push('Efectivo', this.n(v.cashAmount));
+    push('Mercado Pago', this.n(v.mercadoPagoAmount));
+    push('Cuenta DNI', this.n(v.accountDniAmount));
+    push('Cobros', this.cobrosTotal());
+    const sources = (v.sourceAmounts ?? []) as Array<{
+      name?: string;
+      includeInDeclared?: boolean;
+      amount?: number | null;
+      lines?: Array<{ amount?: unknown }> | number[] | null;
+    }>;
+    for (const source of sources) {
+      if (!source.includeInDeclared) continue;
+      const total = sourceRowTotal(source);
+      if (total > 0) {
+        push(String(source.name ?? '').trim() || 'Fuente', total);
+      }
+    }
+    return rows;
+  });
+
+  readonly cajaEntered = computed(() => {
+    const value = this.formValue().posSystemAmount as unknown;
+    return value != null && String(value).trim() !== '';
+  });
+
+  readonly cajaDifference = computed(() =>
+    this.cajaEntered() ? this.declaredTotal() - this.posAmount() : null,
+  );
+
+  readonly cajaDifferenceLabel = computed(() => {
+    const difference = this.cajaDifference();
+    return difference == null ? '—' : this.money(difference);
   });
 
   readonly asideLines = computed(() => {

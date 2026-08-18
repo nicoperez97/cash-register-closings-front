@@ -84,7 +84,9 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
         </div>
       </div>
     </div>
-    <app-closing-form-step-nav />
+    @if (showNav()) {
+      <app-closing-form-step-nav />
+    }
   `,
   styleUrl: './closing-form-dni-step.scss',
 })
@@ -92,6 +94,7 @@ export class ClosingFormDniStepComponent {
   readonly dniTransfers = input.required<FormArray>();
   readonly panelHint = input('');
   readonly locksDni = input(false);
+  readonly showNav = input(true);
 
   readonly add = output<void>();
   readonly remove = output<number>();

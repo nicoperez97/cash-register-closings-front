@@ -1,16 +1,5 @@
 @use './closing-form-shared';
 
-.closing-form__block--caja .closing-form__block-head {
-  margin-bottom: 0;
-  align-items: center;
-}
-
-.closing-form__caja-field {
-  width: min(16rem, 100%);
-  flex: 1 1 12rem;
-  margin: 0 !important;
-}
-
 .closing-form__cobro-row {
   display: grid;
   grid-template-columns: 1.4fr 0.8fr 2.5rem;
@@ -124,8 +113,7 @@
   align-items: start;
 }
 
-.closing-form__source-line .mat-mdc-form-field,
-.closing-form__caja-field.mat-mdc-form-field {
+.closing-form__source-line .mat-mdc-form-field {
   width: 100%;
   margin-bottom: 0 !important;
 }
@@ -141,16 +129,6 @@
 }
 
 @media (max-width: 720px) {
-  .closing-form__block--caja .closing-form__block-head {
-    flex-wrap: wrap;
-    align-items: stretch;
-  }
-
-  .closing-form__caja-field {
-    width: 100%;
-    flex-basis: 100%;
-  }
-
   .closing-form__cobro-row {
     grid-template-columns: 1fr;
     gap: 0.45rem;

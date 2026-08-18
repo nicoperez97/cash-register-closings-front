@@ -10,6 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
+import { ClosingFormDniStepComponent } from './closing-form-dni-step';
 import { closingMoney, closingNum } from './closings-form.utils';
 
 @Component({
@@ -21,27 +22,18 @@ import { closingMoney, closingNum } from './closings-form.utils';
     MatIconModule,
     MatInputModule,
     ClosingFormStepNavComponent,
+    ClosingFormDniStepComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
-    <div class="closing-form__block closing-form__block--caja">
-      <div class="closing-form__block-head">
-        <div class="closing-form__block-title">
-          <h3>Caja</h3>
-          <span class="closing-form__meta">Total del sistema</span>
-        </div>
-        <mat-form-field
-          appearance="outline"
-          subscriptSizing="dynamic"
-          floatLabel="always"
-          class="closing-field--money closing-form__caja-field"
-        >
-          <mat-label>Caja (sistema)</mat-label>
-          <span matTextPrefix class="closing-field__prefix">$</span>
-          <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
-        </mat-form-field>
-      </div>
-    </div>
+    <app-closing-form-dni-step
+      [dniTransfers]="dniTransfers()"
+      [panelHint]="dniHint()"
+      [locksDni]="locksDni()"
+      [showNav]="false"
+      (add)="addDni.emit()"
+      (remove)="removeDni.emit($event)"
+    />
     <div class="closing-form__block">
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
@@ -167,9 +159,14 @@ export class ClosingFormCajaOtrosStepComponent {
   readonly otherCobros = input.required<FormArray>();
   readonly cobrosHint = input('');
   readonly cobrosTotal = input('');
+  readonly dniTransfers = input.required<FormArray>();
+  readonly dniHint = input('');
+  readonly locksDni = input(false);
 
   readonly remove = output<number>();
   readonly removeSourceLine = output<{ sourceIndex: number; lineIndex: number }>();
+  readonly addDni = output<void>();
+  readonly removeDni = output<number>();
 
   sourceLines(index: number): FormArray {
     return this.sourceAmounts().at(index)?.get('lines') as FormArray;
