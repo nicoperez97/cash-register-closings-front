@@ -18,9 +18,12 @@ import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import {
   ClosingsApiService,
-  ShopUserAccountOption,
   ShopUserOption,
 } from '../closings/closings-api.service';
+import {
+  userIdForWithdrawAccount,
+  withdrawAccountOptionsFromUsers,
+} from '../closings/withdraw-account-options';
 import {
   CashWithdrawalExpense,
   CashWithdrawalHistoryGroup,
@@ -29,7 +32,6 @@ import {
   PendingCashWithdrawal,
 } from './cash-withdrawals-api.service';
 import { CashWithdrawalsInboxService } from './cash-withdrawals-inbox.service';
-import { isUserVisible } from '../../shared/user-visibility';
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat('es-AR', {
@@ -148,25 +150,13 @@ function formatMoney(value: number): string {
           <div class="withdrawals-toolbar__pick">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Quién se lo lleva</mat-label>
-              <mat-select [formControl]="userIdCtrl" (selectionChange)="onUserChange($event.value)">
+              <mat-select [formControl]="accountIdCtrl">
                 <mat-option value="">— Elegir —</mat-option>
-                @for (u of withdrawUsers(); track u.id) {
-                  <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+                @for (acc of withdrawAccounts(); track acc.id) {
+                  <mat-option [value]="acc.id">{{ acc.label }}</mat-option>
                 }
               </mat-select>
             </mat-form-field>
-            @if (needsAccountPick()) {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cuenta destino</mat-label>
-                <mat-select [formControl]="accountIdCtrl">
-                  @for (acc of accountOptions(); track acc.id) {
-                    <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-            } @else if (accountHint()) {
-              <p class="withdrawals-toolbar__hint">{{ accountHint() }}</p>
-            }
             <button
               mat-flat-button
               color="primary"
@@ -523,12 +513,7 @@ export class CashWithdrawalsPage {
   readonly users = signal<ShopUserOption[]>([]);
   readonly selectedIds = signal<Set<string>>(new Set());
 
-  readonly userIdCtrl = new FormControl('', { nonNullable: true });
   readonly accountIdCtrl = new FormControl('', { nonNullable: true });
-  private readonly selectedUserId = toSignal(
-    this.userIdCtrl.valueChanges.pipe(startWith(this.userIdCtrl.value)),
-    { initialValue: '' },
-  );
   private readonly selectedAccountId = toSignal(
     this.accountIdCtrl.valueChanges.pipe(startWith(this.accountIdCtrl.value)),
     { initialValue: '' },
@@ -546,37 +531,13 @@ export class CashWithdrawalsPage {
       .reduce((s, r) => s + (r.amount || 0), 0),
   );
 
-  readonly withdrawUsers = computed(() =>
-    this.users().filter((u) => isUserVisible(u, 'cashWithdraw')),
+  readonly withdrawAccounts = computed(() =>
+    withdrawAccountOptionsFromUsers(this.users()),
   );
-
-  readonly accountOptions = computed((): ShopUserAccountOption[] => {
-    const userId = this.selectedUserId();
-    if (!userId) return [];
-    return this.users().find((u) => u.id === userId)?.ledgerAccounts ?? [];
-  });
-
-  readonly needsAccountPick = computed(() => this.accountOptions().length > 1);
-
-  readonly accountHint = computed(() => {
-    const userId = this.selectedUserId();
-    if (!userId) return '';
-    const accounts = this.accountOptions();
-    if (accounts.length === 0) {
-      return 'Sin cuenta asociada: al confirmar se crea una a su nombre.';
-    }
-    if (accounts.length === 1) {
-      return `El efectivo va a la cuenta «${accounts[0].name}».`;
-    }
-    return '';
-  });
 
   readonly canConfirm = computed(() => {
     if (!this.canPick() || !this.someSelected()) return false;
-    const userId = this.selectedUserId();
-    if (!userId) return false;
-    if (this.needsAccountPick() && !this.selectedAccountId()) return false;
-    return true;
+    return !!this.selectedAccountId();
   });
 
   constructor() {
@@ -642,15 +603,6 @@ export class CashWithdrawalsPage {
     this.selectedIds.set(new Set(this.rows().map((r) => r.id)));
   }
 
-  onUserChange(userId: string): void {
-    const accounts = this.users().find((u) => u.id === userId)?.ledgerAccounts ?? [];
-    if (accounts.length === 1) {
-      this.accountIdCtrl.setValue(accounts[0].id);
-    } else {
-      this.accountIdCtrl.setValue('');
-    }
-  }
-
   reload(): void {
     const shopId = this.shopId();
     if (!shopId) return;
@@ -694,12 +646,10 @@ export class CashWithdrawalsPage {
     const shopId = this.shopId();
     if (!shopId || !this.canConfirm()) return;
     const ids = [...this.selectedIds()];
-    const userId = this.userIdCtrl.value;
-    const accounts = this.accountOptions();
-    let accountId = this.accountIdCtrl.value || null;
-    if (accounts.length === 1) accountId = accounts[0].id;
-    if (accounts.length > 1 && !accountId) {
-      this.snack.open('Seleccioná la cuenta destino del efectivo', 'OK', { duration: 3000 });
+    const accountId = this.accountIdCtrl.value;
+    const userId = userIdForWithdrawAccount(this.users(), accountId);
+    if (!accountId || !userId) {
+      this.snack.open('Seleccioná quién se lleva el efectivo', 'OK', { duration: 3000 });
       return;
     }
 
@@ -708,7 +658,7 @@ export class CashWithdrawalsPage {
       .pick(shopId, {
         ids,
         userId,
-        accountId: accountId || undefined,
+        accountId,
       })
       .subscribe({
         next: (res) => {
@@ -720,7 +670,6 @@ export class CashWithdrawalsPage {
             'OK',
             { duration: 2500 },
           );
-          this.userIdCtrl.setValue('');
           this.accountIdCtrl.setValue('');
           this.reload();
         },

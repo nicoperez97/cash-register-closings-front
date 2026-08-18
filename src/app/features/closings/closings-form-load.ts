@@ -6,7 +6,6 @@ import type {
   CashClosing,
   ClosingSourceAmount,
   ShopClosingSource,
-  ShopUserOption,
 } from './closings-api.service';
 import { closingNum } from './closings-form.utils';
 
@@ -229,20 +228,6 @@ export function ensureTrailingOtherCobro(
       { emitEvent: false },
     );
   }
-}
-
-/** Resuelve la cuenta destino al cambiar el usuario de retiro de efectivo. */
-export function resolveWithdrawnAccountId(
-  users: ShopUserOption[],
-  userId: string,
-  currentAccountId: string,
-): string {
-  const user = users.find((u) => u.id === userId);
-  const accounts = user?.ledgerAccounts ?? [];
-  if (accounts.length === 1) return accounts[0].id;
-  if (accounts.length === 0) return '';
-  if (!accounts.some((a) => a.id === currentAccountId)) return '';
-  return currentAccountId;
 }
 
 export function patchClosingFormValues(

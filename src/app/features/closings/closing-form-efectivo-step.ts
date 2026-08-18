@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
-import { ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { WithdrawAccountOption } from './withdraw-account-options';
 
 @Component({
   selector: 'app-closing-form-efectivo-step',
@@ -57,27 +57,15 @@ import { ShopUserAccountOption, ShopUserOption } from './closings-api.service';
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Quién se lo lleva</mat-label>
             <mat-select
-              formControlName="cashWithdrawnByUserId"
-              (selectionChange)="withdrawnUserChange.emit($event.value)"
+              formControlName="cashWithdrawnToAccountId"
+              (selectionChange)="withdrawnAccountChange.emit($event.value)"
             >
               <mat-option value="">— Sin asignar —</mat-option>
-              @for (u of withdrawUsers(); track u.id) {
-                <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+              @for (acc of withdrawAccounts(); track acc.id) {
+                <mat-option [value]="acc.id">{{ acc.label }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
-          @if (needsAccountPick()) {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
-              <mat-label>Cuenta destino del efectivo</mat-label>
-              <mat-select formControlName="cashWithdrawnToAccountId">
-                @for (acc of accountOptions(); track acc.id) {
-                  <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-          } @else if (accountHint()) {
-            <p class="closing-form__account-hint closing-form__span-all">{{ accountHint() }}</p>
-          }
           @if (pendingHint()) {
             <p class="closing-form__account-hint closing-form__span-all closing-form__pending-hint">
               {{ pendingHint() }}
@@ -91,12 +79,9 @@ import { ShopUserAccountOption, ShopUserOption } from './closings-api.service';
   styleUrl: './closing-form-efectivo-step.scss',
 })
 export class ClosingFormEfectivoStepComponent {
-  readonly withdrawUsers = input<ShopUserOption[]>([]);
-  readonly needsAccountPick = input(false);
-  readonly accountOptions = input<ShopUserAccountOption[]>([]);
-  readonly accountHint = input('');
+  readonly withdrawAccounts = input<WithdrawAccountOption[]>([]);
   readonly pendingHint = input('');
 
   readonly countBills = output<void>();
-  readonly withdrawnUserChange = output<string>();
+  readonly withdrawnAccountChange = output<string>();
 }

@@ -10,6 +10,7 @@ import type {
 import { closingSourceKindLabel } from './closings-api.service';
 import { sourceLinesFromRaw, sourceRowTotal } from './closings-form-load';
 import { POSNET_TYPE_LABEL, closingNum, toDateString } from './closings-form.utils';
+import { userIdForWithdrawAccount } from './withdraw-account-options';
 
 export type ClosingFormExpenseRaw = {
   label: string;
@@ -113,7 +114,7 @@ export type PrepareClosingSaveBodyInput = {
 
 export type PrepareClosingSaveBodyResult =
   | { ok: true; shopId: string; body: CashClosingInput }
-  | { ok: false; reason: 'no_shop' | 'missing_account' | 'tips_invalid' };
+  | { ok: false; reason: 'no_shop' | 'tips_invalid' };
 
 export function prepareClosingSaveBody(
   input: PrepareClosingSaveBodyInput,
@@ -121,17 +122,9 @@ export function prepareClosingSaveBody(
   const { formRaw: raw, users, declaredTotal, shopId } = input;
   if (!shopId) return { ok: false, reason: 'no_shop' };
 
-  const userId = raw.cashWithdrawnByUserId || null;
+  const accountId = raw.cashWithdrawnToAccountId || null;
+  const userId = userIdForWithdrawAccount(users, accountId);
   const selected = users.find((u) => u.id === userId);
-  const withdrawnAccounts = selected?.ledgerAccounts ?? [];
-  let accountId = raw.cashWithdrawnToAccountId || null;
-  if (closingNum(raw.cashAmount) > 0 && userId && withdrawnAccounts.length > 1 && !accountId) {
-    return { ok: false, reason: 'missing_account' };
-  }
-  if (withdrawnAccounts.length === 1) {
-    accountId = withdrawnAccounts[0].id;
-  }
-  if (!userId) accountId = null;
 
   const posnetAmounts: ClosingPosnetAmount[] = (raw.posnetAmounts as ClosingPosnetAmount[])
     .filter((p) => !!String(p.name ?? '').trim() || closingNum(p.amount) > 0)

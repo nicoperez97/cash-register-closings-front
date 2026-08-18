@@ -23,7 +23,7 @@ import {
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ShopClosingSource, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ShopClosingSource, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { shareText } from '../../shared/utils/share-text';
@@ -33,7 +33,6 @@ import {
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { ClosingSaveDialogComponent } from './closing-save-dialog';
 import { CashBillCounterDialogComponent } from './cash-bill-counter-dialog';
-import { isUserVisible } from '../../shared/user-visibility';
 import { EmployeesApiService, Employee } from '../employees/employees-api.service';
 import { TipsApiService } from '../tips/tips-api.service';
 import { TipsEditorState } from '../tips/tips-editor';
@@ -63,9 +62,13 @@ import {
   populateOtherCobros,
   populateSourceAmounts,
   resetClosingFormForNext,
-  resolveWithdrawnAccountId,
   sourceRowTotal,
 } from './closings-form-load';
+import {
+  hydrateWithdrawnAccountId,
+  userIdForWithdrawAccount,
+  withdrawAccountOptionsFromUsers,
+} from './withdraw-account-options';
 import {
   buildClosingShareSnapshot,
   closingSaveDialogExtraRows,
@@ -191,13 +194,10 @@ import {
 
             <mat-step label="Efectivo">
               <app-closing-form-efectivo-step
-                [withdrawUsers]="withdrawUsers()"
-                [needsAccountPick]="needsWithdrawnAccountPick()"
-                [accountOptions]="withdrawnAccountOptions()"
-                [accountHint]="withdrawnAccountHint()"
+                [withdrawAccounts]="withdrawAccounts()"
                 [pendingHint]="pendingWithdrawHint()"
                 (countBills)="openBillCounter()"
-                (withdrawnUserChange)="onWithdrawnUserChange($event)"
+                (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
               />
             </mat-step>
 
@@ -518,41 +518,20 @@ export class ClosingsFormPage implements OnInit {
     return date ? formatIsoDateDisplay(date) : '—';
   });
 
-  readonly withdrawnAccountOptions = computed((): ShopUserAccountOption[] => {
-    const userId = String(this.formValue().cashWithdrawnByUserId ?? '');
-    if (!userId) return [];
-    const user = this.users().find((u) => u.id === userId);
-    return user?.ledgerAccounts ?? [];
-  });
-
-  /** Usuarios visibles en “Quién se lo lleva”; mantiene el seleccionado si está oculto (edición). */
-  readonly withdrawUsers = computed(() => {
-    const selected = String(this.formValue().cashWithdrawnByUserId ?? '');
-    return this.users().filter(
-      (u) => isUserVisible(u, 'cashWithdraw') || u.id === selected,
-    );
-  });
-
-  readonly needsWithdrawnAccountPick = computed(() => this.withdrawnAccountOptions().length > 1);
-
-  readonly withdrawnAccountHint = computed(() => {
-    const userId = String(this.formValue().cashWithdrawnByUserId ?? '');
-    if (!userId) return '';
-    const accounts = this.withdrawnAccountOptions();
-    if (accounts.length === 0) {
-      return 'Sin cuenta asociada: al guardar se crea una a su nombre.';
-    }
-    if (accounts.length === 1) {
-      return `El efectivo va a la cuenta «${accounts[0].name}».`;
-    }
-    return '';
+  readonly withdrawAccounts = computed(() => {
+    const v = this.formValue();
+    return withdrawAccountOptionsFromUsers(this.users(), {
+      selectedAccountId: String(v.cashWithdrawnToAccountId ?? ''),
+      selectedUserId: String(v.cashWithdrawnByUserId ?? ''),
+    });
   });
 
   /** Monto a retirar si no hay destinatario (queda en A Retirar). */
   readonly pendingWithdrawAmount = computed(() => {
     const v = this.formValue();
-    const userId = String(v.cashWithdrawnByUserId ?? '');
-    if (userId) return 0;
+    const assigned =
+      String(v.cashWithdrawnToAccountId ?? '') || String(v.cashWithdrawnByUserId ?? '');
+    if (assigned) return 0;
     const explicit = this.n(v.cashWithdrawn);
     if (explicit > 0) return explicit;
     const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
@@ -562,8 +541,9 @@ export class ClosingsFormPage implements OnInit {
 
   readonly pendingWithdrawHint = computed(() => {
     const v = this.formValue();
-    const userId = String(v.cashWithdrawnByUserId ?? '');
-    if (userId) return '';
+    const assigned =
+      String(v.cashWithdrawnToAccountId ?? '') || String(v.cashWithdrawnByUserId ?? '');
+    if (assigned) return '';
     const amount = this.pendingWithdrawAmount();
     if (amount > 0) {
       return `Quedará en A Retirar (${this.money(amount)}).`;
@@ -611,8 +591,7 @@ export class ClosingsFormPage implements OnInit {
       this.api.shopUsers(shopId).subscribe({
         next: (rows) => {
           this.users.set(rows);
-          const uid = String(this.form.getRawValue().cashWithdrawnByUserId ?? '');
-          if (uid) this.onWithdrawnUserChange(uid);
+          this.hydrateWithdrawnAccount(rows);
         },
         error: () =>
           this.snack.open('No se pudieron cargar los usuarios del local', 'OK', {
@@ -659,6 +638,7 @@ export class ClosingsFormPage implements OnInit {
           this.form.disable({ emitEvent: false });
         }
         patchClosingFormValues(this.form, c, (v) => this.emptyNum(v), toDateInput);
+        this.hydrateWithdrawnAccount(this.users());
         this.initPaymentLines(c.posnetAmounts);
         this.expenses.clear();
         for (const expense of c.expenses ?? []) {
@@ -867,10 +847,28 @@ export class ClosingsFormPage implements OnInit {
       });
   }
 
-  onWithdrawnUserChange(userId: string): void {
-    const current = String(this.form.getRawValue().cashWithdrawnToAccountId ?? '');
-    const accountId = resolveWithdrawnAccountId(this.users(), userId, current);
-    this.form.patchValue({ cashWithdrawnToAccountId: accountId }, { emitEvent: false });
+  onWithdrawnAccountChange(accountId: string): void {
+    this.form.patchValue(
+      { cashWithdrawnByUserId: userIdForWithdrawAccount(this.users(), accountId) ?? '' },
+      { emitEvent: false },
+    );
+  }
+
+  private hydrateWithdrawnAccount(users: ShopUserOption[]): void {
+    if (!users.length) return;
+    const raw = this.form.getRawValue();
+    const accountId = hydrateWithdrawnAccountId(
+      users,
+      String(raw.cashWithdrawnByUserId ?? ''),
+      String(raw.cashWithdrawnToAccountId ?? ''),
+    );
+    this.form.patchValue(
+      {
+        cashWithdrawnToAccountId: accountId,
+        cashWithdrawnByUserId: userIdForWithdrawAccount(users, accountId) ?? '',
+      },
+      { emitEvent: false },
+    );
   }
 
   async shareSummary(): Promise<void> {
@@ -955,8 +953,6 @@ export class ClosingsFormPage implements OnInit {
     if (!result.ok) {
       if (result.reason === 'no_shop') {
         this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
-      } else if (result.reason === 'missing_account') {
-        this.snack.open('Seleccioná la cuenta destino del efectivo', 'OK', { duration: 3000 });
       } else if (result.reason === 'tips_invalid') {
         this.snack.open('El reparto de propinas debe sumar el total', 'OK', { duration: 3000 });
       }
