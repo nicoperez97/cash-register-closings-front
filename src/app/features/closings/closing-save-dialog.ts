@@ -16,6 +16,7 @@ export type ClosingSaveSummary = {
   accountDni: string;
   posSystem: string;
   total: string;
+  extraRows?: Array<{ label: string; value: string }>;
   unitsLabel?: string | null;
   unitsSold?: number | null;
   cashWithdrawnByName?: string | null;
@@ -112,6 +113,12 @@ export type ClosingSaveDialogResult = 'saved' | 'cancelled';
           <dt>Caja sistema</dt>
           <dd>{{ data.posSystem }}</dd>
         </div>
+        @for (row of data.extraRows ?? []; track $index) {
+          <div>
+            <dt>{{ row.label }}</dt>
+            <dd>{{ row.value }}</dd>
+          </div>
+        }
         <div class="closing-save-summary__total">
           <dt>Total</dt>
           <dd>{{ data.total }}</dd>
@@ -160,6 +167,9 @@ export type ClosingSaveDialogResult = 'saved' | 'cancelled';
     </mat-dialog-actions>
   `,
   styles: `
+    mat-dialog-content {
+      max-height: min(70vh, 560px);
+    }
     .closing-save-summary {
       display: grid;
       gap: 0.55rem;
@@ -176,6 +186,8 @@ export type ClosingSaveDialogResult = 'saved' | 'cancelled';
       margin: 0;
       font-size: 0.85rem;
       color: var(--guy-muted, #5f6f76);
+      max-width: 62%;
+      overflow-wrap: anywhere;
     }
     .closing-save-summary dd {
       margin: 0;

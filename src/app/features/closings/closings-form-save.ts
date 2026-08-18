@@ -7,6 +7,7 @@ import type {
   ClosingSourceAmount,
   ShopUserOption,
 } from './closings-api.service';
+import { closingSourceKindLabel } from './closings-api.service';
 import { sourceLinesFromRaw, sourceRowTotal } from './closings-form-load';
 import { POSNET_TYPE_LABEL, closingNum, toDateString } from './closings-form.utils';
 
@@ -316,4 +317,46 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
         };
       }),
   };
+}
+
+export type ClosingSaveDialogExtraRow = { label: string; value: string };
+
+/** Filas extra del diálogo de guardar (cobros, cuentas aparte, diferencia). */
+export function closingSaveDialogExtraRows(
+  snapshot: CashClosing,
+  money: (value: number) => string,
+): ClosingSaveDialogExtraRow[] {
+  const rows: ClosingSaveDialogExtraRow[] = [];
+  if (Number(snapshot.mercadoPagoAmount || 0) !== 0) {
+    rows.push({ label: 'Mercado Pago', value: money(Number(snapshot.mercadoPagoAmount)) });
+  }
+  for (const e of snapshot.extraLines ?? []) {
+    if (Number(e.amount || 0) === 0) continue;
+    rows.push({
+      label: String(e.label || '').trim() || 'Cobro',
+      value: money(Number(e.amount)),
+    });
+  }
+  for (const s of snapshot.sourceAmounts ?? []) {
+    if (Number(s.amount || 0) === 0) continue;
+    const name = String(s.name || '').trim() || 'Fuente';
+    const parts = (s.lines ?? []).map((v) => Number(v || 0)).filter((v) => v > 0);
+    const kind = s.kind && s.kind !== 'RECORD_ONLY' ? ` · ${closingSourceKindLabel(s.kind)}` : '';
+    const linesHint = parts.length > 1 ? ` (${parts.map((v) => money(v)).join(' + ')})` : '';
+    rows.push({
+      label: `${name}${kind}`,
+      value: `${money(Number(s.amount))}${linesHint}`,
+    });
+  }
+  if (Number(snapshot.difference || 0) !== 0) {
+    rows.push({ label: 'Diferencia', value: money(Number(snapshot.difference)) });
+  }
+  for (const e of snapshot.expenses ?? []) {
+    if (Number(e.amount || 0) === 0) continue;
+    rows.push({
+      label: String(e.label || '').trim() || 'Egreso',
+      value: money(Number(e.amount)),
+    });
+  }
+  return rows;
 }

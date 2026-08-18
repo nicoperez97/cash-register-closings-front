@@ -29,6 +29,7 @@ import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh'
 import { BodyScrollLockService } from '../../shared/services/body-scroll-lock.service';
 import { PaymentsInboxService } from '../../features/payments/payments-inbox.service';
 import { CashWithdrawalsInboxService } from '../../features/cash-withdrawals/cash-withdrawals-inbox.service';
+import { SettlementsInboxService } from '../../features/settlements/settlements-inbox.service';
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
@@ -77,6 +78,7 @@ export class MainLayoutComponent {
   private readonly bodyLock = inject(BodyScrollLockService);
   private readonly paymentsInbox = inject(PaymentsInboxService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
+  private readonly settlementsInbox = inject(SettlementsInboxService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly tipsInbox = inject(TipsInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
@@ -156,6 +158,12 @@ export class MainLayoutComponent {
         route: '/cash-withdrawals',
         icon: 'payments',
         badge: this.cashWithdrawalsInbox.pendingCount() || null,
+      });
+      operacion.push({
+        label: 'Rendiciones',
+        route: '/settlements',
+        icon: 'account_balance_wallet',
+        badge: this.settlementsInbox.pendingCount() || null,
       });
     }
     if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
@@ -460,6 +468,9 @@ export class MainLayoutComponent {
       return hasShopPermission(user, shopId, 'closings.read');
     }
     if (path.startsWith('/cash-withdrawals')) {
+      return hasShopPermission(user, shopId, 'closings.read');
+    }
+    if (path.startsWith('/settlements')) {
       return hasShopPermission(user, shopId, 'closings.read');
     }
     if (path.startsWith('/reports')) {

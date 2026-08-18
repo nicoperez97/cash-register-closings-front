@@ -83,6 +83,13 @@ export const routes: Routes = [
         title: 'A Retirar',
       },
       {
+        path: 'settlements',
+        canActivate: [permissionGuard('closings.read')],
+        loadComponent: () =>
+          import('./features/settlements/settlements-page').then((m) => m.SettlementsPage),
+        title: 'Rendiciones',
+      },
+      {
         path: 'closings/new',
         canActivate: [permissionGuard('closings.create')],
         loadComponent: () =>

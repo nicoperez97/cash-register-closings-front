@@ -25,6 +25,7 @@ import {
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ShopClosingSource, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
+import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { shareText } from '../../shared/utils/share-text';
 import {
   closingSharePayload,
@@ -67,6 +68,7 @@ import {
 } from './closings-form-load';
 import {
   buildClosingShareSnapshot,
+  closingSaveDialogExtraRows,
   prepareClosingSaveBody,
   type ClosingFormRawValue,
 } from './closings-form-save';
@@ -283,6 +285,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ClosingsApiService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
+  private readonly settlementsInbox = inject(SettlementsInboxService);
   private readonly tipsApi = inject(TipsApiService);
   private readonly employeesApi = inject(EmployeesApiService);
   private readonly shops = inject(ShopContextService);
@@ -923,6 +926,7 @@ export class ClosingsFormPage implements OnInit {
       next: () => {
         this.form.markAsPristine();
         this.cashWithdrawalsInbox.refresh();
+        this.settlementsInbox.refresh();
         this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
         void this.doShare();
       },
@@ -996,6 +1000,7 @@ export class ClosingsFormPage implements OnInit {
       next: () => {
         this.saving.set(false);
         this.cashWithdrawalsInbox.refresh();
+        this.settlementsInbox.refresh();
         this.snack.open('Cierre guardado', 'OK', { duration: 2500 });
         void this.router.navigateByUrl(
           defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),
@@ -1015,12 +1020,13 @@ export class ClosingsFormPage implements OnInit {
     opts?: { shareAfterSave?: boolean },
   ): Promise<void> {
     const shopName = this.shop()?.name ?? 'Local';
+    const snapshot = this.shareClosingSnapshot();
     const share = closingSharePayload(
       {
-        ...this.shareClosingSnapshot(),
-        ...body,
-        cashWithdrawnByName: body.cashWithdrawnByName ?? null,
-      } as CashClosing,
+        ...snapshot,
+        cashWithdrawnByName: body.cashWithdrawnByName ?? snapshot.cashWithdrawnByName ?? null,
+        unitsSold: body.unitsSold ?? snapshot.unitsSold ?? null,
+      },
       shopName,
       { unitsLabel: this.shop()?.unitsLabel },
     );
@@ -1041,6 +1047,7 @@ export class ClosingsFormPage implements OnInit {
               accountDni: this.money(this.accountDniAmount()),
               posSystem: this.money(this.posAmount()),
               total: this.money(this.declaredTotal()),
+              extraRows: closingSaveDialogExtraRows(snapshot, (v) => this.money(v)),
               unitsLabel: this.shop()?.unitsLabel ?? null,
               unitsSold: body.unitsSold ?? null,
               cashWithdrawnByName: body.cashWithdrawnByName ?? null,
@@ -1058,6 +1065,7 @@ export class ClosingsFormPage implements OnInit {
     if (result !== 'saved') return;
 
     this.cashWithdrawalsInbox.refresh();
+    this.settlementsInbox.refresh();
 
     if (this.cashierOnly()) {
       this.resetForNextClosing();

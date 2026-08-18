@@ -4,7 +4,11 @@ import {
   paymentMethodLabel,
   paymentPriorityLabel,
 } from '../../features/payments/payments-api.service';
-import { CashClosing } from '../../features/closings/closings-api.service';
+import {
+  CashClosing,
+  ClosingSourceAmount,
+  closingSourceKindLabel,
+} from '../../features/closings/closings-api.service';
 import { closingStatusLabel } from '../../core/i18n/labels';
 import { formatDateAr, formatMoneyAr } from '../utils/share-text';
 import { RecordSavedDialogData } from './record-saved-dialog';
@@ -268,20 +272,10 @@ export function closingSharePayload(
   const sourceRows = (closing.sourceAmounts ?? []).filter((s) => Number(s.amount || 0) !== 0);
   const sourcesInDeclared = sourceRows.filter((s) => s.includeInDeclared);
   const sourcesAside = sourceRows.filter((s) => !s.includeInDeclared);
-  if (sourcesInDeclared.length) {
-    lines.push('Fuentes en el declarado:');
-    for (const s of sourcesInDeclared) {
-      const name = String(s.name || '').trim() || 'Fuente';
-      lines.push(`· ${name}: ${formatMoneyAr(s.amount)}`);
-    }
-  }
+  pushSourceShareSection(lines, 'Fuentes en el declarado:', sourcesInDeclared);
   const asideSum = sourcesAside.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  pushSourceShareSection(lines, 'Cuentas aparte:', sourcesAside);
   if (sourcesAside.length) {
-    lines.push('Cuentas aparte:');
-    for (const s of sourcesAside) {
-      const name = String(s.name || '').trim() || 'Fuente';
-      lines.push(`· ${name}: ${formatMoneyAr(s.amount)}`);
-    }
     pushMoneyLine(lines, 'Total cuentas aparte', asideSum, true);
   }
 
@@ -335,6 +329,28 @@ export function closingSharePayload(
     title: `Cierre · ${shopName}`,
     text: lines.join('\n'),
   };
+}
+
+function pushSourceShareSection(
+  lines: string[],
+  heading: string,
+  rows: ClosingSourceAmount[],
+): void {
+  if (!rows.length) return;
+  lines.push(heading);
+  for (const s of rows) {
+    const name = String(s.name || '').trim() || 'Fuente';
+    lines.push(`· ${name}: ${formatMoneyAr(s.amount)}`);
+    const parts = (s.lines ?? [])
+      .map((v) => Number(v || 0))
+      .filter((v) => v > 0);
+    if (parts.length > 1) {
+      lines.push(`  ${parts.map((v) => formatMoneyAr(v)).join(' + ')}`);
+    }
+    if (s.kind && s.kind !== 'RECORD_ONLY') {
+      lines.push(`  ${closingSourceKindLabel(s.kind)}`);
+    }
+  }
 }
 
 /** Agrega una línea de monto solo si tiene valor (o si `always`). */
