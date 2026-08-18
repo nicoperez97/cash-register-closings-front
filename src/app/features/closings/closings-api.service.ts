@@ -43,6 +43,46 @@ export interface CashClosing {
   status: string;
   expenses?: Array<{ id?: string; label: string; amount: number; category?: string }>;
   extraLines?: Array<{ id?: string; type: string; label: string; amount: number; meta?: string }>;
+  sourceAmounts?: ClosingSourceAmount[];
+}
+
+export type ClosingSourceKind = 'OWN_ACCOUNT' | 'SETTLE_CASH' | 'SETTLE_ACCOUNT' | 'RECORD_ONLY';
+
+export const CLOSING_SOURCE_KIND_OPTIONS: Array<{ value: ClosingSourceKind; label: string }> = [
+  { value: 'RECORD_ONLY', label: 'Solo registrar (cuenta aparte)' },
+  { value: 'OWN_ACCOUNT', label: 'Va a una cuenta del local hoy' },
+  { value: 'SETTLE_CASH', label: 'Rinde después en efectivo' },
+  { value: 'SETTLE_ACCOUNT', label: 'Se deposita después en una cuenta' },
+];
+
+export function closingSourceKindNeedsAccount(kind: string | null | undefined): boolean {
+  return kind === 'OWN_ACCOUNT' || kind === 'SETTLE_ACCOUNT';
+}
+
+export function closingSourceKindLabel(kind: string | null | undefined): string {
+  return CLOSING_SOURCE_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? 'Cuenta aparte';
+}
+
+export interface ShopClosingSource {
+  id: string;
+  shopId: string;
+  name: string;
+  includeInDeclared: boolean;
+  kind: ClosingSourceKind;
+  accountId: string | null;
+  accountName?: string | null;
+  sortOrder: number;
+  active: boolean;
+}
+
+export interface ClosingSourceAmount {
+  id?: string;
+  sourceId: string;
+  name: string;
+  includeInDeclared: boolean;
+  kind: ClosingSourceKind;
+  accountId?: string | null;
+  amount: number;
 }
 
 export interface ShopUserAccountOption {
@@ -97,6 +137,27 @@ export class ClosingsApiService {
 
   shopUsers(shopId: string) {
     return this.http.get<ShopUserOption[]>(`${this.base}/shops/${shopId}/users`);
+  }
+
+  listClosingSources(shopId: string, activeOnly = false) {
+    return this.http.get<ShopClosingSource[]>(`${this.base}/shops/${shopId}/closing-sources`, {
+      params: activeOnly ? { activeOnly: 'true' } : {},
+    });
+  }
+
+  createClosingSource(shopId: string, body: Partial<ShopClosingSource>) {
+    return this.http.post<ShopClosingSource>(`${this.base}/shops/${shopId}/closing-sources`, body);
+  }
+
+  updateClosingSource(shopId: string, id: string, body: Partial<ShopClosingSource>) {
+    return this.http.patch<ShopClosingSource>(
+      `${this.base}/shops/${shopId}/closing-sources/${id}`,
+      body,
+    );
+  }
+
+  removeClosingSource(shopId: string, id: string) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/closing-sources/${id}`);
   }
 
   summary(shopId: string, filters: ClosingQueryFilters) {

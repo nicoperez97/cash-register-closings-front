@@ -23,7 +23,7 @@ import {
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
+import { ClosingsApiService, CashClosing, ClosingPosnetAmount, ShopClosingSource, ShopUserAccountOption, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { shareText } from '../../shared/utils/share-text';
 import {
@@ -55,6 +55,7 @@ import {
   buildExpenseGroup,
   defaultNewClosingPatch,
   patchClosingFormValues,
+  populateSourceAmounts,
   resetClosingFormForNext,
   resolveWithdrawnAccountId,
 } from './closings-form-load';
@@ -203,7 +204,7 @@ import {
             </mat-step>
 
             <mat-step label="Caja y otros">
-              <app-closing-form-caja-otros-step />
+              <app-closing-form-caja-otros-step [sourceAmounts]="sourceAmounts" />
             </mat-step>
 
             <mat-step label="Retiro y egresos">
@@ -232,6 +233,9 @@ import {
                 [accountDniAmount]="money(accountDniAmount())"
                 [posAmount]="money(posAmount())"
                 [declaredTotal]="money(declaredTotal())"
+                [asideTotal]="asideTotal() > 0 ? money(asideTotal()) : ''"
+                [dayTotal]="money(dayTotal())"
+                [asideLines]="asideLines()"
                 [saving]="saving()"
                 [saveDisabled]="saving() || (isLocked() && !auth.isAdmin())"
                 (shareClicked)="shareSummary()"
@@ -336,6 +340,7 @@ export class ClosingsFormPage implements OnInit {
     expenses: this.fb.array([]),
     posnetAmounts: this.fb.array([]),
     dniTransfers: this.fb.array([]),
+    sourceAmounts: this.fb.array([]),
   });
 
   get expenses(): FormArray {
@@ -349,6 +354,13 @@ export class ClosingsFormPage implements OnInit {
   get dniTransfers(): FormArray {
     return this.form.get('dniTransfers') as FormArray;
   }
+
+  get sourceAmounts(): FormArray {
+    return this.form.get('sourceAmounts') as FormArray;
+  }
+
+  private catalogSources: ShopClosingSource[] = [];
+  private savedSourceAmounts: CashClosing['sourceAmounts'] | null = null;
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(
@@ -378,15 +390,51 @@ export class ClosingsFormPage implements OnInit {
 
   readonly declaredTotal = computed(() => {
     const v = this.formValue();
+    const sources = (v.sourceAmounts ?? []) as Array<{
+      includeInDeclared?: boolean;
+      amount?: number | null;
+    }>;
+    const fromSources = sources
+      .filter((s) => !!s.includeInDeclared)
+      .reduce((sum, s) => sum + this.n(s.amount), 0);
     return (
       this.n(v.cardAmount) +
       this.n(v.cashAmount) +
       this.n(v.mercadoPagoAmount) +
       this.n(v.deliveryAppsAmount) +
       this.n(v.transferAmount) +
-      this.n(v.accountDniAmount)
+      this.n(v.accountDniAmount) +
+      fromSources
     );
   });
+
+  readonly asideLines = computed(() => {
+    const v = this.formValue();
+    const sources = (v.sourceAmounts ?? []) as Array<{
+      name?: string;
+      includeInDeclared?: boolean;
+      amount?: number | null;
+    }>;
+    return sources
+      .filter((s) => !s.includeInDeclared && this.n(s.amount) > 0)
+      .map((s) => ({
+        name: String(s.name ?? '').trim() || 'Fuente',
+        amount: this.money(this.n(s.amount)),
+      }));
+  });
+
+  readonly asideTotal = computed(() => {
+    const v = this.formValue();
+    const sources = (v.sourceAmounts ?? []) as Array<{
+      includeInDeclared?: boolean;
+      amount?: number | null;
+    }>;
+    return sources
+      .filter((s) => !s.includeInDeclared)
+      .reduce((sum, s) => sum + this.n(s.amount), 0);
+  });
+
+  readonly dayTotal = computed(() => this.declaredTotal() + this.asideTotal());
 
   readonly summaryDate = computed(() => {
     const date = toDateString(this.formValue().businessDate as Date | string | null);
@@ -487,6 +535,16 @@ export class ClosingsFormPage implements OnInit {
             duration: 3000,
           }),
       });
+      this.api.listClosingSources(shopId).subscribe({
+        next: (rows) => {
+          this.catalogSources = rows;
+          this.syncSourceAmounts();
+        },
+        error: () => {
+          this.catalogSources = [];
+          this.syncSourceAmounts();
+        },
+      });
       if (this.tipsEnabled()) {
         this.employeesApi.list(shopId).subscribe({
           next: (rows) => this.tipEmployees.set(rows.filter((e) => e.active)),
@@ -525,6 +583,8 @@ export class ClosingsFormPage implements OnInit {
           );
         }
         this.loadTipDay(c.businessDate);
+        this.savedSourceAmounts = c.sourceAmounts ?? [];
+        this.syncSourceAmounts();
       });
     } else {
       const today = this.currentBusinessDate();
@@ -533,6 +593,8 @@ export class ClosingsFormPage implements OnInit {
       );
       this.initPaymentLines();
       this.loadTipDay(today);
+      this.savedSourceAmounts = null;
+      this.syncSourceAmounts();
     }
 
     this.form
@@ -613,6 +675,16 @@ export class ClosingsFormPage implements OnInit {
 
   private runSyncDerivedTotals(): void {
     syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
+  }
+
+  private syncSourceAmounts(): void {
+    populateSourceAmounts(
+      this.fb,
+      this.sourceAmounts,
+      this.catalogSources,
+      this.savedSourceAmounts,
+      (v) => this.emptyNum(v),
+    );
   }
 
   addPosnet(): void {
@@ -932,6 +1004,8 @@ export class ClosingsFormPage implements OnInit {
       }),
     );
     this.initPaymentLines();
+    this.savedSourceAmounts = null;
+    this.syncSourceAmounts();
   }
 
   addExpense(): void {

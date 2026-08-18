@@ -1,9 +1,80 @@
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import type { TipsEditorState } from '../tips/tips-editor';
 import { tipDayToEditorState } from '../tips/tips-editor';
 import type { TipDay } from '../tips/tips-api.service';
-import type { CashClosing, ShopUserOption } from './closings-api.service';
+import type {
+  CashClosing,
+  ClosingSourceAmount,
+  ShopClosingSource,
+  ShopUserOption,
+} from './closings-api.service';
 import { closingNum } from './closings-form.utils';
+
+export function buildSourceAmountGroup(
+  fb: FormBuilder,
+  value: {
+    sourceId: string;
+    name: string;
+    includeInDeclared: boolean;
+    kind: string;
+    amount?: number | null;
+  },
+  emptyNum: (v: unknown) => number | null,
+) {
+  return fb.group({
+    sourceId: [value.sourceId],
+    name: [value.name],
+    includeInDeclared: [!!value.includeInDeclared],
+    kind: [value.kind],
+    amount: [emptyNum(value.amount)],
+  });
+}
+
+export function populateSourceAmounts(
+  fb: FormBuilder,
+  formArray: FormArray,
+  catalog: ShopClosingSource[],
+  saved: ClosingSourceAmount[] | null | undefined,
+  emptyNum: (v: unknown) => number | null,
+): void {
+  formArray.clear();
+  const savedById = new Map((saved ?? []).map((s) => [s.sourceId, s]));
+  const seen = new Set<string>();
+  for (const src of catalog) {
+    if (!src.active && !savedById.has(src.id)) continue;
+    seen.add(src.id);
+    const prev = savedById.get(src.id);
+    formArray.push(
+      buildSourceAmountGroup(
+        fb,
+        {
+          sourceId: src.id,
+          name: src.name,
+          includeInDeclared: !!src.includeInDeclared,
+          kind: src.kind,
+          amount: prev?.amount ?? null,
+        },
+        emptyNum,
+      ),
+    );
+  }
+  for (const s of saved ?? []) {
+    if (!s.sourceId || seen.has(s.sourceId)) continue;
+    formArray.push(
+      buildSourceAmountGroup(
+        fb,
+        {
+          sourceId: s.sourceId,
+          name: s.name || 'Fuente',
+          includeInDeclared: !!s.includeInDeclared,
+          kind: s.kind || 'RECORD_ONLY',
+          amount: s.amount ?? null,
+        },
+        emptyNum,
+      ),
+    );
+  }
+}
 
 export function buildExpenseGroup(
   fb: FormBuilder,
@@ -140,5 +211,6 @@ export function resetClosingFormForNext(opts: {
     expenses: [] as unknown[],
     posnetAmounts: [] as unknown[],
     dniTransfers: [] as unknown[],
+    sourceAmounts: [] as unknown[],
   };
 }

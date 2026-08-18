@@ -1,6 +1,11 @@
 import { newId } from '../../core/utils/id';
 import type { TipsEditorState } from '../tips/tips-editor';
-import type { CashClosing, ClosingPosnetAmount, ShopUserOption } from './closings-api.service';
+import type {
+  CashClosing,
+  ClosingPosnetAmount,
+  ClosingSourceAmount,
+  ShopUserOption,
+} from './closings-api.service';
 import { POSNET_TYPE_LABEL, closingNum, toDateString } from './closings-form.utils';
 
 export type ClosingFormExpenseRaw = {
@@ -36,6 +41,13 @@ export type ClosingFormRawValue = {
   posnetAmounts: ClosingPosnetAmount[];
   dniTransfers: ClosingFormDniTransferRaw[];
   expenses: ClosingFormExpenseRaw[];
+  sourceAmounts: Array<{
+    sourceId: string;
+    name: string;
+    includeInDeclared: boolean;
+    kind: string;
+    amount: unknown;
+  }>;
   [key: string]: unknown;
 };
 
@@ -180,6 +192,15 @@ export function prepareClosingSaveBody(
         category: e.category,
       })),
     notes: String(raw.notes ?? '').trim() || null,
+    sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
+      .filter((s) => !!s.sourceId)
+      .map((s) => ({
+        sourceId: s.sourceId,
+        name: String(s.name ?? '').trim() || 'Fuente',
+        includeInDeclared: !!s.includeInDeclared,
+        kind: (s.kind as ClosingSourceAmount['kind']) || 'RECORD_ONLY',
+        amount: closingNum(s.amount),
+      })),
     ...tip.payload,
   };
   // dniTransfers es solo UI; no lo mandamos al API
@@ -248,5 +269,16 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,
     expenses,
+    sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
+      .filter((s) => !!s.sourceId && closingNum(s.amount) > 0)
+      .map(
+        (s): ClosingSourceAmount => ({
+          sourceId: s.sourceId,
+          name: String(s.name ?? '').trim() || 'Fuente',
+          includeInDeclared: !!s.includeInDeclared,
+          kind: (s.kind as ClosingSourceAmount['kind']) || 'RECORD_ONLY',
+          amount: closingNum(s.amount),
+        }),
+      ),
   };
 }

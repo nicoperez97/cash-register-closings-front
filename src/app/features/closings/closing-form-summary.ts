@@ -40,10 +40,30 @@ import { MatStepperModule } from '@angular/material/stepper';
           <strong>{{ posAmount() }}</strong>
         </div>
         <div class="closing-totals__item closing-totals__item--total">
-          <span>Total</span>
+          <span>Total declarado</span>
           <strong>{{ declaredTotal() }}</strong>
         </div>
+        @if (asideTotal()) {
+          <div class="closing-totals__item">
+            <span>Cuentas aparte</span>
+            <strong>{{ asideTotal() }}</strong>
+          </div>
+          <div class="closing-totals__item closing-totals__item--day">
+            <span>Total del día</span>
+            <strong>{{ dayTotal() }}</strong>
+          </div>
+        }
       </div>
+      @if (asideLines().length) {
+        <ul class="closing-totals__aside">
+          @for (line of asideLines(); track line.name) {
+            <li>
+              <span>{{ line.name }}</span>
+              <strong>{{ line.amount }}</strong>
+            </li>
+          }
+        </ul>
+      }
     </div>
     <div class="closing-form__total-bar" aria-live="polite">
       <span>Total declarado</span>
@@ -70,6 +90,9 @@ export class ClosingFormSummaryComponent {
   readonly accountDniAmount = input('');
   readonly posAmount = input('');
   readonly declaredTotal = input('');
+  readonly asideTotal = input('');
+  readonly dayTotal = input('');
+  readonly asideLines = input<Array<{ name: string; amount: string }>>([]);
   readonly saving = input(false);
   readonly saveDisabled = input(false);
 

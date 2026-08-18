@@ -250,6 +250,27 @@ export function closingSharePayload(
   pushMoneyLine(lines, 'Delivery', closing.deliveryAppsAmount);
   pushMoneyLine(lines, 'Transferencia', closing.transferAmount);
   pushMoneyLine(lines, 'Otros', closing.otherAmount);
+
+  const sourceRows = (closing.sourceAmounts ?? []).filter((s) => Number(s.amount || 0) !== 0);
+  const sourcesInDeclared = sourceRows.filter((s) => s.includeInDeclared);
+  const sourcesAside = sourceRows.filter((s) => !s.includeInDeclared);
+  if (sourcesInDeclared.length) {
+    lines.push('Fuentes en el declarado:');
+    for (const s of sourcesInDeclared) {
+      const name = String(s.name || '').trim() || 'Fuente';
+      lines.push(`· ${name}: ${formatMoneyAr(s.amount)}`);
+    }
+  }
+  const asideSum = sourcesAside.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  if (sourcesAside.length) {
+    lines.push('Cuentas aparte:');
+    for (const s of sourcesAside) {
+      const name = String(s.name || '').trim() || 'Fuente';
+      lines.push(`· ${name}: ${formatMoneyAr(s.amount)}`);
+    }
+    pushMoneyLine(lines, 'Total cuentas aparte', asideSum, true);
+  }
+
   pushMoneyLine(lines, 'Propinas', closing.tipsAmount);
   pushMoneyLine(lines, 'Caja sistema', closing.posSystemAmount, true);
   pushMoneyLine(lines, 'Diferencia', closing.difference, true);
@@ -292,6 +313,9 @@ export function closingSharePayload(
   }
 
   pushMoneyLine(lines, 'Total declarado', closing.declaredTotal, true);
+  if (asideSum > 0) {
+    pushMoneyLine(lines, 'Total del día', Number(closing.declaredTotal || 0) + asideSum, true);
+  }
 
   return {
     title: `Cierre · ${shopName}`,

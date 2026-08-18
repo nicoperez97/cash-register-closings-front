@@ -19,9 +19,9 @@ import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '..
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
-import { ClosingsApiService, SalesSystemOption } from '../closings/closings-api.service';
+import { ClosingsApiService, CLOSING_SOURCE_KIND_OPTIONS, closingSourceKindNeedsAccount, SalesSystemOption, ShopClosingSource } from '../closings/closings-api.service';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { startWith } from 'rxjs';
+import { firstValueFrom, startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopBackupApiService } from './shop-backup-api.service';
@@ -710,6 +710,80 @@ const TIMEZONE_OPTIONS = [
           </div>
         </section>
 
+        <section class="panel-card guy-form-section" id="shop-sec-closing-sources">
+          <div class="shop-admin__posnets-head">
+            <div>
+              <h2 class="guy-section-title">Cuentas aparte</h2>
+              <p class="text-muted small mb-0">
+                Pedidos Ya, delivery propio u otras fuentes que no deben entrar al total declarado.
+                Podés tener ninguna, una o varias. Si rinden después o tienen cuenta propia, se
+                suman aparte en el cierre del día.
+              </p>
+            </div>
+            <div class="shop-admin__source-actions">
+              <button mat-stroked-button type="button" (click)="addClosingSource()">
+                <mat-icon>add</mat-icon>
+                Agregar fuente
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="sourceSaving()"
+                (click)="saveClosingSources()"
+              >
+                <mat-icon>save</mat-icon>
+                {{ sourceSaving() ? 'Guardando…' : 'Guardar fuentes' }}
+              </button>
+            </div>
+          </div>
+          <div class="shop-admin__sources" formArrayName="closingSources">
+            @for (row of closingSources.controls; track row; let i = $index) {
+              <div class="shop-admin__source-row" [formGroupName]="i">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Nombre</mat-label>
+                  <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Qué hacer con el monto</mat-label>
+                  <mat-select formControlName="kind" (selectionChange)="onClosingSourceKindChange(i)">
+                    @for (opt of closingSourceKinds; track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                @if (sourceNeedsAccount(i)) {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Cuenta destino</mat-label>
+                    <mat-select formControlName="accountId">
+                      <mat-option [value]="null">Elegí una cuenta</mat-option>
+                      @for (a of sourceAccountOptions(); track a.id) {
+                        <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                } @else {
+                  <span class="shop-admin__source-spacer" aria-hidden="true"></span>
+                }
+                <mat-checkbox formControlName="includeInDeclared">Suma al declarado</mat-checkbox>
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="shop-admin__posnet-remove"
+                  aria-label="Quitar fuente"
+                  (click)="removeClosingSource(i)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            } @empty {
+              <p class="text-muted small mb-0">
+                Sin fuentes extra. El cierre usa solo PVS, efectivo, MP, DNI, delivery y
+                transferencia.
+              </p>
+            }
+          </div>
+        </section>
+
         @if (canManageAccounts()) {
           <section class="panel-card guy-form-section" id="shop-admin-closing-deposits">
             <div class="shop-admin__posnets-head">
@@ -1199,6 +1273,30 @@ const TIMEZONE_OPTIONS = [
       .shop-admin__posnet-remove {
         color: #c62828;
       }
+      .shop-admin__source-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .shop-admin__sources {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+      }
+      .shop-admin__source-row {
+        display: grid;
+        grid-template-columns: 1.2fr 1.6fr minmax(10rem, 1.2fr) auto auto;
+        gap: 0.6rem;
+        align-items: center;
+      }
+      .shop-admin__source-spacer {
+        display: block;
+      }
+      @media (max-width: 960px) {
+        .shop-admin__source-row {
+          grid-template-columns: 1fr;
+        }
+      }
       @media (max-width: 640px) {
         .shop-admin__posnet-row {
           grid-template-columns: 1fr;
@@ -1303,9 +1401,11 @@ export class AdminShopPage implements OnInit {
 
   readonly salesSystems = signal<SalesSystemOption[]>([]);
   readonly accounts = signal<AdminAccountRow[]>([]);
+  readonly allLedgerAccounts = signal<AdminAccountRow[]>([]);
   readonly shopUsers = signal<ShopUserOption[]>([]);
   readonly saving = signal(false);
   readonly depositSaving = signal(false);
+  readonly sourceSaving = signal(false);
   readonly backupBusy = signal(false);
   readonly logoUploading = signal(false);
   readonly logoCacheBust = signal(Date.now());
@@ -1316,6 +1416,8 @@ export class AdminShopPage implements OnInit {
   readonly emailSmtpConfigured = signal(false);
   readonly clearSmtpPasswordOnSave = signal(false);
   readonly closingDepositFields = CLOSING_DEPOSIT_FIELDS;
+  readonly closingSourceKinds = CLOSING_SOURCE_KIND_OPTIONS;
+  private removedClosingSourceIds: string[] = [];
 
   readonly depositForm = this.fb.nonNullable.group({
     card: this.fb.control<string | null>(null),
@@ -1399,6 +1501,7 @@ export class AdminShopPage implements OnInit {
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
     posnets: this.fb.array([]),
+    closingSources: this.fb.array([]),
   });
 
   readonly weekdayOptions = WEEKDAY_OPTIONS;
@@ -1411,6 +1514,7 @@ export class AdminShopPage implements OnInit {
     { id: 'shop-sec-operacion', label: 'Operación' },
     { id: 'shop-sec-francos', label: 'Francos' },
     { id: 'shop-sec-posnets', label: 'Posnets' },
+    { id: 'shop-sec-closing-sources', label: 'Cuentas aparte' },
     { id: 'shop-admin-closing-deposits', label: 'Depósitos' },
     { id: 'shop-admin-channel-accounts', label: 'Cuentas' },
     { id: 'shop-sec-estado', label: 'Estado' },
@@ -1425,6 +1529,14 @@ export class AdminShopPage implements OnInit {
   get posnets(): FormArray {
     return this.form.get('posnets') as FormArray;
   }
+
+  get closingSources(): FormArray {
+    return this.form.get('closingSources') as FormArray;
+  }
+
+  readonly sourceAccountOptions = computed(() =>
+    this.allLedgerAccounts().filter((a) => a.active && a.type !== 'SYSTEM'),
+  );
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
@@ -1477,11 +1589,19 @@ export class AdminShopPage implements OnInit {
     usePageRefresh(() => this.reloadAccounts());
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      if (!shopId || !this.canManageAccounts()) {
+      if (!shopId) {
         this.accounts.set([]);
+        this.allLedgerAccounts.set([]);
+        this.closingSources.clear();
         return;
       }
-      this.reloadAccounts();
+      if (!this.canManageAccounts()) {
+        this.accounts.set([]);
+        this.allLedgerAccounts.set([]);
+      } else {
+        this.reloadAccounts();
+      }
+      this.reloadClosingSources();
     });
   }
 
@@ -1718,6 +1838,117 @@ export class AdminShopPage implements OnInit {
     });
   }
 
+  reloadClosingSources(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.api.listClosingSources(shopId).subscribe({
+      next: (rows) => this.setClosingSources(rows),
+      error: () => {
+        this.setClosingSources([]);
+        this.snack.open('No se pudieron cargar las fuentes extra', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  addClosingSource(): void {
+    this.closingSources.push(
+      this.buildClosingSourceGroup({
+        id: '',
+        shopId: this.shops.selectedShopId() ?? '',
+        name: '',
+        includeInDeclared: false,
+        kind: 'RECORD_ONLY',
+        accountId: null,
+        sortOrder: this.closingSources.length + 1,
+        active: true,
+      }),
+    );
+  }
+
+  removeClosingSource(index: number): void {
+    const id = String(this.closingSources.at(index)?.get('id')?.value ?? '');
+    if (id) this.removedClosingSourceIds.push(id);
+    this.closingSources.removeAt(index);
+  }
+
+  sourceNeedsAccount(index: number): boolean {
+    return closingSourceKindNeedsAccount(String(this.closingSources.at(index)?.get('kind')?.value ?? ''));
+  }
+
+  onClosingSourceKindChange(index: number): void {
+    if (this.sourceNeedsAccount(index)) return;
+    this.closingSources.at(index)?.patchValue({ accountId: null });
+  }
+
+  async saveClosingSources(): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    for (let i = 0; i < this.closingSources.length; i++) {
+      const row = this.closingSources.at(i)?.getRawValue() as ShopClosingSource;
+      const name = String(row?.name ?? '').trim();
+      if (!name) {
+        this.snack.open('Cada fuente necesita un nombre', 'OK', { duration: 3000 });
+        return;
+      }
+      if (closingSourceKindNeedsAccount(row.kind) && !row.accountId) {
+        this.snack.open(`Elegí la cuenta destino de «${name}»`, 'OK', { duration: 3500 });
+        return;
+      }
+    }
+    this.sourceSaving.set(true);
+    try {
+      for (const id of this.removedClosingSourceIds) {
+        await firstValueFrom(this.api.removeClosingSource(shopId, id));
+      }
+      this.removedClosingSourceIds = [];
+      for (let i = 0; i < this.closingSources.length; i++) {
+        const row = this.closingSources.at(i);
+        const raw = row?.getRawValue() as ShopClosingSource;
+        const body = {
+          name: String(raw.name ?? '').trim(),
+          includeInDeclared: !!raw.includeInDeclared,
+          kind: raw.kind,
+          accountId: raw.accountId || null,
+          sortOrder: i + 1,
+          active: true,
+        };
+        if (raw.id) {
+          const updated = await firstValueFrom(this.api.updateClosingSource(shopId, raw.id, body));
+          row?.patchValue({ id: updated.id, accountId: updated.accountId ?? null }, { emitEvent: false });
+        } else {
+          const created = await firstValueFrom(this.api.createClosingSource(shopId, body));
+          row?.patchValue({ id: created.id, accountId: created.accountId ?? null }, { emitEvent: false });
+        }
+      }
+      this.snack.open('Fuentes extra actualizadas', 'OK', { duration: 2500 });
+      this.reloadClosingSources();
+    } catch (err) {
+      const msg = (err as { error?: { message?: string | string[] } })?.error?.message ?? 'No se pudieron guardar las fuentes';
+      this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+    } finally {
+      this.sourceSaving.set(false);
+    }
+  }
+
+  private setClosingSources(rows: ShopClosingSource[]): void {
+    this.removedClosingSourceIds = [];
+    this.closingSources.clear();
+    for (const row of rows) {
+      this.closingSources.push(this.buildClosingSourceGroup(row));
+    }
+  }
+
+  private buildClosingSourceGroup(value: ShopClosingSource) {
+    return this.fb.group({
+      id: [value.id || ''],
+      name: [value.name || ''],
+      includeInDeclared: [!!value.includeInDeclared],
+      kind: [value.kind || 'RECORD_ONLY'],
+      accountId: [value.accountId ?? null],
+      sortOrder: [value.sortOrder ?? 0],
+    });
+  }
+
   reloadAccounts(after?: () => void): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManageAccounts()) return;
@@ -1725,6 +1956,7 @@ export class AdminShopPage implements OnInit {
       .get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`)
       .subscribe({
         next: (rows) => {
+          this.allLedgerAccounts.set(rows);
           const channels = rows.filter((r) => r.type === 'CHANNEL');
           this.accounts.set(channels);
           this.syncDepositForm(channels);
