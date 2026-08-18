@@ -10,6 +10,25 @@ import type {
 } from './closings-api.service';
 import { closingNum } from './closings-form.utils';
 
+export function buildSourceLineGroup(
+  fb: FormBuilder,
+  amount: number | null | undefined,
+  emptyNum: (v: unknown) => number | null,
+) {
+  return fb.group({
+    amount: [emptyNum(amount)],
+  });
+}
+
+export function sourceLineAmounts(saved?: ClosingSourceAmount | null): number[] {
+  if (!saved) return [];
+  if (Array.isArray(saved.lines) && saved.lines.length) {
+    return saved.lines.map((v) => closingNum(v)).filter((v) => v > 0);
+  }
+  const amount = closingNum(saved.amount);
+  return amount > 0 ? [amount] : [];
+}
+
 export function buildSourceAmountGroup(
   fb: FormBuilder,
   value: {
@@ -17,17 +36,22 @@ export function buildSourceAmountGroup(
     name: string;
     includeInDeclared: boolean;
     kind: string;
-    amount?: number | null;
+    lines?: number[];
   },
   emptyNum: (v: unknown) => number | null,
 ) {
-  return fb.group({
+  const lines = fb.array(
+    (value.lines ?? []).map((amount) => buildSourceLineGroup(fb, amount, emptyNum)),
+  );
+  const group = fb.group({
     sourceId: [value.sourceId],
     name: [value.name],
     includeInDeclared: [!!value.includeInDeclared],
     kind: [value.kind],
-    amount: [emptyNum(value.amount)],
+    lines,
   });
+  ensureTrailingSourceLines(fb, group.get('lines') as FormArray, emptyNum);
+  return group;
 }
 
 export function populateSourceAmounts(
@@ -37,7 +61,7 @@ export function populateSourceAmounts(
   saved: ClosingSourceAmount[] | null | undefined,
   emptyNum: (v: unknown) => number | null,
 ): void {
-  formArray.clear();
+  formArray.clear({ emitEvent: false });
   const savedById = new Map((saved ?? []).map((s) => [s.sourceId, s]));
   const seen = new Set<string>();
   for (const src of catalog) {
@@ -52,10 +76,11 @@ export function populateSourceAmounts(
           name: src.name,
           includeInDeclared: !!src.includeInDeclared,
           kind: src.kind,
-          amount: prev?.amount ?? null,
+          lines: sourceLineAmounts(prev),
         },
         emptyNum,
       ),
+      { emitEvent: false },
     );
   }
   for (const s of saved ?? []) {
@@ -68,12 +93,59 @@ export function populateSourceAmounts(
           name: s.name || 'Fuente',
           includeInDeclared: !!s.includeInDeclared,
           kind: s.kind || 'RECORD_ONLY',
-          amount: s.amount ?? null,
+          lines: sourceLineAmounts(s),
         },
         emptyNum,
       ),
+      { emitEvent: false },
     );
   }
+}
+
+export function ensureTrailingSourceLines(
+  fb: FormBuilder,
+  formArray: FormArray,
+  emptyNum: (v: unknown) => number | null,
+): void {
+  const amountOf = (i: number) => closingNum(formArray.at(i)?.get('amount')?.value);
+  while (formArray.length > 1 && amountOf(formArray.length - 1) <= 0 && amountOf(formArray.length - 2) <= 0) {
+    formArray.removeAt(formArray.length - 1, { emitEvent: false });
+  }
+  if (formArray.length === 0 || amountOf(formArray.length - 1) > 0) {
+    formArray.push(buildSourceLineGroup(fb, null, emptyNum), { emitEvent: false });
+  }
+}
+
+export function ensureTrailingAllSourceLines(
+  fb: FormBuilder,
+  sourceAmounts: FormArray,
+  emptyNum: (v: unknown) => number | null,
+): void {
+  for (let i = 0; i < sourceAmounts.length; i++) {
+    const lines = sourceAmounts.at(i)?.get('lines') as FormArray | null;
+    if (lines) ensureTrailingSourceLines(fb, lines, emptyNum);
+  }
+}
+
+export function sourceLinesFromRaw(row: {
+  amount?: unknown;
+  lines?: Array<{ amount?: unknown }> | number[] | null;
+}): number[] {
+  const lines = row.lines;
+  if (Array.isArray(lines) && lines.length) {
+    return lines
+      .map((item) => closingNum(typeof item === 'number' ? item : item?.amount))
+      .filter((value) => value > 0);
+  }
+  const amount = closingNum(row.amount);
+  return amount > 0 ? [amount] : [];
+}
+
+export function sourceRowTotal(row: {
+  amount?: unknown;
+  lines?: Array<{ amount?: unknown }> | number[] | null;
+}): number {
+  return sourceLinesFromRaw(row).reduce((sum, value) => sum + value, 0);
 }
 
 export function buildExpenseGroup(

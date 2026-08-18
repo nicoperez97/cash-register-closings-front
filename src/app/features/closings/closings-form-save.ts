@@ -6,6 +6,7 @@ import type {
   ClosingSourceAmount,
   ShopUserOption,
 } from './closings-api.service';
+import { sourceLinesFromRaw, sourceRowTotal } from './closings-form-load';
 import { POSNET_TYPE_LABEL, closingNum, toDateString } from './closings-form.utils';
 
 export type ClosingFormExpenseRaw = {
@@ -46,7 +47,8 @@ export type ClosingFormRawValue = {
     name: string;
     includeInDeclared: boolean;
     kind: string;
-    amount: unknown;
+    amount?: unknown;
+    lines?: Array<{ amount?: unknown }> | number[] | null;
   }>;
   otherCobros: Array<{
     label: string;
@@ -212,13 +214,17 @@ export function prepareClosingSaveBody(
     notes: String(raw.notes ?? '').trim() || null,
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
       .filter((s) => !!s.sourceId)
-      .map((s) => ({
-        sourceId: s.sourceId,
-        name: String(s.name ?? '').trim() || 'Fuente',
-        includeInDeclared: !!s.includeInDeclared,
-        kind: (s.kind as ClosingSourceAmount['kind']) || 'RECORD_ONLY',
-        amount: closingNum(s.amount),
-      })),
+      .map((s) => {
+        const lines = sourceLinesFromRaw(s);
+        return {
+          sourceId: s.sourceId,
+          name: String(s.name ?? '').trim() || 'Fuente',
+          includeInDeclared: !!s.includeInDeclared,
+          kind: (s.kind as ClosingSourceAmount['kind']) || 'RECORD_ONLY',
+          amount: sourceRowTotal(s),
+          lines: lines.length ? lines : undefined,
+        };
+      }),
     ...tip.payload,
   };
   // dniTransfers / otherCobros son solo UI; no los mandamos al API
@@ -299,15 +305,17 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     expenses,
     extraLines: cobros,
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
-      .filter((s) => !!s.sourceId && closingNum(s.amount) > 0)
-      .map(
-        (s): ClosingSourceAmount => ({
+      .filter((s) => !!s.sourceId && sourceRowTotal(s) > 0)
+      .map((s): ClosingSourceAmount => {
+        const lines = sourceLinesFromRaw(s);
+        return {
           sourceId: s.sourceId,
           name: String(s.name ?? '').trim() || 'Fuente',
           includeInDeclared: !!s.includeInDeclared,
           kind: (s.kind as ClosingSourceAmount['kind']) || 'RECORD_ONLY',
-          amount: closingNum(s.amount),
-        }),
-      ),
+          amount: sourceRowTotal(s),
+          lines: lines.length ? lines : undefined,
+        };
+      }),
   };
 }

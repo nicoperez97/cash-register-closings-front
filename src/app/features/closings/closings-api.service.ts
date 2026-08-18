@@ -83,6 +83,7 @@ export interface ClosingSourceAmount {
   kind: ClosingSourceKind;
   accountId?: string | null;
   amount: number;
+  lines?: number[] | null;
 }
 
 export interface ShopUserAccountOption {

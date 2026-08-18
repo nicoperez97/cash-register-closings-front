@@ -55,12 +55,15 @@ import {
   buildExpenseGroup,
   cobrosFromClosing,
   defaultNewClosingPatch,
+  ensureTrailingAllSourceLines as syncTrailingSourceLines,
   ensureTrailingOtherCobro,
+  ensureTrailingSourceLines,
   patchClosingFormValues,
   populateOtherCobros,
   populateSourceAmounts,
   resetClosingFormForNext,
   resolveWithdrawnAccountId,
+  sourceRowTotal,
 } from './closings-form-load';
 import {
   buildClosingShareSnapshot,
@@ -213,6 +216,7 @@ import {
                 [cobrosHint]="cobrosPanelHint()"
                 [cobrosTotal]="money(cobrosTotal())"
                 (remove)="removeOtherCobro($event)"
+                (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
               />
             </mat-step>
 
@@ -407,10 +411,11 @@ export class ClosingsFormPage implements OnInit {
     const sources = (v.sourceAmounts ?? []) as Array<{
       includeInDeclared?: boolean;
       amount?: number | null;
+      lines?: Array<{ amount?: unknown }> | number[] | null;
     }>;
     const fromSources = sources
       .filter((s) => !!s.includeInDeclared)
-      .reduce((sum, s) => sum + this.n(s.amount), 0);
+      .reduce((sum, s) => sum + sourceRowTotal(s), 0);
     const cobros = (v.otherCobros ?? []) as Array<{ amount?: number | null }>;
     const cobrosSum = cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
     return (
@@ -434,12 +439,13 @@ export class ClosingsFormPage implements OnInit {
       name?: string;
       includeInDeclared?: boolean;
       amount?: number | null;
+      lines?: Array<{ amount?: unknown }> | number[] | null;
     }>;
     return sources
-      .filter((s) => !s.includeInDeclared && this.n(s.amount) > 0)
+      .filter((s) => !s.includeInDeclared && sourceRowTotal(s) > 0)
       .map((s) => ({
         name: String(s.name ?? '').trim() || 'Fuente',
-        amount: this.money(this.n(s.amount)),
+        amount: this.money(sourceRowTotal(s)),
       }));
   });
 
@@ -448,10 +454,11 @@ export class ClosingsFormPage implements OnInit {
     const sources = (v.sourceAmounts ?? []) as Array<{
       includeInDeclared?: boolean;
       amount?: number | null;
+      lines?: Array<{ amount?: unknown }> | number[] | null;
     }>;
     return sources
       .filter((s) => !s.includeInDeclared)
-      .reduce((sum, s) => sum + this.n(s.amount), 0);
+      .reduce((sum, s) => sum + sourceRowTotal(s), 0);
   });
 
   readonly dayTotal = computed(() => this.declaredTotal() + this.asideTotal());
@@ -530,9 +537,8 @@ export class ClosingsFormPage implements OnInit {
   }
 
   cobrosPanelHint(): string {
-    const filled = (this.formValue().otherCobros ?? []).filter(
-      (s: { amount?: number | null }) => this.n(s?.amount) > 0,
-    ).length;
+    const cobros = (this.formValue().otherCobros ?? []) as Array<{ amount?: number | null }>;
+    const filled = cobros.filter((s) => this.n(s?.amount) > 0).length;
     if (!filled) return 'Se van sumando';
     return this.money(this.cobrosTotal());
   }
@@ -588,6 +594,10 @@ export class ClosingsFormPage implements OnInit {
     this.otherCobros.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.ensureTrailingCobro());
+
+    this.sourceAmounts.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.ensureTrailingAllSourceLines());
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new' && shopId) {
@@ -729,10 +739,21 @@ export class ClosingsFormPage implements OnInit {
     ensureTrailingOtherCobro(this.fb, this.otherCobros, (v) => this.emptyNum(v));
   }
 
+  private ensureTrailingAllSourceLines(): void {
+    syncTrailingSourceLines(this.fb, this.sourceAmounts, (v) => this.emptyNum(v));
+  }
+
   removeOtherCobro(index: number): void {
     if (index < 0 || index >= this.otherCobros.length) return;
     this.otherCobros.removeAt(index);
     this.ensureTrailingCobro();
+  }
+
+  removeSourceLine(sourceIndex: number, lineIndex: number): void {
+    const lines = this.sourceAmounts.at(sourceIndex)?.get('lines') as FormArray | null;
+    if (!lines || lineIndex < 0 || lineIndex >= lines.length) return;
+    lines.removeAt(lineIndex);
+    ensureTrailingSourceLines(this.fb, lines, (v) => this.emptyNum(v));
   }
 
   addPosnet(): void {

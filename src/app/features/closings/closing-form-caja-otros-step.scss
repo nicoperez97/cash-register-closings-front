@@ -7,6 +7,69 @@
   align-items: start;
 }
 
+.closing-form__source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.closing-form__source-card {
+  padding: 0.8rem 0.85rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, #fff);
+}
+
+.closing-form__source-card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--guy-navy, #003366);
+  line-height: 1.2;
+}
+
+.closing-form__source-card-meta {
+  margin: 0.2rem 0 0.7rem;
+  font-size: 0.75rem;
+  color: var(--guy-muted, #5f6f76);
+  line-height: 1.35;
+}
+
+.closing-form__source-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.closing-form__source-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem;
+  align-items: start;
+}
+
+.closing-form__source-line .mat-mdc-form-field {
+  width: 100%;
+  margin-bottom: 0 !important;
+}
+
+.closing-form__source-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+  font-size: 0.82rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.closing-form__source-total strong {
+  color: var(--guy-navy, #003366);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 720px) {
   .closing-form__cobro-row {
     grid-template-columns: 1fr;
@@ -20,5 +83,9 @@
   .closing-form__cobro-row .closing-form__row-remove {
     justify-self: end;
     margin: -0.15rem -0.2rem 0 0;
+  }
+
+  .closing-form__source-grid {
+    grid-template-columns: 1fr;
   }
 }
