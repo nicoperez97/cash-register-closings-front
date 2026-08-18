@@ -36,7 +36,7 @@ export class CashWithdrawalsInboxService {
             startWith(0),
             switchMap(() =>
               this.api.listPending(shopId).pipe(
-                map((rows) => rows.length),
+                map((res) => res.items.length),
                 catchError(() => of(0)),
               ),
             ),
@@ -55,7 +55,7 @@ export class CashWithdrawalsInboxService {
       return;
     }
     this.api.listPending(shopId).subscribe({
-      next: (rows) => this.pendingCount.set(rows.length),
+      next: (res) => this.pendingCount.set(res.items.length),
       error: () => this.pendingCount.set(0),
     });
   }

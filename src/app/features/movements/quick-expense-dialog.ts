@@ -12,6 +12,7 @@ import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { movementSavedDialogData } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
+import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import {
   Concept,
   LedgerAccount,
@@ -194,6 +195,7 @@ export class QuickExpenseDialogComponent {
   private readonly api = inject(MovementsApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
+  private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
 
   readonly busy = signal(false);
   readonly sharing = signal(false);
@@ -291,6 +293,7 @@ export class QuickExpenseDialogComponent {
         next: (saved) => {
           this.busy.set(false);
           this.saved.set(saved);
+          this.cashWithdrawalsInbox.refresh();
         },
         error: (err) => {
           this.busy.set(false);

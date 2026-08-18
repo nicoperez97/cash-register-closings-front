@@ -8,8 +8,34 @@ export interface PendingCashWithdrawal {
   closingId: string;
   businessDate: string;
   amount: number;
+  originalAmount?: number;
+  deductedAmount?: number;
   status: string;
   createdAt?: string;
+}
+
+export interface CoveredCashWithdrawal {
+  id: string;
+  closingId: string;
+  businessDate: string;
+  originalAmount: number;
+  deductedAmount: number;
+}
+
+export interface CashWithdrawalExpense {
+  id: string;
+  businessDate: string;
+  description: string | null;
+  conceptName: string | null;
+  amount: number;
+}
+
+export interface PendingCashWithdrawalsResponse {
+  items: PendingCashWithdrawal[];
+  covered: CoveredCashWithdrawal[];
+  cashExpenses: CashWithdrawalExpense[];
+  expensesTotal: number;
+  availableTotal: number;
 }
 
 export interface CashWithdrawalHistoryItem {
@@ -39,7 +65,7 @@ export class CashWithdrawalsApiService {
   private readonly base = environment.apiUrl;
 
   listPending(shopId: string) {
-    return this.http.get<PendingCashWithdrawal[]>(
+    return this.http.get<PendingCashWithdrawalsResponse>(
       `${this.base}/shops/${shopId}/cash-withdrawals/pending`,
     );
   }

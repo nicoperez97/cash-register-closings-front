@@ -22,8 +22,10 @@ import {
   ShopUserOption,
 } from '../closings/closings-api.service';
 import {
+  CashWithdrawalExpense,
   CashWithdrawalHistoryGroup,
   CashWithdrawalsApiService,
+  CoveredCashWithdrawal,
   PendingCashWithdrawal,
 } from './cash-withdrawals-api.service';
 import { CashWithdrawalsInboxService } from './cash-withdrawals-inbox.service';
@@ -74,18 +76,63 @@ function formatMoney(value: number): string {
             <div class="small">Obteniendo retiros pendientes</div>
           </div>
         </div>
-      } @else if (!rows().length) {
+      } @else if (!rows().length && !cashExpenses().length && !covered().length) {
         <div class="panel-card guy-empty">
           <mat-icon>payments</mat-icon>
           <div>
             <strong>Nada pendiente</strong>
             <div class="small">
               Cuando un cierre se guarda sin quién se lleva el efectivo y hay monto a retirar
-              (efectivo − lo dejado en caja − egresos), aparece acá.
+              (efectivo − lo dejado en caja − egresos), aparece acá. Si después hay un gasto de
+              caja, se descuenta de este total.
             </div>
           </div>
         </div>
       } @else {
+        @if (cashExpenses().length || covered().length) {
+          <section class="panel-card cash-exp" aria-label="Gastos de caja">
+            <header class="cash-exp__head">
+              <div>
+                <h2>Gastos de caja</h2>
+                <p>
+                  Salieron del efectivo pendiente antes de retirar. Ya no están para llevarse.
+                </p>
+              </div>
+              <strong class="cash-exp__total">− {{ money(expensesTotal()) }}</strong>
+            </header>
+            <ul class="cash-exp__list">
+              @for (exp of cashExpenses(); track exp.id) {
+                <li>
+                  <span>
+                    {{ formatDate(exp.businessDate) }}
+                    · {{ exp.conceptName || exp.description || 'Gasto' }}
+                    @if (exp.conceptName && exp.description) {
+                      <span class="cash-exp__desc">{{ exp.description }}</span>
+                    }
+                  </span>
+                  <strong>− {{ money(exp.amount) }}</strong>
+                </li>
+              }
+            </ul>
+            @if (covered().length) {
+              <p class="cash-exp__covered">
+                @for (c of covered(); track c.id; let last = $last) {
+                  Cierre {{ formatDate(c.businessDate) }} cubierto
+                  @if (!last) {
+                    ·
+                  }
+                }
+              </p>
+            }
+            @if (rows().length) {
+              <p class="cash-exp__avail">
+                Disponible a retirar: <strong>{{ money(availableTotal()) }}</strong>
+              </p>
+            }
+          </section>
+        }
+
+        @if (rows().length) {
         <div class="withdrawals-toolbar panel-card">
         <div class="withdrawals-toolbar__select">
           <mat-checkbox
@@ -149,6 +196,11 @@ function formatMoney(value: number): string {
             <div class="withdrawal-card__main">
               <div>
                 <h3 class="withdrawal-card__date">{{ formatDate(row.businessDate) }}</h3>
+                @if ((row.deductedAmount ?? 0) > 0) {
+                  <p class="withdrawal-card__deducted">
+                    {{ money(row.originalAmount ?? row.amount) }} − gastos
+                  </p>
+                }
                 <a
                   class="withdrawal-card__link"
                   [routerLink]="['/closings', row.closingId]"
@@ -163,6 +215,7 @@ function formatMoney(value: number): string {
           </article>
         }
       </div>
+        }
     }
 
       @if (!loading()) {
@@ -236,6 +289,62 @@ function formatMoney(value: number): string {
         flex-direction: column;
         gap: 0.85rem;
         margin-bottom: 1rem;
+      }
+      .cash-exp {
+        margin-bottom: 1rem;
+        display: grid;
+        gap: 0.75rem;
+      }
+      .cash-exp__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .cash-exp__head h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+      .cash-exp__head p {
+        margin: 0.2rem 0 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5a6b5e);
+      }
+      .cash-exp__total {
+        color: #b42318;
+        white-space: nowrap;
+      }
+      .cash-exp__list {
+        list-style: none;
+        margin: 0;
+        padding: 0.55rem 0 0;
+        border-top: 1px solid var(--guy-border, #d7e0d9);
+        display: grid;
+        gap: 0.4rem;
+      }
+      .cash-exp__list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        font-size: 0.9rem;
+      }
+      .cash-exp__desc {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--guy-muted, #5a6b5e);
+      }
+      .cash-exp__covered,
+      .cash-exp__avail {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5a6b5e);
+      }
+      .withdrawal-card__deducted {
+        margin: 0 0 0.2rem;
+        font-size: 0.8rem;
+        color: var(--guy-muted, #5a6b5e);
+        text-decoration: line-through;
       }
       .withdrawals-toolbar__pick {
         display: flex;
@@ -405,6 +514,10 @@ export class CashWithdrawalsPage {
   readonly loading = signal(true);
   readonly picking = signal(false);
   readonly rows = signal<PendingCashWithdrawal[]>([]);
+  readonly cashExpenses = signal<CashWithdrawalExpense[]>([]);
+  readonly covered = signal<CoveredCashWithdrawal[]>([]);
+  readonly expensesTotal = signal(0);
+  readonly availableTotal = signal(0);
   readonly history = signal<CashWithdrawalHistoryGroup[]>([]);
   readonly historyLoading = signal(false);
   readonly users = signal<ShopUserOption[]>([]);
@@ -473,6 +586,10 @@ export class CashWithdrawalsPage {
       const shopId = this.shopId();
       if (!shopId) {
         this.rows.set([]);
+        this.cashExpenses.set([]);
+        this.covered.set([]);
+        this.expensesTotal.set(0);
+        this.availableTotal.set(0);
         this.history.set([]);
         this.users.set([]);
         this.loading.set(false);
@@ -541,8 +658,12 @@ export class CashWithdrawalsPage {
     this.historyLoading.set(true);
     this.selectedIds.set(new Set());
     this.api.listPending(shopId).subscribe({
-      next: (rows) => {
-        this.rows.set(rows);
+      next: (res) => {
+        this.rows.set(res.items);
+        this.cashExpenses.set(res.cashExpenses ?? []);
+        this.covered.set(res.covered ?? []);
+        this.expensesTotal.set(res.expensesTotal ?? 0);
+        this.availableTotal.set(res.availableTotal ?? 0);
         this.loading.set(false);
         this.inbox.refresh();
       },
