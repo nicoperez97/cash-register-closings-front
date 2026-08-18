@@ -1,6 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -11,7 +10,6 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { environment } from '../../../environments/environment';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
@@ -47,8 +45,6 @@ export type MovementDialogData = {
   users: MovementUserOption[];
 } & ({ mode: 'create' } | { mode: 'edit'; movement: Movement });
 
-const LOCAL_ACCOUNTS_KEY = '__local__';
-
 function toDateInput(value?: string | null): Date | null {
   if (!value) return new Date();
   const d = new Date(`${value}T00:00:00`);
@@ -61,17 +57,6 @@ function toDateString(value: Date | null): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-function partnerCodeFromName(fullName: string): string {
-  const slug = fullName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_|_$/g, '')
-    .slice(0, 28);
-  return slug || 'SOCIO';
 }
 
 @Component({
@@ -123,123 +108,63 @@ function partnerCodeFromName(fullName: string): string {
               </div>
             </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Usuario</mat-label>
-              <mat-icon matPrefix>person</mat-icon>
-              <mat-select
-                formControlName="fromUserId"
-                (selectionChange)="onSideUserChange('from', $event.value)"
-              >
-                <mat-option value="">Sin usuario</mat-option>
-                <mat-option [value]="localKey">Cuentas del local</mat-option>
-                @for (u of users(); track u.id) {
-                  <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta</mat-label>
               <mat-icon matPrefix>account_balance_wallet</mat-icon>
               <mat-select formControlName="fromAccountId">
                 <mat-option value="">Sin cuenta</mat-option>
-                @for (a of fromAccountOptions(); track a.id) {
-                  <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                @if (localAccounts().length) {
+                  <mat-optgroup label="Local">
+                    @for (a of localAccounts(); track a.id) {
+                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                    }
+                  </mat-optgroup>
+                }
+                @if (otherAccounts().length) {
+                  <mat-optgroup label="Otras cuentas">
+                    @for (a of otherAccounts(); track a.id) {
+                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                    }
+                  </mat-optgroup>
                 }
               </mat-select>
             </mat-form-field>
-            @if (canQuickAdd('from')) {
-              <div class="mov-side__add">
-                @if (!addingFrom()) {
-                  <button mat-stroked-button type="button" class="mov-side__add-btn" (click)="addingFrom.set(true)">
-                    <mat-icon>add</mat-icon>
-                    Nueva cuenta
-                  </button>
-                } @else {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
-                    <mat-label>Nombre de la cuenta</mat-label>
-                    <input matInput [formControl]="newFromAccountName" placeholder="ej. Socio Juan" />
-                  </mat-form-field>
-                  <div class="mov-side__add-actions">
-                    <button mat-button type="button" (click)="cancelQuickAdd('from')">Cancelar</button>
-                    <button
-                      mat-flat-button
-                      color="primary"
-                      type="button"
-                      [disabled]="busy()"
-                      (click)="createAccountForSide('from')"
-                    >
-                      Crear
-                    </button>
-                  </div>
-                }
-              </div>
-            }
           </section>
 
           <div class="mov-transfer__arrow" aria-hidden="true">
             <mat-icon>south</mat-icon>
           </div>
 
-          <section class="mov-side">
+          <section class="mov-side mov-side--optional">
             <div class="mov-side__head">
               <span class="mov-side__badge mov-side__badge--to" aria-hidden="true">
                 <mat-icon>call_received</mat-icon>
               </span>
               <div class="mov-side__titles">
                 <strong>Destino</strong>
-                <span>A dónde entra</span>
+                <span>Opcional · a dónde entra</span>
               </div>
             </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Usuario</mat-label>
-              <mat-icon matPrefix>person</mat-icon>
-              <mat-select
-                formControlName="toUserId"
-                (selectionChange)="onSideUserChange('to', $event.value)"
-              >
-                <mat-option value="">Sin usuario</mat-option>
-                <mat-option [value]="localKey">Cuentas del local</mat-option>
-                @for (u of users(); track u.id) {
-                  <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Cuenta</mat-label>
+              <mat-label>Cuenta (opcional)</mat-label>
               <mat-icon matPrefix>account_balance_wallet</mat-icon>
               <mat-select formControlName="toAccountId">
                 <mat-option value="">Sin cuenta</mat-option>
-                @for (a of toAccountOptions(); track a.id) {
-                  <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                @if (localAccounts().length) {
+                  <mat-optgroup label="Local">
+                    @for (a of localAccounts(); track a.id) {
+                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                    }
+                  </mat-optgroup>
+                }
+                @if (otherAccounts().length) {
+                  <mat-optgroup label="Otras cuentas">
+                    @for (a of otherAccounts(); track a.id) {
+                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                    }
+                  </mat-optgroup>
                 }
               </mat-select>
             </mat-form-field>
-            @if (canQuickAdd('to')) {
-              <div class="mov-side__add">
-                @if (!addingTo()) {
-                  <button mat-stroked-button type="button" class="mov-side__add-btn" (click)="addingTo.set(true)">
-                    <mat-icon>add</mat-icon>
-                    Nueva cuenta
-                  </button>
-                } @else {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-side__add-field">
-                    <mat-label>Nombre de la cuenta</mat-label>
-                    <input matInput [formControl]="newToAccountName" placeholder="ej. Socio Juan" />
-                  </mat-form-field>
-                  <div class="mov-side__add-actions">
-                    <button mat-button type="button" (click)="cancelQuickAdd('to')">Cancelar</button>
-                    <button
-                      mat-flat-button
-                      color="primary"
-                      type="button"
-                      [disabled]="busy()"
-                      (click)="createAccountForSide('to')"
-                    >
-                      Crear
-                    </button>
-                  </div>
-                }
-              </div>
-            }
           </section>
         </div>
 
@@ -491,32 +416,6 @@ function partnerCodeFromName(fullName: string): string {
         width: 100%;
       }
 
-      .mov-side__add {
-        display: flex;
-        flex-direction: column;
-        gap: 0.45rem;
-      }
-
-      .mov-side__add-btn {
-        width: 100%;
-        min-height: 44px;
-      }
-
-      .mov-side__add-field {
-        width: 100%;
-        margin: 0;
-      }
-
-      .mov-side__add-actions {
-        display: flex;
-        gap: 0.4rem;
-        justify-content: flex-end;
-      }
-
-      .mov-side__add-actions .mat-mdc-button-base {
-        min-height: 44px;
-      }
-
       .mov-amount {
         margin-top: 0.15rem;
       }
@@ -601,38 +500,6 @@ function partnerCodeFromName(fullName: string): string {
         padding: 0.35rem 0.15rem 0;
       }
 
-      /* Desktop ancho: usuario + cuenta en dos columnas */
-      @container mov-form (min-width: 520px) {
-        .mov-side {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.65rem 0.75rem;
-          align-items: start;
-        }
-
-        .mov-side__head,
-        .mov-side__add {
-          grid-column: 1 / -1;
-        }
-      }
-
-      /* Fallback si no hay container queries */
-      @supports not (container-type: inline-size) {
-        @media (min-width: 640px) {
-          .mov-side {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.65rem 0.75rem;
-            align-items: start;
-          }
-
-          .mov-side__head,
-          .mov-side__add {
-            grid-column: 1 / -1;
-          }
-        }
-      }
-
       @media (max-width: 420px) {
         .mov-more__hint {
           display: none;
@@ -646,7 +513,6 @@ export class MovementDialogComponent {
   readonly ref = inject(MatDialogRef<MovementDialogComponent, boolean | Movement>);
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(MovementsApiService);
-  private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
 
@@ -654,21 +520,7 @@ export class MovementDialogComponent {
   private readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
   readonly showMore = signal(false);
-  readonly localKey = LOCAL_ACCOUNTS_KEY;
-  readonly addingFrom = signal(false);
-  readonly addingTo = signal(false);
   readonly accounts = signal<LedgerAccount[]>([...this.data.accounts]);
-  readonly users = signal<MovementUserOption[]>([...this.data.users]);
-
-  readonly newFromAccountName = this.fb.nonNullable.control('');
-  readonly newToAccountName = this.fb.nonNullable.control('');
-
-  private initialFromUser =
-    this.movement?.fromUserId ||
-    this.resolveUserForAccount(this.movement?.fromAccountId ?? null);
-  private initialToUser =
-    this.movement?.toUserId ||
-    this.resolveUserForAccount(this.movement?.toAccountId ?? null);
 
   private defaultBusinessDate(): string {
     const shop = this.shops.selectedShop();
@@ -682,8 +534,6 @@ export class MovementDialogComponent {
       toDateInput(this.movement?.businessDate ?? this.defaultBusinessDate()),
       Validators.required,
     ],
-    fromUserId: [this.initialFromUser],
-    toUserId: [this.initialToUser],
     fromAccountId: [this.movement?.fromAccountId ?? ''],
     toAccountId: [this.movement?.toAccountId ?? ''],
     conceptId: this.fb.control<string | null>(this.movement?.conceptId ?? null),
@@ -697,11 +547,7 @@ export class MovementDialogComponent {
     notifyAdmins: [true],
   });
 
-  private readonly formValue = signal(this.form.getRawValue());
-
   constructor() {
-    this.form.valueChanges.subscribe(() => this.formValue.set(this.form.getRawValue()));
-    // Abrir “Más opciones” si el movimiento ya tiene datos secundarios.
     if (
       this.movement &&
       (this.movement.usdRate != null ||
@@ -713,114 +559,35 @@ export class MovementDialogComponent {
     }
   }
 
-  readonly fromAccountOptions = computed(() =>
-    this.accountsForUserKey(this.formValue().fromUserId),
+  private readonly selectableAccounts = computed(() => {
+    const selected = new Set(
+      [this.movement?.fromAccountId, this.movement?.toAccountId].filter(Boolean) as string[],
+    );
+    return this.accounts()
+      .filter((a) => a.active !== false || selected.has(a.id))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  });
+
+  readonly localAccounts = computed(() =>
+    this.selectableAccounts().filter((a) => a.type === 'CHANNEL' || a.type === 'SYSTEM'),
   );
-  readonly toAccountOptions = computed(() => this.accountsForUserKey(this.formValue().toUserId));
 
-  canQuickAdd(side: 'from' | 'to'): boolean {
-    const userId = side === 'from' ? this.formValue().fromUserId : this.formValue().toUserId;
-    return !!userId && userId !== LOCAL_ACCOUNTS_KEY;
-  }
+  readonly otherAccounts = computed(() =>
+    this.selectableAccounts().filter((a) => a.type !== 'CHANNEL' && a.type !== 'SYSTEM'),
+  );
 
-  onSideUserChange(side: 'from' | 'to', userKey: string): void {
-    const options = this.accountsForUserKey(userKey);
-    const control = side === 'from' ? 'fromAccountId' : 'toAccountId';
-    const current = String(this.form.getRawValue()[control] ?? '');
-    if (!options.some((a) => a.id === current)) {
-      this.form.patchValue({ [control]: options.length === 1 ? options[0].id : '' });
+  accountLabel(account: LedgerAccount): string {
+    const names = (account.userIds ?? [])
+      .map((id) => this.data.users.find((u) => u.id === id)?.fullName?.trim())
+      .filter((name): name is string => !!name);
+    if (!names.length) {
+      const linked = this.data.users.find((u) =>
+        (u.ledgerAccounts ?? []).some((a) => a.id === account.id),
+      );
+      if (linked?.fullName) names.push(linked.fullName);
     }
-    if (side === 'from') this.cancelQuickAdd('from');
-    else this.cancelQuickAdd('to');
-  }
-
-  cancelQuickAdd(side: 'from' | 'to'): void {
-    if (side === 'from') {
-      this.addingFrom.set(false);
-      this.newFromAccountName.setValue('');
-    } else {
-      this.addingTo.set(false);
-      this.newToAccountName.setValue('');
-    }
-  }
-
-  createAccountForSide(side: 'from' | 'to'): void {
-    const userId = side === 'from' ? this.form.getRawValue().fromUserId : this.form.getRawValue().toUserId;
-    if (!userId || userId === LOCAL_ACCOUNTS_KEY) return;
-    const nameCtrl = side === 'from' ? this.newFromAccountName : this.newToAccountName;
-    const name = nameCtrl.value.trim();
-    if (!name) {
-      this.snack.open('Ingresá el nombre de la cuenta', 'OK', { duration: 2500 });
-      return;
-    }
-    const user = this.users().find((u) => u.id === userId);
-    const codeBase = partnerCodeFromName(name);
-    let code = codeBase;
-    let n = 2;
-    const existing = new Set(this.accounts().map((a) => a.code.toUpperCase()));
-    while (existing.has(code)) {
-      code = `${codeBase}_${n}`.slice(0, 40);
-      n += 1;
-    }
-
-    this.busy.set(true);
-    this.http
-      .post<LedgerAccount & { userIds?: string[] }>(
-        `${environment.apiUrl}/shops/${this.data.shopId}/accounts`,
-        {
-          name,
-          code,
-          type: 'PARTNER',
-          userIds: [userId],
-          active: true,
-        },
-      )
-      .subscribe({
-        next: (created) => {
-          const account: LedgerAccount = {
-            id: created.id,
-            shopId: created.shopId,
-            name: created.name,
-            code: created.code,
-            type: created.type,
-            linkedPaymentMethod: created.linkedPaymentMethod ?? null,
-            userIds: created.userIds ?? [userId],
-            active: created.active,
-          };
-          this.accounts.update((rows) => [...rows, account]);
-          this.users.update((rows) =>
-            rows.map((u) =>
-              u.id !== userId
-                ? u
-                : {
-                    ...u,
-                    ledgerAccounts: [
-                      ...(u.ledgerAccounts ?? []),
-                      { id: account.id, name: account.name, code: account.code },
-                    ],
-                  },
-            ),
-          );
-          if (side === 'from') {
-            this.form.patchValue({ fromAccountId: account.id });
-            this.cancelQuickAdd('from');
-          } else {
-            this.form.patchValue({ toAccountId: account.id });
-            this.cancelQuickAdd('to');
-          }
-          this.busy.set(false);
-          this.snack.open(
-            `Cuenta «${account.name}» creada${user ? ` para ${user.fullName}` : ''}`,
-            'OK',
-            { duration: 2500 },
-          );
-        },
-        error: (err) => {
-          this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo crear la cuenta';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
-        },
-      });
+    return names.length ? `${account.name} · ${names.join(', ')}` : account.name;
   }
 
   save(): void {
@@ -830,13 +597,14 @@ export class MovementDialogComponent {
     }
     const shopId = this.data.shopId;
     const raw = this.form.getRawValue();
-    const body: Partial<Movement> = {
+    const fromAccountId = raw.fromAccountId || null;
+    const toAccountId = raw.toAccountId || null;
+    const body: Partial<Movement> & { notifyAdmins?: boolean } = {
       businessDate: toDateString(raw.businessDate),
-      fromAccountId: raw.fromAccountId || null,
-      toAccountId: raw.toAccountId || null,
-      fromUserId:
-        raw.fromUserId && raw.fromUserId !== LOCAL_ACCOUNTS_KEY ? raw.fromUserId : null,
-      toUserId: raw.toUserId && raw.toUserId !== LOCAL_ACCOUNTS_KEY ? raw.toUserId : null,
+      fromAccountId,
+      toAccountId,
+      fromUserId: this.userIdForAccount(fromAccountId),
+      toUserId: this.userIdForAccount(toAccountId),
       conceptId: raw.conceptId || null,
       description: raw.description.trim() || null,
       amountUyu: raw.amountUyu,
@@ -846,9 +614,7 @@ export class MovementDialogComponent {
       invoiced: raw.invoiced,
       invoiceNumber: raw.invoiced ? raw.invoiceNumber.trim() || null : null,
     };
-    if (!this.isEdit) {
-      (body as Partial<Movement> & { notifyAdmins?: boolean }).notifyAdmins = !!raw.notifyAdmins;
-    }
+    if (!this.isEdit) body.notifyAdmins = !!raw.notifyAdmins;
     this.busy.set(true);
 
     const req =
@@ -874,30 +640,14 @@ export class MovementDialogComponent {
     });
   }
 
-  private accountsForUserKey(userKey: string | null | undefined): Array<{ id: string; name: string }> {
-    const key = String(userKey ?? '');
-    if (!key) return [];
-    if (key === LOCAL_ACCOUNTS_KEY) {
-      return this.accounts()
-        .filter((a) => a.type === 'CHANNEL' || a.type === 'SYSTEM')
-        .map((a) => ({ id: a.id, name: a.name }));
-    }
-    const fromUsers = this.users().find((u) => u.id === key)?.ledgerAccounts ?? [];
-    if (fromUsers.length) return fromUsers.map((a) => ({ id: a.id, name: a.name }));
-    return this.accounts()
-      .filter((a) => (a.userIds ?? []).includes(key))
-      .map((a) => ({ id: a.id, name: a.name }));
-  }
-
-  private resolveUserForAccount(accountId: string | null | undefined): string {
-    if (!accountId) return '';
-    const account = this.data.accounts.find((a) => a.id === accountId);
-    if (account?.type === 'CHANNEL' || account?.type === 'SYSTEM') return LOCAL_ACCOUNTS_KEY;
-    const fromUsers = this.data.users.find((u) =>
-      (u.ledgerAccounts ?? []).some((a) => a.id === accountId),
+  private userIdForAccount(accountId: string | null): string | null {
+    if (!accountId) return null;
+    const account = this.accounts().find((a) => a.id === accountId);
+    if (!account || account.type === 'CHANNEL' || account.type === 'SYSTEM') return null;
+    if (account.userIds?.[0]) return account.userIds[0];
+    return (
+      this.data.users.find((u) => (u.ledgerAccounts ?? []).some((a) => a.id === accountId))?.id ??
+      null
     );
-    if (fromUsers) return fromUsers.id;
-    const uid = account?.userIds?.[0];
-    return uid ?? LOCAL_ACCOUNTS_KEY;
   }
 }
