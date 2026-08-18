@@ -37,7 +37,12 @@ import { formatPartyMixItem, partyMixFromReservations } from './reservation-part
         <button type="button" class="board__refresh" (click)="refresh()">Reintentar</button>
       </div>
     } @else if (board(); as b) {
-      <div class="board" [style.--accent]="accent()">
+      <div
+        class="board"
+        [class.board--dense]="isDense()"
+        [class.board--packed]="isPacked()"
+        [style.--accent]="accent()"
+      >
         <header class="board__hero">
           <div class="board__glow" aria-hidden="true"></div>
           <div class="board__identity">
@@ -361,6 +366,12 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   readonly partyMixOutside = computed(() =>
     partyMixFromReservations(this.activeBoardRows().filter((r) => r.area === 'OUTSIDE')),
   );
+
+  readonly longestColumn = computed(() =>
+    Math.max(this.inside().length, this.outside().length),
+  );
+  readonly isDense = computed(() => this.longestColumn() >= 8);
+  readonly isPacked = computed(() => this.longestColumn() >= 14);
 
   formatMix = formatPartyMixItem;
 
