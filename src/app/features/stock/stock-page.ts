@@ -675,9 +675,24 @@ function loadViewMode(kind: StockKind): ViewMode {
       .stock-view {
         flex: 0 0 auto;
       }
+      .stock-view {
+        border-radius: 999px;
+        overflow: hidden;
+      }
       .stock-sort .mat-button-toggle,
       .stock-view .mat-button-toggle {
         font-size: 0.82rem;
+      }
+      .stock-view .mat-button-toggle-button {
+        width: 100%;
+        padding: 0;
+      }
+      .stock-view .mat-button-toggle-label-content {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.75rem;
+        padding: 0;
       }
       .stock-sort mat-icon,
       .stock-view mat-icon {

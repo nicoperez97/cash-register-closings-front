@@ -293,6 +293,21 @@ a.mat-mdc-outlined-button.mat-mdc-button-base {
   line-height: 1.2;
 }
 
+/* Material 3 dibuja un tilde (mat-pseudo-checkbox) al lado del ícono seleccionado. */
+.mat-button-toggle-checkbox-wrapper {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.mat-button-toggle-checked {
+  background: var(--guy-green-soft) !important;
+  color: var(--guy-accent) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .guy-skeleton,
   .guy-skeleton-line {

@@ -62,6 +62,8 @@
   --mat-slide-toggle-selected-focus-state-layer-color: var(--guy-accent, #2e7d32);
   --mat-slide-toggle-selected-pressed-state-layer-color: var(--guy-accent, #2e7d32);
   --mat-slide-toggle-selected-track-outline-color: transparent;
+  --mat-button-toggle-selected-state-background-color: var(--guy-green-soft);
+  --mat-button-toggle-selected-state-text-color: var(--guy-accent);
   --mat-slide-toggle-unselected-track-color: color-mix(
     in srgb,
     var(--guy-border, #d7e0d9) 70%,
