@@ -24,26 +24,22 @@ import { closingMoney, closingNum } from './closings-form.utils';
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
-    <div class="closing-form__block">
+    <div class="closing-form__block closing-form__block--caja">
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
           <h3>Caja</h3>
           <span class="closing-form__meta">Total del sistema</span>
         </div>
-      </div>
-      <div class="closing-form__block-body">
-        <div class="closing-form__fields closing-form__fields--single">
-          <mat-form-field
-            appearance="outline"
-            subscriptSizing="dynamic"
-            floatLabel="always"
-            class="closing-field--money"
-          >
-            <mat-label>Caja (sistema)</mat-label>
-            <span matTextPrefix class="closing-field__prefix">$</span>
-            <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
-          </mat-form-field>
-        </div>
+        <mat-form-field
+          appearance="outline"
+          subscriptSizing="dynamic"
+          floatLabel="always"
+          class="closing-field--money closing-form__caja-field"
+        >
+          <mat-label>Caja (sistema)</mat-label>
+          <span matTextPrefix class="closing-field__prefix">$</span>
+          <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
+        </mat-form-field>
       </div>
     </div>
     <div class="closing-form__block">
@@ -85,17 +81,9 @@ import { closingMoney, closingNum } from './closings-form.utils';
             </div>
           }
         </div>
-        <div class="closing-form__fields closing-form__fields--single closing-form__fields--totals">
-          <mat-form-field
-            appearance="outline"
-            subscriptSizing="dynamic"
-            floatLabel="always"
-            class="closing-field--money"
-          >
-            <mat-label>Total cobros</mat-label>
-            <span matTextPrefix class="closing-field__prefix">$</span>
-            <input matInput [value]="cobrosTotal()" readonly />
-          </mat-form-field>
+        <div class="closing-form__inline-total">
+          <span>Total cobros</span>
+          <strong>{{ cobrosTotal() }}</strong>
         </div>
       </div>
     </div>
@@ -104,17 +92,29 @@ import { closingMoney, closingNum } from './closings-form.utils';
         <div class="closing-form__block-head">
           <div class="closing-form__block-title">
             <h3>Cuentas aparte</h3>
-            <span class="closing-form__meta">
-              Fuentes del local · no entran al declarado salvo que esté marcado
-            </span>
+            <span class="closing-form__meta">Un monto o varios · se suman en cada fuente</span>
           </div>
         </div>
         <div class="closing-form__block-body">
           <div class="closing-form__source-grid" formArrayName="sourceAmounts">
             @for (row of sourceAmounts().controls; track row; let i = $index) {
-              <div class="closing-form__source-card" [formGroupName]="i">
-                <h4 class="closing-form__source-card-title">{{ rowName(i) }}</h4>
-                <p class="closing-form__source-card-meta">{{ rowHint(i) }}</p>
+              <div
+                class="closing-form__source-card"
+                [class.closing-form__source-card--declared]="isDeclared(i)"
+                [formGroupName]="i"
+              >
+                <div class="closing-form__source-card-head">
+                  <div class="closing-form__source-card-copy">
+                    <h4 class="closing-form__source-card-title">{{ rowName(i) }}</h4>
+                    <p class="closing-form__source-card-meta">{{ rowHint(i) }}</p>
+                  </div>
+                  <span
+                    class="closing-form__source-chip"
+                    [class.closing-form__source-chip--declared]="isDeclared(i)"
+                  >
+                    {{ rowChip(i) }}
+                  </span>
+                </div>
                 <div class="closing-form__source-lines" formArrayName="lines">
                   @for (line of sourceLines(i).controls; track line; let j = $index) {
                     <div class="closing-form__source-line" [formGroupName]="j">
@@ -124,9 +124,14 @@ import { closingMoney, closingNum } from './closings-form.utils';
                         floatLabel="always"
                         class="closing-field--money"
                       >
-                        <mat-label>Monto {{ j + 1 }}</mat-label>
+                        <mat-label>{{ lineLabel(i, j) }}</mat-label>
                         <span matTextPrefix class="closing-field__prefix">$</span>
-                        <input matInput type="number" inputmode="decimal" formControlName="amount" />
+                        <input
+                          matInput
+                          type="number"
+                          inputmode="decimal"
+                          formControlName="amount"
+                        />
                       </mat-form-field>
                       @if (sourceLines(i).length > 1 && j < sourceLines(i).length - 1) {
                         <button
@@ -142,12 +147,10 @@ import { closingMoney, closingNum } from './closings-form.utils';
                     </div>
                   }
                 </div>
-                @if (filledLineCount(i) > 1) {
-                  <div class="closing-form__source-total">
-                    <span>Total</span>
-                    <strong>{{ money(rowTotal(i)) }}</strong>
-                  </div>
-                }
+                <div class="closing-form__source-total">
+                  <span>{{ filledLineCount(i) > 1 ? 'Suma' : 'Total' }}</span>
+                  <strong>{{ money(rowTotal(i)) }}</strong>
+                </div>
               </div>
             }
           </div>
@@ -184,6 +187,16 @@ export class ClosingFormCajaOtrosStepComponent {
     ).length;
   }
 
+  lineLabel(sourceIndex: number, lineIndex: number): string {
+    const lines = this.sourceLines(sourceIndex);
+    const isLast = lineIndex === lines.length - 1;
+    const empty = closingNum(lines.at(lineIndex)?.get('amount')?.value) <= 0;
+    if (isLast && empty) {
+      return this.filledLineCount(sourceIndex) > 0 ? 'Otro monto' : 'Monto';
+    }
+    return `Monto ${lineIndex + 1}`;
+  }
+
   money(value: number): string {
     return closingMoney(value);
   }
@@ -193,10 +206,22 @@ export class ClosingFormCajaOtrosStepComponent {
     return String(row?.get('name')?.value ?? '').trim() || 'Fuente';
   }
 
+  isDeclared(index: number): boolean {
+    return !!this.sourceAmounts().at(index)?.get('includeInDeclared')?.value;
+  }
+
+  rowChip(index: number): string {
+    if (this.isDeclared(index)) return 'Al declarado';
+    const kind = String(this.sourceAmounts().at(index)?.get('kind')?.value ?? '');
+    if (kind === 'OWN_ACCOUNT') return 'Hoy';
+    if (kind === 'SETTLE_CASH') return 'Después';
+    if (kind === 'SETTLE_ACCOUNT') return 'Deposita';
+    return 'Aparte';
+  }
+
   rowHint(index: number): string {
-    const row = this.sourceAmounts().at(index);
-    if (row?.get('includeInDeclared')?.value) return 'Suma al total declarado';
-    const kind = String(row?.get('kind')?.value ?? '');
+    if (this.isDeclared(index)) return 'Suma al total declarado';
+    const kind = String(this.sourceAmounts().at(index)?.get('kind')?.value ?? '');
     if (kind === 'OWN_ACCOUNT') return 'Va a la cuenta del local hoy';
     if (kind === 'SETTLE_CASH') return 'Rinde después en efectivo';
     if (kind === 'SETTLE_ACCOUNT') return 'Se deposita después en una cuenta';
