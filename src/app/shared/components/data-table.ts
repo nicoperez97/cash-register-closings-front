@@ -1,4 +1,5 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,12 +10,26 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { SpinnerComponent } from './spinner';
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   paginateClient,
 } from '../utils/pagination';
+
+const MOBILE_VIEW_KEY = 'crc.dataTable.mobileView';
+
+export type DataTableMobileView = 'compact' | 'detail';
+
+function loadMobileView(): DataTableMobileView {
+  try {
+    const v = localStorage.getItem(MOBILE_VIEW_KEY);
+    return v === 'detail' ? 'detail' : 'compact';
+  } catch {
+    return 'compact';
+  }
+}
 
 export interface DataTableColumn {
   key: string;
@@ -30,6 +45,7 @@ export interface DataTableColumn {
   selector: 'app-data-table',
   imports: [
     FormsModule,
+    NgTemplateOutlet,
     MatTableModule,
     MatButtonModule,
     MatIconModule,
@@ -37,31 +53,51 @@ export interface DataTableColumn {
     MatInputModule,
     MatTooltipModule,
     MatCheckboxModule,
+    MatButtonToggleModule,
     MatPaginatorModule,
     MatSortModule,
     SpinnerComponent,
   ],
   template: `
     <div class="data-table-shell">
-      @if (showSearch()) {
-        <div class="data-table-search-wrap">
-          <mat-form-field appearance="outline" class="data-table-search" subscriptSizing="dynamic">
-            <mat-label>{{ searchLabel() }}</mat-label>
-            <mat-icon matPrefix>search</mat-icon>
-            <input
-              matInput
-              [ngModel]="search()"
-              (ngModelChange)="search.set($event)"
-              [placeholder]="searchPlaceholder()"
-            />
-            @if (search()) {
-              <button mat-icon-button matSuffix type="button" aria-label="Limpiar" (click)="search.set('')">
-                <mat-icon>close</mat-icon>
-              </button>
-            }
-          </mat-form-field>
+      <div
+        class="data-table-toolbar"
+        [class.data-table-toolbar--search]="showSearch()"
+      >
+          @if (showSearch()) {
+            <div class="data-table-search-wrap">
+              <mat-form-field appearance="outline" class="data-table-search" subscriptSizing="dynamic">
+                <mat-label>{{ searchLabel() }}</mat-label>
+                <mat-icon matPrefix>search</mat-icon>
+                <input
+                  matInput
+                  [ngModel]="search()"
+                  (ngModelChange)="search.set($event)"
+                  [placeholder]="searchPlaceholder()"
+                />
+                @if (search()) {
+                  <button mat-icon-button matSuffix type="button" aria-label="Limpiar" (click)="search.set('')">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </mat-form-field>
+            </div>
+          }
+          <mat-button-toggle-group
+            class="data-table__view-toggle guy-icon-toggle"
+            hideSingleSelectionIndicator
+            [value]="mobileView()"
+            (change)="onMobileView($event.value)"
+            aria-label="Vista de lista"
+          >
+            <mat-button-toggle value="compact" matTooltip="Vista compacta">
+              <mat-icon>view_agenda</mat-icon>
+            </mat-button-toggle>
+            <mat-button-toggle value="detail" matTooltip="Vista detallada">
+              <mat-icon>view_list</mat-icon>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
         </div>
-      }
 
       <div class="guy-table-wrap data-table" [class.data-table--dense]="dense()">
         @if (loading()) {
@@ -229,35 +265,87 @@ export interface DataTableColumn {
             @for (row of pagedRows(); track trackRow(row, $index)) {
               <article
                 class="guy-entity-card data-card"
+                [class.data-card--compact]="mobileView() === 'compact'"
                 [class.data-card--clickable]="rowIsClickable(row)"
                 [class.data-card--selected]="selectable() && isSelected(row)"
                 (click)="onRowClick(row)"
               >
-                <div class="data-card__body">
-                  @if (selectable()) {
-                    <div class="data-card__select" (click)="$event.stopPropagation()">
-                      <mat-checkbox
-                        [checked]="isSelected(row)"
-                        [aria-label]="'Seleccionar fila'"
-                        (change)="toggleRow(row, $event.checked)"
-                      />
-                    </div>
-                  }
-                  @for (col of columns(); track col.key; let i = $index) {
-                    @if (i === 0) {
-                      <h3 class="guy-entity-card__title data-card__title">
-                        {{ cellValue(row, col) }}
-                      </h3>
-                    } @else {
-                      <div class="data-card__field">
-                        <span class="data-card__label">{{ col.label }}</span>
-                        <span class="data-card__value">{{ cellValue(row, col) }}</span>
+                @if (mobileView() === 'compact') {
+                  <div class="data-card__compact">
+                    @if (selectable()) {
+                      <div class="data-card__select" (click)="$event.stopPropagation()">
+                        <mat-checkbox
+                          [checked]="isSelected(row)"
+                          [aria-label]="'Seleccionar fila'"
+                          (change)="toggleRow(row, $event.checked)"
+                        />
                       </div>
                     }
+                    <div class="data-card__compact-text">
+                      <h3 class="guy-entity-card__title data-card__title">
+                        {{ cellValue(row, columns()[0]) }}
+                      </h3>
+                      @if (compactMeta(row); as meta) {
+                        <p class="data-card__meta">{{ meta }}</p>
+                      }
+                    </div>
+                    @if (showActions()) {
+                      <div class="guy-entity-card__actions data-card__actions" (click)="$event.stopPropagation()">
+                        <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: row }" />
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="data-card__body">
+                    @if (selectable()) {
+                      <div class="data-card__select" (click)="$event.stopPropagation()">
+                        <mat-checkbox
+                          [checked]="isSelected(row)"
+                          [aria-label]="'Seleccionar fila'"
+                          (change)="toggleRow(row, $event.checked)"
+                        />
+                      </div>
+                    }
+                    @for (col of columns(); track col.key; let i = $index) {
+                      @if (i === 0) {
+                        <h3 class="guy-entity-card__title data-card__title">
+                          {{ cellValue(row, col) }}
+                        </h3>
+                      } @else {
+                        <div class="data-card__field">
+                          <span class="data-card__label">{{ col.label }}</span>
+                          <span class="data-card__value">{{ cellValue(row, col) }}</span>
+                        </div>
+                      }
+                    }
+                  </div>
+                  @if (showActions()) {
+                    <div class="guy-entity-card__actions data-card__actions" (click)="$event.stopPropagation()">
+                      <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: row }" />
+                    </div>
                   }
-                </div>
-                @if (showActions()) {
-                  <div class="guy-entity-card__actions data-card__actions" (click)="$event.stopPropagation()">
+                }
+              </article>
+            }
+          </div>
+        }
+      </div>
+
+      @if (pagedRows().length && showPaginator() && paginatorLength() > 0) {
+        <mat-paginator
+          class="data-table__paginator"
+          [class.data-table__paginator--dense]="dense()"
+          [length]="paginatorLength()"
+          [pageIndex]="pageIndex()"
+          [pageSize]="pageSize()"
+          [pageSizeOptions]="pageSizeOptions()"
+          (page)="onPage($event)"
+          showFirstLastButtons
+        />
+      }
+    </div>
+
+    <ng-template #rowActions let-row>
                     <button
                       mat-icon-button
                       type="button"
@@ -314,27 +402,7 @@ export interface DataTableColumn {
                         <mat-icon>{{ removeIcon() }}</mat-icon>
                       </button>
                     }
-                  </div>
-                }
-              </article>
-            }
-          </div>
-        }
-      </div>
-
-      @if (pagedRows().length && showPaginator() && paginatorLength() > 0) {
-        <mat-paginator
-          class="data-table__paginator"
-          [class.data-table__paginator--dense]="dense()"
-          [length]="paginatorLength()"
-          [pageIndex]="pageIndex()"
-          [pageSize]="pageSize()"
-          [pageSizeOptions]="pageSizeOptions()"
-          (page)="onPage($event)"
-          showFirstLastButtons
-        />
-      }
-    </div>
+    </ng-template>
   `,
   styles: [
     `
@@ -342,8 +410,17 @@ export interface DataTableColumn {
         display: block;
       }
 
-      .data-table-search-wrap {
+      .data-table-toolbar {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
         margin-bottom: 0.85rem;
+      }
+
+      .data-table-search-wrap {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-bottom: 0;
         padding: 0.65rem 0.75rem;
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 12px;
@@ -353,6 +430,18 @@ export interface DataTableColumn {
           var(--guy-search-bg, #fafcfb);
         animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
           both;
+      }
+
+      .data-table__view-toggle {
+        display: none;
+        flex: 0 0 auto;
+        margin-top: 0.15rem;
+      }
+
+      @media (min-width: 721px) {
+        .data-table-toolbar:not(.data-table-toolbar--search) {
+          display: none;
+        }
       }
 
       .data-table__row {
@@ -527,7 +616,55 @@ export interface DataTableColumn {
         .data-table__mobile {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.55rem;
+        }
+
+        .data-table__view-toggle {
+          display: inline-flex;
+        }
+
+        .data-card--compact {
+          padding: 0.55rem 0.7rem;
+          gap: 0;
+        }
+
+        .data-card__compact {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          min-width: 0;
+        }
+
+        .data-card__compact-text {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+
+        .data-card--compact .data-card__title {
+          font-size: 0.98rem;
+          margin: 0;
+        }
+
+        .data-card__meta {
+          margin: 0.12rem 0 0;
+          font-size: 0.78rem;
+          color: var(--guy-muted, #5f6f76);
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .data-card--compact .data-card__actions {
+          flex: 0 0 auto;
+          margin: 0;
+          padding: 0;
+          border-top: 0;
+          justify-content: flex-end;
+        }
+
+        .data-card--compact .data-card__select {
+          margin: 0;
         }
 
         .data-card--clickable {
@@ -652,6 +789,7 @@ export class DataTableComponent {
   readonly pageSize = signal(DEFAULT_PAGE_SIZE);
   readonly sortActive = signal('');
   readonly sortDirection = signal<'asc' | 'desc' | ''>('');
+  readonly mobileView = signal<DataTableMobileView>(loadMobileView());
 
   readonly filteredRows = computed(() => {
     const q = this.normalize(this.search());
@@ -743,6 +881,25 @@ export class DataTableComponent {
     if (!this.serverPaging()) this.pageIndex.set(0);
   }
 
+  onMobileView(value: string | null | undefined): void {
+    const mode: DataTableMobileView = value === 'detail' ? 'detail' : 'compact';
+    this.mobileView.set(mode);
+    try {
+      localStorage.setItem(MOBILE_VIEW_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  compactMeta(row: any): string {
+    return this.columns()
+      .slice(1)
+      .map((col) => String(this.cellValue(row, col) ?? '').trim())
+      .filter((v) => v && v !== '—')
+      .slice(0, 2)
+      .join(' · ');
+  }
+
   columnSortable(col: DataTableColumn): boolean {
     if (!this.sortable()) return false;
     return col.sortable !== false;
@@ -788,7 +945,8 @@ export class DataTableComponent {
     return this.editIconFor()?.(row) ?? this.editIcon();
   }
 
-  cellValue(row: any, col: DataTableColumn): string | number {
+  cellValue(row: any, col?: DataTableColumn): string | number {
+    if (!col) return '—';
     return col.format ? col.format(row) : (row[col.key] ?? '—');
   }
 
