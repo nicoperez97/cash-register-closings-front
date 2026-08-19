@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { HelpBlocksComponent } from '../../shared/components/help-blocks';
 import { HELP_TOPICS, HelpTopic, helpTopicIcon } from '../../core/help/module-help';
+import { downloadHelpPdf } from '../../shared/pdf/help-pdf';
 
 @Component({
   selector: 'app-admin-help-page',
@@ -26,7 +27,8 @@ import { HELP_TOPICS, HelpTopic, helpTopicIcon } from '../../core/help/module-he
       subtitle="Manual completo para administradores"
       actionLabel="Imprimir / PDF"
       actionIcon="picture_as_pdf"
-      (action)="print()"
+      [actionDisabled]="printing()"
+      (action)="downloadPdf()"
     />
 
     <section class="help-admin__hero">
@@ -36,8 +38,7 @@ import { HELP_TOPICS, HelpTopic, helpTopicIcon } from '../../core/help/module-he
       <div>
         <p class="help-admin__hero-kicker">Guía de la app</p>
         <p class="help-admin__lead">
-          Alcance de cada módulo, según permisos. El botón del encabezado abre el diálogo de
-          impresión: en el navegador elegí “Guardar como PDF”.
+          Alcance de cada módulo. El botón del encabezado descarga un PDF del manual.
         </p>
       </div>
     </section>
@@ -248,6 +249,7 @@ import { HELP_TOPICS, HelpTopic, helpTopicIcon } from '../../core/help/module-he
 export class AdminHelpPage {
   readonly topics = HELP_TOPICS;
   readonly query = signal('');
+  readonly printing = signal(false);
   readonly filtered = computed(() => {
     const q = this.query().trim().toLowerCase();
     if (!q) return this.topics;
@@ -258,8 +260,16 @@ export class AdminHelpPage {
     return helpTopicIcon(id);
   }
 
-  print(): void {
-    window.print();
+  async downloadPdf(): Promise<void> {
+    if (this.printing()) return;
+    const topics = this.filtered();
+    if (!topics.length) return;
+    this.printing.set(true);
+    try {
+      await downloadHelpPdf(topics);
+    } finally {
+      this.printing.set(false);
+    }
   }
 
   jump(ev: Event, id: string): void {

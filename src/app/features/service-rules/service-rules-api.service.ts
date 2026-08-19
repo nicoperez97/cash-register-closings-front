@@ -62,6 +62,13 @@ export class ServiceRulesApiService {
     );
   }
 
+  publicPdf(slug: string) {
+    return this.http.get(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/service-rules.pdf`,
+      { responseType: 'blob' },
+    );
+  }
+
   createCategory(shopId: string, body: { name: string; sortOrder?: number }) {
     return this.http.post<ServiceRuleCategory>(
       `${this.base}/shops/${shopId}/service-rules/categories`,

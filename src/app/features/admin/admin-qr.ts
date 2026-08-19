@@ -8,6 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { toDataURL } from 'qrcode';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { downloadQrPdf } from '../../shared/pdf/qr-pdf';
 
 const MAX_TEXT = 1200;
 
@@ -63,9 +64,9 @@ const MAX_TEXT = 1200;
               <mat-icon>download</mat-icon>
               Descargar
             </button>
-            <button mat-stroked-button type="button" (click)="print()">
-              <mat-icon>print</mat-icon>
-              Imprimir
+            <button mat-stroked-button type="button" (click)="printPdf()">
+              <mat-icon>picture_as_pdf</mat-icon>
+              PDF
             </button>
           </div>
         } @else {
@@ -196,25 +197,14 @@ export class AdminQrPage {
     a.click();
   }
 
-  print(): void {
+  async printPdf(): Promise<void> {
     const url = this.dataUrl();
     if (!url) return;
-    const win = window.open('', '_blank', 'noopener,width=480,height=640');
-    if (!win) {
-      this.snack.open('Permití ventanas emergentes para imprimir', 'OK', { duration: 3000 });
-      return;
+    try {
+      await downloadQrPdf(url, this.shops.selectedShop()?.name ?? 'QR');
+    } catch {
+      this.snack.open('No se pudo generar el PDF', 'OK', { duration: 3000 });
     }
-    const shop = this.shops.selectedShop()?.name ?? 'QR';
-    win.document.write(`<!doctype html><html><head><title>${escapeHtml(shop)}</title>
-<style>
-  body{margin:0;display:grid;place-items:center;min-height:100vh;font-family:Segoe UI,sans-serif}
-  img{width:min(90vw,22rem);height:auto}
-</style></head><body><img src="${url}" alt="QR" /></body></html>`);
-    win.document.close();
-    win.focus();
-    win.onload = () => {
-      win.print();
-    };
   }
 
   private fileName(): string {
@@ -269,12 +259,4 @@ function qrDarkColor(raw?: string | null): string {
   const b = n & 255;
   const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
   return lum > 0.42 ? '#111111' : `#${h}`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

@@ -456,12 +456,12 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'service-rules',
     title: 'Normas de servicio',
-    summary: 'Reglas pre y post servicio agrupadas por categoría, para imprimir.',
+    summary: 'Reglas pre y post servicio agrupadas por categoría, con PDF para pegar.',
     blocks: [
       {
         title: 'Ver',
         anyOf: ['serviceRules.read'],
-        body: 'Leé las normas del local. La página pública /n sirve para imprimir y pegar en la pared.',
+        body: 'Leé las normas del local. En la página pública /n descargás un PDF para pegar en la pared.',
       },
       {
         title: 'Gestionar',
@@ -583,7 +583,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: 'Uso',
         anyOf: ['shops.manage'],
-        body: 'Pegá la URL de reservas, presentismo, normas (/n) o carta y descargá o imprimí el código.',
+        body: 'Pegá la URL de reservas, presentismo, normas (/n) o carta y descargá PNG o PDF del código.',
       },
     ],
   },
@@ -619,7 +619,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: 'Uso',
         anyOf: ['shops.manage'],
-        body: 'Acá está todo el alcance por módulo. Imprimí o guardá como PDF desde el navegador.',
+        body: 'Acá está todo el alcance por módulo. El encabezado descarga un PDF del manual.',
       },
     ],
   },

@@ -13,7 +13,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile, safeUploadFileName } from '../../shared/utils/input-file';
 import { copyText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
-import { openMenuPrintWindow } from './menu-print';
+import { downloadMenuPdf } from '../../shared/pdf/menu-pdf';
 
 export type ShopMenuItem = {
   name: string;
@@ -244,7 +244,7 @@ function toPrice(value: unknown): number | null {
                   type="button"
                   class="menu-admin__btn menu-admin__btn--ghost"
                   (click)="downloadStyledPdf()"
-                  title="PDF con el estilo de la página pública (no el archivo físico)"
+                  title="PDF generado con el contenido de la carta"
                 >
                   <mat-icon>print</mat-icon>
                   PDF estilo web
@@ -591,21 +591,20 @@ export class AdminMenuPage {
       return;
     }
     void (async () => {
-      const ok = await openMenuPrintWindow({
-        shopName: shop.name ?? 'Carta',
-        logoUrl: this.shops.logoUrl(),
-        accentColor: this.shops.accentColor() || shop.accentColor,
-        phone: shop.phone ?? null,
-        instagramHandle: shop.instagramHandle ?? null,
-        menuTitle: this.title || this.menuSlug || 'Carta',
-        note: this.note,
-        sections,
-      });
-      if (!ok) {
-        this.snack.open('Permití ventanas emergentes para descargar el PDF', 'OK', { duration: 3500 });
-        return;
+      try {
+        await downloadMenuPdf({
+          shopName: shop.name ?? 'Carta',
+          logoUrl: this.shops.logoUrl(),
+          accentColor: this.shops.accentColor() || shop.accentColor,
+          phone: shop.phone ?? null,
+          instagramHandle: shop.instagramHandle ?? null,
+          menuTitle: this.title || this.menuSlug || 'Carta',
+          note: this.note,
+          sections,
+        });
+      } catch {
+        this.snack.open('No se pudo generar el PDF', 'OK', { duration: 3500 });
       }
-      this.snack.open('En el diálogo de impresión elegí “Guardar como PDF”', 'OK', { duration: 4500 });
     })();
   }
 

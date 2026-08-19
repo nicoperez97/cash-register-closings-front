@@ -30,7 +30,17 @@ import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url
               <h1>{{ data.shop.name }}</h1>
             </div>
           </div>
-          <button type="button" class="poster__print" (click)="print()">Imprimir / PDF</button>
+          <button
+            type="button"
+            class="poster__print"
+            [disabled]="printing()"
+            (click)="downloadPdf()"
+          >
+            {{ printing() ? 'Generando…' : 'Imprimir / PDF' }}
+          </button>
+          @if (pdfError()) {
+            <p class="poster__pdf-error">{{ pdfError() }}</p>
+          }
         </header>
 
         @for (phase of phases; track phase.value) {
@@ -123,6 +133,17 @@ import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url
       padding: 0.55rem 1rem;
       cursor: pointer;
     }
+    .poster__print:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+    .poster__pdf-error {
+      flex-basis: 100%;
+      margin: 0;
+      font-family: Segoe UI, sans-serif;
+      font-size: 0.85rem;
+      color: #8a1f11;
+    }
     .poster__phase {
       margin: 0 0 1.75rem;
     }
@@ -188,6 +209,8 @@ export class PublicServiceRulesPageComponent implements OnInit {
   readonly phases = SERVICE_RULE_PHASES;
   readonly bundle = signal<PublicServiceRulesBundle | null>(null);
   readonly error = signal('');
+  readonly printing = signal(false);
+  readonly pdfError = signal('');
 
   readonly accent = computed(() => this.bundle()?.shop.accentColor || '#2e7d32');
   readonly logoUrl = computed(() => {
@@ -233,7 +256,25 @@ export class PublicServiceRulesPageComponent implements OnInit {
       .filter((g) => g.rules.length);
   }
 
-  print(): void {
-    window.print();
+  downloadPdf(): void {
+    const slug = this.route.snapshot.paramMap.get('slug') ?? '';
+    if (!slug || this.printing()) return;
+    this.printing.set(true);
+    this.pdfError.set('');
+    this.api.publicPdf(slug).subscribe({
+      next: (blob) => {
+        this.printing.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `normas-${slug}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.printing.set(false);
+        this.pdfError.set('No se pudo generar el PDF');
+      },
+    });
   }
 }
