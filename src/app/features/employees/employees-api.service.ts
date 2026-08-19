@@ -21,6 +21,7 @@ export interface Employee {
   supervisorEmployeeId?: string | null;
   /** Alias o CBU para reintegros. */
   bankAlias?: string | null;
+  overtimeHourRate?: number;
   active: boolean;
 }
 

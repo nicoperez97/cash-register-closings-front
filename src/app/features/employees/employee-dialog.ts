@@ -86,6 +86,13 @@ function toDateString(value: Date | null): string | null {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Precio por hora extra</mat-label>
+          <mat-icon matPrefix>schedule</mat-icon>
+          <input matInput type="number" min="0" inputmode="decimal" formControlName="overtimeHourRate" />
+          <mat-hint>Costo de horas extra de servicio (no cambia la liquidación)</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Tipo</mat-label>
           <mat-icon matPrefix>badge</mat-icon>
           <mat-select formControlName="type">
@@ -204,6 +211,7 @@ export class EmployeeDialogComponent {
   readonly form = this.fb.nonNullable.group({
     fullName: [this.employee?.fullName ?? '', Validators.required],
     baseSalary: [this.employee?.baseSalary ?? 0, [Validators.required, Validators.min(0)]],
+    overtimeHourRate: [this.employee?.overtimeHourRate ?? 0, [Validators.min(0)]],
     type: this.fb.nonNullable.control<EmployeeType>(this.employee?.type ?? 'FIXED'),
     producesFood: [this.employee?.producesFood ?? false],
     supervisorEmployeeId: this.fb.control<string | null>(
@@ -233,6 +241,7 @@ export class EmployeeDialogComponent {
     const body: Partial<Employee> = {
       fullName: raw.fullName.trim(),
       baseSalary: raw.baseSalary,
+      overtimeHourRate: raw.overtimeHourRate,
       type: raw.type,
       producesFood,
       supervisorEmployeeId: producesFood ? raw.supervisorEmployeeId || null : null,

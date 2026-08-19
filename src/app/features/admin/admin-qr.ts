@@ -30,6 +30,17 @@ const MAX_TEXT = 1200;
 
     <p class="qr-hint">Pegá un link, un Wi‑Fi, un mensaje o cualquier texto. El código se arma solo.</p>
 
+    @if (shortcuts().length) {
+      <div class="qr-shortcuts">
+        @for (s of shortcuts(); track s.label) {
+          <button type="button" mat-stroked-button (click)="useShortcut(s.url)">
+            <mat-icon>{{ s.icon }}</mat-icon>
+            {{ s.label }}
+          </button>
+        }
+      </div>
+    }
+
     <section class="panel-card qr-page">
       <mat-form-field appearance="outline" class="qr-page__field" subscriptSizing="dynamic">
         <mat-label>Texto</mat-label>
@@ -71,6 +82,12 @@ const MAX_TEXT = 1200;
       margin: 0 0 1rem;
       color: var(--guy-muted, #5f6f76);
       font-size: 0.9rem;
+    }
+    .qr-shortcuts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin: 0 0 0.9rem;
     }
     .qr-page {
       display: grid;
@@ -137,12 +154,37 @@ export class AdminQrPage {
 
   readonly accent = computed(() => qrDarkColor(this.shops.selectedShop()?.accentColor));
 
+  readonly shortcuts = computed(() => {
+    const shop = this.shops.selectedShop();
+    if (!shop?.slug) return [];
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const slug = encodeURIComponent(shop.slug);
+    const items: Array<{ label: string; url: string; icon: string }> = [];
+    if (shop.publicAttendanceEnabled) {
+      items.push({ label: 'Presentismo', url: `${origin}/p/${slug}`, icon: 'event_available' });
+    }
+    if (shop.publicServiceRulesEnabled) {
+      items.push({ label: 'Normas de servicio', url: `${origin}/n/${slug}`, icon: 'menu_book' });
+    }
+    if (shop.menuEnabled) {
+      items.push({ label: 'Carta', url: `${origin}/m/${slug}`, icon: 'restaurant_menu' });
+    }
+    if (shop.reservationsEnabled) {
+      items.push({ label: 'Reservas', url: `${origin}/r/${slug}`, icon: 'table_restaurant' });
+    }
+    return items;
+  });
+
   constructor() {
     effect(() => {
       const value = this.text();
       const color = this.accent();
       void this.render(value, color);
     });
+  }
+
+  useShortcut(url: string): void {
+    this.text.set(url);
   }
 
   download(): void {

@@ -57,6 +57,14 @@ export const routes: Routes = [
     title: 'Carta',
   },
   {
+    path: 'n/:slug',
+    loadComponent: () =>
+      import('./features/service-rules/public-service-rules-page').then(
+        (m) => m.PublicServiceRulesPageComponent,
+      ),
+    title: 'Normas de servicio',
+  },
+  {
     path: '',
     component: MainLayoutComponent,
     canActivate: [authGuard],
@@ -286,6 +294,13 @@ export const routes: Routes = [
         title: 'QR',
       },
       {
+        path: 'admin/instrucciones',
+        canActivate: [permissionGuard('shops.manage')],
+        loadComponent: () =>
+          import('./features/admin/admin-help-page').then((m) => m.AdminHelpPage),
+        title: 'Instrucciones',
+      },
+      {
         path: 'admin/users',
         canActivate: [shopUsersGuard],
         loadComponent: () =>
@@ -362,6 +377,15 @@ export const routes: Routes = [
             (m) => m.ReimbursementsPage,
           ),
         title: 'Reintegros',
+      },
+      {
+        path: 'service-rules',
+        canActivate: [permissionGuard('serviceRules.read')],
+        loadComponent: () =>
+          import('./features/service-rules/service-rules-page').then(
+            (m) => m.ServiceRulesPage,
+          ),
+        title: 'Normas de servicio',
       },
       {
         path: 'attendance',

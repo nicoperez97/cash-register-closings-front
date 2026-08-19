@@ -139,6 +139,11 @@ export class EmployeesListPage {
       label: 'Sueldo base',
       format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
     },
+    {
+      key: 'overtimeHourRate',
+      label: '$ / hora extra',
+      format: (r) => `$ ${Number(r['overtimeHourRate'] ?? 0).toLocaleString('es-AR')}`,
+    },
     { key: 'hireDate', label: 'Ingreso' },
     {
       key: 'active',

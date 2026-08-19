@@ -42,6 +42,8 @@ interface AttendanceDayCell {
   id?: string;
   isPresent: boolean;
   isHoliday: boolean;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
   overtimeHours: number;
 }
 
@@ -49,8 +51,34 @@ interface AttendanceEmployeeRow {
   employeeId: string;
   fullName: string;
   baseSalary: number;
+  overtimeHourRate?: number;
   type?: 'FIXED' | 'ROTATING';
   days: Record<string, AttendanceDayCell>;
+}
+
+type AttendancePatch = {
+  isPresent?: boolean;
+  isHoliday?: boolean;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+};
+
+type TodayMark = {
+  isPresent: boolean;
+  isHoliday: boolean;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+  overtimeHours: number;
+};
+
+function emptyCell(): AttendanceDayCell {
+  return {
+    isPresent: false,
+    isHoliday: false,
+    checkInAt: null,
+    checkOutAt: null,
+    overtimeHours: 0,
+  };
 }
 
 interface AttendanceMonthResponse {
@@ -212,22 +240,102 @@ const MONTH_LABELS = [
                   }}</mat-icon>
                   {{ emp.fullName }}
                 </button>
-                <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving()">
-                  <span>HS extra</span>
+                <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving() || !isPresentToday(emp)">
+                  <span>Entrada</span>
                   <input
-                    type="number"
-                    inputmode="decimal"
-                    min="0"
-                    step="0.5"
-                    [disabled]="!canManage() || saving()"
-                    [ngModel]="overtimeToday(emp)"
-                    (ngModelChange)="onOvertimeTodayChange(emp, $event)"
+                    type="time"
+                    [disabled]="!canManage() || saving() || !isPresentToday(emp)"
+                    [ngModel]="checkInToday(emp)"
+                    (ngModelChange)="onShiftTodayChange(emp, $event, checkOutToday(emp))"
                     (click)="$event.stopPropagation()"
-                    aria-label="Horas extra de servicio"
+                    aria-label="Hora de entrada"
                   />
                 </label>
+                <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving() || !isPresentToday(emp)">
+                  <span>Salida</span>
+                  <input
+                    type="time"
+                    [disabled]="!canManage() || saving() || !isPresentToday(emp)"
+                    [ngModel]="checkOutToday(emp)"
+                    (ngModelChange)="onShiftTodayChange(emp, checkInToday(emp), $event)"
+                    (click)="$event.stopPropagation()"
+                    aria-label="Hora de salida"
+                  />
+                </label>
+                @if (overtimeToday(emp) > 0) {
+                  <span class="today-ot-badge">+{{ overtimeToday(emp) }}h</span>
+                }
               </div>
             }
+          </div>
+        }
+      </div>
+    }
+
+    @if (shopId() && canManage()) {
+      <div class="panel-card mb-3">
+        <div class="ot-report__head">
+          <div>
+            <h2 class="today-panel__title">Horas extra</h2>
+            <p class="today-panel__date">Suma de horas después de la retirada, con costo por empleado</p>
+          </div>
+        </div>
+        <div class="ot-report__filters">
+          <label class="today-ot">
+            <span>Desde</span>
+            <input type="date" [ngModel]="otFrom()" (ngModelChange)="otFrom.set($event)" />
+          </label>
+          <label class="today-ot">
+            <span>Hasta</span>
+            <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
+          </label>
+          <button mat-flat-button color="primary" type="button" [disabled]="otLoading()" (click)="loadOvertimeSummary()">
+            <mat-icon>query_stats</mat-icon>
+            Ver
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="!otSummary() || otExporting()"
+            (click)="exportOvertimeSummary()"
+          >
+            <mat-icon>download</mat-icon>
+            Excel
+          </button>
+        </div>
+        @if (otSummary(); as sum) {
+          <div class="concept-report__wrap">
+            <table class="ot-report__table">
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th class="num">Días</th>
+                  <th class="num">Hs extra</th>
+                  <th class="num">$/hora</th>
+                  <th class="num">Costo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of sum.items; track row.employeeId) {
+                  <tr>
+                    <td>{{ row.fullName }}</td>
+                    <td class="num">{{ row.presentDays }}</td>
+                    <td class="num">{{ row.overtimeHours }}</td>
+                    <td class="num">{{ money(row.overtimeHourRate) }}</td>
+                    <td class="num">{{ money(row.overtimeCost) }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>Total</th>
+                  <th class="num">{{ sum.totals.presentDays }}</th>
+                  <th class="num">{{ sum.totals.overtimeHours }}</th>
+                  <th></th>
+                  <th class="num">{{ money(sum.totals.overtimeCost) }}</th>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         }
       </div>
@@ -407,13 +515,13 @@ const MONTH_LABELS = [
                               class="att-ot-btn"
                               [class.att-ot-btn--set]="overtimeHours(emp, d) > 0"
                               [disabled]="saving()"
-                              [matTooltip]="'Horas extra' + (overtimeHours(emp, d) > 0 ? ': ' + overtimeHours(emp, d) + 'h' : '')"
+                              [matTooltip]="'Horario' + (overtimeHours(emp, d) > 0 ? ' · extra ' + overtimeHours(emp, d) + 'h' : '')"
                               (click)="openOvertimeEditor($event, emp, d)"
                             >
                               @if (overtimeHours(emp, d) > 0) {
                                 +{{ overtimeHours(emp, d) }}h
                               } @else {
-                                hs
+                                hora
                               }
                             </button>
                           } @else if (overtimeHours(emp, d) > 0) {
@@ -783,6 +891,7 @@ const MONTH_LABELS = [
       }
       .today-chip-row {
         display: inline-flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 0.35rem;
         border: 1px solid var(--guy-border, #d7e0d9);
@@ -840,7 +949,7 @@ const MONTH_LABELS = [
         padding-right: 0.2rem;
       }
       .today-ot input {
-        width: 3.1rem;
+        width: 5.6rem;
         min-height: 36px;
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 8px;
@@ -849,6 +958,37 @@ const MONTH_LABELS = [
         font-weight: 700;
         color: var(--guy-navy, #003366);
         background: #fff;
+      }
+      .today-ot-badge {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--guy-accent, #f27d16);
+        white-space: nowrap;
+      }
+      .ot-report__head {
+        margin-bottom: 0.65rem;
+      }
+      .ot-report__filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: end;
+        margin-bottom: 0.75rem;
+      }
+      .ot-report__table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      .ot-report__table th,
+      .ot-report__table td {
+        padding: 0.4rem 0.7rem;
+        border-bottom: 1px solid var(--guy-border, #e6ebf0);
+        text-align: left;
+      }
+      .ot-report__table .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       .today-ot--disabled {
         opacity: 0.65;
@@ -936,14 +1076,29 @@ export class AttendancePage {
   private todayLoadSeq = 0;
   private lastSyncedShopId: string | null = null;
   /** Estado del panel rápido (día seleccionado). */
-  readonly todayMarks = signal<
-    Record<string, { isPresent: boolean; isHoliday: boolean; overtimeHours: number }>
-  >({});
+  readonly todayMarks = signal<Record<string, TodayMark>>({});
   /** Día seleccionado en el panel rápido (por defecto hoy). */
   readonly quickDayIso = signal(
     resolveShopCalendarDate(new Date(), { timezone: undefined }),
   );
   private overtimeSaveTimers = new Map<string, number>();
+  readonly otFrom = signal(
+    `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
+  );
+  readonly otTo = signal(this.todayIso());
+  readonly otSummary = signal<{
+    items: Array<{
+      employeeId: string;
+      fullName: string;
+      presentDays: number;
+      overtimeHours: number;
+      overtimeHourRate: number;
+      overtimeCost: number;
+    }>;
+    totals: { presentDays: number; overtimeHours: number; overtimeCost: number };
+  } | null>(null);
+  readonly otLoading = signal(false);
+  readonly otExporting = signal(false);
 
   readonly employees = computed(() => this.data()?.employees ?? []);
   readonly dayNumbers = computed(() =>
@@ -1261,11 +1416,7 @@ export class AttendancePage {
   togglePresentToday(emp: AttendanceEmployeeRow): void {
     if (!this.canManage() || this.isQuickDayClosed()) return;
     if (this.consumeLongPressClick()) return;
-    const cur = this.todayMarks()[emp.employeeId] ?? {
-      isPresent: false,
-      isHoliday: false,
-      overtimeHours: 0,
-    };
+    const cur = this.todayMarks()[emp.employeeId] ?? emptyCell();
     const nextPresent = !cur.isPresent;
     const patch: { isPresent: boolean; isHoliday?: boolean } = { isPresent: nextPresent };
     if (nextPresent && (cur.isHoliday || this.isTodayHolidayDay())) {
@@ -1278,11 +1429,7 @@ export class AttendancePage {
     event.preventDefault();
     this.clearPressTimer();
     if (!this.canManage() || this.isQuickDayClosed()) return;
-    const cur = this.todayMarks()[emp.employeeId] ?? {
-      isPresent: false,
-      isHoliday: false,
-      overtimeHours: 0,
-    };
+    const cur = this.todayMarks()[emp.employeeId] ?? emptyCell();
     this.upsertToday(emp, { isHoliday: !cur.isHoliday });
   }
 
@@ -1317,7 +1464,7 @@ export class AttendancePage {
             };
           }
           this.todayMarks.set(next);
-          this.syncBoardFromQuickDay(date);
+          void this.loadTodayMarks();
           const skipped = this.employees().length - fixed.length;
           this.snack.open(
             skipped
@@ -1365,7 +1512,7 @@ export class AttendancePage {
             };
           }
           this.todayMarks.set(next);
-          this.syncBoardFromQuickDay(date);
+          void this.loadTodayMarks();
           this.snack.open(
             nextHoliday ? 'Todos marcados feriado' : 'Feriado quitado a todos',
             'OK',
@@ -1484,15 +1631,14 @@ export class AttendancePage {
     )
       .then((data) => {
         if (seq !== this.todayLoadSeq) return;
-        const marks: Record<
-          string,
-          { isPresent: boolean; isHoliday: boolean; overtimeHours: number }
-        > = {};
+        const marks: Record<string, TodayMark> = {};
         for (const e of data.employees ?? []) {
           const cell = e.days[iso];
           marks[e.employeeId] = {
             isPresent: !!cell?.isPresent,
             isHoliday: !!cell?.isHoliday,
+            checkInAt: cell?.checkInAt ?? null,
+            checkOutAt: cell?.checkOutAt ?? null,
             overtimeHours: Number(cell?.overtimeHours ?? 0),
           };
         }
@@ -1506,14 +1652,14 @@ export class AttendancePage {
 
   private upsertToday(
     emp: AttendanceEmployeeRow,
-    patch: { isPresent?: boolean; isHoliday?: boolean; overtimeHours?: number },
+    patch: AttendancePatch,
   ): void {
     const shopId = this.shopId();
     if (!shopId || this.isQuickDayClosed()) return;
     const date = this.quickDayIso();
     this.saving.set(true);
     this.http
-      .post<{ isPresent: boolean; isHoliday: boolean; overtimeHours: number }>(
+      .post<AttendanceDayCell>(
         `${environment.apiUrl}/shops/${shopId}/attendance`,
         {
           employeeId: emp.employeeId,
@@ -1529,12 +1675,16 @@ export class AttendancePage {
             [emp.employeeId]: {
               isPresent: !!result.isPresent,
               isHoliday: !!result.isHoliday,
+              checkInAt: result.checkInAt ?? null,
+              checkOutAt: result.checkOutAt ?? null,
               overtimeHours: Number(result.overtimeHours ?? 0),
             },
           }));
           this.patchBoardDay(emp.employeeId, date, {
             isPresent: !!result.isPresent,
             isHoliday: !!result.isHoliday,
+            checkInAt: result.checkInAt ?? null,
+            checkOutAt: result.checkOutAt ?? null,
             overtimeHours: result.overtimeHours ?? 0,
           });
         },
@@ -1654,7 +1804,7 @@ export class AttendancePage {
   }
 
   private cellFor(emp: AttendanceEmployeeRow, day: number): AttendanceDayCell {
-    return emp.days[this.dateFor(day)] ?? { isPresent: false, isHoliday: false, overtimeHours: 0 };
+    return emp.days[this.dateFor(day)] ?? emptyCell();
   }
 
   isPresent(emp: AttendanceEmployeeRow, day: number): boolean {
@@ -1669,6 +1819,22 @@ export class AttendancePage {
     return Number(this.cellFor(emp, day).overtimeHours ?? 0);
   }
 
+  private shopShiftDefaults() {
+    const shop = this.shops.selectedShop();
+    return {
+      checkIn: shop?.serviceDefaultCheckIn || '18:00',
+      checkOut: shop?.serviceDefaultCheckOut || '00:00',
+    };
+  }
+
+  checkInToday(emp: AttendanceEmployeeRow): string {
+    return this.todayMarks()[emp.employeeId]?.checkInAt || this.shopShiftDefaults().checkIn;
+  }
+
+  checkOutToday(emp: AttendanceEmployeeRow): string {
+    return this.todayMarks()[emp.employeeId]?.checkOutAt || this.shopShiftDefaults().checkOut;
+  }
+
   overtimeToday(emp: AttendanceEmployeeRow): number {
     const mark = this.todayMarks()[emp.employeeId];
     if (mark) return Number(mark.overtimeHours ?? 0);
@@ -1680,57 +1846,133 @@ export class AttendancePage {
     return 0;
   }
 
-  onOvertimeTodayChange(emp: AttendanceEmployeeRow, raw: number | string): void {
-    if (!this.canManage() || this.isQuickDayClosed()) return;
-    const n = Number(raw);
-    const hours = Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
+  onShiftTodayChange(emp: AttendanceEmployeeRow, checkInAt: string, checkOutAt: string): void {
+    if (!this.canManage() || this.isQuickDayClosed() || !this.isPresentToday(emp)) return;
     this.todayMarks.update((m) => ({
       ...m,
       [emp.employeeId]: {
-        isPresent: !!m[emp.employeeId]?.isPresent,
+        isPresent: true,
         isHoliday: !!m[emp.employeeId]?.isHoliday,
-        overtimeHours: hours,
+        checkInAt,
+        checkOutAt,
+        overtimeHours: Number(m[emp.employeeId]?.overtimeHours ?? 0),
       },
     }));
     const prev = this.overtimeSaveTimers.get(emp.employeeId);
     if (prev != null) window.clearTimeout(prev);
     const timer = window.setTimeout(() => {
       this.overtimeSaveTimers.delete(emp.employeeId);
-      this.upsertToday(emp, { overtimeHours: hours });
+      this.upsertToday(emp, { isPresent: true, checkInAt, checkOutAt });
     }, 450);
     this.overtimeSaveTimers.set(emp.employeeId, timer);
+  }
+
+  money(value: number): string {
+    return `$ ${Number(value || 0).toLocaleString('es-AR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+
+  loadOvertimeSummary(): void {
+    const shopId = this.shopId();
+    const from = this.otFrom();
+    const to = this.otTo();
+    if (!shopId || !from || !to) return;
+    this.otLoading.set(true);
+    this.http
+      .get<{
+        items: Array<{
+          employeeId: string;
+          fullName: string;
+          presentDays: number;
+          overtimeHours: number;
+          overtimeHourRate: number;
+          overtimeCost: number;
+        }>;
+        totals: { presentDays: number; overtimeHours: number; overtimeCost: number };
+      }>(`${environment.apiUrl}/shops/${shopId}/attendance/overtime-summary`, {
+        params: { from, to },
+      })
+      .subscribe({
+        next: (data) => {
+          this.otLoading.set(false);
+          this.otSummary.set(data);
+        },
+        error: () => {
+          this.otLoading.set(false);
+          this.snack.open('No se pudo cargar el resumen de horas extra', 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  exportOvertimeSummary(): void {
+    const shopId = this.shopId();
+    const from = this.otFrom();
+    const to = this.otTo();
+    if (!shopId || !from || !to) return;
+    this.otExporting.set(true);
+    this.http
+      .get(`${environment.apiUrl}/shops/${shopId}/attendance/overtime-summary.xlsx`, {
+        params: { from, to },
+        responseType: 'blob',
+      })
+      .subscribe({
+        next: (blob) => {
+          this.otExporting.set(false);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `horas-extra-${from}_${to}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => {
+          this.otExporting.set(false);
+          this.snack.open('No se pudo exportar', 'OK', { duration: 3000 });
+        },
+      });
   }
 
   openOvertimeEditor(event: Event, emp: AttendanceEmployeeRow, day: number): void {
     event.preventDefault();
     event.stopPropagation();
     if (!this.canManage() || this.isClosedDay(day) || this.saving()) return;
-    const current = this.overtimeHours(emp, day);
+    const cell = this.cellFor(emp, day);
+    const defaults = this.shopShiftDefaults();
     this.dialogTitle
       .track(
         this.dialog.open(AttendanceOvertimeDialogComponent, {
-          width: '360px',
+          width: '420px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
           data: {
             employeeName: emp.fullName,
             dateLabel: this.dateFor(day),
-            overtimeHours: current,
+            checkInAt: cell.checkInAt ?? defaults.checkIn,
+            checkOutAt: cell.checkOutAt ?? defaults.checkOut,
+            defaultCheckIn: defaults.checkIn,
+            defaultCheckOut: defaults.checkOut,
           },
         }),
-        'Horas extra',
+        'Horario de servicio',
       )
       .afterClosed()
-      .subscribe((hours) => {
-        if (hours == null || hours === current) return;
+      .subscribe((result) => {
+        if (!result) return;
         if (
           !this.confirmBoardSave(
-            `Horas extra de ${emp.fullName} el ${this.dateFor(day)}: ${hours}h`,
+            `Horario de ${emp.fullName} el ${this.dateFor(day)}: ${result.checkInAt}–${result.checkOutAt}`,
           )
         ) {
           return;
         }
-        this.upsert(emp, day, { overtimeHours: hours }, true);
+        this.upsert(
+          emp,
+          day,
+          { isPresent: true, checkInAt: result.checkInAt, checkOutAt: result.checkOutAt },
+          true,
+        );
       });
   }
 
@@ -1747,6 +1989,9 @@ export class AttendancePage {
     const cell = this.cellFor(emp, day);
     const parts = [cell.isPresent ? 'Presente' : 'Ausente'];
     if (cell.isHoliday) parts.push('Feriado');
+    if (cell.checkInAt || cell.checkOutAt) {
+      parts.push(`${cell.checkInAt ?? '—'}–${cell.checkOutAt ?? '—'}`);
+    }
     if (Number(cell.overtimeHours) > 0) parts.push(`${cell.overtimeHours} hs extra`);
     parts.push('Toque: presente · Mantener: feriado · Encabezado: feriado a todos');
     return parts.join(' · ');
@@ -1851,7 +2096,7 @@ export class AttendancePage {
   private upsert(
     emp: AttendanceEmployeeRow,
     day: number,
-    patch: { isPresent?: boolean; isHoliday?: boolean; overtimeHours?: number },
+    patch: AttendancePatch,
     alreadyConfirmed = false,
   ): void {
     const shopId = this.shopId();
@@ -1886,6 +2131,8 @@ export class AttendancePage {
                 isPresent: !!result.isPresent,
                 isHoliday: !!result.isHoliday,
                 overtimeHours: Number(result.overtimeHours ?? m[emp.employeeId]?.overtimeHours ?? 0),
+                checkInAt: result.checkInAt ?? m[emp.employeeId]?.checkInAt ?? null,
+                checkOutAt: result.checkOutAt ?? m[emp.employeeId]?.checkOutAt ?? null,
               },
             }));
           }

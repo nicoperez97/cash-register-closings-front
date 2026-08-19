@@ -511,6 +511,21 @@ const TIMEZONE_OPTIONS = [
           </div>
 
           <div class="shop-admin__op-block">
+            <h3 class="shop-admin__op-title">Servicio</h3>
+            <div class="guy-form-grid guy-form-grid--2">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Hora de entrada</mat-label>
+                <input matInput type="time" formControlName="serviceDefaultCheckIn" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Hora de retirada</mat-label>
+                <input matInput type="time" formControlName="serviceDefaultCheckOut" />
+                <mat-hint>Al pasar presente se asignan estas horas. Extra = salida real menos retirada.</mat-hint>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div class="shop-admin__op-block">
             <h3 class="shop-admin__op-title">Ventas POS</h3>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Sistema de ventas</mat-label>
@@ -680,6 +695,18 @@ const TIMEZONE_OPTIONS = [
                 <mat-slide-toggle
                   formControlName="publicAttendanceEnabled"
                   aria-label="Presentismo público"
+                />
+              </div>
+              <div class="shop-admin__toggle">
+                <div>
+                  <strong>Normas públicas</strong>
+                  <p class="text-muted small mb-0">
+                    Página para imprimir y pegar las normas pre y post servicio.
+                  </p>
+                </div>
+                <mat-slide-toggle
+                  formControlName="publicServiceRulesEnabled"
+                  aria-label="Normas de servicio públicas"
                 />
               </div>
               <div class="shop-admin__toggle">
@@ -1564,6 +1591,8 @@ export class AdminShopPage implements OnInit {
     openingTime: ['10:00'],
     timezone: ['America/Argentina/Buenos_Aires'],
     productionDefaultHours: [8],
+    serviceDefaultCheckIn: ['18:00'],
+    serviceDefaultCheckOut: ['00:00'],
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
     reservationsEnabled: [true],
@@ -1575,6 +1604,7 @@ export class AdminShopPage implements OnInit {
     waitingListEnabled: [true],
     tipsEnabled: [false],
     publicAttendanceEnabled: [false],
+    publicServiceRulesEnabled: [false],
     menuEnabled: [false],
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
@@ -1743,6 +1773,8 @@ export class AdminShopPage implements OnInit {
       openingTime: shop.openingTime ?? '10:00',
       timezone: shop.timezone ?? 'America/Argentina/Buenos_Aires',
       productionDefaultHours: shop.productionDefaultHours ?? 8,
+      serviceDefaultCheckIn: shop.serviceDefaultCheckIn || '18:00',
+      serviceDefaultCheckOut: shop.serviceDefaultCheckOut || '00:00',
       closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
       reservationsEnabled: !!shop.reservationsEnabled,
@@ -1754,6 +1786,7 @@ export class AdminShopPage implements OnInit {
       waitingListEnabled: !!shop.waitingListEnabled,
       tipsEnabled: !!shop.tipsEnabled,
       publicAttendanceEnabled: !!shop.publicAttendanceEnabled,
+      publicServiceRulesEnabled: !!shop.publicServiceRulesEnabled,
       menuEnabled: !!shop.menuEnabled,
       active: shop.active ?? true,
       salesSystemId: shop.salesSystemId ?? null,
@@ -1796,6 +1829,9 @@ export class AdminShopPage implements OnInit {
             waitingListEnabled: !!s.waitingListEnabled,
             tipsEnabled: !!s.tipsEnabled,
             publicAttendanceEnabled: !!s.publicAttendanceEnabled,
+            publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
+            serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
+            serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
             menuEnabled: !!s.menuEnabled,
             active: !!s.active,
           });
@@ -2231,6 +2267,8 @@ export class AdminShopPage implements OnInit {
       openingTime: raw.openingTime || '10:00',
       timezone: raw.timezone || 'America/Argentina/Buenos_Aires',
       productionDefaultHours: raw.productionDefaultHours ?? 8,
+      serviceDefaultCheckIn: raw.serviceDefaultCheckIn || '18:00',
+      serviceDefaultCheckOut: raw.serviceDefaultCheckOut || '00:00',
       closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,
@@ -2242,6 +2280,7 @@ export class AdminShopPage implements OnInit {
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
       publicAttendanceEnabled: raw.publicAttendanceEnabled,
+      publicServiceRulesEnabled: raw.publicServiceRulesEnabled,
       menuEnabled: raw.menuEnabled,
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,

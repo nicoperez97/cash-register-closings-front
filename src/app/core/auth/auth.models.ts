@@ -48,7 +48,9 @@ export type Permission =
   | 'tips.manage'
   | 'reimbursements.self'
   | 'reimbursements.read'
-  | 'reimbursements.manage';
+  | 'reimbursements.manage'
+  | 'serviceRules.read'
+  | 'serviceRules.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -96,6 +98,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'reimbursements.self',
   'reimbursements.read',
   'reimbursements.manage',
+  'serviceRules.read',
+  'serviceRules.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -116,6 +120,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'candidates.read',
     'attendance.manage',
     'attendance.read',
+    'serviceRules.read',
+    'serviceRules.manage',
     'payroll.manage',
     'payroll.read',
     'commissions.manage',
@@ -154,6 +160,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'employees.read',
     'candidates.read',
     'attendance.read',
+    'serviceRules.read',
     'payroll.read',
     'commissions.read',
     'movements.read',
@@ -199,6 +206,7 @@ export type ModuleKey =
   | 'shortages'
   | 'tips'
   | 'reimbursements'
+  | 'serviceRules'
   | 'shop'
   | 'users';
 
@@ -458,6 +466,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'serviceRules',
+    label: 'Normas de servicio',
+    icon: 'menu_book',
+    group: 'daily',
+    hint: 'Reglas pre y post servicio para imprimir en el local',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
@@ -625,6 +645,12 @@ export interface ShopSummary {
   settlementsEnabled?: boolean;
   /** Pantalla pública de presentismo para el personal. */
   publicAttendanceEnabled?: boolean;
+  /** Página pública de normas pre/post servicio. */
+  publicServiceRulesEnabled?: boolean;
+  /** Hora de entrada default en servicio (HH:mm). */
+  serviceDefaultCheckIn?: string;
+  /** Hora de retirada default en servicio (HH:mm). */
+  serviceDefaultCheckOut?: string;
   /** Carta pública del local. */
   menuEnabled?: boolean;
   defaultChangeAmount: number;

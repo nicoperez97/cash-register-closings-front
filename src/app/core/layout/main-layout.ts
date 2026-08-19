@@ -185,6 +185,13 @@ export class MainLayoutComponent {
         badgeInGroup: false,
       });
     }
+    if (shopId && hasShopPermission(user, shopId, 'serviceRules.read')) {
+      operacion.push({
+        label: 'Normas de servicio',
+        route: '/service-rules',
+        icon: 'menu_book',
+      });
+    }
     if (operacion.length) {
       items.push({
         label: 'Operación',
@@ -372,6 +379,7 @@ export class MainLayoutComponent {
       admin.push({ label: 'Mensajes', route: '/admin/messages', icon: 'mail' });
       admin.push({ label: 'Carta', route: '/admin/menu', icon: 'menu_book' });
       admin.push({ label: 'QR', route: '/admin/qr', icon: 'qr_code_2' });
+      admin.push({ label: 'Instrucciones', route: '/admin/instrucciones', icon: 'help_outline' });
     }
     if (canManageShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
       admin.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
@@ -537,6 +545,9 @@ export class MainLayoutComponent {
     if (path.startsWith('/admin/qr')) {
       return canManageShop(user, shopId);
     }
+    if (path.startsWith('/admin/instrucciones')) {
+      return canManageShop(user, shopId);
+    }
     if (path.startsWith('/admin/users')) {
       return canManageShopUsers(user, shopId);
     }
@@ -615,6 +626,9 @@ export class MainLayoutComponent {
         hasShopPermission(user, shopId, 'reimbursements.manage') ||
         hasShopPermission(user, shopId, 'reimbursements.self')
       );
+    }
+    if (path.startsWith('/service-rules')) {
+      return hasShopPermission(user, shopId, 'serviceRules.read');
     }
     return true;
   }
