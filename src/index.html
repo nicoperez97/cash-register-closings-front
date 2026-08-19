@@ -6,7 +6,9 @@
       /* Dispositivos incompatibles con Angular → versión iPad ES5 */
       (function () {
         var path = location.pathname || '';
-        if (path.indexOf('/ipad') === 0) return;
+        /* Archivo estático real. /legacy/ sin index.html cae en el SPA (Angular) y iOS 9 queda en blanco. */
+        if (path.indexOf('/legacy/') === 0 && /\.(html|js|css)$/.test(path)) return;
+        if (path === '/legacy/index.html' || path === '/legacy/board-r.html' || path === '/legacy/board-w.html') return;
 
         function iosMajor() {
           var ua = navigator.userAgent || '';
@@ -54,27 +56,22 @@
 
         if (!needsLegacy()) return;
 
-        // Tableros públicos → tablero ES5 (no la app de cierres /ipad/)
-        // Usamos board-*.html?slug= (archivo estático) para no depender de rewrite.
-        // También existe /ipad/r/:slug y /ipad/w/:slug en la API.
-        var boardR = path.match(/^\/r\/([^\/]+)\/?$/);
+        var boardR = path.match(/^\/(?:legacy|ipad)\/r\/([^\/]+)\/?$/) || path.match(/^\/r\/([^\/]+)\/?$/);
         if (boardR) {
           location.replace(
-            '/ipad/board-r.html?slug=' + encodeURIComponent(boardR[1]),
+            '/legacy/board-r.html?slug=' + encodeURIComponent(boardR[1]),
           );
           return;
         }
-        var boardW = path.match(/^\/w\/([^\/]+)\/?$/);
+        var boardW = path.match(/^\/(?:legacy|ipad)\/w\/([^\/]+)\/?$/) || path.match(/^\/w\/([^\/]+)\/?$/);
         if (boardW) {
           location.replace(
-            '/ipad/board-w.html?slug=' + encodeURIComponent(boardW[1]),
+            '/legacy/board-w.html?slug=' + encodeURIComponent(boardW[1]),
           );
           return;
         }
 
-        // Preferir same-origin /ipad/ (public/ + proxy). Evita depender de :3000
-        // y de redirects cross-port que en Safari viejo fallan o entran en bucle.
-        location.replace('/ipad/');
+        location.replace('/legacy/index.html');
       })();
     </script>
     <title>Cierres de caja</title>
@@ -107,6 +104,7 @@
 
     <script>
       (function () {
+        if (typeof fetch === 'undefined' || typeof Promise === 'undefined') return;
         /* iOS lee el primer <link rel="manifest"> que ve.
            Si el href inicial es manifest.webmanifest, cachea "Cierres" + start_url /
            aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */

@@ -20,7 +20,7 @@
       }
     }
     var path = location.pathname || '';
-    var m = path.match(/\/ipad\/r\/([^\/]+)\/?$/);
+    var m = path.match(/\/(?:legacy|ipad)\/r\/([^\/]+)\/?$/);
     if (m) {
       try {
         return decodeURIComponent(m[1]);
