@@ -259,6 +259,8 @@ export class EmployeesListPage {
             ...mode,
             shopId,
             shopName,
+            serviceAttendanceWithHours:
+              this.shops.selectedShop()?.serviceAttendanceWithHours !== false,
             users: this.users().filter(
               (u) => isUserVisible(u, 'employeeLink') || u.id === linkedUserId,
             ),

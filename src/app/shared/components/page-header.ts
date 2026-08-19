@@ -93,9 +93,9 @@ export class PageHeaderComponent {
     });
     this.dialogTitle.track(
       this.dialog.open(HelpDialogComponent, {
-        width: '520px',
+        width: '640px',
         maxWidth: '96vw',
-        panelClass: 'guy-dialog',
+        panelClass: ['guy-dialog', 'help-dialog-panel'],
         data: { topic, blocks },
       }),
       topic.title,

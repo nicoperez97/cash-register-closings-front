@@ -512,17 +512,26 @@ const TIMEZONE_OPTIONS = [
 
           <div class="shop-admin__op-block">
             <h3 class="shop-admin__op-title">Servicio</h3>
-            <div class="guy-form-grid guy-form-grid--2">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Hora de entrada</mat-label>
-                <input matInput type="time" formControlName="serviceDefaultCheckIn" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Hora de retirada</mat-label>
-                <input matInput type="time" formControlName="serviceDefaultCheckOut" />
-                <mat-hint>Al pasar presente se asignan estas horas. Extra = salida real menos retirada.</mat-hint>
-              </mat-form-field>
-            </div>
+            <mat-slide-toggle formControlName="serviceAttendanceWithHours">
+              Presentismo con horario
+            </mat-slide-toggle>
+            <p class="shop-admin__op-note">
+              Apagado: solo presente / ausente / feriado, como antes. Encendido: cada persona
+              tiene entrada y salida, y se calculan extras.
+            </p>
+            @if (form.controls.serviceAttendanceWithHours.value) {
+              <div class="guy-form-grid guy-form-grid--2">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Hora de entrada default</mat-label>
+                  <input matInput type="time" formControlName="serviceDefaultCheckIn" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Hora de retirada default</mat-label>
+                  <input matInput type="time" formControlName="serviceDefaultCheckOut" />
+                  <mat-hint>Se usa si el empleado no tiene horario propio. Extra = salida real menos retirada.</mat-hint>
+                </mat-form-field>
+              </div>
+            }
           </div>
 
           <div class="shop-admin__op-block">
@@ -1593,6 +1602,7 @@ export class AdminShopPage implements OnInit {
     productionDefaultHours: [8],
     serviceDefaultCheckIn: ['18:00'],
     serviceDefaultCheckOut: ['00:00'],
+    serviceAttendanceWithHours: [true],
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
     reservationsEnabled: [true],
@@ -1775,6 +1785,7 @@ export class AdminShopPage implements OnInit {
       productionDefaultHours: shop.productionDefaultHours ?? 8,
       serviceDefaultCheckIn: shop.serviceDefaultCheckIn || '18:00',
       serviceDefaultCheckOut: shop.serviceDefaultCheckOut || '00:00',
+      serviceAttendanceWithHours: shop.serviceAttendanceWithHours !== false,
       closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
       coversEnabled: !!shop.coversEnabled,
       reservationsEnabled: !!shop.reservationsEnabled,
@@ -1832,6 +1843,7 @@ export class AdminShopPage implements OnInit {
             publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
             serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
             serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
+            serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
             menuEnabled: !!s.menuEnabled,
             active: !!s.active,
           });
@@ -2269,6 +2281,7 @@ export class AdminShopPage implements OnInit {
       productionDefaultHours: raw.productionDefaultHours ?? 8,
       serviceDefaultCheckIn: raw.serviceDefaultCheckIn || '18:00',
       serviceDefaultCheckOut: raw.serviceDefaultCheckOut || '00:00',
+      serviceAttendanceWithHours: raw.serviceAttendanceWithHours,
       closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,

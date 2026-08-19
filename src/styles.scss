@@ -693,6 +693,12 @@ select {
   touch-action: pan-y;
 }
 
+.cdk-overlay-pane.help-dialog-panel .guy-dialog .mat-mdc-dialog-content,
+.help-dialog-panel .mat-mdc-dialog-content {
+  max-height: min(78vh, 680px);
+  padding-bottom: 0.65rem !important;
+}
+
 /* Modal / sidenav: bloquea scroll sin position:fixed (fixed oculta la página detrás). */
 html.guy-body-scroll-lock,
 body.guy-body-scroll-lock,

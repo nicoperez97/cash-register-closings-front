@@ -24,6 +24,8 @@ type PublicDay = {
   isHoliday: boolean;
   overtimeHours: number;
   hours: number | null;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
 };
 
 type PublicMonth = {
@@ -149,9 +151,20 @@ function storageKey(slug: string): string {
                       [class.cal__day--holiday]="cell.kind === 'holiday'"
                       [class.cal__day--absent]="cell.kind === 'absent'"
                       [class.cal__day--closed]="cell.kind === 'closed'"
+                      [class.cal__day--shift]="!!(cell.checkIn || cell.checkOut)"
                       [attr.title]="cell.title"
                     >
                       <span class="cal__num">{{ cell.day }}</span>
+                      @if (cell.checkIn || cell.checkOut) {
+                        <span class="cal__shift">
+                          @if (cell.checkIn) {
+                            <span>{{ cell.checkIn }}</span>
+                          }
+                          @if (cell.checkOut) {
+                            <span>{{ cell.checkOut }}</span>
+                          }
+                        </span>
+                      }
                       @if (cell.extra) {
                         <span class="cal__extra">+{{ cell.extra }}</span>
                       }
@@ -377,10 +390,25 @@ function storageKey(slug: string): string {
       .cal__num {
         font-weight: 700;
       }
+      .cal__shift {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.1;
+        font-size: 0.58rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #f4efe6;
+        opacity: 0.92;
+      }
       .cal__extra,
       .cal__hrs {
         font-size: 0.62rem;
         color: #f9d38a;
+      }
+      .cal__day--shift {
+        min-height: 3.85rem;
+        padding: 0.2rem 0.1rem 0.25rem;
       }
       .cal__day--present {
         background: color-mix(in srgb, var(--accent) 38%, #1c1815);
@@ -494,9 +522,11 @@ export class PublicAttendanceBoardComponent implements OnInit {
       title: string;
       extra: string;
       hours: number | null;
+      checkIn: string;
+      checkOut: string;
     }> = [];
     for (let i = 0; i < lead; i++) {
-      cells.push({ day: null, kind: '', title: '', extra: '', hours: null });
+      cells.push({ day: null, kind: '', title: '', extra: '', hours: null, checkIn: '', checkOut: '' });
     }
     const closed = m.closedWeekdays ?? [];
     for (let d = 1; d <= m.daysInMonth; d++) {
@@ -516,6 +546,13 @@ export class PublicAttendanceBoardComponent implements OnInit {
         kind = 'present';
         title = 'Presente';
       }
+      const checkIn = cell?.isPresent ? (cell.checkInAt || '').trim() : '';
+      const checkOut = cell?.isPresent ? (cell.checkOutAt || '').trim() : '';
+      if (checkIn || checkOut) {
+        title = [checkIn && `Entrada ${checkIn}`, checkOut && `Salida ${checkOut}`]
+          .filter(Boolean)
+          .join(' · ');
+      }
       const extra = cell?.overtimeHours ? String(cell.overtimeHours) : '';
       cells.push({
         day: d,
@@ -523,6 +560,8 @@ export class PublicAttendanceBoardComponent implements OnInit {
         title,
         extra,
         hours: cell?.hours ?? null,
+        checkIn,
+        checkOut,
       });
     }
     return cells;

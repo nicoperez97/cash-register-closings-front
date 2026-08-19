@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -266,6 +267,7 @@ export class ServiceRuleDialogComponent {
     MatDialogModule,
     MatSnackBarModule,
     MatTooltipModule,
+    RouterLink,
     PageHeaderComponent,
     SpinnerComponent,
   ],
@@ -281,14 +283,31 @@ export class ServiceRuleDialogComponent {
 
     @if (publicUrl()) {
       <div class="sr-public">
-        <a class="sr-public__btn" [href]="publicUrl()" target="_blank" rel="noopener">
-          <mat-icon>open_in_new</mat-icon>
-          Página pública
-        </a>
-        <button type="button" class="sr-public__btn sr-public__btn--ghost" (click)="copyPublicUrl()">
-          <mat-icon>content_copy</mat-icon>
-          Copiar link
-        </button>
+        <div class="sr-public__main">
+          <span class="sr-public__label">Pantalla pública</span>
+          <code class="sr-public__url">{{ publicUrl() }}</code>
+        </div>
+        <div class="sr-public__actions">
+          <a class="sr-public__btn" [href]="publicUrl()" target="_blank" rel="noopener">
+            <mat-icon>open_in_new</mat-icon>
+            Abrir
+          </a>
+          <button type="button" class="sr-public__btn sr-public__btn--ghost" (click)="copyPublicUrl()">
+            <mat-icon>content_copy</mat-icon>
+            Copiar link
+          </button>
+        </div>
+        @if (!publicEnabled()) {
+          <p class="sr-public__hint">
+            El link todavía no está publicado.
+            @if (canManageShop()) {
+              Activalo en
+              <a routerLink="/admin/shop">Local → Normas públicas</a>.
+            } @else {
+              Pedile a un admin que active “Normas públicas” en el local.
+            }
+          </p>
+        }
       </div>
     }
 
@@ -379,10 +398,42 @@ export class ServiceRuleDialogComponent {
   `,
   styles: `
     .sr-public {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0 0 1rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 14px;
+      background: var(--guy-card, #fff);
+    }
+    .sr-public__main {
+      display: grid;
+      gap: 0.2rem;
+      min-width: 0;
+    }
+    .sr-public__label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .sr-public__url {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.9rem;
+      font-weight: 650;
+      color: var(--guy-navy, #003366);
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, var(--guy-card, #fff));
+      border-radius: 8px;
+      padding: 0.35rem 0.55rem;
+    }
+    .sr-public__actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin: 0 0 1rem;
     }
     .sr-public__btn {
       display: inline-flex;
@@ -390,12 +441,12 @@ export class ServiceRuleDialogComponent {
       gap: 0.35rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 10px;
-      padding: 0.4rem 0.75rem;
-      background: #fff;
+      padding: 0.45rem 0.8rem;
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, #fff);
       color: var(--guy-navy, #003366);
       text-decoration: none;
       font-size: 0.88rem;
-      font-weight: 600;
+      font-weight: 650;
       cursor: pointer;
     }
     .sr-public__btn mat-icon {
@@ -405,6 +456,16 @@ export class ServiceRuleDialogComponent {
     }
     .sr-public__btn--ghost {
       background: transparent;
+    }
+    .sr-public__hint {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.4;
+    }
+    .sr-public__hint a {
+      color: var(--guy-navy, #003366);
+      font-weight: 650;
     }
     .sr-empty {
       color: var(--guy-muted, #5f6f76);
@@ -508,10 +569,18 @@ export class ServiceRulesPage {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'serviceRules.manage');
   }
 
+  canManageShop(): boolean {
+    return hasShopPermission(this.auth.currentUser(), this.shopId(), 'shops.manage');
+  }
+
+  publicEnabled(): boolean {
+    return this.shops.selectedShop()?.publicServiceRulesEnabled === true;
+  }
+
   publicUrl(): string {
-    const shop = this.shops.selectedShop();
-    if (!shop?.publicServiceRulesEnabled || !shop.slug) return '';
-    return `${window.location.origin}/n/${encodeURIComponent(shop.slug)}`;
+    const slug = this.shops.selectedShop()?.slug;
+    if (!slug) return '';
+    return `${window.location.origin}/n/${encodeURIComponent(slug)}`;
   }
 
   async copyPublicUrl(): Promise<void> {

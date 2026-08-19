@@ -651,6 +651,8 @@ export interface ShopSummary {
   serviceDefaultCheckIn?: string;
   /** Hora de retirada default en servicio (HH:mm). */
   serviceDefaultCheckOut?: string;
+  /** Si es false, presentismo de servicio es solo presente/ausente/feriado. */
+  serviceAttendanceWithHours?: boolean;
   /** Carta pública del local. */
   menuEnabled?: boolean;
   defaultChangeAmount: number;

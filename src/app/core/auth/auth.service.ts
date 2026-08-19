@@ -177,6 +177,7 @@ export class AuthService {
         publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
         serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
         serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
+        serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
         menuEnabled: !!s.menuEnabled,
         timezone: s.timezone ?? null,
         openingTime: s.openingTime ?? null,

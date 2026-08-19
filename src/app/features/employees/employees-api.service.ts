@@ -22,6 +22,8 @@ export interface Employee {
   /** Alias o CBU para reintegros. */
   bankAlias?: string | null;
   overtimeHourRate?: number;
+  serviceCheckIn?: string | null;
+  serviceCheckOut?: string | null;
   active: boolean;
 }
 

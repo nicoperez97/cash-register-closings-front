@@ -678,3 +678,102 @@ export function topicById(id: string | null | undefined): HelpTopic | null {
   if (!id) return null;
   return HELP_TOPICS.find((t) => t.id === id) ?? null;
 }
+
+const TOPIC_ICONS: Record<string, string> = {
+  home: 'home',
+  closings: 'point_of_sale',
+  'closings-new': 'point_of_sale',
+  'cash-withdrawals': 'payments',
+  settlements: 'account_balance_wallet',
+  movements: 'swap_horiz',
+  payments: 'payments',
+  suppliers: 'inventory_2',
+  services: 'home_repair_service',
+  reports: 'insights',
+  'reports-concepts': 'category',
+  'reports-products': 'restaurant_menu',
+  'reports-stats': 'analytics',
+  reservations: 'table_restaurant',
+  'waiting-list': 'hourglass_top',
+  salon: 'grid_view',
+  stock: 'inventory',
+  'beverage-stock': 'local_bar',
+  shortages: 'report',
+  attendance: 'storefront',
+  'production-attendance': 'restaurant',
+  'my-production': 'restaurant',
+  employees: 'badge',
+  candidates: 'person_search',
+  payroll: 'request_quote',
+  commissions: 'percent',
+  reimbursements: 'receipt_long',
+  'service-rules': 'menu_book',
+  tips: 'volunteer_activism',
+  'admin-shop': 'storefront',
+  'admin-shops': 'store',
+  'admin-users': 'group',
+  'admin-accounts': 'account_balance',
+  'admin-concepts': 'sell',
+  'admin-messages': 'mail',
+  'admin-menu': 'menu_book',
+  'admin-qr': 'qr_code_2',
+  'admin-sales-systems': 'dns',
+  'admin-pos-products': 'restaurant_menu',
+  'admin-help': 'help_outline',
+};
+
+const BLOCK_ICONS: Record<string, string> = {
+  'Qué ves': 'visibility',
+  Ver: 'visibility',
+  'Ver todos': 'visibility',
+  Gestionar: 'tune',
+  'Crear y editar': 'edit_note',
+  Bloquear: 'lock',
+  Uso: 'touch_app',
+  Marcar: 'check_circle',
+  'Costo extra': 'schedule',
+  Exportar: 'download',
+  Excel: 'table_view',
+  Diagrama: 'grid_view',
+  'Reglas de mesas': 'tune',
+  Productor: 'restaurant',
+  'Mis gastos': 'receipt_long',
+  Pagar: 'paid',
+  Cargar: 'add_card',
+  'Super admin': 'admin_panel_settings',
+  Alcance: 'list_alt',
+};
+
+export function helpTopicIcon(id: string): string {
+  return TOPIC_ICONS[id] ?? 'info';
+}
+
+export function helpBlockIcon(title: string): string {
+  return BLOCK_ICONS[title] ?? 'info';
+}
+
+export type HelpBlockTone = 'read' | 'do' | 'lock' | 'info';
+
+export function helpBlockTone(title: string): HelpBlockTone {
+  const t = title.toLowerCase();
+  if (/(bloquear|pagar|super admin)/.test(t)) return 'lock';
+  if (/(gestionar|crear|marcar|cargar|exportar|excel|productor)/.test(t)) return 'do';
+  if (/(ver|qué ves|alcance|diagrama|uso)/.test(t)) return 'read';
+  return 'info';
+}
+
+export type HelpBodyPart = { kind: 'text' | 'code'; value: string };
+
+export function helpBodyParts(body: string): HelpBodyPart[] {
+  const parts: HelpBodyPart[] = [];
+  const re = /(\/[a-zA-Z][\w/-]*|\{[a-zA-Z]+\})/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    if (m.index > last) parts.push({ kind: 'text', value: body.slice(last, m.index) });
+    parts.push({ kind: 'code', value: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < body.length) parts.push({ kind: 'text', value: body.slice(last) });
+  return parts.length ? parts : [{ kind: 'text', value: body }];
+}

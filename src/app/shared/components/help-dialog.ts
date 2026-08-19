@@ -2,7 +2,8 @@ import { Component, inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { HelpBlock, HelpTopic } from '../../core/help/module-help';
+import { HelpBlock, HelpTopic, helpTopicIcon } from '../../core/help/module-help';
+import { HelpBlocksComponent } from './help-blocks';
 
 export type HelpDialogData = {
   topic: HelpTopic;
@@ -11,11 +12,11 @@ export type HelpDialogData = {
 
 @Component({
   selector: 'app-help-dialog',
-  imports: [MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [MatDialogModule, MatButtonModule, MatIconModule, HelpBlocksComponent],
   template: `
     <h2 mat-dialog-title>
       <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>info</mat-icon>
+        <mat-icon>{{ icon }}</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
         <strong>{{ data.topic.title }}</strong>
@@ -23,40 +24,26 @@ export type HelpDialogData = {
       </span>
     </h2>
     <mat-dialog-content>
-      @if (!data.blocks.length) {
-        <p class="help-empty">No tenés acceso a las funciones de este módulo.</p>
-      } @else {
-        @for (b of data.blocks; track b.title) {
-          <section class="help-block">
-            <h3>{{ b.title }}</h3>
-            <p>{{ b.body }}</p>
-          </section>
-        }
-      }
+      <p class="help-dialog__kicker">Qué podés hacer acá</p>
+      <app-help-blocks [blocks]="data.blocks" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-flat-button color="primary" type="button" (click)="ref.close()">Entendido</button>
     </mat-dialog-actions>
   `,
   styles: `
-    .help-block {
-      margin: 0 0 1rem;
-    }
-    .help-block h3 {
-      margin: 0 0 0.35rem;
-      font-size: 0.95rem;
-      color: var(--guy-navy, #003366);
-    }
-    .help-block p,
-    .help-empty {
-      margin: 0;
-      color: var(--guy-text, #1b2a33);
-      line-height: 1.5;
-      font-size: 0.92rem;
+    .help-dialog__kicker {
+      margin: 0 0 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #5f6f76);
     }
   `,
 })
 export class HelpDialogComponent {
   readonly data = inject<HelpDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<HelpDialogComponent>);
+  readonly icon = helpTopicIcon(this.data.topic.id);
 }
