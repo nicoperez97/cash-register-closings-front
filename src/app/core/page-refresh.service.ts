@@ -11,6 +11,8 @@ const MIN_SPINNER_MS = 500;
 export class PageRefreshService {
   private readonly auth = inject(AuthService);
   private readonly handlers = new Map<symbol, () => void | Promise<void>>();
+  private inboxTimer: ReturnType<typeof setTimeout> | null = null;
+  private inboxRunning = false;
 
   readonly hasHandler = signal(false);
   readonly refreshing = signal(false);
@@ -41,6 +43,31 @@ export class PageRefreshService {
         await new Promise((r) => setTimeout(r, wait));
       }
       this.refreshing.set(false);
+    }
+  }
+
+  /**
+   * Recarga silenciosa de la pantalla actual cuando entra un aviso
+   * (sin spinner de pull-to-refresh ni /auth/me).
+   */
+  refreshFromInbox(): void {
+    if (!this.handlers.size) return;
+    if (this.inboxTimer) clearTimeout(this.inboxTimer);
+    this.inboxTimer = setTimeout(() => {
+      this.inboxTimer = null;
+      void this.runInboxRefresh();
+    }, 400);
+  }
+
+  private async runInboxRefresh(): Promise<void> {
+    if (!this.handlers.size || this.inboxRunning || this.refreshing()) return;
+    this.inboxRunning = true;
+    try {
+      await Promise.all(
+        [...this.handlers.values()].map((handler) => Promise.resolve(handler())),
+      );
+    } finally {
+      this.inboxRunning = false;
     }
   }
 }

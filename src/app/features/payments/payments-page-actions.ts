@@ -3,9 +3,31 @@ import type { UserVisibility } from '../../shared/user-visibility';
 import type { PaymentStatus, ShopPayment } from './payments-api.service';
 
 export type PaymentKind = 'supplier' | 'employee' | 'service';
+export type PaymentListTab = 'pending' | 'paid';
 export type PaymentsViewMode = 'cards' | 'list';
+export type PaymentsMobileView = 'compact' | 'list';
+export type PaymentsDisplayMode = PaymentsViewMode | 'compact';
+
+export const PENDING_PAYMENT_STATUSES: PaymentStatus[] = ['PENDING_VALIDATION', 'VALIDATED'];
+
+export function statusesForPaymentTab(
+  tab: PaymentListTab,
+  extras?: { rejected?: boolean; cancelled?: boolean },
+): PaymentStatus[] {
+  if (tab === 'pending') return [...PENDING_PAYMENT_STATUSES];
+  const next: PaymentStatus[] = ['PAID'];
+  if (extras?.rejected) next.push('REJECTED');
+  if (extras?.cancelled) next.push('CANCELLED');
+  return next;
+}
+
+export function tabForPaymentStatus(status: PaymentStatus): PaymentListTab {
+  return status === 'PENDING_VALIDATION' || status === 'VALIDATED' ? 'pending' : 'paid';
+}
+
 
 const PAYMENTS_VIEW_KEY = 'crc.payments.viewMode';
+const PAYMENTS_MOBILE_VIEW_KEY = 'crc.payments.mobileView';
 
 export function loadPaymentsViewMode(): PaymentsViewMode {
   try {
@@ -19,6 +41,23 @@ export function loadPaymentsViewMode(): PaymentsViewMode {
 export function savePaymentsViewMode(mode: PaymentsViewMode): void {
   try {
     localStorage.setItem(PAYMENTS_VIEW_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
+export function loadPaymentsMobileView(): PaymentsMobileView {
+  try {
+    const v = localStorage.getItem(PAYMENTS_MOBILE_VIEW_KEY);
+    return v === 'compact' ? 'compact' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
+export function savePaymentsMobileView(mode: PaymentsMobileView): void {
+  try {
+    localStorage.setItem(PAYMENTS_MOBILE_VIEW_KEY, mode);
   } catch {
     // ignore
   }
@@ -170,6 +209,9 @@ export type ClearedFiltersForDeepLink = {
   amountMax: null;
   dueRange: { start: null; end: null };
   paidRange: { start: null; end: null };
+  listTab: PaymentListTab;
+  includeRejected: boolean;
+  includeCancelled: boolean;
   statusFilter: PaymentStatus[];
 };
 
@@ -177,6 +219,9 @@ export type ClearedFiltersForDeepLink = {
 export function clearedFiltersForDeepLink(
   payment: Pick<ShopPayment, 'status'>,
 ): ClearedFiltersForDeepLink {
+  const listTab = tabForPaymentStatus(payment.status);
+  const includeRejected = payment.status === 'REJECTED';
+  const includeCancelled = payment.status === 'CANCELLED';
   return {
     mineOnly: false,
     validatorFilter: [],
@@ -188,6 +233,12 @@ export function clearedFiltersForDeepLink(
     amountMax: null,
     dueRange: { start: null, end: null },
     paidRange: { start: null, end: null },
-    statusFilter: [payment.status],
+    listTab,
+    includeRejected,
+    includeCancelled,
+    statusFilter: statusesForPaymentTab(listTab, {
+      rejected: includeRejected,
+      cancelled: includeCancelled,
+    }),
   };
 }

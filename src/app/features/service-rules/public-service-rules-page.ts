@@ -9,6 +9,7 @@ import {
   ServiceRulesApiService,
 } from './service-rules-api.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
+import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 
 @Component({
   selector: 'app-public-service-rules-page',
@@ -19,7 +20,7 @@ import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url
         <button type="button" class="poster__print" (click)="reload()">Reintentar</button>
       </div>
     } @else if (bundle(); as data) {
-      <div class="poster" [style.--accent]="accent()">
+      <div class="poster" id="rules-pdf-root" [style.--accent]="accent()">
         <header class="poster__hero no-print-hide">
           <div class="poster__identity">
             @if (logoUrl()) {
@@ -256,25 +257,20 @@ export class PublicServiceRulesPageComponent implements OnInit {
       .filter((g) => g.rules.length);
   }
 
-  downloadPdf(): void {
+  async downloadPdf(): Promise<void> {
     const slug = this.route.snapshot.paramMap.get('slug') ?? '';
     if (!slug || this.printing()) return;
     this.printing.set(true);
     this.pdfError.set('');
-    this.api.publicPdf(slug).subscribe({
-      next: (blob) => {
-        this.printing.set(false);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `normas-${slug}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-      },
-      error: () => {
-        this.printing.set(false);
-        this.pdfError.set('No se pudo generar el PDF');
-      },
-    });
+    try {
+      await downloadCaptureRootPdf(`rules-pdf-root`, `normas-${slug}.pdf`, {
+        background: '#f4f1ea',
+        hide: '.poster__print, .poster__pdf-error',
+      });
+    } catch {
+      this.pdfError.set('No se pudo generar el PDF');
+    } finally {
+      this.printing.set(false);
+    }
   }
 }

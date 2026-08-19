@@ -24,7 +24,7 @@ export type HelpDialogData = {
       </span>
     </h2>
     <mat-dialog-content>
-      <p class="help-dialog__kicker">Qué podés hacer acá</p>
+      <p class="help-dialog__kicker">En 30 segundos</p>
       <app-help-blocks [blocks]="data.blocks" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">

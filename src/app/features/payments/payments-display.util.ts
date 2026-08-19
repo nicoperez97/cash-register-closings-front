@@ -4,6 +4,7 @@ import {
   ShopPayment,
   paymentMethodLabel,
   paymentPriorityLabel,
+  paymentPriorityRank,
 } from './payments-api.service';
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -25,6 +26,87 @@ export function compareDueDate(
   b: string | null | undefined,
 ): number {
   return dueTime(a) - dueTime(b);
+}
+
+export type PaymentSortKey =
+  | 'updated'
+  | 'due'
+  | 'amountDesc'
+  | 'amountAsc'
+  | 'priority'
+  | 'created'
+  | 'paid';
+
+export const PAYMENT_SORT_OPTIONS: Array<{
+  value: PaymentSortKey;
+  label: string;
+  paidOnly?: boolean;
+}> = [
+  { value: 'updated', label: 'Última modificación' },
+  { value: 'due', label: 'Vencimiento' },
+  { value: 'amountDesc', label: 'Importe (mayor)' },
+  { value: 'amountAsc', label: 'Importe (menor)' },
+  { value: 'priority', label: 'Prioridad' },
+  { value: 'created', label: 'Fecha de creación' },
+  { value: 'paid', label: 'Fecha de pago', paidOnly: true },
+];
+
+const PAYMENT_SORT_KEY = 'crc.payments.sort';
+
+export function loadPaymentSort(): PaymentSortKey {
+  try {
+    const v = localStorage.getItem(PAYMENT_SORT_KEY);
+    if (PAYMENT_SORT_OPTIONS.some((o) => o.value === v)) return v as PaymentSortKey;
+  } catch {
+    /* ignore */
+  }
+  return 'updated';
+}
+
+export function savePaymentSort(key: PaymentSortKey): void {
+  try {
+    localStorage.setItem(PAYMENT_SORT_KEY, key);
+  } catch {
+    /* ignore */
+  }
+}
+
+function isoTime(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : null;
+}
+
+function compareIsoDesc(a: string | null | undefined, b: string | null | undefined): number {
+  const av = isoTime(a);
+  const bv = isoTime(b);
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+  return bv - av;
+}
+
+export function comparePayments(a: ShopPayment, b: ShopPayment, sort: PaymentSortKey): number {
+  switch (sort) {
+    case 'due':
+      return compareDueDate(a.dueDate, b.dueDate);
+    case 'amountDesc':
+      return Number(b.amount || 0) - Number(a.amount || 0);
+    case 'amountAsc':
+      return Number(a.amount || 0) - Number(b.amount || 0);
+    case 'priority': {
+      const byPrio = paymentPriorityRank(a.priority) - paymentPriorityRank(b.priority);
+      if (byPrio !== 0) return byPrio;
+      return compareDueDate(a.dueDate, b.dueDate);
+    }
+    case 'created':
+      return compareIsoDesc(a.createdAt, b.createdAt);
+    case 'paid':
+      return compareIsoDesc(a.paidAt, b.paidAt);
+    case 'updated':
+    default:
+      return compareIsoDesc(a.updatedAt || a.createdAt, b.updatedAt || b.createdAt);
+  }
 }
 
 /** Días hasta el vencimiento (negativo = vencido). null si no hay fecha. */

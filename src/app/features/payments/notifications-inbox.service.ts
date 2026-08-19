@@ -12,6 +12,7 @@ import {
 } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { PageRefreshService } from '../../core/page-refresh.service';
 import { NotificationsApiService } from './notifications-api.service';
 import { syncAppBadge } from '../../shared/utils/app-badge';
 
@@ -25,12 +26,15 @@ export class NotificationsInboxService {
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
   private readonly injector = inject(Injector);
+  private readonly pageRefresh = inject(PageRefreshService);
 
   readonly unreadCount = signal(0);
   readonly unreadByShop = signal<Record<string, number>>({});
 
   private readonly refresh$ = new Subject<void>();
   private started = false;
+  /** -1 = todavía no hay baseline (login / cambio de local). */
+  private lastShopUnread = -1;
 
   /** Arranca listeners una sola vez (evita trabajo antes del login). */
   ensureStarted(): void {
@@ -62,12 +66,19 @@ export class NotificationsInboxService {
       )
       .subscribe((res) => {
         if (!res) return;
-        this.unreadCount.set(Math.max(0, Number(res.count?.count) || 0));
+        const next = Math.max(0, Number(res.count?.count) || 0);
+        const prev = this.lastShopUnread;
+        this.unreadCount.set(next);
         this.unreadByShop.set(res.byShop?.counts ?? {});
         void syncAppBadge(Math.max(0, Number(res.total?.count) || 0));
+        if (prev >= 0 && next > prev) {
+          this.pageRefresh.refreshFromInbox();
+        }
+        this.lastShopUnread = next;
       });
 
     toObservable(this.shops.selectedShopId, { injector: this.injector }).subscribe(() => {
+      this.lastShopUnread = -1;
       this.refresh();
     });
 
@@ -85,6 +96,13 @@ export class NotificationsInboxService {
       .subscribe(() => {
         if (this.auth.getToken()) this.refresh();
       });
+
+    if (typeof document !== 'undefined') {
+      const onVis = () => {
+        if (document.visibilityState === 'visible' && this.auth.getToken()) this.refresh();
+      };
+      document.addEventListener('visibilitychange', onVis);
+    }
   }
 
   refresh(): void {
@@ -97,6 +115,7 @@ export class NotificationsInboxService {
   }
 
   clear(): void {
+    this.lastShopUnread = -1;
     this.unreadCount.set(0);
     this.unreadByShop.set({});
     void syncAppBadge(0);

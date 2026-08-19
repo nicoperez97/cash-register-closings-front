@@ -13,7 +13,8 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile, safeUploadFileName } from '../../shared/utils/input-file';
 import { copyText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
-import { downloadMenuPdf } from '../../shared/pdf/menu-pdf';
+import { downloadIframePdf } from '../../shared/pdf/html-pdf';
+import { pdfFileSlug } from '../../shared/pdf/pdf-text';
 
 export type ShopMenuItem = {
   name: string;
@@ -590,20 +591,27 @@ export class AdminMenuPage {
       this.snack.open('Agregá ítems a la carta antes de generar el PDF', 'OK', { duration: 3000 });
       return;
     }
+    const url = this.activePublicUrl();
+    if (!url) {
+      this.snack.open('Guardá la carta y activá el módulo público para generar el PDF', 'OK', {
+        duration: 3500,
+      });
+      return;
+    }
     void (async () => {
       try {
-        await downloadMenuPdf({
-          shopName: shop.name ?? 'Carta',
-          logoUrl: this.shops.logoUrl(),
-          accentColor: this.shops.accentColor() || shop.accentColor,
-          phone: shop.phone ?? null,
-          instagramHandle: shop.instagramHandle ?? null,
-          menuTitle: this.title || this.menuSlug || 'Carta',
-          note: this.note,
-          sections,
+        await downloadIframePdf({
+          url,
+          selector: '.menu:not(.menu--error)',
+          readySelector: '.menu__sheet',
+          filename: `carta-${pdfFileSlug(this.title || this.menuSlug || shop.name || 'carta')}.pdf`,
+          widthPx: 640,
+          hide: '.menu__mask, .pdf-hide',
         });
       } catch {
-        this.snack.open('No se pudo generar el PDF', 'OK', { duration: 3500 });
+        this.snack.open('No se pudo generar el PDF. Revisá que la carta pública esté activa.', 'OK', {
+          duration: 4000,
+        });
       }
     })();
   }

@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { NotificationsInboxService } from './notifications-inbox.service';
+import { PageRefreshService } from '../../core/page-refresh.service';
 import {
   PushEnableDialogComponent,
   PushEnableDialogResult,
@@ -24,6 +25,7 @@ export class PushNotificationsService {
   private readonly swPush = inject(SwPush);
   private readonly auth = inject(AuthService);
   private readonly inbox = inject(NotificationsInboxService);
+  private readonly pageRefresh = inject(PageRefreshService);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
 
@@ -46,9 +48,11 @@ export class PushNotificationsService {
     this.listening = true;
     this.swPush.messages.subscribe(() => {
       this.inbox.refresh();
+      this.pageRefresh.refreshFromInbox();
     });
     this.swPush.notificationClicks.subscribe((ev) => {
       this.inbox.refresh();
+      this.pageRefresh.refreshFromInbox();
       const url = (ev.notification?.data as { url?: string } | undefined)?.url;
       if (url && typeof window !== 'undefined') {
         // El SW ya navega; esto cubre algunos browsers

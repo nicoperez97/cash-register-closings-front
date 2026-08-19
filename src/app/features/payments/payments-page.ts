@@ -23,12 +23,13 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { PaymentsApiService, PaymentStatus, ShopPayment, paymentPriorityRank } from './payments-api.service';
+import { PaymentsApiService, PaymentStatus, ShopPayment } from './payments-api.service';
 import { PaymentCardComponent } from './payment-card';
 import { PaymentsFiltersPanelComponent } from './payments-filters-panel';
-import { compareDueDate, PAYMENT_STATUS_LABEL } from './payments-display.util';
+import { comparePayments, loadPaymentSort, PAYMENT_SORT_OPTIONS, savePaymentSort, type PaymentSortKey } from './payments-display.util';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
@@ -48,7 +49,7 @@ import {
 import { shareText } from '../../shared/utils/share-text';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { SpinnerComponent } from '../../shared/components/spinner';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, map } from 'rxjs';
 import {
   buildPaymentsListFilterOpts,
   countActivePaymentFilters,
@@ -59,13 +60,19 @@ import {
   clearedFiltersForDeepLink,
   downloadBlobFile,
   filterActivePaymentAccounts,
+  loadPaymentsMobileView,
   loadPaymentsViewMode,
   mapShopUsersForPayments,
   paymentsExportFilename,
+  savePaymentsMobileView,
   savePaymentsViewMode,
   paymentMatchesKind,
   shouldRedirectPaymentKind,
+  statusesForPaymentTab,
   type PaymentKind,
+  type PaymentListTab,
+  type PaymentsDisplayMode,
+  type PaymentsMobileView,
   type PaymentsViewMode,
 } from './payments-page-actions';
 
@@ -92,22 +99,92 @@ import {
       (action)="openCreate()"
     />
 
+    <div class="pay-tabs-bar">
+      <nav class="pay-tabs" role="tablist" aria-label="Estado de los pagos">
+        <button
+          type="button"
+          class="pay-tabs__btn"
+          role="tab"
+          [class.pay-tabs__btn--on]="listTab() === 'pending'"
+          [attr.aria-selected]="listTab() === 'pending'"
+          (click)="setListTab('pending')"
+        >
+          Pendientes
+        </button>
+        <button
+          type="button"
+          class="pay-tabs__btn"
+          role="tab"
+          [class.pay-tabs__btn--on]="listTab() === 'paid'"
+          [attr.aria-selected]="listTab() === 'paid'"
+          (click)="setListTab('paid')"
+        >
+          Pagados
+        </button>
+      </nav>
+      <button
+        type="button"
+        class="pay-sort"
+        [matMenuTriggerFor]="sortMenu"
+        aria-label="Orden de la lista"
+      >
+        <span class="pay-sort__kicker">Orden</span>
+        <span class="pay-sort__value">
+          {{ sortLabel() }}
+          <mat-icon>expand_more</mat-icon>
+        </span>
+      </button>
+      <mat-menu #sortMenu="matMenu" panelClass="pay-sort-menu">
+        @for (opt of sortOptions(); track opt.value) {
+          <button
+            mat-menu-item
+            type="button"
+            [class.pay-sort-menu__on]="effectiveSort() === opt.value"
+            (click)="onSort(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        }
+      </mat-menu>
+    </div>
+    @if (listTab() === 'paid') {
+      <div class="pay-tabs__extras">
+        <span class="pay-tabs__extras-label">También ver</span>
+        <button
+          type="button"
+          class="pay-tabs__chip"
+          [class.pay-tabs__chip--on]="includeRejected()"
+          (click)="togglePaidExtra('rejected')"
+        >
+          Rechazados
+        </button>
+        <button
+          type="button"
+          class="pay-tabs__chip"
+          [class.pay-tabs__chip--on]="includeCancelled()"
+          (click)="togglePaidExtra('cancelled')"
+        >
+          Cancelados
+        </button>
+      </div>
+    }
+
     <app-payments-filters-panel
       [collapsed]="filtersCollapsed()"
       [activeFilterCount]="activeFilterCount()"
       [viewMode]="viewMode()"
+      [mobileView]="mobileView()"
+      [isMobile]="!!isMobile()"
       [selecting]="selecting()"
       [exporting]="exporting()"
       [shopId]="shopId()"
       [mineOnly]="mineOnly()"
       [kind]="kind()"
       [currentUserId]="currentUserId()"
-      [statusOptions]="statusOptions"
       [filterUsers]="filterUsers()"
       [suppliers]="suppliers()"
       [services]="services()"
       [employees]="employees()"
-      [statusFilter]="statusFilter"
       [validatorFilter]="validatorFilter"
       [payerFilter]="payerFilter"
       [dueRange]="dueRange"
@@ -118,6 +195,7 @@ import {
       [amountMinFilter]="amountMinFilter"
       [amountMaxFilter]="amountMaxFilter"
       (viewModeChange)="onViewMode($event)"
+      (mobileViewChange)="onMobileView($event)"
       (toggleSelecting)="toggleSelecting()"
       (exportExcel)="exportExcel()"
       (toggleFilters)="toggleFilters()"
@@ -126,8 +204,9 @@ import {
 
     <div
       class="pay-list"
-      [class.pay-list--cards]="viewMode() === 'cards'"
-      [class.pay-list--list]="viewMode() === 'list'"
+      [class.pay-list--cards]="displayMode() === 'cards'"
+      [class.pay-list--list]="displayMode() === 'list'"
+      [class.pay-list--compact]="displayMode() === 'compact'"
     >
       @if (loading()) {
         <div class="panel-card guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
@@ -141,7 +220,7 @@ import {
         @for (p of visibleRows(); track p.id) {
           <app-payment-card
             [payment]="p"
-            [viewMode]="viewMode()"
+            [viewMode]="displayMode()"
             [selecting]="selecting()"
             [selected]="isSelected(p.id)"
             [focused]="focusedPaymentId() === p.id"
@@ -219,6 +298,12 @@ export class PaymentsPage {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   readonly shops = inject(ShopContextService);
+  readonly isMobile = toSignal(
+    inject(BreakpointObserver)
+      .observe('(max-width: 720px)')
+      .pipe(map((r) => r.matches)),
+    { initialValue: false },
+  );
 
   /** Pago resaltado al abrir un enlace directo (?payment=…). */
   readonly focusedPaymentId = signal<string | null>(null);
@@ -251,10 +336,19 @@ export class PaymentsPage {
       : `${shop} · internos (sueldos, reintegros, etc.)`;
   });
   readonly emptyTitle = computed(() => {
-    if (this.kind() === 'service') return 'Sin pagos a servicios';
-    return this.isSupplierKind() ? 'Sin pagos a proveedores' : 'Sin pagos a empleados';
+    if (this.listTab() === 'paid') {
+      if (this.kind() === 'service') return 'Sin pagos a servicios en esta vista';
+      return this.isSupplierKind()
+        ? 'Sin pagos a proveedores en esta vista'
+        : 'Sin pagos a empleados en esta vista';
+    }
+    if (this.kind() === 'service') return 'Sin pagos a servicios pendientes';
+    return this.isSupplierKind() ? 'Sin pagos a proveedores pendientes' : 'Sin pagos a empleados pendientes';
   });
   readonly emptyHint = computed(() => {
+    if (this.listTab() === 'paid') {
+      return 'Acá se ven los pagados. Podés sumar rechazados y cancelados.';
+    }
     if (this.kind() === 'service') return 'Creá un pago y asignale un servicio.';
     return this.isSupplierKind()
       ? 'Creá un pago y asignale un proveedor.'
@@ -269,6 +363,10 @@ export class PaymentsPage {
   readonly loading = signal(true);
   readonly actionBusyId = signal<string | null>(null);
   readonly viewMode = signal<PaymentsViewMode>(loadPaymentsViewMode());
+  readonly mobileView = signal<PaymentsMobileView>(loadPaymentsMobileView());
+  readonly displayMode = computed<PaymentsDisplayMode>(() =>
+    this.isMobile() ? this.mobileView() : this.viewMode(),
+  );
   readonly selecting = signal(false);
   readonly selectedIds = signal<ReadonlySet<string>>(new Set());
   readonly selectedCount = computed(() => this.selectedIds().size);
@@ -306,14 +404,25 @@ export class PaymentsPage {
   readonly amountMaxFilter = new FormControl<number | null>(null);
   readonly mineOnly = signal(false);
   readonly exporting = signal(false);
+  readonly listTab = signal<PaymentListTab>('pending');
+  readonly includeRejected = signal(false);
+  readonly includeCancelled = signal(false);
+  readonly sortKey = signal<PaymentSortKey>(loadPaymentSort());
 
-  readonly statusOptions = (
-    Object.entries(PAYMENT_STATUS_LABEL) as Array<[PaymentStatus, string]>
-  ).map(([value, label]) => ({ value, label }));
+  readonly sortOptions = computed(() =>
+    PAYMENT_SORT_OPTIONS.filter((o) => !o.paidOnly || this.listTab() === 'paid'),
+  );
 
-  private readonly statusFilterValue = toSignal(this.statusFilter.valueChanges, {
-    initialValue: this.statusFilter.value,
+  readonly effectiveSort = computed((): PaymentSortKey => {
+    const key = this.sortKey();
+    if (key === 'paid' && this.listTab() !== 'paid') return 'updated';
+    return key;
   });
+
+  readonly sortLabel = computed(
+    () => this.sortOptions().find((o) => o.value === this.effectiveSort())?.label ?? 'Última modificación',
+  );
+
   private readonly validatorFilterValue = toSignal(this.validatorFilter.valueChanges, {
     initialValue: this.validatorFilter.value,
   });
@@ -354,7 +463,10 @@ export class PaymentsPage {
 
   readonly activeFilterCount = computed(() =>
     countActivePaymentFilters({
-      statusCount: this.statusFilterValue()?.length ?? 0,
+      extraStatusCount:
+        this.listTab() === 'paid'
+          ? Number(this.includeRejected()) + Number(this.includeCancelled())
+          : 0,
       mineOnly: this.mineOnly(),
       validatorCount: this.validatorFilterValue()?.length ?? 0,
       payerCount: this.payerFilterValue()?.length ?? 0,
@@ -376,11 +488,8 @@ export class PaymentsPage {
 
   readonly visibleRows = computed(() => {
     const list = this.rows().filter((p) => paymentMatchesKind(p, this.kind()));
-    return [...list].sort((a, b) => {
-      const byPrio = paymentPriorityRank(a.priority) - paymentPriorityRank(b.priority);
-      if (byPrio !== 0) return byPrio;
-      return compareDueDate(a.dueDate, b.dueDate);
-    });
+    const sort = this.effectiveSort();
+    return [...list].sort((a, b) => comparePayments(a, b, sort));
   });
 
   canManage(): boolean {
@@ -501,6 +610,32 @@ export class PaymentsPage {
     });
   }
 
+  setListTab(tab: PaymentListTab): void {
+    if (this.listTab() === tab) return;
+    this.listTab.set(tab);
+    this.applyListTabStatuses();
+  }
+
+  onSort(key: PaymentSortKey): void {
+    this.sortKey.set(key);
+    savePaymentSort(key);
+  }
+
+  togglePaidExtra(kind: 'rejected' | 'cancelled'): void {
+    if (kind === 'rejected') this.includeRejected.update((v) => !v);
+    else this.includeCancelled.update((v) => !v);
+    this.applyListTabStatuses();
+  }
+
+  private applyListTabStatuses(): void {
+    this.statusFilter.setValue(
+      statusesForPaymentTab(this.listTab(), {
+        rejected: this.includeRejected(),
+        cancelled: this.includeCancelled(),
+      }),
+    );
+  }
+
   filterMine(): void {
     if (!this.currentUserId()) return;
     if (this.mineOnly()) {
@@ -518,6 +653,12 @@ export class PaymentsPage {
     const mode: PaymentsViewMode = value === 'list' ? 'list' : 'cards';
     this.viewMode.set(mode);
     savePaymentsViewMode(mode);
+  }
+
+  onMobileView(value: PaymentsMobileView | null | undefined): void {
+    const mode: PaymentsMobileView = value === 'compact' ? 'compact' : 'list';
+    this.mobileView.set(mode);
+    savePaymentsMobileView(mode);
   }
 
   isSelected(id: string): boolean {
@@ -684,6 +825,9 @@ export class PaymentsPage {
         this.amountMaxFilter.setValue(cleared.amountMax, { emitEvent: false });
         this.dueRange.reset(cleared.dueRange, { emitEvent: false });
         this.paidRange.reset(cleared.paidRange, { emitEvent: false });
+        this.listTab.set(cleared.listTab);
+        this.includeRejected.set(cleared.includeRejected);
+        this.includeCancelled.set(cleared.includeCancelled);
         this.statusFilter.setValue(cleared.statusFilter, { emitEvent: false });
         this.filtersCollapsed.set(false);
         this.deepLinkHandled = true;

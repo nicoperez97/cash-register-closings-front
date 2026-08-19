@@ -14,7 +14,7 @@ import { paymentDeepLink, paymentSharePayload } from '../../shared/components/re
 import { copyText, shareText } from '../../shared/utils/share-text';
 import { PaymentsApiService, ShopPayment } from './payments-api.service';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
-import type { PaymentKind } from './payments-page-actions';
+import type { PaymentKind, PaymentsDisplayMode } from './payments-page-actions';
 import {
   formatPaymentAmount,
   formatPaymentDate,
@@ -39,6 +39,7 @@ import {
   host: {
     class: 'panel-card pay-card',
     '[class.pay-card--list]': 'viewMode() === "list"',
+    '[class.pay-card--compact]': 'viewMode() === "compact"',
     '[class.pay-card--selected]': 'selected()',
     '[class.pay-card--pick]': 'selecting()',
     '[class.pay-card--focus]': 'focused()',
@@ -57,6 +58,28 @@ import {
         [attr.aria-label]="'Seleccionar ' + (payment().title || 'pago')"
       />
     }
+    @if (viewMode() === 'compact') {
+      <div class="pay-card__compact">
+        <div class="pay-card__compact-main">
+          <h3 class="pay-card__title">
+            {{ payment().title || 'Sin concepto' }}
+            @if (payment().priority) {
+              <span class="pay-card__prio" [attr.data-priority]="payment().priority">{{
+                priorityLabel(payment().priority)
+              }}</span>
+            }
+          </h3>
+          <p
+            class="pay-card__meta"
+            [class.pay-card__due--overdue]="dueUrgency(payment()) === 'overdue'"
+            [class.pay-card__due--soon]="dueUrgency(payment()) === 'soon'"
+          >
+            {{ compactMeta() }}
+          </p>
+        </div>
+        <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
+      </div>
+    } @else {
     <div class="pay-card__top">
       <div>
         <h3 class="pay-card__title">
@@ -261,6 +284,7 @@ import {
         }
       </details>
     }
+    }
 
     <div class="pay-card__actions">
       @if (canValidate(payment())) {
@@ -389,13 +413,29 @@ export class PaymentCardComponent {
   private readonly confirm = inject(ConfirmDialogService);
 
   readonly payment = input.required<ShopPayment>();
-  readonly viewMode = input.required<'cards' | 'list'>();
+  readonly viewMode = input.required<PaymentsDisplayMode>();
   readonly selecting = input(false);
   readonly selected = input(false);
   readonly focused = input(false);
   readonly payBusy = input(false);
   readonly kind = input<PaymentKind>('supplier');
   readonly billedKind = computed(() => this.kind() !== 'employee');
+  readonly compactMeta = computed(() => {
+    const p = this.payment();
+    const bits = [this.statusLabel(p.status)];
+    if (p.dueDate) {
+      const due = this.formatDate(p.dueDate);
+      bits.push(this.dueUrgency(p) === 'overdue' ? `Vencido ${due}` : `Vence ${due}`);
+    }
+    const party =
+      this.kind() === 'supplier'
+        ? p.supplierName
+        : this.kind() === 'service'
+          ? p.serviceName
+          : p.employeeName;
+    if (party) bits.push(party);
+    return bits.join(' · ');
+  });
   readonly partyBankAlias = computed(() => {
     const p = this.payment();
     return this.kind() === 'service' ? p.serviceBankAlias : p.supplierBankAlias;

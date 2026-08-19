@@ -7,6 +7,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toDataURL } from 'qrcode';
 import { environment } from '../../../environments/environment';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
+import { menuPriceOf, normalizeMenuText, prettySection } from './menu-display';
+import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
+import { pdfFileSlug } from '../../shared/pdf/pdf-text';
 
 type PublicShop = {
   id: string;
@@ -60,7 +63,7 @@ type FilterOpt = { id: FilterId; label: string };
         <button type="button" class="menu__btn" (click)="load()">Reintentar</button>
       </div>
     } @else if (shop(); as s) {
-      <div class="menu" [style.--accent]="accent()">
+      <div class="menu" id="menu-pdf-root" [style.--accent]="accent()">
         <div class="menu__sheet">
           <header class="menu__hero">
             @if (logoUrl()) {
@@ -91,6 +94,10 @@ type FilterOpt = { id: FilterId; label: string };
                 <span aria-hidden="true">·</span>
                 <button type="button" class="menu__link-btn" (click)="openSource()">Carta física</button>
               }
+              <span aria-hidden="true">·</span>
+              <button type="button" class="menu__link-btn pdf-hide" [disabled]="printing()" (click)="downloadPdf()">
+                {{ printing() ? 'Generando…' : 'PDF' }}
+              </button>
             </div>
           </header>
 
@@ -423,6 +430,11 @@ type FilterOpt = { id: FilterId; label: string };
         background: color-mix(in srgb, var(--sheet) 92%, transparent);
         backdrop-filter: blur(10px);
       }
+      .menu.pdf-capturing .menu__dock {
+        position: static;
+        backdrop-filter: none;
+        background: var(--sheet);
+      }
       .menu__search {
         display: flex;
         align-items: center;
@@ -718,7 +730,7 @@ export class PublicMenuPageComponent implements OnInit {
     return opts;
   });
   readonly visibleSections = computed(() => {
-    const q = normalizeText(this.query());
+    const q = normalizeMenuText(this.query());
     const filter = this.filter();
     return this.sections()
       .map((s, i) => ({
@@ -740,6 +752,7 @@ export class PublicMenuPageComponent implements OnInit {
   readonly sourceBlobUrl = signal<string | null>(null);
   readonly sourceSafeUrl = signal<SafeResourceUrl | null>(null);
   readonly sourceHref = signal<string | null>(null);
+  readonly printing = signal(false);
 
   constructor() {
     afterNextRender(() => this.watchSections());
@@ -884,6 +897,19 @@ export class PublicMenuPageComponent implements OnInit {
     a.click();
   }
 
+  async downloadPdf(): Promise<void> {
+    if (this.printing()) return;
+    const name = this.shop()?.name || this.currentSlug() || 'carta';
+    this.printing.set(true);
+    try {
+      await downloadCaptureRootPdf('menu-pdf-root', `carta-${pdfFileSlug(name)}.pdf`, {
+        hide: '.menu__mask, .pdf-hide',
+      });
+    } finally {
+      this.printing.set(false);
+    }
+  }
+
   private watchSections(): void {
     this.observer?.disconnect();
     const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-sec]'));
@@ -920,102 +946,19 @@ export class PublicMenuPageComponent implements OnInit {
   }
 
   priceOf(item: MenuItem): string {
-    const label = String(item.priceLabel ?? '').trim();
-    if (label) return label;
-    if (item.price == null || !Number.isFinite(Number(item.price))) return '';
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      maximumFractionDigits: 0,
-    }).format(Number(item.price));
+    return menuPriceOf(item);
   }
 }
 
-function normalizeText(raw: string): string {
-  return String(raw ?? '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
 function slugify(raw: string): string {
-  return normalizeText(raw)
+  return normalizeMenuText(raw)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 40);
 }
 
-const SECTION_SPLIT =
-  /^(la\s*)?(pasta|pizze?|panini|panino|dolci|stuzzichini|aperitivi|birre|bibite|vini|entradas?|postres?|bebidas?|tragos?|ensaladas?|hamburguesas?|sandwiches?|platos?|principales?|minutas?|vinos?|cervezas?|cocktails?)\b/i;
-
-function prettySection(name: string): string {
-  let t = String(name ?? '').trim();
-  if (!t) return 'Carta';
-  const known: Record<string, string> = {
-    lapasta: 'La pasta',
-    aperitivilebirre: 'Aperitivi e birre',
-    aperitivibirre: 'Aperitivi e birre',
-    stuzzichini: 'Stuzzichini',
-    dolci: 'Dolci',
-    bibite: 'Bibite',
-    carta: 'Carta',
-    vini: 'Vini',
-    panini: 'Panini',
-  };
-  const key = normalizeText(t).replace(/\s+/g, '');
-  if (known[key]) return known[key];
-
-  // "Aperitivilebirre" / "Lapasta" → insert spaces before known words
-  if (!/\s/.test(t) && t.length > 8) {
-    const lower = t.toLowerCase();
-    const parts = [
-      'aperitivi',
-      'stuzzichini',
-      'hamburguesas',
-      'sandwiches',
-      'principales',
-      'entradas',
-      'ensaladas',
-      'cocktails',
-      'cervezas',
-      'bebidas',
-      'postres',
-      'panini',
-      'panino',
-      'pasta',
-      'pizze',
-      'pizza',
-      'dolci',
-      'birre',
-      'bibite',
-      'vini',
-      'vinos',
-      'tragos',
-    ];
-    for (const part of parts) {
-      const idx = lower.indexOf(part);
-      if (idx > 0) {
-        const left = t.slice(0, idx).trim();
-        const right = t.slice(idx);
-        if (SECTION_SPLIT.test(right) || parts.includes(part)) {
-          t = `${left} ${right}`.replace(/\s+/g, ' ').trim();
-          if (/^la$/i.test(left) && /^pasta/i.test(right)) t = `La ${right}`;
-          if (/aperitivi/i.test(left) && /^birre/i.test(right)) t = 'Aperitivi e birre';
-          break;
-        }
-      }
-    }
-  }
-
-  if (t === t.toUpperCase() && /[A-ZÁÉÍÓÚÜÑ]/.test(t)) {
-    return t.charAt(0) + t.slice(1).toLowerCase();
-  }
-  return t.replace(/\s+/g, ' ');
-}
-
 function blobOf(item: MenuItem, section: MenuSection): string {
-  return normalizeText(`${section.name} ${item.name} ${item.description ?? ''}`);
+  return normalizeMenuText(`${section.name} ${item.name} ${item.description ?? ''}`);
 }
 
 function isVeggie(item: MenuItem, section: MenuSection): boolean {

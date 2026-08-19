@@ -98,6 +98,7 @@ export interface ShopPayment {
   hasReceiptFile?: boolean;
   receiptFileName?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface UpsertPaymentBody {
