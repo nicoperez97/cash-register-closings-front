@@ -77,14 +77,14 @@ export const routes: Routes = [
       },
       {
         path: 'closings',
-        canActivate: [permissionGuard('closings.read')],
+        canActivate: [anyPermissionGuard('closings.read', 'closings.create')],
         loadComponent: () =>
           import('./features/closings/closings-list').then((m) => m.ClosingsListPage),
         title: 'Cierres',
       },
       {
         path: 'cash-withdrawals',
-        canActivate: [permissionGuard('closings.read')],
+        canActivate: [permissionGuard('cashWithdrawals.read')],
         loadComponent: () =>
           import('./features/cash-withdrawals/cash-withdrawals-page').then(
             (m) => m.CashWithdrawalsPage,
@@ -93,7 +93,7 @@ export const routes: Routes = [
       },
       {
         path: 'settlements',
-        canActivate: [permissionGuard('closings.read'), shopFeatureGuard('settlements')],
+        canActivate: [permissionGuard('settlements.read'), shopFeatureGuard('settlements')],
         loadComponent: () =>
           import('./features/settlements/settlements-page').then((m) => m.SettlementsPage),
         title: 'Rendiciones',

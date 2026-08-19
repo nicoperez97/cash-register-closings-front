@@ -51,7 +51,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'La lista',
         icon: 'list',
         tone: 'read',
-        anyOf: ['closings.read'],
+        anyOf: ['closings.read', 'closings.create'],
         body: 'Cada fila es un día. Vas a ver estado (borrador, enviado, bloqueado) y totales.',
         items: [
           'Entrá al cierre para ver el detalle.',
@@ -103,7 +103,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Qué hacer',
         icon: 'payments',
         tone: 'do',
-        anyOf: ['closings.read'],
+        anyOf: ['cashWithdrawals.read'],
         body: 'Acá están los retiros que salieron del cierre y todavía no tienen dueño.',
         items: [
           'Marcá retirado cuando la plata ya salió.',
@@ -121,7 +121,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Seguimiento',
         icon: 'account_balance_wallet',
         tone: 'read',
-        anyOf: ['closings.read'],
+        anyOf: ['settlements.read'],
         body: 'Pendiente vs realizado, según las cuentas aparte del local (efectivo o depósito).',
         tip: 'Si un local rinde “después”, esas cuentas aparecen acá y no se dan por cerradas en el día.',
       },
@@ -462,7 +462,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'schedule',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Extra = lo que se quedó después de su hora de retirada (o la del local). El costo usa el precio/hora del empleado.',
+        body: 'Elegí el rango y tocá Ver. Destildado, extra es lo que se quedó después de su retirada (o la del local). Tildá “Contar llegadas tarde y retiros temprano” para sumar también esos desvíos. El costo usa el precio/hora del empleado.',
       },
     ],
   },
@@ -714,6 +714,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'El rol Empleado también puede tener módulos extra (propinas, normas, reintegros…).',
           'Productor = sus horas + sus reintegros, no el tablero de servicio.',
+          'Cierres, A Retirar y Rendiciones se tildan por separado.',
         ],
         tip: 'Si alguien no ve un botón, casi siempre es un tilde de módulo, no un bug.',
       },

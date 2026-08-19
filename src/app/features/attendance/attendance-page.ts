@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -108,6 +109,7 @@ const MONTH_LABELS = [
     MatIconModule,
     MatTooltipModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatDialogModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -283,35 +285,52 @@ const MONTH_LABELS = [
     }
 
     @if (shopId() && canManage() && shiftTimesEnabled()) {
-      <div class="panel-card mb-3">
+      <div class="panel-card mb-3 ot-report">
         <div class="ot-report__head">
           <div>
             <h2 class="today-panel__title">Horas extra</h2>
-            <p class="today-panel__date">Suma de horas después de la retirada, con costo por empleado</p>
+            <p class="today-panel__date">
+              @if (otCountAll()) {
+                Suma llegadas tarde, retiros temprano y lo que se quedó después de la retirada.
+              } @else {
+                Suma de horas después de la retirada, con costo por empleado.
+              }
+            </p>
           </div>
         </div>
         <div class="ot-report__filters">
-          <label class="today-ot">
-            <span>Desde</span>
-            <input type="date" [ngModel]="otFrom()" (ngModelChange)="otFrom.set($event)" />
-          </label>
-          <label class="today-ot">
-            <span>Hasta</span>
-            <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
-          </label>
-          <button mat-flat-button color="primary" type="button" [disabled]="otLoading()" (click)="loadOvertimeSummary()">
-            <mat-icon>query_stats</mat-icon>
-            Ver
-          </button>
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="!otSummary() || otExporting()"
-            (click)="exportOvertimeSummary()"
+          <div class="ot-report__dates">
+            <label class="ot-report__field">
+              <span>Desde</span>
+              <input type="date" [ngModel]="otFrom()" (ngModelChange)="otFrom.set($event)" />
+            </label>
+            <label class="ot-report__field">
+              <span>Hasta</span>
+              <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
+            </label>
+          </div>
+          <mat-checkbox
+            class="ot-report__check"
+            [ngModel]="otCountAll()"
+            (ngModelChange)="onOtCountAllChange($event)"
           >
-            <mat-icon>download</mat-icon>
-            Excel
-          </button>
+            Contar llegadas tarde y retiros temprano
+          </mat-checkbox>
+          <div class="ot-report__actions">
+            <button mat-flat-button color="primary" type="button" [disabled]="otLoading()" (click)="loadOvertimeSummary()">
+              <mat-icon>query_stats</mat-icon>
+              Ver
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="!otSummary() || otExporting()"
+              (click)="exportOvertimeSummary()"
+            >
+              <mat-icon>download</mat-icon>
+              Excel
+            </button>
+          </div>
         </div>
         @if (otSummary(); as sum) {
           <div class="concept-report__wrap">
@@ -1000,8 +1019,7 @@ const MONTH_LABELS = [
         margin-top: 0.65rem;
         align-items: end;
       }
-      .att-excel-range .today-ot input[type='date'],
-      .ot-report__filters .today-ot input[type='date'] {
+      .att-excel-range .today-ot input[type='date'] {
         width: 9.6rem;
       }
       .today-ot-badge {
@@ -1015,10 +1033,55 @@ const MONTH_LABELS = [
       }
       .ot-report__filters {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.55rem;
-        align-items: end;
+        flex-direction: column;
+        gap: 0.7rem;
+        align-items: stretch;
         margin-bottom: 0.75rem;
+      }
+      .ot-report__dates {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.65rem;
+      }
+      .ot-report__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.28rem;
+        min-width: 0;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .ot-report__field input[type='date'] {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        min-height: 42px;
+        box-sizing: border-box;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 10px;
+        padding: 0.35rem 0.55rem;
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 650;
+        color: var(--guy-navy, #003366);
+        background: #fff;
+      }
+      .ot-report__check {
+        margin: 0;
+        white-space: normal;
+      }
+      .ot-report__actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.5rem;
+      }
+      .ot-report__actions button {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
       }
       .ot-report__table {
         width: 100%;
@@ -1039,63 +1102,141 @@ const MONTH_LABELS = [
         opacity: 0.65;
       }
       @media (max-width: 720px) {
+        .att-public {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.5rem;
+        }
+        .att-public__btn {
+          width: 100%;
+          justify-content: center;
+          box-sizing: border-box;
+          min-height: 42px;
+          padding: 0.45rem 0.5rem;
+          font-size: 0.82rem;
+        }
+        .today-panel {
+          padding: 0.75rem 0.8rem 0.85rem;
+        }
         .today-panel__head {
+          flex-direction: column;
           align-items: stretch;
-          gap: 0.6rem;
+          gap: 0.7rem;
+          margin-bottom: 0.7rem;
+        }
+        .today-panel__title {
+          font-size: 1rem;
+        }
+        .today-panel__date {
+          font-size: 0.8rem;
+        }
+        .today-panel__day-nav {
+          margin-top: 0.3rem;
+          gap: 0;
+        }
+        .today-panel__day-input {
+          flex: 1 1 auto;
+          min-width: 0;
+          width: auto;
         }
         .today-panel__actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
           width: 100%;
+          gap: 0.45rem;
         }
         .today-panel__actions button {
-          flex: 1 1 calc(50% - 0.25rem);
-          min-height: 44px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          min-height: 42px;
+          margin: 0;
+        }
+        .today-panel__actions button:last-child:nth-child(odd) {
+          grid-column: 1 / -1;
         }
         .today-panel__chips {
           flex-direction: column;
           flex-wrap: nowrap;
-          gap: 0.55rem;
+          gap: 0.4rem;
         }
         .today-chip-row {
           display: flex;
-          flex-direction: column;
-          align-items: stretch;
+          flex-direction: row;
+          align-items: center;
           width: 100%;
           max-width: 100%;
-          border-radius: 14px;
-          padding: 0.2rem 0.55rem 0.55rem;
+          border-radius: 12px;
+          padding: 0.15rem 0.4rem 0.15rem 0.1rem;
           box-sizing: border-box;
         }
         .today-chip-main {
-          width: 100%;
+          flex: 1 1 auto;
+          min-width: 0;
         }
         .today-chip {
           flex: 1 1 auto;
           width: auto;
           min-width: 0;
+          min-height: 42px;
           justify-content: flex-start;
-          padding: 0.45rem 0.15rem;
+          padding: 0.3rem 0.2rem 0.3rem 0.5rem;
+          font-size: 0.86rem;
         }
         .today-chip-times {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.45rem;
-          width: 100%;
-          padding: 0 0.1rem 0.05rem;
+          display: flex;
+          flex: 0 0 auto;
+          align-items: center;
+          gap: 0.3rem;
+          width: auto;
+          padding: 0;
         }
         .today-ot {
           flex-direction: column;
           align-items: stretch;
-          gap: 0.22rem;
+          gap: 0.12rem;
           padding-right: 0;
         }
-        .today-ot input {
-          width: 100%;
-          min-height: 44px;
+        .today-ot span {
+          font-size: 0.58rem;
+          letter-spacing: 0.04em;
+          line-height: 1;
+        }
+        .today-chip-times .today-ot input {
+          width: 4.85rem;
+          max-width: 4.85rem;
+          min-height: 36px;
+          padding: 0.15rem 0.2rem;
+          font-size: 0.8rem;
           box-sizing: border-box;
+        }
+        @media (max-width: 380px) {
+          .today-chip-row {
+            flex-wrap: wrap;
+          }
+          .today-chip-times {
+            width: 100%;
+            justify-content: flex-end;
+            padding: 0 0.15rem 0.2rem;
+          }
         }
         .today-ot-badge {
           flex: 0 0 auto;
-          padding-right: 0.15rem;
+          padding-right: 0.1rem;
+        }
+        .att-excel-range {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          align-items: end;
+        }
+        .att-excel-range .today-ot input[type='date'] {
+          width: 100%;
+          min-width: 0;
+        }
+        .att-excel-range button {
+          width: 100%;
+          min-width: 0;
+          grid-column: 1 / -1;
         }
       }
       .att-cell-wrap {
@@ -1192,6 +1333,7 @@ export class AttendancePage {
     `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
   );
   readonly otTo = signal(this.todayIso());
+  readonly otCountAll = signal(false);
   readonly excelFrom = signal(
     `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
   );
@@ -2031,7 +2173,7 @@ export class AttendancePage {
         }>;
         totals: { presentDays: number; overtimeHours: number; overtimeCost: number };
       }>(`${environment.apiUrl}/shops/${shopId}/attendance/overtime-summary`, {
-        params: { from, to },
+        params: { from, to, countAll: this.otCountAll() ? 'true' : 'false' },
       })
       .subscribe({
         next: (data) => {
@@ -2045,6 +2187,11 @@ export class AttendancePage {
       });
   }
 
+  onOtCountAllChange(value: boolean): void {
+    this.otCountAll.set(!!value);
+    if (this.otSummary()) this.loadOvertimeSummary();
+  }
+
   exportOvertimeSummary(): void {
     const shopId = this.shopId();
     const from = this.otFrom();
@@ -2053,7 +2200,7 @@ export class AttendancePage {
     this.otExporting.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/attendance/overtime-summary.xlsx`, {
-        params: { from, to },
+        params: { from, to, countAll: this.otCountAll() ? 'true' : 'false' },
         responseType: 'blob',
       })
       .subscribe({
@@ -2062,7 +2209,7 @@ export class AttendancePage {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `horas-extra-${from}_${to}.xlsx`;
+          a.download = `horas-extra-${this.otCountAll() ? 'todo-' : ''}${from}_${to}.xlsx`;
           a.click();
           URL.revokeObjectURL(url);
         },

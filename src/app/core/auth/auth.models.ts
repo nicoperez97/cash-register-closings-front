@@ -8,6 +8,10 @@ export type Permission =
   | 'closings.read'
   | 'closings.update'
   | 'closings.lock'
+  | 'cashWithdrawals.read'
+  | 'cashWithdrawals.manage'
+  | 'settlements.read'
+  | 'settlements.manage'
   | 'reports.view'
   | 'reports.export'
   | 'shops.manage'
@@ -57,6 +61,10 @@ const ALL_PERMISSIONS: Permission[] = [
   'closings.read',
   'closings.update',
   'closings.lock',
+  'cashWithdrawals.read',
+  'cashWithdrawals.manage',
+  'settlements.read',
+  'settlements.manage',
   'reports.view',
   'reports.export',
   'shops.manage',
@@ -111,6 +119,10 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'closings.read',
     'closings.update',
     'closings.lock',
+    'cashWithdrawals.read',
+    'cashWithdrawals.manage',
+    'settlements.read',
+    'settlements.manage',
     'reports.view',
     'reports.export',
     'shops.manage',
@@ -155,6 +167,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
   CASHIER: ['closings.create', 'closings.read', 'tips.create', 'tips.read'],
   VIEWER: [
     'closings.read',
+    'cashWithdrawals.read',
+    'settlements.read',
     'reports.view',
     'reports.export',
     'employees.read',
@@ -176,6 +190,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
   ],
   PARTNER: [
     'closings.read',
+    'cashWithdrawals.read',
+    'settlements.read',
     'reports.view',
     'reports.export',
     'movements.read',
@@ -187,6 +203,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
 
 export type ModuleKey =
   | 'closings'
+  | 'cashWithdrawals'
+  | 'settlements'
   | 'reports'
   | 'movements'
   | 'attendance'
@@ -227,13 +245,37 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Cierres',
     icon: 'point_of_sale',
     group: 'daily',
-    hint: 'Cargar y editar cierres de caja',
+    hint: 'Cargar y editar cierres de caja. No incluye A Retirar ni Rendiciones.',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'create', label: 'Solo crear', short: 'Crear' },
       { value: 'read', label: 'Ver', short: 'Ver' },
       { value: 'update', label: 'Editar', short: 'Editar' },
       { value: 'lock', label: 'Bloquear', short: 'Bloquear' },
+    ],
+  },
+  {
+    key: 'cashWithdrawals',
+    label: 'A Retirar',
+    icon: 'payments',
+    group: 'daily',
+    hint: 'Efectivo del cierre que hay que sacar y asignar',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'settlements',
+    label: 'Rendiciones',
+    icon: 'account_balance_wallet',
+    group: 'daily',
+    hint: 'Cuentas que se rinden después, no en el cierre del día',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
     ],
   },
   {
@@ -568,6 +610,8 @@ export const MODULE_PRESETS: Array<{
     icon: 'visibility',
     modules: {
       closings: 'read',
+      cashWithdrawals: 'read',
+      settlements: 'read',
       reports: 'export',
       movements: 'read',
       attendance: 'read',

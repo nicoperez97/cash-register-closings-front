@@ -188,7 +188,10 @@ export class ToolbarComponent implements OnInit {
         icon: 'payments',
       });
     }
-    if (hasShopPermission(user, shopId, 'closings.read')) {
+    if (
+      hasShopPermission(user, shopId, 'closings.read') ||
+      hasShopPermission(user, shopId, 'closings.create')
+    ) {
       items.push({
         id: 'closings',
         kind: 'route',

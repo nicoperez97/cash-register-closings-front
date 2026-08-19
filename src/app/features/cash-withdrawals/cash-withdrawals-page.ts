@@ -514,7 +514,7 @@ export class CashWithdrawalsPage {
   readonly canPick = computed(() => {
     const shopId = this.shopId();
     const user = this.auth.currentUser();
-    return !!(shopId && user && hasShopPermission(user, shopId, 'closings.update'));
+    return !!(shopId && user && hasShopPermission(user, shopId, 'cashWithdrawals.manage'));
   });
 
   readonly loading = signal(true);

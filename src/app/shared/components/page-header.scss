@@ -106,11 +106,12 @@
 
 @media (max-width: 720px) {
   .guy-page-header {
+    flex-direction: column;
     flex-wrap: nowrap;
-    align-items: center;
-    gap: var(--guy-space-2);
+    align-items: stretch;
+    gap: 0.55rem;
     margin-bottom: var(--guy-space-3);
-    padding: 0.55rem 0.75rem;
+    padding: 0.7rem 0.85rem;
   }
 
   .guy-page-header__eyebrow,
@@ -123,9 +124,10 @@
   }
 
   .guy-page-header__action {
-    width: auto;
-    min-height: 2.4rem;
+    width: 100%;
+    min-height: 2.5rem;
     padding: 0 0.8rem;
-    font-size: 0.82rem;
+    font-size: 0.86rem;
+    justify-content: center;
   }
 }

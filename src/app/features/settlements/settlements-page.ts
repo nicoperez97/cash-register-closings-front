@@ -455,7 +455,7 @@ export class SettlementsPage {
   readonly canSettle = computed(() => {
     const shopId = this.shopId();
     const user = this.auth.currentUser();
-    return !!(shopId && user && hasShopPermission(user, shopId, 'closings.update'));
+    return !!(shopId && user && hasShopPermission(user, shopId, 'settlements.manage'));
   });
 
   readonly loading = signal(true);

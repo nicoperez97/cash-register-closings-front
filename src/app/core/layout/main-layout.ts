@@ -156,22 +156,28 @@ export class MainLayoutComponent {
     ];
 
     const operacion: NonNullable<NavItem['children']> = [];
-    if (shopId && hasShopPermission(user, shopId, 'closings.read')) {
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'closings.read') ||
+        hasShopPermission(user, shopId, 'closings.create'))
+    ) {
       operacion.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'cashWithdrawals.read')) {
       operacion.push({
         label: 'A Retirar',
         route: '/cash-withdrawals',
         icon: 'payments',
         badge: this.cashWithdrawalsInbox.pendingCount() || null,
       });
-      if (this.settlementsInbox.enabled()) {
-        operacion.push({
-          label: 'Rendiciones',
-          route: '/settlements',
-          icon: 'account_balance_wallet',
-          badge: this.settlementsInbox.pendingCount() || null,
-        });
-      }
+    }
+    if (shopId && hasShopPermission(user, shopId, 'settlements.read') && this.settlementsInbox.enabled()) {
+      operacion.push({
+        label: 'Rendiciones',
+        route: '/settlements',
+        icon: 'account_balance_wallet',
+        badge: this.settlementsInbox.pendingCount() || null,
+      });
     }
     if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
       operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
@@ -516,14 +522,14 @@ export class MainLayoutComponent {
       return hasShopPermission(user, shopId, 'closings.update') || hasShopPermission(user, shopId, 'closings.read');
     }
     if (path.startsWith('/closings')) {
-      return hasShopPermission(user, shopId, 'closings.read');
+      return hasShopPermission(user, shopId, 'closings.read') || hasShopPermission(user, shopId, 'closings.create');
     }
     if (path.startsWith('/cash-withdrawals')) {
-      return hasShopPermission(user, shopId, 'closings.read');
+      return hasShopPermission(user, shopId, 'cashWithdrawals.read');
     }
     if (path.startsWith('/settlements')) {
       return (
-        hasShopPermission(user, shopId, 'closings.read') &&
+        hasShopPermission(user, shopId, 'settlements.read') &&
         (this.settlementsInbox.enabled() || !!this.shopContext.selectedShop()?.settlementsEnabled)
       );
     }

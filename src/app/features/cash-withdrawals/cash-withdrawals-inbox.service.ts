@@ -28,7 +28,7 @@ export class CashWithdrawalsInboxService {
       .pipe(
         switchMap((shopId) => {
           const user = this.auth.currentUser();
-          if (!shopId || !hasShopPermission(user, shopId, 'closings.read')) {
+          if (!shopId || !hasShopPermission(user, shopId, 'cashWithdrawals.read')) {
             this.pendingCount.set(0);
             return of(0);
           }
@@ -50,7 +50,7 @@ export class CashWithdrawalsInboxService {
   refresh(): void {
     const shopId = this.shops.selectedShopId();
     const user = this.auth.currentUser();
-    if (!shopId || !hasShopPermission(user, shopId, 'closings.read')) {
+    if (!shopId || !hasShopPermission(user, shopId, 'cashWithdrawals.read')) {
       this.pendingCount.set(0);
       return;
     }
