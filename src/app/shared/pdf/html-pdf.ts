@@ -75,7 +75,7 @@ function unlockOverflow(source: HTMLElement): () => void {
 
 function hideForPdf(source: HTMLElement, extra?: string): () => void {
   const nodes = new Set<HTMLElement>();
-  source.querySelectorAll('.pdf-hide').forEach((el) => {
+  source.querySelectorAll('.pdf-hide, .pdf-chrome').forEach((el) => {
     if (el instanceof HTMLElement) nodes.add(el);
   });
   if (extra) {
@@ -136,22 +136,124 @@ function copyComputedTree(from: HTMLElement, to: HTMLElement): void {
   }
 }
 
-function canvasToPdf(canvas: HTMLCanvasElement, filename: string): void {
+function pinSourceForCapture(source: HTMLElement, widthPx?: number): () => void {
+  const owner = source.ownerDocument;
+  const parent = source.parentNode;
+  const next = source.nextSibling;
+  const host = owner?.body;
+  if (!parent || !host) return () => undefined;
+
+  const prev = {
+    margin: source.style.margin,
+    maxWidth: source.style.maxWidth,
+    width: source.style.width,
+    left: source.style.left,
+    top: source.style.top,
+    position: source.style.position,
+    transform: source.style.transform,
+  };
+  const measured = Math.max(Math.round(source.getBoundingClientRect().width), source.offsetWidth, 320);
+  const width = Math.round(widthPx && widthPx > 0 ? widthPx : Math.min(measured, 720));
+  const frame = owner.createElement('div');
+  frame.setAttribute('data-pdf-frame', '1');
+  frame.style.cssText = [
+    'position:fixed',
+    'left:0',
+    'top:0',
+    `width:${width}px`,
+    'margin:0',
+    'padding:0',
+    'z-index:2147483645',
+    `background:${pageBackground(source)}`,
+    'overflow:visible',
+  ].join(';');
+  frame.appendChild(source);
+  source.style.margin = '0';
+  source.style.maxWidth = 'none';
+  source.style.width = '100%';
+  source.style.position = 'relative';
+  source.style.left = '0';
+  source.style.top = '0';
+  source.style.transform = 'none';
+  host.appendChild(frame);
+
+  return () => {
+    source.style.margin = prev.margin;
+    source.style.maxWidth = prev.maxWidth;
+    source.style.width = prev.width;
+    source.style.left = prev.left;
+    source.style.top = prev.top;
+    source.style.position = prev.position;
+    source.style.transform = prev.transform;
+    try {
+      if (parent.isConnected) {
+        if (next && next.parentNode === parent) parent.insertBefore(source, next);
+        else parent.appendChild(source);
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      frame.remove();
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = false): void {
   const pageW = 595.28;
   const pageH = 841.89;
-  const imgW = pageW;
-  const imgH = (canvas.height * pageW) / Math.max(canvas.width, 1);
+  const margin = 28;
+  const fitW = pageW - margin * 2;
+  const fitH = pageH - margin * 2;
+  if (singlePage) {
+    const scale = Math.min(fitW / Math.max(canvas.width, 1), fitH / Math.max(canvas.height, 1));
+    const imgW = canvas.width * scale;
+    const imgH = canvas.height * scale;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+    const url = canvas.toDataURL('image/jpeg', 0.97);
+    pdf.addImage(
+      url,
+      'JPEG',
+      margin + (fitW - imgW) / 2,
+      margin + (fitH - imgH) / 2,
+      imgW,
+      imgH,
+      undefined,
+      'FAST',
+    );
+    pdf.save(filename);
+    return;
+  }
+  let imgW = fitW;
+  let imgH = (canvas.height * imgW) / Math.max(canvas.width, 1);
+  if (imgH < fitH * 0.62) {
+    const scale = Math.min(1.55, (fitH * 0.82) / imgH);
+    imgW *= scale;
+    imgH *= scale;
+  }
+  if (imgW > fitW) {
+    const scale = fitW / imgW;
+    imgW = fitW;
+    imgH *= scale;
+  }
+  const x = margin + (fitW - imgW) / 2;
   const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
   const url = canvas.toDataURL('image/jpeg', 0.97);
-  let remaining = imgH;
-  let offset = 0;
-  pdf.addImage(url, 'JPEG', 0, offset, imgW, imgH, undefined, 'FAST');
-  remaining -= pageH;
-  while (remaining > 8) {
-    offset -= pageH;
-    pdf.addPage();
-    pdf.addImage(url, 'JPEG', 0, offset, imgW, imgH, undefined, 'FAST');
+  if (imgH <= pageH - margin) {
+    pdf.addImage(url, 'JPEG', x, margin, imgW, imgH, undefined, 'FAST');
+  } else {
+    let remaining = imgH;
+    let offset = 0;
+    pdf.addImage(url, 'JPEG', x, offset, imgW, imgH, undefined, 'FAST');
     remaining -= pageH;
+    while (remaining > 8) {
+      offset -= pageH;
+      pdf.addPage();
+      pdf.addImage(url, 'JPEG', x, offset, imgW, imgH, undefined, 'FAST');
+      remaining -= pageH;
+    }
   }
   pdf.save(filename);
 }
@@ -160,20 +262,24 @@ async function renderCanvas(
   source: HTMLElement,
   background: string,
 ): Promise<HTMLCanvasElement> {
-  const width = Math.max(source.scrollWidth, source.offsetWidth, 1);
+  const width = Math.max(source.offsetWidth, 1);
   const height = Math.max(source.scrollHeight, source.offsetHeight, 1);
   try {
     return await toCanvas(source, {
       pixelRatio: 2,
       backgroundColor: background,
       cacheBust: true,
+      skipAutoScale: true,
       width,
       height,
       canvasWidth: Math.round(width * 2),
       canvasHeight: Math.round(height * 2),
       filter: (node) => !shouldSkipNode(node),
       style: {
+        margin: '0',
         transform: 'none',
+        left: '0',
+        top: '0',
         overflow: 'visible',
       },
     });
@@ -184,8 +290,12 @@ async function renderCanvas(
       allowTaint: true,
       backgroundColor: background,
       logging: false,
+      x: 0,
+      y: 0,
       scrollX: 0,
       scrollY: 0,
+      width,
+      height,
       windowWidth: width,
       windowHeight: height,
       onclone: (clonedDoc) => {
@@ -198,10 +308,18 @@ async function renderCanvas(
   }
 }
 
+export type HtmlPdfCaptureOpts = {
+  background?: string;
+  hide?: string;
+  widthPx?: number;
+  /** Encaja el resultado en una sola hoja A4. */
+  singlePage?: boolean;
+};
+
 export async function downloadElementPdf(
   source: HTMLElement,
   filename: string,
-  opts?: { background?: string; hide?: string },
+  opts?: HtmlPdfCaptureOpts,
 ): Promise<void> {
   await ensureWebFonts();
   const doc = source.ownerDocument;
@@ -216,21 +334,42 @@ export async function downloadElementPdf(
   const unlock = unlockOverflow(source);
   const unhide = hideForPdf(source, opts?.hide);
   source.classList.add('pdf-capturing');
+  const unpin = pinSourceForCapture(source, opts?.widthPx);
+  let saved = false;
   try {
-    await new Promise((r) => window.setTimeout(r, 60));
+    await new Promise((r) => window.setTimeout(r, 80));
     const canvas = await renderCanvas(source, opts?.background ?? pageBackground(source));
-    canvasToPdf(canvas, filename);
+    canvasToPdf(canvas, filename, opts?.singlePage === true);
+    saved = true;
   } finally {
-    source.classList.remove('pdf-capturing');
-    unhide();
-    unlock();
+    try {
+      unpin();
+    } catch {
+      /* ignore */
+    }
+    try {
+      source.classList.remove('pdf-capturing');
+    } catch {
+      /* ignore */
+    }
+    try {
+      unhide();
+    } catch {
+      /* ignore */
+    }
+    try {
+      unlock();
+    } catch {
+      /* ignore */
+    }
   }
+  if (!saved) throw new Error('No se pudo generar el PDF');
 }
 
 export async function downloadCaptureRootPdf(
   rootId: string,
   filename: string,
-  opts?: { background?: string; hide?: string },
+  opts?: HtmlPdfCaptureOpts,
 ): Promise<void> {
   const source = document.getElementById(rootId);
   if (!source) throw new Error('No se encontró el contenido para el PDF');
@@ -286,6 +425,7 @@ export async function downloadIframePdf(opts: {
       await downloadElementPdf(capture, opts.filename, {
         background: opts.background,
         hide: opts.hide,
+        widthPx: opts.widthPx,
       });
     } finally {
       iframe.remove();

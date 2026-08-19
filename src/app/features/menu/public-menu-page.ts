@@ -88,17 +88,20 @@ type FilterOpt = { id: FilterId; label: string };
                 }
               </p>
             }
-            <div class="menu__hero-actions">
+            <div class="menu__hero-actions pdf-chrome">
               <button type="button" class="menu__link-btn" (click)="openQr()">Ver QR</button>
               @if (hasSourceFile()) {
                 <span aria-hidden="true">·</span>
                 <button type="button" class="menu__link-btn" (click)="openSource()">Carta física</button>
               }
               <span aria-hidden="true">·</span>
-              <button type="button" class="menu__link-btn pdf-hide" [disabled]="printing()" (click)="downloadPdf()">
+              <button type="button" class="menu__link-btn" [disabled]="printing()" (click)="downloadPdf()">
                 {{ printing() ? 'Generando…' : 'PDF' }}
               </button>
             </div>
+            @if (menus().length > 1 && data()?.menu?.title) {
+              <p class="menu__carta-name pdf-print-only">{{ data()?.menu?.title }}</p>
+            }
           </header>
 
           @if (qrOpen()) {
@@ -154,7 +157,7 @@ type FilterOpt = { id: FilterId; label: string };
           }
 
           @if (menus().length > 1) {
-            <nav class="menu__books" aria-label="Cartas">
+            <nav class="menu__books pdf-chrome" aria-label="Cartas">
               @for (m of menus(); track m.slug) {
                 <a
                   class="menu__book"
@@ -167,7 +170,7 @@ type FilterOpt = { id: FilterId; label: string };
             </nav>
           }
 
-          <div class="menu__dock">
+          <div class="menu__dock pdf-chrome">
             <label class="menu__search">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -355,6 +358,27 @@ type FilterOpt = { id: FilterId; label: string };
       }
       .menu__contact a:hover {
         color: var(--accent);
+      }
+      .menu__carta-name {
+        margin: 0.45rem 0 0;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.35rem;
+        font-weight: 600;
+        color: color-mix(in srgb, var(--accent) 55%, #1a221c);
+      }
+      .pdf-print-only {
+        display: none !important;
+      }
+      .menu.pdf-capturing .pdf-print-only {
+        display: block !important;
+      }
+      .menu.pdf-capturing .pdf-chrome,
+      .menu.pdf-capturing .menu__mask {
+        display: none !important;
+      }
+      .menu.pdf-capturing a {
+        text-decoration: none;
+        color: inherit;
       }
       .menu__hero-actions {
         margin-top: 0.7rem;
@@ -899,13 +923,22 @@ export class PublicMenuPageComponent implements OnInit {
 
   async downloadPdf(): Promise<void> {
     if (this.printing()) return;
-    const name = this.shop()?.name || this.currentSlug() || 'carta';
+    const name = this.data()?.menu?.title || this.shop()?.name || this.currentSlug() || 'carta';
+    const prevQuery = this.query();
+    const prevFilter = this.filter();
     this.printing.set(true);
+    this.query.set('');
+    this.filter.set('all');
+    this.closeQr();
+    this.closeSource();
     try {
+      await new Promise((r) => window.setTimeout(r, 80));
       await downloadCaptureRootPdf('menu-pdf-root', `carta-${pdfFileSlug(name)}.pdf`, {
-        hide: '.menu__mask, .pdf-hide',
+        hide: '.pdf-chrome, .menu__mask',
       });
     } finally {
+      this.query.set(prevQuery);
+      this.filter.set(prevFilter);
       this.printing.set(false);
     }
   }

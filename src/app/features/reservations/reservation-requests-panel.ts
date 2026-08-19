@@ -368,7 +368,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     );
   }
 
-  toggleArea(area: ReservationArea, enabled: boolean): void {
+  async toggleArea(area: ReservationArea, enabled: boolean): Promise<void> {
     const shop = this.shops.selectedShop();
     const shopId = this.shops.selectedShopId();
     if (!shop || !shopId || this.signupBusy()) return;
@@ -378,6 +378,19 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       this.snack.open('Dejá al menos un sector habilitado', 'OK', { duration: 2800 });
       return;
     }
+    const label = area === 'OUTSIDE' ? 'Afuera' : 'Adentro';
+    const ok = await this.confirm.confirm(
+      enabled ? `¿Activar ${label}?` : `¿Desactivar ${label}?`,
+      enabled
+        ? `Van a poder pedir mesa ${label.toLowerCase()} desde el formulario.`
+        : `No van a poder pedir mesa ${label.toLowerCase()} hasta que lo actives de nuevo.`,
+      {
+        confirmLabel: enabled ? 'Activar' : 'Desactivar',
+        confirmColor: enabled ? 'primary' : 'warn',
+        icon: enabled ? 'check_circle' : 'block',
+      },
+    );
+    if (!ok) return;
     this.signupBusy.set(true);
     this.api.setReservationAreasEnabled(shopId, { inside, outside }).subscribe({
       next: (res) => {
@@ -410,10 +423,22 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     });
   }
 
-  toggleSignup(enabled: boolean): void {
+  async toggleSignup(enabled: boolean): Promise<void> {
     const shop = this.shops.selectedShop();
     const shopId = this.shops.selectedShopId();
     if (!shop || !shopId || this.signupBusy()) return;
+    const ok = await this.confirm.confirm(
+      enabled ? '¿Abrir reservas?' : '¿Cerrar reservas?',
+      enabled
+        ? 'La gente va a poder pedir mesa desde el link público.'
+        : 'Nadie va a poder pedir mesa hasta que lo abras de nuevo.',
+      {
+        confirmLabel: enabled ? 'Abrir' : 'Cerrar',
+        confirmColor: enabled ? 'primary' : 'warn',
+        icon: enabled ? 'lock_open' : 'lock',
+      },
+    );
+    if (!ok) return;
     this.signupBusy.set(true);
     this.api.setReservationSignupEnabled(shopId, enabled).subscribe({
       next: (res) => {
