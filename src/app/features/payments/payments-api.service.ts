@@ -53,6 +53,9 @@ export interface ShopPayment {
   shopId: string;
   title: string;
   notes: string | null;
+  conceptId: string | null;
+  conceptName: string | null;
+  conceptDescription: string | null;
   amount: number;
   dueDate: string | null;
   priority: PaymentPriority | null;
@@ -100,6 +103,7 @@ export interface ShopPayment {
 export interface UpsertPaymentBody {
   title?: string | null;
   notes?: string | null;
+  conceptId?: string | null;
   amount?: number | null;
   dueDate?: string | null;
   paidAt?: string | null;

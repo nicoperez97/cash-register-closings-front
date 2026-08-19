@@ -26,6 +26,7 @@ export type EmployeeDialogData = {
   users: ShopUserOption[];
   /** Productores del local (excluye al editado en opciones de UI). */
   producers: ProducerOption[];
+  serviceAttendanceWithHours: boolean;
 } & ({ mode: 'create' } | { mode: 'edit'; employee: Employee });
 
 function toDateInput(value?: string | null): Date | null {
@@ -85,6 +86,29 @@ function toDateString(value: Date | null): string | null {
           <input matInput type="number" min="0" inputmode="decimal" formControlName="baseSalary" />
         </mat-form-field>
 
+        @if (data.serviceAttendanceWithHours) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Precio por hora extra</mat-label>
+            <mat-icon matPrefix>schedule</mat-icon>
+            <input matInput type="number" min="0" inputmode="decimal" formControlName="overtimeHourRate" />
+            <mat-hint>Costo de horas extra de servicio (no cambia la liquidación)</mat-hint>
+          </mat-form-field>
+
+          <div class="emp-shift">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Entrada de servicio</mat-label>
+              <mat-icon matPrefix>login</mat-icon>
+              <input matInput type="time" formControlName="serviceCheckIn" />
+              <mat-hint>Vacío = horario default del local</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Retirada de servicio</mat-label>
+              <mat-icon matPrefix>logout</mat-icon>
+              <input matInput type="time" formControlName="serviceCheckOut" />
+            </mat-form-field>
+          </div>
+        }
+
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Tipo</mat-label>
           <mat-icon matPrefix>badge</mat-icon>
@@ -122,6 +146,13 @@ function toDateString(value: Date | null): string | null {
             </mat-select>
             <mat-hint>Podés elegir varios; este productor cargará sus horas</mat-hint>
           </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Alias o CBU (reintegros)</mat-label>
+            <mat-icon matPrefix>account_balance</mat-icon>
+            <input matInput formControlName="bankAlias" maxlength="120" />
+            <mat-hint>El productor también puede cargarlo desde Mis reintegros</mat-hint>
+          </mat-form-field>
         }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -134,7 +165,7 @@ function toDateString(value: Date | null): string | null {
             }
           </mat-select>
           <mat-hint>
-            Para que cargue sus horas: vincular usuario + preset “Productor” en Usuarios
+            Para que cargue horas y reintegros: vincular usuario + preset “Productor” en Usuarios
           </mat-hint>
         </mat-form-field>
 
@@ -176,6 +207,18 @@ function toDateString(value: Date | null): string | null {
       </button>
     </mat-dialog-actions>
   `,
+  styles: `
+    .emp-shift {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    @media (max-width: 520px) {
+      .emp-shift {
+        grid-template-columns: 1fr;
+      }
+    }
+  `,
 })
 export class EmployeeDialogComponent {
   readonly data = inject<EmployeeDialogData>(MAT_DIALOG_DATA);
@@ -197,6 +240,9 @@ export class EmployeeDialogComponent {
   readonly form = this.fb.nonNullable.group({
     fullName: [this.employee?.fullName ?? '', Validators.required],
     baseSalary: [this.employee?.baseSalary ?? 0, [Validators.required, Validators.min(0)]],
+    overtimeHourRate: [this.employee?.overtimeHourRate ?? 0, [Validators.min(0)]],
+    serviceCheckIn: [this.employee?.serviceCheckIn ?? ''],
+    serviceCheckOut: [this.employee?.serviceCheckOut ?? ''],
     type: this.fb.nonNullable.control<EmployeeType>(this.employee?.type ?? 'FIXED'),
     producesFood: [this.employee?.producesFood ?? false],
     supervisorEmployeeId: this.fb.control<string | null>(
@@ -206,6 +252,7 @@ export class EmployeeDialogComponent {
     userId: this.fb.control<string | null>(this.employee?.userId ?? null),
     hireDate: this.fb.control<Date | null>(toDateInput(this.employee?.hireDate)),
     notes: [this.employee?.notes ?? ''],
+    bankAlias: [this.employee?.bankAlias ?? ''],
     active: [this.employee?.active ?? true],
   });
 
@@ -225,12 +272,16 @@ export class EmployeeDialogComponent {
     const body: Partial<Employee> = {
       fullName: raw.fullName.trim(),
       baseSalary: raw.baseSalary,
+      overtimeHourRate: raw.overtimeHourRate,
+      serviceCheckIn: raw.serviceCheckIn || null,
+      serviceCheckOut: raw.serviceCheckOut || null,
       type: raw.type,
       producesFood,
       supervisorEmployeeId: producesFood ? raw.supervisorEmployeeId || null : null,
       userId: raw.userId || null,
       hireDate: toDateString(raw.hireDate),
       notes: raw.notes.trim() || null,
+      bankAlias: producesFood ? raw.bankAlias.trim() || null : null,
     };
     this.busy.set(true);
 

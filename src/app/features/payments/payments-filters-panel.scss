@@ -50,30 +50,7 @@
 }
 
 .pay-view {
-  height: 2.5rem;
   flex: 0 0 auto;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.pay-view .mat-button-toggle {
-  height: 100%;
-}
-
-.pay-view .mat-button-toggle-label-content {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  padding: 0 0.8rem;
-  min-width: 2.6rem;
-}
-
-.pay-view mat-icon {
-  margin: 0;
-  font-size: 1.2rem;
-  width: 1.2rem;
-  height: 1.2rem;
 }
 
 .pay-select-btn--on {

@@ -45,7 +45,12 @@ export type Permission =
   | 'shortages.manage'
   | 'tips.read'
   | 'tips.create'
-  | 'tips.manage';
+  | 'tips.manage'
+  | 'reimbursements.self'
+  | 'reimbursements.read'
+  | 'reimbursements.manage'
+  | 'serviceRules.read'
+  | 'serviceRules.manage';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -90,6 +95,11 @@ const ALL_PERMISSIONS: Permission[] = [
   'tips.read',
   'tips.create',
   'tips.manage',
+  'reimbursements.self',
+  'reimbursements.read',
+  'reimbursements.manage',
+  'serviceRules.read',
+  'serviceRules.manage',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -110,6 +120,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'candidates.read',
     'attendance.manage',
     'attendance.read',
+    'serviceRules.read',
+    'serviceRules.manage',
     'payroll.manage',
     'payroll.read',
     'commissions.manage',
@@ -137,6 +149,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'tips.read',
     'tips.create',
     'tips.manage',
+    'reimbursements.read',
+    'reimbursements.manage',
   ],
   CASHIER: ['closings.create', 'closings.read', 'tips.create', 'tips.read'],
   VIEWER: [
@@ -146,6 +160,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'employees.read',
     'candidates.read',
     'attendance.read',
+    'serviceRules.read',
     'payroll.read',
     'commissions.read',
     'movements.read',
@@ -157,6 +172,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'beverageStock.read',
     'shortages.read',
     'tips.read',
+    'reimbursements.read',
   ],
   PARTNER: [
     'closings.read',
@@ -189,6 +205,8 @@ export type ModuleKey =
   | 'beverageStock'
   | 'shortages'
   | 'tips'
+  | 'reimbursements'
+  | 'serviceRules'
   | 'shop'
   | 'users';
 
@@ -260,7 +278,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Empleados',
     icon: 'badge',
     group: 'people',
-    hint: 'Ficha de personal',
+    hint: 'Ficha de personal. En productores podés cargar alias/CBU para reintegros',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -319,7 +337,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Conceptos',
     icon: 'category',
     group: 'config',
-    hint: 'Conceptos de movimiento',
+    hint: 'Catálogo de conceptos (nombre, descripción y validado). Solo los validados aparecen en movimientos y pagos',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'manage', label: 'Gestionar', short: 'Todo' },
@@ -435,6 +453,31 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'reimbursements',
+    label: 'Reintegros',
+    icon: 'receipt_long',
+    group: 'people',
+    hint: 'Gastos de productores a reintegrar. El productor carga alias e importe; un admin marca pagado y sube el comprobante',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'self', label: 'Solo mis gastos', short: 'Míos' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar (pagar)', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'serviceRules',
+    label: 'Normas de servicio',
+    icon: 'menu_book',
+    group: 'daily',
+    hint: 'Reglas pre y post servicio para imprimir en el local',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
@@ -495,9 +538,9 @@ export const MODULE_PRESETS: Array<{
   {
     id: 'producer-only',
     label: 'Productor',
-    description: 'Carga sus horas de producción (día / semana / mes)',
+    description: 'Carga sus horas de producción y gastos a reintegrar',
     icon: 'restaurant',
-    modules: { attendance: 'self' },
+    modules: { attendance: 'self', reimbursements: 'self' },
   },
   {
     id: 'reservations-only',
@@ -602,6 +645,14 @@ export interface ShopSummary {
   settlementsEnabled?: boolean;
   /** Pantalla pública de presentismo para el personal. */
   publicAttendanceEnabled?: boolean;
+  /** Página pública de normas pre/post servicio. */
+  publicServiceRulesEnabled?: boolean;
+  /** Hora de entrada default en servicio (HH:mm). */
+  serviceDefaultCheckIn?: string;
+  /** Hora de retirada default en servicio (HH:mm). */
+  serviceDefaultCheckOut?: string;
+  /** Si es false, presentismo de servicio es solo presente/ausente/feriado. */
+  serviceAttendanceWithHours?: boolean;
   /** Carta pública del local. */
   menuEnabled?: boolean;
   defaultChangeAmount: number;
@@ -633,6 +684,12 @@ export interface ShopSummary {
   emailNotificationUserIds?: string[] | null;
   salesSystemId?: string | null;
   posnets?: ShopPosnet[];
+  paymentConceptCategories?: {
+    supplier?: string[];
+    service?: string[];
+    employee?: string[];
+    movement?: string[];
+  } | null;
   active?: boolean;
 }
 
@@ -772,8 +829,11 @@ export function isProducerOnly(user: AuthUser | null, shopId: string | null): bo
     'beverageStock.manage',
     'shortages.read',
     'shortages.manage',
+    'reimbursements.self',
   ]);
-  const extra = perms.filter((p) => p !== 'attendance.self' && !allowedExtra.has(p));
+  const extra = perms.filter(
+    (p) => p !== 'attendance.self' && p !== 'reimbursements.self' && !allowedExtra.has(p),
+  );
   return extra.length === 0;
 }
 

@@ -12,11 +12,18 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
 import { conceptKindLabel } from '../../core/i18n/labels';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import {
+  CONCEPT_CATEGORY_OPTIONS,
+  ConceptCategory,
+} from '../../shared/concept-categories';
 
 export interface AdminConceptRow {
   id: string;
   name: string;
+  description?: string | null;
   kind: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+  categories?: ConceptCategory[];
+  validated: boolean;
   active: boolean;
 }
 
@@ -67,6 +74,12 @@ export type AdminConceptDialogData =
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Descripción</mat-label>
+          <mat-icon matPrefix>notes</mat-icon>
+          <textarea matInput rows="2" formControlName="description" placeholder="Opcional"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Tipo</mat-label>
           <mat-icon matPrefix>category</mat-icon>
           <mat-select formControlName="kind">
@@ -75,6 +88,22 @@ export type AdminConceptDialogData =
             }
           </mat-select>
         </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Categorías</mat-label>
+          <mat-icon matPrefix>sell</mat-icon>
+          <mat-select formControlName="categories" multiple>
+            @for (opt of categoryOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Un concepto puede usarse en más de un lugar</mat-hint>
+        </mat-form-field>
+
+        <mat-slide-toggle formControlName="validated">Validado</mat-slide-toggle>
+        <p class="text-muted" style="margin: 0; font-size: 0.8rem">
+          Solo los validados aparecen al cargar movimientos y pagos.
+        </p>
 
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Concepto activo</mat-slide-toggle>
@@ -109,13 +138,19 @@ export class AdminConceptDialogComponent {
   private readonly snack = inject(MatSnackBar);
 
   readonly kindOptions = CONCEPT_KIND_OPTIONS;
+  readonly categoryOptions = CONCEPT_CATEGORY_OPTIONS;
   readonly isEdit = this.data.mode === 'edit';
   private readonly concept = this.data.mode === 'edit' ? this.data.concept : null;
   readonly busy = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     name: [this.concept?.name ?? '', Validators.required],
+    description: [this.concept?.description ?? ''],
     kind: [this.concept?.kind ?? 'EXPENSE', Validators.required],
+    categories: [
+      this.concept?.categories?.length ? [...this.concept.categories] : (['MOVEMENTS'] as ConceptCategory[]),
+    ],
+    validated: [this.concept?.validated ?? true],
     active: [this.concept?.active ?? true],
   });
 
@@ -128,7 +163,10 @@ export class AdminConceptDialogComponent {
     const raw = this.form.getRawValue();
     const body = {
       name: raw.name.trim(),
+      description: raw.description.trim() || null,
       kind: raw.kind,
+      categories: raw.categories,
+      validated: raw.validated,
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);

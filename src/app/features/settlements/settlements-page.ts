@@ -11,6 +11,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
@@ -53,6 +58,7 @@ type SettlementGroup = {
     MatFormFieldModule,
     MatSelectModule,
     MatSnackBarModule,
+    SelectSearchComponent,
   ],
   template: `
     <app-page-header title="Rendiciones" [subtitle]="shopLabel()" />
@@ -101,10 +107,20 @@ type SettlementGroup = {
             <div class="settle-toolbar__pick">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Ingreso a la cuenta</mat-label>
-                <mat-select [formControl]="accountIdCtrl">
+                <mat-select
+                  [formControl]="accountIdCtrl"
+                  panelClass="guy-select-search-panel"
+                  (openedChange)="onSelectSearchOpened($event, accountQuery)"
+                >
+                  <mat-option disabled class="select-search-opt">
+                    <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+                  </mat-option>
                   <mat-option value="">— Elegir —</mat-option>
-                  @for (acc of accountOptions(); track acc.id) {
+                  @for (acc of filteredAccountOptions(); track acc.id) {
                     <mat-option [value]="acc.id">{{ acc.name }}</mat-option>
+                  }
+                  @if (accountQuery() && !filteredAccountOptions().length) {
+                    <mat-option disabled>Sin resultados</mat-option>
                   }
                 </mat-select>
               </mat-form-field>
@@ -490,6 +506,17 @@ export class SettlementsPage {
 
   readonly accountOptions = computed(() =>
     this.accounts().filter((a) => a.active && a.type !== 'SYSTEM'),
+  );
+
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredAccountOptions = computed(() =>
+    filterBySelectQuery(
+      this.accountOptions(),
+      this.accountQuery(),
+      (a) => a.name,
+      this.accountIdCtrl.value,
+    ),
   );
 
   readonly canConfirm = computed(

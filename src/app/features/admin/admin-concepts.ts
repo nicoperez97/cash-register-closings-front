@@ -1,6 +1,7 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -9,13 +10,22 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { activeLabel, conceptKindLabel } from '../../core/i18n/labels';
+import { activeLabel, conceptKindLabel, yesNoLabel } from '../../core/i18n/labels';
+import { formatConceptCategories } from '../../shared/concept-categories';
 import { AdminConceptDialogComponent, AdminConceptRow } from './admin-concept-dialog';
+import { AdminConceptsExcelDialogComponent } from './admin-concepts-excel-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
   selector: 'app-admin-concepts',
-  imports: [MatButtonModule, MatDialogModule, MatSnackBarModule, PageHeaderComponent, DataTableComponent],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    PageHeaderComponent,
+    DataTableComponent,
+  ],
   template: `
     <app-page-header
       title="Conceptos"
@@ -25,6 +35,15 @@ import { usePageRefresh } from '../../core/page-refresh.service';
       [actionLarge]="true"
       (action)="openCreate()"
     />
+
+    @if (shops.selectedShopId()) {
+      <div class="xl-toolbar mb-3">
+        <button mat-stroked-button type="button" (click)="openExcelImport()">
+          <mat-icon>upload_file</mat-icon>
+          Importar Excel
+        </button>
+      </div>
+    }
 
     <div class="panel-card panel-card--flush">
       <div class="panel-card__body">
@@ -38,6 +57,13 @@ import { usePageRefresh } from '../../core/page-refresh.service';
         />
       </div>
     </div>
+  `,
+  styles: `
+    .xl-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
   `,
 })
 export class AdminConceptsPage {
@@ -53,7 +79,22 @@ export class AdminConceptsPage {
 
   readonly columns: DataTableColumn[] = [
     { key: 'name', label: 'Nombre' },
+    {
+      key: 'description',
+      label: 'Descripción',
+      format: (r) => {
+        const s = String(r['description'] ?? '').trim();
+        if (!s) return '—';
+        return s.length > 72 ? `${s.slice(0, 69)}…` : s;
+      },
+    },
     { key: 'kind', label: 'Tipo', format: (r) => conceptKindLabel(String(r['kind'] ?? '')) },
+    {
+      key: 'categories',
+      label: 'Categorías',
+      format: (r) => formatConceptCategories(r['categories'] as string[] | undefined),
+    },
+    { key: 'validated', label: 'Validado', format: (r) => yesNoLabel(!!r['validated']) },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
 
@@ -78,7 +119,9 @@ export class AdminConceptsPage {
     }
     this.loading.set(true);
     this.http
-      .get<AdminConceptRow[]>(`${environment.apiUrl}/shops/${shopId}/concepts`)
+      .get<AdminConceptRow[]>(`${environment.apiUrl}/shops/${shopId}/concepts`, {
+        params: { includeInactive: 'true', includeUnvalidated: 'true' },
+      })
       .subscribe({
         next: (rows) => {
           this.rows.set(rows);
@@ -97,6 +140,28 @@ export class AdminConceptsPage {
 
   openEdit(row: AdminConceptRow): void {
     this.openDialog({ mode: 'edit', concept: row });
+  }
+
+  openExcelImport(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(AdminConceptsExcelDialogComponent, {
+          width: '860px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            shopName: this.shops.selectedShop()?.name ?? 'Local',
+          },
+        }),
+        'Importar conceptos',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.reload();
+      });
   }
 
   async onRemove(row: AdminConceptRow): Promise<void> {

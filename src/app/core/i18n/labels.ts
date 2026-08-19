@@ -49,6 +49,17 @@ export function conceptKindLabel(kind?: string | null): string {
   return map[kind ?? ''] ?? kind ?? '—';
 }
 
+export function conceptCategoryLabel(category?: string | null): string {
+  const map: Record<string, string> = {
+    EMPLOYEES: 'Empleados',
+    SERVICES: 'Servicios',
+    SUPPLIERS: 'Proveedores',
+    MOVEMENTS: 'Movimientos',
+    OTHERS: 'Otros',
+  };
+  return map[category ?? ''] ?? category ?? '—';
+}
+
 export function accountTypeLabel(type?: string | null): string {
   const map: Record<string, string> = {
     PARTNER: 'Socio',
@@ -82,4 +93,9 @@ export function extraLineTypeLabel(type?: string | null): string {
 export function activeLabel(active?: boolean | null): string {
   if (active == null) return '—';
   return active ? 'Activo' : 'Inactivo';
+}
+
+export function yesNoLabel(value?: boolean | null): string {
+  if (value == null) return '—';
+  return value ? 'Sí' : 'No';
 }

@@ -11,6 +11,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
@@ -54,6 +59,7 @@ function formatMoney(value: number): string {
     MatFormFieldModule,
     MatSelectModule,
     MatSnackBarModule,
+    SelectSearchComponent,
   ],
   template: `
     <app-page-header
@@ -150,10 +156,20 @@ function formatMoney(value: number): string {
           <div class="withdrawals-toolbar__pick">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Quién se lo lleva</mat-label>
-              <mat-select [formControl]="accountIdCtrl">
+              <mat-select
+                [formControl]="accountIdCtrl"
+                panelClass="guy-select-search-panel"
+                (openedChange)="onSelectSearchOpened($event, accountQuery)"
+              >
+                <mat-option disabled class="select-search-opt">
+                  <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+                </mat-option>
                 <mat-option value="">— Elegir —</mat-option>
-                @for (acc of withdrawAccounts(); track acc.id) {
+                @for (acc of filteredWithdrawAccounts(); track acc.id) {
                   <mat-option [value]="acc.id">{{ acc.label }}</mat-option>
+                }
+                @if (accountQuery() && !filteredWithdrawAccounts().length) {
+                  <mat-option disabled>Sin resultados</mat-option>
                 }
               </mat-select>
             </mat-form-field>
@@ -533,6 +549,17 @@ export class CashWithdrawalsPage {
 
   readonly withdrawAccounts = computed(() =>
     withdrawAccountOptionsFromUsers(this.users()),
+  );
+
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredWithdrawAccounts = computed(() =>
+    filterBySelectQuery(
+      this.withdrawAccounts(),
+      this.accountQuery(),
+      (a) => a.label,
+      this.accountIdCtrl.value,
+    ),
   );
 
   readonly canConfirm = computed(() => {

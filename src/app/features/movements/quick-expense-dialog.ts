@@ -9,6 +9,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { movementSavedDialogData } from '../../shared/components/record-share-builders';
@@ -46,6 +51,7 @@ function todayIso(timezone?: string | null): string {
     MatSnackBarModule,
     MatCheckboxModule,
     BusyLabelComponent,
+    SelectSearchComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -95,9 +101,19 @@ function todayIso(timezone?: string | null): string {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Concepto</mat-label>
             <mat-icon matPrefix>sell</mat-icon>
-            <mat-select formControlName="conceptId">
-              @for (c of expenseConcepts(); track c.id) {
+            <mat-select
+              formControlName="conceptId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+              </mat-option>
+              @for (c of filteredExpenseConcepts(); track c.id) {
                 <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+              @if (conceptQuery() && !filteredExpenseConcepts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -105,9 +121,19 @@ function todayIso(timezone?: string | null): string {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Sale de</mat-label>
             <mat-icon matPrefix>account_balance_wallet</mat-icon>
-            <mat-select formControlName="fromAccountId">
-              @for (a of fromAccounts(); track a.id) {
+            <mat-select
+              formControlName="fromAccountId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, accountQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+              </mat-option>
+              @for (a of filteredFromAccounts(); track a.id) {
                 <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+              @if (accountQuery() && !filteredFromAccounts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -246,12 +272,33 @@ export class QuickExpenseDialogComponent {
     this.data.concepts.filter((c) => c.active !== false && c.kind === 'EXPENSE'),
   );
 
+  readonly conceptQuery = signal('');
+  readonly filteredExpenseConcepts = computed(() =>
+    filterBySelectQuery(
+      this.expenseConcepts(),
+      this.conceptQuery(),
+      (c) => c.name,
+      this.form.controls.conceptId.value,
+    ),
+  );
+
   readonly fromAccounts = computed(() =>
     this.data.accounts.filter(
       (a) =>
         a.active !== false &&
         a.id !== this.egresoAccountId() &&
         (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
+    ),
+  );
+
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredFromAccounts = computed(() =>
+    filterBySelectQuery(
+      this.fromAccounts(),
+      this.accountQuery(),
+      (a) => a.name,
+      this.form.controls.fromAccountId.value,
     ),
   );
 

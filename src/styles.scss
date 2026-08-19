@@ -62,6 +62,8 @@
   --mat-slide-toggle-selected-focus-state-layer-color: var(--guy-accent, #2e7d32);
   --mat-slide-toggle-selected-pressed-state-layer-color: var(--guy-accent, #2e7d32);
   --mat-slide-toggle-selected-track-outline-color: transparent;
+  --mat-button-toggle-selected-state-background-color: var(--guy-green-soft);
+  --mat-button-toggle-selected-state-text-color: var(--guy-accent);
   --mat-slide-toggle-unselected-track-color: color-mix(
     in srgb,
     var(--guy-border, #d7e0d9) 70%,
@@ -689,6 +691,12 @@ select {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
+}
+
+.cdk-overlay-pane.help-dialog-panel .guy-dialog .mat-mdc-dialog-content,
+.help-dialog-panel .mat-mdc-dialog-content {
+  max-height: min(78vh, 680px);
+  padding-bottom: 0.65rem !important;
 }
 
 /* Modal / sidenav: bloquea scroll sin position:fixed (fixed oculta la página detrás). */
@@ -2033,6 +2041,41 @@ html[data-theme='dark'] .mat-mdc-snack-bar-container.guy-snackbar .mdc-snackbar_
 
 html[data-theme='dark'] .mat-mdc-snack-bar-container.guy-snackbar .mat-mdc-snack-bar-action {
   background: color-mix(in srgb, var(--guy-primary, #1d65a0) 20%, transparent);
+}
+
+.mat-mdc-select-panel.guy-select-search-panel {
+  padding-top: 0;
+
+  .select-search-opt.mdc-list-item--disabled,
+  .select-search-opt {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    opacity: 1 !important;
+    pointer-events: auto;
+    cursor: default;
+    background: var(--mat-select-container-elevation-shadow-color, var(--guy-card, #fff));
+    background-color: var(--guy-card, #fff);
+    border-bottom: 1px solid var(--guy-border, #e3e8ec);
+    min-height: 48px;
+
+    .mdc-list-item__primary-text {
+      width: 100%;
+      opacity: 1 !important;
+    }
+
+    .mdc-list-item__start,
+    .mat-pseudo-checkbox,
+    .mdc-list-item__ripple,
+    .mat-mdc-focus-indicator {
+      display: none;
+    }
+  }
+}
+
+html[data-theme='dark'] .mat-mdc-select-panel.guy-select-search-panel .select-search-opt {
+  background-color: var(--guy-card, #17212b);
+  border-bottom-color: var(--guy-border, #2a3845);
 }
 
 

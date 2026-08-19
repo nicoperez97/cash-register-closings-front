@@ -411,6 +411,16 @@
   color: #c62828;
 }
 
+.req-card--working-delete .req-card__status {
+  color: #5f6f76;
+}
+
+.req-btn--mute {
+  background: transparent;
+  border-color: var(--guy-border, #d7e0d9);
+  color: var(--guy-muted, #5f6f76);
+}
+
 .req-card__actions {
   grid-area: actions;
   display: flex;

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { ControlContainer, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,6 +7,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 import { WithdrawAccountOption } from './withdraw-account-options';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 
 @Component({
   selector: 'app-closing-form-efectivo-step',
@@ -18,6 +23,7 @@ import { WithdrawAccountOption } from './withdraw-account-options';
     MatInputModule,
     MatSelectModule,
     ClosingFormStepNavComponent,
+    SelectSearchComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -58,11 +64,19 @@ import { WithdrawAccountOption } from './withdraw-account-options';
             <mat-label>Quién se lo lleva</mat-label>
             <mat-select
               formControlName="cashWithdrawnToAccountId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, accountQuery)"
               (selectionChange)="withdrawnAccountChange.emit($event.value)"
             >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+              </mat-option>
               <mat-option value="">— Sin asignar —</mat-option>
-              @for (acc of withdrawAccounts(); track acc.id) {
+              @for (acc of filteredWithdrawAccounts(); track acc.id) {
                 <mat-option [value]="acc.id">{{ acc.label }}</mat-option>
+              }
+              @if (accountQuery() && !filteredWithdrawAccounts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -79,9 +93,22 @@ import { WithdrawAccountOption } from './withdraw-account-options';
   styleUrl: './closing-form-efectivo-step.scss',
 })
 export class ClosingFormEfectivoStepComponent {
+  private readonly parent = inject(FormGroupDirective);
+
   readonly withdrawAccounts = input<WithdrawAccountOption[]>([]);
   readonly pendingHint = input('');
 
   readonly countBills = output<void>();
   readonly withdrawnAccountChange = output<string>();
+
+  readonly accountQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly filteredWithdrawAccounts = computed(() =>
+    filterBySelectQuery(
+      this.withdrawAccounts(),
+      this.accountQuery(),
+      (a) => a.label,
+      this.parent.form.get('cashWithdrawnToAccountId')?.value,
+    ),
+  );
 }

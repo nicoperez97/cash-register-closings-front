@@ -275,6 +275,19 @@ export class ClosingsApiService {
       responseType: 'blob',
     });
   }
+
+  conceptsReport(shopId: string, filters: ConceptsReportFilters) {
+    return this.http.get<ConceptsReportSummary>(`${this.base}/shops/${shopId}/reports/concepts`, {
+      params: conceptsReportFiltersToParams(filters),
+    });
+  }
+
+  conceptsReportExport(shopId: string, filters: ConceptsReportFilters) {
+    return this.http.get(`${this.base}/shops/${shopId}/reports/concepts/export.xlsx`, {
+      params: conceptsReportFiltersToParams(filters),
+      responseType: 'blob',
+    });
+  }
 }
 
 export interface ReportsDashboard {
@@ -407,6 +420,52 @@ export interface SalesProductsFilters {
   salesSystemId?: string | null;
 }
 
+export interface ConceptsReportFilters {
+  from: string;
+  to: string;
+  kind?: string | null;
+  conceptId?: string | null;
+}
+
+export interface ConceptsReportSummary {
+  shopId: string;
+  from: string | null;
+  to: string | null;
+  conceptOptions: Array<{ id: string | null; name: string; kind: string }>;
+  comparison: {
+    incomeDeltaPct: number | null;
+    expenseDeltaPct: number | null;
+    countDeltaPct: number | null;
+  } | null;
+  totals: {
+    movementCount: number;
+    income: number;
+    expense: number;
+    transfer: number;
+    net: number;
+    withoutConceptCount: number;
+    withoutConceptAmount: number;
+    avgAmount: number;
+  };
+  byKind: Array<{ kind: string; count: number; amount: number; share: number }>;
+  byConcept: Array<{
+    conceptId: string | null;
+    name: string;
+    kind: string;
+    count: number;
+    amount: number;
+    avgAmount: number;
+    share: number;
+  }>;
+  byDay: Array<{
+    businessDate: string;
+    count: number;
+    income: number;
+    expense: number;
+    transfer: number;
+  }>;
+}
+
 export interface SalesProductsSummary {
   shopId: string;
   from: string;
@@ -495,6 +554,16 @@ function salesProductsFiltersToParams(filters: SalesProductsFilters): Record<str
   if (filters.subcategory) params['subcategory'] = filters.subcategory;
   if (filters.paymentCode) params['paymentCode'] = filters.paymentCode;
   if (filters.salesSystemId) params['salesSystemId'] = filters.salesSystemId;
+  return params;
+}
+
+function conceptsReportFiltersToParams(filters: ConceptsReportFilters): Record<string, string> {
+  const params: Record<string, string> = {
+    from: filters.from,
+    to: filters.to,
+  };
+  if (filters.kind) params['kind'] = filters.kind;
+  if (filters.conceptId) params['conceptId'] = filters.conceptId;
   return params;
 }
 

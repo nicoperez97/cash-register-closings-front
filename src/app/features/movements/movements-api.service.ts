@@ -43,7 +43,10 @@ export interface Concept {
   id: string;
   shopId: string;
   name: string;
+  description?: string | null;
   kind: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+  categories?: string[];
+  validated?: boolean;
   active: boolean;
 }
 
@@ -94,8 +97,10 @@ export class MovementsApiService {
     return this.http.get<LedgerAccount[]>(`${this.base}/shops/${shopId}/accounts`);
   }
 
-  concepts(shopId: string) {
-    return this.http.get<Concept[]>(`${this.base}/shops/${shopId}/concepts`);
+  concepts(shopId: string, usage?: 'supplier' | 'service' | 'employee' | 'movement') {
+    return this.http.get<Concept[]>(`${this.base}/shops/${shopId}/concepts`, {
+      params: usage ? { for: usage } : {},
+    });
   }
 
   balances(shopId: string, filters: Pick<MovementFilters, 'from' | 'to'> = {}) {

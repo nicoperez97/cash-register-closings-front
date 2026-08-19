@@ -235,7 +235,7 @@ function loadViewMode(kind: StockKind): ViewMode {
         </mat-button-toggle-group>
 
         <mat-button-toggle-group
-          class="stock-view"
+          class="stock-view guy-icon-toggle"
           hideSingleSelectionIndicator
           [value]="viewMode()"
           (change)="onViewMode($event.value)"
@@ -674,21 +674,18 @@ function loadViewMode(kind: StockKind): ViewMode {
       .stock-sort,
       .stock-view {
         flex: 0 0 auto;
+        border-radius: 999px;
+        overflow: hidden;
       }
-      .stock-sort .mat-button-toggle,
-      .stock-view .mat-button-toggle {
+      .stock-sort .mat-button-toggle {
         font-size: 0.82rem;
       }
-      .stock-sort mat-icon,
-      .stock-view mat-icon {
+      .stock-sort mat-icon {
         font-size: 1.05rem;
         width: 1.05rem;
         height: 1.05rem;
         margin-right: 0.15rem;
         vertical-align: middle;
-      }
-      .stock-view mat-icon {
-        margin-right: 0;
       }
       .stock-toolbar__meta {
         font-size: 0.85rem;

@@ -59,6 +59,23 @@
   line-height: 1.2;
 }
 
+.guy-page-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.guy-page-header__info {
+  color: var(--guy-muted, #5f6f76);
+  flex: 0 0 auto;
+}
+
+.guy-page-header__info mat-icon {
+  font-size: 1.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
 .subtitle {
   margin: 0.3rem 0 0;
   color: var(--guy-muted, #5f6f76);

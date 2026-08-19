@@ -286,11 +286,80 @@ a.mat-mdc-outlined-button.mat-mdc-button-base {
   vertical-align: middle;
 }
 
-.mat-button-toggle-label-content {
+/* Toggles solo-ícono (Pagos / Stock): Material usa line-height + overflow
+   en el pill y deja los glifos pegados a las esquinas. */
+.guy-icon-toggle.mat-button-toggle-group,
+.pay-view.mat-button-toggle-group,
+.stock-view.mat-button-toggle-group {
+  --mat-button-toggle-height: 40px;
+  --mat-button-toggle-shape: 999px;
+  height: 40px;
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.guy-icon-toggle .mat-button-toggle,
+.pay-view .mat-button-toggle,
+.stock-view .mat-button-toggle {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+}
+
+.guy-icon-toggle .mat-button-toggle-button,
+.pay-view .mat-button-toggle-button,
+.stock-view .mat-button-toggle-button {
   display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.2;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  min-width: 2.75rem;
+  padding: 0 !important;
+  line-height: 0 !important;
+  box-sizing: border-box;
+}
+
+.guy-icon-toggle .mat-button-toggle-label-content,
+.pay-view .mat-button-toggle-label-content,
+.stock-view .mat-button-toggle-label-content {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  width: 100%;
+  padding: 0 0.75rem !important;
+  line-height: 0 !important;
+  box-sizing: border-box;
+}
+
+.guy-icon-toggle .mat-icon,
+.pay-view .mat-icon,
+.stock-view .mat-icon {
+  --mat-icon-size: 20px;
+  display: block !important;
+  margin: 0 !important;
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  overflow: visible !important;
+}
+
+/* Material 3 dibuja un tilde (mat-pseudo-checkbox) al lado del ícono seleccionado. */
+.mat-button-toggle-checkbox-wrapper {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.mat-button-toggle-checked {
+  background: var(--guy-green-soft) !important;
+  color: var(--guy-accent) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

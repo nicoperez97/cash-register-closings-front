@@ -139,6 +139,11 @@ export class EmployeesListPage {
       label: 'Sueldo base',
       format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
     },
+    {
+      key: 'overtimeHourRate',
+      label: '$ / hora extra',
+      format: (r) => `$ ${Number(r['overtimeHourRate'] ?? 0).toLocaleString('es-AR')}`,
+    },
     { key: 'hireDate', label: 'Ingreso' },
     {
       key: 'active',
@@ -254,6 +259,8 @@ export class EmployeesListPage {
             ...mode,
             shopId,
             shopName,
+            serviceAttendanceWithHours:
+              this.shops.selectedShop()?.serviceAttendanceWithHours !== false,
             users: this.users().filter(
               (u) => isUserVisible(u, 'employeeLink') || u.id === linkedUserId,
             ),

@@ -13,6 +13,7 @@ import { MatPaginatorIntl } from '@angular/material/paginator';
 import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBarConfig } from '@angular/material/snack-bar';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { MAT_BUTTON_TOGGLE_DEFAULT_OPTIONS } from '@angular/material/button-toggle';
 import { ScrollStrategy } from '@angular/cdk/overlay';
 import { registerLocaleData } from '@angular/common';
 import localeEsAr from '@angular/common/locales/es-AR';
@@ -152,6 +153,13 @@ export const appConfig: ApplicationConfig = {
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
     { provide: LOCALE_ID, useValue: 'es-AR' },
     provideNativeDateAdapter(),
+    {
+      provide: MAT_BUTTON_TOGGLE_DEFAULT_OPTIONS,
+      useValue: {
+        hideSingleSelectionIndicator: true,
+        hideMultipleSelectionIndicator: true,
+      },
+    },
     { provide: TitleStrategy, useClass: AppTitleStrategy },
     { provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl },
     { provide: MAT_DIALOG_DEFAULT_OPTIONS, useFactory: dialogDefaultOptions },

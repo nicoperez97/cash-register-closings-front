@@ -413,4 +413,10 @@ export class ReservationsApiService {
       { staffNote: staffNote ?? null },
     );
   }
+
+  removeReservationRequest(shopId: string, id: string) {
+    return this.http.delete<{ ok: boolean }>(
+      `${this.base}/shops/${shopId}/reservation-requests/${id}`,
+    );
+  }
 }

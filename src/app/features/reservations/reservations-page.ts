@@ -55,7 +55,10 @@ import {
     />
 
     @if (canManage()) {
-      <app-reservation-requests-panel (accepted)="onRequestAccepted($event)" />
+      <app-reservation-requests-panel
+        (accepted)="onRequestAccepted($event)"
+        (refreshAll)="onRequestsPanelRefresh()"
+      />
     }
 
     <section class="panel-card floor-panel" #floorPanel>
@@ -226,6 +229,11 @@ export class ReservationsPage implements OnInit, OnDestroy {
       this.highlightReservation(event.id);
       this.composeForm()?.focusGuestName();
     });
+  }
+
+  onRequestsPanelRefresh(): void {
+    this.loadReservations();
+    this.loadSummary();
   }
 
   onFloorListChanged(): void {
