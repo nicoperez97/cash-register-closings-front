@@ -13,6 +13,8 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { debounceTime, filter, Subscription } from 'rxjs';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatIsoDateWithWeekday, resolveShopCalendarDate } from '../../core/shop/business-date';
 import { resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
@@ -360,6 +362,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReservationsApiService);
   private readonly title = inject(Title);
+  private readonly live = inject(ShopLiveClient);
+  private liveSub: Subscription | null = null;
 
   readonly timeSlots = TIME_SLOTS;
   readonly info = signal<PublicReservationSignup | null>(null);
@@ -442,9 +446,17 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     applyStatusBar('#0e0c0b', 'dark');
     this.load();
+    this.liveSub = this.live
+      .connect(this.slug())
+      .pipe(
+        filter((t) => t.domain === 'reservations'),
+        debounceTime(280),
+      )
+      .subscribe(() => this.load());
   }
 
   ngOnDestroy(): void {
+    this.liveSub?.unsubscribe();
     resetStatusBar();
   }
 

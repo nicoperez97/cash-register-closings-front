@@ -7,7 +7,8 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { Subject, Subscription, interval, merge, startWith, switchMap, tap } from 'rxjs';
+import { Subject, Subscription, debounceTime, filter, interval, merge, startWith, switchMap, tap } from 'rxjs';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicWaitingBoard,
@@ -48,7 +49,7 @@ import { BoardPwaService } from './board-pwa.service';
           <div class="board__live-row">
             <p class="board__live">
               <span class="board__pulse" aria-hidden="true"></span>
-              <span class="board__live-text">Auto · 1 min</span>
+              <span class="board__live-text">En vivo</span>
             </p>
             <button
               type="button"
@@ -645,11 +646,14 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReservationsApiService);
   private readonly boardPwa = inject(BoardPwaService);
+  private readonly live = inject(ShopLiveClient);
   private slug = '';
   private pwaApplied = false;
 
   private readonly refresh$ = new Subject<void>();
   private pollSub: Subscription | null = null;
+  private liveSub: Subscription | null = null;
+  private onVisible: (() => void) | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private knownIds = new Set<string>();
   private hasLoadedOnce = false;
@@ -684,7 +688,7 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
     this.boardPwa.prime('waiting', this.slug);
     void this.ensureNotificationPermission();
 
-    this.pollSub = merge(interval(60_000).pipe(startWith(0)), this.refresh$)
+    this.pollSub = merge(interval(120_000).pipe(startWith(0)), this.refresh$)
       .pipe(
         tap(() => this.refreshing.set(true)),
         switchMap(() => this.api.publicWaitingBoard(this.slug)),
@@ -701,11 +705,25 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
           if (!this.board()) this.error.set('No se pudo cargar este local');
         },
       });
+    this.liveSub = this.live
+      .connect(this.slug)
+      .pipe(
+        filter((t) => t.domain === 'waiting'),
+        debounceTime(280),
+      )
+      .subscribe(() => this.refresh());
+    this.onVisible = () => {
+      if (document.visibilityState === 'visible') this.refresh();
+    };
+    document.addEventListener('visibilitychange', this.onVisible);
   }
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
     this.pollSub = null;
+    this.liveSub?.unsubscribe();
+    this.liveSub = null;
+    if (this.onVisible) document.removeEventListener('visibilitychange', this.onVisible);
     this.refresh$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.boardPwa.restore();

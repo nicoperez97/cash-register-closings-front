@@ -1,8 +1,10 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
+import { debounceTime, filter, Subscription } from 'rxjs';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 
 type PublicShop = {
@@ -477,13 +479,16 @@ function storageKey(slug: string): string {
     `,
   ],
 })
-export class PublicAttendanceBoardComponent implements OnInit {
+export class PublicAttendanceBoardComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
+  private readonly live = inject(ShopLiveClient);
   readonly MONTH_LABELS = MONTH_LABELS;
   readonly WEEKDAYS = WEEKDAYS;
 
   private slug = '';
+  private liveSub: Subscription | null = null;
+  private onVisible: (() => void) | null = null;
   readonly shop = signal<PublicShop | null>(null);
   readonly employees = signal<PublicEmployee[]>([]);
   readonly employeeId = signal<string | null>(null);
@@ -574,6 +579,28 @@ export class PublicAttendanceBoardComponent implements OnInit {
       return;
     }
     this.reloadList();
+    this.liveSub = this.live
+      .connect(this.slug)
+      .pipe(
+        filter((t) => t.domain === 'attendance'),
+        debounceTime(280),
+      )
+      .subscribe(() => {
+        this.reloadList();
+        if (this.employeeId()) this.loadMonth();
+      });
+    this.onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        this.reloadList();
+        if (this.employeeId()) this.loadMonth();
+      }
+    };
+    document.addEventListener('visibilitychange', this.onVisible);
+  }
+
+  ngOnDestroy(): void {
+    this.liveSub?.unsubscribe();
+    if (this.onVisible) document.removeEventListener('visibilitychange', this.onVisible);
   }
 
   fmtNum(n: number): string {
