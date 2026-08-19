@@ -17,9 +17,9 @@ import {
     } @else {
       <div class="help-blocks" [class.help-blocks--compact]="compact">
         @for (b of blocks; track b.title; let i = $index) {
-          <article class="help-card" [attr.data-tone]="tone(b.title)">
+          <article class="help-card" [attr.data-tone]="tone(b)">
             <div class="help-card__icon" aria-hidden="true">
-              <mat-icon>{{ icon(b.title) }}</mat-icon>
+              <mat-icon>{{ icon(b) }}</mat-icon>
             </div>
             <div class="help-card__body">
               <header class="help-card__head">
@@ -35,6 +35,19 @@ import {
                   }
                 }
               </p>
+              @if (b.items?.length) {
+                <ul class="help-card__items">
+                  @for (item of b.items; track item) {
+                    <li>{{ item }}</li>
+                  }
+                </ul>
+              }
+              @if (b.tip) {
+                <p class="help-card__tip">
+                  <mat-icon>lightbulb</mat-icon>
+                  <span>{{ b.tip }}</span>
+                </p>
+              }
             </div>
           </article>
         }
@@ -136,6 +149,37 @@ import {
       font-size: 0.92rem;
     }
 
+    .help-card__items {
+      margin: 0.55rem 0 0;
+      padding: 0 0 0 1.1rem;
+      display: grid;
+      gap: 0.28rem;
+      color: var(--guy-text, #1b2a33);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .help-card__tip {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
+      margin: 0.7rem 0 0 !important;
+      padding: 0.55rem 0.7rem;
+      border-radius: 12px;
+      background: color-mix(in srgb, #f9a825 16%, var(--guy-card, #fff));
+      color: #6d4c00 !important;
+      font-size: 0.84rem !important;
+      line-height: 1.4;
+    }
+
+    .help-card__tip mat-icon {
+      font-size: 1.05rem;
+      width: 1.05rem;
+      height: 1.05rem;
+      margin-top: 0.05rem;
+      color: #f9a825;
+    }
+
     .help-card code {
       display: inline-block;
       margin: 0 0.12em;
@@ -169,12 +213,12 @@ export class HelpBlocksComponent {
   @Input({ required: true }) blocks: HelpBlock[] = [];
   @Input() compact = false;
 
-  icon(title: string): string {
-    return helpBlockIcon(title);
+  icon(block: HelpBlock): string {
+    return helpBlockIcon(block);
   }
 
-  tone(title: string): string {
-    return helpBlockTone(title);
+  tone(block: HelpBlock): string {
+    return helpBlockTone(block);
   }
 
   parts(body: string): HelpBodyPart[] {

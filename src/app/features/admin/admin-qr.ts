@@ -8,7 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { toDataURL } from 'qrcode';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { downloadQrPdf } from '../../shared/pdf/qr-pdf';
+import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 
 const MAX_TEXT = 1200;
 
@@ -24,12 +24,14 @@ const MAX_TEXT = 1200;
     PageHeaderComponent,
   ],
   template: `
+    <div id="qr-pdf-root">
     <app-page-header
       title="QR"
       [subtitle]="shops.selectedShop()?.name ?? 'Armá un código a partir de un texto'"
     />
 
     <p class="qr-hint">Pegá un link, un Wi‑Fi, un mensaje o cualquier texto. El código se arma solo.</p>
+
 
     @if (shortcuts().length) {
       <div class="qr-shortcuts">
@@ -56,7 +58,7 @@ const MAX_TEXT = 1200;
         <mat-hint align="end">{{ text().length }} / {{ maxText }}</mat-hint>
       </mat-form-field>
 
-      <div class="qr-page__preview">
+      <div id="qr-pdf-preview" class="qr-page__preview">
         @if (dataUrl(); as url) {
           <img class="qr-page__img" [src]="url" alt="Código QR" />
           <div class="qr-page__actions">
@@ -77,6 +79,7 @@ const MAX_TEXT = 1200;
         }
       </div>
     </section>
+    </div>
   `,
   styles: `
     .qr-hint {
@@ -201,7 +204,11 @@ export class AdminQrPage {
     const url = this.dataUrl();
     if (!url) return;
     try {
-      await downloadQrPdf(url, this.shops.selectedShop()?.name ?? 'QR');
+      await downloadCaptureRootPdf(
+        'qr-pdf-preview',
+        `${this.fileName().replace(/\.png$/i, '')}.pdf`,
+        { hide: '.qr-page__actions' },
+      );
     } catch {
       this.snack.open('No se pudo generar el PDF', 'OK', { duration: 3000 });
     }

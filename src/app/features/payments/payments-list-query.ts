@@ -71,7 +71,7 @@ export function buildPaymentsListFilterOpts(input: PaymentsListFilterInput) {
 }
 
 export type ActivePaymentFiltersInput = {
-  statusCount: number;
+  extraStatusCount: number;
   mineOnly: boolean;
   validatorCount: number;
   payerCount: number;
@@ -89,7 +89,7 @@ export type ActivePaymentFiltersInput = {
 };
 
 export function countActivePaymentFilters(input: ActivePaymentFiltersInput): number {
-  let n = input.statusCount;
+  let n = input.extraStatusCount;
   if (input.mineOnly) n += 1;
   else {
     n += input.validatorCount;

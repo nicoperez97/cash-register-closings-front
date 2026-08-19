@@ -10,12 +10,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { Employee } from '../employees/employees-api.service';
-import { PaymentStatus } from './payments-api.service';
 import { ShopSupplier } from '../suppliers/suppliers-api.service';
 import { ShopService } from '../services/services-api.service';
-import type { PaymentKind } from './payments-page-actions';
-
-type PaymentsViewMode = 'cards' | 'list';
+import type { PaymentKind, PaymentsMobileView, PaymentsViewMode } from './payments-page-actions';
 
 type FilterUser = {
   id: string;
@@ -58,16 +55,25 @@ type FilterUser = {
         <mat-button-toggle-group
           class="pay-view guy-icon-toggle"
           hideSingleSelectionIndicator
-          [value]="viewMode()"
-          (change)="viewModeChange.emit($event.value)"
-          aria-label="Vista de pagos"
+          [value]="isMobile() ? mobileView() : viewMode()"
+          (change)="onViewToggle($event.value)"
+          [attr.aria-label]="isMobile() ? 'Vista de lista' : 'Vista de pagos'"
         >
-          <mat-button-toggle value="cards" matTooltip="Vista tarjetas">
-            <mat-icon>grid_view</mat-icon>
-          </mat-button-toggle>
-          <mat-button-toggle value="list" matTooltip="Vista lista">
-            <mat-icon>view_list</mat-icon>
-          </mat-button-toggle>
+          @if (isMobile()) {
+            <mat-button-toggle value="compact" matTooltip="Vista compacta">
+              <mat-icon>view_agenda</mat-icon>
+            </mat-button-toggle>
+            <mat-button-toggle value="list" matTooltip="Vista detallada">
+              <mat-icon>view_list</mat-icon>
+            </mat-button-toggle>
+          } @else {
+            <mat-button-toggle value="cards" matTooltip="Vista tarjetas">
+              <mat-icon>grid_view</mat-icon>
+            </mat-button-toggle>
+            <mat-button-toggle value="list" matTooltip="Vista lista">
+              <mat-icon>view_list</mat-icon>
+            </mat-button-toggle>
+          }
         </mat-button-toggle-group>
         <button
           mat-stroked-button
@@ -100,14 +106,6 @@ type FilterUser = {
       </div>
     </div>
     <div class="guy-filters__body pay-filters">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Estado</mat-label>
-        <mat-select [formControl]="statusFilter()" multiple>
-          @for (opt of statusOptions(); track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Valida</mat-label>
         <mat-select [formControl]="validatorFilter()" multiple>
@@ -220,19 +218,19 @@ export class PaymentsFiltersPanelComponent {
   readonly collapsed = input(false);
   readonly activeFilterCount = input(0);
   readonly viewMode = input<PaymentsViewMode>('list');
+  readonly mobileView = input<PaymentsMobileView>('list');
+  readonly isMobile = input(false);
   readonly selecting = input(false);
   readonly exporting = input(false);
   readonly shopId = input<string | null>(null);
   readonly mineOnly = input(false);
   readonly kind = input<PaymentKind>('supplier');
   readonly currentUserId = input('');
-  readonly statusOptions = input<Array<{ value: PaymentStatus; label: string }>>([]);
   readonly filterUsers = input<FilterUser[]>([]);
   readonly suppliers = input<ShopSupplier[]>([]);
   readonly services = input<ShopService[]>([]);
   readonly employees = input<Employee[]>([]);
 
-  readonly statusFilter = input.required<FormControl<PaymentStatus[]>>();
   readonly validatorFilter = input.required<FormControl<string[]>>();
   readonly payerFilter = input.required<FormControl<string[]>>();
   readonly dueRange = input.required<FormGroup>();
@@ -244,8 +242,17 @@ export class PaymentsFiltersPanelComponent {
   readonly amountMaxFilter = input.required<FormControl<number | null>>();
 
   readonly viewModeChange = output<PaymentsViewMode | null | undefined>();
+  readonly mobileViewChange = output<PaymentsMobileView | null | undefined>();
   readonly toggleSelecting = output<void>();
   readonly exportExcel = output<void>();
   readonly toggleFilters = output<void>();
   readonly filterMine = output<void>();
+
+  onViewToggle(value: string | null | undefined): void {
+    if (this.isMobile()) {
+      this.mobileViewChange.emit(value === 'compact' ? 'compact' : 'list');
+      return;
+    }
+    this.viewModeChange.emit(value === 'list' ? 'list' : 'cards');
+  }
 }

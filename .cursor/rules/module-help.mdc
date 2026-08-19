@@ -1,0 +1,14 @@
+---
+description: Mantener las instrucciones de cada módulo al día y con el mismo tono.
+alwaysApply: true
+---
+
+# Instrucciones de módulo
+
+Después de **cualquier** cambio de producto (UI, flujo, filtros, PDF, permisos, rutas públicas), revisá `src/app/core/help/module-help.ts`.
+
+- Actualizá el `HelpTopic` del módulo tocado (y temas hermanos si el flujo cruzó pantallas).
+- El texto tiene que coincidir con lo que se ve hoy: nombres de botones, pestañas, PDF (no “imprimir del navegador”), horarios, filtros.
+- Tono: frases cortas, en segunda persona, sin jerga interna. Usá `items` para pasos y `tip` para el atajo o el error típico.
+- No dejes ayudas que hablen de un filtro o botón que ya no existe.
+- Si agregás un módulo o ruta, sumalo a `HELP_TOPICS` y a `PATH_HELP`.

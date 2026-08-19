@@ -55,7 +55,7 @@
               "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "src/styles.scss"
             ],
-            "allowedCommonJsDependencies": ["qrcode"]
+            "allowedCommonJsDependencies": ["qrcode", "html2canvas", "core-js"]
           },
           "configurations": {
             "production": {

@@ -251,6 +251,51 @@
   gap: 0.45rem;
 }
 
+:host.pay-card--compact {
+  padding: 0.55rem 0.75rem;
+}
+
+:host.pay-card--compact .pay-card__compact {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+:host.pay-card--compact .pay-card__compact-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+:host.pay-card--compact .pay-card__title {
+  font-size: 0.98rem;
+  margin: 0;
+}
+
+:host.pay-card--compact .pay-card__meta {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host.pay-card--compact .pay-card__amount {
+  font-size: 1rem;
+  padding-top: 0.1rem;
+}
+
+:host.pay-card--compact .pay-card__actions {
+  margin-top: 0.4rem;
+}
+
+:host.pay-card--compact .pay-card__check {
+  top: 0.2rem;
+  right: 0.15rem;
+}
+
 .pay-card__danger {
   color: #c62828;
 }

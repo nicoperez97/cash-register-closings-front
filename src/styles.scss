@@ -1518,6 +1518,30 @@ button.mat-mdc-mini-fab mat-icon {
   min-width: 12.5rem !important;
 }
 
+.pay-sort-menu.mat-mdc-menu-panel {
+  min-width: 13.5rem !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  background: var(--guy-card, #fff) !important;
+  box-shadow:
+    0 10px 28px rgba(0, 51, 102, 0.12),
+    0 2px 8px rgba(0, 51, 102, 0.06) !important;
+}
+
+.pay-sort-menu .mat-mdc-menu-item {
+  min-height: 42px;
+  font-weight: 600;
+}
+
+.pay-sort-menu .pay-sort-menu__on {
+  background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff) !important;
+  color: var(--guy-navy, #003366);
+}
+
+.pay-sort-menu .pay-sort-menu__on .mdc-list-item__primary-text {
+  font-weight: 800;
+}
+
 .toolbar-quick-menu .toolbar-quick-menu__head {
   padding: 0.65rem 1rem 0.35rem;
   font-size: 0.68rem;

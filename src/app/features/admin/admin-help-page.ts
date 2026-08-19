@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { HelpBlocksComponent } from '../../shared/components/help-blocks';
 import { HELP_TOPICS, HelpTopic, helpTopicIcon } from '../../core/help/module-help';
-import { downloadHelpPdf } from '../../shared/pdf/help-pdf';
+import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 
 @Component({
   selector: 'app-admin-help-page',
@@ -22,6 +22,7 @@ import { downloadHelpPdf } from '../../shared/pdf/help-pdf';
     HelpBlocksComponent,
   ],
   template: `
+    <div id="help-pdf-root">
     <app-page-header
       title="Instrucciones"
       subtitle="Manual completo para administradores"
@@ -38,7 +39,7 @@ import { downloadHelpPdf } from '../../shared/pdf/help-pdf';
       <div>
         <p class="help-admin__hero-kicker">Guía de la app</p>
         <p class="help-admin__lead">
-          Alcance de cada módulo. El botón del encabezado descarga un PDF del manual.
+          Alcance de cada módulo, en lenguaje de uso diario. El PDF del encabezado es esta misma guía.
         </p>
       </div>
     </section>
@@ -78,6 +79,7 @@ import { downloadHelpPdf } from '../../shared/pdf/help-pdf';
       } @empty {
         <p class="help-admin__empty">No hay módulos que coincidan con “{{ query() }}”.</p>
       }
+    </div>
     </div>
   `,
   styles: `
@@ -266,7 +268,9 @@ export class AdminHelpPage {
     if (!topics.length) return;
     this.printing.set(true);
     try {
-      await downloadHelpPdf(topics);
+      await downloadCaptureRootPdf('help-pdf-root', 'instrucciones.pdf', {
+        hide: '.guy-page-header__action',
+      });
     } finally {
       this.printing.set(false);
     }

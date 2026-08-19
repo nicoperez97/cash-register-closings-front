@@ -18,5 +18,7 @@ export type MenuPrintInput = {
   instagramHandle?: string | null;
   menuTitle?: string | null;
   note?: string | null;
+  hasSourceFile?: boolean;
+  books?: Array<{ title: string; active?: boolean }>;
   sections: MenuPrintSection[];
 };
