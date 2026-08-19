@@ -378,6 +378,16 @@ const MONTH_LABELS = [
           <mat-icon>today</mat-icon>
           Ver mes actual
         </button>
+      </div>
+      <div class="guy-filters__grid guy-filters__grid--dense att-excel-range">
+        <label class="today-ot">
+          <span>Excel desde</span>
+          <input type="date" [ngModel]="excelFrom()" (ngModelChange)="excelFrom.set($event)" />
+        </label>
+        <label class="today-ot">
+          <span>Excel hasta</span>
+          <input type="date" [ngModel]="excelTo()" (ngModelChange)="excelTo.set($event)" />
+        </label>
         <button
           mat-stroked-button
           type="button"
@@ -959,6 +969,14 @@ const MONTH_LABELS = [
         color: var(--guy-navy, #003366);
         background: #fff;
       }
+      .att-excel-range {
+        margin-top: 0.65rem;
+        align-items: end;
+      }
+      .att-excel-range .today-ot input[type='date'],
+      .ot-report__filters .today-ot input[type='date'] {
+        width: 9.6rem;
+      }
       .today-ot-badge {
         font-size: 0.75rem;
         font-weight: 800;
@@ -1086,6 +1104,10 @@ export class AttendancePage {
     `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
   );
   readonly otTo = signal(this.todayIso());
+  readonly excelFrom = signal(
+    `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
+  );
+  readonly excelTo = signal(this.todayIso());
   readonly otSummary = signal<{
     items: Array<{
       employeeId: string;
@@ -1340,12 +1362,20 @@ export class AttendancePage {
     const shopId = this.shopId();
     const shop = this.shops.selectedShop();
     if (!shopId || this.exporting()) return;
-    const year = this.year();
-    const month = this.month();
+    const from = String(this.excelFrom() ?? '').trim();
+    const to = String(this.excelTo() ?? '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      this.snack.open('Indicá un rango de fechas válido', 'OK', { duration: 2500 });
+      return;
+    }
+    if (from > to) {
+      this.snack.open('La fecha desde no puede ser posterior a hasta', 'OK', { duration: 2500 });
+      return;
+    }
     this.exporting.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/attendance/export.xlsx`, {
-        params: { year: String(year), month: String(month) },
+        params: { from, to },
         responseType: 'blob',
       })
       .subscribe({
@@ -1354,8 +1384,7 @@ export class AttendancePage {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          const monthPad = String(month).padStart(2, '0');
-          a.download = `presentismo-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${year}-${monthPad}.xlsx`;
+          a.download = `presentismo-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from}_${to}.xlsx`;
           a.click();
           URL.revokeObjectURL(url);
         },
