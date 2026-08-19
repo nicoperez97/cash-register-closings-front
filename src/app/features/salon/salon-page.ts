@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -9,6 +9,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -276,6 +278,7 @@ export class SalonPage {
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly live = inject(ShopLiveClient);
   readonly shops = inject(ShopContextService);
   private readonly router = inject(Router);
 
@@ -300,6 +303,13 @@ export class SalonPage {
 
   constructor() {
     usePageRefresh(() => this.load());
+    this.live
+      .watch(
+        computed(() => this.shops.selectedShop()?.slug ?? null),
+        ['reservations'],
+      )
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.load());
     effect(() => {
       const shopId = this.shops.selectedShopId();
       untracked(() => {

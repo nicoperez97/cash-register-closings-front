@@ -311,7 +311,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'calendar_month',
         tone: 'read',
         anyOf: ['reservations.read'],
-        body: 'Semana o día, adentro y afuera. Recargar también trae reservas ya aceptadas.',
+        body: 'Semana o día, adentro y afuera. El tablero de sala y esta agenda se actualizan solos cuando alguien carga o sienta una mesa.',
       },
       {
         title: 'Operar',
@@ -337,7 +337,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'hourglass_top',
         tone: 'read',
         anyOf: ['waitingList.read'],
-        body: 'Vas a ver el orden de espera del salón.',
+        body: 'Vas a ver el orden de espera del salón. La pantalla /w se actualiza sola cuando entra o sale alguien de la cola.',
       },
       {
         title: 'Llamar y cerrar',
@@ -358,7 +358,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'grid_view',
         tone: 'read',
         anyOf: ['reservations.read'],
-        body: 'Mesas, cómo se combinan y cómo está el turno.',
+        body: 'Mesas, cómo se combinan y cómo está el turno. Si otro dispositivo cambia el mapa, esta pantalla se actualiza sola.',
       },
       {
         title: 'Aforo',
@@ -442,7 +442,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'storefront',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Mes, día y extras en un rango de fechas (el Excel también usa desde/hasta, no un mes cerrado).',
+        body: 'Mes, día y extras en un rango de fechas (el Excel también usa desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia.',
         tip: 'Si el local apagó “Presentismo con horario”, solo se marca presente / ausente / feriado: no hay entrada, salida ni extra.',
       },
       {
