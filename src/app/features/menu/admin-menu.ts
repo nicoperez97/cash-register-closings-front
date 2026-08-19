@@ -194,7 +194,7 @@ function toPrice(value: unknown): number | null {
           <p class="menu-admin__hint">
             <strong>Agregar / Reemplazar</strong> lee el PDF para armar ítems.
             <strong>Cargar carta física</strong> sube el archivo que el cliente ve en la web (sin cambiar los ítems).
-            <strong>PDF estilo web</strong> genera un PDF con el look de la página pública (tipografía y layout), no el archivo cargado.
+            <strong>PDF para imprimir</strong> es la carta pública (mismo estilo), sin buscador, filtros ni botones.
           </p>
           @if (menus().length) {
             <div class="menu-admin__tabs" role="tablist">
@@ -606,7 +606,7 @@ export class AdminMenuPage {
           readySelector: '.menu__sheet',
           filename: `carta-${pdfFileSlug(this.title || this.menuSlug || shop.name || 'carta')}.pdf`,
           widthPx: 640,
-          hide: '.menu__mask, .pdf-hide',
+          hide: '.pdf-chrome, .menu__mask',
         });
       } catch {
         this.snack.open('No se pudo generar el PDF. Revisá que la carta pública esté activa.', 'OK', {

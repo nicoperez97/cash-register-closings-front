@@ -33,14 +33,14 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
           </div>
           <button
             type="button"
-            class="poster__print"
+            class="poster__print pdf-chrome"
             [disabled]="printing()"
             (click)="downloadPdf()"
           >
             {{ printing() ? 'Generando…' : 'Imprimir / PDF' }}
           </button>
           @if (pdfError()) {
-            <p class="poster__pdf-error">{{ pdfError() }}</p>
+            <p class="poster__pdf-error pdf-chrome">{{ pdfError() }}</p>
           }
         </header>
 
@@ -80,6 +80,40 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
       margin: 0 auto;
       padding: 1.5rem 1.25rem 3rem;
       --accent: #2e7d32;
+      background: #f4f1ea;
+    }
+    .poster.pdf-capturing {
+      max-width: none;
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 1.65rem 1.45rem 2rem;
+    }
+    .poster.pdf-capturing .poster__logo {
+      width: 5.1rem;
+      height: 5.1rem;
+    }
+    .poster.pdf-capturing .poster__eyebrow {
+      font-size: 0.82rem;
+    }
+    .poster.pdf-capturing h1 {
+      font-size: 2.45rem;
+    }
+    .poster.pdf-capturing .poster__phase h2 {
+      font-size: 1.85rem;
+    }
+    .poster.pdf-capturing .poster__block {
+      padding: 1.2rem 1.3rem 1.3rem;
+    }
+    .poster.pdf-capturing .poster__block h3 {
+      font-size: 1.42rem;
+    }
+    .poster.pdf-capturing .poster__rule h4 {
+      font-size: 1.28rem;
+    }
+    .poster.pdf-capturing .poster__rule p {
+      font-size: 1.22rem;
+      line-height: 1.5;
     }
     .poster--error {
       min-height: 100vh;
@@ -134,9 +168,11 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
       padding: 0.55rem 1rem;
       cursor: pointer;
     }
-    .poster__print:disabled {
-      opacity: 0.65;
-      cursor: wait;
+    .poster.pdf-capturing .poster__hero {
+      justify-content: flex-start;
+    }
+    .poster.pdf-capturing .pdf-chrome {
+      display: none !important;
     }
     .poster__pdf-error {
       flex-basis: 100%;
@@ -265,7 +301,8 @@ export class PublicServiceRulesPageComponent implements OnInit {
     try {
       await downloadCaptureRootPdf(`rules-pdf-root`, `normas-${slug}.pdf`, {
         background: '#f4f1ea',
-        hide: '.poster__print, .poster__pdf-error',
+        hide: '.poster__print, .poster__pdf-error, .pdf-chrome',
+        widthPx: 640,
       });
     } catch {
       this.pdfError.set('No se pudo generar el PDF');
