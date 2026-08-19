@@ -16,6 +16,8 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { ProductionAttendanceExcelImportDialogComponent } from './production-attendance-excel-import-dialog';
@@ -775,6 +777,7 @@ export class ProductionAttendancePage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
+  private readonly live = inject(ShopLiveClient);
 
   readonly shopId = this.shops.selectedShopId;
   private readonly tableWrap = viewChild<ElementRef<HTMLElement>>('tableWrap');
@@ -867,6 +870,17 @@ export class ProductionAttendancePage {
       void this.loadTodayMarks();
       void this.loadSummary();
     });
+    this.live
+      .watch(
+        computed(() => this.shops.selectedShop()?.slug ?? null),
+        ['attendance'],
+      )
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        void this.reload();
+        void this.loadTodayMarks();
+        void this.loadSummary();
+      });
     effect(() => {
       const shopId = this.shopId();
       this.todayIso();

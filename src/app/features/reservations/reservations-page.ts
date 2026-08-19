@@ -15,6 +15,8 @@ import {
   ReservationsDaySummary,
   ReservationDaySettings,
 } from './reservations-api.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import {
   ReservationRequestsPanelComponent,
@@ -117,6 +119,7 @@ export class ReservationsPage implements OnInit, OnDestroy {
   private readonly snack = inject(MatSnackBar);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly live = inject(ShopLiveClient);
 
   readonly businessDate = signal(this.defaultDate());
   readonly reservations = signal<ReservationRow[]>([]);
@@ -161,6 +164,13 @@ export class ReservationsPage implements OnInit, OnDestroy {
       this.loadSummary();
       this.inbox.refresh();
     });
+    this.live
+      .watch(this.shopSlug, ['reservations', 'waiting'])
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.loadReservations();
+        this.loadSummary();
+      });
   }
 
   canManage(): boolean {

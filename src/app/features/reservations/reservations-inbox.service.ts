@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {
   catchError,
   combineLatest,
@@ -16,6 +16,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { ReservationsApiService } from './reservations-api.service';
 import { isActiveReservationStatus } from './reservation-status';
 import {
@@ -29,6 +30,7 @@ export class ReservationsInboxService {
   private readonly api = inject(ReservationsApiService);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly live = inject(ShopLiveClient);
 
   /** Total de comensales del día calendario del local. */
   readonly todayGuests = signal(0);
@@ -69,7 +71,7 @@ export class ReservationsInboxService {
             this.pendingRequests.set(0);
             return EMPTY;
           }
-          return interval(15000).pipe(
+          return interval(60_000).pipe(
             startWith(0),
             switchMap(() => this.fetchInbox(shopId, timezone)),
           );
@@ -77,6 +79,14 @@ export class ReservationsInboxService {
         distinctUntilChanged((a, b) => a.guests === b.guests && a.pending === b.pending),
       )
       .subscribe((inbox) => this.applyInbox(inbox));
+
+    this.live
+      .watch(
+        computed(() => this.shops.selectedShop()?.slug ?? null),
+        ['reservations'],
+      )
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.refresh());
   }
 
   refresh(): void {

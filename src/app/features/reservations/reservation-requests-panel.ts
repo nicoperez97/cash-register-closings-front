@@ -16,6 +16,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -300,6 +302,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirm = inject(ConfirmDialogService);
   readonly shops = inject(ShopContextService);
+  private readonly live = inject(ShopLiveClient);
 
   readonly accepted = output<ReservationRequestAccepted>();
   readonly refreshAll = output<void>();
@@ -332,6 +335,10 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       this.loadRequests();
       this.inbox.refresh();
     });
+    this.live
+      .watch(this.shopSlug, ['reservations'])
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.loadRequests());
     effect(() => {
       const shop = this.shops.selectedShop();
       const id = shop?.id ?? null;
@@ -344,7 +351,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadRequests();
-    this.requestsPoll = setInterval(() => this.loadRequests(), 45_000);
+    this.requestsPoll = setInterval(() => this.loadRequests(), 120_000);
   }
 
   ngOnDestroy(): void {

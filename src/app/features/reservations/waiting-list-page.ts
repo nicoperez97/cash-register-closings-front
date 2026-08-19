@@ -11,6 +11,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import {
   ReservationArea,
   ReservationsApiService,
@@ -159,6 +161,7 @@ export class WaitingListPage implements OnInit {
   private readonly snack = inject(MatSnackBar);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly live = inject(ShopLiveClient);
 
   readonly waiting = signal<WaitingListRow[]>([]);
 
@@ -198,6 +201,10 @@ export class WaitingListPage implements OnInit {
 
   constructor() {
     usePageRefresh(() => this.loadWaiting());
+    this.live
+      .watch(this.shopSlug, ['waiting'])
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.loadWaiting());
   }
 
   ngOnInit(): void {

@@ -19,6 +19,8 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { AttendanceExcelImportDialogComponent } from './attendance-excel-import-dialog';
 import { AttendanceOvertimeDialogComponent } from './attendance-overtime-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import {
@@ -1144,6 +1146,7 @@ export class AttendancePage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
+  private readonly live = inject(ShopLiveClient);
 
   readonly shopId = this.shops.selectedShopId;
   private readonly tableWrap = viewChild<ElementRef<HTMLElement>>('tableWrap');
@@ -1359,6 +1362,16 @@ export class AttendancePage {
     usePageRefresh(async () => {
       await Promise.all([this.reload(), this.loadTodayMarks()]);
     });
+    this.live
+      .watch(
+        computed(() => this.shops.selectedShop()?.slug ?? null),
+        ['attendance'],
+      )
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        void this.reload();
+        void this.loadTodayMarks();
+      });
     effect(() => {
       const shopId = this.shopId();
       this.todayIso();
