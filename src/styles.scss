@@ -1542,6 +1542,27 @@ button.mat-mdc-mini-fab mat-icon {
   font-weight: 800;
 }
 
+.pdf-print-only {
+  display: none !important;
+}
+
+.pdf-capturing .pdf-print-only {
+  display: block !important;
+}
+
+.pdf-capturing .pdf-chrome,
+.pdf-capturing .pdf-hide {
+  display: none !important;
+}
+
+#help-pdf-root.pdf-capturing .guy-page-header__action {
+  display: none !important;
+}
+
+.poster.pdf-capturing .poster__hero {
+  justify-content: flex-start;
+}
+
 .toolbar-quick-menu .toolbar-quick-menu__head {
   padding: 0.65rem 1rem 0.35rem;
   font-size: 0.68rem;

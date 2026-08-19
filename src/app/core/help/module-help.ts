@@ -322,6 +322,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Tablero para la sala: /r',
           'Formulario para el cliente: /reservar',
+          'Abierto / Adentro / Afuera piden confirmación, para no cambiarlos sin querer.',
         ],
       },
     ],
@@ -627,7 +628,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'menu_book',
         tone: 'read',
         anyOf: ['serviceRules.read'],
-        body: 'Categorías (cocina, salón, caja…) con reglas Pre y Post. En la página pública /n el botón descarga un PDF igual a esa pantalla.',
+        body: 'Categorías (cocina, salón, caja…) con reglas Pre y Post. En /n el PDF es esa misma página, sin el botón de descargar.',
       },
       {
         title: 'Escribirlas',
@@ -772,7 +773,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Podés tener varias cartas (comida, vinos…). La página pública existe si el módulo está activo en Local.',
         items: [
           'Cargar carta física: el PDF o la foto que se abre en la web.',
-          'PDF estilo web: descarga un PDF igual a la página pública, no el diálogo de imprimir del navegador.',
+          'PDF para imprimir: misma cara que la web (logo, tipografía, precios), sin buscar, filtros ni botones.',
         ],
       },
     ],
@@ -787,7 +788,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'qr_code_2',
         tone: 'do',
         anyOf: ['shops.manage'],
-        body: 'Pegá el link (o un Wi‑Fi / texto). Descargá PNG o un PDF con el mismo recuadro que ves en pantalla.',
+        body: 'Pegá el link (o un Wi‑Fi / texto). En Descripción del cartel escribí la frase que va debajo del QR. El PNG es solo el código; el PDF es una hoja con logo, nombre del local, QR centrado y esa descripción. No imprime el link ni la pantalla de armado.',
       },
     ],
   },
@@ -829,7 +830,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'help_outline',
         tone: 'read',
         anyOf: ['shops.manage'],
-        body: 'Buscá un módulo o andá al índice. El PDF del encabezado es una captura de esta guía, no un texto genérico.',
+        body: 'Buscá un módulo o andá al índice. El PDF es esta guía completa, sin buscador ni botones.',
         tip: 'En cada pantalla, el ícono i del título abre solo el tema de esa pantalla.',
       },
     ],

@@ -39,12 +39,12 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
       <div>
         <p class="help-admin__hero-kicker">Guía de la app</p>
         <p class="help-admin__lead">
-          Alcance de cada módulo, en lenguaje de uso diario. El PDF del encabezado es esta misma guía.
+          Alcance de cada módulo, en lenguaje de uso diario.
         </p>
       </div>
     </section>
 
-    <div class="help-admin__toolbar">
+    <div class="help-admin__toolbar pdf-chrome">
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="help-admin__search">
         <mat-label>Buscar módulo</mat-label>
         <mat-icon matPrefix>search</mat-icon>
@@ -53,7 +53,7 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
       <p class="help-admin__count">{{ filtered().length }} de {{ topics.length }} módulos</p>
     </div>
 
-    <nav class="help-admin__toc" aria-label="Módulos">
+    <nav class="help-admin__toc pdf-chrome" aria-label="Módulos">
       @for (topic of filtered(); track topic.id) {
         <a class="help-admin__chip" [href]="'#' + topic.id" (click)="jump($event, topic.id)">
           <mat-icon>{{ icon(topic.id) }}</mat-icon>
@@ -264,14 +264,16 @@ export class AdminHelpPage {
 
   async downloadPdf(): Promise<void> {
     if (this.printing()) return;
-    const topics = this.filtered();
-    if (!topics.length) return;
+    const prev = this.query();
+    this.query.set('');
     this.printing.set(true);
     try {
+      await new Promise((r) => window.setTimeout(r, 40));
       await downloadCaptureRootPdf('help-pdf-root', 'instrucciones.pdf', {
-        hide: '.guy-page-header__action',
+        hide: '.guy-page-header__action, .pdf-chrome',
       });
     } finally {
+      this.query.set(prev);
       this.printing.set(false);
     }
   }
