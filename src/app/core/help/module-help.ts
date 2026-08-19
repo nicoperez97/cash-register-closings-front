@@ -682,6 +682,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Entrada y salida de servicio: default para quien no tiene horario propio.',
           'Presentismo con horario: si lo apagás, el tablero es solo presente / ausente / feriado.',
           'Módulos públicos: carta /m, normas /n, reservas, presentismo.',
+          'iPad antiguo (iOS 9): usá /legacy/index.html. Safari viejo no puede abrir la app normal.',
         ],
       },
     ],
