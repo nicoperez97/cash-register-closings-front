@@ -1,8 +1,10 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -504,6 +506,7 @@ export class ServiceRulesImportPreviewDialogComponent {
   selector: 'app-service-rules-page',
   imports: [
     MatButtonModule,
+    MatCheckboxModule,
     MatIconModule,
     MatDialogModule,
     MatSnackBarModule,
@@ -540,6 +543,33 @@ export class ServiceRulesImportPreviewDialogComponent {
           accept=".pdf,.txt,image/png,image/jpeg,image/webp,application/pdf,text/plain"
           (change)="onFilePicked($event)"
         />
+        @if (rules().length) {
+          <button mat-stroked-button type="button" (click)="toggleSelectAllRules()">
+            <mat-icon>checklist</mat-icon>
+            {{ allRulesSelected() ? 'Quitar selección' : 'Seleccionar todas' }}
+          </button>
+        }
+      </div>
+    }
+
+    @if (canManage() && selectedRuleIds().size) {
+      <div class="sr-bulk">
+        <span class="sr-bulk__count">
+          {{ selectedRuleIds().size }} norma{{ selectedRuleIds().size === 1 ? '' : 's' }}
+        </span>
+        <button
+          mat-flat-button
+          color="warn"
+          type="button"
+          [disabled]="bulkBusy()"
+          (click)="removeSelectedRules()"
+        >
+          <mat-icon>delete</mat-icon>
+          {{ bulkBusy() ? 'Borrando…' : 'Borrar seleccionadas' }}
+        </button>
+        <button mat-button type="button" [disabled]="bulkBusy()" (click)="clearRuleSelection()">
+          Limpiar
+        </button>
       </div>
     }
 
@@ -620,7 +650,15 @@ export class ServiceRulesImportPreviewDialogComponent {
                   }
                 </div>
                 @for (rule of rulesOf(cat.id, phase.value); track rule.id) {
-                  <div class="sr-rule">
+                  <div class="sr-rule" [class.sr-rule--selected]="isRuleSelected(rule.id)">
+                    @if (canManage()) {
+                      <mat-checkbox
+                        [checked]="isRuleSelected(rule.id)"
+                        (click)="$event.stopPropagation()"
+                        (change)="toggleRule(rule.id, $event.checked)"
+                        aria-label="Seleccionar norma"
+                      />
+                    }
                     <div class="sr-rule__text">
                       <strong>{{ rule.title }}</strong>
                       <p>{{ rule.body }}</p>
@@ -658,6 +696,21 @@ export class ServiceRulesImportPreviewDialogComponent {
       flex-wrap: wrap;
       gap: 0.5rem;
       margin: 0 0 0.75rem;
+    }
+    .sr-bulk {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      margin: 0 0 0.85rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--guy-danger, #c62828) 22%, var(--guy-border, #e6ebf0));
+      background: color-mix(in srgb, var(--guy-danger, #c62828) 6%, #fff);
+    }
+    .sr-bulk__count {
+      font-weight: 700;
+      color: var(--guy-navy, #003366);
     }
     .sr-public {
       display: flex;
@@ -764,6 +817,10 @@ export class ServiceRulesImportPreviewDialogComponent {
       background: #fff;
       border: 1px solid color-mix(in srgb, var(--guy-border, #e6ebf0) 80%, #fff);
     }
+    .sr-rule--selected {
+      border-color: color-mix(in srgb, var(--guy-danger, #c62828) 35%, var(--guy-border, #e6ebf0));
+      background: color-mix(in srgb, var(--guy-danger, #c62828) 4%, #fff);
+    }
     .sr-rule__text {
       flex: 1;
       min-width: 0;
@@ -802,9 +859,16 @@ export class ServiceRulesPage {
   readonly phases = SERVICE_RULE_PHASES;
   readonly loading = signal(false);
   readonly parsing = signal(false);
+  readonly bulkBusy = signal(false);
   readonly categories = signal<ServiceRuleCategory[]>([]);
   readonly rules = signal<ServiceRule[]>([]);
+  readonly selectedRuleIds = signal<Set<string>>(new Set());
   readonly shopId = computed(() => this.shops.selectedShopId());
+  readonly allRulesSelected = computed(() => {
+    const rules = this.rules();
+    const selected = this.selectedRuleIds();
+    return rules.length > 0 && rules.every((r) => selected.has(r.id));
+  });
 
   constructor() {
     usePageRefresh(() => this.reload());
@@ -848,6 +912,31 @@ export class ServiceRulesPage {
       .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
   }
 
+  isRuleSelected(id: string): boolean {
+    return this.selectedRuleIds().has(id);
+  }
+
+  toggleRule(id: string, checked: boolean): void {
+    this.selectedRuleIds.update((set) => {
+      const next = new Set(set);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  clearRuleSelection(): void {
+    this.selectedRuleIds.set(new Set());
+  }
+
+  toggleSelectAllRules(): void {
+    if (this.allRulesSelected()) {
+      this.clearRuleSelection();
+      return;
+    }
+    this.selectedRuleIds.set(new Set(this.rules().map((r) => r.id)));
+  }
+
   reload(): void {
     const shopId = this.shopId();
     if (!shopId) return;
@@ -856,6 +945,10 @@ export class ServiceRulesPage {
       next: (bundle) => {
         this.categories.set(bundle.categories ?? []);
         this.rules.set(bundle.rules ?? []);
+        const alive = new Set((bundle.rules ?? []).map((r) => r.id));
+        this.selectedRuleIds.update(
+          (set) => new Set([...set].filter((id) => alive.has(id))),
+        );
         this.loading.set(false);
       },
       error: () => {
@@ -1016,6 +1109,37 @@ export class ServiceRulesPage {
       },
       error: () => this.snack.open('No se pudo borrar', 'OK', { duration: 3500 }),
     });
+  }
+
+  async removeSelectedRules(): Promise<void> {
+    const shopId = this.shopId();
+    const ids = [...this.selectedRuleIds()];
+    if (!shopId || !ids.length || this.bulkBusy()) return;
+    const ok = await this.confirmDialog.confirm(
+      'Borrar normas',
+      `¿Borrar ${ids.length} norma${ids.length === 1 ? '' : 's'}?`,
+      { confirmLabel: 'Borrar', icon: 'delete' },
+    );
+    if (!ok) return;
+
+    this.bulkBusy.set(true);
+    const results = await Promise.allSettled(
+      ids.map((id) => firstValueFrom(this.api.removeRule(shopId, id))),
+    );
+    this.bulkBusy.set(false);
+    const done = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - done;
+    if (failed === 0) {
+      this.snack.open(done === 1 ? 'Norma borrada' : `Se borraron ${done} normas`, 'OK', {
+        duration: 2800,
+      });
+    } else if (done === 0) {
+      this.snack.open('No se pudieron borrar las normas', 'OK', { duration: 3500 });
+    } else {
+      this.snack.open(`Se borraron ${done}; fallaron ${failed}`, 'OK', { duration: 4000 });
+    }
+    this.clearRuleSelection();
+    this.reload();
   }
 
   moveCategory(cat: ServiceRuleCategory, dir: -1 | 1): void {
