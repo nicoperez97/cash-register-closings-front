@@ -663,6 +663,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['serviceRules.manage'],
         body: 'Creá categorías, ordená y editá el texto. No hace falta ser admin del local: alcanza el permiso de normas.',
       },
+      {
+        title: 'Cargar desde archivo',
+        icon: 'upload_file',
+        tone: 'do',
+        anyOf: ['serviceRules.manage'],
+        body: 'Subí un PDF, una foto o un .txt. La IA arma un borrador; lo revisás en la vista previa y confirmás. Se suma a lo que ya tenés: no borra normas. Si la categoría ya existe (mismo nombre), reutiliza esa.',
+        tip: 'Si la IA no está configurada en el servidor, vas a ver un mensaje de error al subir el archivo.',
+      },
     ],
   },
   {
