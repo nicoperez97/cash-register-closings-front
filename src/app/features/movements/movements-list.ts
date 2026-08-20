@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -68,18 +68,18 @@ import { shareText } from '../../shared/utils/share-text';
   ],
   template: `
     <app-page-header
-      title="Movimientos"
+      [title]="pageTitle()"
       [subtitle]="shops.selectedShop()?.name ?? 'Sin local'"
-      [actionLabel]="canManage() ? 'Gasto rápido' : ''"
+      [actionLabel]="canManage() ? actionLabel() : ''"
       [actionDisabled]="!canManage()"
-      actionIcon="payments"
+      [actionIcon]="kind() === 'transfer' ? 'swap_horiz' : 'payments'"
       [actionLarge]="true"
-      (action)="openQuickExpense()"
+      (action)="onPrimaryAction()"
     />
 
     @if (shopId()) {
       <div class="xl-toolbar mb-3">
-        @if (canManage()) {
+        @if (canManage() && kind() === 'expense') {
           <button mat-stroked-button type="button" (click)="openExcelImport()">
             <mat-icon>upload_file</mat-icon>
             Importar Excel
@@ -100,7 +100,13 @@ import { shareText } from '../../shared/utils/share-text';
         <div class="guy-filters__head">
           <div>
             <h2 class="guy-filters__title">Filtros</h2>
-            <p class="guy-filters__subtitle">Buscá por período, concepto y texto</p>
+            <p class="guy-filters__subtitle">
+              {{
+                kind() === 'transfer'
+                  ? 'Buscá por período y texto'
+                  : 'Buscá por período, concepto y texto'
+              }}
+            </p>
           </div>
           <div class="guy-filters__tools">
             <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
@@ -126,15 +132,17 @@ import { shareText } from '../../shared/utils/share-text';
               <mat-date-range-picker #picker />
             </mat-form-field>
 
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Concepto</mat-label>
-              <mat-select formControlName="conceptId">
-                <mat-option value="">Todos</mat-option>
-                @for (c of concepts(); track c.id) {
-                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            @if (kind() === 'expense') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Concepto</mat-label>
+                <mat-select formControlName="conceptId">
+                  <mat-option value="">Todos</mat-option>
+                  @for (c of concepts(); track c.id) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
 
             <mat-form-field appearance="outline" class="guy-filters__span-2" subscriptSizing="dynamic">
               <mat-label>Buscar en descripción</mat-label>
@@ -170,7 +178,7 @@ import { shareText } from '../../shared/utils/share-text';
         <div class="panel-card panel-card--flush movements-layout__table">
           <div class="panel-card__body">
             <app-data-table
-              [columns]="columns"
+              [columns]="columns()"
               [rows]="rows()"
               [loading]="loading()"
               [sortable]="true"
@@ -209,6 +217,9 @@ import { shareText } from '../../shared/utils/share-text';
   `,
 })
 export class MovementsListPage {
+  /** `expense` = Gastos · `transfer` = Movimientos entre cuentas */
+  readonly kind = input<'expense' | 'transfer'>('expense');
+
   private readonly api = inject(MovementsApiService);
   private readonly employeesApi = inject(EmployeesApiService);
   private readonly closingsApi = inject(ClosingsApiService);
@@ -233,6 +244,13 @@ export class MovementsListPage {
   readonly users = signal<MovementUserOption[]>([]);
   readonly exporting = signal(false);
 
+  readonly pageTitle = computed(() =>
+    this.kind() === 'transfer' ? 'Movimientos entre cuentas' : 'Gastos',
+  );
+  readonly actionLabel = computed(() =>
+    this.kind() === 'transfer' ? 'Nueva transferencia' : 'Gasto rápido',
+  );
+
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(
       new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -245,33 +263,43 @@ export class MovementsListPage {
     q: new FormControl('', { nonNullable: true }),
   });
 
-  readonly columns: DataTableColumn[] = [
-    { key: 'businessDate', label: 'Fecha' },
-    {
-      key: 'fromAccountName',
-      label: 'Origen',
-      format: (r) =>
-        String(r['fromAccountName'] || r['fromUserName'] || '—'),
-    },
-    {
-      key: 'toAccountName',
-      label: 'Destino',
-      format: (r) => String(r['toAccountName'] || r['toUserName'] || '—'),
-    },
-    { key: 'conceptName', label: 'Concepto', format: (r) => r['conceptName'] ?? '—' },
-    { key: 'description', label: 'Descripción' },
-    {
-      key: 'amountUyu',
-      label: 'Monto',
-      format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-AR')}`,
-    },
-    { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
-    {
-      key: 'closingId',
-      label: 'Origen',
-      format: (r) => (r['closingId'] ? 'Cierre' : 'Manual'),
-    },
-  ];
+  readonly columns = computed((): DataTableColumn[] => {
+    const base: DataTableColumn[] = [
+      { key: 'businessDate', label: 'Fecha' },
+      {
+        key: 'fromAccountName',
+        label: 'Origen',
+        format: (r) => String(r['fromAccountName'] || r['fromUserName'] || '—'),
+      },
+      {
+        key: 'toAccountName',
+        label: 'Destino',
+        format: (r) => String(r['toAccountName'] || r['toUserName'] || '—'),
+      },
+    ];
+    if (this.kind() === 'expense') {
+      base.push({
+        key: 'conceptName',
+        label: 'Concepto',
+        format: (r) => r['conceptName'] ?? '—',
+      });
+    }
+    base.push(
+      { key: 'description', label: 'Descripción' },
+      {
+        key: 'amountUyu',
+        label: 'Monto',
+        format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-AR')}`,
+      },
+      { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
+      {
+        key: 'closingId',
+        label: 'Origen',
+        format: (r) => (r['closingId'] ? 'Cierre' : 'Manual'),
+      },
+    );
+    return base;
+  });
 
   readonly canEditRow = (row: Movement) =>
     this.canManage() && (!row.closingId || this.auth.isAdmin());
@@ -284,6 +312,7 @@ export class MovementsListPage {
     usePageRefresh(() => this.applyFilter());
     effect(() => {
       const shopId = this.shopId();
+      this.kind();
       this.reloadToken();
       if (!shopId) {
         this.rows.set([]);
@@ -299,10 +328,14 @@ export class MovementsListPage {
         next: (rows) => this.accounts.set(rows),
         error: () => this.accounts.set([]),
       });
-      this.api.concepts(shopId, 'movement').subscribe({
-        next: (rows) => this.concepts.set(rows),
-        error: () => this.concepts.set([]),
-      });
+      if (this.kind() === 'expense') {
+        this.api.concepts(shopId, 'movement').subscribe({
+          next: (rows) => this.concepts.set(rows),
+          error: () => this.concepts.set([]),
+        });
+      } else {
+        this.concepts.set([]);
+      }
       this.employeesApi.list(shopId).subscribe({
         next: (rows) => this.employees.set(rows.map((e) => ({ id: e.id, fullName: e.fullName }))),
         error: () => this.employees.set([]),
@@ -326,12 +359,21 @@ export class MovementsListPage {
   }
 
   canManage(): boolean {
-    return hasShopPermission(this.auth.currentUser(), this.shopId(), 'movements.manage');
+    const perm = this.kind() === 'transfer' ? 'accountTransfers.manage' : 'expenses.manage';
+    return hasShopPermission(this.auth.currentUser(), this.shopId(), perm);
+  }
+
+  onPrimaryAction(): void {
+    if (this.kind() === 'transfer') {
+      this.openCreate();
+      return;
+    }
+    this.openQuickExpense();
   }
 
   openQuickExpense(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage()) return;
+    if (!shopId || !this.canManage() || this.kind() !== 'expense') return;
     this.dialogTitle
       .track(
         this.dialog.open(QuickExpenseDialogComponent, {
@@ -359,10 +401,10 @@ export class MovementsListPage {
       const from = this.formatDate(this.range.controls.start.value);
       const to = this.formatDate(this.range.controls.end.value);
       await downloadColumnsPdf({
-        title: 'Movimientos',
+        title: this.pageTitle(),
         subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''}`,
-        filename: `movimientos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
-        columns: this.columns,
+        filename: `${this.kind() === 'transfer' ? 'transferencias' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
+        columns: this.columns(),
         rows: this.rows(),
       });
       return;
@@ -377,13 +419,13 @@ export class MovementsListPage {
     const from = this.formatDate(this.range.controls.start.value) ?? undefined;
     const to = this.formatDate(this.range.controls.end.value) ?? undefined;
     this.exporting.set(true);
-    this.api.exportExcel(shopId, { from, to }).subscribe({
+    this.api.exportExcel(shopId, { from, to, kind: this.kind() }).subscribe({
       next: (blob) => {
         this.exporting.set(false);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `movimientos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
+        a.download = `${this.kind() === 'transfer' ? 'transferencias' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -423,8 +465,9 @@ export class MovementsListPage {
     return {
       from: this.formatDate(this.range.controls.start.value),
       to: this.formatDate(this.range.controls.end.value),
-      conceptId: f.conceptId || null,
+      conceptId: this.kind() === 'expense' ? f.conceptId || null : null,
       q: f.q || null,
+      kind: this.kind(),
     };
   }
 
@@ -442,10 +485,15 @@ export class MovementsListPage {
       },
       error: () => {
         this.loading.set(false);
-        this.snack.open('No se pudieron cargar los movimientos', 'OK', { duration: 3000 });
+        this.snack.open(
+          this.kind() === 'transfer'
+            ? 'No se pudieron cargar las transferencias'
+            : 'No se pudieron cargar los gastos',
+          'OK',
+          { duration: 3000 },
+        );
       },
     });
-    // Saldos al estilo del contador: acumulados (sin filtrar por período de la grilla).
     this.api.balances(shopId).subscribe({
       next: (res) =>
         this.balanceRows.set(
@@ -496,20 +544,25 @@ export class MovementsListPage {
 
   async onRemove(row: Movement): Promise<void> {
     if (row.closingId && !this.auth.isAdmin()) return;
+    const noun = this.kind() === 'transfer' ? 'transferencia' : 'gasto';
     const ok = await this.confirmDialog.confirm(
-      'Eliminar movimiento',
-      `¿Eliminar el movimiento del ${row.businessDate}?`,
+      `Eliminar ${noun}`,
+      `¿Eliminar el ${noun} del ${row.businessDate}?`,
     );
     if (!ok) return;
     const shopId = this.shopId();
     if (!shopId) return;
     this.api.remove(shopId, row.id).subscribe({
       next: () => {
-        this.snack.open('Movimiento eliminado', 'OK', { duration: 2500 });
+        this.snack.open(
+          this.kind() === 'transfer' ? 'Transferencia eliminada' : 'Gasto eliminado',
+          'OK',
+          { duration: 2500 },
+        );
         this.applyFilter();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar el movimiento';
+        const msg = err?.error?.message ?? `No se pudo eliminar el ${noun}`;
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
@@ -535,11 +588,20 @@ export class MovementsListPage {
     const shopId = this.shopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    const kind = this.kind();
     const keepIds = new Set(
       mode.mode === 'edit'
         ? [mode.movement.fromUserId, mode.movement.toUserId].filter(Boolean)
         : [],
     );
+    const title =
+      mode.mode === 'edit'
+        ? kind === 'transfer'
+          ? 'Editar transferencia'
+          : 'Editar gasto'
+        : kind === 'transfer'
+          ? 'Nueva transferencia'
+          : 'Nuevo gasto';
     this.dialogTitle
       .track(
         this.dialog.open(MovementDialogComponent, {
@@ -549,6 +611,7 @@ export class MovementsListPage {
           autoFocus: 'first-tabbable',
           data: {
             ...mode,
+            kind,
             shopId,
             shopName,
             accounts: this.accounts(),
@@ -559,7 +622,7 @@ export class MovementsListPage {
             ),
           },
         }),
-        mode.mode === 'edit' ? 'Editar movimiento' : 'Nuevo movimiento',
+        title,
       )
       .afterClosed()
       .subscribe((result) => {
@@ -597,7 +660,7 @@ export class MovementsListPage {
         panelClass: 'guy-dialog',
         data: movementSavedDialogData(movement, shopName),
       }),
-      'Movimiento guardado',
+      this.kind() === 'transfer' ? 'Transferencia guardada' : 'Gasto guardado',
     );
   }
 

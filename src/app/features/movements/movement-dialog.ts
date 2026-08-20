@@ -48,6 +48,8 @@ export type MovementDialogData = {
   concepts: Concept[];
   employees: MovementEmployeeOption[];
   users: MovementUserOption[];
+  /** Por defecto expense (formulario completo). transfer = sin concepto, from+to obligatorios. */
+  kind?: 'expense' | 'transfer';
 } & ({ mode: 'create' } | { mode: 'edit'; movement: Movement });
 
 function toDateInput(value?: string | null): Date | null {
@@ -84,10 +86,10 @@ function toDateString(value: Date | null): string {
   template: `
     <h2 mat-dialog-title>
       <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>{{ isEdit ? 'edit' : 'swap_horiz' }}</mat-icon>
+        <mat-icon>{{ isEdit ? 'edit' : isTransfer ? 'swap_horiz' : 'payments' }}</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>{{ isEdit ? 'Editar movimiento' : 'Nuevo movimiento' }}</strong>
+        <strong>{{ dialogTitle }}</strong>
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
@@ -124,7 +126,9 @@ function toDateString(value: Date | null): string {
                 <mat-option disabled class="select-search-opt">
                   <app-select-search [(query)]="fromQuery" placeholder="Buscar cuenta…" />
                 </mat-option>
-                <mat-option value="">Sin cuenta</mat-option>
+                @if (!isTransfer) {
+                  <mat-option value="">Sin cuenta</mat-option>
+                }
                 @if (filteredLocalFrom().length) {
                   <mat-optgroup label="Local">
                     @for (a of filteredLocalFrom(); track a.id) {
@@ -150,18 +154,18 @@ function toDateString(value: Date | null): string {
             <mat-icon>south</mat-icon>
           </div>
 
-          <section class="mov-side mov-side--optional">
+          <section class="mov-side" [class.mov-side--optional]="!isTransfer">
             <div class="mov-side__head">
               <span class="mov-side__badge mov-side__badge--to" aria-hidden="true">
                 <mat-icon>call_received</mat-icon>
               </span>
               <div class="mov-side__titles">
                 <strong>Destino</strong>
-                <span>Opcional · a dónde entra</span>
+                <span>{{ isTransfer ? 'A dónde entra' : 'Opcional · a dónde entra' }}</span>
               </div>
             </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Cuenta (opcional)</mat-label>
+              <mat-label>{{ isTransfer ? 'Cuenta' : 'Cuenta (opcional)' }}</mat-label>
               <mat-icon matPrefix>account_balance_wallet</mat-icon>
               <mat-select
                 formControlName="toAccountId"
@@ -171,7 +175,9 @@ function toDateString(value: Date | null): string {
                 <mat-option disabled class="select-search-opt">
                   <app-select-search [(query)]="toQuery" placeholder="Buscar cuenta…" />
                 </mat-option>
-                <mat-option value="">Sin cuenta</mat-option>
+                @if (!isTransfer) {
+                  <mat-option value="">Sin cuenta</mat-option>
+                }
                 @if (filteredLocalTo().length) {
                   <mat-optgroup label="Local">
                     @for (a of filteredLocalTo(); track a.id) {
@@ -194,26 +200,28 @@ function toDateString(value: Date | null): string {
           </section>
         </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Concepto</mat-label>
-          <mat-icon matPrefix>sell</mat-icon>
-          <mat-select
-            formControlName="conceptId"
-            panelClass="guy-select-search-panel"
-            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
-          >
-            <mat-option disabled class="select-search-opt">
-              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
-            </mat-option>
-            <mat-option [value]="null">Sin concepto</mat-option>
-            @for (c of filteredConcepts(); track c.id) {
-              <mat-option [value]="c.id">{{ c.name }}</mat-option>
-            }
-            @if (conceptQuery() && !filteredConcepts().length) {
-              <mat-option disabled>Sin resultados</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        @if (!isTransfer) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Concepto</mat-label>
+            <mat-icon matPrefix>sell</mat-icon>
+            <mat-select
+              formControlName="conceptId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+              </mat-option>
+              <mat-option [value]="null">Sin concepto</mat-option>
+              @for (c of filteredConcepts(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+              @if (conceptQuery() && !filteredConcepts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Descripción</mat-label>
@@ -553,6 +561,14 @@ export class MovementDialogComponent {
   private readonly shops = inject(ShopContextService);
 
   readonly isEdit = this.data.mode === 'edit';
+  readonly isTransfer = (this.data.kind ?? 'expense') === 'transfer';
+  readonly dialogTitle = this.isEdit
+    ? this.isTransfer
+      ? 'Editar transferencia'
+      : 'Editar gasto'
+    : this.isTransfer
+      ? 'Nueva transferencia'
+      : 'Nuevo gasto';
   private readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
   readonly showMore = signal(false);
@@ -570,9 +586,17 @@ export class MovementDialogComponent {
       toDateInput(this.movement?.businessDate ?? this.defaultBusinessDate()),
       Validators.required,
     ],
-    fromAccountId: [this.movement?.fromAccountId ?? ''],
-    toAccountId: [this.movement?.toAccountId ?? ''],
-    conceptId: this.fb.control<string | null>(this.movement?.conceptId ?? null),
+    fromAccountId: [
+      this.movement?.fromAccountId ?? '',
+      this.isTransfer ? Validators.required : [],
+    ],
+    toAccountId: [
+      this.movement?.toAccountId ?? '',
+      this.isTransfer ? Validators.required : [],
+    ],
+    conceptId: this.fb.control<string | null>(
+      this.isTransfer ? null : (this.movement?.conceptId ?? null),
+    ),
     description: [this.movement?.description ?? ''],
     amountUyu: [this.movement?.amountUyu ?? 0, [Validators.required, Validators.min(0)]],
     usdRate: this.fb.control<number | null>(this.movement?.usdRate ?? null),
@@ -682,13 +706,24 @@ export class MovementDialogComponent {
     const raw = this.form.getRawValue();
     const fromAccountId = raw.fromAccountId || null;
     const toAccountId = raw.toAccountId || null;
-    const body: Partial<Movement> & { notifyAdmins?: boolean } = {
+    if (this.isTransfer) {
+      if (!fromAccountId || !toAccountId) {
+        this.snack.open('Origen y destino son obligatorios', 'OK', { duration: 3500 });
+        return;
+      }
+      if (fromAccountId === toAccountId) {
+        this.snack.open('Origen y destino deben ser distintos', 'OK', { duration: 3500 });
+        return;
+      }
+    }
+    const kind = this.isTransfer ? 'transfer' : 'expense';
+    const body: Partial<Movement> & { notifyAdmins?: boolean; kind?: 'expense' | 'transfer' } = {
       businessDate: toDateString(raw.businessDate),
       fromAccountId,
       toAccountId,
       fromUserId: this.userIdForAccount(fromAccountId),
       toUserId: this.userIdForAccount(toAccountId),
-      conceptId: raw.conceptId || null,
+      conceptId: this.isTransfer ? null : raw.conceptId || null,
       description: raw.description.trim() || null,
       amountUyu: raw.amountUyu,
       usdRate: raw.usdRate,
@@ -696,6 +731,7 @@ export class MovementDialogComponent {
       employeeId: raw.employeeId || null,
       invoiced: raw.invoiced,
       invoiceNumber: raw.invoiced ? raw.invoiceNumber.trim() || null : null,
+      kind,
     };
     if (!this.isEdit) body.notifyAdmins = !!raw.notifyAdmins;
     this.busy.set(true);
@@ -709,7 +745,11 @@ export class MovementDialogComponent {
       next: (saved) => {
         this.busy.set(false);
         if (this.isEdit) {
-          this.snack.open('Movimiento actualizado', 'OK', { duration: 2500 });
+          this.snack.open(
+            this.isTransfer ? 'Transferencia actualizada' : 'Gasto actualizado',
+            'OK',
+            { duration: 2500 },
+          );
           this.ref.close(true);
           return;
         }

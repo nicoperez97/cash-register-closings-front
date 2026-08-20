@@ -31,8 +31,8 @@ export const USER_VISIBILITY_OPTIONS: Array<{
   },
   {
     key: 'movements',
-    label: 'Movimientos',
-    hint: 'Usuario origen / destino',
+    label: 'Gastos / movimientos',
+    hint: 'Usuario origen / destino en gastos y transferencias',
   },
   {
     key: 'employeeLink',

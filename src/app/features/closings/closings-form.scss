@@ -9,6 +9,9 @@
 
 .closing-form-shell {
   padding: 1rem 1.15rem 1.1rem;
+  /* panel-card anima con transform; eso crea containing block y rompe barras fixed */
+  animation: none !important;
+  transform: none !important;
 }
 
 .closing-form {
@@ -203,6 +206,11 @@
   :host ::ng-deep .closing-stepper--mobile .mat-horizontal-content-container {
     padding: 0.15rem 0 0 !important;
     overflow: visible;
+  }
+
+  /* Sin slide: el transform del stepper puede interactuar mal con barras fixed en mobile */
+  :host ::ng-deep .closing-stepper--mobile {
+    --mat-stepper-animation-duration: 0ms;
   }
 
   :host ::ng-deep .closing-form__main .mat-mdc-text-field-wrapper {

@@ -394,6 +394,7 @@ export class QuickExpenseDialogComponent {
         amountUyu: Number(raw.amountUyu),
         invoiced: false,
         notifyAdmins: !!raw.notifyAdmins,
+        kind: 'expense',
       })
       .subscribe({
         next: (saved) => {

@@ -358,11 +358,25 @@ export const routes: Routes = [
         title: 'CVs / Candidatos',
       },
       {
-        path: 'movements',
-        canActivate: [permissionGuard('movements.read')],
+        path: 'expenses',
+        canActivate: [permissionGuard('expenses.read')],
         loadComponent: () =>
-          import('./features/movements/movements-list').then((m) => m.MovementsListPage),
-        title: 'Movimientos',
+          import('./features/movements/expenses-list').then((m) => m.ExpensesListPage),
+        title: 'Gastos',
+      },
+      {
+        path: 'account-transfers',
+        canActivate: [permissionGuard('accountTransfers.read')],
+        loadComponent: () =>
+          import('./features/movements/account-transfers-list').then(
+            (m) => m.AccountTransfersListPage,
+          ),
+        title: 'Movimientos entre cuentas',
+      },
+      {
+        path: 'movements',
+        redirectTo: 'expenses',
+        pathMatch: 'full',
       },
       {
         path: 'my-production',

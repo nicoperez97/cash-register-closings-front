@@ -55,6 +55,7 @@ export interface MovementFilters {
   to?: string | null;
   conceptId?: string | null;
   q?: string | null;
+  kind?: 'expense' | 'transfer' | null;
 }
 
 function filtersToParams(filters: MovementFilters): HttpParams {
@@ -67,6 +68,7 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   set('to', filters.to);
   set('conceptId', filters.conceptId);
   set('q', filters.q?.trim());
+  set('kind', filters.kind);
   return params;
 }
 
@@ -81,11 +83,18 @@ export class MovementsApiService {
     });
   }
 
-  create(shopId: string, body: Partial<Movement> & { notifyAdmins?: boolean }) {
+  create(
+    shopId: string,
+    body: Partial<Movement> & { notifyAdmins?: boolean; kind?: 'expense' | 'transfer' },
+  ) {
     return this.http.post<Movement>(`${this.base}/shops/${shopId}/movements`, body);
   }
 
-  update(shopId: string, id: string, body: Partial<Movement>) {
+  update(
+    shopId: string,
+    id: string,
+    body: Partial<Movement> & { kind?: 'expense' | 'transfer' },
+  ) {
     return this.http.patch<Movement>(`${this.base}/shops/${shopId}/movements/${id}`, body);
   }
 
@@ -122,7 +131,7 @@ export class MovementsApiService {
     });
   }
 
-  exportExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to'> = {}) {
+  exportExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to' | 'kind'> = {}) {
     return this.http.get(`${this.base}/shops/${shopId}/movements/export.xlsx`, {
       params: filtersToParams(filters),
       responseType: 'blob',

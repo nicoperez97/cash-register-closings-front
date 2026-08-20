@@ -6,6 +6,25 @@ const money = (v: unknown) => `$ ${Number(v ?? 0).toLocaleString('es-AR')}`;
 export function closingMoneyColumns(): DataTableColumn[] {
   return [
     { key: 'businessDate', label: 'Fecha' },
+    {
+      key: 'posSystemAmount',
+      label: 'Caja sistema',
+      format: (r) => money(r['posSystemAmount'] ?? r['calculatedTotal']),
+    },
+    { key: 'declaredTotal', label: 'Total declarado', format: (r) => money(r['declaredTotal']) },
+    {
+      key: 'difference',
+      label: 'Diferencia',
+      format: (r) => money(r['difference']),
+      cellClass: (r) => {
+        // difference = caja sistema − total declarado
+        // declarado mayor → a favor (verde); sistema mayor → en contra (rojo)
+        const d = Number(r['difference'] ?? 0);
+        if (d < 0) return 'data-table__diff--pos';
+        if (d > 0) return 'data-table__diff--neg';
+        return '';
+      },
+    },
     { key: 'cashAmount', label: 'Efectivo', format: (r) => money(r['cashAmount']) },
     { key: 'cardAmount', label: 'PVS', format: (r) => money(r['cardAmount']) },
     { key: 'mercadoPagoAmount', label: 'Mercado Pago', format: (r) => money(r['mercadoPagoAmount']) },
@@ -26,19 +45,6 @@ export function closingMoneyColumns(): DataTableColumn[] {
                 )
               : 0),
         ),
-    },
-    { key: 'calculatedTotal', label: 'Total sistema', format: (r) => money(r['calculatedTotal']) },
-    { key: 'declaredTotal', label: 'Total declarado', format: (r) => money(r['declaredTotal']) },
-    {
-      key: 'difference',
-      label: 'Diferencia',
-      format: (r) => money(r['difference']),
-      cellClass: (r) => {
-        const d = Number(r['difference'] ?? 0);
-        if (d > 0) return 'data-table__diff--pos';
-        if (d < 0) return 'data-table__diff--neg';
-        return '';
-      },
     },
     { key: 'status', label: 'Estado', format: (r) => closingStatusLabel(String(r['status'] ?? '')) },
     { key: 'cashWithdrawnByName', label: 'Retiro' },

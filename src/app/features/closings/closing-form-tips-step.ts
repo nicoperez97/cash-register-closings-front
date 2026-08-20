@@ -47,6 +47,7 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
     </div>
     <app-closing-form-step-nav />
   `,
+  styleUrl: './closing-form-tips-step.scss',
 })
 export class ClosingFormTipsStepComponent {
   readonly tipsEnabled = input(false);
