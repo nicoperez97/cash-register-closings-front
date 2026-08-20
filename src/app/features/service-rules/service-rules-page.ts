@@ -29,6 +29,7 @@ import {
   ServiceRulesApiService,
   ServiceRulesImportCategoryDraft,
   ServiceRulesImportDraft,
+  normalizeServiceRulePhase,
 } from './service-rules-api.service';
 
 type CategoryDialogData = {
@@ -212,7 +213,12 @@ export class ServiceRuleCategoryDialogComponent {
     mat-button-toggle-group {
       width: 100%;
       display: grid !important;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+    mat-button-toggle {
+      font-size: 0.78rem;
+      line-height: 1.2;
+      white-space: normal;
     }
   `,
 })
@@ -464,7 +470,7 @@ export class ServiceRulesImportPreviewDialogComponent {
         name: String(c.name ?? '').trim(),
         rules: (c.rules ?? [])
           .map((r) => ({
-            phase: r.phase === 'POST' ? ('POST' as const) : ('PRE' as const),
+            phase: normalizeServiceRulePhase(r.phase),
             title: String(r.title ?? '').trim(),
             body: String(r.body ?? '').trim(),
           }))
@@ -698,7 +704,7 @@ export class ServiceRulesImportPreviewDialogComponent {
     }
     .sr-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1rem;
       align-items: start;
     }
@@ -777,7 +783,7 @@ export class ServiceRulesImportPreviewDialogComponent {
       font-weight: 400;
       color: var(--guy-muted, #5f6f76);
     }
-    @media (max-width: 900px) {
+    @media (max-width: 1100px) {
       .sr-grid {
         grid-template-columns: 1fr;
       }
@@ -874,7 +880,7 @@ export class ServiceRulesPage {
           categories: (parsed.categories ?? []).map((c) => ({
             name: c.name,
             rules: (c.rules ?? []).map((r) => ({
-              phase: r.phase === 'POST' ? 'POST' : 'PRE',
+              phase: normalizeServiceRulePhase(r.phase),
               title: r.title,
               body: r.body,
             })),
