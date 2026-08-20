@@ -654,7 +654,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'menu_book',
         tone: 'read',
         anyOf: ['serviceRules.read'],
-        body: 'Cada categoría (cocina, salón, caja…) agrupa las normas de antes, durante y después. En /n se ven encapsuladas: el título de la norma se distingue del texto. El PDF es esa misma página, sin el botón de descargar.',
+        body: 'Cada categoría (cocina, salón, caja…) agrupa las normas de antes, durante y después. En /n, en pantallas anchas se ven en tres columnas (una por momento); en el celu van una abajo de la otra. El PDF es esa misma página, sin el botón de descargar.',
       },
       {
         title: 'Escribirlas',
