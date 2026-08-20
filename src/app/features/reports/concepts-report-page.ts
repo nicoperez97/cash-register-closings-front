@@ -10,6 +10,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
+import type { ExportFormat } from '../../shared/components/export-menu';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import {
@@ -124,10 +126,11 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
     <app-page-header
       title="Conceptos"
       [subtitle]="shops.selectedShop()?.name ?? ''"
-      [actionLabel]="canExport() ? 'Descargar Excel' : ''"
+      [actionLabel]="canExport() ? 'Descargar' : ''"
       [actionDisabled]="!canExport() || !hasRange()"
       actionIcon="download"
-      (action)="export()"
+      [exportMenu]="true"
+      (exportPick)="onExport($event)"
     />
 
     <div
@@ -614,6 +617,22 @@ export class ConceptsReportPage {
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const filters = this.currentFilters();
+      await downloadColumnsPdf({
+        title: 'Conceptos',
+        subtitle: `${shop?.name ?? ''} · ${filters?.from ?? ''} a ${filters?.to ?? ''}`,
+        filename: `conceptos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${filters?.from}_${filters?.to}.pdf`,
+        columns: this.conceptColumns,
+        rows: this.conceptRows(),
+      });
+      return;
+    }
+    this.export();
   }
 
   export(): void {

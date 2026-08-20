@@ -149,11 +149,19 @@ export function sourceRowTotal(row: {
 
 export function buildExpenseGroup(
   fb: FormBuilder,
-  value: { label: string; amount?: number | null; category: string },
+  value: {
+    label: string;
+    amount?: number | null;
+    category: string;
+    conceptId?: string | null;
+    notes?: string | null;
+  },
   emptyNum: (v: unknown) => number | null,
 ) {
   return fb.group({
+    conceptId: [value.conceptId || ''],
     label: [value.label || ''],
+    notes: [value.notes || ''],
     amount: [emptyNum(value.amount)],
     category: [value.category || 'OTHER'],
   });

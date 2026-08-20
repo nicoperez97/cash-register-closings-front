@@ -3,6 +3,7 @@ export type ConceptCategory =
   | 'SERVICES'
   | 'SUPPLIERS'
   | 'MOVEMENTS'
+  | 'CLOSURE'
   | 'OTHERS';
 
 export type PaymentConceptScope = 'supplier' | 'service' | 'employee' | 'movement';
@@ -12,6 +13,7 @@ export const CONCEPT_CATEGORY_OPTIONS: Array<{ value: ConceptCategory; label: st
   { value: 'SERVICES', label: 'Servicios' },
   { value: 'SUPPLIERS', label: 'Proveedores' },
   { value: 'MOVEMENTS', label: 'Movimientos' },
+  { value: 'CLOSURE', label: 'Cierre' },
   { value: 'OTHERS', label: 'Otros' },
 ];
 

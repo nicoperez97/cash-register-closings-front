@@ -10,6 +10,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
+import type { ExportFormat } from '../../shared/components/export-menu';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -51,10 +53,11 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     <app-page-header
       title="Comisiones"
       [subtitle]="shops.selectedShop()?.name ?? ''"
-      [actionLabel]="canExport() && hasResult() ? 'Descargar Excel' : ''"
+      [actionLabel]="canExport() && hasResult() ? 'Descargar' : ''"
       [actionDisabled]="!canExport() || !hasResult()"
       actionIcon="download"
-      (action)="export()"
+      [exportMenu]="true"
+      (exportPick)="onExport($event)"
     />
 
     <mat-tab-group animationDuration="0ms" class="mb-3">
@@ -379,6 +382,23 @@ export class CommissionsPage {
         this.snack.open('Error al calcular comisiones', 'OK', { duration: 3000 });
       },
     });
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const from = this.formatDate(this.range.controls.start.value);
+      const to = this.formatDate(this.range.controls.end.value);
+      await downloadColumnsPdf({
+        title: 'Comisiones',
+        subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''}`,
+        filename: `comisiones-${this.shopFileSlug(shop?.name)}-${from}_${to}.pdf`,
+        columns: this.calcColumns,
+        rows: this.calcRows(),
+      });
+      return;
+    }
+    this.export();
   }
 
   export(): void {

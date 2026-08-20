@@ -17,7 +17,6 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService, CashClosing, ShopUserOption } from './closings-api.service';
-import { closingStatusLabel } from '../../core/i18n/labels';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -33,6 +32,7 @@ import {
   CLOSING_STATUS_FILTERS,
   ClosingQueryFilters,
 } from './closing-filters';
+import { closingMoneyColumns } from './closing-list-columns';
 
 @Component({
   selector: 'app-closings-list',
@@ -263,26 +263,7 @@ export class ClosingsListPage {
     q: new FormControl('', { nonNullable: true }),
   });
 
-  readonly columns: DataTableColumn[] = [
-    { key: 'businessDate', label: 'Fecha' },
-    {
-      key: 'declaredTotal',
-      label: 'Total',
-      format: (r) => `$ ${Number(r['declaredTotal']).toLocaleString('es-AR')}`,
-    },
-    {
-      key: 'cardAmount',
-      label: 'PVS',
-      format: (r) => `$ ${Number(r['cardAmount']).toLocaleString('es-AR')}`,
-    },
-    {
-      key: 'cashAmount',
-      label: 'Efectivo',
-      format: (r) => `$ ${Number(r['cashAmount']).toLocaleString('es-AR')}`,
-    },
-    { key: 'status', label: 'Estado', format: (r) => closingStatusLabel(String(r['status'] ?? '')) },
-    { key: 'cashWithdrawnByName', label: 'Retiro' },
-  ];
+  readonly columns: DataTableColumn[] = closingMoneyColumns();
 
   readonly canRemoveRow = () => this.auth.isAdmin();
   private reloadToken = signal(0);

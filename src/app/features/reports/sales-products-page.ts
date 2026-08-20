@@ -11,6 +11,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
+import type { ExportFormat } from '../../shared/components/export-menu';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import {
@@ -74,10 +76,11 @@ function formatDayLabelEs(isoDate: string): string {
     <app-page-header
       title="Ventas POS"
       [subtitle]="shops.selectedShop()?.name ?? ''"
-      [actionLabel]="canExport() ? 'Descargar Excel' : ''"
+      [actionLabel]="canExport() ? 'Descargar' : ''"
       [actionDisabled]="!canExport() || !hasRange()"
       actionIcon="download"
-      (action)="export()"
+      [exportMenu]="true"
+      (exportPick)="onExport($event)"
     />
 
     <div
@@ -685,6 +688,22 @@ export class SalesProductsPage {
       },
       error: () => this.snack.open('Error al cargar ventas por plato', 'OK', { duration: 3000 }),
     });
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const filters = this.currentFilters();
+      await downloadColumnsPdf({
+        title: 'Ventas POS',
+        subtitle: `${shop?.name ?? ''} · ${filters?.from ?? ''} a ${filters?.to ?? ''}`,
+        filename: `ventas-platos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${filters?.from}_${filters?.to}.pdf`,
+        columns: this.productColumns,
+        rows: this.products(),
+      });
+      return;
+    }
+    this.export();
   }
 
   export(): void {

@@ -41,7 +41,15 @@ export interface CashClosing {
   differenceReason?: string | null;
   notes?: string | null;
   status: string;
-  expenses?: Array<{ id?: string; label: string; amount: number; category?: string }>;
+  expenses?: Array<{
+    id?: string;
+    label: string;
+    amount: number;
+    category?: string;
+    conceptId?: string | null;
+    notes?: string | null;
+  }>;
+  expensesTotal?: number;
   extraLines?: Array<{ id?: string; type: string; label: string; amount: number; meta?: string }>;
   sourceAmounts?: ClosingSourceAmount[];
 }

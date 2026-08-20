@@ -25,6 +25,9 @@ import {
   CLOSING_STATUS_FILTERS,
   ClosingQueryFilters,
 } from '../closings/closing-filters';
+import { closingMoneyColumns } from '../closings/closing-list-columns';
+import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
+import type { ExportFormat } from '../../shared/components/export-menu';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { isUserVisible } from '../../shared/user-visibility';
@@ -51,10 +54,11 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     <app-page-header
       title="Reportes"
       [subtitle]="shops.selectedShop()?.name ?? ''"
-      [actionLabel]="canExport() ? 'Descargar Excel' : ''"
+      [actionLabel]="canExport() ? 'Descargar' : ''"
       [actionDisabled]="!canExport() || !hasRange()"
       actionIcon="download"
-      (action)="export()"
+      [exportMenu]="true"
+      (exportPick)="onExport($event)"
     />
 
     <div
@@ -293,29 +297,12 @@ export class ReportsPage {
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
 
   readonly columns: DataTableColumn[] = [
-    { key: 'businessDate', label: 'Fecha' },
-    {
-      key: 'declaredTotal',
-      label: 'Total',
-      format: (r) => `$ ${Number(r['declaredTotal']).toLocaleString('es-AR')}`,
-    },
-    {
-      key: 'cardAmount',
-      label: 'PVS',
-      format: (r) => `$ ${Number(r['cardAmount']).toLocaleString('es-AR')}`,
-    },
-    {
-      key: 'cashAmount',
-      label: 'Efectivo',
-      format: (r) => `$ ${Number(r['cashAmount']).toLocaleString('es-AR')}`,
-    },
+    ...closingMoneyColumns(),
     {
       key: 'cashWithdrawn',
-      label: 'Retiro',
+      label: 'Monto retiro',
       format: (r) => `$ ${Number(r['cashWithdrawn'] ?? 0).toLocaleString('es-AR')}`,
     },
-    { key: 'cashWithdrawnByName', label: 'Quién' },
-    { key: 'status', label: 'Estado' },
   ];
 
   readonly expenseColumns: DataTableColumn[] = [
@@ -431,6 +418,22 @@ export class ReportsPage {
         this.snack.open('Error al cargar reporte', 'OK', { duration: 3000 });
       },
     });
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const filters = this.currentFilters();
+      await downloadColumnsPdf({
+        title: 'Cierres',
+        subtitle: `${shop?.name ?? ''} · ${filters.from ?? ''} a ${filters.to ?? ''}`,
+        filename: `cierres-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${filters.from}_${filters.to}.pdf`,
+        columns: this.columns,
+        rows: this.days(),
+      });
+      return;
+    }
+    this.export();
   }
 
   export(): void {
