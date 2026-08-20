@@ -71,6 +71,20 @@ export interface ReservationRow {
   createdAt?: string;
 }
 
+/** Ítem de /mi-reserva (reserva confirmada o solicitud pendiente/rechazada). */
+export interface PublicReservationLookupItem {
+  id: string;
+  source?: 'reservation' | 'request';
+  publicStatus: 'pending' | 'confirmed' | 'rejected';
+  statusReason?: string | null;
+  businessDate: string;
+  guestName: string;
+  partySize: number;
+  area: ReservationArea;
+  reservationTime?: string | null;
+  tableNumber?: string | null;
+}
+
 export interface WaitingListRow {
   id: string;
   shopId: string;
@@ -332,9 +346,15 @@ export class ReservationsApiService {
 
   publicLookupReservations(slug: string, email: string) {
     return this.http.get<{
-      shop: { name: string; slug?: string; accentColor?: string | null };
+      shop: {
+        name: string;
+        slug?: string;
+        accentColor?: string | null;
+        logoUrl?: string | null;
+      };
       email: string;
-      reservations: ReservationRow[];
+      reservations: PublicReservationLookupItem[];
+      items?: PublicReservationLookupItem[];
     }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/my-reservations`, {
       params: { email },
     });

@@ -1226,14 +1226,14 @@ const TIMEZONE_OPTIONS = [
             </button>
             <div class="guy-form-section__body">
             <p class="text-muted small mb-3">
-              Solo super admin. Conserva configuración y usuarios; vacía cierres, movimientos, POS,
-              personal, nómina, <strong>cuentas</strong> y <strong>conceptos</strong> (sin recrear
-              defaults).
+              Solo super admin. Dump completo del local (cierres, movimientos, POS, personal, etc.)
+              para bajarlo o restaurarlo. El reset vacía datos operativos y conserva configuración y
+              usuarios.
             </p>
             <div class="shop-admin__danger-actions">
               <button mat-stroked-button type="button" [disabled]="backupBusy()" (click)="downloadBackup()">
                 <mat-icon>download</mat-icon>
-                Descargar backup
+                Descargar dump
               </button>
               <input
                 #backupFile
@@ -1249,7 +1249,7 @@ const TIMEZONE_OPTIONS = [
                 (click)="backupFile.click()"
               >
                 <mat-icon>upload_file</mat-icon>
-                Cargar backup
+                Cargar dump
               </button>
               <button mat-flat-button color="warn" type="button" [disabled]="backupBusy()" (click)="openBackupTools()">
                 <mat-icon>delete_forever</mat-icon>
@@ -2786,14 +2786,14 @@ export class AdminShopPage implements OnInit {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `backup-${shop.slug || 'local'}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `dump-${shop.slug || 'local'}-${new Date().toISOString().slice(0, 10)}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
-        this.snack.open('Backup descargado', 'OK', { duration: 2500 });
+        this.snack.open('Dump descargado', 'OK', { duration: 2500 });
       },
       error: (err) => {
         this.backupBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo descargar el backup';
+        const msg = err?.error?.message ?? 'No se pudo descargar el dump';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -2806,7 +2806,7 @@ export class AdminShopPage implements OnInit {
     if (!file || !shop) return;
     if (
       !window.confirm(
-        `¿Restaurar backup en “${shop.name}”? Se borrarán los datos actuales del local.`,
+        `¿Cargar dump en “${shop.name}”? Se borrarán los datos actuales del local.`,
       )
     ) {
       return;
@@ -2815,11 +2815,11 @@ export class AdminShopPage implements OnInit {
     this.backupApi.restoreBackup(shop.id, file).subscribe({
       next: () => {
         this.backupBusy.set(false);
-        this.snack.open('Backup restaurado', 'OK', { duration: 3000 });
+        this.snack.open('Dump restaurado', 'OK', { duration: 3000 });
       },
       error: (err) => {
         this.backupBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo restaurar el backup';
+        const msg = err?.error?.message ?? 'No se pudo cargar el dump';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -2836,7 +2836,7 @@ export class AdminShopPage implements OnInit {
           panelClass: 'guy-dialog',
           data: { shopId: shop.id, shopName: shop.name, shopSlug: shop.slug },
         }),
-        'Backup y reset',
+        'Dump y reset',
       )
       .afterClosed()
       .subscribe();

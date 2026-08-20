@@ -1,5 +1,6 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -197,8 +198,11 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
           [rows]="days()"
           [loading]="loading()"
           [sortable]="true"
-          [showActions]="false"
+          [showActions]="canOpenClosing()"
+          editLabel="Abrir"
+          editIcon="open_in_new"
           [canRemove]="never"
+          (edit)="openClosing($event)"
         />
       </div>
     </div>
@@ -261,6 +265,7 @@ export class ReportsPage {
   readonly shops = inject(ShopContextService);
   private readonly api = inject(ClosingsApiService);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
 
   readonly statusOptions = CLOSING_STATUS_FILTERS;
@@ -335,6 +340,15 @@ export class ReportsPage {
 
   canExport(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reports.export');
+  }
+
+  canOpenClosing(): boolean {
+    return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'closings.read');
+  }
+
+  openClosing(row: { id?: string }): void {
+    if (!row?.id) return;
+    void this.router.navigate(['/closings', row.id]);
   }
 
   hasRange(): boolean {
