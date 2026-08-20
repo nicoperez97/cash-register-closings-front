@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { safeUploadFileName } from '../../shared/utils/input-file';
 
 export type ServiceRulePhase = 'PRE' | 'POST';
 
@@ -43,6 +44,25 @@ export const SERVICE_RULE_PHASES: Array<{ value: ServiceRulePhase; label: string
   { value: 'POST', label: 'Después del servicio' },
 ];
 
+export interface ServiceRulesImportRuleDraft {
+  phase: ServiceRulePhase;
+  title: string;
+  body: string;
+}
+
+export interface ServiceRulesImportCategoryDraft {
+  name: string;
+  rules: ServiceRulesImportRuleDraft[];
+}
+
+export interface ServiceRulesImportDraft {
+  categories: ServiceRulesImportCategoryDraft[];
+}
+
+export interface ServiceRulesParseResult extends ServiceRulesImportDraft {
+  fileName?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ServiceRulesApiService {
   private readonly http = inject(HttpClient);
@@ -54,6 +74,22 @@ export class ServiceRulesApiService {
     return this.http.get<ServiceRulesBundle>(`${this.base}/shops/${shopId}/service-rules`, {
       params,
     });
+  }
+
+  parseFile(shopId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file, safeUploadFileName(file.name));
+    return this.http.post<ServiceRulesParseResult>(
+      `${this.base}/shops/${shopId}/service-rules/parse`,
+      form,
+    );
+  }
+
+  importDraft(shopId: string, draft: ServiceRulesImportDraft) {
+    return this.http.post<ServiceRulesBundle>(
+      `${this.base}/shops/${shopId}/service-rules/import`,
+      draft,
+    );
   }
 
   publicBySlug(slug: string) {

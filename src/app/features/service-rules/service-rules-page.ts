@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -19,6 +19,7 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { takeInputFile } from '../../shared/utils/input-file';
 import { copyText } from '../../shared/utils/share-text';
 import {
   SERVICE_RULE_PHASES,
@@ -26,6 +27,8 @@ import {
   ServiceRuleCategory,
   ServiceRulePhase,
   ServiceRulesApiService,
+  ServiceRulesImportCategoryDraft,
+  ServiceRulesImportDraft,
 } from './service-rules-api.service';
 
 type CategoryDialogData = {
@@ -40,6 +43,13 @@ type RuleDialogData = {
   defaultPhase: ServiceRulePhase;
   defaultCategoryId: string | null;
 } & ({ mode: 'create' } | { mode: 'edit'; rule: ServiceRule });
+
+type ImportPreviewDialogData = {
+  shopId: string;
+  shopName: string;
+  fileName: string | null;
+  draft: ServiceRulesImportDraft;
+};
 
 @Component({
   selector: 'app-service-rule-category-dialog',
@@ -260,6 +270,231 @@ export class ServiceRuleDialogComponent {
 }
 
 @Component({
+  selector: 'app-service-rules-import-preview-dialog',
+  imports: [
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatIconModule,
+    MatTooltipModule,
+    BusyLabelComponent,
+  ],
+  template: `
+    <h2 mat-dialog-title>
+      <span class="guy-dialog__title-icon" aria-hidden="true">
+        <mat-icon>upload_file</mat-icon>
+      </span>
+      <span class="guy-dialog__title-text">
+        <strong>Vista previa de normas</strong>
+        <span>{{ data.shopName }}{{ data.fileName ? ' · ' + data.fileName : '' }}</span>
+      </span>
+    </h2>
+    <mat-dialog-content>
+      <p class="sr-import__hint">
+        Revisá lo que interpretó la IA. Se <strong>suman</strong> a las normas actuales (no se borran).
+        Categorías con el mismo nombre se reutilizan.
+      </p>
+      <p class="sr-import__count">Se van a sumar {{ ruleCount() }} normas</p>
+
+      @for (cat of categories(); track $index; let ci = $index) {
+        <section class="sr-import__cat">
+          <div class="sr-import__cat-head">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sr-import__cat-name">
+              <mat-label>Categoría</mat-label>
+              <input matInput [(ngModel)]="cat.name" name="cat-{{ ci }}" autocomplete="off" />
+            </mat-form-field>
+            <button
+              mat-icon-button
+              type="button"
+              matTooltip="Quitar categoría"
+              (click)="removeCategory(ci)"
+              [disabled]="busy()"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+
+          @for (rule of cat.rules; track $index; let ri = $index) {
+            <article class="sr-import__rule">
+              <div class="sr-import__rule-head">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Momento</mat-label>
+                  <mat-select [(ngModel)]="rule.phase" name="phase-{{ ci }}-{{ ri }}">
+                    @for (p of phases; track p.value) {
+                      <mat-option [value]="p.value">{{ p.label }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <button
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Quitar norma"
+                  (click)="removeRule(ci, ri)"
+                  [disabled]="busy()"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sr-import__full">
+                <mat-label>Título</mat-label>
+                <input matInput [(ngModel)]="rule.title" name="title-{{ ci }}-{{ ri }}" autocomplete="off" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sr-import__full">
+                <mat-label>Descripción</mat-label>
+                <textarea
+                  matInput
+                  rows="3"
+                  [(ngModel)]="rule.body"
+                  name="body-{{ ci }}-{{ ri }}"
+                ></textarea>
+              </mat-form-field>
+            </article>
+          }
+        </section>
+      } @empty {
+        <p class="sr-import__empty">No quedó ninguna norma en la vista previa.</p>
+      }
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">Cancelar</button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="busy() || ruleCount() === 0"
+        (click)="confirm()"
+      >
+        <app-busy-label [busy]="busy()" busyLabel="Importando…">
+          <mat-icon>playlist_add</mat-icon>
+          Confirmar e importar
+        </app-busy-label>
+      </button>
+    </mat-dialog-actions>
+  `,
+  styles: `
+    .sr-import__hint {
+      margin: 0 0 0.65rem;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .sr-import__count {
+      margin: 0 0 1rem;
+      font-weight: 700;
+      color: var(--guy-navy, #003366);
+    }
+    .sr-import__cat {
+      border: 1px solid var(--guy-border, #e6ebf0);
+      border-radius: 12px;
+      padding: 0.75rem;
+      margin-bottom: 0.85rem;
+      background: color-mix(in srgb, var(--guy-navy, #003366) 3%, #fff);
+    }
+    .sr-import__cat-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+    }
+    .sr-import__cat-name {
+      flex: 1;
+    }
+    .sr-import__rule {
+      display: grid;
+      gap: 0.45rem;
+      padding: 0.65rem;
+      margin-top: 0.55rem;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid color-mix(in srgb, var(--guy-border, #e6ebf0) 80%, #fff);
+    }
+    .sr-import__rule-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+    .sr-import__rule-head mat-form-field {
+      flex: 1;
+    }
+    .sr-import__full {
+      width: 100%;
+    }
+    .sr-import__empty {
+      margin: 0.5rem 0 0;
+      color: var(--guy-muted, #5f6f76);
+    }
+  `,
+})
+export class ServiceRulesImportPreviewDialogComponent {
+  readonly data = inject<ImportPreviewDialogData>(MAT_DIALOG_DATA);
+  readonly ref = inject(MatDialogRef<ServiceRulesImportPreviewDialogComponent, boolean>);
+  private readonly api = inject(ServiceRulesApiService);
+  private readonly snack = inject(MatSnackBar);
+
+  readonly phases = SERVICE_RULE_PHASES;
+  readonly busy = signal(false);
+  readonly categories = signal<ServiceRulesImportCategoryDraft[]>(
+    structuredClone(this.data.draft.categories ?? []),
+  );
+
+  ruleCount(): number {
+    return this.categories().reduce((n, c) => n + (c.rules?.length ?? 0), 0);
+  }
+
+  removeCategory(index: number): void {
+    this.categories.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  removeRule(catIndex: number, ruleIndex: number): void {
+    this.categories.update((list) =>
+      list
+        .map((c, i) =>
+          i === catIndex ? { ...c, rules: c.rules.filter((_, ri) => ri !== ruleIndex) } : c,
+        )
+        .filter((c) => c.rules.length > 0),
+    );
+  }
+
+  confirm(): void {
+    const categories = this.categories()
+      .map((c) => ({
+        name: String(c.name ?? '').trim(),
+        rules: (c.rules ?? [])
+          .map((r) => ({
+            phase: r.phase === 'POST' ? ('POST' as const) : ('PRE' as const),
+            title: String(r.title ?? '').trim(),
+            body: String(r.body ?? '').trim(),
+          }))
+          .filter((r) => r.title && r.body),
+      }))
+      .filter((c) => c.name && c.rules.length);
+
+    if (!categories.length) {
+      this.snack.open('No hay normas para importar', 'OK', { duration: 2500 });
+      return;
+    }
+
+    this.busy.set(true);
+    this.api.importDraft(this.data.shopId, { categories }).subscribe({
+      next: () => {
+        this.busy.set(false);
+        const n = categories.reduce((acc, c) => acc + c.rules.length, 0);
+        this.snack.open(`Se sumaron ${n} normas`, 'OK', { duration: 2800 });
+        this.ref.close(true);
+      },
+      error: (err) => {
+        this.busy.set(false);
+        const msg = err?.error?.message || 'No se pudo importar';
+        this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+}
+
+@Component({
   selector: 'app-service-rules-page',
   imports: [
     MatButtonModule,
@@ -280,6 +515,27 @@ export class ServiceRuleDialogComponent {
       [actionLarge]="true"
       (action)="openCategory()"
     />
+
+    @if (canManage()) {
+      <div class="sr-toolbar">
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="parsing()"
+          (click)="fileInput.click()"
+        >
+          <mat-icon>upload_file</mat-icon>
+          {{ parsing() ? 'Interpretando…' : 'Cargar desde archivo' }}
+        </button>
+        <input
+          #fileInput
+          type="file"
+          hidden
+          accept=".pdf,.txt,image/png,image/jpeg,image/webp,application/pdf,text/plain"
+          (change)="onFilePicked($event)"
+        />
+      </div>
+    }
 
     @if (publicUrl()) {
       <div class="sr-public">
@@ -310,7 +566,7 @@ export class ServiceRuleDialogComponent {
     } @else if (!categories().length) {
       <p class="sr-empty">
         @if (canManage()) {
-          Creá una categoría (Cocina, Salón, Caja…) y después las normas de antes y después del servicio.
+          Creá una categoría (Cocina, Salón, Caja…) o cargá normas desde un archivo.
         } @else {
           Todavía no hay normas cargadas.
         }
@@ -391,6 +647,12 @@ export class ServiceRuleDialogComponent {
     }
   `,
   styles: `
+    .sr-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0 0 0.75rem;
+    }
     .sr-public {
       display: flex;
       flex-wrap: wrap;
@@ -533,6 +795,7 @@ export class ServiceRulesPage {
 
   readonly phases = SERVICE_RULE_PHASES;
   readonly loading = signal(false);
+  readonly parsing = signal(false);
   readonly categories = signal<ServiceRuleCategory[]>([]);
   readonly rules = signal<ServiceRule[]>([]);
   readonly shopId = computed(() => this.shops.selectedShopId());
@@ -592,6 +855,61 @@ export class ServiceRulesPage {
       error: () => {
         this.loading.set(false);
         this.snack.open('No se pudieron cargar las normas', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  async onFilePicked(event: Event): Promise<void> {
+    const shopId = this.shopId();
+    if (!shopId || this.parsing()) return;
+    const input = event.target as HTMLInputElement;
+    const file = await takeInputFile(input);
+    if (!file) return;
+
+    this.parsing.set(true);
+    this.api.parseFile(shopId, file).subscribe({
+      next: (parsed) => {
+        this.parsing.set(false);
+        const draft: ServiceRulesImportDraft = {
+          categories: (parsed.categories ?? []).map((c) => ({
+            name: c.name,
+            rules: (c.rules ?? []).map((r) => ({
+              phase: r.phase === 'POST' ? 'POST' : 'PRE',
+              title: r.title,
+              body: r.body,
+            })),
+          })),
+        };
+        const ruleCount = draft.categories.reduce((n, c) => n + c.rules.length, 0);
+        if (!ruleCount) {
+          this.snack.open('No se detectaron normas en el archivo', 'OK', { duration: 3500 });
+          return;
+        }
+        this.dialogTitle
+          .track(
+            this.dialog.open(ServiceRulesImportPreviewDialogComponent, {
+              width: '720px',
+              maxWidth: '96vw',
+              maxHeight: '90vh',
+              panelClass: 'guy-dialog',
+              data: {
+                shopId,
+                shopName: this.shops.selectedShop()?.name ?? '',
+                fileName: parsed.fileName ?? file.name,
+                draft,
+              } satisfies ImportPreviewDialogData,
+            }),
+            'Vista previa de normas',
+          )
+          .afterClosed()
+          .subscribe((ok) => {
+            if (ok) this.reload();
+          });
+      },
+      error: (err) => {
+        this.parsing.set(false);
+        const msg = err?.error?.message || 'No se pudo interpretar el archivo';
+        this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4500 });
       },
     });
   }
