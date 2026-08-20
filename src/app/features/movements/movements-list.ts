@@ -104,7 +104,7 @@ import { shareText } from '../../shared/utils/share-text';
               {{
                 kind() === 'transfer'
                   ? 'Buscá por período y texto'
-                  : 'Buscá por período, concepto y texto'
+                  : 'Buscá por período, origen, tipo, concepto y texto'
               }}
             </p>
           </div>
@@ -134,12 +134,41 @@ import { shareText } from '../../shared/utils/share-text';
 
             @if (kind() === 'expense') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Origen</mat-label>
+                <mat-select formControlName="source">
+                  <mat-option value="">Todos</mat-option>
+                  <mat-option value="closing">Cierre</mat-option>
+                  <mat-option value="payment">Pago</mat-option>
+                  <mat-option value="manual">Manual</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Tipo de pago</mat-label>
+                <mat-select formControlName="partyType">
+                  <mat-option value="">Todos</mat-option>
+                  <mat-option value="supplier">A proveedores</mat-option>
+                  <mat-option value="service">A servicios</mat-option>
+                  <mat-option value="employee">A empleados</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Concepto</mat-label>
                 <mat-select formControlName="conceptId">
                   <mat-option value="">Todos</mat-option>
                   @for (c of concepts(); track c.id) {
                     <mat-option [value]="c.id">{{ c.name }}</mat-option>
                   }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Facturado</mat-label>
+                <mat-select formControlName="invoiced">
+                  <mat-option value="">Todos</mat-option>
+                  <mat-option value="true">Sí</mat-option>
+                  <mat-option value="false">No</mat-option>
                 </mat-select>
               </mat-form-field>
             }
@@ -260,6 +289,9 @@ export class MovementsListPage {
 
   readonly filters = new FormGroup({
     conceptId: new FormControl('', { nonNullable: true }),
+    source: new FormControl('', { nonNullable: true }),
+    partyType: new FormControl('', { nonNullable: true }),
+    invoiced: new FormControl('', { nonNullable: true }),
     q: new FormControl('', { nonNullable: true }),
   });
 
@@ -268,7 +300,7 @@ export class MovementsListPage {
       { key: 'businessDate', label: 'Fecha' },
       {
         key: 'fromAccountName',
-        label: 'Origen',
+        label: 'Cuenta',
         format: (r) => String(r['fromAccountName'] || r['fromUserName'] || '—'),
       },
       {
@@ -293,9 +325,20 @@ export class MovementsListPage {
       },
       { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
       {
-        key: 'closingId',
+        key: 'source',
         label: 'Origen',
-        format: (r) => (r['closingId'] ? 'Cierre' : 'Manual'),
+        format: (r) => {
+          const source = r['source'] as string | null | undefined;
+          if (source === 'payment') {
+            const party = r['paymentPartyType'] as string | null | undefined;
+            if (party === 'supplier') return 'Pago · Proveedor';
+            if (party === 'service') return 'Pago · Servicio';
+            if (party === 'employee') return 'Pago · Empleado';
+            return 'Pago';
+          }
+          if (source === 'closing' || r['closingId']) return 'Cierre';
+          return 'Manual';
+        },
       },
     );
     return base;
@@ -456,16 +499,32 @@ export class MovementsListPage {
       start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
       end: new Date(),
     });
-    this.filters.reset({ conceptId: '', q: '' });
+    this.filters.reset({
+      conceptId: '',
+      source: '',
+      partyType: '',
+      invoiced: '',
+      q: '',
+    });
     this.applyFilter();
   }
 
   private currentFilters(): MovementFilters {
     const f = this.filters.getRawValue();
+    const expense = this.kind() === 'expense';
     return {
       from: this.formatDate(this.range.controls.start.value),
       to: this.formatDate(this.range.controls.end.value),
-      conceptId: this.kind() === 'expense' ? f.conceptId || null : null,
+      conceptId: expense ? f.conceptId || null : null,
+      source: expense
+        ? ((f.source || null) as MovementFilters['source'])
+        : null,
+      partyType: expense
+        ? ((f.partyType || null) as MovementFilters['partyType'])
+        : null,
+      invoiced: expense
+        ? ((f.invoiced || null) as MovementFilters['invoiced'])
+        : null,
       q: f.q || null,
       kind: this.kind(),
     };

@@ -132,14 +132,20 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'expenses',
     title: 'Gastos',
-    summary: 'Salidas de plata con concepto, hacia Egreso u otra cuenta.',
+    summary: 'Salidas de plata: manuales, del cierre y pagos abonados.',
     blocks: [
       {
         title: 'La lista',
         icon: 'visibility',
         tone: 'read',
         anyOf: ['expenses.read'],
-        body: 'Filtrá por fecha y concepto. En el celular podés pasar de vista compacta a detallada.',
+        body: 'Acá ves todos los egresos del local, incluidos los pagos ya abonados a proveedores, servicios o empleados.',
+        items: [
+          'Origen: Cierre, Pago o Manual.',
+          'Tipo de pago: a proveedores, servicios o empleados (solo filas de pagos).',
+          'También podés filtrar por concepto, facturado y texto en la descripción.',
+        ],
+        tip: 'Si no ves un pago, confirmá que ya esté abonado (no solo validado) y el período de fechas.',
       },
       {
         title: 'Cargar un gasto',
@@ -147,7 +153,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['expenses.manage'],
         body: 'Con Gasto rápido elegís concepto y de qué cuenta sale. A quién es una cuenta destino; si lo dejás vacío, va a Egreso.',
-        tip: 'Excel y PDF salen del mismo botón Descargar.',
+        tip: 'Excel y PDF salen del mismo botón Descargar. Los pagos se cargan desde Pagos; acá solo los ves.',
       },
     ],
   },
@@ -210,6 +216,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Pagar: elegí cuenta y forma de pago.',
           'Rechazar o cancelar: sale de Pendientes; en Pagados solo si activás esos chips.',
         ],
+        tip: 'Cuando lo abonás, también aparece en Cuentas → Gastos (origen Pago).',
       },
     ],
   },
