@@ -4,6 +4,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { formatIsoDateWithWeekday } from '../../core/shop/business-date';
+import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
   PublicReservationLookupItem,
   ReservationsApiService,
@@ -21,7 +22,12 @@ import {
       <div class="page" [style.--accent]="accent()">
         <header class="hero">
           @if (logoUrl()) {
-            <img class="hero__logo" [src]="logoUrl()!" [alt]="shopName()" />
+            <img
+              class="hero__logo"
+              [src]="logoUrl()!"
+              [alt]="shopName()"
+              (error)="onLogoError()"
+            />
           }
           <p class="brand">{{ shopName() || 'Reservas' }}</p>
           <h1>¿Tenés reserva?</h1>
@@ -215,10 +221,11 @@ import {
       border-radius: 12px;
       padding: 0.8rem;
       background: var(--accent, #3dba6e);
-      color: #07210f;
+      color: #fff;
       font-weight: 700;
       font-size: 1rem;
       cursor: pointer;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
     }
     button:disabled {
       opacity: 0.55;
@@ -268,16 +275,16 @@ import {
       text-transform: uppercase;
     }
     .badge[data-status='confirmed'] {
-      background: color-mix(in srgb, var(--accent, #3dba6e) 22%, transparent);
-      color: color-mix(in srgb, var(--accent, #3dba6e) 85%, #fff);
+      background: color-mix(in srgb, var(--accent, #3dba6e) 35%, #1a1714);
+      color: #f2fff6;
     }
     .badge[data-status='pending'] {
-      background: rgba(224, 168, 74, 0.18);
-      color: #f0c878;
+      background: rgba(224, 168, 74, 0.28);
+      color: #ffe7b0;
     }
     .badge[data-status='rejected'] {
-      background: rgba(224, 112, 112, 0.18);
-      color: #f0a0a0;
+      background: rgba(224, 112, 112, 0.28);
+      color: #ffd0d0;
     }
     .mesa {
       font-size: 0.8rem;
@@ -370,7 +377,12 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.searched.set(true);
         this.shopName.set(res.shop?.name ?? '');
-        this.logoUrl.set(res.shop?.logoUrl?.trim() || null);
+        this.logoUrl.set(
+          resolveShopLogoSrc(res.shop?.logoUrl, res.shop?.id) ||
+            normalizeLogoUrl(res.shop?.logoUrl) ||
+            res.shop?.logoUrl?.trim() ||
+            null,
+        );
         this.accent.set(res.shop?.accentColor?.trim() || '#3dba6e');
         const list = (res.items ?? res.reservations ?? []) as PublicReservationLookupItem[];
         this.rows.set(
@@ -393,6 +405,10 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
     if (status === 'pending') return 'Pendiente';
     if (status === 'rejected') return 'Rechazada';
     return 'Confirmada';
+  }
+
+  onLogoError(): void {
+    this.logoUrl.set(null);
   }
 
   formatWhen(iso: string, time?: string | null): string {

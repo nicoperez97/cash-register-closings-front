@@ -325,10 +325,10 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       }
       .module-row {
         display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
-        gap: 0.55rem;
-        align-items: center;
-        padding: 0.55rem 0.65rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.65rem 0.85rem;
+        align-items: start;
+        padding: 0.65rem 0.75rem;
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 12px;
         background: #fff;
@@ -338,7 +338,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, var(--guy-border));
         background: color-mix(in srgb, var(--guy-accent, #2e7d32) 4%, #fff);
       }
-      @media (max-width: 560px) {
+      @media (max-width: 640px) {
         .module-row {
           grid-template-columns: 1fr;
         }
@@ -346,7 +346,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       .module-row__info {
         display: flex;
         gap: 0.55rem;
-        align-items: center;
+        align-items: flex-start;
         min-width: 0;
       }
       .module-row__icon {
@@ -358,31 +358,41 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         place-items: center;
         background: color-mix(in srgb, var(--guy-border, #d7e0d9) 55%, #fff);
         color: var(--guy-text, #1b2a33);
+        margin-top: 0.05rem;
       }
       .module-row__icon mat-icon {
         font-size: 18px;
         width: 18px;
         height: 18px;
       }
+      .module-row__text {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
       .module-row__name {
         font-weight: 700;
         font-size: 0.86rem;
         color: var(--guy-text, #1b2a33);
+        line-height: 1.25;
       }
       .module-row__hint {
-        font-size: 0.7rem;
-        color: var(--guy-muted, #5f6f76);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        margin-top: 0.15rem;
+        font-size: 0.74rem;
+        line-height: 1.35;
+        color: #4a5a62;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
       }
       .level-pills {
         display: flex;
         flex-wrap: wrap;
         gap: 0.3rem;
         justify-content: flex-end;
+        align-content: flex-start;
+        max-width: 100%;
       }
-      @media (max-width: 560px) {
+      @media (max-width: 640px) {
         .level-pills {
           justify-content: flex-start;
         }
@@ -429,8 +439,8 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       .visibility-row__hint {
         margin: 0 0 0 2rem;
         font-size: 0.75rem;
-        color: var(--guy-muted, #5f6f76);
-        line-height: 1.3;
+        color: #4a5a62;
+        line-height: 1.35;
       }
     `,
   ],
@@ -561,7 +571,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                         <span class="module-row__icon" aria-hidden="true">
                           <mat-icon>{{ mod.icon }}</mat-icon>
                         </span>
-                        <div>
+                        <div class="module-row__text">
                           <div class="module-row__name">{{ mod.label }}</div>
                           @if (mod.hint) {
                             <div class="module-row__hint">{{ mod.hint }}</div>
