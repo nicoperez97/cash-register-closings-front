@@ -115,6 +115,9 @@ function todayIso(timezone?: string | null): string {
                 <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
+            @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
+              <mat-error>Elegí un concepto</mat-error>
+            }
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -340,15 +343,11 @@ export class QuickExpenseDialogComponent {
   });
 
   constructor() {
-    const concepts = this.expenseConcepts();
-    const preferred =
-      concepts.find((c) => /otros/i.test(c.name))?.id ?? concepts[0]?.id ?? '';
     const from =
       this.fromAccounts().find((a) => /caja|efectivo|cash/i.test(a.name))?.id ??
       this.fromAccounts()[0]?.id ??
       '';
     this.form.patchValue({
-      conceptId: preferred,
       fromAccountId: from,
     });
   }

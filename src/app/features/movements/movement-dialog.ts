@@ -212,7 +212,6 @@ function toDateString(value: Date | null): string {
               <mat-option disabled class="select-search-opt">
                 <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
               </mat-option>
-              <mat-option [value]="null">Sin concepto</mat-option>
               @for (c of filteredConcepts(); track c.id) {
                 <mat-option [value]="c.id">{{ c.name }}</mat-option>
               }
@@ -220,6 +219,9 @@ function toDateString(value: Date | null): string {
                 <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
+            @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
+              <mat-error>Elegí un concepto</mat-error>
+            }
           </mat-form-field>
         }
 
@@ -596,6 +598,7 @@ export class MovementDialogComponent {
     ],
     conceptId: this.fb.control<string | null>(
       this.isTransfer ? null : (this.movement?.conceptId ?? null),
+      this.isTransfer ? [] : [Validators.required],
     ),
     description: [this.movement?.description ?? ''],
     amountUyu: [this.movement?.amountUyu ?? 0, [Validators.required, Validators.min(0)]],
@@ -723,7 +726,7 @@ export class MovementDialogComponent {
       toAccountId,
       fromUserId: this.userIdForAccount(fromAccountId),
       toUserId: this.userIdForAccount(toAccountId),
-      conceptId: this.isTransfer ? null : raw.conceptId || null,
+      conceptId: this.isTransfer ? null : raw.conceptId,
       description: raw.description.trim() || null,
       amountUyu: raw.amountUyu,
       usdRate: raw.usdRate,

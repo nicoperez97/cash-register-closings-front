@@ -44,7 +44,7 @@ import { MatIconModule } from '@angular/material/icon';
           [sortable]="true"
           [showActions]="true"
           [canDuplicate]="canBackupTools"
-          duplicateLabel="Backup / reset"
+          duplicateLabel="Dump / reset"
           duplicateIcon="backup"
           [canRemove]="always"
           removeLabel="Habilitar / deshabilitar"
@@ -128,7 +128,7 @@ export class AdminShopsPage implements OnInit {
           panelClass: 'guy-dialog',
           data: { shopId: row.id, shopName: row.name, shopSlug: row.slug },
         }),
-        'Backup y reset',
+        'Dump y reset',
       )
       .afterClosed()
       .subscribe();
