@@ -1,24 +1,19 @@
+/* Barra fija al viewport (no usar display:contents: rompe encapsulado y el fixed). */
 :host {
-  display: contents;
-}
-
-.closing-form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.closing-form-actions--sticky {
   display: none;
 }
 
 @media (max-width: 960px) {
-  .closing-form-actions--sticky {
+  :host {
+    display: block;
     position: fixed;
     left: 0;
     right: 0;
     bottom: calc(var(--guy-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px));
     z-index: 25;
+  }
+
+  .closing-form-actions--sticky {
     display: flex;
     flex-wrap: nowrap;
     gap: 0.5rem;

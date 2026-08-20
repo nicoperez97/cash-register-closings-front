@@ -180,7 +180,7 @@ export class ToolbarComponent implements OnInit {
     }
 
     const items: ToolbarQuickAction[] = [];
-    if (hasShopPermission(user, shopId, 'movements.manage')) {
+    if (hasShopPermission(user, shopId, 'expenses.manage')) {
       items.push({
         id: 'quick-expense',
         kind: 'action',
@@ -417,7 +417,7 @@ export class ToolbarComponent implements OnInit {
     if (
       !shopId ||
       this.quickExpenseBusy() ||
-      !hasShopPermission(this.auth.currentUser(), shopId, 'movements.manage')
+      !hasShopPermission(this.auth.currentUser(), shopId, 'expenses.manage')
     ) {
       return;
     }
@@ -565,7 +565,7 @@ export class ToolbarComponent implements OnInit {
       return;
     }
     if (n.type === 'MOVEMENT_CREATED') {
-      void this.router.navigateByUrl('/movements');
+      void this.router.navigateByUrl('/expenses');
       return;
     }
     if (n.type === 'REIMBURSEMENT_CREATED') {

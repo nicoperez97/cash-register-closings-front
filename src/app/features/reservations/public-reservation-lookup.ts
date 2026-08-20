@@ -55,21 +55,53 @@ import { ReservationRow, ReservationsApiService } from './reservations-api.servi
     }
   `,
   styles: `
-    :host { display: block; min-height: 100dvh; background: #0e0c0b; color: #f4efe8; }
+    :host {
+      display: block;
+      min-height: 100dvh;
+      background: #0e0c0b;
+      color: #f4efe8;
+      color-scheme: dark;
+    }
     .page { max-width: 28rem; margin: 0 auto; padding: 2rem 1.1rem 3rem; }
     .hero { margin-bottom: 1.2rem; }
     .brand { margin: 0 0 0.4rem; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem; color: var(--accent, #3dba6e); }
-    h1 { margin: 0 0 0.4rem; font-size: 1.7rem; }
+    h1 { margin: 0 0 0.4rem; font-size: 1.7rem; color: #f4efe8; }
     .lead, .empty, .back { color: #c9c0b5; }
-    .card, li { background: #1a1714; border-radius: 14px; padding: 1rem; }
-    label { display: grid; gap: 0.35rem; font-size: 0.9rem; }
-    input { border: 1px solid #3a342e; border-radius: 10px; padding: 0.7rem 0.8rem; background: #12100e; color: inherit; }
+    .card, li { background: #1a1714; border-radius: 14px; padding: 1rem; color: #f4efe8; }
+    label {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #e8e0d6;
+    }
+    input {
+      border: 1px solid #3a342e;
+      border-radius: 10px;
+      padding: 0.7rem 0.8rem;
+      background: #12100e;
+      color: #f4efe8;
+      caret-color: #f4efe8;
+      font: inherit;
+      color-scheme: dark;
+    }
+    input::placeholder { color: #8a8076; }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-text-fill-color: #f4efe8;
+      caret-color: #f4efe8;
+      box-shadow: 0 0 0 1000px #12100e inset;
+      transition: background-color 99999s ease-out;
+    }
     button { margin-top: 0.8rem; width: 100%; border: 0; border-radius: 10px; padding: 0.75rem; background: var(--accent, #3dba6e); color: #07210f; font-weight: 700; }
     .list { list-style: none; padding: 0; display: grid; gap: 0.7rem; }
     li { display: grid; gap: 0.2rem; }
+    li strong { color: #f4efe8; }
+    li span { color: #c9c0b5; }
     .back { margin-top: 1.4rem; }
     a { color: var(--accent, #3dba6e); }
-    .page--error { padding: 3rem 1rem; text-align: center; }
+    .page--error { padding: 3rem 1rem; text-align: center; color: #f4efe8; }
   `,
 })
 export class PublicReservationLookupComponent implements OnInit, OnDestroy {

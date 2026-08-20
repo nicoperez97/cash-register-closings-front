@@ -179,6 +179,7 @@ import {
             [class.closing-stepper--mobile]="isMobile()"
             orientation="horizontal"
             [linear]="false"
+            [animationDuration]="isMobile() ? '0' : ''"
             (selectionChange)="stepIndex.set($event.selectedIndex)"
           >
             <mat-step label="Posnets">
@@ -272,20 +273,21 @@ import {
           </mat-stepper>
         </section>
       </form>
-
-      <app-closing-form-sticky-actions
-        [navigateMode]="!isLastStep()"
-        [canGoBack]="stepIndex() > 0"
-        [cashierOnly]="cashierOnly()"
-        [isLocked]="isLocked()"
-        [isAdmin]="auth.isAdmin()"
-        [saving]="saving()"
-        (backClicked)="stepBack()"
-        (nextClicked)="stepNext()"
-        (cancelClicked)="cancel()"
-        (unlockClicked)="unlock()"
-      />
     </div>
+
+    <!-- Fuera del panel-card: su animación usa transform y desancora position:fixed -->
+    <app-closing-form-sticky-actions
+      [navigateMode]="!isLastStep()"
+      [canGoBack]="stepIndex() > 0"
+      [cashierOnly]="cashierOnly()"
+      [isLocked]="isLocked()"
+      [isAdmin]="auth.isAdmin()"
+      [saving]="saving()"
+      (backClicked)="stepBack()"
+      (nextClicked)="stepNext()"
+      (cancelClicked)="cancel()"
+      (unlockClicked)="unlock()"
+    />
   `,
   styleUrl: './closings-form.scss',
 })

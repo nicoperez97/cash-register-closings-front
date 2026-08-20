@@ -33,6 +33,7 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
+import { applyNavConfig, isNavPathHidden } from './nav-config';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -179,9 +180,6 @@ export class MainLayoutComponent {
         badge: this.settlementsInbox.pendingCount() || null,
       });
     }
-    if (shopId && hasShopPermission(user, shopId, 'movements.read')) {
-      operacion.push({ label: 'Movimientos', route: '/movements', icon: 'swap_horiz' });
-    }
     if (shopId && hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips')) {
       operacion.push({
         label: 'Propinas',
@@ -205,6 +203,27 @@ export class MainLayoutComponent {
         icon: 'today',
         defaultRoute: operacion.find((c) => c.route === '/closings')?.route ?? operacion[0]?.route,
         children: operacion,
+      });
+    }
+
+    const cuentas: NonNullable<NavItem['children']> = [];
+    if (shopId && hasShopPermission(user, shopId, 'expenses.read')) {
+      cuentas.push({ label: 'Gastos', route: '/expenses', icon: 'payments' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'accountTransfers.read')) {
+      cuentas.push({
+        label: 'Movimientos entre cuentas',
+        route: '/account-transfers',
+        icon: 'swap_horiz',
+      });
+    }
+    if (cuentas.length) {
+      items.push({
+        label: 'Cuentas',
+        route: '__group_cuentas',
+        icon: 'account_balance',
+        defaultRoute: cuentas[0]?.route,
+        children: cuentas,
       });
     }
 
@@ -412,7 +431,7 @@ export class MainLayoutComponent {
       });
     }
 
-    return items;
+    return applyNavConfig(items, this.shopContext.selectedShop()?.navConfig);
   });
 
   readonly isCashierLayout = computed(() =>
@@ -515,6 +534,13 @@ export class MainLayoutComponent {
   }
 
   private isPathAllowed(path: string, user: NonNullable<ReturnType<AuthService['currentUser']>>, shopId: string): boolean {
+    const navConfig = this.shopContext.selectedShop()?.navConfig;
+    if (
+      !this.auth.isSuperAdmin() &&
+      isNavPathHidden(path, navConfig)
+    ) {
+      return false;
+    }
     if (path.startsWith('/closings/new')) {
       return hasShopPermission(user, shopId, 'closings.create');
     }
@@ -575,8 +601,11 @@ export class MainLayoutComponent {
     if (path.startsWith('/candidates')) {
       return hasShopPermission(user, shopId, 'candidates.read');
     }
-    if (path.startsWith('/movements')) {
-      return hasShopPermission(user, shopId, 'movements.read');
+    if (path.startsWith('/expenses') || path.startsWith('/movements')) {
+      return hasShopPermission(user, shopId, 'expenses.read');
+    }
+    if (path.startsWith('/account-transfers')) {
+      return hasShopPermission(user, shopId, 'accountTransfers.read');
     }
     if (path.startsWith('/my-production')) {
       return hasShopPermission(user, shopId, 'attendance.self');
