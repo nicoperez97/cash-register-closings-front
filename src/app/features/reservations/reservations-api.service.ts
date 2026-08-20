@@ -349,6 +349,7 @@ export class ReservationsApiService {
       shop: {
         name: string;
         slug?: string;
+        id?: string;
         accentColor?: string | null;
         logoUrl?: string | null;
       };
