@@ -29,6 +29,10 @@ export type Permission =
   | 'commissions.read'
   | 'movements.manage'
   | 'movements.read'
+  | 'expenses.manage'
+  | 'expenses.read'
+  | 'accountTransfers.manage'
+  | 'accountTransfers.read'
   | 'accounts.manage'
   | 'concepts.manage'
   | 'reservations.read'
@@ -82,6 +86,10 @@ const ALL_PERMISSIONS: Permission[] = [
   'commissions.read',
   'movements.manage',
   'movements.read',
+  'expenses.manage',
+  'expenses.read',
+  'accountTransfers.manage',
+  'accountTransfers.read',
   'accounts.manage',
   'concepts.manage',
   'reservations.read',
@@ -140,6 +148,10 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'commissions.read',
     'movements.manage',
     'movements.read',
+    'expenses.manage',
+    'expenses.read',
+    'accountTransfers.manage',
+    'accountTransfers.read',
     'accounts.manage',
     'concepts.manage',
     'reservations.read',
@@ -178,6 +190,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'payroll.read',
     'commissions.read',
     'movements.read',
+    'expenses.read',
+    'accountTransfers.read',
     'reservations.read',
     'payments.read',
     'suppliers.read',
@@ -195,6 +209,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reports.view',
     'reports.export',
     'movements.read',
+    'expenses.read',
+    'accountTransfers.read',
     'payments.read',
     'suppliers.read',
     'services.read',
@@ -206,7 +222,8 @@ export type ModuleKey =
   | 'cashWithdrawals'
   | 'settlements'
   | 'reports'
-  | 'movements'
+  | 'expenses'
+  | 'accountTransfers'
   | 'attendance'
   | 'employees'
   | 'candidates'
@@ -279,11 +296,23 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
-    key: 'movements',
-    label: 'Movimientos',
+    key: 'expenses',
+    label: 'Gastos',
+    icon: 'payments',
+    group: 'daily',
+    hint: 'Egresos del local (gasto rápido y listado)',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'accountTransfers',
+    label: 'Movimientos entre cuentas',
     icon: 'swap_horiz',
     group: 'daily',
-    hint: 'Ingresos y egresos',
+    hint: 'Transferencias entre cuentas del local',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -379,7 +408,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Conceptos',
     icon: 'category',
     group: 'config',
-    hint: 'Catálogo de conceptos (nombre, descripción y validado). Solo los validados aparecen en movimientos y pagos',
+    hint: 'Catálogo de conceptos (nombre, descripción y validado). Solo los validados aparecen en gastos y pagos',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'manage', label: 'Gestionar', short: 'Todo' },
@@ -566,9 +595,9 @@ export const MODULE_PRESETS: Array<{
   {
     id: 'movements-only',
     label: 'Caja chica',
-    description: 'Solo ingresos y egresos',
+    description: 'Gastos y movimientos entre cuentas',
     icon: 'swap_horiz',
-    modules: { movements: 'manage' },
+    modules: { expenses: 'manage', accountTransfers: 'manage' },
   },
   {
     id: 'attendance-only',
@@ -613,7 +642,8 @@ export const MODULE_PRESETS: Array<{
       cashWithdrawals: 'read',
       settlements: 'read',
       reports: 'export',
-      movements: 'read',
+      expenses: 'read',
+      accountTransfers: 'read',
       attendance: 'read',
       employees: 'read',
       candidates: 'read',
@@ -626,6 +656,36 @@ export const MODULE_PRESETS: Array<{
 export function emptyModuleLevels(): Record<ModuleKey, string> {
   const out = {} as Record<ModuleKey, string>;
   for (const d of MODULE_DEFS) out[d.key] = 'none';
+  return out;
+}
+
+/** Migra `movements` legacy a `expenses` + `accountTransfers` (mismo nivel). */
+export function migrateModuleLevels(
+  raw?: Record<string, string> | null,
+): Record<ModuleKey, string> {
+  const out = emptyModuleLevels();
+  if (!raw || typeof raw !== 'object') return out;
+  for (const d of MODULE_DEFS) {
+    const v = raw[d.key];
+    if (v && d.levels.some((l) => l.value === v)) out[d.key] = v;
+  }
+  const legacy = raw['movements'];
+  if (legacy && legacy !== 'none') {
+    const expensesDef = MODULE_DEFS.find((d) => d.key === 'expenses');
+    const transfersDef = MODULE_DEFS.find((d) => d.key === 'accountTransfers');
+    if (
+      expensesDef?.levels.some((l) => l.value === legacy) &&
+      (!out.expenses || out.expenses === 'none')
+    ) {
+      out.expenses = legacy;
+    }
+    if (
+      transfersDef?.levels.some((l) => l.value === legacy) &&
+      (!out.accountTransfers || out.accountTransfers === 'none')
+    ) {
+      out.accountTransfers = legacy;
+    }
+  }
   return out;
 }
 
@@ -733,6 +793,14 @@ export interface ShopSummary {
     service?: string[];
     employee?: string[];
     movement?: string[];
+  } | null;
+  /** Orden / visibilidad / agrupación del menú lateral. null = defaults. */
+  navConfig?: {
+    groups?: Array<{ id: string; label?: string }>;
+    itemGroup?: Record<string, string>;
+    itemOrder?: Record<string, string[]>;
+    hidden?: string[];
+    itemLabels?: Record<string, string>;
   } | null;
   active?: boolean;
 }

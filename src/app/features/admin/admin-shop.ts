@@ -42,6 +42,8 @@ import {
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
+import { ShopNavEditorComponent } from './shop-nav-editor';
+import type { ShopNavConfig } from '../../core/layout/nav-config';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -123,6 +125,7 @@ const TIMEZONE_OPTIONS = [
     PageHeaderComponent,
     DataTableComponent,
     SelectSearchComponent,
+    ShopNavEditorComponent,
   ],
   template: `
     <app-page-header
@@ -183,8 +186,21 @@ const TIMEZONE_OPTIONS = [
           }
         </nav>
 
-        <section class="panel-card guy-form-section" id="shop-sec-identidad">
-          <h2 class="guy-section-title">Identidad</h2>
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-identidad"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-identidad')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-identidad')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-identidad')"
+          >
+            <h2 class="guy-section-title">Identidad</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <p class="text-muted small mb-3">Nombre visible y URL interna del local.</p>
           <div class="guy-form-grid guy-form-grid--2">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -259,10 +275,24 @@ const TIMEZONE_OPTIONS = [
               </div>
             }
           </div>
+          </div>
         </section>
 
-        <section class="panel-card guy-form-section" id="shop-sec-notificaciones">
-          <h2 class="guy-section-title">Notificaciones por correo</h2>
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-notificaciones"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-notificaciones')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-notificaciones')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-notificaciones')"
+          >
+            <h2 class="guy-section-title">Notificaciones por correo</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <p class="text-muted small mb-3">
             Activá el envío de mails, elegí qué avisos se mandan y a qué usuarios del local.
             Por defecto todos los tipos y todos los usuarios están chequeados.
@@ -312,10 +342,24 @@ const TIMEZONE_OPTIONS = [
               </div>
             </div>
           }
+          </div>
         </section>
 
-        <section class="panel-card guy-form-section shop-admin__appearance" id="shop-sec-apariencia">
-          <h2 class="guy-section-title">Apariencia</h2>
+        <section
+          class="panel-card guy-form-section shop-admin__appearance"
+          id="shop-sec-apariencia"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-apariencia')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-apariencia')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-apariencia')"
+          >
+            <h2 class="guy-section-title">Apariencia</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <p class="text-muted small mb-3">
             Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
           </p>
@@ -415,16 +459,64 @@ const TIMEZONE_OPTIONS = [
               </div>
             </div>
           </div>
+          </div>
         </section>
 
-        <section class="panel-card guy-form-section" id="shop-sec-operacion">
-          <h2 class="guy-section-title">Operación</h2>
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-menu"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-menu')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-menu')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-menu')"
+          >
+            <h2 class="guy-section-title">Menú lateral</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
+          <app-shop-nav-editor
+            [value]="navConfigDraft()"
+            (valueChange)="onNavConfigChange($event)"
+          />
+          </div>
+        </section>
+
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-operacion"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-operacion')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-operacion')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-operacion')"
+          >
+            <h2 class="guy-section-title">Operación</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <p class="text-muted small mb-3">
             Caja, producción, POS y módulos del día a día.
           </p>
 
-          <div class="shop-admin__op-block">
-            <h3 class="shop-admin__op-title">Caja</h3>
+          <div
+            class="shop-admin__op-block"
+            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-caja')"
+          >
+            <button
+              type="button"
+              class="shop-admin__op-toggle"
+              (click)="toggleSection('op-caja')"
+              [attr.aria-expanded]="!isSectionCollapsed('op-caja')"
+            >
+              <h3 class="shop-admin__op-title">Caja</h3>
+              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="shop-admin__op-body">
             <div class="guy-form-grid guy-form-grid--2">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Etiqueta de unidades</mat-label>
@@ -485,10 +577,23 @@ const TIMEZONE_OPTIONS = [
                 />
               </div>
             </div>
+            </div>
           </div>
 
-          <div class="shop-admin__op-block">
-            <h3 class="shop-admin__op-title">Producción</h3>
+          <div
+            class="shop-admin__op-block"
+            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-produccion')"
+          >
+            <button
+              type="button"
+              class="shop-admin__op-toggle"
+              (click)="toggleSection('op-produccion')"
+              [attr.aria-expanded]="!isSectionCollapsed('op-produccion')"
+            >
+              <h3 class="shop-admin__op-title">Producción</h3>
+              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="shop-admin__op-body">
             <div class="guy-form-grid guy-form-grid--2">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Horas por defecto</mat-label>
@@ -508,10 +613,23 @@ const TIMEZONE_OPTIONS = [
                 manteniendo el dedo / clic derecho.
               </p>
             </div>
+            </div>
           </div>
 
-          <div class="shop-admin__op-block">
-            <h3 class="shop-admin__op-title">Servicio</h3>
+          <div
+            class="shop-admin__op-block"
+            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-servicio')"
+          >
+            <button
+              type="button"
+              class="shop-admin__op-toggle"
+              (click)="toggleSection('op-servicio')"
+              [attr.aria-expanded]="!isSectionCollapsed('op-servicio')"
+            >
+              <h3 class="shop-admin__op-title">Servicio</h3>
+              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="shop-admin__op-body">
             <mat-slide-toggle formControlName="serviceAttendanceWithHours">
               Presentismo con horario
             </mat-slide-toggle>
@@ -532,10 +650,23 @@ const TIMEZONE_OPTIONS = [
                 </mat-form-field>
               </div>
             }
+            </div>
           </div>
 
-          <div class="shop-admin__op-block">
-            <h3 class="shop-admin__op-title">Ventas POS</h3>
+          <div
+            class="shop-admin__op-block"
+            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-ventas-pos')"
+          >
+            <button
+              type="button"
+              class="shop-admin__op-toggle"
+              (click)="toggleSection('op-ventas-pos')"
+              [attr.aria-expanded]="!isSectionCollapsed('op-ventas-pos')"
+            >
+              <h3 class="shop-admin__op-title">Ventas POS</h3>
+              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="shop-admin__op-body">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Sistema de ventas</mat-label>
               <mat-select formControlName="salesSystemId">
@@ -546,10 +677,25 @@ const TIMEZONE_OPTIONS = [
               </mat-select>
               <mat-hint>Cómo interpretar reportes (Restosoft, WeMenu, etc.)</mat-hint>
             </mat-form-field>
+            </div>
           </div>
 
-          <div class="shop-admin__op-block" id="shop-sec-conceptos" formGroupName="paymentConceptCategories">
-            <h3 class="shop-admin__op-title">Conceptos en pagos</h3>
+          <div
+            class="shop-admin__op-block"
+            id="shop-sec-conceptos"
+            formGroupName="paymentConceptCategories"
+            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-conceptos')"
+          >
+            <button
+              type="button"
+              class="shop-admin__op-toggle"
+              (click)="toggleSection('op-conceptos')"
+              [attr.aria-expanded]="!isSectionCollapsed('op-conceptos')"
+            >
+              <h3 class="shop-admin__op-title">Conceptos en pagos</h3>
+              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="shop-admin__op-body">
             <p class="text-muted small mb-3">
               Qué categorías de concepto se listan al cargar cada tipo de pago. Un concepto puede
               tener varias categorías (Administración → Conceptos).
@@ -589,10 +735,23 @@ const TIMEZONE_OPTIONS = [
                 </mat-select>
               </mat-form-field>
             </div>
+            </div>
           </div>
 
-          <div class="shop-admin__op-block shop-admin__op-block--last">
-            <h3 class="shop-admin__op-title">Módulos públicos</h3>
+          <div
+            class="shop-admin__op-block shop-admin__op-block--last"
+            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-modulos')"
+          >
+            <button
+              type="button"
+              class="shop-admin__op-toggle"
+              (click)="toggleSection('op-modulos')"
+              [attr.aria-expanded]="!isSectionCollapsed('op-modulos')"
+            >
+              <h3 class="shop-admin__op-title">Módulos públicos</h3>
+              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="shop-admin__op-body">
             <div class="shop-admin__toggle-list">
               <div class="shop-admin__toggle">
                 <div>
@@ -731,11 +890,26 @@ const TIMEZONE_OPTIONS = [
                 />
               </div>
             </div>
+            </div>
+          </div>
           </div>
         </section>
 
-        <section class="panel-card guy-form-section" id="shop-sec-francos">
-          <h2 class="guy-section-title">Días de franco</h2>
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-francos"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-francos')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-francos')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-francos')"
+          >
+            <h2 class="guy-section-title">Días de franco</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <p class="text-muted small mb-3">
             Marcá los días en que el local no abre. Se reflejan en presentismo.
           </p>
@@ -753,17 +927,29 @@ const TIMEZONE_OPTIONS = [
               }
             </div>
           </div>
+          </div>
         </section>
 
-        <section class="panel-card guy-form-section" id="shop-sec-posnets">
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-posnets"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-posnets')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-posnets')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-posnets')"
+          >
+            <h2 class="guy-section-title">Posnets</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <div class="shop-admin__posnets-head">
-            <div>
-              <h2 class="guy-section-title">Posnets</h2>
-              <p class="text-muted small mb-0">
-                Terminales del local (PVS / Mercado Pago). Cuenta DNI se carga por transferencias en el
-                cierre; el tipo Cuenta DNI queda disponible por si lo necesitás.
-              </p>
-            </div>
+            <p class="text-muted small mb-0">
+              Terminales del local (PVS / Mercado Pago). Cuenta DNI se carga por transferencias en el
+              cierre; el tipo Cuenta DNI queda disponible por si lo necesitás.
+            </p>
             <button mat-stroked-button type="button" (click)="addPosnet()">
               <mat-icon>add</mat-icon>
               Agregar posnet
@@ -801,18 +987,30 @@ const TIMEZONE_OPTIONS = [
               </p>
             }
           </div>
+          </div>
         </section>
 
-        <section class="panel-card guy-form-section" id="shop-sec-closing-sources">
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-closing-sources"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-closing-sources')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-closing-sources')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-closing-sources')"
+          >
+            <h2 class="guy-section-title">Cuentas aparte</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <div class="shop-admin__posnets-head">
-            <div>
-              <h2 class="guy-section-title">Cuentas aparte</h2>
-              <p class="text-muted small mb-0">
-                Pedidos Ya, delivery propio u otras fuentes que no deben entrar al total declarado.
-                Podés tener ninguna, una o varias. Si rinden después o tienen cuenta propia, se
-                suman aparte en el cierre del día.
-              </p>
-            </div>
+            <p class="text-muted small mb-0">
+              Pedidos Ya, delivery propio u otras fuentes que no deben entrar al total declarado.
+              Podés tener ninguna, una o varias. Si rinden después o tienen cuenta propia, se
+              suman aparte en el cierre del día.
+            </p>
             <div class="shop-admin__source-actions">
               <button mat-stroked-button type="button" (click)="addClosingSource()">
                 <mat-icon>add</mat-icon>
@@ -885,17 +1083,29 @@ const TIMEZONE_OPTIONS = [
               </p>
             }
           </div>
+          </div>
         </section>
 
         @if (canManageAccounts()) {
-          <section class="panel-card guy-form-section" id="shop-admin-closing-deposits">
+          <section
+            class="panel-card guy-form-section"
+            id="shop-admin-closing-deposits"
+            [class.guy-form-section--collapsed]="isSectionCollapsed('shop-admin-closing-deposits')"
+          >
+            <button
+              type="button"
+              class="guy-section-toggle"
+              (click)="toggleSection('shop-admin-closing-deposits')"
+              [attr.aria-expanded]="!isSectionCollapsed('shop-admin-closing-deposits')"
+            >
+              <h2 class="guy-section-title">Depósito del cierre</h2>
+              <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="guy-form-section__body">
             <div class="shop-admin__posnets-head">
-              <div>
-                <h2 class="guy-section-title">Depósito del cierre</h2>
-                <p class="text-muted small mb-0">
-                  A qué cuenta canal va cada campo del cierre (PVS, Mercado Pago, efectivo…).
-                </p>
-              </div>
+              <p class="text-muted small mb-0">
+                A qué cuenta canal va cada campo del cierre (PVS, Mercado Pago, efectivo…).
+              </p>
               <button
                 mat-stroked-button
                 type="button"
@@ -932,17 +1142,29 @@ const TIMEZONE_OPTIONS = [
                 </div>
               }
             </div>
+            </div>
           </section>
 
-          <section class="panel-card guy-form-section" id="shop-admin-channel-accounts">
+          <section
+            class="panel-card guy-form-section"
+            id="shop-admin-channel-accounts"
+            [class.guy-form-section--collapsed]="isSectionCollapsed('shop-admin-channel-accounts')"
+          >
+            <button
+              type="button"
+              class="guy-section-toggle"
+              (click)="toggleSection('shop-admin-channel-accounts')"
+              [attr.aria-expanded]="!isSectionCollapsed('shop-admin-channel-accounts')"
+            >
+              <h2 class="guy-section-title">Cuentas canal</h2>
+              <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="guy-form-section__body">
             <div class="shop-admin__posnets-head">
-              <div>
-                <h2 class="guy-section-title">Cuentas canal</h2>
-                <p class="text-muted small mb-0">
-                  Medios de cobro del local (PVS, efectivo, MP…). Todas las cuentas están en
-                  Administración → Cuentas.
-                </p>
-              </div>
+              <p class="text-muted small mb-0">
+                Medios de cobro del local (PVS, efectivo, MP…). Todas las cuentas están en
+                Administración → Cuentas.
+              </p>
               <button mat-stroked-button type="button" (click)="openCreateAccount()">
                 <mat-icon>add</mat-icon>
                 Nueva cuenta
@@ -956,11 +1178,25 @@ const TIMEZONE_OPTIONS = [
               (edit)="openEditAccount($event)"
               (remove)="onRemoveAccount($event)"
             />
+            </div>
           </section>
         }
 
-        <section class="panel-card guy-form-section" id="shop-sec-estado">
-          <h2 class="guy-section-title">Estado</h2>
+        <section
+          class="panel-card guy-form-section"
+          id="shop-sec-estado"
+          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-estado')"
+        >
+          <button
+            type="button"
+            class="guy-section-toggle"
+            (click)="toggleSection('shop-sec-estado')"
+            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-estado')"
+          >
+            <h2 class="guy-section-title">Estado</h2>
+            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <div class="guy-form-section__body">
           <div class="shop-admin__toggle">
             <div>
               <strong>Local habilitado</strong>
@@ -970,11 +1206,25 @@ const TIMEZONE_OPTIONS = [
             </div>
             <mat-slide-toggle formControlName="active" aria-label="Local habilitado" />
           </div>
+          </div>
         </section>
 
         @if (isSuperAdmin()) {
-          <section class="panel-card guy-form-section shop-admin__danger" id="shop-sec-peligro">
-            <h2 class="guy-section-title">Zona peligrosa</h2>
+          <section
+            class="panel-card guy-form-section shop-admin__danger"
+            id="shop-sec-peligro"
+            [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-peligro')"
+          >
+            <button
+              type="button"
+              class="guy-section-toggle"
+              (click)="toggleSection('shop-sec-peligro')"
+              [attr.aria-expanded]="!isSectionCollapsed('shop-sec-peligro')"
+            >
+              <h2 class="guy-section-title">Zona peligrosa</h2>
+              <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            <div class="guy-form-section__body">
             <p class="text-muted small mb-3">
               Solo super admin. Conserva configuración y usuarios; vacía cierres, movimientos, POS,
               personal, nómina, <strong>cuentas</strong> y <strong>conceptos</strong> (sin recrear
@@ -1005,6 +1255,7 @@ const TIMEZONE_OPTIONS = [
                 <mat-icon>delete_forever</mat-icon>
                 Resetear…
               </button>
+            </div>
             </div>
           </section>
         }
@@ -1372,6 +1623,97 @@ const TIMEZONE_OPTIONS = [
       .shop-admin__posnets-head .guy-section-title {
         margin-bottom: 0.25rem;
       }
+      .guy-section-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        width: 100%;
+        margin: 0 0 0.85rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        color: inherit;
+      }
+      .guy-section-toggle .guy-section-title {
+        margin: 0;
+      }
+      .guy-section-toggle__chevron {
+        flex-shrink: 0;
+        transition: transform 0.22s ease;
+        color: var(--guy-muted, #666);
+      }
+      .guy-form-section--collapsed .guy-section-toggle {
+        margin-bottom: 0;
+      }
+      .guy-form-section--collapsed .guy-section-toggle__chevron {
+        transform: rotate(-90deg);
+      }
+      .guy-form-section__body {
+        overflow: hidden;
+        max-height: 8000px;
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+          max-height 0.35s ease,
+          opacity 0.22s ease,
+          transform 0.22s ease;
+      }
+      .guy-form-section--collapsed .guy-form-section__body {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-0.35rem);
+        pointer-events: none;
+      }
+      .shop-admin__op-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        margin: 0 0 0.65rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        color: inherit;
+      }
+      .shop-admin__op-toggle .shop-admin__op-title {
+        margin: 0;
+      }
+      .shop-admin__op-toggle__chevron {
+        flex-shrink: 0;
+        font-size: 1.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        transition: transform 0.22s ease;
+        color: var(--guy-muted, #666);
+      }
+      .shop-admin__op-block--collapsed .shop-admin__op-toggle {
+        margin-bottom: 0;
+      }
+      .shop-admin__op-block--collapsed .shop-admin__op-toggle__chevron {
+        transform: rotate(-90deg);
+      }
+      .shop-admin__op-body {
+        overflow: hidden;
+        max-height: 4000px;
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+          max-height 0.3s ease,
+          opacity 0.2s ease,
+          transform 0.2s ease;
+      }
+      .shop-admin__op-block--collapsed .shop-admin__op-body {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-0.25rem);
+        pointer-events: none;
+      }
       .shop-admin__posnets {
         display: flex;
         flex-direction: column;
@@ -1529,6 +1871,7 @@ export class AdminShopPage implements OnInit {
   readonly emailTypeOptions = EMAIL_NOTIFICATION_TYPE_OPTIONS;
   readonly emailSmtpConfigured = signal(false);
   readonly clearSmtpPasswordOnSave = signal(false);
+  readonly navConfigDraft = signal<ShopNavConfig | null>(null);
   readonly closingDepositFields = CLOSING_DEPOSIT_FIELDS;
   readonly closingSourceKinds = CLOSING_SOURCE_KIND_OPTIONS;
   private removedClosingSourceIds: string[] = [];
@@ -1644,6 +1987,7 @@ export class AdminShopPage implements OnInit {
     { id: 'shop-sec-identidad', label: 'Identidad' },
     { id: 'shop-sec-notificaciones', label: 'Mails' },
     { id: 'shop-sec-apariencia', label: 'Apariencia' },
+    { id: 'shop-sec-menu', label: 'Menú' },
     { id: 'shop-sec-operacion', label: 'Operación' },
     { id: 'shop-sec-conceptos', label: 'Conceptos' },
     { id: 'shop-sec-francos', label: 'Francos' },
@@ -1655,9 +1999,40 @@ export class AdminShopPage implements OnInit {
   ] as const;
 
   scrollToSection(id: string): void {
+    this.collapsedSections.update((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    // Conceptos vive dentro de Operación.
+    if (id === 'shop-sec-conceptos') {
+      this.collapsedSections.update((prev) => {
+        if (!prev.has('shop-sec-operacion') && !prev.has('op-conceptos')) return prev;
+        const next = new Set(prev);
+        next.delete('shop-sec-operacion');
+        next.delete('op-conceptos');
+        return next;
+      });
+    }
     const el = document.getElementById(id);
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  readonly collapsedSections = signal<ReadonlySet<string>>(new Set());
+
+  isSectionCollapsed(id: string): boolean {
+    return this.collapsedSections().has(id);
+  }
+
+  toggleSection(id: string): void {
+    this.collapsedSections.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   get posnets(): FormArray {
@@ -1803,6 +2178,7 @@ export class AdminShopPage implements OnInit {
       salesSystemId: shop.salesSystemId ?? null,
     });
     this.applyPaymentConceptCategories(shop.paymentConceptCategories);
+    this.navConfigDraft.set(shop.navConfig ?? null);
     this.applyLogoFromShop(shop.logoUrl);
     this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
@@ -1853,6 +2229,7 @@ export class AdminShopPage implements OnInit {
           this.applyEmailLists(s.emailNotificationTypes, s.emailNotificationUserIds);
           this.setPosnets(s.posnets ?? []);
           this.applyPaymentConceptCategories(s.paymentConceptCategories);
+          this.navConfigDraft.set(s.navConfig ?? null);
           this.shops.upsertShop(s);
           this.loadShopUsers(shopId, s.emailNotificationUserIds ?? null);
         },
@@ -2252,6 +2629,10 @@ export class AdminShopPage implements OnInit {
     this.snack.open('Se quitará la contraseña al guardar', 'OK', { duration: 2500 });
   }
 
+  onNavConfigChange(cfg: ShopNavConfig | null): void {
+    this.navConfigDraft.set(cfg);
+  }
+
   save(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.form.invalid || this.saving()) return;
@@ -2298,6 +2679,7 @@ export class AdminShopPage implements OnInit {
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
       paymentConceptCategories: { ...raw.paymentConceptCategories },
+      navConfig: this.navConfigDraft(),
       posnets: (raw.posnets as ShopPosnet[])
         .map((p) => ({
           id: p.id,

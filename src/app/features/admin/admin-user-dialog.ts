@@ -19,6 +19,7 @@ import {
   MODULE_PRESETS,
   ModuleKey,
   emptyModuleLevels,
+  migrateModuleLevels,
 } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
@@ -85,14 +86,8 @@ function accountTypeFromRole(role?: string): string {
 }
 
 function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
-  const base = emptyModuleLevels();
-  if (!user || isAdminRole(user.globalRole)) return base;
-  const mp = user.modulePermissions ?? {};
-  for (const d of MODULE_DEFS) {
-    const v = mp[d.key];
-    if (v && d.levels.some((l) => l.value === v)) base[d.key] = v;
-  }
-  return base;
+  if (!user || isAdminRole(user.globalRole)) return migrateModuleLevels(null);
+  return migrateModuleLevels(user.modulePermissions ?? {});
 }
 
 @Component({

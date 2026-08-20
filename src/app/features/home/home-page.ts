@@ -530,7 +530,7 @@ export class HomePageComponent {
         value: cash != null ? this.formatMoney(cash) : '—',
         hint: cashRow ? cashRow.name : 'Suma canales',
         icon: 'account_balance_wallet',
-        route: '/movements',
+        route: '/expenses',
       });
     }
 
@@ -558,7 +558,13 @@ export class HomePageComponent {
         });
       }
 
-      if (!shopId || !hasShopPermission(user, shopId, 'movements.read')) {
+      if (
+        !shopId ||
+        !(
+          hasShopPermission(user, shopId, 'expenses.read') ||
+          hasShopPermission(user, shopId, 'accountTransfers.read')
+        )
+      ) {
         this.balanceRows.set([]);
       } else {
         this.movementsApi.balances(shopId).subscribe({
@@ -687,12 +693,16 @@ export class HomePageComponent {
 
   canViewBalances(): boolean {
     const shopId = this.shopContext.selectedShopId();
-    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'movements.read');
+    return (
+      !!shopId &&
+      (hasShopPermission(this.auth.currentUser(), shopId, 'expenses.read') ||
+        hasShopPermission(this.auth.currentUser(), shopId, 'accountTransfers.read'))
+    );
   }
 
   canManageMovements(): boolean {
     const shopId = this.shopContext.selectedShopId();
-    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'movements.manage');
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'expenses.manage');
   }
 
   openQuickExpense(): void {
