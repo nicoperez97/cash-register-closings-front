@@ -10,7 +10,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatDatepicker, MatDatepickerModule } from '@angular/material/datepicker';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { debounceTime, filter, Subscription } from 'rxjs';
@@ -27,7 +27,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 
 @Component({
   selector: 'app-public-reservation-signup',
-  imports: [FormsModule, MatDatepickerModule],
+  imports: [FormsModule, MatDatepickerModule, RouterLink],
   template: `
     @if (error(); as err) {
       <div class="page page--error">
@@ -55,6 +55,9 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
               <p class="lead">Dejanos tus datos. Te confirmamos por mail.</p>
               <p class="lead lead--policy">
                 Se toman reservas hasta las 21 hs. A partir de las 21 hs es por orden de llegada.
+              </p>
+              <p class="lead">
+                <a [routerLink]="['/mi-reserva', slug()]">¿Ya reservaste? Consultá con tu mail</a>
               </p>
               <p class="shop-name">{{ i.shop.name }}</p>
             </div>
@@ -792,7 +795,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     else if (insideOk) this.area = 'INSIDE';
   }
 
-  private slug(): string {
+  slug(): string {
     return String(this.route.snapshot.paramMap.get('slug') ?? '').trim().toLowerCase();
   }
 

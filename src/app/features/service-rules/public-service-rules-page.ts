@@ -50,14 +50,20 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
               <section class="poster__phase">
                 <h2>{{ phase.label }}</h2>
                 @for (g of groups; track g.category.id) {
-                  <article class="poster__block">
-                    <h3>{{ g.category.name }}</h3>
-                    @for (rule of g.rules; track rule.id) {
-                      <div class="poster__rule">
-                        <h4>{{ rule.title }}</h4>
-                        <p>{{ rule.body }}</p>
-                      </div>
-                    }
+                  <article class="poster__cat">
+                    <header class="poster__cat-head">
+                      <h3>{{ g.category.name }}</h3>
+                    </header>
+                    <div class="poster__cat-body">
+                      @for (rule of g.rules; track rule.id) {
+                        <div class="poster__rule">
+                          <h4>{{ rule.title }}</h4>
+                          @if (rule.body) {
+                            <p>{{ rule.body }}</p>
+                          }
+                        </div>
+                      }
+                    </div>
                   </article>
                 }
               </section>
@@ -102,17 +108,17 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
     .poster.pdf-capturing .poster__phase h2 {
       font-size: 1.85rem;
     }
-    .poster.pdf-capturing .poster__block {
-      padding: 1.2rem 1.3rem 1.3rem;
+    .poster.pdf-capturing .poster__cat {
+      padding: 0;
     }
-    .poster.pdf-capturing .poster__block h3 {
-      font-size: 1.42rem;
+    .poster.pdf-capturing .poster__cat-head h3 {
+      font-size: 0.86rem;
     }
     .poster.pdf-capturing .poster__rule h4 {
-      font-size: 1.28rem;
+      font-size: 1.38rem;
     }
     .poster.pdf-capturing .poster__rule p {
-      font-size: 1.22rem;
+      font-size: 1.05rem;
       line-height: 1.5;
     }
     .poster--error {
@@ -182,40 +188,64 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
       color: #8a1f11;
     }
     .poster__phase {
-      margin: 0 0 1.75rem;
+      margin: 0 0 2rem;
     }
     .poster__phase h2 {
-      margin: 0 0 0.8rem;
+      margin: 0 0 0.85rem;
       font-size: 1.55rem;
       color: var(--accent);
     }
-    .poster__block {
+    .poster__cat {
       background: #fff;
-      border-radius: 16px;
-      padding: 1rem 1.15rem 1.1rem;
-      margin-bottom: 0.9rem;
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, #e7e0d4);
+      border-radius: 18px;
+      margin-bottom: 1rem;
+      overflow: hidden;
       break-inside: avoid;
       page-break-inside: avoid;
-      box-shadow: 0 8px 24px rgba(27, 20, 15, 0.06);
+      box-shadow: 0 10px 28px rgba(27, 20, 15, 0.07);
     }
-    .poster__block h3 {
-      margin: 0 0 0.65rem;
-      font-size: 1.2rem;
-      border-bottom: 1px solid #eee3d4;
-      padding-bottom: 0.35rem;
+    .poster__cat-head {
+      padding: 0.7rem 1.1rem;
+      background: color-mix(in srgb, var(--accent) 12%, #fff);
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, #eee3d4);
     }
-    .poster__rule + .poster__rule {
-      margin-top: 0.85rem;
+    .poster__cat-head h3 {
+      margin: 0;
+      font-family: Segoe UI, sans-serif;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .poster__cat-body {
+      display: grid;
+      gap: 0.7rem;
+      padding: 0.85rem 0.9rem 1rem;
+      background: #fbf8f2;
+    }
+    .poster__rule {
+      background: #fff;
+      border-radius: 12px;
+      padding: 0.85rem 0.95rem 0.9rem;
+      border: 1px solid #eee6d8;
     }
     .poster__rule h4 {
-      margin: 0 0 0.2rem;
-      font-size: 1.05rem;
+      margin: 0;
+      font-size: 1.22rem;
+      line-height: 1.2;
+      color: #1b140f;
+      font-weight: 700;
     }
     .poster__rule p {
-      margin: 0;
+      margin: 0.4rem 0 0;
       white-space: pre-wrap;
-      font-size: 1.05rem;
-      line-height: 1.45;
+      font-family: Segoe UI, sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: #5c5349;
+      font-weight: 400;
     }
     @media print {
       :host {
@@ -232,9 +262,8 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
       .poster__hero {
         border-bottom-width: 3px;
       }
-      .poster__block {
+      .poster__cat {
         box-shadow: none;
-        border: 1px solid #ddd;
       }
     }
   `,

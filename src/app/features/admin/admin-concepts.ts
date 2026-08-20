@@ -38,6 +38,10 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 
     @if (shops.selectedShopId()) {
       <div class="xl-toolbar mb-3">
+        <button mat-stroked-button type="button" (click)="downloadTemplate()">
+          <mat-icon>download</mat-icon>
+          Descargar plantilla
+        </button>
         <button mat-stroked-button type="button" (click)="openExcelImport()">
           <mat-icon>upload_file</mat-icon>
           Importar Excel
@@ -140,6 +144,26 @@ export class AdminConceptsPage {
 
   openEdit(row: AdminConceptRow): void {
     this.openDialog({ mode: 'edit', concept: row });
+  }
+
+  downloadTemplate(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.http
+      .get(`${environment.apiUrl}/shops/${shopId}/concepts/import-template.xlsx`, {
+        responseType: 'blob',
+      })
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'plantilla-conceptos.xlsx';
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.snack.open('No se pudo descargar la plantilla', 'OK', { duration: 3000 }),
+      });
   }
 
   openExcelImport(): void {

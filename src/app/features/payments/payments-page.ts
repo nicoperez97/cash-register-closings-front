@@ -17,6 +17,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { downloadTablePdf } from '../../shared/pdf/html-pdf';
+import type { ExportFormat } from '../../shared/components/export-menu';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -197,7 +199,7 @@ import {
       (viewModeChange)="onViewMode($event)"
       (mobileViewChange)="onMobileView($event)"
       (toggleSelecting)="toggleSelecting()"
-      (exportExcel)="exportExcel()"
+      (exportPick)="onExport($event)"
       (toggleFilters)="toggleFilters()"
       (filterMine)="filterMine()"
     />
@@ -877,6 +879,27 @@ export class PaymentsPage {
 
   openCreate(): void {
     this.openDialog('create', undefined, this.kind());
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      await downloadTablePdf({
+        title: 'Pagos',
+        subtitle: shop?.name ?? '',
+        filename: `pagos-${shop?.slug ?? 'local'}.pdf`,
+        headers: ['Título', 'Concepto', 'Monto', 'Vence', 'Estado'],
+        rows: this.rows().map((p) => [
+          p.title,
+          p.conceptName ?? '—',
+          `$ ${Number(p.amount).toLocaleString('es-AR')}`,
+          p.dueDate ?? '—',
+          p.status,
+        ]),
+      });
+      return;
+    }
+    this.exportExcel();
   }
 
   exportExcel(): void {

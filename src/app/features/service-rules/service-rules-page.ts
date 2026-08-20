@@ -453,18 +453,28 @@ export class ServiceRuleDialogComponent {
       color: var(--guy-navy, #003366);
     }
     .sr-cat {
-      border-top: 1px solid var(--guy-border, #e6ebf0);
-      padding: 0.7rem 0 0.35rem;
+      border: 1px solid var(--guy-border, #e6ebf0);
+      border-radius: 14px;
+      padding: 0.55rem 0.65rem 0.7rem;
+      margin: 0 0 0.75rem;
+      background: color-mix(in srgb, var(--guy-navy, #003366) 3%, #fff);
     }
     .sr-cat__head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.35rem;
+      margin-bottom: 0.35rem;
+      padding: 0.15rem 0.2rem 0.45rem;
+      border-bottom: 1px solid var(--guy-border, #e6ebf0);
     }
     .sr-cat__head h3 {
       margin: 0;
-      font-size: 0.92rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--guy-navy, #003366);
     }
     .sr-cat__actions,
     .sr-rule__actions {
@@ -480,10 +490,11 @@ export class ServiceRuleDialogComponent {
       display: flex;
       gap: 0.35rem;
       align-items: flex-start;
-      margin-top: 0.55rem;
-      padding: 0.55rem 0.65rem;
+      margin-top: 0.5rem;
+      padding: 0.65rem 0.7rem;
       border-radius: 10px;
-      background: color-mix(in srgb, var(--guy-navy, #003366) 4%, #fff);
+      background: #fff;
+      border: 1px solid color-mix(in srgb, var(--guy-border, #e6ebf0) 80%, #fff);
     }
     .sr-rule__text {
       flex: 1;
@@ -491,13 +502,18 @@ export class ServiceRuleDialogComponent {
     }
     .sr-rule__text strong {
       display: block;
-      margin-bottom: 0.15rem;
+      margin-bottom: 0.28rem;
+      font-size: 1.02rem;
+      line-height: 1.25;
+      color: var(--guy-navy, #003366);
     }
     .sr-rule__text p {
       margin: 0;
       white-space: pre-wrap;
-      line-height: 1.45;
-      font-size: 0.9rem;
+      line-height: 1.5;
+      font-size: 0.86rem;
+      font-weight: 400;
+      color: var(--guy-muted, #5f6f76);
     }
     @media (max-width: 900px) {
       .sr-grid {

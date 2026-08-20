@@ -37,6 +37,14 @@ export const routes: Routes = [
     title: 'Reservar',
   },
   {
+    path: 'mi-reserva/:slug',
+    loadComponent: () =>
+      import('./features/reservations/public-reservation-lookup').then(
+        (m) => m.PublicReservationLookupComponent,
+      ),
+    title: 'Consultar reserva',
+  },
+  {
     path: 'p/:slug',
     loadComponent: () =>
       import('./features/attendance/public-attendance-board').then(

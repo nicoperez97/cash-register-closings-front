@@ -23,6 +23,8 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
+import { downloadTablePdf } from '../../shared/pdf/html-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import {
   attendanceRangeSharePayload,
@@ -114,6 +116,7 @@ const MONTH_LABELS = [
     MatSnackBarModule,
     PageHeaderComponent,
     FiltersCollapseBtnComponent,
+    ExportMenuComponent,
     LoadingStateComponent,
   ],
   template: `
@@ -321,15 +324,12 @@ const MONTH_LABELS = [
               <mat-icon>query_stats</mat-icon>
               Ver
             </button>
-            <button
-              mat-stroked-button
-              type="button"
+            <app-export-menu
               [disabled]="!otSummary() || otExporting()"
-              (click)="exportOvertimeSummary()"
-            >
-              <mat-icon>download</mat-icon>
-              Excel
-            </button>
+              [busy]="otExporting()"
+              label="Descargar"
+              (pick)="onOtExport($event)"
+            />
           </div>
         </div>
         @if (otSummary(); as sum) {
@@ -417,15 +417,11 @@ const MONTH_LABELS = [
           <span>Excel hasta</span>
           <input type="date" [ngModel]="excelTo()" (ngModelChange)="excelTo.set($event)" />
         </label>
-        <button
-          mat-stroked-button
-          type="button"
+        <app-export-menu
           [disabled]="!shopId() || exporting()"
-          (click)="exportExcel()"
-        >
-          <mat-icon>download</mat-icon>
-          Descargar Excel
-        </button>
+          [busy]="exporting()"
+          (pick)="onExport($event)"
+        />
       </div>
       </div>
     </div>
@@ -1598,6 +1594,26 @@ export class AttendancePage {
     return Object.values(this.todayMarks()).some((m) => m.isHoliday);
   }
 
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const from = String(this.excelFrom() ?? '').trim();
+      const to = String(this.excelTo() ?? '').trim();
+      await downloadTablePdf({
+        title: 'Presentismo',
+        subtitle: `${shop?.name ?? ''} · ${from} a ${to}`,
+        filename: `presentismo-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from}_${to}.pdf`,
+        headers: ['Empleado', 'Días presentes'],
+        rows: this.employees().map((emp) => [
+          emp.fullName,
+          this.dayNumbers().filter((d) => this.isPresent(emp, d)).length,
+        ]),
+      });
+      return;
+    }
+    this.exportExcel();
+  }
+
   exportExcel(): void {
     const shopId = this.shopId();
     const shop = this.shops.selectedShop();
@@ -2190,6 +2206,28 @@ export class AttendancePage {
   onOtCountAllChange(value: boolean): void {
     this.otCountAll.set(!!value);
     if (this.otSummary()) this.loadOvertimeSummary();
+  }
+
+  async onOtExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const sum = this.otSummary();
+      if (!sum) return;
+      await downloadTablePdf({
+        title: 'Horas extra',
+        subtitle: `${this.otFrom()} a ${this.otTo()}`,
+        filename: `horas-extra-${this.otFrom()}_${this.otTo()}.pdf`,
+        headers: ['Empleado', 'Días', 'Hs extra', '$/hora', 'Costo'],
+        rows: sum.items.map((row) => [
+          row.fullName,
+          row.presentDays,
+          row.overtimeHours,
+          row.overtimeHourRate,
+          row.overtimeCost,
+        ]),
+      });
+      return;
+    }
+    this.exportOvertimeSummary();
   }
 
   exportOvertimeSummary(): void {
