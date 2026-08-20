@@ -36,7 +36,7 @@ export interface ShopBackupDialogData {
         <mat-icon>shield</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>Backup y reset</strong>
+        <strong>Dump y reset</strong>
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
@@ -55,15 +55,15 @@ export interface ShopBackupDialogData {
         <div class="block__head">
           <mat-icon>cloud_download</mat-icon>
           <div>
-            <h3>Backup</h3>
-            <p>Descargá o restaurá un Excel con todos los datos del local.</p>
+            <h3>Dump del sistema</h3>
+            <p>Descargá o cargá un Excel con todos los datos del local.</p>
           </div>
         </div>
         <div class="block__actions">
           <button mat-flat-button color="primary" type="button" [disabled]="busy()" (click)="download()">
             <app-busy-label [busy]="busy()" busyLabel="Descargando…">
               <mat-icon>download</mat-icon>
-              Descargar backup
+              Descargar dump
             </app-busy-label>
           </button>
           <input
@@ -75,7 +75,7 @@ export interface ShopBackupDialogData {
           />
           <button mat-stroked-button type="button" [disabled]="busy()" (click)="fileInput.click()">
             <mat-icon>upload_file</mat-icon>
-            Cargar backup
+            Cargar dump
           </button>
         </div>
       </section>
@@ -348,14 +348,14 @@ export class ShopBackupDialogComponent {
         const a = document.createElement('a');
         a.href = url;
         const slug = this.data.shopSlug || 'local';
-        a.download = `backup-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `dump-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
-        this.snack.open('Backup descargado', 'OK', { duration: 2500 });
+        this.snack.open('Dump descargado', 'OK', { duration: 2500 });
       },
       error: (err) => {
         this.busy.set(false);
-        this.showErr(err, 'No se pudo descargar el backup');
+        this.showErr(err, 'No se pudo descargar el dump');
       },
     });
   }
@@ -365,19 +365,19 @@ export class ShopBackupDialogComponent {
     const file = await takeInputFile(input);
     if (!file) return;
     const ok = window.confirm(
-      `¿Restaurar backup en “${this.data.shopName}”? Se borrarán los datos actuales (incl. cuentas y conceptos) y se cargará el Excel.`,
+      `¿Cargar dump en “${this.data.shopName}”? Se borrarán los datos actuales (incl. cuentas y conceptos) y se cargará el Excel.`,
     );
     if (!ok) return;
     this.busy.set(true);
     this.api.restoreBackup(this.data.shopId, file).subscribe({
       next: () => {
         this.busy.set(false);
-        this.snack.open('Backup restaurado', 'OK', { duration: 3000 });
+        this.snack.open('Dump restaurado', 'OK', { duration: 3000 });
         this.ref.close(true);
       },
       error: (err) => {
         this.busy.set(false);
-        this.showErr(err, 'No se pudo restaurar el backup');
+        this.showErr(err, 'No se pudo cargar el dump');
       },
     });
   }
@@ -385,7 +385,7 @@ export class ShopBackupDialogComponent {
   reset(): void {
     if (!this.canReset()) return;
     const ok = window.confirm(
-      `¿Vaciar “${this.data.shopName}”? Se borran cuentas, conceptos y todo el resto de datos operativos. No se puede deshacer sin un backup.`,
+      `¿Vaciar “${this.data.shopName}”? Se borran cuentas, conceptos y todo el resto de datos operativos. No se puede deshacer sin un dump.`,
     );
     if (!ok) return;
     this.busy.set(true);

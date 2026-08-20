@@ -265,7 +265,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'insights',
         tone: 'read',
         anyOf: ['reports.view'],
-        body: 'Elegí fechas y ves totales, movimientos y tablas. Si hay presentismo, el Excel general puede incluir esas hojas.',
+        body: 'Elegí fechas y ves totales, movimientos y tablas. Tocá Abrir (o la fila) para ir al cierre. Si hay presentismo, el Excel general puede incluir esas hojas.',
       },
       {
         title: 'Descargar',
@@ -346,7 +346,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Tablero para la sala: /r',
           'Formulario para el cliente: /reservar',
-          'Consulta de reserva por mail: /mi-reserva',
+          'Consulta de reserva por mail: /mi-reserva (pendiente, confirmada o rechazada con motivo).',
           'Desde el admin podés cargar sin tope de cupo.',
           'Abierto / Adentro / Afuera piden confirmación, para no cambiarlos sin querer.',
         ],
@@ -712,6 +712,12 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Módulos públicos: carta /m, normas /n, reservas, presentismo.',
           'iPad antiguo (iOS 9): usá /legacy/index.html. Safari viejo no puede abrir la app normal.',
         ],
+      },
+      {
+        title: 'Dump (super admin)',
+        icon: 'backup',
+        tone: 'lock',
+        body: 'En Zona peligrosa: Descargar dump / Cargar dump del local completo. Solo rol Super admin.',
       },
     ],
   },
