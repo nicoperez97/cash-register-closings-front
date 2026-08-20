@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { safeUploadFileName } from '../../shared/utils/input-file';
 
-export type ServiceRulePhase = 'PRE' | 'POST';
+export type ServiceRulePhase = 'PRE' | 'DURING' | 'POST';
 
 export interface ServiceRuleCategory {
   id: string;
@@ -41,8 +41,27 @@ export interface PublicServiceRulesBundle extends ServiceRulesBundle {
 
 export const SERVICE_RULE_PHASES: Array<{ value: ServiceRulePhase; label: string }> = [
   { value: 'PRE', label: 'Antes del servicio' },
+  { value: 'DURING', label: 'Durante el servicio' },
   { value: 'POST', label: 'Después del servicio' },
 ];
+
+export function normalizeServiceRulePhase(raw: unknown): ServiceRulePhase {
+  const t = String(raw ?? '')
+    .trim()
+    .toUpperCase();
+  if (t === 'POST' || t.includes('DESPU') || t.includes('CIERRE') || t.includes('AFTER')) {
+    return 'POST';
+  }
+  if (
+    t === 'DURING' ||
+    t.includes('DURANT') ||
+    t.includes('DURING') ||
+    t.includes('EN SERVICIO')
+  ) {
+    return 'DURING';
+  }
+  return 'PRE';
+}
 
 export interface ServiceRulesImportRuleDraft {
   phase: ServiceRulePhase;

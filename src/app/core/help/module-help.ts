@@ -391,7 +391,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'groups',
         tone: 'do',
         anyOf: ['reservations.manage'],
-        body: 'Definí cuántas personas por sector. Es independiente de las normas pre/post servicio (eso está en Normas).',
+        body: 'Definí cuántas personas por sector. Es independiente de las normas de servicio (eso está en Normas).',
       },
     ],
   },
@@ -647,21 +647,21 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'service-rules',
     title: 'Normas de servicio',
-    summary: 'Lo que hay que hacer antes y después del turno, para leer o pegar en la pared.',
+    summary: 'Lo que hay que hacer antes, durante y después del turno, para leer o pegar en la pared.',
     blocks: [
       {
         title: 'Leer y pegar',
         icon: 'menu_book',
         tone: 'read',
         anyOf: ['serviceRules.read'],
-        body: 'Cada categoría (cocina, salón, caja…) agrupa las normas de antes y después. En /n se ven encapsuladas: el título de la norma se distingue del texto. El PDF es esa misma página, sin el botón de descargar.',
+        body: 'Cada categoría (cocina, salón, caja…) agrupa las normas de antes, durante y después. En /n se ven encapsuladas: el título de la norma se distingue del texto. El PDF es esa misma página, sin el botón de descargar.',
       },
       {
         title: 'Escribirlas',
         icon: 'edit_note',
         tone: 'do',
         anyOf: ['serviceRules.manage'],
-        body: 'Creá categorías, ordená y editá el texto. No hace falta ser admin del local: alcanza el permiso de normas.',
+        body: 'Creá categorías, ordená y editá el texto (antes, durante o después del servicio). No hace falta ser admin del local: alcanza el permiso de normas.',
       },
       {
         title: 'Cargar desde archivo',
