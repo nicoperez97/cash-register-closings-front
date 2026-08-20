@@ -664,6 +664,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Creá categorías, ordená y editá el texto (antes, durante o después del servicio). No hace falta ser admin del local: alcanza el permiso de normas.',
       },
       {
+        title: 'Borrar varias',
+        icon: 'delete_sweep',
+        tone: 'do',
+        anyOf: ['serviceRules.manage'],
+        body: 'Marcá las normas con el tilde, o usá Seleccionar todas. Después Borrar seleccionadas. Las categorías se siguen borrando de a una (y se llevan todas sus normas).',
+      },
+      {
         title: 'Cargar desde archivo',
         icon: 'upload_file',
         tone: 'do',
@@ -787,6 +794,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['concepts.manage'],
         body: 'Tipo ingreso, egreso o transferencia, y categorías (incluida Cierre, para los egresos del cierre de caja). Descargá la plantilla y subila con Importar Excel.',
+      },
+      {
+        title: 'Borrar varios',
+        icon: 'delete_sweep',
+        tone: 'do',
+        anyOf: ['concepts.manage'],
+        body: 'Marcá los conceptos con el tilde (o el de la cabecera de la página). Aparece Eliminar seleccionados arriba de la tabla.',
+        tip: 'También podés borrar de a uno desde Acciones en cada fila.',
       },
     ],
   },
