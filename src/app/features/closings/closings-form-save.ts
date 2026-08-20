@@ -16,6 +16,8 @@ export type ClosingFormExpenseRaw = {
   label: string;
   amount: number;
   category?: string;
+  conceptId?: string | null;
+  notes?: string | null;
 };
 
 export type ClosingFormDniTransferRaw = {
@@ -185,7 +187,7 @@ export function prepareClosingSaveBody(
           const explicit = closingNum(raw.cashWithdrawn);
           if (explicit > 0) return explicit;
           const expensesTotal = (raw.expenses as ClosingFormExpenseRaw[])
-            .filter((e) => !!e.label && closingNum(e.amount) > 0)
+            .filter((e) => (!!e.label || !!e.conceptId) && closingNum(e.amount) > 0)
             .reduce((s, e) => s + closingNum(e.amount), 0);
           return Math.max(
             0,
@@ -195,11 +197,13 @@ export function prepareClosingSaveBody(
     declaredTotal,
     posnetAmounts: posnetAmounts.length ? posnetAmounts : [],
     expenses: (raw.expenses as ClosingFormExpenseRaw[])
-      .filter((e) => !!e.label && closingNum(e.amount) > 0)
+      .filter((e) => (!!e.label || !!e.conceptId) && closingNum(e.amount) > 0)
       .map((e) => ({
         label: e.label,
         amount: closingNum(e.amount),
         category: e.category,
+        conceptId: e.conceptId || null,
+        notes: String(e.notes ?? '').trim() || null,
       })),
     extraLines: cobros.map((s) => ({
       type: 'OTHER',
@@ -253,11 +257,13 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
   ].filter((p) => closingNum(p.amount) > 0);
 
   const expenses = ((raw.expenses as ClosingFormExpenseRaw[]) ?? [])
-    .filter((e) => !!e.label && closingNum(e.amount) > 0)
+    .filter((e) => (!!e.label || !!e.conceptId) && closingNum(e.amount) > 0)
     .map((e) => ({
       label: e.label,
       amount: closingNum(e.amount),
       category: e.category,
+      conceptId: e.conceptId || null,
+      notes: String(e.notes ?? '').trim() || null,
     }));
 
   const cobros = ((raw.otherCobros ?? []) as ClosingFormRawValue['otherCobros'])

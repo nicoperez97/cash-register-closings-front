@@ -31,7 +31,6 @@ export type QuickExpenseDialogData = {
   shopName: string;
   accounts: LedgerAccount[];
   concepts: Concept[];
-  employees?: Array<{ id: string; fullName: string }>;
 };
 
 function todayIso(timezone?: string | null): string {
@@ -139,12 +138,22 @@ function todayIso(timezone?: string | null): string {
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>A quién (opcional)</mat-label>
-            <mat-icon matPrefix>person</mat-icon>
-            <mat-select formControlName="employeeId">
-              <mat-option value="">Nadie</mat-option>
-              @for (e of employees(); track e.id) {
-                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+            <mat-label>A quién</mat-label>
+            <mat-icon matPrefix>account_balance</mat-icon>
+            <mat-select
+              formControlName="toAccountId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, destQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="destQuery" placeholder="Buscar cuenta…" />
+              </mat-option>
+              <mat-option value="">Egreso (por defecto)</mat-option>
+              @for (a of filteredDestAccounts(); track a.id) {
+                <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+              @if (destQuery() && !filteredDestAccounts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -302,13 +311,30 @@ export class QuickExpenseDialogComponent {
     ),
   );
 
-  readonly employees = computed(() => this.data.employees ?? []);
+  readonly destQuery = signal('');
+  readonly destAccounts = computed(() =>
+    this.data.accounts.filter(
+      (a) =>
+        a.active !== false &&
+        a.id !== this.egresoAccountId() &&
+        a.id !== this.form.controls.fromAccountId.value &&
+        (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
+    ),
+  );
+  readonly filteredDestAccounts = computed(() =>
+    filterBySelectQuery(
+      this.destAccounts(),
+      this.destQuery(),
+      (a) => a.name,
+      this.form.controls.toAccountId.value,
+    ),
+  );
 
   readonly form = this.fb.nonNullable.group({
     amountUyu: [null as number | null, [Validators.required, Validators.min(0.01)]],
     conceptId: ['', Validators.required],
     fromAccountId: ['', Validators.required],
-    employeeId: [''],
+    toAccountId: [''],
     description: [''],
     notifyAdmins: [true],
   });
@@ -361,9 +387,9 @@ export class QuickExpenseDialogComponent {
       .create(this.data.shopId, {
         businessDate: todayIso(tz),
         fromAccountId: raw.fromAccountId,
-        toAccountId: this.egresoAccountId()!,
+        toAccountId: raw.toAccountId || this.egresoAccountId()!,
         conceptId: raw.conceptId,
-        employeeId: raw.employeeId || null,
+        employeeId: null,
         description: raw.description.trim() || null,
         amountUyu: Number(raw.amountUyu),
         invoiced: false,

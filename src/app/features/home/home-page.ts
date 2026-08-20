@@ -16,6 +16,9 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
+import { closingMoneyColumns } from '../closings/closing-list-columns';
+import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
+import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { MovementsApiService } from '../movements/movements-api.service';
 import { QuickExpenseDialogComponent } from '../movements/quick-expense-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
@@ -58,6 +61,7 @@ interface BalanceRowExt extends BalanceAccountRow {
     PageHeaderComponent,
     KpiStripComponent,
     BalancesTableComponent,
+    ExportMenuComponent,
   ],
   template: `
     <app-page-header
@@ -113,18 +117,15 @@ interface BalanceRowExt extends BalanceAccountRow {
           Cierres
         </a>
       }
-      @if (canViewReports()) {
-        <a mat-stroked-button routerLink="/reports">
-          <mat-icon>insights</mat-icon>
-          Reportes
-        </a>
-        @if (canExport()) {
-          <button mat-stroked-button type="button" (click)="exportMonth()">
-            <mat-icon>download</mat-icon>
-            Excel
-          </button>
+        @if (canViewReports()) {
+          <a mat-stroked-button routerLink="/reports">
+            <mat-icon>insights</mat-icon>
+            Reportes
+          </a>
+          @if (canExport()) {
+            <app-export-menu label="Descargar" (pick)="onExportMonth($event)" />
+          }
         }
-      }
       @if (canOpenReservations()) {
         <a mat-stroked-button routerLink="/reservations">
           <mat-icon>table_restaurant</mat-icon>
@@ -998,6 +999,29 @@ export class HomePageComponent {
           this.todayMarks.set({});
         },
       });
+  }
+
+  async onExportMonth(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shopId = this.shopContext.selectedShopId();
+      const shop = this.shopContext.selectedShop();
+      if (!shopId || !this.canExport()) return;
+      const { from, to } = this.monthRange();
+      this.api.list(shopId, { from, to }).subscribe({
+        next: async (rows) => {
+          await downloadColumnsPdf({
+            title: 'Cierres del mes',
+            subtitle: `${shop?.name ?? ''} · ${from} a ${to}`,
+            filename: `cierres-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from}_${to}.pdf`,
+            columns: closingMoneyColumns(),
+            rows,
+          });
+        },
+        error: () => this.snack.open('No se pudo generar el PDF', 'OK', { duration: 3000 }),
+      });
+      return;
+    }
+    this.exportMonth();
   }
 
   exportMonth(): void {

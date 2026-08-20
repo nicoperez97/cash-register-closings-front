@@ -3,6 +3,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MovementsApiService } from '../../features/movements/movements-api.service';
+import { ExportMenuComponent, ExportFormat } from './export-menu';
+import { downloadTablePdf } from '../pdf/html-pdf';
 
 export interface BalanceAccountRow {
   name: string;
@@ -20,7 +22,7 @@ function downloadBlobFile(blob: Blob, filename: string): void {
 
 @Component({
   selector: 'app-balances-table',
-  imports: [MatButtonModule, MatIconModule, MatSnackBarModule],
+  imports: [MatButtonModule, MatIconModule, MatSnackBarModule, ExportMenuComponent],
   template: `
     <div class="guy-saldos" role="region" [attr.aria-label]="title">
       @if (showHeader) {
@@ -38,17 +40,12 @@ function downloadBlobFile(blob: Blob, filename: string): void {
           </div>
           <div class="guy-saldos__head-actions">
             @if (shopId) {
-              <button
-                mat-stroked-button
-                type="button"
-                class="guy-saldos__export"
+              <app-export-menu
+                label="Descargar"
                 [disabled]="exporting() || !accounts.length"
-                (click)="exportExcel()"
-                aria-label="Descargar saldos en Excel"
-              >
-                <mat-icon>download</mat-icon>
-                Excel
-              </button>
+                [busy]="exporting()"
+                (pick)="onExport($event)"
+              />
             }
             <div
               class="guy-saldos__total-pill"
@@ -431,6 +428,20 @@ export class BalancesTableComponent {
 
   get total(): number {
     return this.accounts.reduce((sum, row) => sum + Number(row.balance ?? 0), 0);
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      await downloadTablePdf({
+        title: this.title,
+        subtitle: this.subtitle,
+        filename: `saldos-${this.shopFileSlug(this.fileSlug)}.pdf`,
+        headers: ['Cuenta', 'Saldo'],
+        rows: this.accounts.map((a) => [a.name, this.formatMoney(a.balance)]),
+      });
+      return;
+    }
+    this.exportExcel();
   }
 
   exportExcel(): void {

@@ -10,8 +10,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { Employee } from '../employees/employees-api.service';
-import { TipsEditorComponent, TipsEditorState } from '../tips/tips-editor';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 
 @Component({
@@ -23,7 +21,6 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
     MatIconModule,
     MatInputModule,
     MatSelectModule,
-    TipsEditorComponent,
     ClosingFormStepNavComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
@@ -53,29 +50,11 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
             <mat-label>Efectivo retirado</mat-label>
             <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
           </mat-form-field>
-          @if (!tipsEnabled()) {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Propinas</mat-label>
-              <input matInput type="number" inputmode="decimal" formControlName="tipsAmount" />
-            </mat-form-field>
-          }
           <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
             <mat-label>Notas</mat-label>
             <textarea matInput rows="2" formControlName="notes"></textarea>
           </mat-form-field>
         </div>
-        @if (tipsEnabled()) {
-          <div class="closing-form__tips">
-            <h4 class="closing-form__tips-title">Propinas del día</h4>
-            <app-tips-editor
-              [employees]="tipEmployees()"
-              [value]="tipEditorValue()"
-              [readonly]="tipsReadonly()"
-              [showDelivery]="false"
-              (valueChange)="tipChange.emit($event)"
-            />
-          </div>
-        }
       </div>
     </div>
     <div class="closing-form__block">
@@ -95,19 +74,19 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
             <div class="expense-row" [formGroupName]="i">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Concepto</mat-label>
-                <input matInput formControlName="label" />
+                <mat-select formControlName="conceptId" (selectionChange)="syncLabel(i, $event.value)">
+                  @for (c of closingConcepts(); track c.id) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Monto</mat-label>
                 <input matInput type="number" inputmode="decimal" formControlName="amount" />
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Categoría</mat-label>
-                <mat-select formControlName="category">
-                  @for (opt of expenseCategories(); track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                  }
-                </mat-select>
+                <mat-label>Descripción</mat-label>
+                <input matInput formControlName="notes" />
               </mat-form-field>
               <button
                 mat-icon-button
@@ -135,13 +114,13 @@ export class ClosingFormRetiroStepComponent {
   readonly expensesHint = input('');
   readonly unitsLabel = input<string | null>(null);
   readonly coversEnabled = input(false);
-  readonly tipsEnabled = input(false);
-  readonly tipsReadonly = input(false);
-  readonly tipEmployees = input<Employee[]>([]);
-  readonly tipEditorValue = input<TipsEditorState | null>(null);
-  readonly expenseCategories = input.required<Array<{ value: string; label: string }>>();
+  readonly closingConcepts = input<Array<{ id: string; name: string }>>([]);
 
   readonly addExpense = output<void>();
   readonly removeExpense = output<number>();
-  readonly tipChange = output<TipsEditorState>();
+
+  syncLabel(index: number, conceptId: string): void {
+    const name = this.closingConcepts().find((c) => c.id === conceptId)?.name ?? '';
+    this.expenses().at(index)?.patchValue({ label: name, conceptId });
+  }
 }

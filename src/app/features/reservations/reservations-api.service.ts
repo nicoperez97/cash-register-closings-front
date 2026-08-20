@@ -330,6 +330,16 @@ export class ReservationsApiService {
     );
   }
 
+  publicLookupReservations(slug: string, email: string) {
+    return this.http.get<{
+      shop: { name: string; slug?: string; accentColor?: string | null };
+      email: string;
+      reservations: ReservationRow[];
+    }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/my-reservations`, {
+      params: { email },
+    });
+  }
+
   createPublicReservationRequest(
     slug: string,
     body: {

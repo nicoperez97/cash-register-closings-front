@@ -11,10 +11,11 @@ import { hasShopPermission, Permission } from '../../core/auth/auth.models';
 import { helpIdFromPath, topicById } from '../../core/help/module-help';
 import { HelpDialogComponent } from './help-dialog';
 import { DialogTitleService } from '../services/dialog-title.service';
+import { ExportMenuComponent, ExportFormat } from './export-menu';
 
 @Component({
   selector: 'app-page-header',
-  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule],
+  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, ExportMenuComponent],
   template: `
     <header class="guy-page-header">
       <div class="guy-page-header__text">
@@ -38,7 +39,14 @@ import { DialogTitleService } from '../services/dialog-title.service';
           <p class="subtitle">{{ subtitle }}</p>
         }
       </div>
-      @if (actionLabel) {
+      @if (exportMenu && actionLabel) {
+        <app-export-menu
+          [label]="actionLabel"
+          [disabled]="actionDisabled"
+          [flat]="true"
+          (pick)="exportPick.emit($event)"
+        />
+      } @else if (actionLabel) {
         <button
           mat-flat-button
           color="primary"
@@ -75,7 +83,10 @@ export class PageHeaderComponent {
   @Input() actionAriaLabel = '';
   @Input() actionDisabled = false;
   @Input() actionLarge = false;
+  /** Si es true, el botón de acción abre Excel o PDF (ligados). */
+  @Input() exportMenu = false;
   @Output() action = new EventEmitter<void>();
+  @Output() exportPick = new EventEmitter<ExportFormat>();
 
   hasHelp(): boolean {
     return !!topicById(this.helpId || helpIdFromPath(this.router.url));

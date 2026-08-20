@@ -1,5 +1,5 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,6 +35,7 @@ export interface DataTableColumn {
   key: string;
   label: string;
   format?: (row: any) => string | number;
+  cellClass?: (row: any) => string;
   /** When true, the column stays fixed on horizontal scroll (Material sticky). */
   sticky?: boolean;
   /** When false, header is not sortable. Defaults to true if table `sortable` is on. */
@@ -45,6 +46,7 @@ export interface DataTableColumn {
   selector: 'app-data-table',
   imports: [
     FormsModule,
+    NgClass,
     NgTemplateOutlet,
     MatTableModule,
     MatButtonModule,
@@ -176,6 +178,7 @@ export interface DataTableColumn {
                     mat-cell
                     *matCellDef="let row"
                     [class.data-table__primary]="i === 0"
+                    [ngClass]="col.cellClass ? col.cellClass(row) : ''"
                   >
                     {{ cellValue(row, col) }}
                   </td>
@@ -463,6 +466,16 @@ export interface DataTableColumn {
         min-width: 11rem;
         max-width: 16rem;
         white-space: nowrap;
+      }
+
+      .data-table__diff--pos {
+        color: #1b7a3a;
+        font-weight: 700;
+      }
+
+      .data-table__diff--neg {
+        color: #c62828;
+        font-weight: 700;
       }
 
       .data-table__row--clickable {

@@ -52,7 +52,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'list',
         tone: 'read',
         anyOf: ['closings.read', 'closings.create'],
-        body: 'Cada fila es un día. Vas a ver estado (borrador, enviado, bloqueado) y totales.',
+        body: 'Cada fila es un día. Vas a ver efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros, egresos, total del sistema, total declarado y la diferencia en color.',
         items: [
           'Entrá al cierre para ver el detalle.',
           'En el celular la lista puede verse compacta o detallada (junto a Buscar).',
@@ -85,8 +85,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'checklist',
         tone: 'do',
         anyOf: ['closings.create', 'closings.update'],
-        body: 'Andá sección por sección: cobros, efectivo, posnets, retiros, gastos y notas.',
+        body: 'Andá sección por sección: cobros, efectivo, posnets, retiro, egresos del cierre, propinas y notas.',
         items: [
+          'Los egresos del cierre salen de conceptos con categoría Cierre: monto y descripción.',
+          'Las propinas van en un paso aparte.',
           'No hace falta terminar de una: guardá borrador.',
           'Cuando los números cierren, envialo para que otros lo vean como enviado.',
         ],
@@ -144,8 +146,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'swap_horiz',
         tone: 'do',
         anyOf: ['movements.manage'],
-        body: 'Elegí origen, destino (si aplica) y concepto. También hay gasto rápido desde el inicio.',
-        tip: 'Podés avisar a los admins al crear, para que no se entere nadie “después”.',
+        body: 'Con Gasto rápido elegís de qué cuenta sale. A quién es una cuenta destino; si lo dejás vacío, va a Egreso.',
+        tip: 'Excel y PDF salen del mismo botón Descargar.',
       },
     ],
   },
@@ -173,7 +175,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'filter_alt',
         tone: 'read',
         anyOf: ['payments.read'],
-        body: 'Debajo: quién valida, quién paga, vencimiento, fechas, proveedor/servicio/empleado y montos. En el celular: lista compacta o detallada. En la computadora: tarjetas o lista. Excel de lo que estás viendo.',
+        body: 'Debajo: quién valida, quién paga, vencimiento, fechas, proveedor/servicio/empleado y montos. En el celular: lista compacta o detallada. En la computadora: tarjetas o lista. Descargar abre Excel o PDF de lo que estás viendo.',
       },
       {
         title: 'El circuito',
@@ -234,7 +236,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'reports',
     title: 'Reportes',
-    summary: 'El período en números: KPIs, tablas y un Excel si te lo habilitan.',
+    summary: 'El período en números: KPIs, tablas y descarga en Excel o PDF si te lo habilitan.',
     blocks: [
       {
         title: 'Mirar el período',
@@ -244,11 +246,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Elegí fechas y ves totales, movimientos y tablas. Si hay presentismo, el Excel general puede incluir esas hojas.',
       },
       {
-        title: 'Bajar Excel',
+        title: 'Descargar',
         icon: 'download',
         tone: 'do',
         anyOf: ['reports.export'],
-        body: 'El botón del encabezado descarga el archivo del recorte que estás viendo.',
+        body: 'El botón Descargar del encabezado abre Excel o PDF del recorte que estás viendo.',
       },
     ],
   },
@@ -265,11 +267,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Filtrá período y tipo (egreso, ingreso, transferencia). La tabla suma importes; los % cierran en 100%.',
       },
       {
-        title: 'Excel',
+        title: 'Descargar',
         icon: 'table_view',
         tone: 'do',
         anyOf: ['reports.export'],
-        body: 'Misma foto que la pantalla, en una hoja para Excel.',
+        body: 'El mismo botón ofrece Excel o PDF de la tabla.',
       },
     ],
   },
@@ -322,6 +324,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Tablero para la sala: /r',
           'Formulario para el cliente: /reservar',
+          'Consulta de reserva por mail: /mi-reserva',
+          'Desde el admin podés cargar sin tope de cupo.',
           'Abierto / Adentro / Afuera piden confirmación, para no cambiarlos sin querer.',
         ],
       },
@@ -442,7 +446,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'storefront',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Mes, día y extras en un rango de fechas (el Excel también usa desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia.',
+        body: 'Mes, día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia.',
         tip: 'Si el local apagó “Presentismo con horario”, solo se marca presente / ausente / feriado: no hay entrada, salida ni extra.',
       },
       {
@@ -628,7 +632,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'menu_book',
         tone: 'read',
         anyOf: ['serviceRules.read'],
-        body: 'Categorías (cocina, salón, caja…) con reglas Pre y Post. En /n el PDF es esa misma página, sin el botón de descargar.',
+        body: 'Cada categoría (cocina, salón, caja…) agrupa las normas de antes y después. En /n se ven encapsuladas: el título de la norma se distingue del texto. El PDF es esa misma página, sin el botón de descargar.',
       },
       {
         title: 'Escribirlas',
@@ -744,7 +748,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'sell',
         tone: 'do',
         anyOf: ['concepts.manage'],
-        body: 'Tipo ingreso, egreso o transferencia, y categorías. Un concepto puede vivir en más de una categoría para aparecer en distintos pagos.',
+        body: 'Tipo ingreso, egreso o transferencia, y categorías (incluida Cierre, para los egresos del cierre de caja). Descargá la plantilla y subila con Importar Excel.',
       },
     ],
   },

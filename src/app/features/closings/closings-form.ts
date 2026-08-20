@@ -12,7 +12,9 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom, map, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
+import { HttpClient } from '@angular/common/http';
 import { BreakpointObserver } from '@angular/cdk/layout';
+import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
@@ -44,6 +46,7 @@ import { ClosingFormCajaOtrosStepComponent } from './closing-form-caja-otros-ste
 import { ClosingFormCajaStepComponent } from './closing-form-caja-step';
 import { ClosingFormEfectivoStepComponent } from './closing-form-efectivo-step';
 import { ClosingFormRetiroStepComponent } from './closing-form-retiro-step';
+import { ClosingFormTipsStepComponent } from './closing-form-tips-step';
 import {
   buildDniTransferGroup,
   buildPosnetAmountGroup,
@@ -76,7 +79,6 @@ import {
   type ClosingFormRawValue,
 } from './closings-form-save';
 import {
-  EXPENSE_CATEGORY_OPTIONS,
   POSNET_TYPE_LABEL,
   POSNET_TYPE_OPTIONS,
   closingMoney,
@@ -108,6 +110,7 @@ import {
     ClosingFormCajaStepComponent,
     ClosingFormEfectivoStepComponent,
     ClosingFormRetiroStepComponent,
+    ClosingFormTipsStepComponent,
   ],
   host: {
     class: 'closing-form-page',
@@ -225,13 +228,18 @@ import {
                 [expensesHint]="expensesPanelHint()"
                 [unitsLabel]="shop()?.unitsLabel ?? null"
                 [coversEnabled]="!!shop()?.coversEnabled"
+                [closingConcepts]="closingConcepts()"
+                (addExpense)="addExpense()"
+                (removeExpense)="removeExpense($event)"
+              />
+            </mat-step>
+
+            <mat-step label="Propinas">
+              <app-closing-form-tips-step
                 [tipsEnabled]="tipsEnabled()"
                 [tipsReadonly]="isLocked() && !auth.isAdmin()"
                 [tipEmployees]="tipEmployees()"
                 [tipEditorValue]="tipEditorValue()"
-                [expenseCategories]="expenseCategories"
-                (addExpense)="addExpense()"
-                (removeExpense)="removeExpense($event)"
                 (tipChange)="onTipEditorChange($event)"
               />
             </mat-step>
@@ -295,6 +303,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly http = inject(HttpClient);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly breakpointObserver = inject(BreakpointObserver);
@@ -308,7 +317,7 @@ export class ClosingsFormPage implements OnInit {
   readonly saving = signal(false);
   readonly status = signal<string | null>(null);
   readonly users = signal<ShopUserOption[]>([]);
-  readonly expenseCategories = EXPENSE_CATEGORY_OPTIONS;
+  readonly closingConcepts = signal<Array<{ id: string; name: string }>>([]);
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
   readonly posnetTypeLabels = POSNET_TYPE_LABEL;
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
@@ -323,6 +332,7 @@ export class ClosingsFormPage implements OnInit {
     'Efectivo',
     'Cobros',
     'Retiro y egresos',
+    'Propinas',
     'Caja',
     'Resumen',
   ] as const;
@@ -608,6 +618,17 @@ export class ClosingsFormPage implements OnInit {
           this.syncSourceAmounts();
         },
       });
+      this.http
+        .get<Array<{ id: string; name: string; categories?: string[] }>>(
+          `${environment.apiUrl}/shops/${shopId}/concepts`,
+        )
+        .subscribe({
+          next: (rows) =>
+            this.closingConcepts.set(
+              rows.filter((c) => (c.categories ?? []).includes('CLOSURE')),
+            ),
+          error: () => this.closingConcepts.set([]),
+        });
       if (this.tipsEnabled()) {
         this.employeesApi.list(shopId).subscribe({
           next: (rows) => this.tipEmployees.set(rows.filter((e) => e.active)),
@@ -649,6 +670,8 @@ export class ClosingsFormPage implements OnInit {
                 label: expense.label ?? '',
                 amount: expense.amount ?? 0,
                 category: expense.category ?? 'OTHER',
+                conceptId: expense.conceptId ?? '',
+                notes: expense.notes ?? '',
               },
               (v) => this.emptyNum(v),
             ),

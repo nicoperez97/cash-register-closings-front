@@ -19,6 +19,8 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
+import { downloadTablePdf } from '../../shared/pdf/html-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { ProductionAttendanceExcelImportDialogComponent } from './production-attendance-excel-import-dialog';
 import {
@@ -112,6 +114,7 @@ function formatIsoShort(iso: string): string {
     MatSnackBarModule,
     PageHeaderComponent,
     FiltersCollapseBtnComponent,
+    ExportMenuComponent,
     LoadingStateComponent,
   ],
   template: `
@@ -310,15 +313,11 @@ function formatIsoShort(iso: string): string {
           <mat-icon>today</mat-icon>
           Ver mes actual
         </button>
-        <button
-          mat-stroked-button
-          type="button"
+        <app-export-menu
           [disabled]="!shopId() || exporting()"
-          (click)="exportExcel()"
-        >
-          <mat-icon>download</mat-icon>
-          Descargar Excel
-        </button>
+          [busy]="exporting()"
+          (pick)="onExport($event)"
+        />
       </div>
       </div>
     </div>
@@ -921,6 +920,23 @@ export class ProductionAttendancePage {
       this.shopId(),
       'attendance.manage',
     );
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const year = this.year();
+      const month = this.month();
+      await downloadTablePdf({
+        title: 'Asistencia producción',
+        subtitle: `${shop?.name ?? ''} · ${year}-${String(month).padStart(2, '0')}`,
+        filename: `produccion-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${year}-${String(month).padStart(2, '0')}.pdf`,
+        headers: ['Empleado', 'Horas'],
+        rows: this.employees().map((emp) => [emp.fullName, this.formatHours(this.monthTotal(emp))]),
+      });
+      return;
+    }
+    this.exportExcel();
   }
 
   exportExcel(): void {

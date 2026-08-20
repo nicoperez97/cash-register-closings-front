@@ -451,3 +451,40 @@ function waitForElement(doc: Document, selector: string, timeoutMs: number): Pro
     tick();
   });
 }
+
+export async function downloadTablePdf(opts: {
+  title: string;
+  subtitle?: string;
+  filename: string;
+  headers: string[];
+  rows: Array<Array<string | number>>;
+}): Promise<void> {
+  const wrap = document.createElement('div');
+  wrap.id = `pdf-table-${Date.now()}`;
+  wrap.style.cssText =
+    'position:fixed;left:-12000px;top:0;width:920px;padding:28px 24px;background:#fff;color:#1a1f1c;font:14px Figtree,Segoe UI,sans-serif;';
+  const rowsHtml = opts.rows
+    .map(
+      (row) =>
+        `<tr>${row.map((c) => `<td>${escapePdfHtml(String(c ?? ''))}</td>`).join('')}</tr>`,
+    )
+    .join('');
+  wrap.innerHTML = `
+    <h1 style="margin:0 0 4px;font:700 20px Figtree,sans-serif">${escapePdfHtml(opts.title)}</h1>
+    ${opts.subtitle ? `<p style="margin:0 0 16px;color:#556">${escapePdfHtml(opts.subtitle)}</p>` : ''}
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead>
+        <tr>
+          ${opts.headers.map((h) => `<th style="text-align:left;border-bottom:1px solid #ccc;padding:6px 4px">${escapePdfHtml(h)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>${rowsHtml || `<tr><td colspan="${opts.headers.length}">Sin datos</td></tr>`}</tbody>
+    </table>
+  `;
+  document.body.appendChild(wrap);
+  try {
+    await withGeneratingMask(() => downloadElementPdf(wrap, opts.filename, { background: '#ffffff' }));
+  } finally {
+    wrap.remove();
+  }
+}

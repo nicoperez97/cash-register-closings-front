@@ -16,7 +16,7 @@ import {
 } from './reservations-api.service';
 import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
-import { partyFitsArea, partyMustSitOutside, partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
+import { partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
 
 export type ReservationComposeSaved = {
   id: string;
@@ -66,7 +66,7 @@ export type ReservationComposeSaved = {
             matInput
             type="number"
             min="1"
-            [max]="partyMax()"
+            max="99"
             inputmode="numeric"
             pattern="[0-9]*"
             formControlName="partySize"
@@ -139,28 +139,9 @@ export class ReservationComposeFormComponent {
     tableNumber: this.fb.nonNullable.control(''),
   });
 
-  readonly insideOpen = computed(() => {
-    const settings = this.daySettings();
-    if (settings?.insideEnabled === false) return false;
-    const cap = settings?.insideCapacityRemaining;
-    if (cap != null && Number(cap) <= 0) return false;
-    return !partyMustSitOutside(
-      this.partySizeValue(),
-      effectivePartyRules(this.shops.selectedShop(), this.daySettings()),
-    );
-  });
+  readonly insideOpen = computed(() => this.daySettings()?.insideEnabled !== false);
 
-  readonly outsideOpen = computed(() => {
-    const settings = this.daySettings();
-    if (settings?.outsideEnabled === false) return false;
-    const cap = settings?.outsideCapacityRemaining;
-    if (cap != null && Number(cap) <= 0) return false;
-    return partyFitsArea(
-      'OUTSIDE',
-      this.partySizeValue(),
-      effectivePartyRules(this.shops.selectedShop(), this.daySettings()),
-    );
-  });
+  readonly outsideOpen = computed(() => this.daySettings()?.outsideEnabled !== false);
 
   readonly capacityHint = computed(() => {
     const settings = this.daySettings();
@@ -184,16 +165,7 @@ export class ReservationComposeFormComponent {
   private readonly selectedArea = signal<ReservationArea>('INSIDE');
   private readonly partySizeValue = signal(2);
 
-  readonly partyMax = computed(() => {
-    const area = this.selectedArea();
-    const settings = this.daySettings();
-    const cap =
-      area === 'OUTSIDE'
-        ? settings?.outsideCapacityRemaining
-        : settings?.insideCapacityRemaining;
-    if (cap == null || !Number.isFinite(Number(cap))) return 99;
-    return Math.max(1, Math.min(99, Number(cap)));
-  });
+  readonly partyMax = computed(() => 99);
 
   constructor() {
     this.form.controls.area.valueChanges.subscribe((area) => {
@@ -233,20 +205,6 @@ export class ReservationComposeFormComponent {
     const raw = this.form.getRawValue();
     const area = raw.area ?? 'INSIDE';
     const partySize = Number(raw.partySize);
-    if (area === 'INSIDE' && !this.insideOpen()) {
-      this.snack.open('No quedan lugares adentro', 'OK', { duration: 3000 });
-      return;
-    }
-    if (area === 'OUTSIDE' && !this.outsideOpen()) {
-      this.snack.open('No quedan lugares afuera', 'OK', { duration: 3000 });
-      return;
-    }
-    if (partySize > this.partyMax()) {
-      this.snack.open(`Solo quedan ${this.partyMax()} lugares en ese sector`, 'OK', {
-        duration: 3000,
-      });
-      return;
-    }
     this.saving.set(true);
     this.api
       .createReservation(shopId, {

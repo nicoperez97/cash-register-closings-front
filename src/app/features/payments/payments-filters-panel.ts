@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 import { Employee } from '../employees/employees-api.service';
 import { ShopSupplier } from '../suppliers/suppliers-api.service';
 import { ShopService } from '../services/services-api.service';
@@ -32,6 +33,7 @@ type FilterUser = {
     MatSelectModule,
     MatTooltipModule,
     FiltersCollapseBtnComponent,
+    ExportMenuComponent,
   ],
   host: {
     class: 'panel-card guy-filters mb-3',
@@ -85,19 +87,11 @@ type FilterUser = {
           <mat-icon>{{ selecting() ? 'close' : 'checklist' }}</mat-icon>
           {{ selecting() ? 'Listo' : 'Seleccionar' }}
         </button>
-        <button
-          mat-stroked-button
-          type="button"
-          class="pay-export-btn"
+        <app-export-menu
           [disabled]="!shopId() || exporting()"
-          (click)="exportExcel.emit()"
-        >
-          <mat-icon>download</mat-icon>
-          <span class="pay-export-btn__full">{{
-            exporting() ? 'Descargando…' : 'Descargar Excel'
-          }}</span>
-          <span class="pay-export-btn__short">{{ exporting() ? '…' : 'Excel' }}</span>
-        </button>
+          [busy]="exporting()"
+          (pick)="exportPick.emit($event)"
+        />
         <app-filters-collapse-btn
           [collapsed]="collapsed()"
           [badgeCount]="activeFilterCount()"
@@ -244,7 +238,7 @@ export class PaymentsFiltersPanelComponent {
   readonly viewModeChange = output<PaymentsViewMode | null | undefined>();
   readonly mobileViewChange = output<PaymentsMobileView | null | undefined>();
   readonly toggleSelecting = output<void>();
-  readonly exportExcel = output<void>();
+  readonly exportPick = output<ExportFormat>();
   readonly toggleFilters = output<void>();
   readonly filterMine = output<void>();
 

@@ -38,6 +38,8 @@ import { QuickExpenseDialogComponent } from './quick-expense-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
+import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import {
@@ -62,39 +64,32 @@ import { shareText } from '../../shared/utils/share-text';
     MatDialogModule,
     MatSnackBarModule,
     FiltersCollapseBtnComponent,
+    ExportMenuComponent,
   ],
   template: `
     <app-page-header
       title="Movimientos"
       [subtitle]="shops.selectedShop()?.name ?? 'Sin local'"
-      [actionLabel]="canManage() ? 'Nuevo movimiento' : ''"
+      [actionLabel]="canManage() ? 'Gasto rápido' : ''"
       [actionDisabled]="!canManage()"
-      actionIcon="add"
+      actionIcon="payments"
       [actionLarge]="true"
-      (action)="openCreate()"
+      (action)="openQuickExpense()"
     />
 
     @if (shopId()) {
       <div class="xl-toolbar mb-3">
         @if (canManage()) {
-          <button mat-flat-button color="primary" type="button" (click)="openQuickExpense()">
-            <mat-icon>payments</mat-icon>
-            Gasto rápido
-          </button>
           <button mat-stroked-button type="button" (click)="openExcelImport()">
             <mat-icon>upload_file</mat-icon>
             Importar Excel
           </button>
         }
-        <button
-          mat-stroked-button
-          type="button"
+        <app-export-menu
           [disabled]="exporting()"
-          (click)="exportExcel()"
-        >
-          <mat-icon>download</mat-icon>
-          Descargar Excel
-        </button>
+          [busy]="exporting()"
+          (pick)="onExport($event)"
+        />
       </div>
     }
     @if (shopId()) {
@@ -348,7 +343,6 @@ export class MovementsListPage {
             shopName: this.shops.selectedShop()?.name ?? 'Local',
             accounts: this.accounts(),
             concepts: this.concepts(),
-            employees: this.employees(),
           },
         }),
         'Gasto rápido',
@@ -357,6 +351,23 @@ export class MovementsListPage {
       .subscribe((saved) => {
         if (saved) this.load();
       });
+  }
+
+  async onExport(format: ExportFormat): Promise<void> {
+    if (format === 'pdf') {
+      const shop = this.shops.selectedShop();
+      const from = this.formatDate(this.range.controls.start.value);
+      const to = this.formatDate(this.range.controls.end.value);
+      await downloadColumnsPdf({
+        title: 'Movimientos',
+        subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''}`,
+        filename: `movimientos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
+        columns: this.columns,
+        rows: this.rows(),
+      });
+      return;
+    }
+    this.exportExcel();
   }
 
   exportExcel(): void {
