@@ -25,6 +25,10 @@ export interface Movement {
   invoiceNumber?: string | null;
   closingId?: string | null;
   employeeId?: string | null;
+  /** closing | payment | manual */
+  source?: 'closing' | 'payment' | 'manual' | null;
+  paymentId?: string | null;
+  paymentPartyType?: 'supplier' | 'service' | 'employee' | null;
   active: boolean;
 }
 
@@ -56,6 +60,9 @@ export interface MovementFilters {
   conceptId?: string | null;
   q?: string | null;
   kind?: 'expense' | 'transfer' | null;
+  source?: 'closing' | 'payment' | 'manual' | null;
+  partyType?: 'supplier' | 'service' | 'employee' | null;
+  invoiced?: 'true' | 'false' | null;
 }
 
 function filtersToParams(filters: MovementFilters): HttpParams {
@@ -69,6 +76,9 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   set('conceptId', filters.conceptId);
   set('q', filters.q?.trim());
   set('kind', filters.kind);
+  set('source', filters.source);
+  set('partyType', filters.partyType);
+  set('invoiced', filters.invoiced);
   return params;
 }
 
