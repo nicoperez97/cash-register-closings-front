@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -299,6 +300,12 @@ import {
           Validar
         </button>
       }
+      @if (payment().status === 'PAID') {
+        <button mat-stroked-button type="button" (click)="viewInExpenses(payment())">
+          <mat-icon>payments</mat-icon>
+          Ver en gastos
+        </button>
+      }
       @if (canPay(payment())) {
         <button
           mat-flat-button
@@ -373,9 +380,7 @@ import {
           }
           @if (
             canManage() &&
-            (payment().status === 'PENDING_VALIDATION' ||
-              payment().status === 'VALIDATED' ||
-              payment().status === 'PAID')
+            (payment().status === 'PENDING_VALIDATION' || payment().status === 'VALIDATED')
           ) {
             <button mat-menu-item type="button" (click)="editRequested.emit(payment())">
               <mat-icon>edit</mat-icon>
@@ -411,6 +416,7 @@ export class PaymentCardComponent {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly router = inject(Router);
 
   readonly payment = input.required<ShopPayment>();
   readonly viewMode = input.required<PaymentsDisplayMode>();
@@ -547,19 +553,43 @@ export class PaymentCardComponent {
       goingBackToValidate ? 'Volver a validar' : 'Marcar no pagado',
       goingBackToValidate
         ? `¿Devolver "${p.title}" a pendiente de validación?`
-        : `¿Marcar "${p.title}" como no pagado? Se anula el movimiento contable asociado.`,
+        : `¿Marcar "${p.title}" como no pagado? Se elimina el gasto en Cuentas → Gastos. Después podés editarlo y volver a abonarlo.`,
     );
     if (!ok) return;
     this.api.revertStatus(shopId, p.id).subscribe({
       next: () => {
         this.snack.open(
-          goingBackToValidate ? 'Volvió a pendiente de validar' : 'Marcado como no pagado',
+          goingBackToValidate
+            ? 'Volvió a pendiente de validar'
+            : 'Marcado como no pagado · gasto eliminado',
           'OK',
-          { duration: 2500 },
+          { duration: 2800 },
         );
         this.changed.emit();
       },
       error: (err) => this.showErr(err),
+    });
+  }
+
+  viewInExpenses(p: ShopPayment): void {
+    if (p.status !== 'PAID') return;
+    const paidAt = (p.paidAt || '').trim().slice(0, 10);
+    const partyType = p.supplierId
+      ? 'supplier'
+      : p.serviceId
+        ? 'service'
+        : p.employeeId
+          ? 'employee'
+          : null;
+    void this.router.navigate(['/expenses'], {
+      queryParams: {
+        paymentId: p.id,
+        from: paidAt || null,
+        to: paidAt || null,
+        source: 'payment',
+        partyType,
+        conceptId: p.conceptId || null,
+      },
     });
   }
 

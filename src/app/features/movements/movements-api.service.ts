@@ -63,6 +63,7 @@ export interface MovementFilters {
   source?: 'closing' | 'payment' | 'manual' | null;
   partyType?: 'supplier' | 'service' | 'employee' | null;
   invoiced?: 'true' | 'false' | null;
+  paymentId?: string | null;
 }
 
 function filtersToParams(filters: MovementFilters): HttpParams {
@@ -79,6 +80,7 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   set('source', filters.source);
   set('partyType', filters.partyType);
   set('invoiced', filters.invoiced);
+  set('paymentId', filters.paymentId);
   return params;
 }
 
@@ -116,9 +118,18 @@ export class MovementsApiService {
     return this.http.get<LedgerAccount[]>(`${this.base}/shops/${shopId}/accounts`);
   }
 
-  concepts(shopId: string, usage?: 'supplier' | 'service' | 'employee' | 'movement') {
+  concepts(
+    shopId: string,
+    opts?: {
+      for?: 'supplier' | 'service' | 'employee' | 'movement';
+      kind?: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+    },
+  ) {
+    const params: Record<string, string> = {};
+    if (opts?.for) params['for'] = opts.for;
+    if (opts?.kind) params['kind'] = opts.kind;
     return this.http.get<Concept[]>(`${this.base}/shops/${shopId}/concepts`, {
-      params: usage ? { for: usage } : {},
+      params,
     });
   }
 

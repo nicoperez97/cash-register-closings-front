@@ -711,7 +711,7 @@ export class HomePageComponent {
     this.quickExpenseBusy.set(true);
     forkJoin({
       accounts: this.movementsApi.accounts(shopId),
-      concepts: this.movementsApi.concepts(shopId, 'movement'),
+      concepts: this.movementsApi.concepts(shopId, { for: 'movement' }),
       employees: this.employeesApi.list(shopId).pipe(catchError(() => of([]))),
     }).subscribe({
       next: ({ accounts, concepts, employees }) => {
