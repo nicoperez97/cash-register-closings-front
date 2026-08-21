@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
+import { safeUploadFileName } from '../../shared/utils/input-file';
 
 export interface UserProfile {
   id: string;
@@ -44,7 +45,7 @@ export class ProfileApiService {
 
   uploadAvatar(file: File) {
     const body = new FormData();
-    body.append('file', file);
+    body.append('file', file, safeUploadFileName(file.name || 'avatar.jpg'));
     return this.http.post<UserProfile>(`${this.base}/profile/avatar`, body);
   }
 
