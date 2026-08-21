@@ -1,9 +1,11 @@
 <div class="login-page">
   <div class="login-atmosphere" aria-hidden="true">
+    <div class="login-wash"></div>
+    <div class="login-mesh"></div>
     <span class="login-orb login-orb--a"></span>
     <span class="login-orb login-orb--b"></span>
     <span class="login-orb login-orb--c"></span>
-    <span class="login-grid"></span>
+    <span class="login-sheen"></span>
   </div>
 
   <div class="login-shell">
@@ -12,8 +14,8 @@
         [src]="brand.defaultLogoUrl + '?v=2'"
         [alt]="brand.productName"
         class="login-logo"
-        width="96"
-        height="96"
+        width="112"
+        height="112"
       />
       <h1 class="login-brand__name">{{ brand.productName }}</h1>
       <p class="login-brand__tag">
@@ -39,7 +41,7 @@
       <div class="login-panel__head">
         <h2 id="login-title" class="login-panel__title">Ingresar</h2>
         @if (!error) {
-          <p class="login-panel__lead">Usá tu correo y contraseña</p>
+          <p class="login-panel__lead">Correo y contraseña, o Google si ya estás dado de alta.</p>
         }
       </div>
 
@@ -96,7 +98,6 @@
 
         <button
           mat-flat-button
-          color="primary"
           type="submit"
           class="w-100 login-submit"
           [disabled]="busy"
@@ -113,6 +114,16 @@
           </app-busy-label>
         </button>
       </form>
+
+      @if (googleEnabled()) {
+        <div class="login-divider" aria-hidden="true">
+          <span>o</span>
+        </div>
+        <div class="login-google">
+          <p class="login-google__hint">Solo si tu correo ya está dado de alta</p>
+          <div #googleBtn class="login-google__btn" role="presentation"></div>
+        </div>
+      }
     </section>
   </div>
 </div>

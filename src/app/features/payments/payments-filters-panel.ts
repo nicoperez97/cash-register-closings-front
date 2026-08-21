@@ -14,10 +14,13 @@ import { Employee } from '../employees/employees-api.service';
 import { ShopSupplier } from '../suppliers/suppliers-api.service';
 import { ShopService } from '../services/services-api.service';
 import type { PaymentKind, PaymentsMobileView, PaymentsViewMode } from './payments-page-actions';
+import { UserAvatarComponent } from '../../shared/components/user-avatar';
 
 type FilterUser = {
   id: string;
   fullName: string;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
 };
 
 @Component({
@@ -34,6 +37,7 @@ type FilterUser = {
     MatTooltipModule,
     FiltersCollapseBtnComponent,
     ExportMenuComponent,
+    UserAvatarComponent,
   ],
   host: {
     class: 'panel-card guy-filters mb-3',
@@ -107,7 +111,18 @@ type FilterUser = {
             <mat-option [value]="currentUserId()">Yo</mat-option>
           }
           @for (u of filterUsers(); track u.id) {
-            <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+            <mat-option [value]="u.id">
+              <span class="pay-user-opt">
+                <app-user-avatar
+                  [userId]="u.id"
+                  [avatarUrl]="u.avatarUrl ?? null"
+                  [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                  size="sm"
+                  [alt]="u.fullName"
+                />
+                <span>{{ u.fullName }}</span>
+              </span>
+            </mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -118,7 +133,18 @@ type FilterUser = {
             <mat-option [value]="currentUserId()">Yo</mat-option>
           }
           @for (u of filterUsers(); track u.id) {
-            <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+            <mat-option [value]="u.id">
+              <span class="pay-user-opt">
+                <app-user-avatar
+                  [userId]="u.id"
+                  [avatarUrl]="u.avatarUrl ?? null"
+                  [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                  size="sm"
+                  [alt]="u.fullName"
+                />
+                <span>{{ u.fullName }}</span>
+              </span>
+            </mat-option>
           }
         </mat-select>
       </mat-form-field>

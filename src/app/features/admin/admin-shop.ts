@@ -43,6 +43,7 @@ import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
 import { ShopNavEditorComponent } from './shop-nav-editor';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
+import { UserAvatarComponent } from '../../shared/components/user-avatar';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -77,6 +78,8 @@ interface ShopUserOption {
   fullName: string;
   email: string;
   active?: boolean;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
 }
 
 /** Campos del cierre → medio vinculado a cuenta canal. */
@@ -125,6 +128,7 @@ const TIMEZONE_OPTIONS = [
     DataTableComponent,
     SelectSearchComponent,
     ShopNavEditorComponent,
+    UserAvatarComponent,
   ],
   template: `
     <app-page-header
@@ -330,11 +334,23 @@ const TIMEZONE_OPTIONS = [
                   }
                   @for (u of shopUsers(); track u.id) {
                     <mat-checkbox
+                      class="shop-admin__user-check"
                       [checked]="isEmailUserSelected(u.id)"
                       (change)="toggleEmailUser(u.id)"
                     >
-                      {{ u.fullName }}
-                      <span class="text-muted small"> · {{ u.email }}</span>
+                      <span class="shop-admin__user-row">
+                        <app-user-avatar
+                          [userId]="u.id"
+                          [avatarUrl]="u.avatarUrl ?? null"
+                          [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                          size="sm"
+                          [alt]="u.fullName"
+                        />
+                        <span class="shop-admin__user-copy">
+                          <span>{{ u.fullName }}</span>
+                          <span class="text-muted small">{{ u.email }}</span>
+                        </span>
+                      </span>
                     </mat-checkbox>
                   }
                 </div>
@@ -1778,6 +1794,22 @@ const TIMEZONE_OPTIONS = [
         display: flex;
         flex-direction: column;
         gap: 0.35rem;
+      }
+      .shop-admin__user-check {
+        --mdc-checkbox-state-layer-size: 36px;
+      }
+      .shop-admin__user-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+      }
+      .shop-admin__user-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        min-width: 0;
+        line-height: 1.25;
       }
       .shop-admin__weekday-chips {
         display: flex;

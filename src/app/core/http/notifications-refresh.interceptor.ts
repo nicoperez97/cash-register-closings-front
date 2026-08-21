@@ -9,7 +9,9 @@ function shouldRefreshNotifications(url: string, method: string): boolean {
   // Evitar bucle: las propias llamadas de notificaciones no re-disparan refresh.
   if (url.includes('/notifications')) return false;
   // Auth / health no aportan contexto de inbox.
-  if (url.includes('/auth/login') || url.includes('/auth/refresh')) return false;
+  if (url.includes('/auth/login') || url.includes('/auth/google') || url.includes('/auth/refresh')) {
+    return false;
+  }
   if (method === 'OPTIONS' || method === 'HEAD') return false;
   return true;
 }

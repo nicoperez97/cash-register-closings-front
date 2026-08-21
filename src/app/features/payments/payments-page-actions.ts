@@ -78,6 +78,8 @@ export function shopFileSlug(name?: string | null): string {
 export type PaymentsShopUserRow = {
   id: string;
   fullName: string;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
   visibility?: Partial<UserVisibility> | null;
   hideFromCashWithdraw?: boolean;
 };
@@ -86,6 +88,8 @@ export function mapShopUsersForPayments(
   rows: Array<{
     id: string;
     fullName: string;
+    avatarUrl?: string | null;
+    hasAvatar?: boolean;
     visibility?: Partial<UserVisibility> | null;
     hideFromCashWithdraw?: boolean;
   }>,
@@ -93,6 +97,8 @@ export function mapShopUsersForPayments(
   return rows.map((u) => ({
     id: u.id,
     fullName: u.fullName,
+    avatarUrl: u.avatarUrl ?? null,
+    hasAvatar: !!u.hasAvatar || !!u.avatarUrl,
     visibility: u.visibility,
     hideFromCashWithdraw: u.hideFromCashWithdraw,
   }));

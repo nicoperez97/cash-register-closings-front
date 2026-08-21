@@ -120,6 +120,8 @@ export interface ShopUserOption {
   id: string;
   fullName: string;
   email: string;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
   hideFromCashWithdraw?: boolean;
   visibility?: Partial<UserVisibility> | null;
   ledgerAccounts?: ShopUserAccountOption[];

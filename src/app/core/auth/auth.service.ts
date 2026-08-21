@@ -77,10 +77,24 @@ export class AuthService {
       }>(`${environment.apiUrl}/auth/login`, { email, password }),
     );
 
-    localStorage.setItem(TOKEN_KEY, res.accessToken);
+    return this.applySession(res.accessToken);
+  }
+
+  /** Login con ID token de Google (solo si el email ya existe en el sistema). */
+  async loginWithGoogle(idToken: string): Promise<boolean> {
+    const res = await firstValueFrom(
+      this.http.post<{ accessToken: string }>(`${environment.apiUrl}/auth/google`, {
+        idToken,
+      }),
+    );
+    return this.applySession(res.accessToken);
+  }
+
+  private async applySession(accessToken: string): Promise<boolean> {
+    localStorage.setItem(TOKEN_KEY, accessToken);
     const me = await firstValueFrom(
       this.http.get<any>(`${environment.apiUrl}/auth/me`, {
-        headers: { Authorization: `Bearer ${res.accessToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       }),
     );
     const user = this.mapMe(me);

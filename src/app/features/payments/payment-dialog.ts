@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import {
   SelectSearchComponent,
   filterBySelectQuery,
@@ -37,7 +38,12 @@ export type PaymentDialogKind = 'supplier' | 'employee' | 'service';
 export type PaymentDialogData = {
   shopId: string;
   shopName: string;
-  users: Array<{ id: string; fullName: string }>;
+  users: Array<{
+    id: string;
+    fullName: string;
+    avatarUrl?: string | null;
+    hasAvatar?: boolean;
+  }>;
   /** Cuentas con las que se puede pagar (no proveedores / servicios / sistema). */
   accounts: Array<{ id: string; name: string }>;
   suppliers: ShopSupplier[];
@@ -80,9 +86,15 @@ type PaymentDraft = {
     MatExpansionModule,
     BusyLabelComponent,
     SelectSearchComponent,
+    UserAvatarComponent,
   ],
   styles: [
     `
+      .pay-user-opt {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
       .supplier-create {
         display: grid;
         grid-template-columns: 1fr 1fr auto;
@@ -513,7 +525,18 @@ type PaymentDraft = {
           <mat-select formControlName="payerUserId">
             <mat-option [value]="null">Sin asignar</mat-option>
             @for (u of data.users; track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+              <mat-option [value]="u.id">
+                <span class="pay-user-opt">
+                  <app-user-avatar
+                    [userId]="u.id"
+                    [avatarUrl]="u.avatarUrl ?? null"
+                    [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                    size="sm"
+                    [alt]="u.fullName"
+                  />
+                  <span>{{ u.fullName }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -523,7 +546,18 @@ type PaymentDraft = {
           <mat-select formControlName="validatorUserId">
             <mat-option [value]="null">Sin asignar</mat-option>
             @for (u of data.users; track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+              <mat-option [value]="u.id">
+                <span class="pay-user-opt">
+                  <app-user-avatar
+                    [userId]="u.id"
+                    [avatarUrl]="u.avatarUrl ?? null"
+                    [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                    size="sm"
+                    [alt]="u.fullName"
+                  />
+                  <span>{{ u.fullName }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
