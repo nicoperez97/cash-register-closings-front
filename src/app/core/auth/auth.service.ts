@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthUser, GlobalRole, toUiRole } from './auth.models';
 import { ShopContextService } from '../shop/shop-context.service';
+import { isPublicAppPath } from '../routing/public-paths';
 
 const TOKEN_KEY = 'crc_token';
 const USER_KEY = 'crc_user';
@@ -17,6 +18,7 @@ export class AuthService {
 
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private refreshInFlight: Promise<void> | null = null;
+  private refreshAgain = false;
   private visibilityHooked = false;
 
   constructor() {
@@ -50,6 +52,9 @@ export class AuthService {
    */
   scheduleRefreshMe(delayMs = 400): void {
     if (!this.getToken()) return;
+    if (typeof location !== 'undefined' && isPublicAppPath(location.pathname || '/')) {
+      return;
+    }
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
     this.refreshTimer = setTimeout(() => {
       this.refreshTimer = null;
@@ -85,25 +90,44 @@ export class AuthService {
     return true;
   }
 
+  /**
+   * Si hay un /me en vuelo y llega otro pedido, marca refreshAgain para
+   * re-fetch al terminar (evita quedar con prefs viejas tras Guardar menú).
+   */
   async refreshMe(): Promise<void> {
     if (!this.getToken()) return;
-    if (this.refreshInFlight) return this.refreshInFlight;
+    if (this.refreshInFlight) {
+      this.refreshAgain = true;
+      return this.refreshInFlight;
+    }
     this.refreshInFlight = (async () => {
       try {
-        const me = await firstValueFrom(this.http.get<any>(`${environment.apiUrl}/auth/me`));
-        const user = this.mapMe(me);
-        const prev = this.currentUser();
-        if (prev && this.userFingerprint(prev) === this.userFingerprint(user)) {
-          return;
-        }
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        this.currentUser.set(user);
-        this.shopContext.setShops(user.shops, user.favoriteShopId);
+        do {
+          this.refreshAgain = false;
+          const me = await firstValueFrom(this.http.get<any>(`${environment.apiUrl}/auth/me`));
+          const user = this.mapMe(me);
+          const prev = this.currentUser();
+          if (prev && this.userFingerprint(prev) === this.userFingerprint(user)) {
+            continue;
+          }
+          localStorage.setItem(USER_KEY, JSON.stringify(user));
+          this.currentUser.set(user);
+          this.shopContext.setShops(user.shops, user.favoriteShopId);
+        } while (this.refreshAgain);
       } finally {
         this.refreshInFlight = null;
       }
     })();
     return this.refreshInFlight;
+  }
+
+  /** Actualiza campos de perfil en memoria (toolbar / avatar) sin esperar /me. */
+  patchCurrentUser(partial: Partial<AuthUser>): void {
+    const prev = this.currentUser();
+    if (!prev) return;
+    const next: AuthUser = { ...prev, ...partial };
+    localStorage.setItem(USER_KEY, JSON.stringify(next));
+    this.currentUser.set(next);
   }
 
   async setFavoriteShop(shopId: string | null): Promise<void> {
@@ -122,6 +146,7 @@ export class AuthService {
       this.refreshTimer = null;
     }
     this.refreshInFlight = null;
+    this.refreshAgain = false;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this.currentUser.set(null);
@@ -149,12 +174,21 @@ export class AuthService {
       shopModulePermissions: u.shopModulePermissions ?? {},
       shopAccountIds: u.shopAccountIds ?? {},
       favoriteShopId: u.favoriteShopId ?? null,
+      avatarUrl: u.avatarUrl ?? null,
+      hasAvatar: !!u.hasAvatar,
+      fullName: u.fullName ?? null,
+      phone: u.phone ?? null,
+      bankAlias: u.bankAlias ?? null,
+      cbu: u.cbu ?? null,
       shops: (u.shops ?? []).map((s) => ({
         id: s.id,
         name: s.name,
         slug: s.slug,
         active: s.active,
         logoUrl: s.logoUrl ?? null,
+        myNavConfig: s.myNavConfig ?? null,
+        navConfig: s.navConfig ?? null,
+        mutedNotificationTypes: s.mutedNotificationTypes ?? [],
         accentColor: s.accentColor ?? null,
         accentSecondary: s.accentSecondary ?? null,
         email: s.email ?? null,
@@ -190,6 +224,11 @@ export class AuthService {
       id: me.id,
       email: me.email,
       fullName: me.fullName,
+      phone: me.phone ?? null,
+      bankAlias: me.bankAlias ?? null,
+      cbu: me.cbu ?? null,
+      avatarUrl: me.avatarUrl ?? null,
+      hasAvatar: !!me.hasAvatar || !!me.avatarUrl,
       globalRole: me.globalRole,
       role: toUiRole(me.globalRole),
       permissions: me.permissions ?? [],

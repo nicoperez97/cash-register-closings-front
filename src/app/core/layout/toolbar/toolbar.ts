@@ -10,13 +10,14 @@ import {
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { APP_BRAND } from '../../config/app-brand';
@@ -44,12 +45,16 @@ import {
 } from '../../../features/payments/notifications-api.service';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PushNotificationsService } from '../../../features/payments/push-notifications.service';
+import { UserAvatarComponent } from '../../../shared/components/user-avatar';
 
 export interface ToolbarUser {
+  id?: string;
   email: string;
   fullName?: string;
   role?: string;
   globalRole?: string;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
 }
 
 type ToolbarQuickAction =
@@ -71,6 +76,7 @@ const MIN_SPACER = 12;
     MatMenuModule,
     MatDialogModule,
     MatSnackBarModule,
+    UserAvatarComponent,
   ],
   templateUrl: './toolbar.html',
   styleUrl: './toolbar.scss',
@@ -99,6 +105,9 @@ export class ToolbarComponent implements OnInit {
   readonly sidenavOpen = input(false);
   readonly menuToggle = output<void>();
   readonly logout = output<void>();
+
+  private readonly notifTrigger = viewChild<MatMenuTrigger>('notifTrigger');
+  private readonly userTrigger = viewChild<MatMenuTrigger>('userTrigger');
 
   readonly unreadCount = this.notifsInbox.unreadCount;
   readonly notifications = signal<AppNotification[]>([]);
@@ -325,7 +334,6 @@ export class ToolbarComponent implements OnInit {
 
     const menu = root.querySelector('.toolbar-menu') as HTMLElement | null;
     const brand = root.querySelector('.toolbar-brand') as HTMLElement | null;
-    const context = root.querySelector('.toolbar-context') as HTMLElement | null;
     const actions = root.querySelector('.toolbar-actions') as HTMLElement | null;
 
     const style = getComputedStyle(root);
@@ -344,7 +352,6 @@ export class ToolbarComponent implements OnInit {
     const used =
       visibleWidth(menu) +
       visibleWidth(brand) +
-      visibleWidth(context) +
       visibleWidth(actions) +
       pad;
 
@@ -370,6 +377,10 @@ export class ToolbarComponent implements OnInit {
   displayName(user: ToolbarUser): string {
     const name = user.fullName?.trim();
     return name || user.email;
+  }
+
+  closeUserMenu(): void {
+    this.userTrigger()?.closeMenu();
   }
 
   setMode(mode: ThemeMode): void {
@@ -511,6 +522,7 @@ export class ToolbarComponent implements OnInit {
   }
 
   openNotification(n: AppNotification): void {
+    this.notifTrigger()?.closeMenu();
     if (!n.read) {
       this.notificationsApi.markRead(n.id).subscribe({
         next: () => {

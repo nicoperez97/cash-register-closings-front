@@ -13,6 +13,7 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 export interface MovementsExcelImportDialogData {
   shopId: string;
   shopName: string;
+  kind?: 'expense' | 'transfer';
 }
 
 @Component({
@@ -31,15 +32,20 @@ export interface MovementsExcelImportDialogData {
         <mat-icon>table_view</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>Importar movimientos</strong>
+        <strong>{{ title() }}</strong>
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
 
     <mat-dialog-content>
       <p class="text-muted mb-3">
-        Podés subir el Excel del contador (hoja <em>Movimientos</em>) o la plantilla del sistema.
-        Si faltan cuentas o conceptos, se crean al confirmar. Filas ya existentes se omiten.
+        @if (isTransfer()) {
+          Descargá la plantilla, completá transferencias entre cuentas (sin concepto) y subí el Excel.
+          Filas ya existentes se omiten: podés importar el mismo archivo dos veces sin duplicar.
+        } @else {
+          Descargá la plantilla o subí el Excel del contador (hoja <em>Movimientos</em>).
+          Si faltan cuentas o conceptos, se crean al confirmar. Filas ya existentes se omiten.
+        }
       </p>
 
       <div class="xl-actions mb-3">
@@ -206,6 +212,11 @@ export class MovementsExcelImportDialogComponent {
   readonly items = signal<MovementImportItem[]>([]);
   readonly busy = signal(false);
 
+  readonly isTransfer = () => this.data.kind === 'transfer';
+  readonly title = () =>
+    this.isTransfer() ? 'Importar transferencias' : 'Importar gastos';
+  readonly noun = () => (this.isTransfer() ? 'transferencias' : 'gastos');
+
   readonly visibleItems = computed(() => this.items().slice(0, 100));
 
   validCount(): number {
@@ -243,13 +254,15 @@ export class MovementsExcelImportDialogComponent {
 
   downloadTemplate(): void {
     this.busy.set(true);
-    this.api.downloadImportTemplate(this.data.shopId).subscribe({
+    this.api.downloadImportTemplate(this.data.shopId, this.data.kind).subscribe({
       next: (blob) => {
         this.busy.set(false);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'plantilla-movimientos.xlsx';
+        a.download = this.isTransfer()
+          ? 'plantilla-transferencias.xlsx'
+          : 'plantilla-gastos.xlsx';
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -267,7 +280,7 @@ export class MovementsExcelImportDialogComponent {
     this.file.set(f);
     this.fileName.set(f.name);
     this.busy.set(true);
-    this.api.previewExcelImport(this.data.shopId, f).subscribe({
+    this.api.previewExcelImport(this.data.shopId, f, this.data.kind).subscribe({
       next: (rows) => {
         this.items.set(Array.isArray(rows) ? rows : (rows as any)?.preview ?? []);
         this.busy.set(false);
@@ -285,7 +298,7 @@ export class MovementsExcelImportDialogComponent {
     const f = this.file();
     if (!f) return;
     this.busy.set(true);
-    this.api.commitExcelImport(this.data.shopId, f).subscribe({
+    this.api.commitExcelImport(this.data.shopId, f, this.data.kind).subscribe({
       next: (res) => {
         this.busy.set(false);
         const extra = [
@@ -295,7 +308,7 @@ export class MovementsExcelImportDialogComponent {
           .filter(Boolean)
           .join('. ');
         this.snack.open(
-          `Importados ${res.createdCount} movimientos.${
+          `Importados ${res.createdCount} ${this.noun()}.${
             res.skippedCount ? ` Omitidos ${res.skippedCount} (ya existían).` : ''
           }${extra ? ' ' + extra : ''}`,
           'OK',

@@ -44,7 +44,9 @@ import {
               }
               @if (b.tip) {
                 <p class="help-card__tip">
-                  <mat-icon>lightbulb</mat-icon>
+                  <span class="help-card__tip-ico" aria-hidden="true">
+                    <mat-icon>lightbulb</mat-icon>
+                  </span>
                   <span>{{ b.tip }}</span>
                 </p>
               }
@@ -71,7 +73,7 @@ import {
 
     .help-card {
       display: grid;
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto minmax(0, 1fr);
       gap: 0.85rem;
       align-items: start;
       margin: 0;
@@ -80,16 +82,20 @@ import {
       border: 1px solid var(--guy-border, #d7e0d9);
       background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
       box-shadow: 0 1px 0 color-mix(in srgb, #fff 50%, transparent) inset;
+      overflow: visible;
+      min-width: 0;
     }
 
     .help-card__icon {
       display: grid;
       place-items: center;
+      flex-shrink: 0;
       width: 2.5rem;
       height: 2.5rem;
       border-radius: 12px;
       background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, transparent);
       color: var(--guy-primary, #1d65a0);
+      overflow: visible;
     }
 
     .help-card[data-tone='do'] .help-card__icon {
@@ -162,22 +168,40 @@ import {
     .help-card__tip {
       display: flex;
       align-items: flex-start;
-      gap: 0.4rem;
+      gap: 0.55rem;
       margin: 0.7rem 0 0 !important;
-      padding: 0.55rem 0.7rem;
+      padding: 0.65rem 0.8rem;
       border-radius: 12px;
       background: color-mix(in srgb, #f9a825 16%, var(--guy-card, #fff));
       color: #6d4c00 !important;
       font-size: 0.84rem !important;
       line-height: 1.4;
+      overflow: visible;
+      min-width: 0;
+      box-sizing: border-box;
     }
 
-    .help-card__tip mat-icon {
-      font-size: 1.05rem;
-      width: 1.05rem;
-      height: 1.05rem;
+    .help-card__tip-ico {
+      flex: 0 0 1.35rem;
+      width: 1.35rem;
+      height: 1.35rem;
       margin-top: 0.05rem;
+      display: inline-grid;
+      place-items: center;
+      overflow: visible;
+    }
+
+    .help-card__tip-ico mat-icon {
+      font-size: 1.2rem;
+      width: 1.2rem;
+      height: 1.2rem;
+      line-height: 1.2rem;
       color: #f9a825;
+    }
+
+    .help-card__tip > span:last-child {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .help-card code {
@@ -200,11 +224,20 @@ import {
     @media (max-width: 520px) {
       .help-card {
         gap: 0.7rem;
-        padding: 0.85rem 0.8rem;
+        padding: 0.85rem 0.85rem;
       }
       .help-card__icon {
         width: 2.2rem;
         height: 2.2rem;
+      }
+      .help-card__tip {
+        padding: 0.7rem 0.85rem;
+        gap: 0.6rem;
+      }
+      .help-card__tip-ico {
+        flex-basis: 1.4rem;
+        width: 1.4rem;
+        height: 1.4rem;
       }
     }
   `,

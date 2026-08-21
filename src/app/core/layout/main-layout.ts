@@ -33,7 +33,7 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
-import { applyNavConfig, isNavPathHidden } from './nav-config';
+import { applyNavConfig, effectiveNavConfig, isNavPathHidden } from './nav-config';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -431,7 +431,7 @@ export class MainLayoutComponent {
       });
     }
 
-    return applyNavConfig(items, this.shopContext.selectedShop()?.navConfig);
+    return applyNavConfig(items, effectiveNavConfig(this.shopContext.selectedShop()));
   });
 
   readonly isCashierLayout = computed(() =>
@@ -534,7 +534,8 @@ export class MainLayoutComponent {
   }
 
   private isPathAllowed(path: string, user: NonNullable<ReturnType<AuthService['currentUser']>>, shopId: string): boolean {
-    const navConfig = this.shopContext.selectedShop()?.navConfig;
+    const shop = this.shopContext.selectedShop();
+    const navConfig = effectiveNavConfig(shop);
     if (
       !this.auth.isSuperAdmin() &&
       isNavPathHidden(path, navConfig)
