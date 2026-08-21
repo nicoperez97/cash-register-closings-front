@@ -734,7 +734,7 @@ export class PaymentsPage {
       next: (rows) => this.employees.set(rows),
       error: () => this.employees.set([]),
     });
-    this.movementsApi.concepts(shopId, this.kind()).subscribe({
+    this.movementsApi.concepts(shopId, { for: this.kind() }).subscribe({
       next: (rows: Concept[]) =>
         this.concepts.set(rows.map((c) => ({ id: c.id, name: c.name, description: c.description }))),
       error: () => this.concepts.set([]),
@@ -928,6 +928,14 @@ export class PaymentsPage {
   }
 
   openEdit(p: ShopPayment): void {
+    if (p.status === 'PAID') {
+      this.snack.open(
+        'Un pago abonado no se edita. Marcálo como no pagado (se elimina el gasto), editá y volvé a abonarlo.',
+        'OK',
+        { duration: 4500 },
+      );
+      return;
+    }
     this.openDialog('edit', p);
   }
 

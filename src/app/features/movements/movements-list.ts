@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -267,10 +268,15 @@ export class MovementsListPage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   private readonly filtersUi = createFiltersCollapsed('movements');
   readonly filtersCollapsed = this.filtersUi.collapsed;
   readonly toggleFilters = this.filtersUi.toggleFilters;
+
+  /** Foco desde “Ver en gastos” de un pago. */
+  readonly focusPaymentId = signal<string | null>(null);
 
   readonly shopId = this.shops.selectedShopId;
   readonly rows = signal<Movement[]>([]);
@@ -355,7 +361,9 @@ export class MovementsListPage {
   });
 
   readonly canEditRow = (row: Movement) =>
-    this.canManage() && (!row.closingId || this.auth.isAdmin());
+    this.canManage() &&
+    row.source !== 'payment' &&
+    (!row.closingId || this.auth.isAdmin());
 
   readonly canShareRow = (_row: Movement) => true;
 
@@ -363,6 +371,7 @@ export class MovementsListPage {
 
   constructor() {
     usePageRefresh(() => this.applyFilter());
+    this.applyExpenseDeepLink();
     effect(() => {
       const shopId = this.shopId();
       this.kind();
@@ -382,7 +391,7 @@ export class MovementsListPage {
         error: () => this.accounts.set([]),
       });
       if (this.kind() === 'expense') {
-        this.api.concepts(shopId, 'movement').subscribe({
+        this.api.concepts(shopId, { kind: 'EXPENSE' }).subscribe({
           next: (rows) => this.concepts.set(rows),
           error: () => this.concepts.set([]),
         });
@@ -409,6 +418,61 @@ export class MovementsListPage {
       });
       this.load();
     });
+  }
+
+  /** Query de un pago abonado: /expenses?paymentId=&from=&to=&source=payment&partyType=&conceptId= */
+  private applyExpenseDeepLink(): void {
+    if (this.kind() !== 'expense') return;
+    const qp = this.route.snapshot.queryParamMap;
+    const paymentId = (qp.get('paymentId') || '').trim();
+    if (!paymentId) return;
+
+    const from = (qp.get('from') || '').trim();
+    const to = (qp.get('to') || '').trim();
+    const source = (qp.get('source') || 'payment').trim();
+    const partyType = (qp.get('partyType') || '').trim();
+    const conceptId = (qp.get('conceptId') || '').trim();
+
+    if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      this.range.controls.start.setValue(this.parseIsoDate(from), { emitEvent: false });
+    }
+    if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      this.range.controls.end.setValue(this.parseIsoDate(to), { emitEvent: false });
+    }
+    this.filters.patchValue(
+      {
+        source: source === 'payment' || source === 'closing' || source === 'manual' ? source : 'payment',
+        partyType:
+          partyType === 'supplier' || partyType === 'service' || partyType === 'employee'
+            ? partyType
+            : '',
+        conceptId: conceptId || '',
+        invoiced: '',
+        q: '',
+      },
+      { emitEvent: false },
+    );
+    this.focusPaymentId.set(paymentId);
+    this.filtersCollapsed.set(false);
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        paymentId: null,
+        from: null,
+        to: null,
+        source: null,
+        partyType: null,
+        conceptId: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  private parseIsoDate(iso: string): Date {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
   }
 
   canManage(): boolean {
@@ -516,6 +580,7 @@ export class MovementsListPage {
       invoiced: '',
       q: '',
     });
+    this.focusPaymentId.set(null);
     this.applyFilter();
   }
 
@@ -537,6 +602,7 @@ export class MovementsListPage {
         : null,
       q: f.q || null,
       kind: this.kind(),
+      paymentId: expense ? this.focusPaymentId() : null,
     };
   }
 
@@ -551,6 +617,18 @@ export class MovementsListPage {
       next: (rows) => {
         this.rows.set(rows);
         this.loading.set(false);
+        const focusPay = this.focusPaymentId();
+        if (focusPay && this.kind() === 'expense') {
+          if (!rows.length) {
+            this.snack.open(
+              'No encontramos el gasto de ese pago. Si lo marcás como no pagado y lo volvés a abonar, se recrea.',
+              'OK',
+              { duration: 4500 },
+            );
+          } else {
+            this.snack.open('Mostrando el gasto de ese pago', 'OK', { duration: 2200 });
+          }
+        }
       },
       error: () => {
         this.loading.set(false);
@@ -638,6 +716,14 @@ export class MovementsListPage {
 
   async onRemove(row: Movement): Promise<void> {
     if (row.closingId && !this.auth.isAdmin()) return;
+    if (row.source === 'payment') {
+      this.snack.open(
+        'Este gasto viene de un pago abonado. Revertí el pago en Pagos (de Abonado a Validado) para sacarlo.',
+        'OK',
+        { duration: 4500 },
+      );
+      return;
+    }
     const noun = this.kind() === 'transfer' ? 'transferencia' : 'gasto';
     const ok = await this.confirmDialog.confirm(
       `Eliminar ${noun}`,

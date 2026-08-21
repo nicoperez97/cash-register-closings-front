@@ -650,8 +650,8 @@ export class PaymentDialogComponent {
   readonly isSupplierKind = this.data.kind === 'supplier';
   readonly isServiceKind = this.data.kind === 'service';
   readonly isBilledKind = this.isSupplierKind || this.isServiceKind;
-  readonly isPaidEdit =
-    this.data.mode === 'edit' && this.data.payment.status === 'PAID';
+  /** @deprecated Los abonados ya no se editan; se revierte el estado primero. */
+  readonly isPaidEdit = false;
   readonly paymentMethods = PAYMENT_METHOD_OPTIONS;
   readonly paymentPriorities = PAYMENT_PRIORITY_OPTIONS;
 
