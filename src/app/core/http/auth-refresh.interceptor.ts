@@ -11,6 +11,7 @@ function shouldRefreshAuth(url: string, method: string): boolean {
   if (m !== 'POST' && m !== 'PUT' && m !== 'PATCH' && m !== 'DELETE') return false;
   if (url.includes('/auth/me')) return false;
   if (url.includes('/auth/login')) return false;
+  if (url.includes('/auth/google')) return false;
   if (url.includes('/auth/refresh')) return false;
   if (url.includes('/auth/favorite-shop')) return false;
   return true;

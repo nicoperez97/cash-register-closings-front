@@ -12,6 +12,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { SpinnerComponent } from './spinner';
+import { UserAvatarComponent } from './user-avatar';
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
@@ -40,6 +41,14 @@ export interface DataTableColumn {
   sticky?: boolean;
   /** When false, header is not sortable. Defaults to true if table `sortable` is on. */
   sortable?: boolean;
+  /**
+   * `avatar`: solo la foto.
+   * `person`: foto + texto (nombre).
+   */
+  kind?: 'text' | 'avatar' | 'person';
+  userIdKey?: string;
+  avatarUrlKey?: string;
+  hasAvatarKey?: string;
 }
 
 @Component({
@@ -59,6 +68,7 @@ export interface DataTableColumn {
     MatPaginatorModule,
     MatSortModule,
     SpinnerComponent,
+    UserAvatarComponent,
   ],
   template: `
     <div class="data-table-shell">
@@ -178,9 +188,31 @@ export interface DataTableColumn {
                     mat-cell
                     *matCellDef="let row"
                     [class.data-table__primary]="i === 0"
+                    [class.data-table__avatar-cell]="col.kind === 'avatar'"
                     [ngClass]="col.cellClass ? col.cellClass(row) : ''"
                   >
-                    {{ cellValue(row, col) }}
+                    @if (col.kind === 'avatar') {
+                      <app-user-avatar
+                        [userId]="avatarUserId(row, col)"
+                        [avatarUrl]="avatarUrlOf(row, col)"
+                        [hasAvatar]="avatarHas(row, col)"
+                        size="sm"
+                        [alt]="altText(row['fullName'] || 'Usuario')"
+                      />
+                    } @else if (col.kind === 'person') {
+                      <span class="data-table__person">
+                        <app-user-avatar
+                          [userId]="avatarUserId(row, col)"
+                          [avatarUrl]="avatarUrlOf(row, col)"
+                          [hasAvatar]="avatarHas(row, col)"
+                          size="sm"
+                          [alt]="altText(cellValue(row, col))"
+                        />
+                        <span class="data-table__person-name">{{ cellValue(row, col) }}</span>
+                      </span>
+                    } @else {
+                      {{ cellValue(row, col) }}
+                    }
                   </td>
                 </ng-container>
               }
@@ -285,8 +317,17 @@ export interface DataTableColumn {
                       </div>
                     }
                     <div class="data-card__compact-text">
-                      <h3 class="guy-entity-card__title data-card__title">
-                        {{ cellValue(row, columns()[0]) }}
+                      <h3 class="guy-entity-card__title data-card__title data-card__title--with-avatar">
+                        @if (leadingPersonCol(); as pcol) {
+                          <app-user-avatar
+                            [userId]="avatarUserId(row, pcol)"
+                            [avatarUrl]="avatarUrlOf(row, pcol)"
+                            [hasAvatar]="avatarHas(row, pcol)"
+                            size="sm"
+                            [alt]="altText(cellValue(row, columns()[0]))"
+                          />
+                        }
+                        <span>{{ cellValue(row, columns()[0]) }}</span>
                       </h3>
                       @if (compactMeta(row); as meta) {
                         <p class="data-card__meta">{{ meta }}</p>
@@ -311,9 +352,37 @@ export interface DataTableColumn {
                     }
                     @for (col of columns(); track col.key; let i = $index) {
                       @if (i === 0) {
-                        <h3 class="guy-entity-card__title data-card__title">
-                          {{ cellValue(row, col) }}
+                        <h3 class="guy-entity-card__title data-card__title data-card__title--with-avatar">
+                          @if (col.kind === 'person' || col.kind === 'avatar') {
+                            <app-user-avatar
+                              [userId]="avatarUserId(row, col)"
+                              [avatarUrl]="avatarUrlOf(row, col)"
+                              [hasAvatar]="avatarHas(row, col)"
+                              size="sm"
+                              [alt]="altText(cellValue(row, col))"
+                            />
+                          } @else if (leadingPersonCol(); as pcol) {
+                            <app-user-avatar
+                              [userId]="avatarUserId(row, pcol)"
+                              [avatarUrl]="avatarUrlOf(row, pcol)"
+                              [hasAvatar]="avatarHas(row, pcol)"
+                              size="sm"
+                              [alt]="altText(cellValue(row, col))"
+                            />
+                          }
+                          <span>{{ cellValue(row, col) }}</span>
                         </h3>
+                      } @else if (col.kind === 'avatar') {
+                        <div class="data-card__field data-card__field--avatar">
+                          <span class="data-card__label">{{ col.label }}</span>
+                          <app-user-avatar
+                            [userId]="avatarUserId(row, col)"
+                            [avatarUrl]="avatarUrlOf(row, col)"
+                            [hasAvatar]="avatarHas(row, col)"
+                            size="sm"
+                            [alt]="altText(row['fullName'] || col.label)"
+                          />
+                        </div>
                       } @else {
                         <div class="data-card__field">
                           <span class="data-card__label">{{ col.label }}</span>
@@ -466,6 +535,40 @@ export interface DataTableColumn {
         min-width: 11rem;
         max-width: 16rem;
         white-space: nowrap;
+      }
+      .data-table__avatar-cell {
+        width: 3rem;
+        padding-right: 0.35rem !important;
+      }
+      .data-table__person {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .data-table__person-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .data-card__title--with-avatar {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+      }
+      .data-card__title--with-avatar > span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .data-card__field--avatar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
       }
 
       .data-table__diff--pos {
@@ -960,7 +1063,41 @@ export class DataTableComponent {
 
   cellValue(row: any, col?: DataTableColumn): string | number {
     if (!col) return '—';
+    if (col.kind === 'avatar') {
+      return col.format
+        ? col.format(row)
+        : row['hasAvatar'] || row['avatarUrl']
+          ? 'Con foto'
+          : 'Sin foto';
+    }
     return col.format ? col.format(row) : (row[col.key] ?? '—');
+  }
+
+  /** Usar en template: `String(...)` no está disponible en el scope del componente. */
+  altText(value: unknown): string {
+    const s = value == null ? '' : String(value);
+    return s.trim() || 'Usuario';
+  }
+
+  leadingPersonCol(): DataTableColumn | null {
+    return this.columns().find((c) => c.kind === 'person' || c.kind === 'avatar') ?? null;
+  }
+
+  avatarUserId(row: any, col: DataTableColumn): string | null {
+    const key = col.userIdKey ?? 'id';
+    const id = row?.[key];
+    return id != null && String(id) ? String(id) : null;
+  }
+
+  avatarUrlOf(row: any, col: DataTableColumn): string | null {
+    const key = col.avatarUrlKey ?? 'avatarUrl';
+    const v = row?.[key];
+    return v != null && String(v).trim() ? String(v) : null;
+  }
+
+  avatarHas(row: any, col: DataTableColumn): boolean {
+    const key = col.hasAvatarKey ?? 'hasAvatar';
+    return !!(row?.[key] || this.avatarUrlOf(row, col));
   }
 
   trackRow(row: any, index: number): string | number {

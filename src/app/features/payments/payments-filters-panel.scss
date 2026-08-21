@@ -9,6 +9,12 @@
   align-items: start;
 }
 
+.pay-user-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .pay-export-btn__short {
   display: none;
 }

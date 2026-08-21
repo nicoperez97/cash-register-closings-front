@@ -376,6 +376,8 @@ export class PaymentsPage {
     Array<{
       id: string;
       fullName: string;
+      avatarUrl?: string | null;
+      hasAvatar?: boolean;
       visibility?: Partial<UserVisibility> | null;
       hideFromCashWithdraw?: boolean;
     }>

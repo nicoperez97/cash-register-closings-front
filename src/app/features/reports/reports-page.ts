@@ -33,6 +33,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { isUserVisible } from '../../shared/user-visibility';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { UserAvatarComponent } from '../../shared/components/user-avatar';
 
 @Component({
   selector: 'app-reports-page',
@@ -50,6 +51,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     DataTableComponent,
     BalancesTableComponent,
     FiltersCollapseBtnComponent,
+    UserAvatarComponent,
   ],
   template: `
     <app-page-header
@@ -109,7 +111,18 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
           <mat-select formControlName="withdrawnByUserId">
             <mat-option value="">Todos</mat-option>
             @for (u of users(); track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+              <mat-option [value]="u.id">
+                <span class="guy-user-opt">
+                  <app-user-avatar
+                    [userId]="u.id"
+                    [avatarUrl]="u.avatarUrl ?? null"
+                    [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                    size="sm"
+                    [alt]="u.fullName"
+                  />
+                  <span>{{ u.fullName }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -119,7 +132,18 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
           <mat-select formControlName="createdByUserId">
             <mat-option value="">Todos</mat-option>
             @for (u of users(); track u.id) {
-              <mat-option [value]="u.id">{{ u.fullName }}</mat-option>
+              <mat-option [value]="u.id">
+                <span class="guy-user-opt">
+                  <app-user-avatar
+                    [userId]="u.id"
+                    [avatarUrl]="u.avatarUrl ?? null"
+                    [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                    size="sm"
+                    [alt]="u.fullName"
+                  />
+                  <span>{{ u.fullName }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -244,6 +268,12 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     </div>
   `,
   styles: `
+    .guy-user-opt {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
     .reports-extra {
       display: grid;
       gap: 1rem;

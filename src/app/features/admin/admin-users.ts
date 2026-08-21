@@ -118,7 +118,7 @@ export class AdminUsersPage implements OnInit {
   columns(): DataTableColumn[] {
     const shopNames = new Map(this.allShops().map((s) => [s.id, s.name]));
     const cols: DataTableColumn[] = [
-      { key: 'fullName', label: 'Nombre' },
+      { key: 'fullName', label: 'Nombre', kind: 'person' },
       { key: 'email', label: 'Correo' },
       {
         key: 'phone',
@@ -133,7 +133,8 @@ export class AdminUsersPage implements OnInit {
       {
         key: 'hasAvatar',
         label: 'Foto',
-        format: (r) => (r['hasAvatar'] || r['avatarUrl'] ? 'Sí' : '—'),
+        kind: 'avatar',
+        sortable: false,
       },
       { key: 'globalRole', label: 'Tipo', format: (r) => accountTypeLabel(r) },
     ];

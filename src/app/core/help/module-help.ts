@@ -805,7 +805,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Productor = sus horas + sus reintegros, no el tablero de servicio.',
           'Cierres, A Retirar, Rendiciones, Gastos y Movimientos entre cuentas se tildan por separado.',
         ],
-        tip: 'Si alguien no ve un botón, casi siempre es un tilde de módulo, no un bug.',
+        tip: 'La columna Foto y el nombre muestran la foto de perfil si la cargó el usuario.',
       },
     ],
   },
