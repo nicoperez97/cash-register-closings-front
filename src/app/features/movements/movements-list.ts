@@ -222,8 +222,10 @@ import { shareText } from '../../shared/utils/share-text';
               [loading]="loading()"
               [sortable]="true"
               [canEdit]="canEditRow"
-              [canRemove]="canEditRow"
+              [canRemove]="canRemoveRow"
               [canShare]="canShareRow"
+              [editLabelFor]="editLabelFor"
+              [editIconFor]="editIconFor"
               editDisabledLabel="Generado por un cierre"
               (edit)="openEdit($event)"
               (remove)="onRemove($event)"
@@ -360,10 +362,23 @@ export class MovementsListPage {
     return base;
   });
 
-  readonly canEditRow = (row: Movement) =>
+  readonly canEditRow = (row: Movement) => {
+    if (this.kind() === 'expense' && row.source === 'payment' && row.paymentId) {
+      return true;
+    }
+    return this.canManage() && (!row.closingId || this.auth.isAdmin());
+  };
+
+  readonly canRemoveRow = (row: Movement) =>
     this.canManage() &&
     row.source !== 'payment' &&
     (!row.closingId || this.auth.isAdmin());
+
+  readonly editLabelFor = (row: Movement) =>
+    row.source === 'payment' ? 'Ver en pagos' : 'Editar';
+
+  readonly editIconFor = (row: Movement) =>
+    row.source === 'payment' ? 'receipt_long' : 'edit';
 
   readonly canShareRow = (_row: Movement) => true;
 
@@ -710,8 +725,31 @@ export class MovementsListPage {
   }
 
   openEdit(row: Movement): void {
+    if (this.kind() === 'expense' && row.source === 'payment' && row.paymentId) {
+      this.viewInPayments(row);
+      return;
+    }
     if (row.closingId && !this.auth.isAdmin()) return;
     this.openDialog({ mode: 'edit', movement: row });
+  }
+
+  private viewInPayments(row: Movement): void {
+    const paymentId = row.paymentId;
+    if (!paymentId) return;
+    const shopId = row.shopId || this.shopId();
+    const party = row.paymentPartyType;
+    const path =
+      party === 'service'
+        ? '/payments/services'
+        : party === 'employee'
+          ? '/payments/employees'
+          : '/payments/suppliers';
+    void this.router.navigate([path], {
+      queryParams: {
+        payment: paymentId,
+        shop: shopId || null,
+      },
+    });
   }
 
   async onRemove(row: Movement): Promise<void> {
