@@ -79,7 +79,16 @@ import { shareText } from '../../shared/utils/share-text';
 
     @if (shopId()) {
       <div class="xl-toolbar mb-3">
-        @if (canManage() && kind() === 'expense') {
+        @if (canManage()) {
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="!shopId() || templateBusy()"
+            (click)="downloadTemplate()"
+          >
+            <mat-icon>download</mat-icon>
+            Descargar plantilla
+          </button>
           <button mat-stroked-button type="button" (click)="openExcelImport()">
             <mat-icon>upload_file</mat-icon>
             Importar Excel
@@ -272,6 +281,7 @@ export class MovementsListPage {
   readonly employees = signal<MovementEmployeeOption[]>([]);
   readonly users = signal<MovementUserOption[]>([]);
   readonly exporting = signal(false);
+  readonly templateBusy = signal(false);
 
   readonly pageTitle = computed(() =>
     this.kind() === 'transfer' ? 'Movimientos entre cuentas' : 'Gastos',
@@ -576,7 +586,8 @@ export class MovementsListPage {
 
   openExcelImport(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || !this.canManage()) return;
+    const kind = this.kind();
     this.dialogTitle
       .track(
         this.dialog.open(MovementsExcelImportDialogComponent, {
@@ -586,14 +597,38 @@ export class MovementsListPage {
           data: {
             shopId,
             shopName: this.shops.selectedShop()?.name ?? 'Local',
+            kind,
           },
         }),
-        'Importar movimientos',
+        kind === 'transfer' ? 'Importar transferencias' : 'Importar gastos',
       )
       .afterClosed()
       .subscribe((ok) => {
         if (ok) this.applyFilter();
       });
+  }
+
+  downloadTemplate(): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.canManage() || this.templateBusy()) return;
+    const kind = this.kind();
+    this.templateBusy.set(true);
+    this.api.downloadImportTemplate(shopId, kind).subscribe({
+      next: (blob) => {
+        this.templateBusy.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download =
+          kind === 'transfer' ? 'plantilla-transferencias.xlsx' : 'plantilla-gastos.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.templateBusy.set(false);
+        this.snack.open('No se pudo descargar la plantilla', 'OK', { duration: 3500 });
+      },
+    });
   }
 
   openEdit(row: Movement): void {

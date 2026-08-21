@@ -11,10 +11,11 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   NAV_GROUP_DEFS,
   NAV_ITEM_DEFS,
@@ -78,17 +79,17 @@ type EditorItem = {
     FormsModule,
     MatButtonModule,
     MatIconModule,
-    MatSelectModule,
     MatFormFieldModule,
     MatInputModule,
+    MatMenuModule,
     MatSlideToggleModule,
+    MatTooltipModule,
   ],
   template: `
     <div class="nav-ed">
       <div class="nav-ed__toolbar">
-        <p class="text-muted small mb-0">
-          Creá grupos, renombrá con el lápiz, mové módulos u ocultálos. Inicio siempre queda arriba.
-          Los toggles de módulos y los permisos siguen valiendo.
+        <p class="nav-ed__help">
+          Renombrá, reordená u ocultá módulos. Usá ⋮ para moverlos de grupo. Inicio queda arriba.
         </p>
         <div class="nav-ed__toolbar-actions">
           <button mat-stroked-button type="button" (click)="addGroup()">
@@ -97,7 +98,7 @@ type EditorItem = {
           </button>
           <button mat-stroked-button type="button" (click)="reset()">
             <mat-icon>restart_alt</mat-icon>
-            Restablecer menú
+            Restablecer
           </button>
         </div>
       </div>
@@ -138,7 +139,7 @@ type EditorItem = {
                 <button
                   mat-icon-button
                   type="button"
-                  class="nav-ed__edit-btn"
+                  class="nav-ed__icon-btn"
                   aria-label="Renombrar grupo"
                   (click)="startGroupEdit(g.id, g.label)"
                 >
@@ -151,6 +152,7 @@ type EditorItem = {
               <button
                 mat-icon-button
                 type="button"
+                class="nav-ed__icon-btn"
                 aria-label="Subir grupo"
                 [disabled]="gi === 0"
                 (click)="moveGroup(gi, -1)"
@@ -160,6 +162,7 @@ type EditorItem = {
               <button
                 mat-icon-button
                 type="button"
+                class="nav-ed__icon-btn"
                 aria-label="Bajar grupo"
                 [disabled]="gi === groups().length - 1"
                 (click)="moveGroup(gi, 1)"
@@ -170,6 +173,7 @@ type EditorItem = {
                 <button
                   mat-icon-button
                   type="button"
+                  class="nav-ed__icon-btn"
                   aria-label="Eliminar grupo"
                   (click)="deleteGroup(g.id)"
                 >
@@ -202,44 +206,21 @@ type EditorItem = {
                       />
                     </mat-form-field>
                   } @else {
-                    <div class="nav-ed__label-wrap">
-                      <span class="nav-ed__label">{{ it.label }}</span>
-                      <button
-                        mat-icon-button
-                        type="button"
-                        class="nav-ed__edit-btn"
-                        aria-label="Renombrar ítem"
-                        (click)="startItemEdit(it.id, it.label)"
-                      >
-                        <mat-icon>edit</mat-icon>
-                      </button>
-                    </div>
+                    <span class="nav-ed__item-label">{{ it.label }}</span>
                   }
-                  <mat-form-field
-                    appearance="outline"
-                    subscriptSizing="dynamic"
-                    class="nav-ed__group-sel"
-                  >
-                    <mat-label>Grupo</mat-label>
-                    <mat-select
-                      [ngModel]="it.groupId"
-                      (ngModelChange)="moveItemToGroup(it.id, $event)"
-                      [ngModelOptions]="{ standalone: true }"
-                    >
-                      @for (og of groups(); track og.id) {
-                        <mat-option [value]="og.id">{{ og.label }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-slide-toggle
-                    [checked]="!it.hidden"
-                    (change)="setHidden(it.id, !$event.checked)"
-                    >Visible</mat-slide-toggle
-                  >
-                  <span class="nav-ed__moves">
+
+                  <div class="nav-ed__row-actions">
+                    <mat-slide-toggle
+                      class="nav-ed__visible"
+                      [checked]="!it.hidden"
+                      [attr.aria-label]="it.hidden ? 'Mostrar ' + it.label : 'Ocultar ' + it.label"
+                      matTooltip="Visible en el menú"
+                      (change)="setHidden(it.id, !$event.checked)"
+                    />
                     <button
                       mat-icon-button
                       type="button"
+                      class="nav-ed__icon-btn"
                       aria-label="Subir ítem"
                       [disabled]="ii === 0"
                       (click)="moveItem(g.id, ii, -1)"
@@ -249,16 +230,52 @@ type EditorItem = {
                     <button
                       mat-icon-button
                       type="button"
+                      class="nav-ed__icon-btn"
                       aria-label="Bajar ítem"
                       [disabled]="ii === itemsInGroup(g.id).length - 1"
                       (click)="moveItem(g.id, ii, 1)"
                     >
                       <mat-icon>arrow_downward</mat-icon>
                     </button>
-                  </span>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="nav-ed__icon-btn"
+                      [matMenuTriggerFor]="itemMenu"
+                      aria-label="Más acciones"
+                    >
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #itemMenu="matMenu" xPosition="before">
+                      <button mat-menu-item type="button" (click)="startItemEdit(it.id, it.label)">
+                        <mat-icon>edit</mat-icon>
+                        <span>Renombrar</span>
+                      </button>
+                      <button mat-menu-item type="button" [matMenuTriggerFor]="moveMenu">
+                        <mat-icon>drive_file_move</mat-icon>
+                        <span>Mover a…</span>
+                      </button>
+                      <button mat-menu-item type="button" (click)="setHidden(it.id, !it.hidden)">
+                        <mat-icon>{{ it.hidden ? 'visibility' : 'visibility_off' }}</mat-icon>
+                        <span>{{ it.hidden ? 'Mostrar' : 'Ocultar' }}</span>
+                      </button>
+                    </mat-menu>
+                    <mat-menu #moveMenu="matMenu" xPosition="before">
+                      @for (og of groups(); track og.id) {
+                        <button
+                          mat-menu-item
+                          type="button"
+                          [disabled]="og.id === it.groupId"
+                          (click)="moveItemToGroup(it.id, og.id)"
+                        >
+                          {{ og.label }}
+                        </button>
+                      }
+                    </mat-menu>
+                  </div>
                 </div>
               } @empty {
-                <p class="text-muted small nav-ed__empty">Sin ítems en este grupo</p>
+                <p class="nav-ed__empty">Sin ítems en este grupo</p>
               }
             </div>
           </div>
@@ -269,14 +286,21 @@ type EditorItem = {
   styles: `
     .nav-ed {
       display: grid;
-      gap: 0.85rem;
+      gap: 0.75rem;
     }
     .nav-ed__toolbar {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: flex-start;
+      gap: 0.65rem 0.85rem;
+      align-items: center;
       justify-content: space-between;
+    }
+    .nav-ed__help {
+      margin: 0;
+      flex: 1 1 14rem;
+      font-size: 0.86rem;
+      color: var(--guy-muted, #666);
+      line-height: 1.4;
     }
     .nav-ed__toolbar-actions {
       display: flex;
@@ -286,15 +310,14 @@ type EditorItem = {
     .nav-ed__group {
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 12px;
-      padding: 0.65rem 0.75rem;
+      padding: 0.5rem 0.65rem;
       background: color-mix(in srgb, var(--guy-card, #fff) 96%, var(--guy-surface, #f3f6f4));
     }
     .nav-ed__group-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      margin-bottom: 0.35rem;
+      gap: 0.35rem;
+      margin-bottom: 0.25rem;
       transition: margin-bottom 0.22s ease;
     }
     .nav-ed__group-toggle {
@@ -302,7 +325,9 @@ type EditorItem = {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.15rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      padding: 0;
       border: 0;
       background: transparent;
       cursor: pointer;
@@ -340,61 +365,104 @@ type EditorItem = {
       pointer-events: none;
     }
     .nav-ed__label-wrap {
-      flex: 1 1 12rem;
+      flex: 1 1 auto;
       min-width: 0;
       display: inline-flex;
       align-items: center;
-      gap: 0.15rem;
+      gap: 0.1rem;
     }
-    .nav-ed__label {
+    .nav-ed__label,
+    .nav-ed__item-label {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 0.98rem;
+      font-size: 0.95rem;
       color: var(--guy-navy, #003366);
     }
-    .nav-ed__edit-btn {
+    .nav-ed__item-label {
+      flex: 1 1 auto;
+      font-weight: 500;
+      padding: 0.15rem 0;
+    }
+    .nav-ed__icon-btn {
       flex-shrink: 0;
-      width: 2rem;
-      height: 2rem;
+      width: 2.5rem;
+      height: 2.5rem;
       padding: 0;
-      --mdc-icon-button-state-layer-size: 2rem;
+      --mdc-icon-button-state-layer-size: 2.5rem;
       color: var(--guy-muted, #666);
     }
-    .nav-ed__edit-btn mat-icon {
-      font-size: 1.1rem;
-      width: 1.1rem;
-      height: 1.1rem;
+    .nav-ed__icon-btn mat-icon {
+      font-size: 1.15rem;
+      width: 1.15rem;
+      height: 1.15rem;
     }
     .nav-ed__rename {
-      flex: 1 1 12rem;
+      flex: 1 1 10rem;
       min-width: 0;
     }
     .nav-ed__row {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(7rem, 0.9fr) auto auto;
-      gap: 0.45rem 0.65rem;
+      display: flex;
       align-items: center;
-      padding: 0.35rem 0;
+      gap: 0.35rem;
+      padding: 0.2rem 0;
       border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+      min-height: 2.75rem;
+      transition:
+        opacity 0.2s ease,
+        background 0.2s ease,
+        transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .nav-ed__row:active {
+      background: color-mix(in srgb, var(--guy-accent, #2e7d32) 6%, transparent);
     }
     .nav-ed__row--hidden {
-      opacity: 0.72;
+      opacity: 0.55;
     }
-    .nav-ed__group-sel {
-      width: 100%;
+    .nav-ed__row-actions {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+      margin-left: auto;
+      gap: 0.05rem;
+    }
+    .nav-ed__visible {
+      margin: 0 0.25rem;
     }
     .nav-ed__moves {
       display: inline-flex;
       flex-shrink: 0;
+      margin-left: auto;
     }
     .nav-ed__empty {
-      margin: 0.25rem 0 0;
+      margin: 0.35rem 0 0.15rem;
+      font-size: 0.85rem;
+      color: var(--guy-muted, #666);
     }
     @media (max-width: 720px) {
       .nav-ed__row {
-        grid-template-columns: 1fr;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        padding: 0.45rem 0;
+        gap: 0.25rem;
+      }
+      .nav-ed__item-label,
+      .nav-ed__rename {
+        flex: 1 1 100%;
+      }
+      .nav-ed__row-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+      }
+      .nav-ed__group-head {
+        flex-wrap: wrap;
+      }
+      .nav-ed__moves {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
       }
     }
   `,

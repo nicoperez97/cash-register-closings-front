@@ -84,6 +84,12 @@ export const routes: Routes = [
         title: 'Inicio',
       },
       {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/profile-page').then((m) => m.ProfilePage),
+        title: 'Perfil',
+      },
+      {
         path: 'closings',
         canActivate: [anyPermissionGuard('closings.read', 'closings.create')],
         loadComponent: () =>
@@ -441,5 +447,5 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: '' },
+  { path: '**', loadComponent: () => import('./features/public/public-not-found').then((m) => m.PublicNotFoundPage), title: 'No encontrada' },
 ];

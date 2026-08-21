@@ -26,24 +26,6 @@
     <mat-icon>{{ sidenavOpen() ? 'menu_open' : 'menu' }}</mat-icon>
   </button>
 
-  <div class="toolbar-context">
-    <button
-      type="button"
-      class="toolbar-context__btn"
-      [disabled]="pageRefresh.refreshing()"
-      [matTooltip]="
-        pageRefresh.refreshing()
-          ? 'Actualizando…'
-          : 'Ir a inicio'
-      "
-      [attr.aria-label]="'Ir a inicio · ' + brand.productName"
-      (click)="onLogoRefresh()"
-    >
-      <span class="toolbar-eyebrow">{{ brand.company }}</span>
-      <span class="toolbar-title">{{ brand.productName }} · {{ brand.tagline }}</span>
-    </button>
-  </div>
-
   @if (isMobile()) {
     <button
       type="button"
@@ -150,6 +132,7 @@
       type="button"
       class="tb-btn notif-btn"
       [matMenuTriggerFor]="notifMenu"
+      #notifTrigger="matMenuTrigger"
       matTooltip="Notificaciones"
       aria-label="Notificaciones"
       (menuOpened)="openNotifications()"
@@ -280,43 +263,46 @@
     }
 
     @if (user(); as u) {
-      @if (isMobile()) {
-        <button
-          type="button"
-          class="tb-btn"
-          [matMenuTriggerFor]="userMenu"
-          [attr.aria-label]="'Usuario: ' + displayName(u)"
-          [matTooltip]="displayName(u)"
-        >
-          <mat-icon>account_circle</mat-icon>
-        </button>
-      } @else {
-        <button
-          type="button"
-          class="user-chip"
-          [matMenuTriggerFor]="userMenu"
-          [attr.aria-label]="'Usuario: ' + displayName(u)"
-        >
-          <mat-icon>account_circle</mat-icon>
+      <button
+        type="button"
+        [class]="isMobile() ? 'tb-btn' : 'user-chip'"
+        [matMenuTriggerFor]="userMenu"
+        #userTrigger="matMenuTrigger"
+        [attr.aria-label]="'Usuario: ' + displayName(u)"
+        [matTooltip]="isMobile() ? displayName(u) : ''"
+      >
+        <app-user-avatar
+          [userId]="u.id ?? null"
+          [avatarUrl]="u.avatarUrl ?? null"
+          [hasAvatar]="!!u.hasAvatar"
+          size="sm"
+        />
+        @if (!isMobile()) {
           <span class="user-email">{{ u.email }}</span>
-        </button>
-      }
+        }
+      </button>
 
       <mat-menu #userMenu="matMenu" class="user-popover-panel" xPosition="before" [hasBackdrop]="true">
-        <div class="user-popover" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
-          <div class="user-popover__avatar" aria-hidden="true">
-            <mat-icon>account_circle</mat-icon>
-          </div>
+        <div class="user-popover" role="presentation">
+          <app-user-avatar
+            class="user-popover__avatar"
+            [userId]="u.id ?? null"
+            [avatarUrl]="u.avatarUrl ?? null"
+            [hasAvatar]="!!u.hasAvatar"
+            size="md"
+          />
           <div class="user-popover__meta">
             <span class="user-popover__name">{{ displayName(u) }}</span>
-            @if (u.fullName?.trim()) {
-              <span class="user-popover__email">{{ u.email }}</span>
-            }
+            <span class="user-popover__email">{{ u.email }}</span>
             <span class="user-popover__role">{{ roleLabel(u) }}</span>
           </div>
         </div>
+        <a mat-menu-item class="user-popover__item" routerLink="/profile" (click)="closeUserMenu()">
+          <mat-icon>manage_accounts</mat-icon>
+          <span>Perfil</span>
+        </a>
         @if (isMobile()) {
-          <button mat-menu-item type="button" class="user-popover__logout" (click)="logout.emit()">
+          <button mat-menu-item type="button" class="user-popover__item user-popover__logout" (click)="logout.emit()">
             <mat-icon>logout</mat-icon>
             <span>Salir</span>
           </button>

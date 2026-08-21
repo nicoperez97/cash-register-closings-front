@@ -30,7 +30,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { firstValueFrom, startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { ShopBackupApiService } from './shop-backup-api.service';
 import { AdminAccountDialogComponent, AdminAccountRow, LINKED_PAYMENT_METHOD_OPTIONS } from './admin-account-dialog';
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { activeLabel } from '../../core/i18n/labels';
@@ -1226,34 +1225,18 @@ const TIMEZONE_OPTIONS = [
             </button>
             <div class="guy-form-section__body">
             <p class="text-muted small mb-3">
-              Solo super admin. Dump completo del local (cierres, movimientos, POS, personal, etc.)
-              para bajarlo o restaurarlo. El reset vacía datos operativos y conserva configuración y
-              usuarios.
+              Solo super admin. Dump por módulo o total (Excel o SQL), cargar Excel, y reset parcial o
+              total. Se conserva configuración y usuarios.
             </p>
             <div class="shop-admin__danger-actions">
-              <button mat-stroked-button type="button" [disabled]="backupBusy()" (click)="downloadBackup()">
-                <mat-icon>download</mat-icon>
-                Descargar dump
-              </button>
-              <input
-                #backupFile
-                type="file"
-                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                hidden
-                (change)="onRestoreFile($event)"
-              />
               <button
-                mat-stroked-button
+                mat-flat-button
+                color="warn"
                 type="button"
-                [disabled]="backupBusy()"
-                (click)="backupFile.click()"
+                (click)="openBackupTools()"
               >
-                <mat-icon>upload_file</mat-icon>
-                Cargar dump
-              </button>
-              <button mat-flat-button color="warn" type="button" [disabled]="backupBusy()" (click)="openBackupTools()">
-                <mat-icon>delete_forever</mat-icon>
-                Resetear…
+                <mat-icon>shield</mat-icon>
+                Dump y reset…
               </button>
             </div>
             </div>
@@ -1846,7 +1829,6 @@ export class AdminShopPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly api = inject(ClosingsApiService);
   private readonly settlementsInbox = inject(SettlementsInboxService);
-  private readonly backupApi = inject(ShopBackupApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -1862,7 +1844,6 @@ export class AdminShopPage implements OnInit {
   readonly saving = signal(false);
   readonly depositSaving = signal(false);
   readonly sourceSaving = signal(false);
-  readonly backupBusy = signal(false);
   readonly logoUploading = signal(false);
   readonly logoCacheBust = signal(Date.now());
   /** Path relativo del logo subido (`shops/{id}/logo.png`); no se muestra en el input de URL. */
@@ -2776,62 +2757,13 @@ export class AdminShopPage implements OnInit {
     });
   }
 
-  downloadBackup(): void {
-    const shop = this.shops.selectedShop();
-    if (!shop) return;
-    this.backupBusy.set(true);
-    this.backupApi.downloadBackup(shop.id).subscribe({
-      next: (blob) => {
-        this.backupBusy.set(false);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `dump-${shop.slug || 'local'}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
-        this.snack.open('Dump descargado', 'OK', { duration: 2500 });
-      },
-      error: (err) => {
-        this.backupBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo descargar el dump';
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
-      },
-    });
-  }
-
-  async onRestoreFile(ev: Event): Promise<void> {
-    const input = ev.target as HTMLInputElement;
-    const file = await takeInputFile(input);
-    const shop = this.shops.selectedShop();
-    if (!file || !shop) return;
-    if (
-      !window.confirm(
-        `¿Cargar dump en “${shop.name}”? Se borrarán los datos actuales del local.`,
-      )
-    ) {
-      return;
-    }
-    this.backupBusy.set(true);
-    this.backupApi.restoreBackup(shop.id, file).subscribe({
-      next: () => {
-        this.backupBusy.set(false);
-        this.snack.open('Dump restaurado', 'OK', { duration: 3000 });
-      },
-      error: (err) => {
-        this.backupBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo cargar el dump';
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
-      },
-    });
-  }
-
   openBackupTools(): void {
     const shop = this.shops.selectedShop();
     if (!shop) return;
     this.dialogTitle
       .track(
         this.dialog.open(ShopBackupDialogComponent, {
-          width: '520px',
+          width: '640px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
           data: { shopId: shop.id, shopName: shop.name, shopSlug: shop.slug },

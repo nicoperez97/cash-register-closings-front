@@ -292,13 +292,7 @@ const MONTH_LABELS = [
         <div class="ot-report__head">
           <div>
             <h2 class="today-panel__title">Horas extra</h2>
-            <p class="today-panel__date">
-              @if (otCountAll()) {
-                Suma llegadas tarde, retiros temprano y lo que se quedó después de la retirada.
-              } @else {
-                Suma de horas después de la retirada, con costo por empleado.
-              }
-            </p>
+            <p class="today-panel__date">{{ otSubtitle() }}</p>
           </div>
         </div>
         <div class="ot-report__filters">
@@ -312,13 +306,22 @@ const MONTH_LABELS = [
               <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
             </label>
           </div>
-          <mat-checkbox
-            class="ot-report__check"
-            [ngModel]="otCountAll()"
-            (ngModelChange)="onOtCountAllChange($event)"
-          >
-            Contar llegadas tarde y retiros temprano
-          </mat-checkbox>
+          <div class="ot-report__checks">
+            <mat-checkbox
+              class="ot-report__check"
+              [ngModel]="otCountLate()"
+              (ngModelChange)="onOtCountLateChange($event)"
+            >
+              Contar llegadas tarde
+            </mat-checkbox>
+            <mat-checkbox
+              class="ot-report__check"
+              [ngModel]="otCountEarly()"
+              (ngModelChange)="onOtCountEarlyChange($event)"
+            >
+              Contar retiros temprano
+            </mat-checkbox>
+          </div>
           <div class="ot-report__actions">
             <button mat-flat-button color="primary" type="button" [disabled]="otLoading()" (click)="loadOvertimeSummary()">
               <mat-icon>query_stats</mat-icon>
@@ -1065,6 +1068,10 @@ const MONTH_LABELS = [
         color: var(--guy-navy, #003366);
         background: #fff;
       }
+      .ot-report__checks {
+        display: grid;
+        gap: 0.35rem;
+      }
       .ot-report__check {
         margin: 0;
         white-space: normal;
@@ -1329,7 +1336,8 @@ export class AttendancePage {
     `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
   );
   readonly otTo = signal(this.todayIso());
-  readonly otCountAll = signal(false);
+  readonly otCountLate = signal(false);
+  readonly otCountEarly = signal(false);
   readonly excelFrom = signal(
     `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,
   );
@@ -2189,7 +2197,12 @@ export class AttendancePage {
         }>;
         totals: { presentDays: number; overtimeHours: number; overtimeCost: number };
       }>(`${environment.apiUrl}/shops/${shopId}/attendance/overtime-summary`, {
-        params: { from, to, countAll: this.otCountAll() ? 'true' : 'false' },
+        params: {
+          from,
+          to,
+          countLate: this.otCountLate() ? 'true' : 'false',
+          countEarly: this.otCountEarly() ? 'true' : 'false',
+        },
       })
       .subscribe({
         next: (data) => {
@@ -2203,8 +2216,28 @@ export class AttendancePage {
       });
   }
 
-  onOtCountAllChange(value: boolean): void {
-    this.otCountAll.set(!!value);
+  otSubtitle(): string {
+    const late = this.otCountLate();
+    const early = this.otCountEarly();
+    if (late && early) {
+      return 'Suma llegadas tarde, retiros temprano y lo que se quedó después de la retirada.';
+    }
+    if (late) {
+      return 'Suma llegadas tarde y lo que se quedó después de la retirada.';
+    }
+    if (early) {
+      return 'Suma retiros temprano y lo que se quedó después de la retirada.';
+    }
+    return 'Suma de horas después de la retirada, con costo por empleado.';
+  }
+
+  onOtCountLateChange(value: boolean): void {
+    this.otCountLate.set(!!value);
+    if (this.otSummary()) this.loadOvertimeSummary();
+  }
+
+  onOtCountEarlyChange(value: boolean): void {
+    this.otCountEarly.set(!!value);
     if (this.otSummary()) this.loadOvertimeSummary();
   }
 
@@ -2238,7 +2271,12 @@ export class AttendancePage {
     this.otExporting.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/attendance/overtime-summary.xlsx`, {
-        params: { from, to, countAll: this.otCountAll() ? 'true' : 'false' },
+        params: {
+          from,
+          to,
+          countLate: this.otCountLate() ? 'true' : 'false',
+          countEarly: this.otCountEarly() ? 'true' : 'false',
+        },
         responseType: 'blob',
       })
       .subscribe({
@@ -2247,7 +2285,11 @@ export class AttendancePage {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `horas-extra-${this.otCountAll() ? 'todo-' : ''}${from}_${to}.xlsx`;
+          const tag =
+            this.otCountLate() || this.otCountEarly()
+              ? `${this.otCountLate() ? 'tarde-' : ''}${this.otCountEarly() ? 'temprano-' : ''}`
+              : '';
+          a.download = `horas-extra-${tag}${from}_${to}.xlsx`;
           a.click();
           URL.revokeObjectURL(url);
         },

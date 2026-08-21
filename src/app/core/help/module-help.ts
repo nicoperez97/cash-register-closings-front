@@ -43,6 +43,38 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: 'profile',
+    title: 'Perfil',
+    summary: 'Tu cuenta, avisos del local y el orden del menú lateral.',
+    blocks: [
+      {
+        title: 'Cuenta',
+        icon: 'manage_accounts',
+        tone: 'do',
+        body: 'Desde el menú de tu usuario abrís Perfil. En Cuenta subís la foto y editás nombre, teléfono, alias y CBU.',
+        tip: 'El email solo lo cambia un administrador en Admin → Usuarios.',
+        items: ['Tocá Guardar datos cuando cambies los campos.', 'Quitar elimina la foto del perfil.'],
+      },
+      {
+        title: 'Notificaciones',
+        icon: 'notifications',
+        tone: 'do',
+        body: 'Solo aparecen avisos que el local te habilitó. El interruptor activo significa que los recibís; si lo apagás, quedan silenciados.',
+        tip: 'Si no te habilitaron un aviso, no lo ves acá.',
+      },
+      {
+        title: 'Menú lateral',
+        icon: 'menu',
+        tone: 'do',
+        body: 'La barra lateral usa primero Tu menú (si lo guardaste) y, si no, el Menú del local. Con ⋮ renombrás, movés de grupo u ocultás un módulo.',
+        items: [
+          'Guardar menú aplica tu orden de inmediato en la barra lateral.',
+          'Usar menú del local borra tu personalización y vuelve al del local.',
+        ],
+      },
+    ],
+  },
+  {
     id: 'closings',
     title: 'Cierres',
     summary: 'La caja del día: borrador, envío y bloqueo cuando ya está conciliado.',
@@ -153,7 +185,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['expenses.manage'],
         body: 'Con Gasto rápido elegís concepto y de qué cuenta sale. A quién es una cuenta destino; si lo dejás vacío, va a Egreso.',
-        tip: 'Excel y PDF salen del mismo botón Descargar. Los pagos se cargan desde Pagos; acá solo los ves.',
+        tip: 'Usá Descargar plantilla, completá el Excel y después Importar Excel. Si lo importás dos veces, las filas iguales se omiten.',
       },
     ],
   },
@@ -175,7 +207,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['accountTransfers.manage'],
         body: 'Indicá origen, destino y monto. No lleva concepto.',
-        tip: 'Excel y PDF salen del mismo botón Descargar.',
+        tip: 'Descargar plantilla arma el Excel de transferencias (sin concepto). Importar Excel sube el archivo; las filas que ya existen no se duplican.',
       },
     ],
   },
@@ -495,7 +527,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'schedule',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Elegí el rango y tocá Ver. Destildado, extra es lo que se quedó después de su retirada (o la del local). Tildá “Contar llegadas tarde y retiros temprano” para sumar también esos desvíos. El costo usa el precio/hora del empleado.',
+        body: 'Elegí el rango y tocá Ver. Destildado, extra es lo que se quedó después de su retirada (o la del local). Podés tildar por separado “Contar llegadas tarde” y “Contar retiros temprano”. El costo usa el precio/hora del empleado.',
       },
     ],
   },
@@ -727,7 +759,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['shops.manage'],
         body: 'Identidad, mails, menú lateral, francos y horarios.',
         items: [
-          'Menú lateral: creá grupos, renombrá con el lápiz, mové módulos u ocultálos (además de los toggles de módulos).',
+          'Menú lateral: creá grupos, reordená con las flechas y con ⋮ renombrá, mové de grupo u ocultá módulos.',
           'Tocá el título de cada bloque para expandir o contraer la configuración.',
           'Entrada y salida de servicio: default para quien no tiene horario propio.',
           'Presentismo con horario: si lo apagás, el tablero es solo presente / ausente / feriado.',
@@ -739,7 +771,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Dump (super admin)',
         icon: 'backup',
         tone: 'lock',
-        body: 'En Zona peligrosa: Descargar dump / Cargar dump del local completo. Solo rol Super admin.',
+        body: 'En Zona peligrosa abrís Dump y reset. Podés bajar Excel o SQL, por módulo o todo el local. Cargar dump solo acepta Excel. El reset pide escribir RESET.',
+        tip: 'Si vaciás cuentas y conceptos, también se limpian movimientos y cierres para no dejar datos rotos.',
       },
     ],
   },
@@ -905,6 +938,7 @@ export const HELP_TOPICS: HelpTopic[] = [
 
 const PATH_HELP: Array<{ test: (path: string) => boolean; id: string }> = [
   { test: (p) => p === '/' || p === '', id: 'home' },
+  { test: (p) => p.startsWith('/profile'), id: 'profile' },
   { test: (p) => p.startsWith('/closings/new') || /\/closings\/[^/]+$/.test(p), id: 'closings-new' },
   { test: (p) => p.startsWith('/closings'), id: 'closings' },
   { test: (p) => p.startsWith('/cash-withdrawals'), id: 'cash-withdrawals' },
@@ -961,6 +995,7 @@ export function topicById(id: string | null | undefined): HelpTopic | null {
 
 const TOPIC_ICONS: Record<string, string> = {
   home: 'home',
+  profile: 'manage_accounts',
   closings: 'point_of_sale',
   'closings-new': 'point_of_sale',
   'cash-withdrawals': 'payments',

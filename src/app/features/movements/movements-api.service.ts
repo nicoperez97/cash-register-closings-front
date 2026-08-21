@@ -135,8 +135,11 @@ export class MovementsApiService {
     });
   }
 
-  downloadImportTemplate(shopId: string) {
+  downloadImportTemplate(shopId: string, kind?: 'expense' | 'transfer') {
+    let params = new HttpParams();
+    if (kind) params = params.set('kind', kind);
     return this.http.get(`${this.base}/shops/${shopId}/movements/import-template.xlsx`, {
+      params,
       responseType: 'blob',
     });
   }
@@ -148,22 +151,27 @@ export class MovementsApiService {
     });
   }
 
-  previewExcelImport(shopId: string, file: File) {
+  previewExcelImport(shopId: string, file: File, kind?: 'expense' | 'transfer') {
     const body = new FormData();
     body.append('file', file);
+    let params = new HttpParams();
+    if (kind) params = params.set('kind', kind);
     return this.http.post<MovementImportItem[]>(
       `${this.base}/shops/${shopId}/movements/import-excel`,
       body,
+      { params },
     );
   }
 
-  commitExcelImport(shopId: string, file: File) {
+  commitExcelImport(shopId: string, file: File, kind?: 'expense' | 'transfer') {
     const body = new FormData();
     body.append('file', file);
+    let params = new HttpParams().set('commit', 'true');
+    if (kind) params = params.set('kind', kind);
     return this.http.post<MovementImportResult>(
       `${this.base}/shops/${shopId}/movements/import-excel`,
       body,
-      { params: { commit: 'true' } },
+      { params },
     );
   }
 }

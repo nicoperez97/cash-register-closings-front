@@ -26,6 +26,7 @@ import { authInterceptor } from './core/auth/auth.interceptor';
 import { authRefreshInterceptor } from './core/http/auth-refresh.interceptor';
 import { notificationsRefreshInterceptor } from './core/http/notifications-refresh.interceptor';
 import { AuthService } from './core/auth/auth.service';
+import { isPublicAppPath } from './core/routing/public-paths';
 import { BodyScrollLockService } from './shared/services/body-scroll-lock.service';
 import { AppUpdateDialogComponent } from './shared/components/app-update-dialog';
 import { NotificationsInboxService } from './features/payments/notifications-inbox.service';
@@ -89,6 +90,11 @@ function watchAppUpdates(): void {
 }
 
 async function refreshSession(): Promise<void> {
+  // En links públicos no tocamos la sesión: un /auth/me fallido no debe
+  // interferir ni empujar al usuario a login.
+  if (typeof location !== 'undefined' && isPublicAppPath(location.pathname || '/')) {
+    return;
+  }
   const auth = inject(AuthService);
   const notifs = inject(NotificationsInboxService);
   const push = inject(PushNotificationsService);

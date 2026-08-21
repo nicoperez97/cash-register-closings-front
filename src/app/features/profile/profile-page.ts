@@ -1,0 +1,823 @@
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { PageHeaderComponent } from '../../shared/components/page-header';
+import { UserAvatarComponent } from '../../shared/components/user-avatar';
+import { ShopNavEditorComponent } from '../admin/shop-nav-editor';
+import { AuthService } from '../../core/auth/auth.service';
+import { ShopContextService } from '../../core/shop/shop-context.service';
+import type { ShopNavConfig } from '../../core/layout/nav-config';
+import {
+  EligibleNotification,
+  ProfileApiService,
+  ShopProfilePreferences,
+  UserProfile,
+} from './profile-api.service';
+
+@Component({
+  selector: 'app-profile-page',
+  imports: [
+    PageHeaderComponent,
+    UserAvatarComponent,
+    ShopNavEditorComponent,
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatSlideToggleModule,
+    MatSnackBarModule,
+    MatTooltipModule,
+  ],
+  template: `
+    <app-page-header title="Perfil" [subtitle]="shops.selectedShop()?.name ?? 'Tu cuenta'" />
+
+    <div class="profile-grid" [class.profile-grid--busy]="busy()">
+      @if (busy()) {
+        <mat-progress-bar class="profile-progress" mode="indeterminate" aria-label="Guardando" />
+      }
+
+      <section class="panel-card profile-card profile-account" style="--i: 0">
+        <h2 class="section-title">Cuenta</h2>
+
+        <div class="account-identity">
+          <div class="photo-block__avatar" [class.photo-block__avatar--pulse]="avatarBusy()">
+            <app-user-avatar
+              [userId]="profile()?.id ?? auth.currentUser()?.id ?? null"
+              [avatarUrl]="profile()?.avatarUrl ?? auth.currentUser()?.avatarUrl ?? null"
+              [hasAvatar]="!!(profile()?.hasAvatar || auth.currentUser()?.hasAvatar)"
+              [cacheKey]="avatarBust()"
+              size="lg"
+            />
+          </div>
+          <div class="account-identity__meta">
+            <strong class="account-identity__name">{{
+              profile()?.fullName || auth.currentUser()?.fullName || 'Tu perfil'
+            }}</strong>
+            <span class="account-identity__email">{{ profile()?.email ?? '' }}</span>
+            <div class="photo-actions">
+              <input
+                #fileInput
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                (change)="onAvatarFile($event)"
+              />
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="busy()"
+                (click)="fileInput.click()"
+              >
+                <mat-icon>photo_camera</mat-icon>
+                Subir foto
+              </button>
+              @if (profile()?.hasAvatar || profile()?.avatarUrl) {
+                <button mat-button type="button" color="warn" [disabled]="busy()" (click)="removeAvatar()">
+                  Quitar
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <form class="data-form" [formGroup]="form" (ngSubmit)="saveData()">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Nombre</mat-label>
+            <input matInput formControlName="fullName" autocomplete="name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Email</mat-label>
+            <input matInput [value]="profile()?.email ?? ''" disabled />
+            <mat-hint>Lo cambia un admin</mat-hint>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Teléfono</mat-label>
+            <input matInput formControlName="phone" autocomplete="tel" />
+          </mat-form-field>
+          <div class="data-form__row">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Alias</mat-label>
+              <input matInput formControlName="bankAlias" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>CBU</mat-label>
+              <input matInput formControlName="cbu" inputmode="numeric" />
+            </mat-form-field>
+          </div>
+          <div class="form-actions form-actions--sticky">
+            @if (form.pristine && form.valid) {
+              <p class="form-actions__hint">Editá un campo para poder guardar</p>
+            }
+            <button
+              mat-flat-button
+              color="primary"
+              type="submit"
+              class="form-actions__save"
+              [disabled]="busy() || form.invalid || form.pristine"
+            >
+              <mat-icon>save</mat-icon>
+              Guardar datos
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel-card profile-card profile-notifs" style="--i: 1">
+        <div class="section-head">
+          <h2 class="section-title">Notificaciones</h2>
+          <span class="section-head__hint">Avisos activos</span>
+        </div>
+        <p class="text-muted">
+          Solo ves avisos que el local te habilitó. Apagá los que no quieras recibir.
+        </p>
+        @if (!shopId()) {
+          <p class="text-muted">Seleccioná un local.</p>
+        } @else if (!eligible().length) {
+          <p class="text-muted">No tenés notificaciones habilitadas en este local.</p>
+        } @else {
+          <ul class="notif-list">
+            @for (n of eligible(); track n.type; let i = $index) {
+              <li
+                class="notif-list__item"
+                [class.notif-list__item--muted]="n.muted"
+                [style.--ni]="i"
+              >
+                <div class="notif-list__label">
+                  <span>{{ n.label }}</span>
+                  @if (n.muted) {
+                    <span class="notif-list__badge">Silenciada</span>
+                  }
+                </div>
+                <mat-slide-toggle
+                  [checked]="!n.muted"
+                  [disabled]="busy()"
+                  [attr.aria-label]="(n.muted ? 'Activar ' : 'Silenciar ') + n.label"
+                  (change)="toggleMute(n, !$event.checked)"
+                />
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="panel-card profile-card profile-menu" style="--i: 2">
+        <div class="menu-head">
+          <div class="menu-head__copy">
+            <div class="menu-head__title-row">
+              <h2 class="section-title">Menú lateral</h2>
+              @if (shopId()) {
+                <span
+                  class="menu-source"
+                  [class.menu-source--mine]="!usingShopMenu()"
+                  [matTooltip]="
+                    usingShopMenu()
+                      ? 'Estás viendo el menú del local. Guardá uno propio para personalizarlo.'
+                      : 'Tu menú personal gana sobre el del local en la barra lateral.'
+                  "
+                >
+                  <mat-icon>{{ usingShopMenu() ? 'storefront' : 'person' }}</mat-icon>
+                  {{ usingShopMenu() ? 'Menú del local' : 'Tu menú' }}
+                </span>
+              }
+            </div>
+            <p class="text-muted">
+              Primero se usa tu personalización; si no tenés una, el menú del local.
+            </p>
+          </div>
+          <div class="menu-actions" [class.menu-actions--sticky]="menuDirty()">
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="busy() || !shopId() || usingShopMenu()"
+              (click)="resetMenu()"
+            >
+              Usar menú del local
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="busy() || !shopId() || !menuDirty()"
+              (click)="saveMenu()"
+            >
+              <mat-icon>save</mat-icon>
+              Guardar menú
+            </button>
+          </div>
+        </div>
+        @if (shopId()) {
+          <app-shop-nav-editor [value]="menuDraft()" (valueChange)="onMenuChange($event)" />
+        }
+      </section>
+    </div>
+  `,
+  styles: `
+    .profile-grid {
+      position: relative;
+      display: grid;
+      gap: 1rem;
+      align-items: start;
+      padding-bottom: max(4.5rem, env(safe-area-inset-bottom, 0px));
+    }
+    .profile-progress {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      grid-column: 1 / -1;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    @media (min-width: 960px) {
+      .profile-grid {
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+        padding-bottom: 0;
+      }
+      .profile-menu {
+        grid-column: 1 / -1;
+      }
+    }
+    .profile-card {
+      width: 100%;
+      margin-top: 0 !important;
+      animation: profile-card-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: calc(var(--i, 0) * 55ms);
+      transition:
+        box-shadow 0.22s ease,
+        transform 0.22s ease;
+    }
+    .profile-account {
+      max-width: 40rem;
+    }
+    @media (min-width: 960px) {
+      .profile-account {
+        max-width: none;
+      }
+    }
+    @keyframes profile-card-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .section-title {
+      margin: 0 0 0.85rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--guy-navy, #003366);
+    }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .section-head .section-title {
+      margin-bottom: 0;
+    }
+    .section-head__hint {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--guy-muted, #666);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .text-muted {
+      color: var(--guy-muted, #666);
+      font-size: 0.9rem;
+      margin: 0 0 0.75rem;
+      line-height: 1.4;
+    }
+    .account-identity {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 80%, transparent);
+    }
+    .account-identity__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .account-identity__name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--guy-navy, #003366);
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-identity__email {
+      font-size: 0.82rem;
+      color: var(--guy-muted, #666);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 0.35rem;
+    }
+    .photo-block__avatar {
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .photo-block__avatar--pulse {
+      animation: avatar-pulse 0.9s ease infinite;
+    }
+    @keyframes avatar-pulse {
+      0%,
+      100% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+      50% {
+        transform: scale(1.04);
+        filter: brightness(1.06);
+      }
+    }
+    .photo-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .photo-actions button {
+      min-height: 2.5rem;
+    }
+    .data-form {
+      display: grid;
+      gap: 0.85rem;
+      min-width: 0;
+    }
+    .data-form__row {
+      display: grid;
+      gap: 0.85rem;
+    }
+    @media (min-width: 480px) {
+      .data-form__row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      margin-top: 0.25rem;
+    }
+    .form-actions__hint {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--guy-muted, #666);
+    }
+    .form-actions__save {
+      min-width: 9.5rem;
+      min-height: 2.75rem;
+      margin-left: auto;
+    }
+    .form-actions__save mat-icon {
+      margin-right: 0.35rem;
+      font-size: 1.15rem;
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    @media (max-width: 719px) {
+      .account-identity {
+        align-items: flex-start;
+      }
+      .form-actions--sticky {
+        position: sticky;
+        bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+        z-index: 2;
+        margin: 0.35rem -0.25rem 0;
+        padding: 0.65rem 0.25rem 0.15rem;
+        background: linear-gradient(
+          to top,
+          var(--guy-card, #fff) 72%,
+          color-mix(in srgb, var(--guy-card, #fff) 0%, transparent)
+        );
+      }
+      .form-actions__hint {
+        width: 100%;
+      }
+      .form-actions__save {
+        width: 100%;
+        margin-left: 0;
+      }
+    }
+    .notif-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .notif-list__item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 85%, transparent);
+      min-height: 3rem;
+      animation: notif-row-in 0.32s ease both;
+      animation-delay: calc(var(--ni, 0) * 28ms);
+      transition:
+        opacity 0.22s ease,
+        background 0.22s ease;
+    }
+    @keyframes notif-row-in {
+      from {
+        opacity: 0;
+        transform: translateX(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .notif-list__item:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .notif-list__item--muted .notif-list__label > span:first-child {
+      color: var(--guy-muted, #666);
+    }
+    .notif-list__label {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.55rem;
+      min-width: 0;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+    .notif-list__badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #666);
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--guy-border, #e5e5e5) 55%, transparent);
+    }
+    .menu-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    .menu-head__copy {
+      flex: 1 1 14rem;
+      min-width: 0;
+    }
+    .menu-head__title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .menu-head__title-row .section-title {
+      margin: 0;
+    }
+    .menu-head .text-muted {
+      margin-bottom: 0;
+    }
+    .menu-source {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: color-mix(in srgb, var(--guy-border, #d7e0d9) 55%, transparent);
+      color: var(--guy-muted, #5f6f76);
+      transition:
+        background 0.22s ease,
+        color 0.22s ease;
+    }
+    .menu-source mat-icon {
+      font-size: 0.95rem;
+      width: 0.95rem;
+      height: 0.95rem;
+    }
+    .menu-source--mine {
+      background: color-mix(in srgb, var(--guy-accent, #2e7d32) 14%, transparent);
+      color: var(--guy-accent, #2e7d32);
+    }
+    .menu-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .menu-actions button {
+      min-height: 2.75rem;
+    }
+    .menu-actions button mat-icon {
+      margin-right: 0.3rem;
+      font-size: 1.1rem;
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+    @media (max-width: 719px) {
+      .menu-actions {
+        width: 100%;
+      }
+      .menu-actions button {
+        flex: 1 1 auto;
+      }
+      .menu-actions--sticky {
+        position: sticky;
+        top: 0.35rem;
+        z-index: 2;
+        padding: 0.45rem 0;
+        background: color-mix(in srgb, var(--guy-card, #fff) 92%, transparent);
+        backdrop-filter: blur(6px);
+        animation: sticky-bar-in 0.25s ease both;
+      }
+      @keyframes sticky-bar-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .profile-card,
+      .notif-list__item,
+      .photo-block__avatar--pulse,
+      .menu-actions--sticky {
+        animation: none !important;
+      }
+    }
+  `,
+})
+export class ProfilePage {
+  readonly auth = inject(AuthService);
+  readonly shops = inject(ShopContextService);
+  private readonly api = inject(ProfileApiService);
+  private readonly snack = inject(MatSnackBar);
+
+  readonly profile = signal<UserProfile | null>(null);
+  readonly prefs = signal<ShopProfilePreferences | null>(null);
+  readonly busy = signal(false);
+  readonly avatarBusy = signal(false);
+  readonly avatarBust = signal(Date.now());
+  readonly menuDraft = signal<ShopNavConfig | null>(null);
+  readonly menuDirty = signal(false);
+
+  readonly shopId = this.shops.selectedShopId;
+  readonly eligible = computed(() => this.prefs()?.eligibleNotifications ?? []);
+  readonly usingShopMenu = computed(() => {
+    const p = this.prefs();
+    if (!p) return true;
+    return p.usingShopMenuDefault || p.navConfig == null;
+  });
+
+  readonly form = new FormGroup({
+    fullName: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(2)] }),
+    phone: new FormControl('', { nonNullable: true }),
+    bankAlias: new FormControl('', { nonNullable: true }),
+    cbu: new FormControl('', { nonNullable: true }),
+  });
+
+  constructor() {
+    effect(() => {
+      this.shopId();
+      this.reload();
+    });
+  }
+
+  private reload(): void {
+    this.busy.set(true);
+    this.api.get().subscribe({
+      next: (p) => {
+        this.profile.set(p);
+        this.form.reset({
+          fullName: p.fullName ?? '',
+          phone: p.phone ?? '',
+          bankAlias: p.bankAlias ?? '',
+          cbu: p.cbu ?? '',
+        });
+        this.busy.set(false);
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudo cargar el perfil', 'OK', { duration: 3500 });
+      },
+    });
+    const shopId = this.shopId();
+    if (!shopId) {
+      this.prefs.set(null);
+      this.menuDraft.set(null);
+      return;
+    }
+    this.api.getPreferences(shopId).subscribe({
+      next: (prefs) => {
+        this.prefs.set(prefs);
+        this.menuDraft.set(prefs.navConfig ?? prefs.shopNavConfig ?? null);
+        this.menuDirty.set(false);
+      },
+      error: () => this.prefs.set(null),
+    });
+  }
+
+  /** Aplica prefs al shop activo para que la sidebar use myNavConfig de inmediato. */
+  private syncShopFromPrefs(p: ShopProfilePreferences): void {
+    const shop = this.shops.selectedShop();
+    if (!shop || shop.id !== p.shopId) return;
+    const next = {
+      ...shop,
+      myNavConfig: p.navConfig ?? null,
+      mutedNotificationTypes: p.mutedNotificationTypes ?? [],
+    };
+    this.shops.upsertShop(next);
+    const user = this.auth.currentUser();
+    if (!user?.shops?.length) return;
+    this.auth.patchCurrentUser({
+      shops: user.shops.map((s) => (s.id === next.id ? { ...s, ...next } : s)),
+    });
+  }
+
+  private syncUserFromProfile(p: UserProfile): void {
+    this.auth.patchCurrentUser({
+      fullName: p.fullName,
+      phone: p.phone ?? null,
+      bankAlias: p.bankAlias ?? null,
+      cbu: p.cbu ?? null,
+      avatarUrl: p.avatarUrl ?? null,
+      hasAvatar: !!p.hasAvatar || !!p.avatarUrl,
+    });
+  }
+
+  saveData(): void {
+    if (this.form.invalid) return;
+    const raw = this.form.getRawValue();
+    this.busy.set(true);
+    this.api
+      .update({
+        fullName: raw.fullName.trim(),
+        phone: raw.phone.trim() || null,
+        bankAlias: raw.bankAlias.trim() || null,
+        cbu: raw.cbu.trim() || null,
+      })
+      .subscribe({
+        next: (p) => {
+          this.profile.set(p);
+          this.form.markAsPristine();
+          this.syncUserFromProfile(p);
+          this.busy.set(false);
+          this.auth.scheduleRefreshMe(0);
+          this.snack.open('Datos guardados', 'OK', { duration: 2500 });
+        },
+        error: () => {
+          this.busy.set(false);
+          this.snack.open('No se pudieron guardar los datos', 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  onAvatarFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    this.busy.set(true);
+    this.avatarBusy.set(true);
+    this.api.uploadAvatar(file).subscribe({
+      next: (p) => {
+        this.profile.set(p);
+        this.avatarBust.set(Date.now());
+        this.syncUserFromProfile(p);
+        this.busy.set(false);
+        this.avatarBusy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open('Foto actualizada', 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.busy.set(false);
+        this.avatarBusy.set(false);
+        this.snack.open('No se pudo subir la foto', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  removeAvatar(): void {
+    this.busy.set(true);
+    this.avatarBusy.set(true);
+    this.api.removeAvatar().subscribe({
+      next: (p) => {
+        this.profile.set(p);
+        this.avatarBust.set(Date.now());
+        this.syncUserFromProfile(p);
+        this.busy.set(false);
+        this.avatarBusy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open('Foto eliminada', 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.busy.set(false);
+        this.avatarBusy.set(false);
+        this.snack.open('No se pudo quitar la foto', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  toggleMute(n: EligibleNotification, muted: boolean): void {
+    const shopId = this.shopId();
+    const prefs = this.prefs();
+    if (!shopId || !prefs) return;
+    const set = new Set(prefs.mutedNotificationTypes ?? []);
+    if (muted) set.add(n.type);
+    else set.delete(n.type);
+    const next = [...set];
+    this.busy.set(true);
+    this.api.updatePreferences(shopId, { mutedNotificationTypes: next }).subscribe({
+      next: (p) => {
+        this.prefs.set(p);
+        this.syncShopFromPrefs(p);
+        this.busy.set(false);
+        this.auth.scheduleRefreshMe(0);
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudo actualizar la notificación', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  onMenuChange(cfg: ShopNavConfig | null): void {
+    this.menuDraft.set(cfg);
+    this.menuDirty.set(true);
+  }
+
+  saveMenu(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.busy.set(true);
+    this.api.updatePreferences(shopId, { navConfig: this.menuDraft() }).subscribe({
+      next: (p) => {
+        this.prefs.set(p);
+        this.menuDraft.set(p.navConfig ?? p.shopNavConfig ?? null);
+        this.menuDirty.set(false);
+        this.syncShopFromPrefs(p);
+        this.busy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open('Menú guardado · ya se usa en la barra lateral', 'OK', { duration: 2800 });
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudo guardar el menú', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  resetMenu(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.busy.set(true);
+    this.api.updatePreferences(shopId, { navConfig: null }).subscribe({
+      next: (p) => {
+        this.prefs.set(p);
+        this.menuDraft.set(p.shopNavConfig ?? null);
+        this.menuDirty.set(false);
+        this.syncShopFromPrefs(p);
+        this.busy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open('Volviste al menú del local', 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudo restablecer el menú', 'OK', { duration: 3500 });
+      },
+    });
+  }
+}
