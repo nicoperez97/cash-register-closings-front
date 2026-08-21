@@ -50,6 +50,11 @@ export interface AdminUserRow {
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
+  phone?: string | null;
+  bankAlias?: string | null;
+  cbu?: string | null;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
 }
 
 export type AdminUserDialogData = {
@@ -480,6 +485,24 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Teléfono</mat-label>
+            <mat-icon matPrefix>phone</mat-icon>
+            <input matInput formControlName="phone" autocomplete="tel" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Alias</mat-label>
+            <mat-icon matPrefix>alternate_email</mat-icon>
+            <input matInput formControlName="bankAlias" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>CBU</mat-label>
+            <mat-icon matPrefix>account_balance</mat-icon>
+            <input matInput formControlName="cbu" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>{{ isEdit ? 'Nueva contraseña (opcional)' : 'Contraseña' }}</mat-label>
             <mat-icon matPrefix>lock</mat-icon>
             <input matInput type="password" formControlName="password" autocomplete="new-password" />
@@ -841,6 +864,9 @@ export class AdminUserDialogComponent implements OnInit {
       this.user?.email ?? '',
       this.isRolesOnly ? [] : [Validators.required, Validators.email],
     ],
+    phone: [this.user?.phone ?? ''],
+    bankAlias: [this.user?.bankAlias ?? ''],
+    cbu: [this.user?.cbu ?? ''],
     password: [
       '',
       this.isEdit || this.isRolesOnly ? [] : [Validators.required],
@@ -1029,6 +1055,9 @@ export class AdminUserDialogComponent implements OnInit {
       const body: Record<string, unknown> = {
         fullName: raw.fullName,
         email: raw.email,
+        phone: (raw.phone as string)?.trim() || null,
+        bankAlias: (raw.bankAlias as string)?.trim() || null,
+        cbu: (raw.cbu as string)?.trim() || null,
         globalRole,
         active: raw.active,
         shopIds,
@@ -1067,6 +1096,9 @@ export class AdminUserDialogComponent implements OnInit {
       .post(`${environment.apiUrl}/users?shopId=${shopId}`, {
         fullName: raw.fullName,
         email: raw.email,
+        phone: (raw.phone as string)?.trim() || null,
+        bankAlias: (raw.bankAlias as string)?.trim() || null,
+        cbu: (raw.cbu as string)?.trim() || null,
         password: raw.password,
         globalRole,
         shopIds,

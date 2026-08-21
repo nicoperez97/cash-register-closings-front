@@ -120,6 +120,21 @@ export class AdminUsersPage implements OnInit {
     const cols: DataTableColumn[] = [
       { key: 'fullName', label: 'Nombre' },
       { key: 'email', label: 'Correo' },
+      {
+        key: 'phone',
+        label: 'Teléfono',
+        format: (r) => String(r['phone'] || '—'),
+      },
+      {
+        key: 'bankAlias',
+        label: 'Alias',
+        format: (r) => String(r['bankAlias'] || '—'),
+      },
+      {
+        key: 'hasAvatar',
+        label: 'Foto',
+        format: (r) => (r['hasAvatar'] || r['avatarUrl'] ? 'Sí' : '—'),
+      },
       { key: 'globalRole', label: 'Tipo', format: (r) => accountTypeLabel(r) },
     ];
     if (this.isSuperAdmin() && this.scope() === 'all') {

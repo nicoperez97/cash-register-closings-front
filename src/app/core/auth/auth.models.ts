@@ -802,6 +802,13 @@ export interface ShopSummary {
     hidden?: string[];
     itemLabels?: Record<string, string>;
   } | null;
+  /** Override de menú del usuario en este local; null = usar navConfig del local. */
+  myNavConfig?: ShopSummary['navConfig'];
+  mutedNotificationTypes?: string[];
+  isStockAdmin?: boolean;
+  isBeverageStockAdmin?: boolean;
+  isShortageAdmin?: boolean;
+  isReservationAdmin?: boolean;
   active?: boolean;
 }
 
@@ -809,6 +816,11 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName?: string;
+  phone?: string | null;
+  bankAlias?: string | null;
+  cbu?: string | null;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
   role: UserRole;
   globalRole: GlobalRole;
   permissions: string[];

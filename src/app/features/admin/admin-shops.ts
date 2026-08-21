@@ -123,7 +123,7 @@ export class AdminShopsPage implements OnInit {
     this.dialogTitle
       .track(
         this.dialog.open(ShopBackupDialogComponent, {
-          width: '520px',
+          width: '640px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
           data: { shopId: row.id, shopName: row.name, shopSlug: row.slug },

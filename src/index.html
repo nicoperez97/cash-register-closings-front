@@ -71,6 +71,15 @@
           return;
         }
 
+        /* Links públicos (carta, normas, reservar, etc.): nunca mandar al login legacy. */
+        var publicLink = path.match(
+          /^\/(n|m|p|reservar|mi-reserva)(\/[^\/]+)?\/?$/,
+        );
+        if (publicLink) {
+          location.replace('/legacy/unsupported-public.html');
+          return;
+        }
+
         location.replace('/legacy/index.html');
       })();
     </script>

@@ -699,6 +699,14 @@ select {
   padding-bottom: 0.65rem !important;
 }
 
+@media (max-width: 960px) {
+  .cdk-overlay-pane.help-dialog-panel .guy-dialog .mat-mdc-dialog-content,
+  .help-dialog-panel .mat-mdc-dialog-content {
+    padding-left: 1.05rem !important;
+    padding-right: 1.05rem !important;
+  }
+}
+
 /* Modal / sidenav: bloquea scroll sin position:fixed (fixed oculta la página detrás). */
 html.guy-body-scroll-lock,
 body.guy-body-scroll-lock,
@@ -1594,6 +1602,16 @@ button.mat-mdc-mini-fab mat-icon {
 .user-popover-panel .mat-mdc-menu-content,
 .theme-menu-panel .mat-mdc-menu-content {
   padding: 0.85rem 0.95rem !important;
+}
+
+.user-popover-panel .mat-mdc-menu-item {
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+.user-popover-panel .mat-mdc-menu-item mat-icon {
+  margin-right: 0.75rem;
+  color: var(--guy-text, #003366);
 }
 
 .notif-menu-panel .mat-mdc-menu-content {

@@ -101,6 +101,18 @@ export function navItemIdForRoute(route: string): string | null {
   return best?.id ?? null;
 }
 
+/**
+ * Prioridad: personalización del usuario en el local (`myNavConfig`),
+ * si no hay override → menú del local (`navConfig`).
+ */
+export function effectiveNavConfig(shop?: {
+  myNavConfig?: ShopNavConfig | null;
+  navConfig?: ShopNavConfig | null;
+} | null): ShopNavConfig | null {
+  if (!shop) return null;
+  return shop.myNavConfig ?? shop.navConfig ?? null;
+}
+
 export function isNavPathHidden(
   path: string,
   config?: ShopNavConfig | null,
