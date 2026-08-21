@@ -40,34 +40,6 @@ import {
 
     <form class="msg-page" [formGroup]="form" (ngSubmit)="save()">
       <section class="panel-card">
-        <h2>Al equipo</h2>
-        @for (opt of staffOptions; track opt.value) {
-          <article class="msg-card">
-            <div class="msg-card__head">
-              <h3>{{ opt.label }}</h3>
-              <button mat-stroked-button type="button" (click)="resetMessage(opt)">
-                <mat-icon>restart_alt</mat-icon>
-                Reiniciar
-              </button>
-            </div>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Asunto</mat-label>
-              <input matInput [formControlName]="opt.value + '_subject'" [placeholder]="opt.defaultSubject" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Cuerpo</mat-label>
-              <textarea
-                matInput
-                rows="4"
-                [formControlName]="opt.value + '_body'"
-                [placeholder]="opt.defaultBody"
-              ></textarea>
-            </mat-form-field>
-          </article>
-        }
-      </section>
-
-      <section class="panel-card">
         <h2>Al comensal</h2>
         @for (opt of guestOptions; track opt.value) {
           <article class="msg-card">
@@ -87,6 +59,34 @@ import {
               <textarea
                 matInput
                 rows="5"
+                [formControlName]="opt.value + '_body'"
+                [placeholder]="opt.defaultBody"
+              ></textarea>
+            </mat-form-field>
+          </article>
+        }
+      </section>
+
+      <section class="panel-card">
+        <h2>Al equipo</h2>
+        @for (opt of staffOptions; track opt.value) {
+          <article class="msg-card">
+            <div class="msg-card__head">
+              <h3>{{ opt.label }}</h3>
+              <button mat-stroked-button type="button" (click)="resetMessage(opt)">
+                <mat-icon>restart_alt</mat-icon>
+                Reiniciar
+              </button>
+            </div>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Asunto</mat-label>
+              <input matInput [formControlName]="opt.value + '_subject'" [placeholder]="opt.defaultSubject" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cuerpo</mat-label>
+              <textarea
+                matInput
+                rows="4"
                 [formControlName]="opt.value + '_body'"
                 [placeholder]="opt.defaultBody"
               ></textarea>
