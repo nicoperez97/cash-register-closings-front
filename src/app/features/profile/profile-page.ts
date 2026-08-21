@@ -20,6 +20,8 @@ import {
   ShopProfilePreferences,
   UserProfile,
 } from './profile-api.service';
+import { takeInputFile } from '../../shared/utils/input-file';
+import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
 
 @Component({
   selector: 'app-profile-page',
@@ -67,7 +69,7 @@ import {
               <input
                 #fileInput
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/*"
                 hidden
                 (change)="onAvatarFile($event)"
               />
@@ -705,11 +707,22 @@ export class ProfilePage {
       });
   }
 
-  onAvatarFile(ev: Event): void {
+  async onAvatarFile(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
+    // Safari/iOS: materializar bytes antes de vaciar el input (si no, el multipart llega truncado).
+    const picked = await takeInputFile(input);
+    if (!picked) return;
+    const type = (picked.type || '').toLowerCase();
+    if (type && !type.startsWith('image/')) {
+      this.snack.open('Elegí una imagen (foto de la cámara o la galería)', 'OK', { duration: 3500 });
+      return;
+    }
+    let file = picked;
+    try {
+      file = await normalizeLogoImageFile(picked, { maxPx: 1024, quality: 0.88 });
+    } catch {
+      // Si falla la conversión (p. ej. HEIC raro), subimos el original materializado.
+    }
     this.busy.set(true);
     this.avatarBusy.set(true);
     this.api.uploadAvatar(file).subscribe({
@@ -722,10 +735,13 @@ export class ProfilePage {
         this.auth.scheduleRefreshMe(0);
         this.snack.open('Foto actualizada', 'OK', { duration: 2500 });
       },
-      error: () => {
+      error: (err) => {
         this.busy.set(false);
         this.avatarBusy.set(false);
-        this.snack.open('No se pudo subir la foto', 'OK', { duration: 3500 });
+        const msg = err?.error?.message ?? 'No se pudo subir la foto';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : String(msg), 'OK', {
+          duration: 4000,
+        });
       },
     });
   }

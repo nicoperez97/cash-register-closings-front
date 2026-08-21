@@ -52,7 +52,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'manage_accounts',
         tone: 'do',
         body: 'Desde el menú de tu usuario abrís Perfil. En Cuenta subís la foto y editás nombre, teléfono, alias y CBU.',
-        tip: 'El email solo lo cambia un administrador en Admin → Usuarios.',
+        tip: 'El email solo lo cambia un admin. En iPhone, Subir foto materializa y comprime la imagen antes de enviarla.',
         items: ['Tocá Guardar datos cuando cambies los campos.', 'Quitar elimina la foto del perfil.'],
       },
       {
