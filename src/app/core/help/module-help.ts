@@ -124,7 +124,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'No hace falta terminar de una: guardá borrador.',
           'Cuando los números cierren, envialo para que otros lo vean como enviado.',
         ],
-        tip: 'Si un campo no aparece, ese canal no está activo en el local.',
+        tip: 'Si se te cierra la sesión, al volver a entrar recuperamos el cierre que estabas cargando en este dispositivo.',
       },
     ],
   },
@@ -185,7 +185,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'payments',
         tone: 'do',
         anyOf: ['expenses.manage'],
-        body: 'Con Gasto rápido elegís concepto y de qué cuenta sale. Siempre va a Egreso. Podés adjuntar un comprobante (foto o archivo, desde el celular o la computadora). El aviso a administradores se envía siempre.',
+        body: 'Con Gasto rápido elegís concepto, forma de pago (efectivo, transferencia o tarjeta) y de qué cuenta sale. Siempre va a Egreso. Si es transferencia o tarjeta, el comprobante es obligatorio (foto o archivo). El aviso a administradores se envía siempre.',
         tip: 'Usá Descargar plantilla, completá el Excel y después Importar Excel. Si lo importás dos veces, las filas iguales se omiten.',
       },
       {

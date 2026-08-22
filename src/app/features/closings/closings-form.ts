@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { firstValueFrom, map, merge, startWith } from 'rxjs';
+import { debounceTime, firstValueFrom, map, merge, startWith } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { HttpClient } from '@angular/common/http';
@@ -78,6 +78,14 @@ import {
   prepareClosingSaveBody,
   type ClosingFormRawValue,
 } from './closings-form-save';
+import {
+  applyClosingFormDraft,
+  clearClosingDraft,
+  closingDraftFromForm,
+  persistClosingDraft as writeClosingDraft,
+  readClosingDraft,
+  sourceAmountsFromDraft,
+} from './closing-form-draft';
 import {
   POSNET_TYPE_LABEL,
   POSNET_TYPE_OPTIONS,
@@ -694,6 +702,12 @@ export class ClosingsFormPage implements OnInit {
       this.savedSourceAmounts = null;
       this.syncSourceAmounts();
       this.syncOtherCobros([]);
+      if (this.restoreClosingDraft()) {
+        this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
+          duration: 4000,
+        });
+      }
+      this.startClosingDraftAutosave();
     }
 
     this.form
@@ -707,6 +721,7 @@ export class ClosingsFormPage implements OnInit {
 
   onTipEditorChange(state: TipsEditorState) {
     this.tipDraft = state;
+    this.persistClosingDraft();
     const total =
       Math.round(
         (Number(state.cashAmount || 0) +
@@ -938,6 +953,7 @@ export class ClosingsFormPage implements OnInit {
     }
     const prepared = this.tryPrepareSaveBody();
     if (!prepared) return;
+    this.persistClosingDraft();
 
     const { shopId, body } = prepared;
     if (!this.isEdit()) {
@@ -1008,6 +1024,7 @@ export class ClosingsFormPage implements OnInit {
     }
     const prepared = this.tryPrepareSaveBody();
     if (!prepared) return;
+    this.persistClosingDraft();
 
     const { shopId, body } = prepared;
     const wasCreate = !this.isEdit();
@@ -1084,6 +1101,7 @@ export class ClosingsFormPage implements OnInit {
     );
 
     if (result !== 'saved') return;
+    clearClosingDraft();
 
     this.cashWithdrawalsInbox.refresh();
     this.settlementsInbox.refresh();
@@ -1138,7 +1156,39 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
+  private persistClosingDraft(): void {
+    if (this.isEdit()) return;
+    const shopId = this.shops.selectedShopId();
+    const userId = this.auth.currentUser()?.id;
+    if (!shopId || !userId) return;
+    writeClosingDraft(
+      closingDraftFromForm(shopId, userId, this.form, this.tipDraft),
+    );
+  }
+
+  private restoreClosingDraft(): boolean {
+    const shopId = this.shops.selectedShopId();
+    const userId = this.auth.currentUser()?.id;
+    if (!shopId || !userId) return false;
+    const draft = readClosingDraft(shopId, userId);
+    if (!draft) return false;
+    applyClosingFormDraft(this.form, this.fb, draft, (v) => this.emptyNum(v), toDateInput);
+    this.tipDraft = draft.tipDraft;
+    this.savedSourceAmounts = sourceAmountsFromDraft(draft);
+    this.syncSourceAmounts();
+    const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
+    if (date) this.loadTipDay(date);
+    return true;
+  }
+
+  private startClosingDraftAutosave(): void {
+    this.form.valueChanges
+      .pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.persistClosingDraft());
+  }
+
   private resetForNextClosing(): void {
+    clearClosingDraft();
     const today = this.currentBusinessDate();
     this.expenses.clear();
     this.dniTransfers.clear();

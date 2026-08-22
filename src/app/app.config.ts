@@ -23,6 +23,7 @@ import { routes } from './app.routes';
 import { AppTitleStrategy } from './core/routing/app-title.strategy';
 import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { unauthorizedInterceptor } from './core/http/unauthorized.interceptor';
 import { authRefreshInterceptor } from './core/http/auth-refresh.interceptor';
 import { notificationsRefreshInterceptor } from './core/http/notifications-refresh.interceptor';
 import { AuthService } from './core/auth/auth.service';
@@ -154,7 +155,12 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(refreshSession),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(
-      withInterceptors([authInterceptor, authRefreshInterceptor, notificationsRefreshInterceptor]),
+      withInterceptors([
+        authInterceptor,
+        unauthorizedInterceptor,
+        authRefreshInterceptor,
+        notificationsRefreshInterceptor,
+      ]),
     ),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
     { provide: LOCALE_ID, useValue: 'es-AR' },

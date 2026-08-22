@@ -34,6 +34,7 @@ import {
   Movement,
   MovementFilters,
   MovementsApiService,
+  expensePaymentMethodLabel,
 } from './movements-api.service';
 import {
   MovementDialogComponent,
@@ -338,11 +339,18 @@ export class MovementsListPage {
       },
     ];
     if (this.kind() === 'expense') {
-      base.push({
-        key: 'conceptName',
-        label: 'Concepto',
-        format: (r) => r['conceptName'] ?? '—',
-      });
+      base.push(
+        {
+          key: 'conceptName',
+          label: 'Concepto',
+          format: (r) => r['conceptName'] ?? '—',
+        },
+        {
+          key: 'paymentMethod',
+          label: 'Forma de pago',
+          format: (r) => expensePaymentMethodLabel(r['paymentMethod'] as string | null),
+        },
+      );
     }
     base.push(
       { key: 'description', label: 'Descripción' },
