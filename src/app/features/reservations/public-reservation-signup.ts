@@ -24,6 +24,9 @@ import {
 import { partyFitsArea, partyOutsideHint } from './reservation-party-rules.util';
 
 const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type MissingField = 'name' | 'email' | 'emailInvalid' | 'date' | 'time' | 'area';
 
 @Component({
   selector: 'app-public-reservation-signup',
@@ -97,22 +100,31 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
           </section>
         } @else if (dateSignupOpen()) {
           <form class="card form" (ngSubmit)="submit()" novalidate>
-            <label class="field">
+            <label class="field" [class.field--miss]="missingField() === 'name'">
               <span>Tu nombre</span>
               <input
+                id="signup-name"
                 type="text"
                 name="guestName"
                 autocomplete="name"
                 maxlength="120"
                 required
                 [(ngModel)]="guestName"
+                (ngModelChange)="onRequiredChange()"
                 placeholder="Ej: Ana Pérez"
               />
+              @if (missingField() === 'name') {
+                <p class="field-miss">Falta el nombre</p>
+              }
             </label>
             <div class="pair">
-              <label class="field">
+              <label
+                class="field"
+                [class.field--miss]="missingField() === 'email' || missingField() === 'emailInvalid'"
+              >
                 <span>Mail</span>
                 <input
+                  id="signup-email"
                   type="email"
                   name="guestEmail"
                   autocomplete="email"
@@ -120,8 +132,15 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                   maxlength="180"
                   required
                   [(ngModel)]="guestEmail"
+                  (ngModelChange)="onRequiredChange()"
                   placeholder="tunombre@mail.com"
                 />
+                @if (missingField() === 'email') {
+                  <p class="field-miss">Falta el mail</p>
+                }
+                @if (missingField() === 'emailInvalid') {
+                  <p class="field-miss">El mail no es válido</p>
+                }
               </label>
               <label class="field">
                 <span>Instagram <em>opcional</em></span>
@@ -140,7 +159,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
               </label>
             </div>
 
-            <div class="block">
+            <div class="block" id="signup-day" [class.block--miss]="missingField() === 'date'">
               <span class="lbl">¿Qué día?</span>
               <div class="split">
                 <div class="pills">
@@ -198,11 +217,21 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                   </button>
                 </div>
               </div>
+              @if (missingField() === 'date') {
+                <p class="field-miss">Falta el día</p>
+              }
             </div>
 
             @if (timeSlots().length) {
-              <div class="block">
-                <span class="lbl">Horario <em>opcional</em></span>
+              <div class="block" id="signup-time" [class.block--miss]="missingField() === 'time'">
+                <span class="lbl">
+                  Horario
+                  @if (timeRequired()) {
+                    <em>obligatorio</em>
+                  } @else {
+                    <em>opcional</em>
+                  }
+                </span>
                 <div class="pills pills--times">
                   @for (slot of timeSlots(); track slot) {
                     <button
@@ -215,6 +244,9 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                     </button>
                   }
                 </div>
+                @if (missingField() === 'time') {
+                  <p class="field-miss">Falta el horario</p>
+                }
               </div>
             }
 
@@ -240,7 +272,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             </div>
 
             @if (insideEnabled() && outsideEnabled()) {
-              <div class="block">
+              <div class="block" id="signup-area" [class.block--miss]="missingField() === 'area'">
                 <span class="lbl">Sector preferido</span>
                 <div class="pills pills--area">
                   <button
@@ -271,6 +303,9 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
                 @if (partyAreaHint(); as hint) {
                   <p class="area-note">{{ hint }}</p>
                 }
+                @if (missingField() === 'area') {
+                  <p class="field-miss">Falta el sector</p>
+                }
               </div>
             } @else if (onlyAreaLabel(); as only) {
               <p class="area-note">
@@ -299,7 +334,7 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
               <p class="form-error">{{ formError() }}</p>
             }
 
-            <button type="submit" class="submit" [disabled]="busy() || !canSubmitArea()">
+            <button type="submit" class="submit" [disabled]="busy()">
               {{ busy() ? 'Enviando…' : 'Pedir reserva' }}
             </button>
             <p class="hint">
@@ -377,6 +412,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private liveSub: Subscription | null = null;
 
   readonly timeSlots = signal<string[]>([...TIME_SLOTS]);
+  readonly timeRequired = signal(false);
   readonly generalMessage = signal<string | null>(null);
   readonly weekdayMessage = signal<string | null>(null);
   readonly dayNotice = signal<string | null>(null);
@@ -397,6 +433,8 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   readonly sent = signal(false);
   readonly sentConfirmed = signal(false);
   readonly formError = signal<string | null>(null);
+  readonly triedSubmit = signal(false);
+  readonly missingField = signal<MissingField | null>(null);
   readonly sentName = signal('');
   readonly sentEmail = signal('');
   readonly sentPeople = signal('');
@@ -526,6 +564,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
             closedDay: info.closedDay,
             businessDate: info.businessDate,
             timeSlots: info.timeSlots ?? prev.timeSlots,
+            timeRequired: info.timeRequired,
             generalMessage: info.generalMessage,
             weekdayMessage: info.weekdayMessage,
             dayNotice: info.dayNotice,
@@ -559,6 +598,10 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private applyPublicCopy(info: PublicReservationSignup): void {
     const slots = Array.isArray(info.timeSlots) ? info.timeSlots : [...TIME_SLOTS];
     this.timeSlots.set(slots);
+    this.timeRequired.set(!!info.timeRequired && slots.length > 0);
+    if (this.timeRequired() && slots.length && !this.reservationTime) {
+      this.reservationTime = slots[0];
+    }
     this.generalMessage.set(String(info.generalMessage ?? '').trim() || null);
     this.weekdayMessage.set(String(info.weekdayMessage ?? '').trim() || null);
     this.dayNotice.set(String(info.dayNotice ?? '').trim() || null);
@@ -621,6 +664,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     if (next === 'OUTSIDE' && !this.outsideAllowedForParty()) return;
     this.area = next;
     this.clampPartySize();
+    this.onRequiredChange();
   }
 
   insideAllowedForParty(): boolean {
@@ -678,7 +722,9 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   }
 
   toggleTime(slot: string): void {
+    if (this.timeRequired() && this.reservationTime === slot) return;
     this.reservationTime = this.reservationTime === slot ? '' : slot;
+    this.onRequiredChange();
   }
 
   normalizeIg(): void {
@@ -699,6 +745,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     if (this.isClosedOffset(days)) return;
     this.businessDate = this.isoPlus(days);
     this.refreshDateFlags();
+    this.onRequiredChange();
   }
 
   get minAsDate(): Date {
@@ -726,22 +773,25 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     return d && m ? `${d}/${m}` : short ? 'Otro' : 'Otro día';
   }
 
+  onRequiredChange(): void {
+    if (!this.triedSubmit()) return;
+    const missing = this.firstMissing();
+    this.missingField.set(missing);
+    this.formError.set(missing ? this.missingMessage(missing) : null);
+  }
+
   submit(): void {
+    this.triedSubmit.set(true);
     this.formError.set(null);
+    const missing = this.firstMissing();
+    this.missingField.set(missing);
+    if (missing) {
+      this.formError.set(this.missingMessage(missing));
+      queueMicrotask(() => this.focusMissing(missing));
+      return;
+    }
     const name = this.guestName.trim();
     const email = this.guestEmail.trim();
-    if (name.length < 2) {
-      this.formError.set('Ingresá tu nombre.');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      this.formError.set('Ingresá un mail válido.');
-      return;
-    }
-    if (!this.businessDate) {
-      this.formError.set('Elegí el día.');
-      return;
-    }
     if (this.isIsoClosed(this.businessDate)) {
       this.formError.set('El local no abre ese día (franco).');
       return;
@@ -799,9 +849,54 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
       });
   }
 
+  private firstMissing(): MissingField | null {
+    if (this.guestName.trim().length < 2) return 'name';
+    const email = this.guestEmail.trim();
+    if (!email) return 'email';
+    if (!EMAIL_RE.test(email)) return 'emailInvalid';
+    if (!this.businessDate) return 'date';
+    if (this.timeRequired() && this.timeSlots().length && !this.reservationTime) return 'time';
+    if (!this.canSubmitArea()) return 'area';
+    return null;
+  }
+
+  private missingMessage(field: MissingField): string {
+    switch (field) {
+      case 'name':
+        return 'Falta el nombre';
+      case 'email':
+        return 'Falta el mail';
+      case 'emailInvalid':
+        return 'El mail no es válido';
+      case 'date':
+        return 'Falta el día';
+      case 'time':
+        return 'Falta el horario';
+      case 'area':
+        return 'Falta el sector';
+    }
+  }
+
+  private focusMissing(field: MissingField): void {
+    const ids: Record<MissingField, string> = {
+      name: 'signup-name',
+      email: 'signup-email',
+      emailInvalid: 'signup-email',
+      date: 'signup-day',
+      time: 'signup-time',
+      area: 'signup-area',
+    };
+    const el = document.getElementById(ids[field]);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (el instanceof HTMLInputElement) el.focus();
+  }
+
   reset(): void {
     this.sent.set(false);
     this.sentConfirmed.set(false);
+    this.triedSubmit.set(false);
+    this.missingField.set(null);
+    this.formError.set(null);
     this.guestName = '';
     this.guestEmail = '';
     this.instagram = '';

@@ -139,6 +139,10 @@
   gap: 0.4rem;
 }
 
+.floor-day-settings__row + .floor-day-settings__row {
+  margin-top: 0.85rem;
+}
+
 .floor-day-settings__capacity {
   display: flex;
   flex-direction: column;

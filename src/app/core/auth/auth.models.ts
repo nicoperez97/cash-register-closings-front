@@ -781,6 +781,8 @@ export interface ShopSummary {
   reservationsEnabled?: boolean;
   /** Si es false, el formulario público de reservas está cerrado. */
   reservationSignupEnabled?: boolean;
+  /** Si es true, el horario del formulario público es obligatorio (salvo override del día). */
+  reservationTimeRequired?: boolean;
   /** Si es false, no se toman reservas adentro. */
   reservationInsideEnabled?: boolean;
   /** Si es false, no se toman reservas afuera. */

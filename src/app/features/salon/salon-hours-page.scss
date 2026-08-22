@@ -42,14 +42,31 @@
 }
 
 .hours-general,
+.hours-required,
 .hours-days {
   margin-bottom: 0.85rem;
 }
 
 .hours-general h2,
+.hours-required h2,
 .hours-days h2 {
   margin: 0 0 0.35rem;
   font-size: 1.05rem;
+}
+
+.hours-required .text-muted {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+}
+
+.hours-required-toggle {
+  width: 100%;
+  max-width: 22rem;
+  display: inline-flex !important;
+}
+
+.hours-required-toggle .mat-button-toggle {
+  flex: 1 1 0;
 }
 
 .hours-days .text-muted,

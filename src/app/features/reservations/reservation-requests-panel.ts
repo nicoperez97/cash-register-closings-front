@@ -140,6 +140,26 @@ export type ReservationRequestAccepted = {
             Afuera
           </button>
         </div>
+        <div class="req-seg" role="group" aria-label="Horario del formulario">
+          <button
+            type="button"
+            class="req-seg__btn"
+            [class.req-seg__btn--on]="!timeRequired()"
+            [disabled]="timeRequiredBusy()"
+            (click)="setTimeRequired(false)"
+          >
+            Opcional
+          </button>
+          <button
+            type="button"
+            class="req-seg__btn"
+            [class.req-seg__btn--on]="timeRequired()"
+            [disabled]="timeRequiredBusy()"
+            (click)="setTimeRequired(true)"
+          >
+            Obligatorio
+          </button>
+        </div>
         <label class="req-num">
           <span>Máx. adentro</span>
           <input
@@ -311,6 +331,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   readonly busyRequestId = signal<string | null>(null);
   readonly busyAction = signal<'accept' | 'reject' | 'delete' | null>(null);
   readonly signupBusy = signal(false);
+  readonly timeRequiredBusy = signal(false);
   readonly requestsBusy = signal(false);
   readonly partyRulesBusy = signal(false);
   readonly insideMaxDraft = signal<number | null>(null);
@@ -322,6 +343,9 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   readonly shopSlug = computed(() => this.shops.selectedShop()?.slug ?? '');
   readonly signupOpen = computed(
     () => this.shops.selectedShop()?.reservationSignupEnabled !== false,
+  );
+  readonly timeRequired = computed(
+    () => this.shops.selectedShop()?.reservationTimeRequired === true,
   );
   readonly insideOpen = computed(
     () => this.shops.selectedShop()?.reservationInsideEnabled !== false,
@@ -466,6 +490,35 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       error: () => {
         this.signupBusy.set(false);
         this.snack.open('No se pudo cambiar el formulario', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  setTimeRequired(required: boolean): void {
+    const shop = this.shops.selectedShop();
+    const shopId = this.shops.selectedShopId();
+    if (!shop || !shopId || this.timeRequiredBusy()) return;
+    if (this.timeRequired() === required) return;
+    this.timeRequiredBusy.set(true);
+    this.api.setReservationTimeRequired(shopId, required).subscribe({
+      next: (res) => {
+        this.timeRequiredBusy.set(false);
+        this.shops.upsertShop({
+          ...shop,
+          reservationTimeRequired: res.reservationTimeRequired,
+        });
+        this.auth.scheduleRefreshMe(200);
+        this.snack.open(
+          res.reservationTimeRequired
+            ? 'Horario obligatorio en el formulario'
+            : 'Horario opcional en el formulario',
+          'OK',
+          { duration: 2200 },
+        );
+      },
+      error: () => {
+        this.timeRequiredBusy.set(false);
+        this.snack.open('No se pudo cambiar el horario', 'OK', { duration: 3000 });
       },
     });
   }
