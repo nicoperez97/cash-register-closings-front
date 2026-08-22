@@ -116,6 +116,13 @@ export interface ShopUserAccountOption {
   code: string;
 }
 
+export interface ShopNotifyRecipient {
+  id: string;
+  fullName: string;
+  email: string;
+  isAdmin: boolean;
+}
+
 export interface ShopUserOption {
   id: string;
   fullName: string;
@@ -164,6 +171,12 @@ export class ClosingsApiService {
 
   shopUsers(shopId: string) {
     return this.http.get<ShopUserOption[]>(`${this.base}/shops/${shopId}/users`);
+  }
+
+  shopNotificationRecipients(shopId: string) {
+    return this.http.get<ShopNotifyRecipient[]>(
+      `${this.base}/shops/${shopId}/notification-recipients`,
+    );
   }
 
   listClosingSources(shopId: string, activeOnly = false) {

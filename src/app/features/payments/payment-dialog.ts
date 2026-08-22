@@ -10,6 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { AuthService } from '../../core/auth/auth.service';
+import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import {
   SelectSearchComponent,
@@ -87,6 +89,7 @@ type PaymentDraft = {
     BusyLabelComponent,
     SelectSearchComponent,
     UserAvatarComponent,
+    NotifyRecipientsFieldComponent,
   ],
   styles: [
     `
@@ -615,6 +618,16 @@ type PaymentDraft = {
             </button>
           </div>
         }
+        @if (isEdit) {
+          <app-notify-recipients-field
+            [shopId]="data.shopId"
+            [excludeUserId]="actorId"
+            enabledLabel="Avisar de este cambio"
+            hint="Elegí a quién. Todos los admins marca a los administradores del local."
+            [(enabled)]="notifyEnabled"
+            [(selectedIds)]="notifyIds"
+          />
+        }
       </form>
     </mat-dialog-content>
 
@@ -644,6 +657,11 @@ export class PaymentDialogComponent {
   private readonly servicesApi = inject(ServicesApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly auth = inject(AuthService);
+
+  readonly actorId = this.auth.currentUser()?.id ?? null;
+  readonly notifyEnabled = signal(false);
+  readonly notifyIds = signal<string[]>([]);
 
   readonly isEdit = this.data.mode === 'edit';
   readonly isDuplicate = this.data.mode === 'duplicate';
@@ -1370,7 +1388,7 @@ export class PaymentDialogComponent {
             const sameStr = (a: string | null | undefined, b: string | null | undefined) =>
               (a || null) === (b || null);
 
-            const body: Record<string, string | number | null> = {};
+            const body: Record<string, string | number | null | string[]> = {};
             if (!sameStr(next.title, prev.title)) body['title'] = next.title;
             if (!sameStr(next.conceptId, prev.conceptId)) body['conceptId'] = next.conceptId;
             if (!sameAmount(next.amount, prev.amount ?? null)) body['amount'] = next.amount;
@@ -1426,6 +1444,10 @@ export class PaymentDialogComponent {
               ) {
                 body['invoiceOtherTaxesAmount'] = next.invoiceOtherTaxesAmount;
               }
+            }
+
+            if (this.notifyEnabled() && this.notifyIds().length) {
+              body['notifyUserIds'] = this.notifyIds();
             }
 
             const hasFile = !!this.pendingInvoiceFile();

@@ -108,13 +108,23 @@ export class MovementsApiService {
   update(
     shopId: string,
     id: string,
-    body: Partial<Movement> & { kind?: 'expense' | 'transfer' },
+    body: Partial<Movement> & {
+      kind?: 'expense' | 'transfer';
+      notifyAdmins?: boolean;
+      notifyUserIds?: string[];
+    },
   ) {
     return this.http.patch<Movement>(`${this.base}/shops/${shopId}/movements/${id}`, body);
   }
 
-  remove(shopId: string, id: string) {
-    return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/movements/${id}`);
+  remove(
+    shopId: string,
+    id: string,
+    body?: { notifyAdmins?: boolean; notifyUserIds?: string[] },
+  ) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/movements/${id}`, {
+      body: body ?? {},
+    });
   }
 
   uploadReceiptFile(shopId: string, id: string, file: File) {

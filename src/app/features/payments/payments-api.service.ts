@@ -125,6 +125,8 @@ export interface UpsertPaymentBody {
   invoiceIvaAmount?: number | null;
   invoicePerceptionsAmount?: number | null;
   invoiceOtherTaxesAmount?: number | null;
+  notifyAdmins?: boolean;
+  notifyUserIds?: string[];
 }
 
 export interface ParsedInvoice {
@@ -337,7 +339,13 @@ export class PaymentsApiService {
     return this.http.post<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}/cancel`, {});
   }
 
-  remove(shopId: string, id: string) {
-    return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/payments/${id}`);
+  remove(
+    shopId: string,
+    id: string,
+    body?: { notifyAdmins?: boolean; notifyUserIds?: string[] },
+  ) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/payments/${id}`, {
+      body: body ?? {},
+    });
   }
 }

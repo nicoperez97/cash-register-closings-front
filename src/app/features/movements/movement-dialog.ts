@@ -10,6 +10,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { AuthService } from '../../core/auth/auth.service';
+import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
 import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
@@ -82,6 +84,7 @@ function toDateString(value: Date | null): string {
     MatCheckboxModule,
     BusyLabelComponent,
     SelectSearchComponent,
+    NotifyRecipientsFieldComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -248,6 +251,17 @@ function toDateString(value: Date | null): string {
               <small>Aviso en la app y por mail</small>
             </span>
           </label>
+        }
+
+        @if (isEdit && !isTransfer) {
+          <app-notify-recipients-field
+            [shopId]="data.shopId"
+            [excludeUserId]="actorId"
+            enabledLabel="Avisar de este cambio"
+            hint="Elegí a quién. Todos los admins marca a los administradores del local."
+            [(enabled)]="notifyEnabled"
+            [(selectedIds)]="notifyIds"
+          />
         }
 
         <div class="mov-more">
@@ -561,6 +575,11 @@ export class MovementDialogComponent {
   private readonly api = inject(MovementsApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
+  private readonly auth = inject(AuthService);
+
+  readonly actorId = this.auth.currentUser()?.id ?? null;
+  readonly notifyEnabled = signal(false);
+  readonly notifyIds = signal<string[]>([]);
 
   readonly isEdit = this.data.mode === 'edit';
   readonly isTransfer = (this.data.kind ?? 'expense') === 'transfer';
@@ -720,7 +739,11 @@ export class MovementDialogComponent {
       }
     }
     const kind = this.isTransfer ? 'transfer' : 'expense';
-    const body: Partial<Movement> & { notifyAdmins?: boolean; kind?: 'expense' | 'transfer' } = {
+    const body: Partial<Movement> & {
+      notifyAdmins?: boolean;
+      notifyUserIds?: string[];
+      kind?: 'expense' | 'transfer';
+    } = {
       businessDate: toDateString(raw.businessDate),
       fromAccountId,
       toAccountId,
@@ -737,6 +760,9 @@ export class MovementDialogComponent {
       kind,
     };
     if (!this.isEdit) body.notifyAdmins = !!raw.notifyAdmins;
+    if (this.isEdit && !this.isTransfer && this.notifyEnabled() && this.notifyIds().length) {
+      body.notifyUserIds = this.notifyIds();
+    }
     this.busy.set(true);
 
     const req =

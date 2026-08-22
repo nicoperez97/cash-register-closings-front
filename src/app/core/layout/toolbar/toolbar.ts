@@ -576,7 +576,7 @@ export class ToolbarComponent implements OnInit {
       void this.router.navigateByUrl('/reservations');
       return;
     }
-    if (n.type === 'MOVEMENT_CREATED') {
+    if (n.type.startsWith('MOVEMENT_')) {
       void this.router.navigateByUrl('/expenses');
       return;
     }
