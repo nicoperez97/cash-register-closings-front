@@ -59,7 +59,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Notificaciones',
         icon: 'notifications',
         tone: 'do',
-        body: 'Solo aparecen avisos que el local te habilitó. El interruptor activo significa que los recibís; si lo apagás, quedan silenciados.',
+        body: 'Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos.',
         tip: 'Si no te habilitaron un aviso, no lo ves acá.',
       },
       {
@@ -184,7 +184,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'payments',
         tone: 'do',
         anyOf: ['expenses.manage'],
-        body: 'Con Gasto rápido elegís concepto y de qué cuenta sale. A quién es una cuenta destino; si lo dejás vacío, va a Egreso.',
+        body: 'Con Gasto rápido elegís concepto y de qué cuenta sale. Siempre va a Egreso. Podés adjuntar un comprobante (foto o archivo, desde el celular o la computadora). El aviso a administradores se envía siempre.',
         tip: 'Usá Descargar plantilla, completá el Excel y después Importar Excel. Si lo importás dos veces, las filas iguales se omiten.',
       },
       {
@@ -452,7 +452,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'schedule',
         tone: 'do',
         anyOf: ['reservations.manage'],
-        body: 'En Horarios armás los turnos del formulario público por día de la semana, un texto para todos los días y otro por día. Eso se ve en Reservá tu mesa. El aviso de un día puntual se carga en Reservas.',
+        body: 'En Horarios está el mensaje de todos los días. Tocá un día para editar sus turnos y el texto. Eso se ve en Reservá tu mesa. El aviso de un día puntual se carga en Reservas.',
         tip: 'Si un día no tiene horarios, el cliente pide mesa sin elegir hora.',
       },
     ],

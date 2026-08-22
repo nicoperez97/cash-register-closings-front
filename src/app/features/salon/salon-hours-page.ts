@@ -2,6 +2,7 @@ import { Component, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -9,12 +10,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import {
   ReservationPublicForm,
   ReservationsApiService,
 } from '../reservations/reservations-api.service';
+import { SalonHoursDayDialogComponent } from './salon-hours-day-dialog';
 
 const WEEKDAYS: Array<{ day: number; label: string }> = [
   { day: 0, label: 'Domingo' },
@@ -34,6 +37,7 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
     FormsModule,
     RouterLink,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -90,49 +94,30 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
         </mat-form-field>
       </section>
 
-      @for (wd of weekdays; track wd.day) {
-        <section class="panel-card hours-day">
-          <header class="hours-day__head">
-            <h2>{{ wd.label }}</h2>
-            @if (canManage()) {
-              <button mat-stroked-button type="button" (click)="copyHoursToAll(wd.day)">
-                Copiar horarios a todos
+      <section class="panel-card hours-days">
+        <h2>Días</h2>
+        <p class="text-muted">Tocá un día para ver o editar horarios y el mensaje.</p>
+        <ul class="hours-days__list">
+          @for (wd of weekdays; track wd.day) {
+            <li>
+              <button
+                type="button"
+                class="hours-days__row"
+                (click)="openDay(wd.day)"
+              >
+                <span class="hours-days__name">{{ wd.label }}</span>
+                <span class="hours-days__meta">
+                  <span>{{ hoursLabel(wd.day) }}</span>
+                  @if (days[wd.day].message.trim()) {
+                    <span class="hours-days__note">{{ days[wd.day].message }}</span>
+                  }
+                </span>
+                <mat-icon>{{ canManage() ? 'edit' : 'chevron_right' }}</mat-icon>
               </button>
-            }
-          </header>
-          <div class="hours-chips">
-            @for (slot of days[wd.day].hours; track slot) {
-              <span class="hours-chip">
-                {{ slot }}
-                @if (canManage()) {
-                  <button type="button" (click)="removeHour(wd.day, slot)" aria-label="Quitar">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                }
-              </span>
-            } @empty {
-              <span class="text-muted">Sin horarios este día</span>
-            }
-          </div>
-          @if (canManage()) {
-            <div class="hours-add">
-              <input type="time" [(ngModel)]="days[wd.day].newTime" />
-              <button mat-stroked-button type="button" (click)="addHour(wd.day)">Agregar</button>
-            </div>
+            </li>
           }
-          <mat-form-field appearance="outline" class="hours-full">
-            <mat-label>Mensaje de {{ wd.label }}</mat-label>
-            <textarea
-              matInput
-              rows="2"
-              maxlength="400"
-              [(ngModel)]="days[wd.day].message"
-              [disabled]="!canManage()"
-              placeholder="Opcional, solo ese día de la semana"
-            ></textarea>
-          </mat-form-field>
-        </section>
-      }
+        </ul>
+      </section>
 
       @if (canManage()) {
         <div class="hours-save">
@@ -149,6 +134,8 @@ export class SalonHoursPage {
   private readonly api = inject(ReservationsApiService);
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
 
   readonly weekdays = WEEKDAYS;
@@ -206,27 +193,40 @@ export class SalonHoursPage {
     });
   }
 
-  addHour(day: number): void {
-    const raw = (this.days[day].newTime || '').trim();
-    const slot = this.normalizeTime(raw);
-    if (!slot) {
-      this.snack.open('Ingresá una hora válida', 'OK', { duration: 2200 });
-      return;
-    }
-    if (this.days[day].hours.includes(slot)) return;
-    this.days[day].hours = [...this.days[day].hours, slot].sort();
+  hoursLabel(day: number): string {
+    const hours = this.days[day].hours;
+    return hours.length ? hours.join(' · ') : 'Sin horarios';
   }
 
-  removeHour(day: number, slot: string): void {
-    this.days[day].hours = this.days[day].hours.filter((h) => h !== slot);
-  }
-
-  copyHoursToAll(fromDay: number): void {
-    const hours = [...this.days[fromDay].hours];
-    for (const wd of WEEKDAYS) {
-      this.days[wd.day].hours = [...hours];
-    }
-    this.snack.open('Horarios copiados a todos los días', 'OK', { duration: 2000 });
+  openDay(day: number): void {
+    const wd = WEEKDAYS.find((w) => w.day === day);
+    if (!wd) return;
+    const draft = this.days[day];
+    const ref = this.dialog.open(SalonHoursDayDialogComponent, {
+      width: 'min(28rem, 96vw)',
+      autoFocus: 'first-tabbable',
+      data: {
+        label: wd.label,
+        hours: [...draft.hours],
+        message: draft.message,
+        canManage: this.canManage(),
+      },
+    });
+    this.dialogTitle.track(ref, wd.label);
+    ref.afterClosed().subscribe((result) => {
+      if (!result) return;
+      this.days[day] = {
+        hours: [...result.hours],
+        message: result.message,
+        newTime: this.days[day].newTime || '19:30',
+      };
+      if (result.copyHoursToAll) {
+        for (const other of WEEKDAYS) {
+          this.days[other.day].hours = [...result.hours];
+        }
+        this.snack.open('Horarios copiados a todos los días', 'OK', { duration: 2000 });
+      }
+    });
   }
 
   private applyConfig(cfg: ReservationPublicForm): void {
@@ -254,15 +254,6 @@ export class SalonHoursPage {
       generalMessage: this.generalMessage.trim(),
       weekdayMessages,
     };
-  }
-
-  private normalizeTime(raw: string): string | null {
-    const m = /^(\d{1,2}):(\d{2})$/.exec(raw);
-    if (!m) return null;
-    const h = Number(m[1]);
-    const min = Number(m[2]);
-    if (h > 23 || min > 59) return null;
-    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
   }
 
   private fail(err: { error?: { message?: string | string[] } }, fallback: string): void {
