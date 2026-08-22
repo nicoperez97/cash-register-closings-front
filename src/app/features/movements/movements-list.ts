@@ -16,6 +16,11 @@ import {
   BalancesTableComponent,
 } from '../../shared/components/balances-table';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
+import {
+  NotifyConfirmDialogComponent,
+  NotifyConfirmDialogResult,
+} from '../../shared/components/notify-confirm-dialog';
+import { firstValueFrom } from 'rxjs';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -793,14 +798,38 @@ export class MovementsListPage {
       return;
     }
     const noun = this.kind() === 'transfer' ? 'transferencia' : 'gasto';
-    const ok = await this.confirmDialog.confirm(
-      `Eliminar ${noun}`,
-      `¿Eliminar el ${noun} del ${row.businessDate}?`,
-    );
-    if (!ok) return;
     const shopId = this.shopId();
     if (!shopId) return;
-    this.api.remove(shopId, row.id).subscribe({
+    let notifyUserIds: string[] = [];
+    if (this.kind() === 'expense') {
+      const result = await firstValueFrom(
+        this.dialogTitle
+          .track(
+            this.dialog.open(NotifyConfirmDialogComponent, {
+              width: '480px',
+              maxWidth: '96vw',
+              panelClass: 'guy-dialog',
+              data: {
+                title: `Eliminar ${noun}`,
+                message: `¿Eliminar el ${noun} del ${row.businessDate}?`,
+                shopId,
+                excludeUserId: this.auth.currentUser()?.id ?? null,
+              },
+            }),
+            `Eliminar ${noun}`,
+          )
+          .afterClosed(),
+      );
+      if (!result || result === false) return;
+      notifyUserIds = (result as NotifyConfirmDialogResult).notifyUserIds ?? [];
+    } else {
+      const ok = await this.confirmDialog.confirm(
+        `Eliminar ${noun}`,
+        `¿Eliminar el ${noun} del ${row.businessDate}?`,
+      );
+      if (!ok) return;
+    }
+    this.api.remove(shopId, row.id, notifyUserIds.length ? { notifyUserIds } : undefined).subscribe({
       next: () => {
         this.snack.open(
           this.kind() === 'transfer' ? 'Transferencia eliminada' : 'Gasto eliminado',

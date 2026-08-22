@@ -10,6 +10,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
+import {
+  NotifyConfirmDialogComponent,
+  NotifyConfirmDialogResult,
+} from '../../shared/components/notify-confirm-dialog';
+import { firstValueFrom } from 'rxjs';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { paymentDeepLink, paymentSharePayload } from '../../shared/components/record-share-builders';
 import { copyText, shareText } from '../../shared/utils/share-text';
@@ -642,11 +647,29 @@ export class PaymentCardComponent {
   }
 
   async remove(p: ShopPayment): Promise<void> {
-    const ok = await this.confirm.confirm('Eliminar pago', `¿Eliminar "${p.title}"?`);
-    if (!ok) return;
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
-    this.api.remove(shopId, p.id).subscribe({
+    const result = await firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(NotifyConfirmDialogComponent, {
+            width: '480px',
+            maxWidth: '96vw',
+            panelClass: 'guy-dialog',
+            data: {
+              title: 'Eliminar pago',
+              message: `¿Eliminar "${p.title}"?`,
+              shopId,
+              excludeUserId: this.auth.currentUser()?.id ?? null,
+            },
+          }),
+          'Eliminar pago',
+        )
+        .afterClosed(),
+    );
+    if (!result || result === false) return;
+    const notifyUserIds = (result as NotifyConfirmDialogResult).notifyUserIds ?? [];
+    this.api.remove(shopId, p.id, notifyUserIds.length ? { notifyUserIds } : undefined).subscribe({
       next: () => {
         this.snack.open('Pago eliminado', 'OK', { duration: 2500 });
         this.changed.emit();

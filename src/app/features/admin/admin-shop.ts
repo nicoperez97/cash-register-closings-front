@@ -68,6 +68,10 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'SHORTAGE_RESOLVED', label: 'Faltantes · resuelto' },
   { value: 'RESERVATION_REQUEST', label: 'Reservas · solicitud nueva' },
   { value: 'MOVEMENT_CREATED', label: 'Movimientos y gastos rápidos' },
+  { value: 'MOVEMENT_UPDATED', label: 'Gastos · editados' },
+  { value: 'MOVEMENT_DELETED', label: 'Gastos · eliminados' },
+  { value: 'PAYMENT_UPDATED', label: 'Pagos · editados' },
+  { value: 'PAYMENT_DELETED', label: 'Pagos · eliminados' },
   { value: 'REIMBURSEMENT_CREATED', label: 'Reintegros · gasto de productor' },
 ] as const;
 

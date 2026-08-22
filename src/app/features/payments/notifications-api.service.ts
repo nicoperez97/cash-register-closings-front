@@ -19,6 +19,10 @@ export type NotificationType =
   | 'SHORTAGE_RESOLVED'
   | 'RESERVATION_REQUEST'
   | 'MOVEMENT_CREATED'
+  | 'MOVEMENT_UPDATED'
+  | 'MOVEMENT_DELETED'
+  | 'PAYMENT_UPDATED'
+  | 'PAYMENT_DELETED'
   | 'REIMBURSEMENT_CREATED';
 
 export interface AppNotification {
@@ -47,6 +51,10 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'cancel';
     case 'PAYMENT_PAID':
       return 'check_circle';
+    case 'PAYMENT_UPDATED':
+      return 'edit';
+    case 'PAYMENT_DELETED':
+      return 'delete';
     case 'CLOSING_CREATED':
       return 'point_of_sale';
     case 'CASH_WITHDRAWAL_PICKED':
@@ -68,6 +76,10 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'table_restaurant';
     case 'MOVEMENT_CREATED':
       return 'swap_horiz';
+    case 'MOVEMENT_UPDATED':
+      return 'edit';
+    case 'MOVEMENT_DELETED':
+      return 'delete';
     case 'REIMBURSEMENT_CREATED':
       return 'receipt_long';
     default:
@@ -86,6 +98,10 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--red';
     case 'PAYMENT_PAID':
       return 'notif-tone--green';
+    case 'PAYMENT_UPDATED':
+      return 'notif-tone--blue';
+    case 'PAYMENT_DELETED':
+      return 'notif-tone--red';
     case 'CLOSING_CREATED':
       return 'notif-tone--navy';
     case 'CASH_WITHDRAWAL_PICKED':
@@ -107,6 +123,10 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--amber';
     case 'MOVEMENT_CREATED':
       return 'notif-tone--navy';
+    case 'MOVEMENT_UPDATED':
+      return 'notif-tone--navy';
+    case 'MOVEMENT_DELETED':
+      return 'notif-tone--red';
     case 'REIMBURSEMENT_CREATED':
       return 'notif-tone--amber';
     default:
