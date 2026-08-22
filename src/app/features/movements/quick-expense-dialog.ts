@@ -34,6 +34,7 @@ export type QuickExpenseDialogData = {
   shopName: string;
   accounts: LedgerAccount[];
   concepts: Concept[];
+  kind?: 'expense' | 'income';
 };
 
 function todayIso(timezone?: string | null): string {
@@ -64,7 +65,15 @@ function todayIso(timezone?: string | null): string {
         <mat-icon>{{ saved() ? 'check_circle' : 'payments' }}</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>{{ saved() ? 'Gasto registrado' : 'Gasto rápido' }}</strong>
+        <strong>{{
+          saved()
+            ? isIncome
+              ? 'Ingreso registrado'
+              : 'Gasto registrado'
+            : isIncome
+              ? 'Ingreso rápido'
+              : 'Gasto rápido'
+        }}</strong>
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
@@ -122,6 +131,7 @@ function todayIso(timezone?: string | null): string {
             }
           </mat-form-field>
 
+          @if (!isIncome) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Forma de pago</mat-label>
             <mat-icon matPrefix>payments</mat-icon>
@@ -137,9 +147,10 @@ function todayIso(timezone?: string | null): string {
               <mat-error>Elegí efectivo, transferencia o tarjeta</mat-error>
             }
           </mat-form-field>
+          }
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Sale de</mat-label>
+            <mat-label>{{ isIncome ? 'Entra a' : 'Sale de' }}</mat-label>
             <mat-icon matPrefix>account_balance_wallet</mat-icon>
             <mat-select
               formControlName="fromAccountId"
@@ -160,7 +171,7 @@ function todayIso(timezone?: string | null): string {
               form.controls.fromAccountId.touched &&
               form.controls.fromAccountId.hasError('required')
             ) {
-              <mat-error>Elegí de qué cuenta sale</mat-error>
+              <mat-error>{{ isIncome ? 'Elegí a qué cuenta entra' : 'Elegí de qué cuenta sale' }}</mat-error>
             }
           </mat-form-field>
 
@@ -170,6 +181,7 @@ function todayIso(timezone?: string | null): string {
             <input matInput formControlName="description" autocomplete="off" />
           </mat-form-field>
 
+          @if (!isIncome) {
           <div class="quick-exp__receipt">
             <span class="quick-exp__receipt-label">{{
               receiptRequired() ? 'Comprobante' : 'Comprobante (opcional)'
@@ -208,6 +220,7 @@ function todayIso(timezone?: string | null): string {
               </p>
             }
           </div>
+          }
         </form>
       </mat-dialog-content>
 
@@ -219,12 +232,12 @@ function todayIso(timezone?: string | null): string {
           mat-flat-button
           color="primary"
           type="button"
-          [disabled]="form.invalid || busy() || !egresoAccountId() || missingReceipt()"
+          [disabled]="form.invalid || busy() || !(isIncome ? ingresoAccountId() : egresoAccountId()) || missingReceipt()"
           (click)="save()"
         >
           <app-busy-label [busy]="busy()" busyLabel="Guardando…">
             <mat-icon>check</mat-icon>
-            Registrar gasto
+            {{ isIncome ? 'Registrar ingreso' : 'Registrar gasto' }}
           </app-busy-label>
         </button>
       </mat-dialog-actions>
@@ -326,6 +339,7 @@ export class QuickExpenseDialogComponent {
   readonly sharing = signal(false);
   readonly saved = signal<Movement | null>(null);
   readonly receiptFile = signal<File | null>(null);
+  readonly isIncome = (this.data.kind ?? 'expense') === 'income';
 
   readonly egresoAccountId = computed(() => {
     const hit = this.data.accounts.find(
@@ -337,8 +351,22 @@ export class QuickExpenseDialogComponent {
     return hit?.id ?? null;
   });
 
+  readonly ingresoAccountId = computed(() => {
+    const hit = this.data.accounts.find(
+      (a) =>
+        a.active !== false &&
+        (a.code?.toUpperCase() === 'INGRESO' ||
+          a.name.toLowerCase().includes('ingreso')),
+    );
+    return hit?.id ?? null;
+  });
+
   readonly expenseConcepts = computed(() =>
-    this.data.concepts.filter((c) => c.active !== false && c.kind === 'EXPENSE'),
+    this.data.concepts.filter(
+      (c) =>
+        c.active !== false &&
+        c.kind === (this.isIncome ? 'INCOME' : 'EXPENSE'),
+    ),
   );
 
   readonly conceptQuery = signal('');
@@ -356,6 +384,7 @@ export class QuickExpenseDialogComponent {
       (a) =>
         a.active !== false &&
         a.id !== this.egresoAccountId() &&
+        a.id !== this.ingresoAccountId() &&
         (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
     ),
   );
@@ -395,13 +424,17 @@ export class QuickExpenseDialogComponent {
   readonly form = this.fb.nonNullable.group({
     amountUyu: [null as number | null, [Validators.required, Validators.min(0.01)]],
     conceptId: ['', Validators.required],
-    paymentMethod: ['' as ExpensePaymentMethod | '', Validators.required],
+    paymentMethod: [
+      '' as ExpensePaymentMethod | '',
+      this.isIncome ? [] : [Validators.required],
+    ],
     fromAccountId: ['', Validators.required],
     toAccountId: [''],
     description: [''],
   });
 
   receiptRequired(): boolean {
+    if (this.isIncome) return false;
     return expenseReceiptRequired(this.form.controls.paymentMethod.value);
   }
 
@@ -434,10 +467,17 @@ export class QuickExpenseDialogComponent {
   }
 
   save(): void {
-    if (this.form.invalid || !this.egresoAccountId()) {
+    const systemId = this.isIncome ? this.ingresoAccountId() : this.egresoAccountId();
+    if (this.form.invalid || !systemId) {
       this.form.markAllAsTouched();
-      if (!this.egresoAccountId()) {
-        this.snack.open('No hay cuenta de Egreso configurada', 'OK', { duration: 3500 });
+      if (!systemId) {
+        this.snack.open(
+          this.isIncome
+            ? 'No hay cuenta de Ingreso configurada'
+            : 'No hay cuenta de Egreso configurada',
+          'OK',
+          { duration: 3500 },
+        );
       }
       return;
     }
@@ -454,16 +494,18 @@ export class QuickExpenseDialogComponent {
     this.api
       .create(this.data.shopId, {
         businessDate: todayIso(tz),
-        fromAccountId: raw.fromAccountId,
-        toAccountId: this.egresoAccountId()!,
+        fromAccountId: this.isIncome ? systemId : raw.fromAccountId,
+        toAccountId: this.isIncome ? raw.fromAccountId : systemId,
         conceptId: raw.conceptId,
         employeeId: null,
         description: raw.description.trim() || null,
         amountUyu: Number(raw.amountUyu),
         invoiced: false,
         notifyAdmins: true,
-        kind: 'expense',
-        paymentMethod: raw.paymentMethod as ExpensePaymentMethod,
+        kind: this.isIncome ? 'income' : 'expense',
+        paymentMethod: this.isIncome
+          ? null
+          : (raw.paymentMethod as ExpensePaymentMethod),
       })
       .subscribe({
         next: (saved) => {

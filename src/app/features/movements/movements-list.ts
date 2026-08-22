@@ -33,6 +33,7 @@ import {
   LedgerAccount,
   Movement,
   MovementFilters,
+  MovementKind,
   MovementsApiService,
   expensePaymentMethodLabel,
 } from './movements-api.service';
@@ -80,7 +81,7 @@ import { shareText } from '../../shared/utils/share-text';
       [subtitle]="shops.selectedShop()?.name ?? 'Sin local'"
       [actionLabel]="canManage() ? actionLabel() : ''"
       [actionDisabled]="!canManage()"
-      [actionIcon]="kind() === 'transfer' ? 'swap_horiz' : 'payments'"
+      [actionIcon]="kind() === 'transfer' ? 'swap_horiz' : kind() === 'income' ? 'south_west' : 'payments'"
       [actionLarge]="true"
       (action)="onPrimaryAction()"
     />
@@ -121,7 +122,9 @@ import { shareText } from '../../shared/utils/share-text';
               {{
                 kind() === 'transfer'
                   ? 'Buscá por período y texto'
-                  : 'Buscá por período, origen, tipo, concepto y texto'
+                  : kind() === 'income'
+                    ? 'Buscá por período, concepto y texto'
+                    : 'Buscá por período, origen, tipo, concepto y texto'
               }}
             </p>
           </div>
@@ -149,6 +152,18 @@ import { shareText } from '../../shared/utils/share-text';
               <mat-date-range-picker #picker />
             </mat-form-field>
 
+            @if (kind() === 'expense' || kind() === 'income') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Concepto</mat-label>
+                <mat-select formControlName="conceptId">
+                  <mat-option value="">Todos</mat-option>
+                  @for (c of concepts(); track c.id) {
+                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
             @if (kind() === 'expense') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Origen</mat-label>
@@ -167,16 +182,6 @@ import { shareText } from '../../shared/utils/share-text';
                   <mat-option value="supplier">A proveedores</mat-option>
                   <mat-option value="service">A servicios</mat-option>
                   <mat-option value="employee">A empleados</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Concepto</mat-label>
-                <mat-select formControlName="conceptId">
-                  <mat-option value="">Todos</mat-option>
-                  @for (c of concepts(); track c.id) {
-                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
-                  }
                 </mat-select>
               </mat-form-field>
 
@@ -269,8 +274,8 @@ import { shareText } from '../../shared/utils/share-text';
   `,
 })
 export class MovementsListPage {
-  /** `expense` = Gastos · `transfer` = Movimientos entre cuentas */
-  readonly kind = input<'expense' | 'transfer'>('expense');
+  /** `expense` = Gastos · `income` = Ingresos · `transfer` = Movimientos entre cuentas */
+  readonly kind = input<MovementKind>('expense');
 
   private readonly api = inject(MovementsApiService);
   private readonly employeesApi = inject(EmployeesApiService);
@@ -302,12 +307,16 @@ export class MovementsListPage {
   readonly exporting = signal(false);
   readonly templateBusy = signal(false);
 
-  readonly pageTitle = computed(() =>
-    this.kind() === 'transfer' ? 'Movimientos entre cuentas' : 'Gastos',
-  );
-  readonly actionLabel = computed(() =>
-    this.kind() === 'transfer' ? 'Nueva transferencia' : 'Gasto rápido',
-  );
+  readonly pageTitle = computed(() => {
+    if (this.kind() === 'transfer') return 'Movimientos entre cuentas';
+    if (this.kind() === 'income') return 'Ingresos';
+    return 'Gastos';
+  });
+  readonly actionLabel = computed(() => {
+    if (this.kind() === 'transfer') return 'Nueva transferencia';
+    if (this.kind() === 'income') return 'Ingreso rápido';
+    return 'Gasto rápido';
+  });
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(
@@ -338,19 +347,19 @@ export class MovementsListPage {
         format: (r) => String(r['toAccountName'] || r['toUserName'] || '—'),
       },
     ];
+    if (this.kind() === 'expense' || this.kind() === 'income') {
+      base.push({
+        key: 'conceptName',
+        label: 'Concepto',
+        format: (r) => r['conceptName'] ?? '—',
+      });
+    }
     if (this.kind() === 'expense') {
-      base.push(
-        {
-          key: 'conceptName',
-          label: 'Concepto',
-          format: (r) => r['conceptName'] ?? '—',
-        },
-        {
-          key: 'paymentMethod',
-          label: 'Forma de pago',
-          format: (r) => expensePaymentMethodLabel(r['paymentMethod'] as string | null),
-        },
-      );
+      base.push({
+        key: 'paymentMethod',
+        label: 'Forma de pago',
+        format: (r) => expensePaymentMethodLabel(r['paymentMethod'] as string | null),
+      });
     }
     base.push(
       { key: 'description', label: 'Descripción' },
@@ -444,8 +453,8 @@ export class MovementsListPage {
         next: (rows) => this.accounts.set(rows),
         error: () => this.accounts.set([]),
       });
-      if (this.kind() === 'expense') {
-        this.api.concepts(shopId, { kind: 'EXPENSE' }).subscribe({
+      if (this.kind() === 'expense' || this.kind() === 'income') {
+        this.api.concepts(shopId, { kind: this.kind() === 'income' ? 'INCOME' : 'EXPENSE' }).subscribe({
           next: (rows) => this.concepts.set(rows),
           error: () => this.concepts.set([]),
         });
@@ -534,7 +543,12 @@ export class MovementsListPage {
   }
 
   canManage(): boolean {
-    const perm = this.kind() === 'transfer' ? 'accountTransfers.manage' : 'expenses.manage';
+    const perm =
+      this.kind() === 'transfer'
+        ? 'accountTransfers.manage'
+        : this.kind() === 'income'
+          ? 'incomes.manage'
+          : 'expenses.manage';
     return hasShopPermission(this.auth.currentUser(), this.shopId(), perm);
   }
 
@@ -548,7 +562,7 @@ export class MovementsListPage {
 
   openQuickExpense(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage() || this.kind() !== 'expense') return;
+    if (!shopId || !this.canManage() || this.kind() === 'transfer') return;
     this.dialogTitle
       .track(
         this.dialog.open(QuickExpenseDialogComponent, {
@@ -560,9 +574,10 @@ export class MovementsListPage {
             shopName: this.shops.selectedShop()?.name ?? 'Local',
             accounts: this.accounts(),
             concepts: this.concepts(),
+            kind: this.kind() === 'income' ? 'income' : 'expense',
           },
         }),
-        'Gasto rápido',
+        this.kind() === 'income' ? 'Ingreso rápido' : 'Gasto rápido',
       )
       .afterClosed()
       .subscribe((saved) => {
@@ -578,7 +593,7 @@ export class MovementsListPage {
       await downloadColumnsPdf({
         title: this.pageTitle(),
         subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''}`,
-        filename: `${this.kind() === 'transfer' ? 'transferencias' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
+        filename: `${this.kind() === 'transfer' ? 'transferencias' : this.kind() === 'income' ? 'ingresos' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
         columns: this.columns(),
         rows: this.rows(),
       });
@@ -600,7 +615,7 @@ export class MovementsListPage {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${this.kind() === 'transfer' ? 'transferencias' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
+        a.download = `${this.kind() === 'transfer' ? 'transferencias' : this.kind() === 'income' ? 'ingresos' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -645,10 +660,11 @@ export class MovementsListPage {
   private currentFilters(): MovementFilters {
     const f = this.filters.getRawValue();
     const expense = this.kind() === 'expense';
+    const withConcept = expense || this.kind() === 'income';
     return {
       from: this.formatDate(this.range.controls.start.value),
       to: this.formatDate(this.range.controls.end.value),
-      conceptId: expense ? f.conceptId || null : null,
+      conceptId: withConcept ? f.conceptId || null : null,
       source: expense
         ? ((f.source || null) as MovementFilters['source'])
         : null,
@@ -693,7 +709,9 @@ export class MovementsListPage {
         this.snack.open(
           this.kind() === 'transfer'
             ? 'No se pudieron cargar las transferencias'
-            : 'No se pudieron cargar los gastos',
+            : this.kind() === 'income'
+              ? 'No se pudieron cargar los ingresos'
+              : 'No se pudieron cargar los gastos',
           'OK',
           { duration: 3000 },
         );
@@ -727,16 +745,21 @@ export class MovementsListPage {
     this.dialogTitle
       .track(
         this.dialog.open(MovementsExcelImportDialogComponent, {
-          width: '860px',
-          maxWidth: '96vw',
-          panelClass: 'guy-dialog',
+          width: '960px',
+          maxWidth: '100vw',
+          maxHeight: '100dvh',
+          panelClass: ['guy-dialog', 'xl-import-dialog'],
           data: {
             shopId,
             shopName: this.shops.selectedShop()?.name ?? 'Local',
             kind,
           },
         }),
-        kind === 'transfer' ? 'Importar transferencias' : 'Importar gastos',
+        kind === 'transfer'
+          ? 'Importar transferencias'
+          : kind === 'income'
+            ? 'Importar ingresos'
+            : 'Importar gastos',
       )
       .afterClosed()
       .subscribe((ok) => {
@@ -756,7 +779,11 @@ export class MovementsListPage {
         const a = document.createElement('a');
         a.href = url;
         a.download =
-          kind === 'transfer' ? 'plantilla-transferencias.xlsx' : 'plantilla-gastos.xlsx';
+          kind === 'transfer'
+            ? 'plantilla-libro-diario.xlsx'
+            : kind === 'income'
+              ? 'plantilla-libro-diario.xlsx'
+              : 'plantilla-libro-diario.xlsx';
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -805,7 +832,8 @@ export class MovementsListPage {
       );
       return;
     }
-    const noun = this.kind() === 'transfer' ? 'transferencia' : 'gasto';
+    const noun =
+      this.kind() === 'transfer' ? 'transferencia' : this.kind() === 'income' ? 'ingreso' : 'gasto';
     const shopId = this.shopId();
     if (!shopId) return;
     let notifyUserIds: string[] = [];
@@ -840,7 +868,11 @@ export class MovementsListPage {
     this.api.remove(shopId, row.id, notifyUserIds.length ? { notifyUserIds } : undefined).subscribe({
       next: () => {
         this.snack.open(
-          this.kind() === 'transfer' ? 'Transferencia eliminada' : 'Gasto eliminado',
+          this.kind() === 'transfer'
+            ? 'Transferencia eliminada'
+            : this.kind() === 'income'
+              ? 'Ingreso eliminado'
+              : 'Gasto eliminado',
           'OK',
           { duration: 2500 },
         );
@@ -945,7 +977,11 @@ export class MovementsListPage {
         panelClass: 'guy-dialog',
         data: movementSavedDialogData(movement, shopName),
       }),
-      this.kind() === 'transfer' ? 'Transferencia guardada' : 'Gasto guardado',
+      this.kind() === 'transfer'
+        ? 'Transferencia guardada'
+        : this.kind() === 'income'
+          ? 'Ingreso guardado'
+          : 'Gasto guardado',
     );
   }
 

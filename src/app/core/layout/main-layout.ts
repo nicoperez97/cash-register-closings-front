@@ -140,6 +140,9 @@ export class MainLayoutComponent {
       if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
         stockChildren.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
       }
+      if (shopId && hasShopPermission(user, shopId, 'orders.read')) {
+        stockChildren.push({ label: 'Pedidos', route: '/orders', icon: 'local_shipping' });
+      }
       if (stockChildren.length) {
         items.push({
           label: 'Stock',
@@ -210,6 +213,9 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'expenses.read')) {
       cuentas.push({ label: 'Gastos', route: '/expenses', icon: 'payments' });
     }
+    if (shopId && hasShopPermission(user, shopId, 'incomes.read')) {
+      cuentas.push({ label: 'Ingresos', route: '/incomes', icon: 'south_west' });
+    }
     if (shopId && hasShopPermission(user, shopId, 'accountTransfers.read')) {
       cuentas.push({
         label: 'Movimientos entre cuentas',
@@ -266,6 +272,9 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
       stockChildren.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+    }
+    if (shopId && hasShopPermission(user, shopId, 'orders.read')) {
+      stockChildren.push({ label: 'Pedidos', route: '/orders', icon: 'local_shipping' });
     }
     if (stockChildren.length) {
       items.push({
@@ -498,7 +507,8 @@ export class MainLayoutComponent {
           (path === '/beverage-stock' &&
             hasShopPermission(user, shopId, 'beverageStock.read')) ||
           (path.startsWith('/shortages') &&
-            hasShopPermission(user, shopId, 'shortages.read'));
+            hasShopPermission(user, shopId, 'shortages.read')) ||
+          (path.startsWith('/orders') && hasShopPermission(user, shopId, 'orders.read'));
         if (!allowed) {
           void this.router.navigateByUrl(home);
         }
@@ -606,6 +616,9 @@ export class MainLayoutComponent {
     if (path.startsWith('/expenses') || path.startsWith('/movements')) {
       return hasShopPermission(user, shopId, 'expenses.read');
     }
+    if (path.startsWith('/incomes')) {
+      return hasShopPermission(user, shopId, 'incomes.read');
+    }
     if (path.startsWith('/account-transfers')) {
       return hasShopPermission(user, shopId, 'accountTransfers.read');
     }
@@ -650,6 +663,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/shortages')) {
       return hasShopPermission(user, shopId, 'shortages.read');
+    }
+    if (path.startsWith('/orders')) {
+      return hasShopPermission(user, shopId, 'orders.read');
     }
     if (path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');

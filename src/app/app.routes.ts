@@ -283,6 +283,13 @@ export const routes: Routes = [
         title: 'Faltantes',
       },
       {
+        path: 'orders',
+        canActivate: [permissionGuard('orders.read')],
+        loadComponent: () =>
+          import('./features/orders/orders-page').then((m) => m.OrdersPage),
+        title: 'Pedidos',
+      },
+      {
         path: 'admin/shops',
         canActivate: [superAdminGuard],
         loadComponent: () =>
@@ -379,6 +386,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/movements/expenses-list').then((m) => m.ExpensesListPage),
         title: 'Gastos',
+      },
+      {
+        path: 'incomes',
+        canActivate: [permissionGuard('incomes.read')],
+        loadComponent: () =>
+          import('./features/movements/incomes-list').then((m) => m.IncomesListPage),
+        title: 'Ingresos',
       },
       {
         path: 'account-transfers',

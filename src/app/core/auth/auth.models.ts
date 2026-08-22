@@ -33,6 +33,8 @@ export type Permission =
   | 'expenses.read'
   | 'accountTransfers.manage'
   | 'accountTransfers.read'
+  | 'incomes.manage'
+  | 'incomes.read'
   | 'accounts.manage'
   | 'concepts.manage'
   | 'reservations.read'
@@ -51,6 +53,8 @@ export type Permission =
   | 'beverageStock.manage'
   | 'shortages.read'
   | 'shortages.manage'
+  | 'orders.read'
+  | 'orders.manage'
   | 'tips.read'
   | 'tips.create'
   | 'tips.manage'
@@ -90,6 +94,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'expenses.read',
   'accountTransfers.manage',
   'accountTransfers.read',
+  'incomes.manage',
+  'incomes.read',
   'accounts.manage',
   'concepts.manage',
   'reservations.read',
@@ -108,6 +114,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'beverageStock.manage',
   'shortages.read',
   'shortages.manage',
+  'orders.read',
+  'orders.manage',
   'tips.read',
   'tips.create',
   'tips.manage',
@@ -152,6 +160,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'expenses.read',
     'accountTransfers.manage',
     'accountTransfers.read',
+    'incomes.manage',
+    'incomes.read',
     'accounts.manage',
     'concepts.manage',
     'reservations.read',
@@ -170,6 +180,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'beverageStock.manage',
     'shortages.read',
     'shortages.manage',
+    'orders.read',
+    'orders.manage',
     'tips.read',
     'tips.create',
     'tips.manage',
@@ -192,6 +204,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'movements.read',
     'expenses.read',
     'accountTransfers.read',
+    'incomes.read',
     'reservations.read',
     'payments.read',
     'suppliers.read',
@@ -199,6 +212,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'stock.read',
     'beverageStock.read',
     'shortages.read',
+    'orders.read',
     'tips.read',
     'reimbursements.read',
   ],
@@ -211,6 +225,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'movements.read',
     'expenses.read',
     'accountTransfers.read',
+    'incomes.read',
     'payments.read',
     'suppliers.read',
     'services.read',
@@ -224,6 +239,7 @@ export type ModuleKey =
   | 'reports'
   | 'expenses'
   | 'accountTransfers'
+  | 'incomes'
   | 'attendance'
   | 'employees'
   | 'candidates'
@@ -239,6 +255,7 @@ export type ModuleKey =
   | 'stock'
   | 'beverageStock'
   | 'shortages'
+  | 'orders'
   | 'tips'
   | 'reimbursements'
   | 'serviceRules'
@@ -313,6 +330,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     icon: 'swap_horiz',
     group: 'daily',
     hint: 'Transferencias entre cuentas del local',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'incomes',
+    label: 'Ingresos',
+    icon: 'south_west',
+    group: 'daily',
+    hint: 'Entradas de plata al local (listado e importación)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -511,6 +540,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'orders',
+    label: 'Pedidos',
+    icon: 'local_shipping',
+    group: 'daily',
+    hint: 'Pedidos de alimentos, bebidas o faltantes, con factura',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'tips',
     label: 'Propinas',
     icon: 'volunteer_activism',
@@ -595,9 +636,9 @@ export const MODULE_PRESETS: Array<{
   {
     id: 'movements-only',
     label: 'Caja chica',
-    description: 'Gastos y movimientos entre cuentas',
+    description: 'Gastos, ingresos y movimientos entre cuentas',
     icon: 'swap_horiz',
-    modules: { expenses: 'manage', accountTransfers: 'manage' },
+    modules: { expenses: 'manage', accountTransfers: 'manage', incomes: 'manage' },
   },
   {
     id: 'attendance-only',
@@ -644,6 +685,7 @@ export const MODULE_PRESETS: Array<{
       reports: 'export',
       expenses: 'read',
       accountTransfers: 'read',
+      incomes: 'read',
       attendance: 'read',
       employees: 'read',
       candidates: 'read',
@@ -685,6 +727,14 @@ export function migrateModuleLevels(
     ) {
       out.accountTransfers = legacy;
     }
+  }
+  if (out.expenses && out.expenses !== 'none' && (!out.incomes || out.incomes === 'none')) {
+    out.incomes = out.expenses;
+  }
+  if (!out.orders || out.orders === 'none') {
+    const fromStock = [out.stock, out.beverageStock, out.shortages];
+    if (fromStock.includes('manage')) out.orders = 'manage';
+    else if (fromStock.includes('read')) out.orders = 'read';
   }
   return out;
 }
@@ -955,6 +1005,8 @@ export function isProducerOnly(user: AuthUser | null, shopId: string | null): bo
     'beverageStock.manage',
     'shortages.read',
     'shortages.manage',
+    'orders.read',
+    'orders.manage',
     'reimbursements.self',
   ]);
   const extra = perms.filter(

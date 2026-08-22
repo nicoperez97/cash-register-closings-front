@@ -82,12 +82,26 @@ export interface Concept {
   active: boolean;
 }
 
+export type MovementKind = 'expense' | 'income' | 'transfer';
+
+export type AccountImportMapping = {
+  excelName: string;
+  accountId?: string | null;
+  create?: boolean;
+};
+
+export type ConceptImportMapping = {
+  excelName: string;
+  conceptId?: string | null;
+  create?: boolean;
+};
+
 export interface MovementFilters {
   from?: string | null;
   to?: string | null;
   conceptId?: string | null;
   q?: string | null;
-  kind?: 'expense' | 'transfer' | null;
+  kind?: MovementKind | null;
   source?: 'closing' | 'payment' | 'manual' | null;
   partyType?: 'supplier' | 'service' | 'employee' | null;
   invoiced?: 'true' | 'false' | null;
@@ -125,7 +139,7 @@ export class MovementsApiService {
 
   create(
     shopId: string,
-    body: Partial<Movement> & { notifyAdmins?: boolean; kind?: 'expense' | 'transfer' },
+    body: Partial<Movement> & { notifyAdmins?: boolean; kind?: MovementKind },
   ) {
     return this.http.post<Movement>(`${this.base}/shops/${shopId}/movements`, body);
   }
@@ -134,7 +148,7 @@ export class MovementsApiService {
     shopId: string,
     id: string,
     body: Partial<Movement> & {
-      kind?: 'expense' | 'transfer';
+      kind?: MovementKind;
       notifyAdmins?: boolean;
       notifyUserIds?: string[];
     },
@@ -199,7 +213,7 @@ export class MovementsApiService {
     });
   }
 
-  downloadImportTemplate(shopId: string, kind?: 'expense' | 'transfer') {
+  downloadImportTemplate(shopId: string, kind?: MovementKind) {
     let params = new HttpParams();
     if (kind) params = params.set('kind', kind);
     return this.http.get(`${this.base}/shops/${shopId}/movements/import-template.xlsx`, {
@@ -215,7 +229,7 @@ export class MovementsApiService {
     });
   }
 
-  previewExcelImport(shopId: string, file: File, kind?: 'expense' | 'transfer') {
+  previewExcelImport(shopId: string, file: File, kind?: MovementKind) {
     const body = new FormData();
     body.append('file', file);
     let params = new HttpParams();
@@ -227,11 +241,21 @@ export class MovementsApiService {
     );
   }
 
-  commitExcelImport(shopId: string, file: File, kind?: 'expense' | 'transfer') {
+  commitExcelImport(
+    shopId: string,
+    file: File,
+    kind?: MovementKind,
+    modules?: MovementKind[],
+    accountMap?: AccountImportMapping[],
+    conceptMap?: ConceptImportMapping[],
+  ) {
     const body = new FormData();
     body.append('file', file);
+    if (accountMap?.length) body.append('accountMap', JSON.stringify(accountMap));
+    if (conceptMap?.length) body.append('conceptMap', JSON.stringify(conceptMap));
     let params = new HttpParams().set('commit', 'true');
     if (kind) params = params.set('kind', kind);
+    if (modules?.length) params = params.set('modules', modules.join(','));
     return this.http.post<MovementImportResult>(
       `${this.base}/shops/${shopId}/movements/import-excel`,
       body,
@@ -277,6 +301,7 @@ export interface MovementImportItem {
   alreadyExists: boolean;
   valid: boolean;
   error?: string;
+  detectedKind?: MovementKind;
 }
 
 export interface MovementImportResult {
