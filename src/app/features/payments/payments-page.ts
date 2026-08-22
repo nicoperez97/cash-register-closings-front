@@ -23,7 +23,7 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
+import { canEditShopPayments, hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { environment } from '../../../environments/environment';
@@ -229,6 +229,7 @@ import {
             [payBusy]="actionBusyId() === p.id"
             [kind]="kind()"
             [canManage]="canManage()"
+            [canEdit]="canEditPayment()"
             (click)="onCardClick(p, $event)"
             (toggleSelected)="toggleSelected(p)"
             (changed)="reload({ preserveScroll: true })"
@@ -498,6 +499,10 @@ export class PaymentsPage {
 
   canManage(): boolean {
     return hasShopPermission(this.auth.currentUser(), this.shopId(), 'payments.manage');
+  }
+
+  canEditPayment(): boolean {
+    return canEditShopPayments(this.auth.currentUser(), this.shopId());
   }
 
   canManageSuppliers(): boolean {
@@ -928,6 +933,7 @@ export class PaymentsPage {
   }
 
   openEdit(p: ShopPayment): void {
+    if (!this.canEditPayment()) return;
     if (p.status === 'PAID') {
       this.snack.open(
         'Un pago abonado no se edita. Marcálo como no pagado (se elimina el gasto), editá y volvé a abonarlo.',

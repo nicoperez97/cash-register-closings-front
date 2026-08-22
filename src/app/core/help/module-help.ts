@@ -87,7 +87,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Cada fila es un día. Primero ves caja sistema, total declarado y la diferencia en color (si el declarado es mayor, estás a favor en verde). Después el desglose: efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros y egresos.',
         items: [
           'Entrá al cierre para ver el detalle.',
-          'En el celular la lista puede verse compacta o detallada (junto a Buscar).',
+          'En el celular la lista viene compacta. Con el botón de info de cada fila ves el detalle, o cambiá a vista detallada junto a Buscar.',
         ],
       },
       {
@@ -187,6 +187,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Con Gasto rápido elegís concepto y de qué cuenta sale. A quién es una cuenta destino; si lo dejás vacío, va a Egreso.',
         tip: 'Usá Descargar plantilla, completá el Excel y después Importar Excel. Si lo importás dos veces, las filas iguales se omiten.',
       },
+      {
+        title: 'Editar o borrar',
+        icon: 'lock',
+        tone: 'lock',
+        body: 'Editar y borrar un gasto lo puede el super admin y las personas que él habilite en Usuarios. Crear un gasto sigue con el permiso de gestionar gastos.',
+      },
     ],
   },
   {
@@ -235,7 +241,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'filter_alt',
         tone: 'read',
         anyOf: ['payments.read'],
-        body: 'Debajo: quién valida, quién paga, vencimiento, fechas, proveedor/servicio/empleado y montos. En el celular: lista compacta o detallada. En la computadora: tarjetas o lista. Descargar abre Excel o PDF de lo que estás viendo.',
+        body: 'Debajo: quién valida, quién paga, vencimiento, fechas, proveedor/servicio/empleado y montos. En el celular la lista viene compacta: con el botón de info ves el detalle de esa fila. En la computadora: tarjetas o lista. Descargar abre Excel o PDF de lo que estás viendo.',
       },
       {
         title: 'El circuito',
@@ -251,6 +257,12 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Rechazar o cancelar: sale de Pendientes; en Pagados solo si activás esos chips.',
         ],
         tip: 'Al abonar se crea el gasto; al marcar no pagado se elimina. No borres el gasto desde Gastos.',
+      },
+      {
+        title: 'Editar o borrar',
+        icon: 'lock',
+        tone: 'lock',
+        body: 'Editar y borrar un pago lo puede el super admin y las personas que él habilite en Usuarios. Crear, validar y abonar siguen con los permisos de siempre.',
       },
     ],
   },
@@ -388,6 +400,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Tablero para la sala: /r',
           'Formulario para el cliente: /reservar',
           'Consulta de reserva por mail: /mi-reserva (pendiente, confirmada o rechazada con motivo).',
+          'Horarios y textos del formulario: Salón → Horarios.',
           'Desde el admin podés cargar sin tope de cupo.',
           'Abierto / Adentro / Afuera piden confirmación, para no cambiarlos sin querer.',
         ],
@@ -433,6 +446,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['reservations.manage'],
         body: 'Definí cuántas personas por sector. Es independiente de las normas de servicio (eso está en Normas).',
+      },
+      {
+        title: 'Horarios y mensajes',
+        icon: 'schedule',
+        tone: 'do',
+        anyOf: ['reservations.manage'],
+        body: 'En Horarios armás los turnos del formulario público por día de la semana, un texto para todos los días y otro por día. Eso se ve en Reservá tu mesa. El aviso de un día puntual se carga en Reservas.',
+        tip: 'Si un día no tiene horarios, el cliente pide mesa sin elegir hora.',
       },
     ],
   },

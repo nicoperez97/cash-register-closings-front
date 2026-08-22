@@ -26,6 +26,12 @@ export interface ReservationRequestRow {
   createdAt?: string;
 }
 
+export interface ReservationPublicForm {
+  hoursByWeekday: Record<string, string[]>;
+  generalMessage: string;
+  weekdayMessages: Record<string, string>;
+}
+
 export interface PublicReservationSignup {
   signupEnabled: boolean;
   insideEnabled?: boolean;
@@ -41,6 +47,10 @@ export interface PublicReservationSignup {
   closedWeekdays?: number[];
   /** true si businessDate cae en un franco del local */
   closedDay?: boolean;
+  timeSlots?: string[];
+  generalMessage?: string | null;
+  weekdayMessage?: string | null;
+  dayNotice?: string | null;
   businessDate?: string;
   shop: {
     id?: string;
@@ -332,6 +342,19 @@ export class ReservationsApiService {
   publicWaitingBoard(slug: string) {
     return this.http.get<PublicWaitingBoard>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiting-list`,
+    );
+  }
+
+  getPublicForm(shopId: string) {
+    return this.http.get<ReservationPublicForm>(
+      `${this.base}/shops/${shopId}/reservation-public-form`,
+    );
+  }
+
+  savePublicForm(shopId: string, body: ReservationPublicForm) {
+    return this.http.put<ReservationPublicForm>(
+      `${this.base}/shops/${shopId}/reservation-public-form`,
+      body,
     );
   }
 

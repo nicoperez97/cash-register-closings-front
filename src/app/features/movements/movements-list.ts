@@ -19,7 +19,7 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
+import { canEditShopExpenses, hasShopPermission } from '../../core/auth/auth.models';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { isUserVisible } from '../../shared/user-visibility';
@@ -366,13 +366,22 @@ export class MovementsListPage {
     if (this.kind() === 'expense' && row.source === 'payment' && row.paymentId) {
       return true;
     }
+    if (this.kind() === 'expense') {
+      return this.canEditExpense() && (!row.closingId || this.auth.isAdmin());
+    }
     return this.canManage() && (!row.closingId || this.auth.isAdmin());
   };
 
-  readonly canRemoveRow = (row: Movement) =>
-    this.canManage() &&
-    row.source !== 'payment' &&
-    (!row.closingId || this.auth.isAdmin());
+  readonly canRemoveRow = (row: Movement) => {
+    if (this.kind() === 'expense') {
+      return (
+        this.canEditExpense() &&
+        row.source !== 'payment' &&
+        (!row.closingId || this.auth.isAdmin())
+      );
+    }
+    return this.canManage() && row.source !== 'payment' && (!row.closingId || this.auth.isAdmin());
+  };
 
   readonly editLabelFor = (row: Movement) =>
     row.source === 'payment' ? 'Ver en pagos' : 'Editar';
@@ -488,6 +497,10 @@ export class MovementsListPage {
   private parseIsoDate(iso: string): Date {
     const [y, m, d] = iso.split('-').map(Number);
     return new Date(y, (m || 1) - 1, d || 1);
+  }
+
+  canEditExpense(): boolean {
+    return canEditShopExpenses(this.auth.currentUser(), this.shopId());
   }
 
   canManage(): boolean {

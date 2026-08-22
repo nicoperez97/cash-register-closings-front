@@ -121,6 +121,14 @@
         color: #fff;
       }
 
+      .lead--day,
+      .lead--notice {
+        margin-top: 0.25rem;
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: color-mix(in srgb, var(--ink) 90%, transparent);
+      }
+
       .walkin {
         margin: 0 auto;
         max-width: 16rem;

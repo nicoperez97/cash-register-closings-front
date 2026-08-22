@@ -1,0 +1,119 @@
+.salon-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0.28rem;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, var(--guy-card, #fff));
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+}
+
+.salon-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 10px;
+  color: var(--guy-navy, #003366);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.salon-tabs__link mat-icon {
+  font-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.salon-tabs__link--on {
+  background: var(--guy-green, #2e7d32);
+  color: #fff;
+}
+
+.salon-lead {
+  margin: 0 0 1rem;
+  max-width: 62ch;
+  line-height: 1.45;
+  font-size: 0.9rem;
+}
+
+.hours-general,
+.hours-day {
+  margin-bottom: 0.85rem;
+}
+
+.hours-general h2,
+.hours-day h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.hours-day__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.hours-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+}
+
+.hours-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.hours-chip button {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.hours-chip mat-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}
+
+.hours-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.hours-add input[type='time'] {
+  min-height: 2.4rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  font: inherit;
+}
+
+.hours-full {
+  width: 100%;
+}
+
+.hours-save {
+  margin: 0.5rem 0 1.5rem;
+}

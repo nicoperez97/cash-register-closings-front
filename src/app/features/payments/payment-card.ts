@@ -59,7 +59,7 @@ import {
         [attr.aria-label]="'Seleccionar ' + (payment().title || 'pago')"
       />
     }
-    @if (viewMode() === 'compact') {
+    @if (viewMode() === 'compact' && !detailOpen()) {
       <div class="pay-card__compact">
         <div class="pay-card__compact-main">
           <h3 class="pay-card__title">
@@ -79,6 +79,16 @@ import {
           </p>
         </div>
         <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
+        <button
+          mat-icon-button
+          type="button"
+          class="pay-card__detail"
+          matTooltip="Ver detalle"
+          aria-label="Ver detalle"
+          (click)="$event.stopPropagation(); detailOpen.set(!detailOpen())"
+        >
+          <mat-icon>{{ detailOpen() ? 'expand_less' : 'info' }}</mat-icon>
+        </button>
       </div>
     } @else {
     <div class="pay-card__top">
@@ -118,6 +128,17 @@ import {
         </p>
       </div>
       <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
+      @if (viewMode() === 'compact') {
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Ocultar detalle"
+          aria-label="Ocultar detalle"
+          (click)="$event.stopPropagation(); detailOpen.set(false)"
+        >
+          <mat-icon>expand_less</mat-icon>
+        </button>
+      }
     </div>
 
     <div class="pay-card__grid">
@@ -379,7 +400,7 @@ import {
             </button>
           }
           @if (
-            canManage() &&
+            canEdit() &&
             (payment().status === 'PENDING_VALIDATION' || payment().status === 'VALIDATED')
           ) {
             <button mat-menu-item type="button" (click)="editRequested.emit(payment())">
@@ -396,7 +417,7 @@ import {
               <span>Cancelar</span>
             </button>
           }
-          @if (canManage() && payment().status !== 'PAID') {
+          @if (canEdit() && payment().status !== 'PAID') {
             <button mat-menu-item type="button" class="pay-card__danger" (click)="remove(payment())">
               <mat-icon>delete</mat-icon>
               <span>Eliminar</span>
@@ -447,6 +468,8 @@ export class PaymentCardComponent {
     return this.kind() === 'service' ? p.serviceBankAlias : p.supplierBankAlias;
   });
   readonly canManage = input(false);
+  readonly canEdit = input(false);
+  readonly detailOpen = signal(false);
 
   readonly toggleSelected = output<void>();
   readonly changed = output<void>();

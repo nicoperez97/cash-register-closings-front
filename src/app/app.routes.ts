@@ -200,6 +200,16 @@ export const routes: Routes = [
         title: 'Reglas',
       },
       {
+        path: 'salon/horarios',
+        canActivate: [
+          permissionGuard('reservations.read'),
+          shopFeatureGuard('reservations'),
+        ],
+        loadComponent: () =>
+          import('./features/salon/salon-hours-page').then((m) => m.SalonHoursPage),
+        title: 'Horarios',
+      },
+      {
         path: 'tips',
         canActivate: [permissionGuard('tips.read'), shopFeatureGuard('tips')],
         loadComponent: () =>
