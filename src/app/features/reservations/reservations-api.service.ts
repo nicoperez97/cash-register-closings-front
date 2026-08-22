@@ -30,6 +30,7 @@ export interface ReservationPublicForm {
   hoursByWeekday: Record<string, string[]>;
   generalMessage: string;
   weekdayMessages: Record<string, string>;
+  timeRequired?: boolean;
 }
 
 export interface PublicReservationSignup {
@@ -47,6 +48,8 @@ export interface PublicReservationSignup {
   closedWeekdays?: number[];
   /** true si businessDate cae en un franco del local */
   closedDay?: boolean;
+  /** Si hay turnos, el cliente tiene que elegir uno. */
+  timeRequired?: boolean;
   timeSlots?: string[];
   generalMessage?: string | null;
   weekdayMessage?: string | null;
@@ -127,6 +130,8 @@ export interface ReservationDaySettings {
   insideMaxPartySize?: number | null;
   outsideMaxPartySize?: number | null;
   outsideMinPartySize?: number | null;
+  /** NULL = hereda del local. */
+  timeRequired?: boolean | null;
 }
 
 export interface ReservationsDaySummary {
@@ -272,6 +277,7 @@ export class ReservationsApiService {
       insideMaxPartySize?: number | null;
       outsideMaxPartySize?: number | null;
       outsideMinPartySize?: number | null;
+      timeRequired?: boolean | null;
     },
   ) {
     return this.http.put<{
@@ -429,6 +435,13 @@ export class ReservationsApiService {
     return this.http.patch<{ reservationSignupEnabled: boolean }>(
       `${this.base}/shops/${shopId}/reservation-signup`,
       { enabled },
+    );
+  }
+
+  setReservationTimeRequired(shopId: string, required: boolean) {
+    return this.http.patch<{ reservationTimeRequired: boolean }>(
+      `${this.base}/shops/${shopId}/reservation-time-required`,
+      { required },
     );
   }
 

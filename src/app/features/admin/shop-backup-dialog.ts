@@ -442,7 +442,7 @@ export class ShopBackupDialogComponent {
   readonly depsHint = computed(() => alsoClearsHint(this.selectedModules()));
   readonly wipeLabels = computed(() => {
     if (this.scopeMode() === 'all') {
-      return ['Cierres, movimientos, POS', 'Personal y nómina', 'Cuentas y conceptos'];
+      return ['Cierres, movimientos, gastos e ingresos, POS', 'Personal y nómina', 'Cuentas y conceptos'];
     }
     return expandBackupModulesClient(this.selectedModules()).map(backupModuleLabel);
   });

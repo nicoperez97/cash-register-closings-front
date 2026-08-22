@@ -2,6 +2,7 @@ import { Component, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,6 +38,7 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
     FormsModule,
     RouterLink,
     MatButtonModule,
+    MatButtonToggleModule,
     MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
@@ -74,8 +76,8 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
       </div>
     } @else {
       <p class="salon-lead">
-        Estos horarios y textos se ven en el formulario público de reservas. El horario es
-        opcional para el cliente. El aviso de un día puntual se carga en Reservas.
+        Estos horarios y textos se ven en el formulario público de reservas. Abajo elegís si el
+        horario es obligatorio. Un día puntual se cambia en Reservas.
       </p>
 
       <section class="panel-card hours-general">
@@ -92,6 +94,25 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
             placeholder="Ej: Se toman reservas hasta las 21 hs."
           ></textarea>
         </mat-form-field>
+      </section>
+
+      <section class="panel-card hours-required">
+        <h2>Horario del formulario</h2>
+        <p class="text-muted">
+          Si es obligatorio, el cliente tiene que elegir un turno. Un día puntual se cambia en
+          Reservas → Aviso y cupos.
+        </p>
+        <mat-button-toggle-group
+          class="hours-required-toggle"
+          hideSingleSelectionIndicator
+          [value]="timeRequired ? 'required' : 'optional'"
+          [disabled]="!canManage()"
+          (change)="timeRequired = $event.value === 'required'"
+          aria-label="Si el horario del formulario público es obligatorio"
+        >
+          <mat-button-toggle value="optional">Opcional</mat-button-toggle>
+          <mat-button-toggle value="required">Obligatorio</mat-button-toggle>
+        </mat-button-toggle-group>
       </section>
 
       <section class="panel-card hours-days">
@@ -142,6 +163,7 @@ export class SalonHoursPage {
   readonly loading = signal(true);
   readonly saving = signal(false);
   generalMessage = '';
+  timeRequired = false;
   days: DayDraft[] = WEEKDAYS.map(() => ({ hours: [], message: '', newTime: '19:30' }));
 
   constructor() {
@@ -184,6 +206,10 @@ export class SalonHoursPage {
       next: (cfg) => {
         this.applyConfig(cfg);
         this.saving.set(false);
+        const shop = this.shops.selectedShop();
+        if (shop) {
+          this.shops.upsertShop({ ...shop, reservationTimeRequired: !!cfg.timeRequired });
+        }
         this.snack.open('Horarios guardados', 'OK', { duration: 2200 });
       },
       error: (err) => {
@@ -231,6 +257,7 @@ export class SalonHoursPage {
 
   private applyConfig(cfg: ReservationPublicForm): void {
     this.generalMessage = cfg.generalMessage ?? '';
+    this.timeRequired = !!cfg.timeRequired;
     for (const wd of WEEKDAYS) {
       const hours = cfg.hoursByWeekday?.[String(wd.day)] ?? [];
       this.days[wd.day] = {
@@ -253,6 +280,7 @@ export class SalonHoursPage {
       hoursByWeekday,
       generalMessage: this.generalMessage.trim(),
       weekdayMessages,
+      timeRequired: this.timeRequired,
     };
   }
 

@@ -4,6 +4,8 @@ export type BackupModuleId =
   | 'catalog'
   | 'closings'
   | 'movements'
+  | 'expenses'
+  | 'incomes'
   | 'posMenu'
   | 'posSales'
   | 'staff'
@@ -20,10 +22,12 @@ export const BACKUP_MODULE_OPTIONS: BackupModuleOption[] = [
   {
     id: 'catalog',
     label: 'Cuentas y conceptos',
-    alsoClears: ['movements', 'closings'],
+    alsoClears: ['movements', 'expenses', 'incomes', 'closings'],
   },
   { id: 'closings', label: 'Cierres', alsoClears: [] },
-  { id: 'movements', label: 'Movimientos / gastos', alsoClears: [] },
+  { id: 'movements', label: 'Movimientos', alsoClears: [] },
+  { id: 'expenses', label: 'Gastos', alsoClears: [] },
+  { id: 'incomes', label: 'Ingresos', alsoClears: [] },
   { id: 'posMenu', label: 'Carta POS', alsoClears: ['posSales'] },
   { id: 'posSales', label: 'Ventas POS', alsoClears: [] },
   { id: 'staff', label: 'Empleados', alsoClears: ['attendance', 'payroll'] },

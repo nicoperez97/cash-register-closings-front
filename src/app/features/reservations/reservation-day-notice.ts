@@ -10,6 +10,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ReservationsApiService, ReservationDaySettings } from './reservations-api.service';
 
 export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
+export type DayTimeMode = 'inherit' | 'optional' | 'required';
 
 @Component({
   selector: 'app-reservation-day-notice',
@@ -87,6 +88,24 @@ export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
                   <mat-button-toggle value="closed">Cerrar</mat-button-toggle>
                   <mat-button-toggle value="no-inside">Sin adentro</mat-button-toggle>
                   <mat-button-toggle value="no-outside">Sin afuera</mat-button-toggle>
+                </mat-button-toggle-group>
+              </div>
+              <div class="floor-day-settings__row">
+                <span class="floor-day-settings__label">Horario</span>
+                <p class="floor-day-settings__hint text-muted small">
+                  Como el local usa lo de Horarios. Obligatorio solo si ese día tiene turnos.
+                </p>
+                <mat-button-toggle-group
+                  class="floor-form-mode-toggle"
+                  hideSingleSelectionIndicator
+                  [value]="dayTimeMode()"
+                  [disabled]="savingDaySettings()"
+                  (change)="onDayTimeMode($event.value)"
+                  aria-label="Si el horario es obligatorio este día"
+                >
+                  <mat-button-toggle value="inherit">Como el local</mat-button-toggle>
+                  <mat-button-toggle value="optional">Opcional</mat-button-toggle>
+                  <mat-button-toggle value="required">Obligatorio</mat-button-toggle>
                 </mat-button-toggle-group>
               </div>
               <div class="floor-day-settings__capacity">
@@ -205,6 +224,7 @@ export class ReservationDayNoticeComponent {
   readonly daySignupOverride = signal<boolean | null>(null);
   readonly dayInsideOverride = signal<boolean | null>(null);
   readonly dayOutsideOverride = signal<boolean | null>(null);
+  readonly dayTimeRequiredOverride = signal<boolean | null>(null);
   readonly insideCapacityDraft = signal<number | null>(null);
   readonly outsideCapacityDraft = signal<number | null>(null);
   readonly savedInsideCapacity = signal<number | null>(null);
@@ -221,6 +241,13 @@ export class ReservationDayNoticeComponent {
     if (this.dayInsideOverride() === false) return 'no-inside';
     if (this.dayOutsideOverride() === false) return 'no-outside';
     return 'normal';
+  });
+
+  readonly dayTimeMode = computed((): DayTimeMode => {
+    const v = this.dayTimeRequiredOverride();
+    if (v === true) return 'required';
+    if (v === false) return 'optional';
+    return 'inherit';
   });
 
   readonly summary = computed(() => {
@@ -245,6 +272,9 @@ export class ReservationDayNoticeComponent {
     const minOutside = this.savedOutsideMin();
     if (maxInside != null) parts.push(`adentro hasta ${maxInside}`);
     if (minOutside != null) parts.push(`afuera hasta ${minOutside}`);
+    const time = this.dayTimeRequiredOverride();
+    if (time === true) parts.push('horario obligatorio');
+    if (time === false) parts.push('horario opcional');
     return parts.join(' · ');
   });
 
@@ -279,6 +309,7 @@ export class ReservationDayNoticeComponent {
       this.daySignupOverride.set(settings?.signupEnabled ?? null);
       this.dayInsideOverride.set(settings?.insideEnabled ?? null);
       this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
+      this.dayTimeRequiredOverride.set(settings?.timeRequired ?? null);
       const insideCap = this.normalizeCapacity(settings?.insideCapacityRemaining ?? null);
       const outsideCap = this.normalizeCapacity(settings?.outsideCapacityRemaining ?? null);
       this.savedInsideCapacity.set(insideCap);
@@ -372,6 +403,15 @@ export class ReservationDayNoticeComponent {
     this.saveDaySettings(true);
   }
 
+  onDayTimeMode(value: string | null | undefined): void {
+    const mode = this.parseDayTimeMode(value);
+    if (!mode || mode === this.dayTimeMode()) return;
+    this.dayTimeRequiredOverride.set(
+      mode === 'required' ? true : mode === 'optional' ? false : null,
+    );
+    this.saveDaySettings(true, false, false, true);
+  }
+
   saveCapacity(): void {
     if (!this.canManage() || this.savingDaySettings() || !this.capacityDirty()) return;
     this.saveDaySettings(false, true);
@@ -392,6 +432,11 @@ export class ReservationDayNoticeComponent {
     return n == null ? '—' : String(n);
   }
 
+  private parseDayTimeMode(value: string | null | undefined): DayTimeMode | null {
+    if (value === 'inherit' || value === 'optional' || value === 'required') return value;
+    return null;
+  }
+
   private parseDayFormMode(value: string | null | undefined): DayFormMode | null {
     if (
       value === 'normal' ||
@@ -408,6 +453,7 @@ export class ReservationDayNoticeComponent {
     silent = false,
     includeCapacity = false,
     includeParty = false,
+    includeTime = false,
   ): void {
     if (!this.canManage() || this.savingDaySettings()) return;
     const shopId = this.shopId();
@@ -423,6 +469,7 @@ export class ReservationDayNoticeComponent {
       insideMaxPartySize?: number | null;
       outsideMaxPartySize?: number | null;
       outsideMinPartySize?: number | null;
+      timeRequired?: boolean | null;
     } = {
       businessDate: this.businessDate(),
       signupEnabled: this.daySignupOverride(),
@@ -438,6 +485,9 @@ export class ReservationDayNoticeComponent {
       body.outsideMaxPartySize = this.normalizePartyRule(this.outsideMinDraft());
       body.outsideMinPartySize = this.normalizePartyRule(this.outsideMinDraft());
     }
+    if (includeTime) {
+      body.timeRequired = this.dayTimeRequiredOverride();
+    }
     this.api.upsertDayNotice(shopId, body).subscribe({
       next: (res) => {
         this.savingDaySettings.set(false);
@@ -445,11 +495,13 @@ export class ReservationDayNoticeComponent {
         this.daySettingsUpdated.emit(res.daySettings ?? null);
         if (!silent) {
           this.snack.open(
-            includeParty
-              ? 'Regla del día guardada'
-              : includeCapacity
-                ? 'Cupos del día guardados'
-                : 'Formulario del día guardado',
+            includeTime
+              ? 'Horario del día guardado'
+              : includeParty
+                ? 'Regla del día guardada'
+                : includeCapacity
+                  ? 'Cupos del día guardados'
+                  : 'Formulario del día guardado',
             'OK',
             { duration: 2200 },
           );
@@ -467,6 +519,7 @@ export class ReservationDayNoticeComponent {
     this.daySignupOverride.set(settings?.signupEnabled ?? null);
     this.dayInsideOverride.set(settings?.insideEnabled ?? null);
     this.dayOutsideOverride.set(settings?.outsideEnabled ?? null);
+    this.dayTimeRequiredOverride.set(settings?.timeRequired ?? null);
     const insideCap = this.normalizeCapacity(settings?.insideCapacityRemaining ?? null);
     const outsideCap = this.normalizeCapacity(settings?.outsideCapacityRemaining ?? null);
     this.savedInsideCapacity.set(insideCap);
