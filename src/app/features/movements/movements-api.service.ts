@@ -3,6 +3,30 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { safeUploadFileName } from '../../shared/utils/input-file';
 
+export type ExpensePaymentMethod = 'cash' | 'transfer' | 'card';
+
+export const EXPENSE_PAYMENT_METHOD_OPTIONS: Array<{
+  value: ExpensePaymentMethod;
+  label: string;
+}> = [
+  { value: 'cash', label: 'Efectivo' },
+  { value: 'transfer', label: 'Transferencia' },
+  { value: 'card', label: 'Tarjeta' },
+];
+
+export function expensePaymentMethodLabel(
+  method: ExpensePaymentMethod | string | null | undefined,
+): string {
+  if (!method) return '—';
+  return EXPENSE_PAYMENT_METHOD_OPTIONS.find((o) => o.value === method)?.label ?? method;
+}
+
+export function expenseReceiptRequired(
+  method: ExpensePaymentMethod | string | null | undefined,
+): boolean {
+  return method === 'transfer' || method === 'card';
+}
+
 export interface Movement {
   id: string;
   shopId: string;
@@ -28,6 +52,7 @@ export interface Movement {
   employeeId?: string | null;
   hasReceiptFile?: boolean;
   receiptFileName?: string | null;
+  paymentMethod?: ExpensePaymentMethod | null;
   /** closing | payment | manual */
   source?: 'closing' | 'payment' | 'manual' | null;
   paymentId?: string | null;

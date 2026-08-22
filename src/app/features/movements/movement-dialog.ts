@@ -12,7 +12,16 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
-import { Concept, LedgerAccount, Movement, MovementsApiService } from './movements-api.service';
+import { takeInputFile } from '../../shared/utils/input-file';
+import {
+  Concept,
+  EXPENSE_PAYMENT_METHOD_OPTIONS,
+  ExpensePaymentMethod,
+  LedgerAccount,
+  Movement,
+  MovementsApiService,
+  expenseReceiptRequired,
+} from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
   SelectSearchComponent,
@@ -130,7 +139,7 @@ function toDateString(value: Date | null): string {
                   <app-select-search [(query)]="fromQuery" placeholder="Buscar cuenta…" />
                 </mat-option>
                 @if (!isTransfer) {
-                  <mat-option value="">Sin cuenta</mat-option>
+                  <mat-option value="">Elegí una cuenta</mat-option>
                 }
                 @if (filteredLocalFrom().length) {
                   <mat-optgroup label="Local">
@@ -242,6 +251,70 @@ function toDateString(value: Date | null): string {
             <mat-error>Ingresá un monto</mat-error>
           }
         </mat-form-field>
+
+        @if (!isTransfer) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Forma de pago</mat-label>
+            <mat-icon matPrefix>payments</mat-icon>
+            <mat-select formControlName="paymentMethod">
+              @for (opt of paymentMethods; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+            @if (
+              form.controls.paymentMethod.touched &&
+              form.controls.paymentMethod.hasError('required')
+            ) {
+              <mat-error>Elegí efectivo, transferencia o tarjeta</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="mov-receipt">
+            <span class="mov-receipt__label">{{
+              receiptRequired() ? 'Comprobante' : 'Comprobante (opcional)'
+            }}</span>
+            <div class="mov-receipt__actions">
+              <button mat-stroked-button type="button" (click)="cameraInput.click()">
+                <mat-icon>photo_camera</mat-icon>
+                Foto
+              </button>
+              <button mat-stroked-button type="button" (click)="fileInput.click()">
+                <mat-icon>upload_file</mat-icon>
+                Archivo
+              </button>
+            </div>
+            <input
+              #cameraInput
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              (change)="onReceiptPicked($event)"
+            />
+            <input
+              #fileInput
+              type="file"
+              accept="image/*,application/pdf"
+              hidden
+              (change)="onReceiptPicked($event)"
+            />
+            @if (receiptFile(); as file) {
+              <p class="mov-receipt__name">
+                {{ file.name }}
+                <button
+                  mat-icon-button
+                  type="button"
+                  aria-label="Quitar"
+                  (click)="receiptFile.set(null)"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </p>
+            } @else if (movement?.hasReceiptFile) {
+              <p class="mov-receipt__name">{{ movement.receiptFileName || 'Comprobante adjunto' }}</p>
+            }
+          </div>
+        }
 
         @if (!isEdit) {
           <label class="mov-notify">
@@ -560,6 +633,29 @@ function toDateString(value: Date | null): string {
         padding: 0.35rem 0.15rem 0;
       }
 
+      .mov-receipt {
+        display: grid;
+        gap: 0.45rem;
+      }
+      .mov-receipt__label {
+        font-size: 0.82rem;
+        font-weight: 650;
+        color: var(--guy-navy, #003366);
+      }
+      .mov-receipt__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+      .mov-receipt__name {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--guy-navy, #003366);
+      }
+
       @media (max-width: 420px) {
         .mov-more__hint {
           display: none;
@@ -580,6 +676,8 @@ export class MovementDialogComponent {
   readonly actorId = this.auth.currentUser()?.id ?? null;
   readonly notifyEnabled = signal(false);
   readonly notifyIds = signal<string[]>([]);
+  readonly receiptFile = signal<File | null>(null);
+  readonly paymentMethods = EXPENSE_PAYMENT_METHOD_OPTIONS;
 
   readonly isEdit = this.data.mode === 'edit';
   readonly isTransfer = (this.data.kind ?? 'expense') === 'transfer';
@@ -590,7 +688,7 @@ export class MovementDialogComponent {
     : this.isTransfer
       ? 'Nueva transferencia'
       : 'Nuevo gasto';
-  private readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
+  readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
   readonly showMore = signal(false);
   readonly accounts = signal<LedgerAccount[]>([...this.data.accounts]);
@@ -607,10 +705,7 @@ export class MovementDialogComponent {
       toDateInput(this.movement?.businessDate ?? this.defaultBusinessDate()),
       Validators.required,
     ],
-    fromAccountId: [
-      this.movement?.fromAccountId ?? '',
-      this.isTransfer ? Validators.required : [],
-    ],
+    fromAccountId: [this.movement?.fromAccountId ?? '', Validators.required],
     toAccountId: [
       this.movement?.toAccountId ?? '',
       this.isTransfer ? Validators.required : [],
@@ -626,8 +721,27 @@ export class MovementDialogComponent {
     employeeId: this.fb.control<string | null>(this.movement?.employeeId ?? null),
     invoiced: [this.movement?.invoiced ?? false],
     invoiceNumber: [this.movement?.invoiceNumber ?? ''],
+    paymentMethod: [
+      (this.movement?.paymentMethod ?? '') as ExpensePaymentMethod | '',
+      this.isTransfer ? [] : [Validators.required],
+    ],
     notifyAdmins: [true],
   });
+
+  receiptRequired(): boolean {
+    if (this.isTransfer) return false;
+    return expenseReceiptRequired(this.form.controls.paymentMethod.value);
+  }
+
+  missingReceipt(): boolean {
+    if (!this.receiptRequired()) return false;
+    return !this.receiptFile() && !this.movement?.hasReceiptFile;
+  }
+
+  async onReceiptPicked(ev: Event): Promise<void> {
+    const file = await takeInputFile(ev.target as HTMLInputElement);
+    if (file) this.receiptFile.set(file);
+  }
 
   constructor() {
     if (
@@ -737,6 +851,15 @@ export class MovementDialogComponent {
         this.snack.open('Origen y destino deben ser distintos', 'OK', { duration: 3500 });
         return;
       }
+    } else if (!fromAccountId) {
+      this.snack.open('Elegí de qué cuenta sale', 'OK', { duration: 3500 });
+      return;
+    }
+    if (this.missingReceipt()) {
+      this.snack.open('Con transferencia o tarjeta el comprobante es obligatorio', 'OK', {
+        duration: 3500,
+      });
+      return;
     }
     const kind = this.isTransfer ? 'transfer' : 'expense';
     const body: Partial<Movement> & {
@@ -759,6 +882,9 @@ export class MovementDialogComponent {
       invoiceNumber: raw.invoiced ? raw.invoiceNumber.trim() || null : null,
       kind,
     };
+    if (!this.isTransfer) {
+      body.paymentMethod = (raw.paymentMethod || null) as ExpensePaymentMethod | null;
+    }
     if (!this.isEdit) body.notifyAdmins = !!raw.notifyAdmins;
     if (this.isEdit && !this.isTransfer && this.notifyEnabled() && this.notifyIds().length) {
       body.notifyUserIds = this.notifyIds();
@@ -772,17 +898,20 @@ export class MovementDialogComponent {
 
     req.subscribe({
       next: (saved) => {
-        this.busy.set(false);
-        if (this.isEdit) {
-          this.snack.open(
-            this.isTransfer ? 'Transferencia actualizada' : 'Gasto actualizado',
-            'OK',
-            { duration: 2500 },
-          );
-          this.ref.close(true);
+        const receipt = this.receiptFile();
+        if (!receipt || this.isTransfer) {
+          this.finishSave(saved);
           return;
         }
-        this.ref.close(saved);
+        this.api.uploadReceiptFile(shopId, saved.id, receipt).subscribe({
+          next: (withFile) => this.finishSave(withFile),
+          error: () => {
+            this.finishSave(saved);
+            this.snack.open('Se guardó, pero el comprobante no se pudo subir', 'OK', {
+              duration: 4000,
+            });
+          },
+        });
       },
       error: (err) => {
         this.busy.set(false);
@@ -790,6 +919,20 @@ export class MovementDialogComponent {
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
+  }
+
+  private finishSave(saved: Movement): void {
+    this.busy.set(false);
+    if (this.isEdit) {
+      this.snack.open(
+        this.isTransfer ? 'Transferencia actualizada' : 'Gasto actualizado',
+        'OK',
+        { duration: 2500 },
+      );
+      this.ref.close(true);
+      return;
+    }
+    this.ref.close(saved);
   }
 
   private userIdForAccount(accountId: string | null): string | null {

@@ -223,9 +223,16 @@ export class ClosingSaveDialogComponent {
           void this.share();
         }
       },
-      error: (err: { error?: { message?: string | string[] } }) => {
-        const msg = err?.error?.message ?? 'No se pudo guardar el cierre';
-        this.errorMsg.set(Array.isArray(msg) ? msg.join(', ') : String(msg));
+      error: (err: { status?: number; error?: { message?: string | string[] } }) => {
+        const status = err?.status;
+        if (status === 401) {
+          this.errorMsg.set(
+            'Tu sesión venció. Entrá de nuevo: el cierre queda guardado en este dispositivo.',
+          );
+        } else {
+          const msg = err?.error?.message ?? 'No se pudo guardar el cierre';
+          this.errorMsg.set(Array.isArray(msg) ? msg.join(', ') : String(msg));
+        }
         this.phase.set('error');
       },
     });

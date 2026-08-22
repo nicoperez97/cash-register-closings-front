@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,6 +12,7 @@ import { APP_BRAND } from '../../core/config/app-brand';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
+import { consumeReturnUrl } from '../closings/closing-form-draft';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
@@ -65,6 +66,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly theme = inject(ThemeService);
   private readonly shops = inject(ShopContextService);
+  private readonly route = inject(ActivatedRoute);
   private readonly mainPwa = inject(MainPwaInstallService);
 
   @ViewChild('googleBtn', { static: false }) googleBtn?: ElementRef<HTMLDivElement>;
@@ -233,6 +235,12 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   private afterLoginUrl(): string {
+    const fromQuery = this.route.snapshot.queryParamMap.get('returnUrl');
+    const stored = consumeReturnUrl();
+    const raw = fromQuery || stored;
+    if (raw?.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/login')) {
+      return raw;
+    }
     return defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
   }
 }

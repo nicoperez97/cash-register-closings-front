@@ -21,9 +21,12 @@ import { takeInputFile } from '../../shared/utils/input-file';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import {
   Concept,
+  EXPENSE_PAYMENT_METHOD_OPTIONS,
+  ExpensePaymentMethod,
   LedgerAccount,
   Movement,
   MovementsApiService,
+  expenseReceiptRequired,
 } from './movements-api.service';
 
 export type QuickExpenseDialogData = {
@@ -120,6 +123,22 @@ function todayIso(timezone?: string | null): string {
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Forma de pago</mat-label>
+            <mat-icon matPrefix>payments</mat-icon>
+            <mat-select formControlName="paymentMethod">
+              @for (opt of paymentMethods; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+            @if (
+              form.controls.paymentMethod.touched &&
+              form.controls.paymentMethod.hasError('required')
+            ) {
+              <mat-error>Elegí efectivo, transferencia o tarjeta</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Sale de</mat-label>
             <mat-icon matPrefix>account_balance_wallet</mat-icon>
             <mat-select
@@ -137,6 +156,12 @@ function todayIso(timezone?: string | null): string {
                 <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
+            @if (
+              form.controls.fromAccountId.touched &&
+              form.controls.fromAccountId.hasError('required')
+            ) {
+              <mat-error>Elegí de qué cuenta sale</mat-error>
+            }
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -146,7 +171,9 @@ function todayIso(timezone?: string | null): string {
           </mat-form-field>
 
           <div class="quick-exp__receipt">
-            <span class="quick-exp__receipt-label">Comprobante (opcional)</span>
+            <span class="quick-exp__receipt-label">{{
+              receiptRequired() ? 'Comprobante' : 'Comprobante (opcional)'
+            }}</span>
             <div class="quick-exp__receipt-actions">
               <button mat-stroked-button type="button" (click)="cameraInput.click()">
                 <mat-icon>photo_camera</mat-icon>
@@ -192,7 +219,7 @@ function todayIso(timezone?: string | null): string {
           mat-flat-button
           color="primary"
           type="button"
-          [disabled]="form.invalid || busy() || !egresoAccountId()"
+          [disabled]="form.invalid || busy() || !egresoAccountId() || missingReceipt()"
           (click)="save()"
         >
           <app-busy-label [busy]="busy()" busyLabel="Guardando…">
@@ -363,22 +390,23 @@ export class QuickExpenseDialogComponent {
     ),
   );
 
+  readonly paymentMethods = EXPENSE_PAYMENT_METHOD_OPTIONS;
+
   readonly form = this.fb.nonNullable.group({
     amountUyu: [null as number | null, [Validators.required, Validators.min(0.01)]],
     conceptId: ['', Validators.required],
+    paymentMethod: ['' as ExpensePaymentMethod | '', Validators.required],
     fromAccountId: ['', Validators.required],
     toAccountId: [''],
     description: [''],
   });
 
-  constructor() {
-    const from =
-      this.fromAccounts().find((a) => /caja|efectivo|cash/i.test(a.name))?.id ??
-      this.fromAccounts()[0]?.id ??
-      '';
-    this.form.patchValue({
-      fromAccountId: from,
-    });
+  receiptRequired(): boolean {
+    return expenseReceiptRequired(this.form.controls.paymentMethod.value);
+  }
+
+  missingReceipt(): boolean {
+    return this.receiptRequired() && !this.receiptFile();
   }
 
   savedFields(movement: Movement) {
@@ -413,6 +441,12 @@ export class QuickExpenseDialogComponent {
       }
       return;
     }
+    if (this.missingReceipt()) {
+      this.snack.open('Con transferencia o tarjeta el comprobante es obligatorio', 'OK', {
+        duration: 3500,
+      });
+      return;
+    }
     const raw = this.form.getRawValue();
     const tz = this.shops.selectedShop()?.timezone;
     const receipt = this.receiptFile();
@@ -429,6 +463,7 @@ export class QuickExpenseDialogComponent {
         invoiced: false,
         notifyAdmins: true,
         kind: 'expense',
+        paymentMethod: raw.paymentMethod as ExpensePaymentMethod,
       })
       .subscribe({
         next: (saved) => {
