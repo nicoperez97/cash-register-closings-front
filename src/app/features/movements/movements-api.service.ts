@@ -126,6 +126,12 @@ export class MovementsApiService {
     );
   }
 
+  downloadReceiptFile(shopId: string, id: string) {
+    return this.http.get(`${this.base}/shops/${shopId}/movements/${id}/receipt-file`, {
+      responseType: 'blob',
+    });
+  }
+
   accounts(shopId: string) {
     return this.http.get<LedgerAccount[]>(`${this.base}/shops/${shopId}/accounts`);
   }

@@ -268,6 +268,19 @@ export interface DataTableColumn {
                         <mat-icon>{{ shareIcon() }}</mat-icon>
                       </button>
                     }
+                    @if (rowCanPreview(row)) {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="data-table__edit"
+                        [matTooltip]="actionsEnabled() ? previewLabel() : 'Requiere conexión'"
+                        [attr.aria-label]="previewLabel()"
+                        [disabled]="!actionsEnabled()"
+                        (click)="preview.emit(row)"
+                      >
+                        <mat-icon>{{ previewIcon() }}</mat-icon>
+                      </button>
+                    }
                     @if (rowCanRemove(row)) {
                       <button
                         mat-icon-button
@@ -480,6 +493,19 @@ export interface DataTableColumn {
                         (click)="share.emit(row)"
                       >
                         <mat-icon>{{ shareIcon() }}</mat-icon>
+                      </button>
+                    }
+                    @if (rowCanPreview(row)) {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="data-table__edit"
+                        [matTooltip]="actionsEnabled() ? previewLabel() : 'Requiere conexión'"
+                        [attr.aria-label]="previewLabel()"
+                        [disabled]="!actionsEnabled()"
+                        (click)="preview.emit(row)"
+                      >
+                        <mat-icon>{{ previewIcon() }}</mat-icon>
                       </button>
                     }
                     @if (rowCanRemove(row)) {
@@ -914,6 +940,9 @@ export class DataTableComponent {
   readonly canRemove = input<(row: any) => boolean>();
   readonly canDuplicate = input<(row: any) => boolean>();
   readonly canShare = input<(row: any) => boolean>();
+  readonly canPreview = input<(row: any) => boolean>();
+  readonly previewLabel = input('Ver comprobante');
+  readonly previewIcon = input('attach_file');
   readonly editLabelFor = input<(row: any) => string>();
   readonly editIconFor = input<(row: any) => string>();
   /** Opt-in row selection via checkboxes. */
@@ -924,6 +953,7 @@ export class DataTableComponent {
   readonly remove = output<any>();
   readonly duplicate = output<any>();
   readonly share = output<any>();
+  readonly preview = output<any>();
   readonly page = output<PageEvent>();
   readonly selectionChange = output<string[]>();
 
@@ -1092,6 +1122,10 @@ export class DataTableComponent {
 
   rowCanShare(row: any): boolean {
     return this.canShare()?.(row) ?? false;
+  }
+
+  rowCanPreview(row: any): boolean {
+    return this.canPreview()?.(row) ?? false;
   }
 
   rowEditLabel(row: any): string {

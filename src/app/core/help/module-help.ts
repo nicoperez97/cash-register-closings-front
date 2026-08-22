@@ -176,6 +176,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Origen: Cierre, Pago o Manual.',
           'Tipo de pago: a proveedores, servicios o empleados (solo filas de pagos).',
           'También podés filtrar por concepto, facturado y texto en la descripción.',
+          'Si el gasto tiene comprobante, aparece en la columna Comprobante. El clip lo abre (foto o PDF).',
         ],
         tip: 'Desde un pago abonado, Ver en gastos te trae acá. En un gasto de origen Pago, Ver en pagos abre el pago. No borres un gasto con origen Pago: revertí el pago en Pagos.',
       },
