@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { safeUploadFileName } from '../../shared/utils/input-file';
 
 export interface Movement {
   id: string;
@@ -25,6 +26,8 @@ export interface Movement {
   invoiceNumber?: string | null;
   closingId?: string | null;
   employeeId?: string | null;
+  hasReceiptFile?: boolean;
+  receiptFileName?: string | null;
   /** closing | payment | manual */
   source?: 'closing' | 'payment' | 'manual' | null;
   paymentId?: string | null;
@@ -112,6 +115,15 @@ export class MovementsApiService {
 
   remove(shopId: string, id: string) {
     return this.http.delete<{ ok: boolean }>(`${this.base}/shops/${shopId}/movements/${id}`);
+  }
+
+  uploadReceiptFile(shopId: string, id: string, file: File) {
+    const form = new FormData();
+    form.append('file', file, safeUploadFileName(file.name));
+    return this.http.post<Movement>(
+      `${this.base}/shops/${shopId}/movements/${id}/receipt-file`,
+      form,
+    );
   }
 
   accounts(shopId: string) {

@@ -19,6 +19,8 @@ export interface EligibleNotification {
   type: string;
   label: string;
   muted: boolean;
+  mutedApp?: boolean;
+  mutedEmail?: boolean;
 }
 
 export interface ShopProfilePreferences {
@@ -26,6 +28,8 @@ export interface ShopProfilePreferences {
   shopNavConfig: ShopNavConfig | null;
   navConfig: ShopNavConfig | null;
   mutedNotificationTypes: string[];
+  mutedAppNotificationTypes?: string[];
+  mutedEmailNotificationTypes?: string[];
   eligibleNotifications: EligibleNotification[];
   usingShopMenuDefault: boolean;
 }
@@ -64,6 +68,8 @@ export class ProfileApiService {
     body: {
       navConfig?: ShopNavConfig | null;
       mutedNotificationTypes?: string[] | null;
+      mutedAppNotificationTypes?: string[] | null;
+      mutedEmailNotificationTypes?: string[] | null;
     },
   ) {
     return this.http.patch<ShopProfilePreferences>(

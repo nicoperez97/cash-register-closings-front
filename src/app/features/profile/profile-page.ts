@@ -139,7 +139,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
           <span class="section-head__hint">Avisos activos</span>
         </div>
         <p class="text-muted">
-          Solo ves avisos que el local te habilitó. Apagá los que no quieras recibir.
+          Solo ves avisos que el local te habilitó. Apagá App, Mail o ambos.
         </p>
         @if (!shopId()) {
           <p class="text-muted">Seleccioná un local.</p>
@@ -150,21 +150,39 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
             @for (n of eligible(); track n.type; let i = $index) {
               <li
                 class="notif-list__item"
-                [class.notif-list__item--muted]="n.muted"
+                [class.notif-list__item--muted]="channelMuted(n, 'app') && channelMuted(n, 'email')"
                 [style.--ni]="i"
               >
                 <div class="notif-list__label">
                   <span>{{ n.label }}</span>
-                  @if (n.muted) {
+                  @if (channelMuted(n, 'app') && channelMuted(n, 'email')) {
                     <span class="notif-list__badge">Silenciada</span>
+                  } @else if (channelMuted(n, 'app')) {
+                    <span class="notif-list__badge">Sin app</span>
+                  } @else if (channelMuted(n, 'email')) {
+                    <span class="notif-list__badge">Sin mail</span>
                   }
                 </div>
-                <mat-slide-toggle
-                  [checked]="!n.muted"
-                  [disabled]="busy()"
-                  [attr.aria-label]="(n.muted ? 'Activar ' : 'Silenciar ') + n.label"
-                  (change)="toggleMute(n, !$event.checked)"
-                />
+                <div class="notif-list__channels">
+                  <label class="notif-list__channel">
+                    <mat-slide-toggle
+                      [checked]="!channelMuted(n, 'app')"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'App: ' + n.label"
+                      (change)="toggleChannel(n, 'app', !$event.checked)"
+                    />
+                    App
+                  </label>
+                  <label class="notif-list__channel">
+                    <mat-slide-toggle
+                      [checked]="!channelMuted(n, 'email')"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'Mail: ' + n.label"
+                      (change)="toggleChannel(n, 'email', !$event.checked)"
+                    />
+                    Mail
+                  </label>
+                </div>
               </li>
             }
           </ul>
@@ -472,6 +490,24 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
       font-size: 0.92rem;
       font-weight: 500;
     }
+    .notif-list__channels {
+      display: flex;
+      gap: 0.85rem;
+      align-items: flex-end;
+      flex: 0 0 auto;
+    }
+    .notif-list__channel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15rem;
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #666);
+      cursor: pointer;
+    }
     .notif-list__badge {
       font-size: 0.68rem;
       font-weight: 700;
@@ -767,27 +803,41 @@ export class ProfilePage {
     });
   }
 
-  toggleMute(n: EligibleNotification, muted: boolean): void {
+  channelMuted(n: EligibleNotification, channel: 'app' | 'email'): boolean {
+    if (channel === 'app') return n.mutedApp ?? n.muted;
+    return n.mutedEmail ?? n.muted;
+  }
+
+  toggleChannel(n: EligibleNotification, channel: 'app' | 'email', muted: boolean): void {
     const shopId = this.shopId();
     const prefs = this.prefs();
     if (!shopId || !prefs) return;
-    const set = new Set(prefs.mutedNotificationTypes ?? []);
-    if (muted) set.add(n.type);
-    else set.delete(n.type);
-    const next = [...set];
+    const app: string[] = [];
+    const email: string[] = [];
+    for (const row of this.eligible()) {
+      const appMuted = row.type === n.type ? (channel === 'app' ? muted : this.channelMuted(row, 'app')) : this.channelMuted(row, 'app');
+      const emailMuted = row.type === n.type ? (channel === 'email' ? muted : this.channelMuted(row, 'email')) : this.channelMuted(row, 'email');
+      if (appMuted) app.push(row.type);
+      if (emailMuted) email.push(row.type);
+    }
     this.busy.set(true);
-    this.api.updatePreferences(shopId, { mutedNotificationTypes: next }).subscribe({
-      next: (p) => {
-        this.prefs.set(p);
-        this.syncShopFromPrefs(p);
-        this.busy.set(false);
-        this.auth.scheduleRefreshMe(0);
-      },
-      error: () => {
-        this.busy.set(false);
-        this.snack.open('No se pudo actualizar la notificación', 'OK', { duration: 3500 });
-      },
-    });
+    this.api
+      .updatePreferences(shopId, {
+        mutedAppNotificationTypes: app,
+        mutedEmailNotificationTypes: email,
+      })
+      .subscribe({
+        next: (p) => {
+          this.prefs.set(p);
+          this.syncShopFromPrefs(p);
+          this.busy.set(false);
+          this.auth.scheduleRefreshMe(0);
+        },
+        error: () => {
+          this.busy.set(false);
+          this.snack.open('No se pudo actualizar la notificación', 'OK', { duration: 3500 });
+        },
+      });
   }
 
   onMenuChange(cfg: ShopNavConfig | null): void {

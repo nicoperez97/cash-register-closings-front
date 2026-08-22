@@ -7,7 +7,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
   SelectSearchComponent,
@@ -18,6 +17,7 @@ import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { movementSavedDialogData } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
+import { takeInputFile } from '../../shared/utils/input-file';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import {
   Concept,
@@ -48,7 +48,6 @@ function todayIso(timezone?: string | null): string {
     MatSelectModule,
     MatIconModule,
     MatSnackBarModule,
-    MatCheckboxModule,
     BusyLabelComponent,
     SelectSearchComponent,
   ],
@@ -141,39 +140,47 @@ function todayIso(timezone?: string | null): string {
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>A quién</mat-label>
-            <mat-icon matPrefix>account_balance</mat-icon>
-            <mat-select
-              formControlName="toAccountId"
-              panelClass="guy-select-search-panel"
-              (openedChange)="onSelectSearchOpened($event, destQuery)"
-            >
-              <mat-option disabled class="select-search-opt">
-                <app-select-search [(query)]="destQuery" placeholder="Buscar cuenta…" />
-              </mat-option>
-              <mat-option value="">Egreso (por defecto)</mat-option>
-              @for (a of filteredDestAccounts(); track a.id) {
-                <mat-option [value]="a.id">{{ a.name }}</mat-option>
-              }
-              @if (destQuery() && !filteredDestAccounts().length) {
-                <mat-option disabled>Sin resultados</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Descripción (opcional)</mat-label>
             <mat-icon matPrefix>notes</mat-icon>
             <input matInput formControlName="description" autocomplete="off" />
           </mat-form-field>
 
-          <label class="quick-exp__notify">
-            <mat-checkbox formControlName="notifyAdmins"></mat-checkbox>
-            <span>
-              <strong>Enviar notificación a administradores</strong>
-              <small>Aviso en la app y por mail</small>
-            </span>
-          </label>
+          <div class="quick-exp__receipt">
+            <span class="quick-exp__receipt-label">Comprobante (opcional)</span>
+            <div class="quick-exp__receipt-actions">
+              <button mat-stroked-button type="button" (click)="cameraInput.click()">
+                <mat-icon>photo_camera</mat-icon>
+                Foto
+              </button>
+              <button mat-stroked-button type="button" (click)="fileInput.click()">
+                <mat-icon>upload_file</mat-icon>
+                Archivo
+              </button>
+            </div>
+            <input
+              #cameraInput
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              (change)="onReceiptPicked($event)"
+            />
+            <input
+              #fileInput
+              type="file"
+              accept="image/*,application/pdf"
+              hidden
+              (change)="onReceiptPicked($event)"
+            />
+            @if (receiptFile(); as file) {
+              <p class="quick-exp__receipt-name">
+                {{ file.name }}
+                <button mat-icon-button type="button" aria-label="Quitar" (click)="receiptFile.set(null)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </p>
+            }
+          </div>
         </form>
       </mat-dialog-content>
 
@@ -255,6 +262,28 @@ function todayIso(timezone?: string | null): string {
       font-size: 0.75rem;
       color: var(--guy-muted, #5f6f76);
     }
+    .quick-exp__receipt {
+      display: grid;
+      gap: 0.45rem;
+    }
+    .quick-exp__receipt-label {
+      font-size: 0.82rem;
+      font-weight: 650;
+      color: var(--guy-navy, #003366);
+    }
+    .quick-exp__receipt-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .quick-exp__receipt-name {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--guy-navy, #003366);
+    }
   `,
 })
 export class QuickExpenseDialogComponent {
@@ -269,6 +298,7 @@ export class QuickExpenseDialogComponent {
   readonly busy = signal(false);
   readonly sharing = signal(false);
   readonly saved = signal<Movement | null>(null);
+  readonly receiptFile = signal<File | null>(null);
 
   readonly egresoAccountId = computed(() => {
     const hit = this.data.accounts.find(
@@ -339,7 +369,6 @@ export class QuickExpenseDialogComponent {
     fromAccountId: ['', Validators.required],
     toAccountId: [''],
     description: [''],
-    notifyAdmins: [true],
   });
 
   constructor() {
@@ -371,6 +400,11 @@ export class QuickExpenseDialogComponent {
     }
   }
 
+  async onReceiptPicked(ev: Event): Promise<void> {
+    const file = await takeInputFile(ev.target as HTMLInputElement);
+    if (file) this.receiptFile.set(file);
+  }
+
   save(): void {
     if (this.form.invalid || !this.egresoAccountId()) {
       this.form.markAllAsTouched();
@@ -381,25 +415,36 @@ export class QuickExpenseDialogComponent {
     }
     const raw = this.form.getRawValue();
     const tz = this.shops.selectedShop()?.timezone;
+    const receipt = this.receiptFile();
     this.busy.set(true);
     this.api
       .create(this.data.shopId, {
         businessDate: todayIso(tz),
         fromAccountId: raw.fromAccountId,
-        toAccountId: raw.toAccountId || this.egresoAccountId()!,
+        toAccountId: this.egresoAccountId()!,
         conceptId: raw.conceptId,
         employeeId: null,
         description: raw.description.trim() || null,
         amountUyu: Number(raw.amountUyu),
         invoiced: false,
-        notifyAdmins: !!raw.notifyAdmins,
+        notifyAdmins: true,
         kind: 'expense',
       })
       .subscribe({
         next: (saved) => {
-          this.busy.set(false);
-          this.saved.set(saved);
-          this.cashWithdrawalsInbox.refresh();
+          if (!receipt) {
+            this.finishSaved(saved);
+            return;
+          }
+          this.api.uploadReceiptFile(this.data.shopId, saved.id, receipt).subscribe({
+            next: (withFile) => this.finishSaved(withFile),
+            error: () => {
+              this.finishSaved(saved);
+              this.snack.open('El gasto se registró, pero el comprobante no se pudo subir', 'OK', {
+                duration: 4000,
+              });
+            },
+          });
         },
         error: (err) => {
           this.busy.set(false);
@@ -409,5 +454,11 @@ export class QuickExpenseDialogComponent {
           });
         },
       });
+  }
+
+  private finishSaved(saved: Movement): void {
+    this.busy.set(false);
+    this.saved.set(saved);
+    this.cashWithdrawalsInbox.refresh();
   }
 }
