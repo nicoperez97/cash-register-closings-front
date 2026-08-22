@@ -43,6 +43,7 @@ import { ExportMenuComponent, ExportFormat } from '../../shared/components/expor
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
+import { PaymentFilePreviewDialogComponent } from '../payments/payment-file-preview-dialog';
 import {
   movementSavedDialogData,
   movementSharePayload,
@@ -224,12 +225,16 @@ import { shareText } from '../../shared/utils/share-text';
               [canEdit]="canEditRow"
               [canRemove]="canRemoveRow"
               [canShare]="canShareRow"
+              [canPreview]="canPreviewRow"
+              previewLabel="Ver comprobante"
+              previewIcon="attach_file"
               [editLabelFor]="editLabelFor"
               [editIconFor]="editIconFor"
               editDisabledLabel="Generado por un cierre"
               (edit)="openEdit($event)"
               (remove)="onRemove($event)"
               (share)="shareMovement($event)"
+              (preview)="viewReceipt($event)"
             />
           </div>
         </div>
@@ -342,6 +347,15 @@ export class MovementsListPage {
         format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-AR')}`,
       },
       { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
+      ...(this.kind() === 'expense'
+        ? [
+            {
+              key: 'hasReceiptFile',
+              label: 'Comprobante',
+              format: (r) => (r['hasReceiptFile'] ? 'Sí' : '—'),
+            } satisfies DataTableColumn,
+          ]
+        : []),
       {
         key: 'source',
         label: 'Origen',
@@ -390,6 +404,9 @@ export class MovementsListPage {
     row.source === 'payment' ? 'receipt_long' : 'edit';
 
   readonly canShareRow = (_row: Movement) => true;
+
+  readonly canPreviewRow = (row: Movement) =>
+    this.kind() === 'expense' && !!row.hasReceiptFile;
 
   private reloadToken = signal(0);
 
@@ -893,6 +910,32 @@ export class MovementsListPage {
       }),
       this.kind() === 'transfer' ? 'Transferencia guardada' : 'Gasto guardado',
     );
+  }
+
+  viewReceipt(row: Movement): void {
+    const shopId = this.shopId();
+    if (!shopId || !row.hasReceiptFile) return;
+    this.api.downloadReceiptFile(shopId, row.id).subscribe({
+      next: (blob) => {
+        this.dialogTitle.track(
+          this.dialog.open(PaymentFilePreviewDialogComponent, {
+            width: '920px',
+            maxWidth: '96vw',
+            maxHeight: '92vh',
+            panelClass: 'guy-dialog',
+            data: {
+              title: 'Comprobante',
+              fileName: row.receiptFileName || 'comprobante',
+              blob,
+            },
+          }),
+          'Comprobante',
+        );
+      },
+      error: () => {
+        this.snack.open('No se pudo abrir el comprobante', 'OK', { duration: 3500 });
+      },
+    });
   }
 
   async shareMovement(row: Movement): Promise<void> {
