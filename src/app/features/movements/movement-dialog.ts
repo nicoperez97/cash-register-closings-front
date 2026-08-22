@@ -59,8 +59,8 @@ export type MovementDialogData = {
   concepts: Concept[];
   employees: MovementEmployeeOption[];
   users: MovementUserOption[];
-  /** Por defecto expense (formulario completo). transfer = sin concepto, from+to obligatorios. */
-  kind?: 'expense' | 'transfer';
+  /** expense = gasto · income = ingreso · transfer = entre cuentas */
+  kind?: 'expense' | 'income' | 'transfer';
 } & ({ mode: 'create' } | { mode: 'edit'; movement: Movement });
 
 function toDateInput(value?: string | null): Date | null {
@@ -681,13 +681,18 @@ export class MovementDialogComponent {
 
   readonly isEdit = this.data.mode === 'edit';
   readonly isTransfer = (this.data.kind ?? 'expense') === 'transfer';
+  readonly isIncome = (this.data.kind ?? 'expense') === 'income';
   readonly dialogTitle = this.isEdit
     ? this.isTransfer
       ? 'Editar transferencia'
-      : 'Editar gasto'
+      : this.isIncome
+        ? 'Editar ingreso'
+        : 'Editar gasto'
     : this.isTransfer
       ? 'Nueva transferencia'
-      : 'Nuevo gasto';
+      : this.isIncome
+        ? 'Nuevo ingreso'
+        : 'Nuevo gasto';
   readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
   readonly showMore = signal(false);
@@ -708,7 +713,7 @@ export class MovementDialogComponent {
     fromAccountId: [this.movement?.fromAccountId ?? '', Validators.required],
     toAccountId: [
       this.movement?.toAccountId ?? '',
-      this.isTransfer ? Validators.required : [],
+      this.isTransfer || this.isIncome ? Validators.required : [],
     ],
     conceptId: this.fb.control<string | null>(
       this.isTransfer ? null : (this.movement?.conceptId ?? null),
@@ -723,13 +728,13 @@ export class MovementDialogComponent {
     invoiceNumber: [this.movement?.invoiceNumber ?? ''],
     paymentMethod: [
       (this.movement?.paymentMethod ?? '') as ExpensePaymentMethod | '',
-      this.isTransfer ? [] : [Validators.required],
+      this.isTransfer || this.isIncome ? [] : [Validators.required],
     ],
     notifyAdmins: [true],
   });
 
   receiptRequired(): boolean {
-    if (this.isTransfer) return false;
+    if (this.isTransfer || this.isIncome) return false;
     return expenseReceiptRequired(this.form.controls.paymentMethod.value);
   }
 
@@ -861,11 +866,11 @@ export class MovementDialogComponent {
       });
       return;
     }
-    const kind = this.isTransfer ? 'transfer' : 'expense';
+    const kind = this.isTransfer ? 'transfer' : this.isIncome ? 'income' : 'expense';
     const body: Partial<Movement> & {
       notifyAdmins?: boolean;
       notifyUserIds?: string[];
-      kind?: 'expense' | 'transfer';
+      kind?: 'expense' | 'income' | 'transfer';
     } = {
       businessDate: toDateString(raw.businessDate),
       fromAccountId,
@@ -925,7 +930,11 @@ export class MovementDialogComponent {
     this.busy.set(false);
     if (this.isEdit) {
       this.snack.open(
-        this.isTransfer ? 'Transferencia actualizada' : 'Gasto actualizado',
+        this.isTransfer
+          ? 'Transferencia actualizada'
+          : this.isIncome
+            ? 'Ingreso actualizado'
+            : 'Gasto actualizado',
         'OK',
         { duration: 2500 },
       );

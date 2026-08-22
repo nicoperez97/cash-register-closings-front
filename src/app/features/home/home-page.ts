@@ -562,7 +562,8 @@ export class HomePageComponent {
         !shopId ||
         !(
           hasShopPermission(user, shopId, 'expenses.read') ||
-          hasShopPermission(user, shopId, 'accountTransfers.read')
+          hasShopPermission(user, shopId, 'accountTransfers.read') ||
+          hasShopPermission(user, shopId, 'incomes.read')
         )
       ) {
         this.balanceRows.set([]);
@@ -696,7 +697,8 @@ export class HomePageComponent {
     return (
       !!shopId &&
       (hasShopPermission(this.auth.currentUser(), shopId, 'expenses.read') ||
-        hasShopPermission(this.auth.currentUser(), shopId, 'accountTransfers.read'))
+        hasShopPermission(this.auth.currentUser(), shopId, 'accountTransfers.read') ||
+        hasShopPermission(this.auth.currentUser(), shopId, 'incomes.read'))
     );
   }
 
