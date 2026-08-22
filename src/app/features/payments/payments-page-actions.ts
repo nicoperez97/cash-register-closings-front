@@ -48,11 +48,11 @@ export function savePaymentsViewMode(mode: PaymentsViewMode): void {
 
 export function loadPaymentsMobileView(): PaymentsMobileView {
   try {
-    const v = localStorage.getItem(PAYMENTS_MOBILE_VIEW_KEY);
-    return v === 'compact' ? 'compact' : 'list';
+    localStorage.getItem(PAYMENTS_MOBILE_VIEW_KEY);
   } catch {
-    return 'list';
+    /* ignore */
   }
+  return 'compact';
 }
 
 export function savePaymentsMobileView(mode: PaymentsMobileView): void {

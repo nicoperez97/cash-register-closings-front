@@ -53,9 +53,15 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
             <div class="hero__text">
               <h1>Reservá tu mesa</h1>
               <p class="lead">Dejanos tus datos. Te confirmamos por mail.</p>
-              <p class="lead lead--policy">
-                Se toman reservas hasta las 21 hs. A partir de las 21 hs es por orden de llegada.
-              </p>
+              @if (generalMessage(); as msg) {
+                <p class="lead lead--policy">{{ msg }}</p>
+              }
+              @if (weekdayMessage(); as msg) {
+                <p class="lead lead--day">{{ msg }}</p>
+              }
+              @if (dayNotice(); as msg) {
+                <p class="lead lead--notice">{{ msg }}</p>
+              }
               <p class="lead">
                 <a [routerLink]="['/mi-reserva', slug()]">¿Ya reservaste? Consultá con tu mail</a>
               </p>
@@ -194,21 +200,23 @@ const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
               </div>
             </div>
 
-            <div class="block">
-              <span class="lbl">Horario <em>opcional</em></span>
-              <div class="pills pills--times">
-                @for (slot of timeSlots; track slot) {
-                  <button
-                    type="button"
-                    class="pill"
-                    [class.pill--on]="reservationTime === slot"
-                    (click)="toggleTime(slot)"
-                  >
-                    {{ slot }}
-                  </button>
-                }
+            @if (timeSlots().length) {
+              <div class="block">
+                <span class="lbl">Horario <em>opcional</em></span>
+                <div class="pills pills--times">
+                  @for (slot of timeSlots(); track slot) {
+                    <button
+                      type="button"
+                      class="pill"
+                      [class.pill--on]="reservationTime === slot"
+                      (click)="toggleTime(slot)"
+                    >
+                      {{ slot }}
+                    </button>
+                  }
+                </div>
               </div>
-            </div>
+            }
 
             <div class="block block--people">
               <span class="lbl">¿Cuántas personas?</span>
@@ -368,7 +376,10 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private readonly live = inject(ShopLiveClient);
   private liveSub: Subscription | null = null;
 
-  readonly timeSlots = TIME_SLOTS;
+  readonly timeSlots = signal<string[]>([...TIME_SLOTS]);
+  readonly generalMessage = signal<string | null>(null);
+  readonly weekdayMessage = signal<string | null>(null);
+  readonly dayNotice = signal<string | null>(null);
   readonly info = signal<PublicReservationSignup | null>(null);
   readonly dateFlags = signal<{
     signupEnabled: boolean;
@@ -514,9 +525,14 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
             outsideMinPartySize: info.outsideMaxPartySize ?? info.outsideMinPartySize ?? null,
             closedDay: info.closedDay,
             businessDate: info.businessDate,
+            timeSlots: info.timeSlots ?? prev.timeSlots,
+            generalMessage: info.generalMessage,
+            weekdayMessage: info.weekdayMessage,
+            dayNotice: info.dayNotice,
           }
         : info,
     );
+    this.applyPublicCopy(info);
     this.dateFlags.set({
       signupEnabled: info.signupEnabled,
       insideEnabled: info.insideEnabled !== false,
@@ -538,6 +554,17 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     });
     this.syncArea(this.insideEnabled(), this.outsideEnabled());
     this.clampPartySize();
+  }
+
+  private applyPublicCopy(info: PublicReservationSignup): void {
+    const slots = Array.isArray(info.timeSlots) ? info.timeSlots : [...TIME_SLOTS];
+    this.timeSlots.set(slots);
+    this.generalMessage.set(String(info.generalMessage ?? '').trim() || null);
+    this.weekdayMessage.set(String(info.weekdayMessage ?? '').trim() || null);
+    this.dayNotice.set(String(info.dayNotice ?? '').trim() || null);
+    if (this.reservationTime && !slots.includes(this.reservationTime)) {
+      this.reservationTime = '';
+    }
   }
 
   private refreshDateFlags(): void {

@@ -34,6 +34,7 @@ const DEFAULT_ITEM_LABELS: Record<string, string> = {
   waitingList: 'Lista de espera',
   diagrama: 'Diagrama',
   salonRules: 'Reglas',
+  salonHours: 'Horarios',
   stockFood: 'Alimentos',
   beverageStock: 'Bebidas',
   shortages: 'Faltantes',

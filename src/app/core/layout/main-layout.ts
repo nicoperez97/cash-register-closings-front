@@ -243,6 +243,7 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
       salon.push({ label: 'Diagrama', route: '/salon/diagrama', icon: 'grid_view' });
       salon.push({ label: 'Reglas', route: '/salon/reglas', icon: 'tune' });
+      salon.push({ label: 'Horarios', route: '/salon/horarios', icon: 'schedule' });
     }
     if (salon.length) {
       items.push({

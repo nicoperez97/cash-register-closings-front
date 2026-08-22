@@ -287,6 +287,10 @@
   padding-top: 0.1rem;
 }
 
+:host.pay-card--compact .pay-card__compact {
+  align-items: center;
+}
+
 :host.pay-card--compact .pay-card__actions {
   margin-top: 0.4rem;
 }

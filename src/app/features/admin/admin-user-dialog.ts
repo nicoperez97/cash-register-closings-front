@@ -50,6 +50,8 @@ export interface AdminUserRow {
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
+  canEditExpenses?: boolean;
+  canEditPayments?: boolean;
   phone?: string | null;
   bankAlias?: string | null;
   cbu?: string | null;
@@ -674,6 +676,20 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones y mails de todas las solicitudes de reserva.
           </p>
+          @if (data.canAssignSuperAdmin) {
+            <mat-slide-toggle formControlName="canEditExpenses">
+              Puede editar y borrar gastos
+            </mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Aunque no sea super admin, puede modificar o eliminar gastos de este local.
+            </p>
+            <mat-slide-toggle formControlName="canEditPayments">
+              Puede editar y borrar pagos
+            </mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Aunque no sea super admin, puede modificar o eliminar pagos de este local.
+            </p>
+          }
         }
 
         @if (!isRolesOnly && data.canAssignShops && (data.allShops?.length ?? 0) > 0) {
@@ -758,6 +774,20 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones y mails de todas las solicitudes de reserva.
           </p>
+          @if (data.canAssignSuperAdmin) {
+            <mat-slide-toggle formControlName="canEditExpenses">
+              Puede editar y borrar gastos
+            </mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Aunque no sea super admin, puede modificar o eliminar gastos de este local.
+            </p>
+            <mat-slide-toggle formControlName="canEditPayments">
+              Puede editar y borrar pagos
+            </mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Aunque no sea super admin, puede modificar o eliminar pagos de este local.
+            </p>
+          }
         }
       </form>
     </mat-dialog-content>
@@ -899,6 +929,8 @@ export class AdminUserDialogComponent implements OnInit {
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
     isReservationAdmin: [this.user?.isReservationAdmin ?? false],
+    canEditExpenses: [this.user?.canEditExpenses ?? false],
+    canEditPayments: [this.user?.canEditPayments ?? false],
   });
 
   readonly enabledSummary = computed(() => {
@@ -1035,6 +1067,8 @@ export class AdminUserDialogComponent implements OnInit {
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
           isReservationAdmin: !!raw.isReservationAdmin,
+          canEditExpenses: !!raw.canEditExpenses,
+          canEditPayments: !!raw.canEditPayments,
         })
         .subscribe({
           next: () => {
@@ -1069,6 +1103,8 @@ export class AdminUserDialogComponent implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        canEditExpenses: !!raw.canEditExpenses,
+        canEditPayments: !!raw.canEditPayments,
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -1110,6 +1146,8 @@ export class AdminUserDialogComponent implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        canEditExpenses: !!raw.canEditExpenses,
+        canEditPayments: !!raw.canEditPayments,
       })
       .subscribe({
         next: () => {

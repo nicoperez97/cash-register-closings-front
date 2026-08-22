@@ -25,11 +25,11 @@ export type DataTableMobileView = 'compact' | 'detail';
 
 function loadMobileView(): DataTableMobileView {
   try {
-    const v = localStorage.getItem(MOBILE_VIEW_KEY);
-    return v === 'detail' ? 'detail' : 'compact';
+    localStorage.getItem(MOBILE_VIEW_KEY);
   } catch {
-    return 'compact';
+    /* ignore */
   }
+  return 'compact';
 }
 
 export interface DataTableColumn {
@@ -333,12 +333,33 @@ export interface DataTableColumn {
                         <p class="data-card__meta">{{ meta }}</p>
                       }
                     </div>
-                    @if (showActions()) {
-                      <div class="guy-entity-card__actions data-card__actions" (click)="$event.stopPropagation()">
+                    <div class="guy-entity-card__actions data-card__actions" (click)="$event.stopPropagation()">
+                      <button
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Ver detalle"
+                        [attr.aria-label]="'Ver detalle'"
+                        (click)="toggleExpand(row, $event)"
+                      >
+                        <mat-icon>{{ isExpanded(row) ? 'expand_less' : 'info' }}</mat-icon>
+                      </button>
+                      @if (showActions()) {
                         <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: row }" />
-                      </div>
-                    }
+                      }
+                    </div>
                   </div>
+                  @if (isExpanded(row)) {
+                    <div class="data-card__body data-card__body--expand">
+                      @for (col of columns(); track col.key; let i = $index) {
+                        @if (i > 0 && col.kind !== 'avatar') {
+                          <div class="data-card__field">
+                            <span class="data-card__label">{{ col.label }}</span>
+                            <span class="data-card__value">{{ cellValue(row, col) }}</span>
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
                 } @else {
                   <div class="data-card__body">
                     @if (selectable()) {
@@ -783,6 +804,12 @@ export interface DataTableColumn {
           margin: 0;
         }
 
+        .data-card__body--expand {
+          margin-top: 0.55rem;
+          padding-top: 0.55rem;
+          border-top: 1px solid var(--guy-border, #d7e0d9);
+        }
+
         .data-card--clickable {
           cursor: pointer;
 
@@ -906,6 +933,7 @@ export class DataTableComponent {
   readonly sortActive = signal('');
   readonly sortDirection = signal<'asc' | 'desc' | ''>('');
   readonly mobileView = signal<DataTableMobileView>(loadMobileView());
+  readonly expandedIds = signal<Set<string>>(new Set());
 
   readonly filteredRows = computed(() => {
     const q = this.normalize(this.search());
@@ -995,6 +1023,19 @@ export class DataTableComponent {
     this.sortActive.set(ev.active || '');
     this.sortDirection.set((ev.direction as 'asc' | 'desc' | '') || '');
     if (!this.serverPaging()) this.pageIndex.set(0);
+  }
+
+  isExpanded(row: any): boolean {
+    return this.expandedIds().has(this.rowId(row) || this.trackRow(row, 0).toString());
+  }
+
+  toggleExpand(row: any, ev: Event): void {
+    ev.stopPropagation();
+    const id = this.rowId(row) || this.trackRow(row, 0).toString();
+    const next = new Set(this.expandedIds());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.expandedIds.set(next);
   }
 
   onMobileView(value: string | null | undefined): void {

@@ -809,6 +809,8 @@ export interface ShopSummary {
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
+  canEditExpenses?: boolean;
+  canEditPayments?: boolean;
   active?: boolean;
 }
 
@@ -965,4 +967,16 @@ export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): 
   if (isCashierOnly(user, shopId)) return '/closings/new';
   if (isProducerOnly(user, shopId)) return '/my-production';
   return '/';
+}
+
+export function canEditShopExpenses(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (user.globalRole === 'OWNER') return true;
+  return !!user.shops?.find((s) => s.id === shopId)?.canEditExpenses;
+}
+
+export function canEditShopPayments(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (user.globalRole === 'OWNER') return true;
+  return !!user.shops?.find((s) => s.id === shopId)?.canEditPayments;
 }

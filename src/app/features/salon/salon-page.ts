@@ -55,7 +55,7 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
       [subtitle]="shops.selectedShop()?.name ?? 'Local'"
     />
 
-    <nav class="salon-tabs" aria-label="Diagrama y reglas">
+    <nav class="salon-tabs" aria-label="Diagrama, reglas y horarios">
       <a
         routerLink="/salon/diagrama"
         class="salon-tabs__link"
@@ -71,6 +71,10 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
       >
         <mat-icon>tune</mat-icon>
         Reglas
+      </a>
+      <a routerLink="/salon/horarios" class="salon-tabs__link">
+        <mat-icon>schedule</mat-icon>
+        Horarios
       </a>
     </nav>
 

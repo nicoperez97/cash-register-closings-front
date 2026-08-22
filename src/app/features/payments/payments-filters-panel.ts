@@ -238,7 +238,7 @@ export class PaymentsFiltersPanelComponent {
   readonly collapsed = input(false);
   readonly activeFilterCount = input(0);
   readonly viewMode = input<PaymentsViewMode>('list');
-  readonly mobileView = input<PaymentsMobileView>('list');
+  readonly mobileView = input<PaymentsMobileView>('compact');
   readonly isMobile = input(false);
   readonly selecting = input(false);
   readonly exporting = input(false);

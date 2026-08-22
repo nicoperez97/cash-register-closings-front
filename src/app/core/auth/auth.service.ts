@@ -203,6 +203,8 @@ export class AuthService {
         myNavConfig: s.myNavConfig ?? null,
         navConfig: s.navConfig ?? null,
         mutedNotificationTypes: s.mutedNotificationTypes ?? [],
+        canEditExpenses: !!s.canEditExpenses,
+        canEditPayments: !!s.canEditPayments,
         accentColor: s.accentColor ?? null,
         accentSecondary: s.accentSecondary ?? null,
         email: s.email ?? null,

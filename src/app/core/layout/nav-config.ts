@@ -41,6 +41,7 @@ export const NAV_ITEM_DEFS: Array<{
   { id: 'waitingList', defaultGroup: 'salon', route: '/waiting-list' },
   { id: 'diagrama', defaultGroup: 'salon', route: '/salon/diagrama' },
   { id: 'salonRules', defaultGroup: 'salon', route: '/salon/reglas' },
+  { id: 'salonHours', defaultGroup: 'salon', route: '/salon/horarios' },
   { id: 'stockFood', defaultGroup: 'stock', route: '/stock' },
   { id: 'beverageStock', defaultGroup: 'stock', route: '/beverage-stock' },
   { id: 'shortages', defaultGroup: 'stock', route: '/shortages' },
