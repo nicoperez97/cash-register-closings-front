@@ -89,6 +89,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Entrá al cierre para ver el detalle.',
           'En el celular la lista viene compacta. Con el botón de info de cada fila ves el detalle, o cambiá a vista detallada junto a Buscar.',
+          'Volver a cargar recorre los cierres y te muestra ingresos que faltan en el libro o que no coinciden, y cómo quedarían los saldos.',
         ],
       },
       {

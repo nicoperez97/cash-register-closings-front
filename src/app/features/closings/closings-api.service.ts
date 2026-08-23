@@ -254,6 +254,20 @@ export class ClosingsApiService {
     );
   }
 
+  previewReloadIncomes(shopId: string) {
+    return this.http.post<ReloadIncomesPreview>(
+      `${this.base}/shops/${shopId}/closings/reload-incomes`,
+      {},
+    );
+  }
+
+  commitReloadIncomes(shopId: string) {
+    return this.http.post<ReloadIncomesPreview>(
+      `${this.base}/shops/${shopId}/closings/reload-incomes?commit=true`,
+      {},
+    );
+  }
+
   commitExcelImport(shopId: string, file: File) {
     const body = new FormData();
     body.append('file', file);
@@ -686,4 +700,41 @@ export interface ExcelImportResult {
   skipped: Array<{ businessDate: string; reason: string }>;
   preview: ExcelImportItem[];
   createdUsers?: string[];
+}
+
+export type ReloadIncomeStatus = 'new' | 'exists' | 'mismatch' | 'skipped';
+
+export interface ReloadIncomeItem {
+  closingId: string;
+  businessDate: string;
+  fromAccountId: string;
+  toAccountId: string | null;
+  toAccountName: string;
+  amount: number;
+  label: string;
+  status: ReloadIncomeStatus;
+  existingAmount: number;
+  existingDescription: string | null;
+}
+
+export interface ReloadIncomeBalance {
+  accountId: string;
+  name: string;
+  type: string;
+  current: number;
+  incoming: number;
+  projected: number;
+}
+
+export interface ReloadIncomesPreview {
+  closingsCount: number;
+  createdCount: number;
+  items: ReloadIncomeItem[];
+  counts: {
+    new: number;
+    exists: number;
+    mismatch: number;
+    skipped: number;
+  };
+  balances: ReloadIncomeBalance[];
 }
