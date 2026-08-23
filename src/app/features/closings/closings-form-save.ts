@@ -32,6 +32,7 @@ export type ClosingFormRawValue = {
   posSystemAmount: unknown;
   cardAmount: unknown;
   cashAmount: unknown;
+  cashOpeningAmount: unknown;
   mercadoPagoAmount: unknown;
   deliveryAppsAmount: unknown;
   transferAmount: unknown;

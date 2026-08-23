@@ -234,7 +234,7 @@ export class MovementsApiService {
     body.append('file', file, safeUploadFileName(file.name));
     let params = new HttpParams();
     if (kind) params = params.set('kind', kind);
-    return this.http.post<MovementImportItem[]>(
+    return this.http.post<MovementImportPreview | MovementImportItem[]>(
       `${this.base}/shops/${shopId}/movements/import-excel`,
       body,
       { params },
@@ -311,4 +311,18 @@ export interface MovementImportResult {
   createdAccounts: string[];
   createdConcepts: string[];
   preview: MovementImportItem[];
+}
+
+export interface LedgerImportGemini {
+  ok: boolean;
+  summary: string | null;
+  findings: string[];
+  accounts: Array<{ name: string; note: string }>;
+  warnings: string[];
+  message: string | null;
+}
+
+export interface MovementImportPreview {
+  items: MovementImportItem[];
+  gemini: LedgerImportGemini;
 }

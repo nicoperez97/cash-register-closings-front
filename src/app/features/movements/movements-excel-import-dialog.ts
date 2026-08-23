@@ -8,13 +8,16 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTabsModule } from '@angular/material/tabs';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
+  AccountBalanceRow,
   AccountImportMapping,
   Concept,
   ConceptImportMapping,
   LedgerAccount,
+  LedgerImportGemini,
   MovementImportItem,
+  MovementImportPreview,
   MovementsApiService,
 } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
@@ -42,6 +45,36 @@ function nameKey(name: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '');
+}
+
+function catalogMatchId(
+  excelName: string,
+  catalog: Array<{ id: string; name: string }>,
+): string | null {
+  const keys = [nameKey(excelName)];
+  const stripped = nameKey(excelName.replace(/\btoma\b/gi, ' '));
+  if (stripped && !keys.includes(stripped)) keys.push(stripped);
+  for (const key of keys) {
+    const exact = catalog.find((item) => nameKey(item.name) === key);
+    if (exact) return exact.id;
+  }
+  const excelKey = nameKey(excelName);
+  const hits = catalog.filter((item) => {
+    const ck = nameKey(item.name);
+    if (ck.length < 2) return false;
+    return excelKey.startsWith(ck) && excelKey !== ck;
+  });
+  if (!hits.length) return null;
+  hits.sort((a, b) => nameKey(b.name).length - nameKey(a.name).length);
+  return hits[0].id;
+}
+
+function isSystemLedgerName(name: string): boolean {
+  const n = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return n.includes('ingreso') || n.includes('egreso');
 }
 
 @Component({
@@ -95,6 +128,9 @@ function nameKey(name: string): string {
 
       @if (busy()) {
         <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
+        @if (file()) {
+          <p class="text-muted mb-3">Leyendo el Excel y pidiendo el análisis a Gemini…</p>
+        }
       }
 
       @if (items().length) {
@@ -147,6 +183,47 @@ function nameKey(name: string): string {
             <span>con error</span>
           </div>
         </div>
+
+        <p class="text-muted mb-3">
+          El saldo de cada cuenta es lo que entra menos lo que sale. En Saldos ves cómo
+          quedarían al importar, según las cuentas que asignaste.
+        </p>
+
+        @if (gemini()?.ok) {
+          <section class="xl-gemini mb-3">
+            <h3 class="xl-gemini__title">
+              <mat-icon>auto_awesome</mat-icon>
+              Análisis de Gemini
+            </h3>
+            <p class="xl-gemini__summary">{{ gemini()!.summary }}</p>
+            @if (gemini()!.findings.length) {
+              <ul class="xl-gemini__list">
+                @for (line of gemini()!.findings; track line) {
+                  <li>{{ line }}</li>
+                }
+              </ul>
+            }
+            @if (gemini()!.accounts.length) {
+              <div class="xl-gemini__accounts">
+                @for (row of gemini()!.accounts; track row.name) {
+                  <p>
+                    <strong>{{ row.name }}.</strong>
+                    {{ row.note }}
+                  </p>
+                }
+              </div>
+            }
+            @if (gemini()!.warnings.length) {
+              <ul class="xl-gemini__warn">
+                @for (line of gemini()!.warnings; track line) {
+                  <li>{{ line }}</li>
+                }
+              </ul>
+            }
+          </section>
+        } @else if (gemini()?.message) {
+          <p class="text-muted mb-3">{{ gemini()!.message }}</p>
+        }
 
         @if (errorRows().length) {
           <section class="xl-block mb-3">
@@ -255,6 +332,53 @@ function nameKey(name: string): string {
             </p>
           }
         </section>
+            </div>
+          </mat-tab>
+
+          <mat-tab>
+            <ng-template mat-tab-label>
+              Saldos
+              <span class="xl-tab-count">{{ projectedBalances().length }}</span>
+            </ng-template>
+            <div class="xl-tab-body">
+              <p class="text-muted mb-2">
+                Saldo = entra menos sale. Ingreso y Egreso no aparecen: son el origen y el destino
+                del libro. Si PVS queda negativo, pagó gastos o pases a socios por más de lo que le
+                ingresó.
+              </p>
+              <div class="xl-saldos">
+                @for (row of projectedBalances(); track row.key) {
+                  <article class="xl-saldo-card">
+                    <div>
+                      <strong>{{ row.name }}</strong>
+                      @if (row.isNew) {
+                        <span class="xl-new-user">nueva</span>
+                      }
+                      <span class="xl-saldo-flow">
+                        Entra {{ money(row.incoming) }} · Sale {{ money(row.outgoing) }}
+                      </span>
+                    </div>
+                    <strong
+                      class="xl-saldo-amt"
+                      [class.xl-saldo-amt--neg]="row.projected < 0"
+                      [class.xl-saldo-amt--pos]="row.projected > 0"
+                    >
+                      {{ money(row.projected) }}
+                    </strong>
+                  </article>
+                }
+              </div>
+              @if (projectedBalances().length) {
+                <footer class="xl-saldos-total">
+                  <span>Total</span>
+                  <strong
+                    [class.xl-saldo-amt--neg]="projectedTotal() < 0"
+                    [class.xl-saldo-amt--pos]="projectedTotal() > 0"
+                  >
+                    {{ money(projectedTotal()) }}
+                  </strong>
+                </footer>
+              }
             </div>
           </mat-tab>
 
@@ -525,6 +649,89 @@ function nameKey(name: string): string {
         background: color-mix(in srgb, var(--guy-accent, #2e7d32) 18%, transparent);
         color: var(--guy-accent, #2e7d32);
       }
+      .xl-saldos {
+        display: grid;
+        gap: 0.5rem;
+      }
+      .xl-saldo-card,
+      .xl-saldos-total {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--guy-border, #ddd);
+        border-radius: 12px;
+        background: var(--guy-card, #fff);
+      }
+      .xl-saldo-card > div,
+      .xl-saldos-total {
+        min-width: 0;
+      }
+      .xl-saldo-flow {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 0.75rem;
+        color: var(--guy-muted, #667);
+      }
+      .xl-saldo-amt {
+        flex: none;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .xl-saldo-amt--pos {
+        color: #2e7d32;
+      }
+      .xl-saldo-amt--neg {
+        color: #c62828;
+      }
+      .xl-saldos-total {
+        margin-top: 0.35rem;
+        align-items: center;
+        font-weight: 650;
+      }
+      .xl-gemini {
+        display: grid;
+        gap: 0.55rem;
+        padding: 0.85rem 0.9rem;
+        border: 1px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 28%, var(--guy-border, #ddd));
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 7%, var(--guy-card, #fff));
+      }
+      .xl-gemini__title {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 650;
+      }
+      .xl-gemini__title mat-icon {
+        font-size: 1.15rem;
+        width: 1.15rem;
+        height: 1.15rem;
+        color: var(--guy-primary, #1d65a0);
+      }
+      .xl-gemini__summary,
+      .xl-gemini__accounts p {
+        margin: 0;
+        font-size: 0.88rem;
+        line-height: 1.4;
+      }
+      .xl-gemini__list,
+      .xl-gemini__warn {
+        margin: 0;
+        padding-left: 1.1rem;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      .xl-gemini__warn {
+        color: #8a4b00;
+      }
+      .xl-gemini__accounts {
+        display: grid;
+        gap: 0.4rem;
+      }
       @media (min-width: 720px) {
         .xl-actions {
           display: flex;
@@ -561,6 +768,8 @@ export class MovementsExcelImportDialogComponent {
   readonly systemConcepts = signal<Concept[]>([]);
   readonly accountChoices = signal<NameChoice[]>([]);
   readonly conceptChoices = signal<NameChoice[]>([]);
+  readonly currentBalances = signal<AccountBalanceRow[]>([]);
+  readonly gemini = signal<LedgerImportGemini | null>(null);
   readonly busy = signal(false);
   readonly modules = signal<Record<LedgerImportKind, boolean>>({
     expense: this.data.kind !== 'income' && this.data.kind !== 'transfer',
@@ -574,6 +783,92 @@ export class MovementsExcelImportDialogComponent {
   readonly visibleItems = computed(() => this.items().slice(0, 100));
   readonly visibleCards = computed(() => this.items().slice(0, 40));
   readonly errorRows = computed(() => this.items().filter((i) => !i.valid));
+  readonly projectedBalances = computed(() => {
+    const selected = new Set(this.selectedModules());
+    const currentById = new Map(this.currentBalances().map((a) => [a.accountId, a]));
+    type Row = {
+      key: string;
+      name: string;
+      type: string;
+      isNew: boolean;
+      current: number;
+      incoming: number;
+      outgoing: number;
+    };
+    const rows = new Map<string, Row>();
+
+    const resolve = (excelName: string) => {
+      const choice = this.accountChoice(excelName);
+      if (!choice || choice.selectedId === CREATE_VALUE) {
+        return {
+          key: `new:${nameKey(excelName)}`,
+          name: excelName,
+          type: this.guessImportType(excelName),
+          isNew: true,
+          current: 0,
+        };
+      }
+      const acc = this.systemAccounts().find((a) => a.id === choice.selectedId);
+      if (!acc) {
+        return {
+          key: `new:${nameKey(excelName)}`,
+          name: excelName,
+          type: this.guessImportType(excelName),
+          isNew: true,
+          current: 0,
+        };
+      }
+      return {
+        key: acc.id,
+        name: acc.name,
+        type: acc.type,
+        isNew: false,
+        current: Number(currentById.get(acc.id)?.balance ?? 0),
+      };
+    };
+
+    const touch = (excelName: string) => {
+      if (!excelName?.trim()) return null;
+      const target = resolve(excelName);
+      if (
+        target.type === 'SYSTEM' ||
+        isSystemLedgerName(target.name) ||
+        isSystemLedgerName(excelName)
+      ) {
+        return null;
+      }
+      let row = rows.get(target.key);
+      if (!row) {
+        row = { ...target, incoming: 0, outgoing: 0 };
+        rows.set(target.key, row);
+      }
+      return row;
+    };
+
+    for (const item of this.items()) {
+      if (!item.valid || item.alreadyExists) continue;
+      const kind = item.detectedKind ?? this.fallbackKind(item);
+      if (!selected.has(kind)) continue;
+      const amt = Number(item.amountUyu || 0);
+      if (!(amt > 0)) continue;
+      const from = touch(item.fromAccountName);
+      const to = touch(item.toAccountName);
+      if (from) from.outgoing += amt;
+      if (to) to.incoming += amt;
+    }
+
+    const rank = (t: string) => (t === 'CHANNEL' ? 0 : 1);
+    return [...rows.values()]
+      .map((r) => ({ ...r, projected: r.current + r.incoming - r.outgoing }))
+      .sort((a, b) => {
+        const d = rank(a.type) - rank(b.type);
+        if (d) return d;
+        return a.name.localeCompare(b.name, 'es');
+      });
+  });
+  readonly projectedTotal = computed(() =>
+    this.projectedBalances().reduce((sum, row) => sum + row.projected, 0),
+  );
 
   toggleModule(kind: LedgerImportKind, checked: boolean): void {
     this.modules.update((m) => ({ ...m, [kind]: checked }));
@@ -700,9 +995,16 @@ export class MovementsExcelImportDialogComponent {
       rows: this.api.previewExcelImport(this.data.shopId, f),
       accounts: this.api.accounts(this.data.shopId),
       concepts: this.api.concepts(this.data.shopId, { for: 'movement' }),
+      balances: this.api
+        .balances(this.data.shopId)
+        .pipe(catchError(() => of({ accounts: [] as AccountBalanceRow[] }))),
     }).subscribe({
-      next: ({ rows, accounts, concepts }) => {
-        const list: MovementImportItem[] = Array.isArray(rows) ? rows : [];
+      next: ({ rows, accounts, concepts, balances }) => {
+        const preview = rows as MovementImportItem[] | MovementImportPreview;
+        const list: MovementImportItem[] = Array.isArray(preview)
+          ? preview
+          : (preview.items ?? []);
+        this.gemini.set(Array.isArray(preview) ? null : (preview.gemini ?? null));
         const systemAccounts = (accounts ?? []).filter((a) => a.active !== false);
         const systemConcepts = (concepts ?? []).filter((c) => c.active !== false);
         this.items.set(list);
@@ -718,6 +1020,7 @@ export class MovementsExcelImportDialogComponent {
         this.conceptChoices.set(
           this.buildChoices(list, (i) => [i.conceptName], systemConcepts.map((c) => ({ id: c.id, name: c.name }))),
         );
+        this.currentBalances.set(balances.accounts ?? []);
         const present: Record<LedgerImportKind, boolean> = {
           expense: false,
           income: false,
@@ -735,6 +1038,7 @@ export class MovementsExcelImportDialogComponent {
       error: (err) => {
         this.busy.set(false);
         this.items.set([]);
+        this.gemini.set(null);
         this.accountChoices.set([]);
         this.conceptChoices.set([]);
         const msg = err?.error?.message ?? 'No se pudo analizar el Excel';
@@ -769,9 +1073,22 @@ export class MovementsExcelImportDialogComponent {
   }
 
   private suggestId(excelName: string, catalog: Array<{ id: string; name: string }>): string {
-    const key = nameKey(excelName);
-    const exact = catalog.find((item) => nameKey(item.name) === key);
-    return exact?.id ?? CREATE_VALUE;
+    return catalogMatchId(excelName, catalog) ?? CREATE_VALUE;
+  }
+
+  private guessImportType(name: string): 'CHANNEL' | 'PARTNER' | 'SYSTEM' {
+    if (isSystemLedgerName(name)) return 'SYSTEM';
+    const key = nameKey(name);
+    if (
+      key.startsWith('pvs') ||
+      key.startsWith('mp') ||
+      key.includes('dni') ||
+      key.includes('efectivo') ||
+      key.includes('delivery')
+    ) {
+      return 'CHANNEL';
+    }
+    return 'PARTNER';
   }
 
   private toAccountMap(): AccountImportMapping[] {
