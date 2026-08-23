@@ -38,6 +38,7 @@ export const NAV_ITEM_DEFS: Array<{
   { id: 'expenses', defaultGroup: 'cuentas', route: '/expenses' },
   { id: 'incomes', defaultGroup: 'cuentas', route: '/incomes' },
   { id: 'accountTransfers', defaultGroup: 'cuentas', route: '/account-transfers' },
+  { id: 'partnerSplits', defaultGroup: 'cuentas', route: '/partner-splits' },
   { id: 'reservations', defaultGroup: 'salon', route: '/reservations' },
   { id: 'waitingList', defaultGroup: 'salon', route: '/waiting-list' },
   { id: 'diagrama', defaultGroup: 'salon', route: '/salon/diagrama' },

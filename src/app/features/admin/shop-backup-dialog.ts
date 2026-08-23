@@ -12,6 +12,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormsModule } from '@angular/forms';
 import { ShopBackupApiService, BackupFormat } from './shop-backup-api.service';
 import {
+  BACKUP_MODULE_GROUPS,
   BACKUP_MODULE_OPTIONS,
   BackupModuleId,
   alsoClearsHint,
@@ -69,7 +70,7 @@ export interface ShopBackupDialogData {
           <mat-icon>tune</mat-icon>
           <div>
             <h3>Alcance</h3>
-            <p>Elegí todo el local o módulos concretos (para dump y reset).</p>
+            <p>Elegí todo el local o cada módulo por separado (para dump y reset).</p>
           </div>
         </div>
 
@@ -84,17 +85,20 @@ export interface ShopBackupDialogData {
         </mat-radio-group>
 
         @if (scopeMode() === 'modules') {
-          <div class="module-grid">
-            @for (m of moduleOptions; track m.id) {
-              <mat-checkbox
-                [checked]="selectedModules().includes(m.id)"
-                [disabled]="busy()"
-                (change)="toggleModule(m.id, $event.checked)"
-              >
-                {{ m.label }}
-              </mat-checkbox>
-            }
-          </div>
+          @for (group of moduleGroups; track group.id) {
+            <h4 class="module-group">{{ group.label }}</h4>
+            <div class="module-grid">
+              @for (m of modulesOf(group.id); track m.id) {
+                <mat-checkbox
+                  [checked]="selectedModules().includes(m.id)"
+                  [disabled]="busy()"
+                  (change)="toggleModule(m.id, $event.checked)"
+                >
+                  {{ m.label }}
+                </mat-checkbox>
+              }
+            </div>
+          }
           @if (depsHint()) {
             <p class="deps-hint">
               <mat-icon>info</mat-icon>
@@ -386,9 +390,20 @@ export interface ShopBackupDialogData {
         gap: 0.75rem 1.25rem;
         margin-bottom: 0.75rem;
       }
+      .module-group {
+        margin: 0.85rem 0 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .module-group:first-of-type {
+        margin-top: 0.15rem;
+      }
       .module-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
         gap: 0.35rem 0.75rem;
       }
       .deps-hint {
@@ -429,6 +444,7 @@ export class ShopBackupDialogComponent {
   private readonly snack = inject(MatSnackBar);
 
   readonly moduleOptions = BACKUP_MODULE_OPTIONS;
+  readonly moduleGroups = BACKUP_MODULE_GROUPS;
   readonly busy = signal(false);
   readonly confirmText = signal('');
   readonly scopeMode = signal<'all' | 'modules'>('all');
@@ -442,13 +458,25 @@ export class ShopBackupDialogComponent {
   readonly depsHint = computed(() => alsoClearsHint(this.selectedModules()));
   readonly wipeLabels = computed(() => {
     if (this.scopeMode() === 'all') {
-      return ['Cierres, movimientos, gastos e ingresos, POS', 'Personal y nómina', 'Cuentas y conceptos'];
+      return [
+        'Cierres, a retirar, rendiciones y propinas',
+        'Gastos, ingresos, movimientos y división de socios',
+        'Pagos, proveedores y servicios',
+        'Reservas, lista de espera y salón',
+        'Stock, faltantes y pedidos',
+        'Personal, asistencia, liquidaciones y reintegros',
+        'Carta y ventas POS, cuentas y conceptos',
+      ];
     }
     return expandBackupModulesClient(this.selectedModules()).map(backupModuleLabel);
   });
 
   onScopeMode(mode: 'all' | 'modules'): void {
     this.scopeMode.set(mode);
+  }
+
+  modulesOf(groupId: string) {
+    return this.moduleOptions.filter((m) => m.group === groupId);
   }
 
   toggleModule(id: BackupModuleId, checked: boolean): void {

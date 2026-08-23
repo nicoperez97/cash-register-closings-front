@@ -688,6 +688,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </mat-slide-toggle>
             <p class="section__hint" style="margin: 0">
               Aunque no sea super admin, puede modificar o eliminar pagos de este local.
+              También elige el estado al crear un pago.
             </p>
           }
         }
@@ -786,6 +787,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </mat-slide-toggle>
             <p class="section__hint" style="margin: 0">
               Aunque no sea super admin, puede modificar o eliminar pagos de este local.
+              También elige el estado al crear un pago.
             </p>
           }
         }

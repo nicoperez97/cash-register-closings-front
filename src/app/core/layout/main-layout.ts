@@ -223,6 +223,13 @@ export class MainLayoutComponent {
         icon: 'swap_horiz',
       });
     }
+    if (shopId && hasShopPermission(user, shopId, 'partnerSplits.read')) {
+      cuentas.push({
+        label: 'División de socios',
+        route: '/partner-splits',
+        icon: 'groups',
+      });
+    }
     if (cuentas.length) {
       items.push({
         label: 'Cuentas',
@@ -621,6 +628,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/account-transfers')) {
       return hasShopPermission(user, shopId, 'accountTransfers.read');
+    }
+    if (path.startsWith('/partner-splits')) {
+      return hasShopPermission(user, shopId, 'partnerSplits.read');
     }
     if (path.startsWith('/my-production')) {
       return hasShopPermission(user, shopId, 'attendance.self');

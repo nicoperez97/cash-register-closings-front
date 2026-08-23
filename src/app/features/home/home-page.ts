@@ -572,10 +572,9 @@ export class HomePageComponent {
           next: (res) =>
             this.balanceRows.set(
               (res.accounts ?? []).map((a: any) => ({
+                accountId: a.accountId,
                 name: a.name,
                 balance: Number(a.balance ?? 0),
-                income: Number(a.income ?? 0),
-                expense: Number(a.expense ?? 0),
                 type: a.type,
               })),
             ),
