@@ -249,6 +249,7 @@ export function patchClosingFormValues(
     posSystemAmount: emptyNum(closing.posSystemAmount),
     cardAmount: emptyNum(closing.cardAmount),
     cashAmount: emptyNum(closing.cashAmount),
+    cashOpeningAmount: emptyNum(closing.cashOpeningAmount),
     mercadoPagoAmount: emptyNum(closing.mercadoPagoAmount),
     deliveryAppsAmount: emptyNum(closing.deliveryAppsAmount),
     transferAmount: emptyNum(closing.transferAmount),
@@ -272,6 +273,7 @@ export function defaultNewClosingPatch(
 ) {
   return {
     businessDate: toDateInput(currentBusinessDate),
+    cashOpeningAmount: emptyNum(shop?.defaultChangeAmount),
     cashLeftInRegister: emptyNum(shop?.defaultChangeAmount),
   };
 }

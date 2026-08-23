@@ -479,6 +479,7 @@ export class PaymentCardComponent {
   readonly toggleSelected = output<void>();
   readonly changed = output<void>();
   readonly payRequested = output<ShopPayment>();
+  readonly validateRequested = output<ShopPayment>();
   readonly editRequested = output<ShopPayment>();
   readonly duplicateRequested = output<ShopPayment>();
   readonly receiptPickRequested = output<ShopPayment>();
@@ -521,20 +522,7 @@ export class PaymentCardComponent {
   }
 
   validate(p: ShopPayment): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId || this.actionBusy()) return;
-    this.actionBusy.set(true);
-    this.api.validate(shopId, p.id).subscribe({
-      next: () => {
-        this.actionBusy.set(false);
-        this.snack.open('Pago validado', 'OK', { duration: 2500 });
-        this.changed.emit();
-      },
-      error: (err) => {
-        this.actionBusy.set(false);
-        this.showErr(err);
-      },
-    });
+    this.validateRequested.emit(p);
   }
 
   resendNotification(p: ShopPayment): void {

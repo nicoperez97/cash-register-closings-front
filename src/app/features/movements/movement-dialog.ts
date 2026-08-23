@@ -31,6 +31,8 @@ import {
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { UserVisibility } from '../../shared/user-visibility';
+import { MoneyInputDirective } from '../../shared/directives/money-input';
+import { parseLocaleNumber } from '../../shared/utils/money';
 
 export interface MovementEmployeeOption {
   id: string;
@@ -94,6 +96,7 @@ function toDateString(value: Date | null): string {
     BusyLabelComponent,
     SelectSearchComponent,
     NotifyRecipientsFieldComponent,
+    MoneyInputDirective,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -142,13 +145,13 @@ function toDateString(value: Date | null): string {
                   <mat-option value="">Elegí una cuenta</mat-option>
                 }
                 @if (filteredLocalFrom().length) {
-                  <mat-optgroup label="Local">
+                  <mat-optgroup [label]="isTransfer ? 'Cuentas de sistema' : 'Local'">
                     @for (a of filteredLocalFrom(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
-                @if (filteredOtherFrom().length) {
+                @if (!isTransfer && filteredOtherFrom().length) {
                   <mat-optgroup label="Otras cuentas">
                     @for (a of filteredOtherFrom(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
@@ -191,13 +194,13 @@ function toDateString(value: Date | null): string {
                   <mat-option value="">Sin cuenta</mat-option>
                 }
                 @if (filteredLocalTo().length) {
-                  <mat-optgroup label="Local">
+                  <mat-optgroup [label]="isTransfer ? 'Cuentas de sistema' : 'Local'">
                     @for (a of filteredLocalTo(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
-                @if (filteredOtherTo().length) {
+                @if (!isTransfer && filteredOtherTo().length) {
                   <mat-optgroup label="Otras cuentas">
                     @for (a of filteredOtherTo(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
@@ -246,7 +249,7 @@ function toDateString(value: Date | null): string {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-amount">
           <mat-label>Monto ($)</mat-label>
           <mat-icon matPrefix>attach_money</mat-icon>
-          <input matInput type="number" min="0" inputmode="decimal" formControlName="amountUyu" />
+          <input matInput type="text" inputmode="decimal" appMoney formControlName="amountUyu" />
           @if (form.controls.amountUyu.touched && form.controls.amountUyu.hasError('required')) {
             <mat-error>Ingresá un monto</mat-error>
           }
@@ -771,7 +774,9 @@ export class MovementDialogComponent {
   });
 
   readonly localAccounts = computed(() =>
-    this.selectableAccounts().filter((a) => a.type === 'CHANNEL' || a.type === 'SYSTEM'),
+    this.selectableAccounts().filter((a) =>
+      this.isTransfer ? a.type === 'SYSTEM' || a.type === 'CHANNEL' : a.type === 'CHANNEL' || a.type === 'SYSTEM',
+    ),
   );
 
   readonly otherAccounts = computed(() =>
@@ -879,7 +884,7 @@ export class MovementDialogComponent {
       toUserId: this.userIdForAccount(toAccountId),
       conceptId: this.isTransfer ? null : raw.conceptId,
       description: raw.description.trim() || null,
-      amountUyu: raw.amountUyu,
+      amountUyu: parseLocaleNumber(raw.amountUyu),
       usdRate: raw.usdRate,
       amountUsd: raw.amountUsd,
       employeeId: raw.employeeId || null,

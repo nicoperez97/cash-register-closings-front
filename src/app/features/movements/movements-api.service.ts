@@ -231,7 +231,7 @@ export class MovementsApiService {
 
   previewExcelImport(shopId: string, file: File, kind?: MovementKind) {
     const body = new FormData();
-    body.append('file', file);
+    body.append('file', file, safeUploadFileName(file.name));
     let params = new HttpParams();
     if (kind) params = params.set('kind', kind);
     return this.http.post<MovementImportItem[]>(
@@ -250,7 +250,7 @@ export class MovementsApiService {
     conceptMap?: ConceptImportMapping[],
   ) {
     const body = new FormData();
-    body.append('file', file);
+    body.append('file', file, safeUploadFileName(file.name));
     if (accountMap?.length) body.append('accountMap', JSON.stringify(accountMap));
     if (conceptMap?.length) body.append('conceptMap', JSON.stringify(conceptMap));
     let params = new HttpParams().set('commit', 'true');

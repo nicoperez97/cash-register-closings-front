@@ -12,6 +12,7 @@ import {
   filterBySelectQuery,
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
+import { MoneyInputDirective } from '../../shared/directives/money-input';
 
 @Component({
   selector: 'app-closing-form-efectivo-step',
@@ -24,6 +25,7 @@ import {
     MatSelectModule,
     ClosingFormStepNavComponent,
     SelectSearchComponent,
+    MoneyInputDirective,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -46,9 +48,9 @@ import {
             floatLabel="always"
             class="closing-field--money"
           >
-            <mat-label>Efectivo</mat-label>
+            <mat-label>Efectivo de apertura</mat-label>
             <span matTextPrefix class="closing-field__prefix">$</span>
-            <input matInput type="number" inputmode="decimal" formControlName="cashAmount" />
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashOpeningAmount" />
           </mat-form-field>
           <mat-form-field
             appearance="outline"
@@ -56,10 +58,33 @@ import {
             floatLabel="always"
             class="closing-field--money"
           >
-            <mat-label>Se deja en caja</mat-label>
+            <mat-label>Efectivo total</mat-label>
             <span matTextPrefix class="closing-field__prefix">$</span>
-            <input matInput type="number" inputmode="decimal" formControlName="cashLeftInRegister" />
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashAmount" />
           </mat-form-field>
+          <mat-form-field
+            appearance="outline"
+            subscriptSizing="dynamic"
+            floatLabel="always"
+            class="closing-field--money"
+          >
+            <mat-label>Efectivo a retirar</mat-label>
+            <span matTextPrefix class="closing-field__prefix">$</span>
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashWithdrawn" />
+          </mat-form-field>
+          <mat-form-field
+            appearance="outline"
+            subscriptSizing="dynamic"
+            floatLabel="always"
+            class="closing-field--money"
+          >
+            <mat-label>Efectivo que se deja en caja</mat-label>
+            <span matTextPrefix class="closing-field__prefix">$</span>
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashLeftInRegister" />
+          </mat-form-field>
+          <p class="closing-form__account-hint closing-form__span-all">
+            El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja.
+          </p>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Quién se lo lleva</mat-label>
             <mat-select

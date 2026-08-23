@@ -19,7 +19,22 @@ export function closingMoney(value: number): string {
 }
 
 export function closingNum(v: unknown): number {
-  const num = Number(v ?? 0);
+  const raw = String(v ?? '')
+    .trim()
+    .replace(/\s/g, '');
+  if (raw === '') return 0;
+  const hasComma = raw.includes(',');
+  const hasDot = raw.includes('.');
+  let normalized = raw;
+  if (hasComma && hasDot) {
+    normalized =
+      raw.lastIndexOf(',') > raw.lastIndexOf('.')
+        ? raw.replace(/\./g, '').replace(',', '.')
+        : raw.replace(/,/g, '');
+  } else if (hasComma) {
+    normalized = raw.replace(',', '.');
+  }
+  const num = Number(normalized);
   return Number.isFinite(num) ? num : 0;
 }
 

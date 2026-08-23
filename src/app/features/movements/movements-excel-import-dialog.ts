@@ -18,6 +18,7 @@ import {
   MovementsApiService,
 } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { takeInputFile } from '../../shared/utils/input-file';
 
 export type LedgerImportKind = 'expense' | 'income' | 'transfer';
 
@@ -689,9 +690,8 @@ export class MovementsExcelImportDialogComponent {
     });
   }
 
-  onFile(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const f = input.files?.[0];
+  async onFile(ev: Event): Promise<void> {
+    const f = await takeInputFile(ev.target as HTMLInputElement);
     if (!f) return;
     this.file.set(f);
     this.fileName.set(f.name);

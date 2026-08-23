@@ -119,6 +119,22 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
                     Mesa
                   </app-busy-label>
                 </button>
+                <button
+                  type="button"
+                  class="salon-add"
+                  [disabled]="!!suggesting()"
+                  (click)="applyFromReservations()"
+                >
+                  <app-busy-label
+                    [busy]="!!suggesting()"
+                    busyLabel="…"
+                    [spinnerSize]="16"
+                    spinnerTone="inherit"
+                  >
+                    <mat-icon>auto_awesome</mat-icon>
+                    Desde reservas
+                  </app-busy-label>
+                </button>
               }
             </header>
 
@@ -292,6 +308,7 @@ export class SalonPage {
   readonly savedRules = signal<SalonAreaRule[]>([]);
   readonly rulesDraft = signal<RuleDraft>({ INSIDE: [], OUTSIDE: [] });
   readonly addingArea = signal<SalonArea | null>(null);
+  readonly suggesting = signal(false);
   readonly savingArea = signal<SalonArea | null>(null);
   readonly labelDrafts = signal<Record<string, string>>({});
   private rowSeq = 0;
@@ -401,6 +418,30 @@ export class SalonPage {
 
   onLabelDraft(id: string, value: string): void {
     this.labelDrafts.update((m) => ({ ...m, [id]: value }));
+  }
+
+  applyFromReservations(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.suggesting()) return;
+    this.suggesting.set(true);
+    this.api.applyFromReservations(shopId).subscribe({
+      next: (floor) => {
+        this.tables.set(floor.tables ?? []);
+        this.savedRules.set(floor.rules ?? []);
+        this.rulesDraft.set({
+          INSIDE: this.rowsForArea('INSIDE', floor.rules ?? []),
+          OUTSIDE: this.rowsForArea('OUTSIDE', floor.rules ?? []),
+        });
+        this.suggesting.set(false);
+        this.snack.open('Diagrama y reglas armados con las reservas confirmadas', 'OK', {
+          duration: 2800,
+        });
+      },
+      error: (err) => {
+        this.suggesting.set(false);
+        this.fail(err, 'No se pudo armar el salón desde las reservas');
+      },
+    });
   }
 
   addTable(area: SalonArea): void {
