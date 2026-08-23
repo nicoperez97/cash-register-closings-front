@@ -27,6 +27,7 @@ export interface CashClosing {
   unitsSold?: number | null;
   coversCount?: number | null;
   averageTicket?: number | null;
+  cashOpeningAmount?: number;
   cashLeftInRegister: number;
   cashPendingPickup: number;
   cashWithdrawn: number;

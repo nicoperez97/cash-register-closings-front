@@ -37,6 +37,7 @@ import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
 import { PaymentDialogComponent } from './payment-dialog';
 import { PaymentPayDialogComponent } from './payment-pay-dialog';
+import { PaymentValidateDialogComponent } from './payment-validate-dialog';
 import { SuppliersApiService, ShopSupplier } from '../suppliers/suppliers-api.service';
 import { ServicesApiService, ShopService } from '../services/services-api.service';
 import { Employee, EmployeesApiService } from '../employees/employees-api.service';
@@ -234,6 +235,7 @@ import {
             (toggleSelected)="toggleSelected(p)"
             (changed)="reload({ preserveScroll: true })"
             (payRequested)="pay($event)"
+            (validateRequested)="validate($event)"
             (editRequested)="openEdit($event)"
             (duplicateRequested)="openDuplicate($event)"
             (receiptPickRequested)="startReceiptPick($event)"
@@ -1000,6 +1002,48 @@ export class PaymentsPage {
           this.reloadMeta(shopId);
         }
       });
+  }
+
+  async validate(p: ShopPayment): Promise<void> {
+    if (this.actionBusyId()) return;
+    const accounts = buildPaymentDialogAccounts(this.accounts(), p);
+    if (!accounts.length) {
+      this.snack.open('No hay cuentas para asignar al pago', 'OK', { duration: 3500 });
+      return;
+    }
+    const result = await firstValueFrom(
+      this.dialogTitle
+        .track(
+          this.dialog.open(PaymentValidateDialogComponent, {
+            width: '420px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            data: { payment: p, accounts },
+          }),
+          'Validar pago',
+        )
+        .afterClosed(),
+    );
+    if (!result?.accountId) return;
+    const shopId = this.shopId();
+    if (!shopId || this.actionBusyId()) return;
+    this.actionBusyId.set(p.id);
+    this.api.validate(shopId, p.id, { accountId: result.accountId }).subscribe({
+      next: () => {
+        this.actionBusyId.set(null);
+        this.reload({ preserveScroll: true });
+        this.snack.open('Pago validado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        this.actionBusyId.set(null);
+        const msg = err?.error?.message;
+        this.snack.open(
+          Array.isArray(msg) ? msg.join(', ') : msg || 'No se pudo validar',
+          'OK',
+          { duration: 4000 },
+        );
+      },
+    });
   }
 
   async pay(p: ShopPayment): Promise<void> {

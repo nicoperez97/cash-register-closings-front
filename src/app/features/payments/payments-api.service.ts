@@ -306,8 +306,11 @@ export class PaymentsApiService {
     });
   }
 
-  validate(shopId: string, id: string) {
-    return this.http.post<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}/validate`, {});
+  validate(shopId: string, id: string, body?: { accountId?: string }) {
+    return this.http.post<ShopPayment>(
+      `${this.base}/shops/${shopId}/payments/${id}/validate`,
+      body ?? {},
+    );
   }
 
   reject(shopId: string, id: string, reason?: string) {

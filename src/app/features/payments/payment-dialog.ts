@@ -33,6 +33,8 @@ import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.se
 import { ShopService, ServicesApiService } from '../services/services-api.service';
 import { Employee } from '../employees/employees-api.service';
 import { takeInputFile } from '../../shared/utils/input-file';
+import { MoneyInputDirective } from '../../shared/directives/money-input';
+import { parseLocaleNumber } from '../../shared/utils/money';
 import { Observable, catchError, concatMap, from, map, of, switchMap } from 'rxjs';
 
 export type PaymentDialogKind = 'supplier' | 'employee' | 'service';
@@ -90,6 +92,7 @@ type PaymentDraft = {
     SelectSearchComponent,
     UserAvatarComponent,
     NotifyRecipientsFieldComponent,
+    MoneyInputDirective,
   ],
   styles: [
     `
@@ -267,7 +270,7 @@ type PaymentDraft = {
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Monto</mat-label>
-          <input matInput type="number" min="0" step="0.01" inputmode="decimal" formControlName="amount" />
+          <input matInput type="text" inputmode="decimal" appMoney formControlName="amount" />
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -565,26 +568,28 @@ type PaymentDraft = {
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cuenta que paga</mat-label>
-          <mat-select
-            formControlName="accountId"
-            panelClass="guy-select-search-panel"
-            (openedChange)="onSelectSearchOpened($event, accountQuery)"
-          >
-            <mat-option disabled class="select-search-opt">
-              <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
-            </mat-option>
-            <mat-option [value]="null">Sin asignar</mat-option>
-            @for (a of filteredAccounts(); track a.id) {
-              <mat-option [value]="a.id">{{ a.name }}</mat-option>
-            }
-            @if (accountQuery() && !filteredAccounts().length) {
-              <mat-option disabled>Sin resultados</mat-option>
-            }
-          </mat-select>
-          <mat-hint>Cuenta desde la que sale el dinero (egreso)</mat-hint>
-        </mat-form-field>
+        @if (isPaidStatus()) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Cuenta que paga</mat-label>
+            <mat-select
+              formControlName="accountId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, accountQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+              </mat-option>
+              <mat-option [value]="null">Sin asignar</mat-option>
+              @for (a of filteredAccounts(); track a.id) {
+                <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+              @if (accountQuery() && !filteredAccounts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Cuenta desde la que sale el dinero (egreso)</mat-hint>
+          </mat-form-field>
+        }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Forma de pago</mat-label>
@@ -773,7 +778,7 @@ export class PaymentDialogComponent {
 
   private numOrNull(v: unknown): number | null {
     if (v === null || v === undefined || v === '') return null;
-    const n = Number(v);
+    const n = parseLocaleNumber(v);
     return Number.isFinite(n) ? n : null;
   }
 

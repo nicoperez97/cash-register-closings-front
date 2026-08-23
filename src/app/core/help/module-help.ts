@@ -96,6 +96,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['closings.create', 'closings.update'],
         body: 'Cargá ventas, efectivo, posnets, cuentas aparte, cubiertos y gastos. Guardá borrador y, cuando esté, envialo.',
+        items: [
+          'En efectivo: apertura, total, a retirar y lo que se deja en caja. El total tiene que ser igual a retirar más dejar.',
+        ],
         tip: 'El total declarado se compara con lo esperado: la diferencia queda a la vista.',
       },
       {
@@ -213,7 +216,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'swap_horiz',
         tone: 'do',
         anyOf: ['accountTransfers.manage'],
-        body: 'Indicá origen, destino y monto. No lleva concepto.',
+        body: 'Indicá origen, destino y monto. No lleva concepto. Solo ves cuentas de sistema (caja, canales e ingreso/egreso), no socios ni proveedores.',
         tip: 'La plantilla es la misma del libro. En la vista previa marcá los módulos y asigná cuentas y conceptos del Excel a los del local.',
       },
     ],
@@ -278,7 +281,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['payments.manage'],
         body: 'Creá el pago, alguien valida, otro paga. Subí factura y comprobante cuando corresponda.',
         items: [
-          'Validar: el pago queda “por pagar”.',
+          'Validar: elegí la cuenta que paga. Ahí recién se pide, no al crear.',
           'Pagar: elegí cuenta y forma de pago. Se crea el gasto en Cuentas → Gastos (proveedor, servicio o empleado).',
           'Un abonado no se edita: usá Marcar no pagado (borra el gasto), editá y volvé a abonar.',
           'En un pago pagado, Ver en gastos abre Gastos con el filtro de ese pago.',
@@ -468,6 +471,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'read',
         anyOf: ['reservations.read'],
         body: 'Mesas, cómo se combinan y cómo está el turno. Si otro dispositivo cambia el mapa, esta pantalla se actualiza sola.',
+        items: [
+          'Desde reservas arma mesas y reglas según las reservas ya confirmadas (pico de cubiertos y tamaños).',
+        ],
       },
       {
         title: 'Aforo',
@@ -853,9 +859,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'lock',
         body: 'En Zona peligrosa abrís Dump y reset. Podés bajar Excel o SQL, por módulo o todo el local. Cargar dump solo acepta Excel. El reset pide escribir RESET.',
         items: [
-          'Por módulos: movimientos, gastos e ingresos van por separado.',
+          'Por módulos: cuentas, conceptos, cierres, movimientos, gastos, ingresos y pagos van por separado.',
         ],
-        tip: 'Si vaciás cuentas y conceptos, también se limpian movimientos, gastos, ingresos y cierres para no dejar datos rotos.',
+        tip: 'Si vaciás conceptos, también se limpian movimientos, gastos, ingresos y pagos. Los cierres se resetean aparte.',
       },
     ],
   },

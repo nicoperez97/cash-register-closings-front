@@ -22,22 +22,40 @@ import { userAvatarSrc } from '../../core/utils/drive-url';
   styles: `
     :host {
       display: inline-flex;
+      flex-shrink: 0;
       line-height: 0;
+      overflow: hidden;
+      border-radius: 999px;
     }
     .ua {
       width: 2rem;
       height: 2rem;
+      min-width: 2rem;
+      min-height: 2rem;
+      max-width: 2rem;
+      max-height: 2rem;
+      aspect-ratio: 1;
       border-radius: 999px;
       object-fit: cover;
+      object-position: center;
       display: block;
+      flex-shrink: 0;
     }
     .ua--sm {
       width: 1.5rem;
       height: 1.5rem;
+      min-width: 1.5rem;
+      min-height: 1.5rem;
+      max-width: 1.5rem;
+      max-height: 1.5rem;
     }
     .ua--lg {
       width: 4rem;
       height: 4rem;
+      min-width: 4rem;
+      min-height: 4rem;
+      max-width: 4rem;
+      max-height: 4rem;
     }
     .ua--fallback {
       display: inline-flex;

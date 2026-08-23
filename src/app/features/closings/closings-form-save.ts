@@ -167,6 +167,7 @@ export function prepareClosingSaveBody(
     posSystemAmount: closingNum(raw.posSystemAmount),
     cardAmount: closingNum(raw.cardAmount),
     cashAmount: closingNum(raw.cashAmount),
+    cashOpeningAmount: closingNum(raw.cashOpeningAmount),
     mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
     deliveryAppsAmount: 0,
     transferAmount: 0,
@@ -186,12 +187,9 @@ export function prepareClosingSaveBody(
       : (() => {
           const explicit = closingNum(raw.cashWithdrawn);
           if (explicit > 0) return explicit;
-          const expensesTotal = (raw.expenses as ClosingFormExpenseRaw[])
-            .filter((e) => (!!e.label || !!e.conceptId) && closingNum(e.amount) > 0)
-            .reduce((s, e) => s + closingNum(e.amount), 0);
           return Math.max(
             0,
-            closingNum(raw.cashAmount) - closingNum(raw.cashLeftInRegister) - expensesTotal,
+            closingNum(raw.cashAmount) - closingNum(raw.cashLeftInRegister),
           );
         })(),
     declaredTotal,
@@ -283,6 +281,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     posSystemAmount: pos,
     cardAmount: closingNum(raw.cardAmount),
     cashAmount: closingNum(raw.cashAmount),
+    cashOpeningAmount: closingNum(raw.cashOpeningAmount),
     mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
     deliveryAppsAmount: 0,
     transferAmount: 0,

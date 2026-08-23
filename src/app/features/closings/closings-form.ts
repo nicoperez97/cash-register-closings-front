@@ -366,6 +366,7 @@ export class ClosingsFormPage implements OnInit {
     posSystemAmount: [null as number | null],
     cardAmount: [null as number | null],
     cashAmount: [null as number | null],
+    cashOpeningAmount: [null as number | null],
     mercadoPagoAmount: [null as number | null],
     deliveryAppsAmount: [null as number | null],
     transferAmount: [null as number | null],
@@ -554,9 +555,7 @@ export class ClosingsFormPage implements OnInit {
     if (assigned) return 0;
     const explicit = this.n(v.cashWithdrawn);
     if (explicit > 0) return explicit;
-    const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
-    const expensesTotal = expenses.reduce((s, e) => s + this.n(e?.amount), 0);
-    return Math.max(0, this.n(v.cashAmount) - this.n(v.cashLeftInRegister) - expensesTotal);
+    return Math.max(0, this.n(v.cashAmount) - this.n(v.cashLeftInRegister));
   });
 
   readonly pendingWithdrawHint = computed(() => {
@@ -571,7 +570,7 @@ export class ClosingsFormPage implements OnInit {
     const cash = this.n(v.cashAmount);
     if (cash <= 0) return '';
     // Sin asignar pero no hay monto a retirar (todo queda en caja / egresos).
-    return 'Sin asignar: para que vaya a A Retirar, «Se deja en caja» tiene que ser menor que el efectivo (menos egresos).';
+    return 'El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja.';
   });
 
   posnetsPanelHint(): string {
@@ -980,6 +979,17 @@ export class ClosingsFormPage implements OnInit {
   private tryPrepareSaveBody(): { shopId: string; body: CashClosingInput } | null {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      return null;
+    }
+    const cashTotal = this.n(this.form.controls.cashAmount.value);
+    const cashLeave = this.n(this.form.controls.cashLeftInRegister.value);
+    const cashTake = this.n(this.form.controls.cashWithdrawn.value);
+    if (cashTotal > 0 && Math.abs(cashTotal - (cashTake + cashLeave)) > 0.05) {
+      this.snack.open(
+        'El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja',
+        'OK',
+        { duration: 4500 },
+      );
       return null;
     }
     this.runSyncDerivedTotals();

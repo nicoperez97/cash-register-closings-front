@@ -35,4 +35,11 @@ export class SalonApiService {
       slots,
     });
   }
+
+  applyFromReservations(shopId: string) {
+    return this.http.post<SalonFloor>(
+      `${this.base}/shops/${shopId}/salon-floor/from-reservations`,
+      {},
+    );
+  }
 }
