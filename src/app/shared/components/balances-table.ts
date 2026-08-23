@@ -9,6 +9,8 @@ import { downloadTablePdf } from '../pdf/html-pdf';
 export interface BalanceAccountRow {
   name: string;
   balance: number;
+  income?: number;
+  expense?: number;
 }
 
 function downloadBlobFile(blob: Blob, filename: string): void {
@@ -69,7 +71,14 @@ function downloadBlobFile(blob: Blob, filename: string): void {
             >
               {{ initials(row.name) }}
             </span>
-            <span class="guy-saldos__name">{{ row.name }}</span>
+            <span class="guy-saldos__meta">
+              <span class="guy-saldos__name">{{ row.name }}</span>
+              @if (hasFlow(row)) {
+                <span class="guy-saldos__flow">
+                  Entra {{ formatMoney(row.income ?? 0) }} · Sale {{ formatMoney(row.expense ?? 0) }}
+                </span>
+              }
+            </span>
             <span
               class="guy-saldos__amount"
               [class.guy-saldos__amount--neg]="row.balance < 0"
@@ -306,6 +315,12 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       background: #c62828;
     }
 
+    .guy-saldos__meta {
+      min-width: 0;
+      display: grid;
+      gap: 0.1rem;
+    }
+
     .guy-saldos__name {
       min-width: 0;
       font-size: 0.9rem;
@@ -315,6 +330,13 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .guy-saldos__flow {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.3;
     }
 
     .guy-saldos__amount {
@@ -473,6 +495,10 @@ export class BalancesTableComponent {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 40) || 'local';
+  }
+
+  hasFlow(row: BalanceAccountRow): boolean {
+    return Number(row.income ?? 0) !== 0 || Number(row.expense ?? 0) !== 0;
   }
 
   formatMoney(value: number): string {

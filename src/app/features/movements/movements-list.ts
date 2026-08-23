@@ -720,7 +720,12 @@ export class MovementsListPage {
     this.api.balances(shopId).subscribe({
       next: (res) =>
         this.balanceRows.set(
-          (res.accounts ?? []).map((a) => ({ name: a.name, balance: Number(a.balance ?? 0) })),
+          (res.accounts ?? []).map((a) => ({
+            name: a.name,
+            balance: Number(a.balance ?? 0),
+            income: Number(a.income ?? 0),
+            expense: Number(a.expense ?? 0),
+          })),
         ),
       error: () => this.balanceRows.set([]),
     });
