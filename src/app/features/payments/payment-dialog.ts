@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { AuthService } from '../../core/auth/auth.service';
+import { canEditShopPayments } from '../../core/auth/auth.models';
 import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import {
@@ -300,7 +301,7 @@ type PaymentDraft = {
           </div>
         </div>
 
-        @if (!isEdit) {
+        @if (!isEdit && canChooseStatus) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Estado</mat-label>
             <mat-select formControlName="status">
@@ -665,6 +666,7 @@ export class PaymentDialogComponent {
   private readonly auth = inject(AuthService);
 
   readonly actorId = this.auth.currentUser()?.id ?? null;
+  readonly canChooseStatus = canEditShopPayments(this.auth.currentUser(), this.data.shopId);
   readonly notifyEnabled = signal(false);
   readonly notifyIds = signal<string[]>([]);
 
@@ -1619,7 +1621,9 @@ export class PaymentDialogComponent {
           invoicePerceptionsAmount: null,
           invoiceOtherTaxesAmount: null,
         };
-    const status = (raw.status as PaymentStatus) || 'PENDING_VALIDATION';
+    const status = this.canChooseStatus
+      ? ((raw.status as PaymentStatus) || 'PENDING_VALIDATION')
+      : 'PENDING_VALIDATION';
     return this.resolveParty$().pipe(
       switchMap((party) =>
         this.api

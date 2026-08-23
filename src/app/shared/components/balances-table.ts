@@ -1,16 +1,18 @@
 import { Component, Input, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MovementsApiService } from '../../features/movements/movements-api.service';
+import { AccountMovementsDialogComponent } from '../../features/movements/account-movements-dialog';
+import { DialogTitleService } from '../services/dialog-title.service';
 import { ExportMenuComponent, ExportFormat } from './export-menu';
 import { downloadTablePdf } from '../pdf/html-pdf';
 
 export interface BalanceAccountRow {
+  accountId?: string;
   name: string;
   balance: number;
-  income?: number;
-  expense?: number;
 }
 
 function downloadBlobFile(blob: Blob, filename: string): void {
@@ -24,7 +26,7 @@ function downloadBlobFile(blob: Blob, filename: string): void {
 
 @Component({
   selector: 'app-balances-table',
-  imports: [MatButtonModule, MatIconModule, MatSnackBarModule, ExportMenuComponent],
+  imports: [MatButtonModule, MatIconModule, MatSnackBarModule, MatDialogModule, ExportMenuComponent],
   template: `
     <div class="guy-saldos" role="region" [attr.aria-label]="title">
       @if (showHeader) {
@@ -63,7 +65,17 @@ function downloadBlobFile(blob: Blob, filename: string): void {
 
       <div class="guy-saldos__list" role="list">
         @for (row of accounts; track row.name; let i = $index) {
-          <div class="guy-saldos__row" role="listitem" [style.--i]="i">
+          <div
+            class="guy-saldos__row"
+            [class.guy-saldos__row--click]="canOpen(row)"
+            role="listitem"
+            [attr.role]="canOpen(row) ? 'button' : 'listitem'"
+            [attr.tabindex]="canOpen(row) ? 0 : null"
+            [style.--i]="i"
+            (click)="openAccount(row)"
+            (keydown.enter)="openAccount(row)"
+            (keydown.space)="$event.preventDefault(); openAccount(row)"
+          >
             <span
               class="guy-saldos__avatar"
               [attr.data-tone]="avatarTone(row.name)"
@@ -71,14 +83,7 @@ function downloadBlobFile(blob: Blob, filename: string): void {
             >
               {{ initials(row.name) }}
             </span>
-            <span class="guy-saldos__meta">
-              <span class="guy-saldos__name">{{ row.name }}</span>
-              @if (hasFlow(row)) {
-                <span class="guy-saldos__flow">
-                  Entra {{ formatMoney(row.income ?? 0) }} · Sale {{ formatMoney(row.expense ?? 0) }}
-                </span>
-              }
-            </span>
+            <span class="guy-saldos__name">{{ row.name }}</span>
             <span
               class="guy-saldos__amount"
               [class.guy-saldos__amount--neg]="row.balance < 0"
@@ -244,9 +249,6 @@ function downloadBlobFile(blob: Blob, filename: string): void {
     .guy-saldos__list {
       display: flex;
       flex-direction: column;
-      max-height: min(28rem, 60vh);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
     }
 
     .guy-saldos__row {
@@ -269,6 +271,15 @@ function downloadBlobFile(blob: Blob, filename: string): void {
 
     .guy-saldos__row:hover {
       background: color-mix(in srgb, var(--guy-primary, #1d65a0) 5%, transparent);
+    }
+
+    .guy-saldos__row--click {
+      cursor: pointer;
+    }
+
+    .guy-saldos__row--click:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 55%, transparent);
+      outline-offset: -2px;
     }
 
     @keyframes guy-saldos-in {
@@ -315,12 +326,6 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       background: #c62828;
     }
 
-    .guy-saldos__meta {
-      min-width: 0;
-      display: grid;
-      gap: 0.1rem;
-    }
-
     .guy-saldos__name {
       min-width: 0;
       font-size: 0.9rem;
@@ -330,13 +335,6 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .guy-saldos__flow {
-      font-size: 0.72rem;
-      font-weight: 500;
-      color: var(--guy-muted, #5f6f76);
-      line-height: 1.3;
     }
 
     .guy-saldos__amount {
@@ -433,6 +431,8 @@ function downloadBlobFile(blob: Blob, filename: string): void {
 export class BalancesTableComponent {
   private readonly api = inject(MovementsApiService);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
 
   @Input() title = 'Saldos';
   @Input() subtitle = '';
@@ -450,6 +450,31 @@ export class BalancesTableComponent {
 
   get total(): number {
     return this.accounts.reduce((sum, row) => sum + Number(row.balance ?? 0), 0);
+  }
+
+  canOpen(row: BalanceAccountRow): boolean {
+    return !!this.shopId && !!row.accountId;
+  }
+
+  openAccount(row: BalanceAccountRow): void {
+    if (!this.canOpen(row) || !this.shopId || !row.accountId) return;
+    this.dialogTitle.track(
+      this.dialog.open(AccountMovementsDialogComponent, {
+        width: '960px',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        panelClass: 'guy-dialog',
+        autoFocus: 'first-tabbable',
+        data: {
+          shopId: this.shopId,
+          accountId: row.accountId,
+          accountName: row.name,
+          from: this.from,
+          to: this.to,
+        },
+      }),
+      row.name,
+    );
   }
 
   async onExport(format: ExportFormat): Promise<void> {
@@ -495,10 +520,6 @@ export class BalancesTableComponent {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 40) || 'local';
-  }
-
-  hasFlow(row: BalanceAccountRow): boolean {
-    return Number(row.income ?? 0) !== 0 || Number(row.expense ?? 0) !== 0;
   }
 
   formatMoney(value: number): string {

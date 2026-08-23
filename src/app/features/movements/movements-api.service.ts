@@ -99,6 +99,7 @@ export type ConceptImportMapping = {
 export interface MovementFilters {
   from?: string | null;
   to?: string | null;
+  accountId?: string | null;
   conceptId?: string | null;
   q?: string | null;
   kind?: MovementKind | null;
@@ -116,6 +117,7 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   };
   set('from', filters.from);
   set('to', filters.to);
+  set('accountId', filters.accountId);
   set('conceptId', filters.conceptId);
   set('q', filters.q?.trim());
   set('kind', filters.kind);

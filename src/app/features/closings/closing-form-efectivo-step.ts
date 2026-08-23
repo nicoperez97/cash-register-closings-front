@@ -41,6 +41,18 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
         </button>
       </div>
       <div class="closing-form__block-body">
+        <div class="closing-form__fields closing-form__fields--single">
+          <mat-form-field
+            appearance="outline"
+            subscriptSizing="dynamic"
+            floatLabel="always"
+            class="closing-field--money"
+          >
+            <mat-label>Efectivo total</mat-label>
+            <span matTextPrefix class="closing-field__prefix">$</span>
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashAmount" />
+          </mat-form-field>
+        </div>
         <div class="closing-form__fields closing-form__fields--cash">
           <mat-form-field
             appearance="outline"
@@ -51,16 +63,6 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
             <mat-label>Efectivo de apertura</mat-label>
             <span matTextPrefix class="closing-field__prefix">$</span>
             <input matInput type="text" inputmode="decimal" appMoney formControlName="cashOpeningAmount" />
-          </mat-form-field>
-          <mat-form-field
-            appearance="outline"
-            subscriptSizing="dynamic"
-            floatLabel="always"
-            class="closing-field--money"
-          >
-            <mat-label>Efectivo total</mat-label>
-            <span matTextPrefix class="closing-field__prefix">$</span>
-            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashAmount" />
           </mat-form-field>
           <mat-form-field
             appearance="outline"
@@ -85,7 +87,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
           <p class="closing-form__account-hint closing-form__span-all">
             El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja.
           </p>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
             <mat-label>Quién se lo lleva</mat-label>
             <mat-select
               formControlName="cashWithdrawnToAccountId"

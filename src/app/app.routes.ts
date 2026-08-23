@@ -404,6 +404,15 @@ export const routes: Routes = [
         title: 'Movimientos entre cuentas',
       },
       {
+        path: 'partner-splits',
+        canActivate: [permissionGuard('partnerSplits.read')],
+        loadComponent: () =>
+          import('./features/partner-splits/partner-splits-page').then(
+            (m) => m.PartnerSplitsPage,
+          ),
+        title: 'División de socios',
+      },
+      {
         path: 'movements',
         redirectTo: 'expenses',
         pathMatch: 'full',

@@ -31,6 +31,7 @@ const DEFAULT_ITEM_LABELS: Record<string, string> = {
   expenses: 'Gastos',
   incomes: 'Ingresos',
   accountTransfers: 'Movimientos entre cuentas',
+  partnerSplits: 'División de socios',
   reservations: 'Reservas',
   waitingList: 'Lista de espera',
   diagrama: 'Diagrama',

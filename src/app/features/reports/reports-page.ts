@@ -443,10 +443,13 @@ export class ReportsPage {
         this.days.set(s.days ?? []);
         this.expenseRows.set(s.expensesByConcept ?? []);
         this.balanceRows.set(
-          (s.accountBalances ?? []).map((a: { name: string; balance: number }) => ({
-            name: a.name,
-            balance: Number(a.balance ?? 0),
-          })),
+          (s.accountBalances ?? []).map(
+            (a: { accountId?: string; name: string; balance: number }) => ({
+              accountId: a.accountId,
+              name: a.name,
+              balance: Number(a.balance ?? 0),
+            }),
+          ),
         );
         this.kpis.set([
           { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-AR')}` },

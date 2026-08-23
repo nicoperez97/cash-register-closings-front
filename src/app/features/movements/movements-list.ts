@@ -265,6 +265,10 @@ import { shareText } from '../../shared/utils/share-text';
       align-items: start;
     }
 
+    .movements-layout__saldos {
+      min-width: 0;
+    }
+
     @media (min-width: 960px) {
       .movements-layout {
         grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
@@ -721,10 +725,9 @@ export class MovementsListPage {
       next: (res) =>
         this.balanceRows.set(
           (res.accounts ?? []).map((a) => ({
+            accountId: a.accountId,
             name: a.name,
             balance: Number(a.balance ?? 0),
-            income: Number(a.income ?? 0),
-            expense: Number(a.expense ?? 0),
           })),
         ),
       error: () => this.balanceRows.set([]),

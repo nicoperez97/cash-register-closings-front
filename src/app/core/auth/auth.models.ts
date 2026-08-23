@@ -33,6 +33,8 @@ export type Permission =
   | 'expenses.read'
   | 'accountTransfers.manage'
   | 'accountTransfers.read'
+  | 'partnerSplits.read'
+  | 'partnerSplits.manage'
   | 'incomes.manage'
   | 'incomes.read'
   | 'accounts.manage'
@@ -94,6 +96,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'expenses.read',
   'accountTransfers.manage',
   'accountTransfers.read',
+  'partnerSplits.read',
+  'partnerSplits.manage',
   'incomes.manage',
   'incomes.read',
   'accounts.manage',
@@ -160,6 +164,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'expenses.read',
     'accountTransfers.manage',
     'accountTransfers.read',
+    'partnerSplits.read',
+    'partnerSplits.manage',
     'incomes.manage',
     'incomes.read',
     'accounts.manage',
@@ -204,6 +210,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'movements.read',
     'expenses.read',
     'accountTransfers.read',
+    'partnerSplits.read',
     'incomes.read',
     'reservations.read',
     'payments.read',
@@ -225,6 +232,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'movements.read',
     'expenses.read',
     'accountTransfers.read',
+    'partnerSplits.read',
     'incomes.read',
     'payments.read',
     'suppliers.read',
@@ -239,6 +247,7 @@ export type ModuleKey =
   | 'reports'
   | 'expenses'
   | 'accountTransfers'
+  | 'partnerSplits'
   | 'incomes'
   | 'attendance'
   | 'employees'
@@ -330,6 +339,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     icon: 'swap_horiz',
     group: 'daily',
     hint: 'Transferencias entre cuentas del local',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'partnerSplits',
+    label: 'División de socios',
+    icon: 'groups',
+    group: 'daily',
+    hint: 'Reparto igualitario entre socios y reservas en canales',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
