@@ -19,6 +19,7 @@ import { hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService, CashClosing, ShopUserOption } from './closings-api.service';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
+import { ReloadIncomesDialogComponent } from './reload-incomes-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
@@ -191,6 +192,10 @@ import { closingMoneyColumns } from './closing-list-columns';
             <button mat-stroked-button type="button" (click)="openWhatsappImport()">
               <mat-icon>folder_zip</mat-icon>
               Importar WhatsApp
+            </button>
+            <button mat-stroked-button type="button" (click)="openReloadIncomes()">
+              <mat-icon>sync</mat-icon>
+              Volver a cargar
             </button>
           }
         </div>
@@ -424,6 +429,28 @@ export class ClosingsListPage {
           },
         }),
         'Importar WhatsApp',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.reloadToken.update((n) => n + 1);
+      });
+  }
+
+  openReloadIncomes(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(ReloadIncomesDialogComponent, {
+          width: '860px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            shopName: this.shops.selectedShop()?.name ?? 'Local',
+          },
+        }),
+        'Volver a cargar',
       )
       .afterClosed()
       .subscribe((ok) => {
