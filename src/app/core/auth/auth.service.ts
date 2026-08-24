@@ -205,7 +205,6 @@ export class AuthService {
         mutedNotificationTypes: s.mutedNotificationTypes ?? [],
         canEditExpenses: !!s.canEditExpenses,
         canEditPayments: !!s.canEditPayments,
-        canConfigureOpeningBalances: !!s.canConfigureOpeningBalances,
         accentColor: s.accentColor ?? null,
         accentSecondary: s.accentSecondary ?? null,
         email: s.email ?? null,

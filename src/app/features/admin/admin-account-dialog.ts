@@ -187,10 +187,7 @@ export class AdminAccountDialogComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
-  readonly canConfigureOpeningBalances = canConfigureShopOpeningBalances(
-    this.auth.currentUser(),
-    this.data.shopId,
-  );
+  readonly canConfigureOpeningBalances = canConfigureShopOpeningBalances(this.auth.currentUser());
 
   readonly typeOptions = ACCOUNT_TYPE_OPTIONS;
   readonly paymentOptions = LINKED_PAYMENT_METHOD_OPTIONS;

@@ -960,7 +960,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'El rol Empleado también puede tener módulos extra (propinas, normas, reintegros…).',
           'Productor = sus horas + sus reintegros, no el tablero de servicio.',
           'Cierres, A Retirar, Rendiciones, Gastos y Movimientos entre cuentas se tildan por separado.',
-          'Solo un super admin puede marcar “Puede editar y borrar gastos”, “Puede editar y borrar pagos” y “Puede configurar saldos iniciales”.',
+          'Solo un super admin puede marcar “Puede editar y borrar gastos” y “Puede editar y borrar pagos”.',
         ],
         tip: 'La columna Foto y el nombre muestran la foto de perfil si la cargó el usuario.',
       },
@@ -978,7 +978,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['accounts.manage'],
         body: 'Se usan en gastos, transferencias entre cuentas, pagos y cierres. Sin cuenta, no hay dónde anotar la plata.',
         items: [
-          'Saldo inicial: se suma al saldo de movimientos. Si la cuenta ya tiene plata y después le ponés un inicial, ese monto se agrega (no reemplaza). Solo lo carga un super admin o alguien con el flag “Puede configurar saldos iniciales”.',
+          'Saldo inicial: se suma al saldo de movimientos. Si la cuenta ya tiene plata y después le ponés un inicial, ese monto se agrega (no reemplaza). Solo lo carga un super admin.',
         ],
       },
     ],
