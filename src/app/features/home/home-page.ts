@@ -13,6 +13,7 @@ import {
 } from '../../shared/components/balances-table';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { parseIsoDateParts, resolveShopBusinessDate } from '../../core/shop/business-date';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
@@ -398,7 +399,13 @@ export class HomePageComponent {
   readonly employeePaymentsToPayMine = signal<number | null>(null);
   readonly pendingReservations = computed(() => this.reservationsInbox.pendingRequests());
 
-  private readonly todayIso = this.toIso(new Date());
+  private attendanceTodayIso(): string {
+    const shop = this.shopContext.selectedShop();
+    return resolveShopBusinessDate(new Date(), {
+      timezone: shop?.timezone,
+      openingTime: shop?.openingTime,
+    });
+  }
 
   readonly presentTodayCount = computed(() => {
     const marks = this.todayMarks();
@@ -668,7 +675,9 @@ export class HomePageComponent {
   isTodayClosed(): boolean {
     const closed = this.shopContext.selectedShop()?.closedWeekdays ?? [];
     if (!closed.length) return false;
-    return closed.includes(new Date().getDay());
+    const p = parseIsoDateParts(this.attendanceTodayIso());
+    if (!p) return closed.includes(new Date().getDay());
+    return closed.includes(new Date(p.year, p.month - 1, p.day).getDay());
   }
 
   periodLabel(): string {
@@ -863,7 +872,7 @@ export class HomePageComponent {
     const dayIsHoliday = Object.values(this.todayMarks()).some((m) => m.isHoliday);
     const body: { employeeId: string; date: string; isPresent: boolean; isHoliday?: boolean } = {
       employeeId: emp.employeeId,
-      date: this.todayIso,
+      date: this.attendanceTodayIso(),
       isPresent: nextPresent,
     };
     if (nextPresent && (!!cur?.isHoliday || dayIsHoliday)) {
@@ -907,7 +916,7 @@ export class HomePageComponent {
     const holiday = Object.values(this.todayMarks()).some((m) => m.isHoliday);
     const items = fixed.map((e) => ({
       employeeId: e.employeeId,
-      date: this.todayIso,
+      date: this.attendanceTodayIso(),
       isPresent: true,
       ...(holiday ? { isHoliday: true } : {}),
     }));
@@ -951,7 +960,7 @@ export class HomePageComponent {
     const nextHoliday = !allHoliday;
     const items = emps.map((e) => ({
       employeeId: e.employeeId,
-      date: this.todayIso,
+      date: this.attendanceTodayIso(),
       isHoliday: nextHoliday,
     }));
     this.attendanceBusy.set(true);
@@ -981,12 +990,13 @@ export class HomePageComponent {
   }
 
   private loadAttendanceToday(shopId: string): void {
-    const now = new Date();
+    const iso = this.attendanceTodayIso();
+    const parts = parseIsoDateParts(iso);
     this.http
       .get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
         params: {
-          year: String(now.getFullYear()),
-          month: String(now.getMonth() + 1),
+          year: String(parts?.year ?? new Date().getFullYear()),
+          month: String(parts?.month ?? new Date().getMonth() + 1),
         },
       })
       .subscribe({
@@ -999,7 +1009,7 @@ export class HomePageComponent {
           this.attendanceEmployees.set(employees);
           const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
           for (const e of data.employees ?? []) {
-            const cell = e.days?.[this.todayIso];
+            const cell = e.days?.[iso];
             marks[e.employeeId] = {
               isPresent: !!cell?.isPresent,
               isHoliday: !!cell?.isHoliday,

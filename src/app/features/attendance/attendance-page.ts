@@ -39,7 +39,9 @@ import {
   AttendanceShareRangeResult,
 } from './attendance-share-range-dialog';
 import {
-  resolveShopCalendarDate,
+  formatBusinessDayHint,
+  parseIsoDateParts,
+  resolveShopBusinessDate,
   zonedDateParts,
 } from '../../core/shop/business-date';
 
@@ -148,6 +150,9 @@ const MONTH_LABELS = [
           <div>
             <h2 class="today-panel__title">{{ isQuickDayToday() ? 'Hoy' : 'Día' }}</h2>
             <p class="today-panel__date">{{ quickDayLabel() }}</p>
+            @if (isQuickDayToday()) {
+              <p class="today-panel__hint">{{ businessDayHint() }}</p>
+            }
             <div class="today-panel__day-nav">
               <button
                 mat-icon-button
@@ -890,7 +895,10 @@ const MONTH_LABELS = [
       }
       .today-panel__date {
         margin: 0.15rem 0 0;
-        font-size: 0.85rem;
+      }
+      .today-panel__hint {
+        margin: 0.2rem 0 0;
+        font-size: 0.78rem;
         color: var(--guy-muted, #5f6f76);
       }
       .today-panel__day-nav {
@@ -1297,13 +1305,25 @@ export class AttendancePage {
   readonly months = MONTH_LABELS.map((label, idx) => ({ value: idx + 1, label }));
   readonly years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
 
+  private shopBusinessDateIso(): string {
+    const shop = this.shops.selectedShop();
+    return resolveShopBusinessDate(new Date(), {
+      timezone: shop?.timezone,
+      openingTime: shop?.openingTime,
+    });
+  }
+
   private shopTodayParts() {
+    const iso = this.shopBusinessDateIso();
+    const parsed = parseIsoDateParts(iso);
+    if (parsed) return parsed;
     return zonedDateParts(new Date(), this.shops.selectedShop()?.timezone);
   }
 
   readonly todayParts = computed(() => this.shopTodayParts());
-  readonly todayIso = computed(() =>
-    resolveShopCalendarDate(new Date(), { timezone: this.shops.selectedShop()?.timezone }),
+  readonly todayIso = computed(() => this.shopBusinessDateIso());
+  readonly businessDayHint = computed(() =>
+    formatBusinessDayHint(this.todayIso(), this.shops.selectedShop()?.openingTime),
   );
   readonly todayDay = computed(() => this.todayParts().day);
   readonly todayYear = computed(() => this.todayParts().year);
@@ -1328,9 +1348,7 @@ export class AttendancePage {
   /** Estado del panel rápido (día seleccionado). */
   readonly todayMarks = signal<Record<string, TodayMark>>({});
   /** Día seleccionado en el panel rápido (por defecto hoy). */
-  readonly quickDayIso = signal(
-    resolveShopCalendarDate(new Date(), { timezone: undefined }),
-  );
+  readonly quickDayIso = signal(this.shopBusinessDateIso());
   private overtimeSaveTimers = new Map<string, number>();
   readonly otFrom = signal(
     `${this.shopTodayParts().year}-${String(this.shopTodayParts().month).padStart(2, '0')}-01`,

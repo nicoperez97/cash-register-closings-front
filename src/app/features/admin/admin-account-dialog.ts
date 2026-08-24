@@ -12,6 +12,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
 import { accountTypeLabel } from '../../core/i18n/labels';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { AuthService } from '../../core/auth/auth.service';
+import { canConfigureShopOpeningBalances } from '../../core/auth/auth.models';
 
 export interface AdminAccountRow {
   id: string;
@@ -24,6 +26,7 @@ export interface AdminAccountRow {
   userFullName?: string | null;
   active: boolean;
   hideFromCashWithdraw?: boolean;
+  openingBalance?: number | string | null;
 }
 
 export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string }> = [
@@ -140,6 +143,14 @@ interface UserOption {
           <mat-hint>Una cuenta puede tener varios usuarios</mat-hint>
         </mat-form-field>
 
+        @if (canConfigureOpeningBalances) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Saldo inicial</mat-label>
+            <input matInput type="number" step="0.01" formControlName="openingBalance" />
+            <mat-hint>Se suma al saldo de movimientos. Si la cuenta ya tiene plata, este monto se agrega.</mat-hint>
+          </mat-form-field>
+        }
+
         <mat-slide-toggle formControlName="hideFromCashWithdraw">
           Ocultar en «Quién se lo lleva»
         </mat-slide-toggle>
@@ -175,6 +186,11 @@ export class AdminAccountDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
+  private readonly auth = inject(AuthService);
+  readonly canConfigureOpeningBalances = canConfigureShopOpeningBalances(
+    this.auth.currentUser(),
+    this.data.shopId,
+  );
 
   readonly typeOptions = ACCOUNT_TYPE_OPTIONS;
   readonly paymentOptions = LINKED_PAYMENT_METHOD_OPTIONS;
@@ -200,6 +216,7 @@ export class AdminAccountDialogComponent implements OnInit {
     linkedPaymentMethod: this.fb.control<string | null>(this.account?.linkedPaymentMethod ?? null),
     userIds: this.fb.nonNullable.control<string[]>(this.initialUserIds()),
     hideFromCashWithdraw: [this.account?.hideFromCashWithdraw ?? false],
+    openingBalance: [Number(this.account?.openingBalance ?? 0)],
     active: [this.account?.active ?? true],
   });
 
@@ -229,6 +246,9 @@ export class AdminAccountDialogComponent implements OnInit {
       userIds: raw.userIds ?? [],
       hideFromCashWithdraw:
         raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? true : !!raw.hideFromCashWithdraw,
+      ...(this.canConfigureOpeningBalances
+        ? { openingBalance: Number(raw.openingBalance ?? 0) }
+        : {}),
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);
