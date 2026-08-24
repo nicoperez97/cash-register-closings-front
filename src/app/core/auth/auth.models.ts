@@ -884,7 +884,6 @@ export interface ShopSummary {
   isReservationAdmin?: boolean;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
-  canConfigureOpeningBalances?: boolean;
   active?: boolean;
 }
 
@@ -1057,11 +1056,6 @@ export function canEditShopPayments(user: AuthUser | null, shopId: string | null
   return !!user.shops?.find((s) => s.id === shopId)?.canEditPayments;
 }
 
-export function canConfigureShopOpeningBalances(
-  user: AuthUser | null,
-  shopId: string | null,
-): boolean {
-  if (!user || !shopId) return false;
-  if (user.globalRole === 'OWNER') return true;
-  return !!user.shops?.find((s) => s.id === shopId)?.canConfigureOpeningBalances;
+export function canConfigureShopOpeningBalances(user: AuthUser | null): boolean {
+  return user?.globalRole === 'OWNER';
 }
