@@ -267,6 +267,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En el teléfono ves una tarjeta por cuenta. En computadora es una tabla: socios arriba, canales abajo, y Dejar al lado del saldo.',
           'En canales, Dejar en la cuenta es lo que queda ahí y no se reparte.',
           'Los extras arrancan con una fila vacía: poné concepto e importe, o sumá más con Agregar extra.',
+          'En Pases que se van a crear ves de qué cuenta sale cada pase, a cuál llega y el importe.',
           'Tocá un socio para ver sus movimientos.',
         ],
       },
