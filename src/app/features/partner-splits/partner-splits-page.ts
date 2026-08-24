@@ -260,36 +260,38 @@ function parseMoney(raw: number | string): number {
       </section>
 
       @if (data.transfers.length) {
-        <section class="panel-card mb-3 split-transfers-card">
+        <section class="panel-card mb-3 split-transfers-panel">
           <div class="split-transfers-head">
-            <div>
-              <h2 class="split-title">Pases que se van a crear</h2>
-              <p class="hint">
-                {{ data.transfers.length }}
-                {{ data.transfers.length === 1 ? 'pase' : 'pases' }}
-                para dejar a cada socio con {{ money(data.totals.share) }}.
-              </p>
-            </div>
+            <h2 class="split-title">Pases que se van a crear</h2>
+            <p class="hint">
+              {{ data.transfers.length }}
+              {{ data.transfers.length === 1 ? 'pase' : 'pases' }}
+              para dejar a cada socio con {{ money(data.totals.share) }}.
+            </p>
           </div>
-          <div class="split-transfers-table" role="table" aria-label="Pases que se van a crear">
-            <div class="split-transfer split-transfer--head" role="row">
-              <span>Sale de</span>
-              <span class="split-transfer__arrow-slot"></span>
-              <span>Entra a</span>
-              <span>Importe</span>
-            </div>
-            <ul class="split-transfers">
-              @for (t of data.transfers; track t.fromAccountId + '-' + t.toAccountId) {
-                <li class="split-transfer" role="row">
-                  <span class="split-transfer__from">{{ t.fromName }}</span>
-                  <span class="split-transfer__arrow" aria-hidden="true">
-                    <mat-icon>arrow_forward</mat-icon>
-                  </span>
-                  <span class="split-transfer__to">{{ t.toName }}</span>
-                  <strong class="split-transfer__amt">{{ money(t.amount) }}</strong>
-                </li>
-              }
-            </ul>
+          <div class="split-transfers-wrap">
+            <table class="split-xfer">
+              <thead>
+                <tr>
+                  <th>Sale de</th>
+                  <th class="split-xfer__arrow" aria-hidden="true"></th>
+                  <th>Entra a</th>
+                  <th>Importe</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (t of data.transfers; track t.fromAccountId + '-' + t.toAccountId) {
+                  <tr>
+                    <td>{{ t.fromName }}</td>
+                    <td class="split-xfer__arrow" aria-hidden="true">
+                      <mat-icon>arrow_forward</mat-icon>
+                    </td>
+                    <td>{{ t.toName }}</td>
+                    <td class="split-xfer__amt">{{ money(t.amount) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
         </section>
       }
@@ -525,71 +527,75 @@ function parseMoney(raw: number | string): number {
     .split-summary .hint {
       margin: 0.25rem 0 0;
     }
-    .split-transfers-card {
-      padding: 1rem 1.15rem 1.15rem;
+    .split-transfers-panel {
+      padding: 0;
+      overflow: hidden;
     }
     .split-transfers-head {
-      margin-bottom: 0.85rem;
+      padding: 1rem 1.15rem 0.85rem;
     }
     .split-transfers-head .hint {
       margin: 0;
     }
-    .split-transfers-table {
-      display: grid;
-      gap: 0.5rem;
+    .split-transfers-wrap {
+      overflow: auto;
+      border-top: 1px solid var(--guy-border, #d7e0d9);
     }
-    .split-transfers {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 0.5rem;
+    .split-xfer {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.98rem;
     }
-    .split-transfer {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 2rem minmax(0, 1fr);
-      align-items: center;
-      gap: 0.45rem 0.7rem;
-      padding: 0.8rem 0.9rem;
-      border: 1px solid var(--guy-border, #d7e0d9);
-      border-radius: 12px;
-      background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, #fff);
-    }
-    .split-transfer--head {
+    .split-xfer thead {
       display: none;
     }
-    .split-transfer__from,
-    .split-transfer__to {
+    .split-xfer tbody {
+      display: block;
+    }
+    .split-xfer tbody tr {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.78rem 1.05rem;
+      border-bottom: 1px solid var(--guy-border, #d7e0d9);
+    }
+    .split-xfer tbody tr:nth-child(even) {
+      background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 72%, #fff);
+    }
+    .split-xfer tbody tr:last-child {
+      border-bottom: 0;
+    }
+    .split-xfer td {
+      padding: 0;
+      border: 0;
       min-width: 0;
-      font-size: 1rem;
+    }
+    .split-xfer td:nth-child(1),
+    .split-xfer td:nth-child(3) {
       font-weight: 650;
       color: var(--guy-text, #1b2a33);
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-    .split-transfer__arrow {
-      display: grid;
-      place-items: center;
-      width: 1.85rem;
-      height: 1.85rem;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff);
-      color: var(--guy-primary, #1d65a0);
-    }
-    .split-transfer__arrow mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-    .split-transfer__amt {
-      grid-column: 1 / -1;
-      justify-self: end;
-      padding-top: 0.45rem;
-      border-top: 1px solid var(--guy-border, #d7e0d9);
-      font-size: 1.08rem;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: -0.02em;
       white-space: nowrap;
+    }
+    .split-xfer__arrow {
+      flex: none;
+      width: 1.5rem;
+      color: var(--guy-primary, #1d65a0);
+      text-align: center;
+      line-height: 0;
+    }
+    .split-xfer__arrow mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    .split-xfer__amt {
+      margin-left: auto;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
     .split-actions {
       display: flex;
@@ -627,30 +633,61 @@ function parseMoney(raw: number | string): number {
       .split-actions button {
         width: auto;
       }
-      .split-transfer {
-        grid-template-columns: minmax(0, 1fr) 2.1rem minmax(0, 1fr) auto;
-        padding: 0.85rem 1.05rem;
+      .split-xfer {
+        font-size: 1rem;
       }
-      .split-transfer--head {
-        display: grid;
-        padding: 0 1.05rem 0.15rem;
-        border: 0;
-        background: transparent;
-        font-size: 0.72rem;
+      .split-xfer {
+        display: table;
+      }
+      .split-xfer thead {
+        display: table-header-group;
+      }
+      .split-xfer thead tr {
+        display: table-row;
+      }
+      .split-xfer tbody {
+        display: table-row-group;
+      }
+      .split-xfer tbody tr {
+        display: table-row;
+        padding: 0;
+      }
+      .split-xfer th,
+      .split-xfer td {
+        display: table-cell;
+        padding: 0.78rem 1.15rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--guy-border, #d7e0d9);
+        text-align: left;
+      }
+      .split-xfer th {
+        font-size: 0.75rem;
         font-weight: 800;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
-        color: var(--guy-muted, #5f6f76);
+        color: color-mix(in srgb, var(--guy-text, #1b2a33) 62%, var(--guy-muted, #5f6f76));
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, #fff);
       }
-      .split-transfer--head span:last-child {
+      .split-xfer th:nth-child(1),
+      .split-xfer td:nth-child(1),
+      .split-xfer th:nth-child(3),
+      .split-xfer td:nth-child(3) {
+        width: 28%;
+      }
+      .split-xfer__arrow {
+        width: 2.4rem;
+        padding-left: 0.15rem;
+        padding-right: 0.15rem;
+        text-align: center;
+      }
+      .split-xfer th:last-child,
+      .split-xfer__amt {
+        margin-left: 0;
         text-align: right;
+        font-size: 1.08rem;
       }
-      .split-transfer__amt {
-        grid-column: auto;
-        justify-self: end;
-        padding-top: 0;
-        border-top: 0;
-        font-size: 1.12rem;
+      .split-xfer tbody tr:last-child td {
+        border-bottom: 0;
       }
     }
     @media (min-width: 960px) {
