@@ -89,8 +89,22 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Entrá al cierre para ver el detalle.',
           'En el celular la lista viene compacta. Con el botón de info de cada fila ves el detalle, o cambiá a vista detallada junto a Buscar.',
-          'Volver a cargar recorre los cierres y te muestra ingresos que faltan en el libro o que no coinciden, y cómo quedarían los saldos.',
+          'Volver a procesar compara cada cierre con el libro. Marcá cuáles cargar.',
         ],
+      },
+      {
+        title: 'Volver a procesar',
+        icon: 'sync',
+        tone: 'do',
+        anyOf: ['closings.create'],
+        body: 'Compara los ingresos de cada cierre (PVS, efectivo, MP, etc.) con el libro. Marcá cuáles aplicar. El botón de info abre estas instrucciones.',
+        items: [
+          'Nuevo: no está en el libro. Si lo marcás, se crea.',
+          'No coincide: el libro tiene otro importe ese día. Si lo marcás, el libro pasa al importe del cierre.',
+          'Solo nuevos, Todos o Ninguno te ahorran tildar uno por uno.',
+          'Abajo ves cómo quedarían los saldos con lo marcado.',
+        ],
+        tip: 'Los que ya coinciden no se tocan. Si no marcás nada, no se carga nada.',
       },
       {
         title: 'Armar el cierre',
@@ -502,7 +516,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'notifications_active',
         tone: 'do',
         anyOf: ['waitingList.manage'],
-        body: 'Agregá gente, llamala cuando hay mesa y cerrá el turno. Pantalla de sala: /w.',
+        body: 'Anotá a quien llega. Mesa lista avisa en la pantalla pública (/w) que ya pueden sentarse. Sentar los saca de la cola.',
+        items: [
+          'Mesa lista: se ve destacado en la pantalla pública.',
+          'Sentar: sale de la lista.',
+          'WhatsApp: si hay teléfono, avisales.',
+        ],
+        tip: 'La pantalla pública se actualiza sola cuando marcás Mesa lista.',
       },
     ],
   },

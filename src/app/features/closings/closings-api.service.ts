@@ -261,10 +261,18 @@ export class ClosingsApiService {
     );
   }
 
-  commitReloadIncomes(shopId: string) {
+  commitReloadIncomes(
+    shopId: string,
+    selected?: Array<{
+      closingId: string;
+      toAccountId: string;
+      amount: number;
+      label: string;
+    }>,
+  ) {
     return this.http.post<ReloadIncomesPreview>(
       `${this.base}/shops/${shopId}/closings/reload-incomes?commit=true`,
-      {},
+      { selected: selected ?? [] },
     );
   }
 
@@ -715,6 +723,7 @@ export interface ReloadIncomeItem {
   status: ReloadIncomeStatus;
   existingAmount: number;
   existingDescription: string | null;
+  existingMovementId?: string | null;
 }
 
 export interface ReloadIncomeBalance {
@@ -729,6 +738,7 @@ export interface ReloadIncomeBalance {
 export interface ReloadIncomesPreview {
   closingsCount: number;
   createdCount: number;
+  updatedCount?: number;
   items: ReloadIncomeItem[];
   counts: {
     new: number;

@@ -80,10 +80,24 @@ import { BoardPwaService } from './board-pwa.service';
           [accent]="accent()"
         />
 
+        @if (readyNames().length) {
+          <section class="board__names board__names--ready" aria-label="Mesa lista">
+            <h2>Mesa lista <span>{{ readyNames().length }}</span></h2>
+            <ul>
+              @for (w of readyNames(); track w.id) {
+                <li class="board__item--ready" [class.board__item--new]="isNew(w.id)">
+                  <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
+                  <span class="board__ready-tag">Pasá a sentarte</span>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
         <section class="board__names" aria-label="En espera">
-          <h2>En espera <span>{{ names().length }}</span></h2>
+          <h2>En espera <span>{{ waitingNames().length }}</span></h2>
           <ul>
-            @for (w of names(); track w.id) {
+            @for (w of waitingNames(); track w.id) {
               <li [class.board__item--new]="isNew(w.id)">
                 <span class="board__name">{{ w.guestName || 'Invitado' }}</span>
               </li>
@@ -453,6 +467,44 @@ import { BoardPwaService } from './board-pwa.service';
         animation: item-glow 1.2s ease-out;
       }
 
+      .board__names--ready {
+        border-color: color-mix(in srgb, #3dba6e 45%, rgba(255, 255, 255, 0.08));
+        background: color-mix(in srgb, #3dba6e 14%, rgba(255, 255, 255, 0.035));
+        margin-bottom: 0.75rem;
+      }
+
+      .board__item--ready {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        outline: 1px solid color-mix(in srgb, #3dba6e 70%, transparent);
+        background: color-mix(in srgb, #3dba6e 22%, rgba(0, 0, 0, 0.22));
+        animation: ready-pulse 1.8s ease-in-out infinite;
+      }
+
+      .board__ready-tag {
+        flex-shrink: 0;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: #e8fff0;
+        color: #14532d;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      @keyframes ready-pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(61, 186, 110, 0.35);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(61, 186, 110, 0);
+        }
+      }
+
       @keyframes item-glow {
         from {
           box-shadow: 0 0 0 0 rgba(61, 186, 110, 0.45);
@@ -656,6 +708,7 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
   private onVisible: (() => void) | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private knownIds = new Set<string>();
+  private knownReadyIds = new Set<string>();
   private hasLoadedOnce = false;
   private highlightIds = new Set<string>();
 
@@ -677,6 +730,9 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
     this.highlightTick();
     return this.board()?.waiting ?? [];
   });
+
+  readonly readyNames = computed(() => this.names().filter((w) => w.status === 'READY'));
+  readonly waitingNames = computed(() => this.names().filter((w) => w.status !== 'READY'));
 
   ngOnInit(): void {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
@@ -753,17 +809,50 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
 
   private applyBoard(b: PublicWaitingBoard): void {
     const nextIds = new Set((b.waiting ?? []).map((w) => w.id));
+    const nextReady = new Set(
+      (b.waiting ?? []).filter((w) => w.status === 'READY').map((w) => w.id),
+    );
     if (this.hasLoadedOnce) {
       const newcomers = (b.waiting ?? []).filter((w) => !this.knownIds.has(w.id));
-      if (newcomers.length) {
+      const becameReady = (b.waiting ?? []).filter(
+        (w) => w.status === 'READY' && !this.knownReadyIds.has(w.id),
+      );
+      if (becameReady.length) {
+        this.highlightIds = new Set(becameReady.map((w) => w.id));
+        this.highlightTick.update((n) => n + 1);
+        this.notifyReady(becameReady);
+      } else if (newcomers.length) {
         this.highlightIds = new Set(newcomers.map((w) => w.id));
         this.highlightTick.update((n) => n + 1);
         this.notifyNew(newcomers);
       }
     }
     this.knownIds = nextIds;
+    this.knownReadyIds = nextReady;
     this.hasLoadedOnce = true;
     this.board.set(b);
+  }
+
+  private notifyReady(
+    rows: Array<{ guestName: string; partySize: number; position: number }>,
+  ): void {
+    const first = rows[0];
+    const label = first.guestName?.trim() || 'Invitado';
+    const message =
+      rows.length === 1
+        ? `Mesa lista: ${label}`
+        : `${rows.length} mesas listas (última: ${label})`;
+    this.showToast(message);
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification('Mesa lista · ' + (this.board()?.shop.name ?? 'Local'), {
+          body: message,
+          tag: 'waiting-ready',
+        });
+      } catch {
+        // ignore
+      }
+    }
   }
 
   private notifyNew(

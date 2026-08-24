@@ -238,6 +238,15 @@
         background: color-mix(in srgb, #ef6c00 6%, var(--guy-card, #fff));
       }
 
+      .wait-item--ready {
+        border-color: color-mix(in srgb, #2e7d32 50%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, #2e7d32 10%, var(--guy-card, #fff));
+      }
+
+      .wait-item--ready .wait-item__pos {
+        background: linear-gradient(145deg, #1b5e20, #43a047);
+      }
+
       .wait-item__pos {
         display: grid;
         place-items: center;

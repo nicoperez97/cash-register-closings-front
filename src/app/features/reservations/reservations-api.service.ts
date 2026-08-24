@@ -4,7 +4,7 @@ import { environment } from '../../../environments/environment';
 
 export type ReservationArea = 'INSIDE' | 'OUTSIDE';
 export type ReservationStatus = 'CONFIRMED' | 'MARKED' | 'SEATED' | 'CANCELLED' | 'NO_SHOW';
-export type WaitingListStatus = 'WAITING' | 'SEATED' | 'CANCELLED' | 'LEFT';
+export type WaitingListStatus = 'WAITING' | 'READY' | 'SEATED' | 'CANCELLED' | 'LEFT';
 export type ReservationRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
 
 export interface ReservationRequestRow {
