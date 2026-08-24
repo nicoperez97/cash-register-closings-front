@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
+import { catchError, debounceTime, EMPTY, map, Subject, switchMap } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -15,6 +17,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { AccountMovementsDialogComponent } from '../movements/account-movements-dialog';
 import {
   PartnerSplitConfig,
@@ -31,6 +34,17 @@ function money(value: number): string {
   return n < 0 ? `-$${abs}` : `$${abs}`;
 }
 
+function round2(value: number): number {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function parseMoney(raw: number | string): number {
+  if (raw === '' || raw === null || raw === undefined) return 0;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? round2(raw) : 0;
+  const n = Number(String(raw).replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? round2(n) : 0;
+}
+
 @Component({
   selector: 'app-partner-splits-page',
   imports: [
@@ -43,6 +57,7 @@ function money(value: number): string {
     MatSnackBarModule,
     PageHeaderComponent,
     LoadingStateComponent,
+    MoneyInputDirective,
   ],
   template: `
     <app-page-header
@@ -188,40 +203,54 @@ function money(value: number): string {
 
         <div class="split-bottom">
           <div class="split-extras">
+            <div class="split-extras__head">
+              <h2 class="split-title">Extras</h2>
+              <p class="hint">Se restan del total antes de repartir.</p>
+            </div>
             @for (extra of data.extras; track extra.id) {
               <div class="split-extra">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-form-field class="split-extra__concept" appearance="outline" subscriptSizing="dynamic">
                   <mat-label>Concepto</mat-label>
-                  <input matInput [ngModel]="extra.label" (ngModelChange)="setExtraLabel(extra.id, $event)" />
+                  <input
+                    matInput
+                    [ngModel]="extra.label"
+                    (ngModelChange)="setExtraLabel(extra.id, $event)"
+                  />
                 </mat-form-field>
-                <div class="split-extra__row">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Importe</mat-label>
-                    <input
-                      matInput
-                      type="number"
-                      step="0.01"
-                      [ngModel]="extra.amount"
-                      (ngModelChange)="setExtraAmount(extra.id, $event)"
-                    />
-                  </mat-form-field>
-                  <button mat-icon-button type="button" aria-label="Quitar extra" (click)="removeExtra(extra.id)">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </div>
+                <mat-form-field class="split-extra__amount" appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Importe</mat-label>
+                  <input
+                    matInput
+                    type="text"
+                    inputmode="decimal"
+                    appMoney
+                    [ngModel]="extraAmountText(extra)"
+                    (ngModelChange)="setExtraAmount(extra.id, $event)"
+                    (blur)="commitExtraAmount(extra.id)"
+                  />
+                </mat-form-field>
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="split-extra__remove"
+                  aria-label="Quitar extra"
+                  (click)="removeExtra(extra.id)"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
               </div>
             }
-            <button mat-stroked-button type="button" (click)="addExtra()">
+            <button mat-stroked-button type="button" class="split-extras__add" (click)="addExtra()">
               <mat-icon>add</mat-icon>
               Agregar extra
             </button>
           </div>
           <div class="split-summary">
             <div><span>Reservado en canales</span><strong>{{ money(data.totals.reserves) }}</strong></div>
-            <div><span>Extras</span><strong>{{ money(data.totals.extras) }}</strong></div>
+            <div><span>Extras</span><strong>{{ money(extrasSum(data.extras)) }}</strong></div>
             <div class="split-summary__total">
               <span>TOTAL a repartir</span>
-              <strong>{{ money(data.totals.toDistribute) }}</strong>
+              <strong>{{ money(toDistribute(data)) }}</strong>
             </div>
             <p class="hint">
               Cada socio queda con {{ money(data.totals.share) }} si la división cierra.
@@ -231,14 +260,33 @@ function money(value: number): string {
       </section>
 
       @if (data.transfers.length) {
-        <section class="panel-card mb-3">
-          <div class="panel-card__body">
-            <h2 class="split-title">Pases que se van a crear</h2>
+        <section class="panel-card mb-3 split-transfers-card">
+          <div class="split-transfers-head">
+            <div>
+              <h2 class="split-title">Pases que se van a crear</h2>
+              <p class="hint">
+                {{ data.transfers.length }}
+                {{ data.transfers.length === 1 ? 'pase' : 'pases' }}
+                para dejar a cada socio con {{ money(data.totals.share) }}.
+              </p>
+            </div>
+          </div>
+          <div class="split-transfers-table" role="table" aria-label="Pases que se van a crear">
+            <div class="split-transfer split-transfer--head" role="row">
+              <span>Sale de</span>
+              <span class="split-transfer__arrow-slot"></span>
+              <span>Entra a</span>
+              <span>Importe</span>
+            </div>
             <ul class="split-transfers">
-              @for (t of data.transfers; track t.fromAccountId + t.toAccountId + t.amount) {
-                <li>
-                  <span>{{ t.fromName }} → {{ t.toName }}</span>
-                  <strong>{{ money(t.amount) }}</strong>
+              @for (t of data.transfers; track t.fromAccountId + '-' + t.toAccountId) {
+                <li class="split-transfer" role="row">
+                  <span class="split-transfer__from">{{ t.fromName }}</span>
+                  <span class="split-transfer__arrow" aria-hidden="true">
+                    <mat-icon>arrow_forward</mat-icon>
+                  </span>
+                  <span class="split-transfer__to">{{ t.toName }}</span>
+                  <strong class="split-transfer__amt">{{ money(t.amount) }}</strong>
                 </li>
               }
             </ul>
@@ -430,20 +478,26 @@ function money(value: number): string {
       display: grid;
       gap: 0.65rem;
     }
+    .split-extras__head .hint {
+      margin: 0;
+    }
     .split-extra {
       display: grid;
-      gap: 0.5rem;
-    }
-    .split-extra__row {
-      display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 0.35rem;
-      align-items: center;
+      gap: 0.5rem;
+      align-items: start;
     }
-    .split-extra__row mat-form-field {
+    .split-extra__concept {
+      grid-column: 1 / -1;
+    }
+    .split-extra__amount,
+    .split-extra__concept {
       width: 100%;
     }
-    .split-extras > button,
+    .split-extra__remove {
+      margin-top: 0.1rem;
+    }
+    .split-extras__add,
     .split-actions button {
       width: 100%;
     }
@@ -471,21 +525,70 @@ function money(value: number): string {
     .split-summary .hint {
       margin: 0.25rem 0 0;
     }
+    .split-transfers-card {
+      padding: 1rem 1.15rem 1.15rem;
+    }
+    .split-transfers-head {
+      margin-bottom: 0.85rem;
+    }
+    .split-transfers-head .hint {
+      margin: 0;
+    }
+    .split-transfers-table {
+      display: grid;
+      gap: 0.5rem;
+    }
     .split-transfers {
       margin: 0;
       padding: 0;
       list-style: none;
       display: grid;
-      gap: 0.35rem;
+      gap: 0.5rem;
     }
-    .split-transfers li {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: baseline;
+    .split-transfer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 2rem minmax(0, 1fr);
+      align-items: center;
+      gap: 0.45rem 0.7rem;
+      padding: 0.8rem 0.9rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, #fff);
     }
-    .split-transfers strong {
+    .split-transfer--head {
+      display: none;
+    }
+    .split-transfer__from,
+    .split-transfer__to {
+      min-width: 0;
+      font-size: 1rem;
+      font-weight: 650;
+      color: var(--guy-text, #1b2a33);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .split-transfer__arrow {
+      display: grid;
+      place-items: center;
+      width: 1.85rem;
+      height: 1.85rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff);
+      color: var(--guy-primary, #1d65a0);
+    }
+    .split-transfer__arrow mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .split-transfer__amt {
+      grid-column: 1 / -1;
+      justify-self: end;
+      padding-top: 0.45rem;
+      border-top: 1px solid var(--guy-border, #d7e0d9);
+      font-size: 1.08rem;
       font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
       white-space: nowrap;
     }
     .split-actions {
@@ -514,25 +617,46 @@ function money(value: number): string {
         display: block;
       }
       .split-extra {
-        grid-template-columns: minmax(0, 1fr) 9.5rem auto;
+        grid-template-columns: minmax(0, 1fr) 11rem auto;
         align-items: center;
       }
-      .split-extra__row {
-        display: contents;
+      .split-extra__concept {
+        grid-column: auto;
       }
-      .split-extras > button,
+      .split-extras__add,
       .split-actions button {
         width: auto;
+      }
+      .split-transfer {
+        grid-template-columns: minmax(0, 1fr) 2.1rem minmax(0, 1fr) auto;
+        padding: 0.85rem 1.05rem;
+      }
+      .split-transfer--head {
+        display: grid;
+        padding: 0 1.05rem 0.15rem;
+        border: 0;
+        background: transparent;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .split-transfer--head span:last-child {
+        text-align: right;
+      }
+      .split-transfer__amt {
+        grid-column: auto;
+        justify-self: end;
+        padding-top: 0;
+        border-top: 0;
+        font-size: 1.12rem;
       }
     }
     @media (min-width: 960px) {
       .split-bottom {
         grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.75fr);
         align-items: start;
-      }
-      .split-transfers {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.4rem 1.5rem;
       }
     }
   `,
@@ -549,14 +673,38 @@ export class PartnerSplitsPage {
   readonly loading = signal(false);
   readonly busy = signal(false);
   readonly preview = signal<PartnerSplitPreview | null>(null);
+  private readonly extraAmountDrafts = signal<Record<string, string>>({});
+  private readonly previewConfig$ = new Subject<PartnerSplitConfig>();
 
   readonly money = money;
 
   constructor() {
+    this.previewConfig$
+      .pipe(
+        debounceTime(320),
+        switchMap((config) => {
+          const shopId = this.shops.selectedShopId();
+          if (!shopId) return EMPTY;
+          return this.api.preview(shopId, config).pipe(
+            map((res) => ({ res, shopId })),
+            catchError(() => {
+              this.snack.open('No se pudo recalcular', 'OK', { duration: 3000 });
+              return EMPTY;
+            }),
+          );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe(({ res, shopId }) => {
+        if (this.shops.selectedShopId() !== shopId) return;
+        this.applyRemotePreview(res);
+      });
+
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {
         this.preview.set(null);
+        this.extraAmountDrafts.set({});
         return;
       }
       this.load();
@@ -587,6 +735,7 @@ export class PartnerSplitsPage {
     this.loading.set(true);
     this.api.get(shopId).subscribe({
       next: (res) => {
+        this.extraAmountDrafts.set({});
         this.preview.set(res);
         this.loading.set(false);
       },
@@ -597,13 +746,62 @@ export class PartnerSplitsPage {
     });
   }
 
-  refresh(config: PartnerSplitConfig): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.api.preview(shopId, config).subscribe({
-      next: (res) => this.preview.set(res),
-      error: () => this.snack.open('No se pudo recalcular', 'OK', { duration: 3000 }),
+  extraAmountText(extra: { id: string; amount: number }): string {
+    const drafts = this.extraAmountDrafts();
+    if (Object.prototype.hasOwnProperty.call(drafts, extra.id)) return drafts[extra.id];
+    return extra.amount ? String(extra.amount) : '';
+  }
+
+  extrasSum(extras: Array<{ amount: number }>): number {
+    return round2(extras.reduce((sum, extra) => sum + Number(extra.amount || 0), 0));
+  }
+
+  toDistribute(data: PartnerSplitPreview): number {
+    return round2(data.totals.balances - data.totals.reserves - this.extrasSum(data.extras));
+  }
+
+  private applyRemotePreview(res: PartnerSplitPreview): void {
+    const current = this.preview();
+    if (!current) {
+      this.preview.set(res);
+      return;
+    }
+    this.preview.set({
+      ...res,
+      extras: current.extras,
+      config: {
+        ...res.config,
+        extras: current.extras,
+        channelLeaves: current.config.channelLeaves,
+      },
+      channels: res.channels.map((ch) => ({
+        ...ch,
+        leaveAmount:
+          current.config.channelLeaves.find((c) => c.accountId === ch.accountId)?.leaveAmount ??
+          ch.leaveAmount,
+      })),
     });
+  }
+
+  private setConfig(config: PartnerSplitConfig, recalc: boolean): void {
+    const data = this.preview();
+    if (!data) return;
+    this.preview.set({
+      ...data,
+      config,
+      extras: config.extras,
+      availablePartners: data.availablePartners.map((p) => ({
+        ...p,
+        included: config.partnerAccountIds.includes(p.accountId),
+      })),
+      channels: data.channels.map((ch) => ({
+        ...ch,
+        leaveAmount:
+          config.channelLeaves.find((c) => c.accountId === ch.accountId)?.leaveAmount ??
+          ch.leaveAmount,
+      })),
+    });
+    if (recalc) this.previewConfig$.next(config);
   }
 
   togglePartner(accountId: string, included: boolean): void {
@@ -611,49 +809,66 @@ export class PartnerSplitsPage {
     const set = new Set(cfg.partnerAccountIds);
     if (included) set.add(accountId);
     else set.delete(accountId);
-    this.refresh({ ...cfg, partnerAccountIds: [...set] });
+    this.setConfig({ ...cfg, partnerAccountIds: [...set] }, true);
   }
 
   setLeave(accountId: string, raw: number | string): void {
+    const leaveAmount = parseMoney(raw);
     const cfg = this.config();
-    const leaveAmount = Number(raw || 0);
     const channelLeaves = [...cfg.channelLeaves];
     const idx = channelLeaves.findIndex((c) => c.accountId === accountId);
     if (idx >= 0) channelLeaves[idx] = { accountId, leaveAmount };
     else channelLeaves.push({ accountId, leaveAmount });
-    this.refresh({ ...cfg, channelLeaves });
+    this.setConfig({ ...cfg, channelLeaves }, true);
   }
 
   setExtraLabel(id: string, label: string): void {
     const cfg = this.config();
-    this.refresh({
-      ...cfg,
-      extras: cfg.extras.map((e) => (e.id === id ? { ...e, label } : e)),
-    });
+    this.setConfig(
+      { ...cfg, extras: cfg.extras.map((e) => (e.id === id ? { ...e, label } : e)) },
+      false,
+    );
   }
 
-  setExtraAmount(id: string, raw: number | string): void {
+  setExtraAmount(id: string, raw: string): void {
+    this.extraAmountDrafts.update((d) => ({ ...d, [id]: raw }));
     const cfg = this.config();
-    this.refresh({
-      ...cfg,
-      extras: cfg.extras.map((e) => (e.id === id ? { ...e, amount: Number(raw || 0) } : e)),
+    this.setConfig(
+      {
+        ...cfg,
+        extras: cfg.extras.map((e) => (e.id === id ? { ...e, amount: parseMoney(raw) } : e)),
+      },
+      true,
+    );
+  }
+
+  commitExtraAmount(id: string): void {
+    this.extraAmountDrafts.update((d) => {
+      const next = { ...d };
+      delete next[id];
+      return next;
     });
   }
 
   addExtra(): void {
     const cfg = this.config();
-    this.refresh({
-      ...cfg,
-      extras: [
-        ...cfg.extras,
-        { id: `extra-${Date.now()}`, label: '', amount: 0 },
-      ],
-    });
+    this.setConfig(
+      {
+        ...cfg,
+        extras: [...cfg.extras, { id: `extra-${Date.now()}`, label: '', amount: 0 }],
+      },
+      false,
+    );
   }
 
   removeExtra(id: string): void {
+    this.extraAmountDrafts.update((d) => {
+      const next = { ...d };
+      delete next[id];
+      return next;
+    });
     const cfg = this.config();
-    this.refresh({ ...cfg, extras: cfg.extras.filter((e) => e.id !== id) });
+    this.setConfig({ ...cfg, extras: cfg.extras.filter((e) => e.id !== id) }, true);
   }
 
   save(): void {
@@ -662,6 +877,7 @@ export class PartnerSplitsPage {
     this.busy.set(true);
     this.api.save(shopId, this.config()).subscribe({
       next: (res) => {
+        this.extraAmountDrafts.set({});
         this.preview.set(res);
         this.busy.set(false);
         this.snack.open('Armado guardado', 'OK', { duration: 2500 });
@@ -686,6 +902,7 @@ export class PartnerSplitsPage {
     this.busy.set(true);
     this.api.apply(shopId, this.config()).subscribe({
       next: (res) => {
+        this.extraAmountDrafts.set({});
         this.preview.set(res);
         this.busy.set(false);
         this.snack.open(`Se crearon ${res.createdCount ?? 0} pases`, 'OK', { duration: 4000 });
