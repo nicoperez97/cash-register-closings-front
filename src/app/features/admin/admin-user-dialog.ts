@@ -52,6 +52,7 @@ export interface AdminUserRow {
   isReservationAdmin?: boolean;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
+  canConfigureOpeningBalances?: boolean;
   phone?: string | null;
   bankAlias?: string | null;
   cbu?: string | null;
@@ -690,6 +691,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
               Aunque no sea super admin, puede modificar o eliminar pagos de este local.
               También elige el estado al crear un pago.
             </p>
+            <mat-slide-toggle formControlName="canConfigureOpeningBalances">
+              Puede configurar saldos iniciales
+            </mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Aunque no sea super admin, puede cargar o cambiar el saldo inicial de las cuentas de este local.
+            </p>
           }
         }
 
@@ -788,6 +795,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             <p class="section__hint" style="margin: 0">
               Aunque no sea super admin, puede modificar o eliminar pagos de este local.
               También elige el estado al crear un pago.
+            </p>
+            <mat-slide-toggle formControlName="canConfigureOpeningBalances">
+              Puede configurar saldos iniciales
+            </mat-slide-toggle>
+            <p class="section__hint" style="margin: 0">
+              Aunque no sea super admin, puede cargar o cambiar el saldo inicial de las cuentas de este local.
             </p>
           }
         }
@@ -933,6 +946,7 @@ export class AdminUserDialogComponent implements OnInit {
     isReservationAdmin: [this.user?.isReservationAdmin ?? false],
     canEditExpenses: [this.user?.canEditExpenses ?? false],
     canEditPayments: [this.user?.canEditPayments ?? false],
+    canConfigureOpeningBalances: [this.user?.canConfigureOpeningBalances ?? false],
   });
 
   readonly enabledSummary = computed(() => {
@@ -1071,6 +1085,7 @@ export class AdminUserDialogComponent implements OnInit {
           isReservationAdmin: !!raw.isReservationAdmin,
           canEditExpenses: !!raw.canEditExpenses,
           canEditPayments: !!raw.canEditPayments,
+          canConfigureOpeningBalances: !!raw.canConfigureOpeningBalances,
         })
         .subscribe({
           next: () => {
@@ -1107,6 +1122,7 @@ export class AdminUserDialogComponent implements OnInit {
         isReservationAdmin: !!raw.isReservationAdmin,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
+        canConfigureOpeningBalances: !!raw.canConfigureOpeningBalances,
       };
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
@@ -1150,6 +1166,7 @@ export class AdminUserDialogComponent implements OnInit {
         isReservationAdmin: !!raw.isReservationAdmin,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
+        canConfigureOpeningBalances: !!raw.canConfigureOpeningBalances,
       })
       .subscribe({
         next: () => {

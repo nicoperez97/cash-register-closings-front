@@ -660,7 +660,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'storefront',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Mes, día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia.',
+        body: 'Mes, día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia. “Hoy” usa el mismo día laboral que el cierre nuevo: hasta la hora de apertura del local sigue siendo el día anterior.',
         tip: 'Si el local apagó “Presentismo con horario”, solo se marca presente / ausente / feriado: no hay entrada, salida ni extra.',
       },
       {
@@ -960,6 +960,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'El rol Empleado también puede tener módulos extra (propinas, normas, reintegros…).',
           'Productor = sus horas + sus reintegros, no el tablero de servicio.',
           'Cierres, A Retirar, Rendiciones, Gastos y Movimientos entre cuentas se tildan por separado.',
+          'Solo un super admin puede marcar “Puede editar y borrar gastos”, “Puede editar y borrar pagos” y “Puede configurar saldos iniciales”.',
         ],
         tip: 'La columna Foto y el nombre muestran la foto de perfil si la cargó el usuario.',
       },
@@ -976,6 +977,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['accounts.manage'],
         body: 'Se usan en gastos, transferencias entre cuentas, pagos y cierres. Sin cuenta, no hay dónde anotar la plata.',
+        items: [
+          'Saldo inicial: se suma al saldo de movimientos. Si la cuenta ya tiene plata y después le ponés un inicial, ese monto se agrega (no reemplaza). Solo lo carga un super admin o alguien con el flag “Puede configurar saldos iniciales”.',
+        ],
       },
     ],
   },

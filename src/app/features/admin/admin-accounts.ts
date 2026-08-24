@@ -62,6 +62,14 @@ export class AdminAccountsPage {
       format: (r) => String(r['userFullName'] ?? '—'),
     },
     {
+      key: 'openingBalance',
+      label: 'Saldo inicial',
+      format: (r) => {
+        const n = Number(r['openingBalance'] ?? 0);
+        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      },
+    },
+    {
       key: 'hideFromCashWithdraw',
       label: 'Retiro',
       format: (r) => (r['hideFromCashWithdraw'] ? 'Oculta' : 'Visible'),

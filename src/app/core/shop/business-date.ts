@@ -1,7 +1,7 @@
 /**
  * Fechas de local:
  * - resolveShopCalendarDate: día calendario (reservas, movimientos, etc.)
- * - resolveShopBusinessDate: día laboral con openingTime (cierres y propinas)
+ * - resolveShopBusinessDate: día laboral con openingTime (cierres, propinas y presentismo de servicio)
  */
 
 const DEFAULT_TZ = 'America/Argentina/Buenos_Aires';
@@ -79,7 +79,7 @@ export function resolveShopCalendarDate(
 
 /**
  * Día laboral YYYY-MM-DD según timezone y hora de apertura.
- * Usar solo para cierres de caja.
+ * Día laboral: si todavía no llegó la hora de apertura, cuenta el día anterior.
  */
 export function resolveShopBusinessDate(
   when: Date = new Date(),
