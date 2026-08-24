@@ -114,13 +114,21 @@ import {
 
       <section class="wait-queue" aria-label="Cola de espera">
         @for (w of waiting(); track w.id; let i = $index) {
-          <article class="wait-item" [class.wait-item--out]="w.area === 'OUTSIDE'" [style.--i]="i">
+          <article
+            class="wait-item"
+            [class.wait-item--out]="w.area === 'OUTSIDE'"
+            [class.wait-item--ready]="w.status === 'READY'"
+            [style.--i]="i"
+          >
             <span class="wait-item__pos">{{ i + 1 }}</span>
             <div class="wait-item__main">
               <strong>{{ w.guestName }}</strong>
               <span>
                 {{ w.partySize }} {{ w.partySize === 1 ? 'persona' : 'personas' }}
                 · {{ w.area === 'OUTSIDE' ? 'Afuera' : 'Adentro' }}
+                @if (w.status === 'READY') {
+                  · Mesa lista
+                }
               </span>
             </div>
             <button
@@ -136,6 +144,16 @@ import {
             </button>
             @if (canManage()) {
               <div class="wait-item__actions">
+                @if (w.status !== 'READY') {
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="markReady(w)"
+                  >
+                    Mesa lista
+                  </button>
+                }
                 <button mat-stroked-button type="button" (click)="seatWaiting(w)">Sentar</button>
                 <button mat-icon-button type="button" aria-label="Quitar" (click)="deleteWaiting(w)">
                   <mat-icon>close</mat-icon>
@@ -252,10 +270,11 @@ export class WaitingListPage implements OnInit {
       return;
     }
     const name = String(row.guestName ?? '').trim() || 'hola';
-    const built = whatsappUrlFromPhone(
-      row.phone,
-      `Hola ${name}, ya tenemos lugar para ustedes 🙌`,
-    );
+    const text =
+      row.status === 'READY'
+        ? `Hola ${name}, ya está la mesa lista 🙌`
+        : `Hola ${name}, ya tenemos lugar para ustedes 🙌`;
+    const built = whatsappUrlFromPhone(row.phone, text);
     const url =
       built ??
       (row.whatsappUrl?.startsWith('http') ? row.whatsappUrl : null);
@@ -301,6 +320,18 @@ export class WaitingListPage implements OnInit {
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
+  }
+
+  markReady(row: WaitingListRow): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canManage()) return;
+    this.api.updateWaiting(shopId, row.id, { status: 'READY' }).subscribe({
+      next: () => {
+        this.loadWaiting();
+        this.snack.open(`Mesa lista para ${row.guestName}`, 'OK', { duration: 2500 });
+      },
+      error: () => this.snack.open('No se pudo marcar mesa lista', 'OK', { duration: 3000 }),
+    });
   }
 
   seatWaiting(row: WaitingListRow): void {

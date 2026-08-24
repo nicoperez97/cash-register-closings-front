@@ -195,7 +195,7 @@ import { closingMoneyColumns } from './closing-list-columns';
             </button>
             <button mat-stroked-button type="button" (click)="openReloadIncomes()">
               <mat-icon>sync</mat-icon>
-              Volver a cargar
+              Volver a procesar
             </button>
           }
         </div>
@@ -442,15 +442,16 @@ export class ClosingsListPage {
     this.dialogTitle
       .track(
         this.dialog.open(ReloadIncomesDialogComponent, {
-          width: '860px',
+          width: '920px',
           maxWidth: '96vw',
+          maxHeight: '92vh',
           panelClass: 'guy-dialog',
           data: {
             shopId,
             shopName: this.shops.selectedShop()?.name ?? 'Local',
           },
         }),
-        'Volver a cargar',
+        'Volver a procesar',
       )
       .afterClosed()
       .subscribe((ok) => {
