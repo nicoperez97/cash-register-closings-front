@@ -1,10 +1,8 @@
 import { Component, computed, input } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { userAvatarSrc } from '../../core/utils/drive-url';
 
 @Component({
   selector: 'app-user-avatar',
-  imports: [MatIconModule],
   template: `
     @if (src()) {
       <img class="ua" [class.ua--sm]="size() === 'sm'" [class.ua--lg]="size() === 'lg'" [src]="src()!" [alt]="alt()" />
@@ -13,10 +11,10 @@ import { userAvatarSrc } from '../../core/utils/drive-url';
         class="ua ua--fallback"
         [class.ua--sm]="size() === 'sm'"
         [class.ua--lg]="size() === 'lg'"
-        aria-hidden="true"
-      >
-        <mat-icon>account_circle</mat-icon>
-      </span>
+        [attr.data-initial]="initial()"
+        [attr.aria-label]="alt()"
+        role="img"
+      ></span>
     }
   `,
   styles: `
@@ -63,16 +61,19 @@ import { userAvatarSrc } from '../../core/utils/drive-url';
       justify-content: center;
       background: color-mix(in srgb, var(--guy-accent, #2e7d32) 16%, transparent);
       color: var(--guy-accent, #2e7d32);
+      font-weight: 700;
+      line-height: 1;
     }
-    .ua--fallback mat-icon {
-      font-size: 1.35rem;
-      width: 1.35rem;
-      height: 1.35rem;
+    .ua--fallback::before {
+      content: attr(data-initial);
+      font-size: 0.72rem;
+      font-weight: 750;
     }
-    .ua--lg.ua--fallback mat-icon {
-      font-size: 2.5rem;
-      width: 2.5rem;
-      height: 2.5rem;
+    .ua--sm.ua--fallback::before {
+      font-size: 0.62rem;
+    }
+    .ua--lg.ua--fallback::before {
+      font-size: 1.65rem;
     }
   `,
 })
@@ -94,4 +95,9 @@ export class UserAvatarComponent {
       this.cacheKey(),
     ),
   );
+
+  readonly initial = computed(() => {
+    const letter = (this.alt() || '').trim().charAt(0);
+    return letter ? letter.toLocaleUpperCase('es') : '?';
+  });
 }

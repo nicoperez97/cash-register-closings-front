@@ -341,6 +341,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Creá el pago, alguien valida, otro paga. Subí factura y comprobante cuando corresponda.',
         items: [
           'Si tenés el permiso de editar y borrar pagos, al crear podés elegir el estado (pendiente, validado o pagado).',
+          'En Proveedor podés buscar por nombre, CUIT o alias.',
           'Validar: elegí la cuenta que paga. Ahí recién se pide, no al crear.',
           'Pagar: elegí cuenta y forma de pago. Se crea el gasto en Cuentas → Gastos (proveedor, servicio o empleado).',
           'Un abonado no se edita: usá Marcar no pagado (borra el gasto), editá y volvé a abonar.',

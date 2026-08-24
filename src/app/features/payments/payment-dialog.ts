@@ -329,15 +329,26 @@ type PaymentDraft = {
         @if (isSupplierKind) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Proveedor</mat-label>
-            <mat-select formControlName="supplierId" (selectionChange)="onSupplierChange($event.value)">
+            <mat-select
+              formControlName="supplierId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, supplierQuery)"
+              (selectionChange)="onSupplierChange($event.value)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="supplierQuery" placeholder="Buscar proveedor…" />
+              </mat-option>
               <mat-option [value]="null">Sin proveedor</mat-option>
-              @for (s of suppliers(); track s.id) {
+              @for (s of filteredSuppliers(); track s.id) {
                 <mat-option [value]="s.id">
                   {{ s.name }}
                   @if (s.bankAlias) {
                     · {{ s.bankAlias }}
                   }
                 </mat-option>
+              }
+              @if (supplierQuery() && !filteredSuppliers().length) {
+                <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -691,6 +702,7 @@ export class PaymentDialogComponent {
   readonly payment = this.data.mode === 'edit' ? this.data.payment : null;
 
   readonly accountQuery = signal('');
+  readonly supplierQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly filteredAccounts = computed(() =>
     filterBySelectQuery(
@@ -698,6 +710,14 @@ export class PaymentDialogComponent {
       this.accountQuery(),
       (a) => a.name,
       this.form.controls.accountId.value,
+    ),
+  );
+  readonly filteredSuppliers = computed(() =>
+    filterBySelectQuery(
+      this.suppliers(),
+      this.supplierQuery(),
+      (s) => [s.name, s.legalName, s.taxId, s.bankAlias].filter(Boolean).join(' '),
+      this.form.controls.supplierId.value,
     ),
   );
 
