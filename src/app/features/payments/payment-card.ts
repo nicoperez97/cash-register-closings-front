@@ -82,6 +82,9 @@ import {
           >
             {{ compactMeta() }}
           </p>
+          @if (payment().notes || payment().conceptDescription) {
+            <p class="pay-card__notes-clip">{{ payment().notes || payment().conceptDescription }}</p>
+          }
         </div>
         <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
         <button
@@ -145,6 +148,16 @@ import {
         </button>
       }
     </div>
+
+    @if (payment().notes || payment().conceptDescription) {
+      <div class="pay-card__notes">
+        <span class="pay-card__notes-kicker">
+          <mat-icon>notes</mat-icon>
+          Descripción
+        </span>
+        <p>{{ payment().notes || payment().conceptDescription }}</p>
+      </div>
+    }
 
     <div class="pay-card__grid">
       <div>
@@ -236,10 +249,6 @@ import {
           }
         </div>
       </div>
-    }
-
-    @if (payment().notes || payment().conceptDescription) {
-      <p class="pay-card__notes">{{ payment().notes || payment().conceptDescription }}</p>
     }
 
     @if (billedKind() && hasInvoiceData(payment())) {

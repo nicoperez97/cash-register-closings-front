@@ -149,7 +149,9 @@
   }
   .pay-list--cards .pay-card__title,
   .pay-list--cards app-payment-card .pay-card__title {
-    font-size: 0.92rem;
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: var(--guy-navy, #003366);
   }
   .pay-list--cards .pay-card__amount,
   .pay-list--cards app-payment-card .pay-card__amount {
@@ -164,12 +166,15 @@
   .pay-list--cards .pay-card__grid,
   .pay-list--cards .pay-card__invoice,
   .pay-list--cards .pay-card__pay-data,
-  .pay-list--cards .pay-card__notes,
   .pay-list--cards app-payment-card .pay-card__grid,
   .pay-list--cards app-payment-card .pay-card__invoice,
-  .pay-list--cards app-payment-card .pay-card__pay-data,
-  .pay-list--cards app-payment-card .pay-card__notes {
+  .pay-list--cards app-payment-card .pay-card__pay-data {
     display: none;
+  }
+  .pay-list--cards .pay-card__notes,
+  .pay-list--cards app-payment-card .pay-card__notes {
+    display: block;
+    margin-bottom: 0.7rem;
   }
   .pay-list--cards .pay-card__actions,
   .pay-list--cards app-payment-card .pay-card__actions {

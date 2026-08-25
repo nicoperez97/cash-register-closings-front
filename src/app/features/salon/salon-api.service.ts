@@ -36,10 +36,10 @@ export class SalonApiService {
     });
   }
 
-  applyFromReservations(shopId: string) {
-    return this.http.post<SalonFloor>(
+  applyFromReservations(shopId: string, opts?: { onlyIfEmpty?: boolean }) {
+    return this.http.post<SalonFloor & { applied?: boolean }>(
       `${this.base}/shops/${shopId}/salon-floor/from-reservations`,
-      {},
+      { onlyIfEmpty: !!opts?.onlyIfEmpty },
     );
   }
 }

@@ -169,9 +169,50 @@
 }
 
 .pay-card__notes {
-  margin: 0 0 0.75rem;
-  font-size: 0.88rem;
+  margin: 0 0 0.85rem;
+  padding: 0.45rem 0.7rem 0.5rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--guy-navy, #003366) 5%, var(--guy-surface, #fff));
+  border-left: 3px solid color-mix(in srgb, var(--guy-navy, #003366) 35%, transparent);
+}
+
+.pay-card__notes-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--guy-muted, #5f6f76);
+}
+
+.pay-card__notes-kicker mat-icon {
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+}
+
+.pay-card__notes p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--guy-navy, #003366);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pay-card__notes-clip {
+  margin: 0.2rem 0 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--guy-navy, #003366);
 }
 
 .pay-card__invoice {
