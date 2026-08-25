@@ -1,11 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClosingsApiService, ExcelImportItem } from './closings-api.service';
-import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { ExcelImportShellComponent } from '../../shared/components/excel-import-shell';
 
 export interface ExcelImportDialogData {
   shopId: string;
@@ -14,54 +11,24 @@ export interface ExcelImportDialogData {
 
 @Component({
   selector: 'app-excel-import-dialog',
-  imports: [
-    MatDialogModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressBarModule,
-    MatSnackBarModule,
-    BusyLabelComponent,
-  ],
+  imports: [ExcelImportShellComponent],
   template: `
-    <h2 mat-dialog-title>
-      <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>table_view</mat-icon>
-      </span>
-      <span class="guy-dialog__title-text">
-        <strong>Importar desde Excel</strong>
-        <span>{{ data.shopName }}</span>
-      </span>
-    </h2>
-
-    <mat-dialog-content>
-      <p class="text-muted mb-3">
+    <app-excel-import-shell
+      title="Importar desde Excel"
+      [subtitle]="data.shopName"
+      [busy]="busy()"
+      [fileName]="fileName()"
+      [canCommit]="!!file() && creatableCount() > 0"
+      (downloadTemplate)="downloadTemplate()"
+      (fileSelected)="onPickedFile($event)"
+      (commit)="commit()"
+      (cancel)="ref.close(false)"
+    >
+      <p hint class="text-muted mb-0">
         Plantilla propia de cierres de caja (no es el reporte Restosoft).
         Descargá la plantilla, completá una fila por día y subí el archivo .xlsx.
         Si “Quién se lo lleva” no existe, se crea como Visor (pass 123456).
       </p>
-
-      <div class="xl-actions mb-3">
-        <button mat-stroked-button type="button" (click)="downloadTemplate()" [disabled]="busy()">
-          <mat-icon>download</mat-icon>
-          Descargar plantilla
-        </button>
-        <input
-          #fileInput
-          type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          hidden
-          (change)="onFile($event)"
-        />
-        <button mat-stroked-button type="button" (click)="fileInput.click()" [disabled]="busy()">
-          <mat-icon>attach_file</mat-icon>
-          {{ fileName() || 'Elegir Excel' }}
-        </button>
-      </div>
-
-      @if (busy()) {
-        <mat-progress-bar mode="indeterminate" class="guy-progress mb-3" />
-      }
-
       @if (items().length) {
         <p class="mb-2">
           {{ items().length }} filas ·
@@ -103,72 +70,8 @@ export interface ExcelImportDialogData {
           </table>
         </div>
       }
-    </mat-dialog-content>
-
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
-        Cancelar
-      </button>
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        [disabled]="busy() || !file() || creatableCount() === 0"
-        (click)="commit()"
-      >
-        <app-busy-label [busy]="busy()" busyLabel="Importando…">
-          <mat-icon>cloud_upload</mat-icon>
-          Confirmar importación
-        </app-busy-label>
-      </button>
-    </mat-dialog-actions>
+    </app-excel-import-shell>
   `,
-  styles: [
-    `
-      .xl-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .xl-preview {
-        overflow: auto;
-        max-height: 360px;
-        border: 1px solid var(--guy-border, #ddd);
-        border-radius: 10px;
-      }
-      .xl-preview table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-      }
-      .xl-preview th,
-      .xl-preview td {
-        padding: 0.45rem 0.6rem;
-        text-align: left;
-        border-bottom: 1px solid var(--guy-border, #eee);
-        white-space: nowrap;
-      }
-      .xl-preview th {
-        position: sticky;
-        top: 0;
-        background: var(--guy-card, #fff);
-        font-weight: 600;
-      }
-      .xl-preview__exists {
-        opacity: 0.55;
-      }
-      .xl-new-user {
-        display: inline-block;
-        margin-left: 0.35rem;
-        padding: 0.05rem 0.4rem;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        background: color-mix(in srgb, var(--guy-accent, #2e7d32) 18%, transparent);
-        color: var(--guy-accent, #2e7d32);
-      }
-    `,
-  ],
 })
 export class ExcelImportDialogComponent {
   readonly data = inject<ExcelImportDialogData>(MAT_DIALOG_DATA);
@@ -232,10 +135,7 @@ export class ExcelImportDialogComponent {
     });
   }
 
-  onFile(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const f = input.files?.[0];
-    if (!f) return;
+  onPickedFile(f: File): void {
     this.file.set(f);
     this.fileName.set(f.name);
     this.busy.set(true);

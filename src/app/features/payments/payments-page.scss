@@ -18,15 +18,8 @@
     width: 100%;
   }
 }
-.pay-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.35rem;
-  margin: 0;
-  padding: 0.28rem;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--guy-navy, #003366) 5%, var(--guy-card, #fff));
-  border: 1px solid var(--guy-border, #d7e0d9);
+.pay-tabs-bar app-segment-tabs {
+  min-width: 0;
 }
 .pay-sort {
   display: flex;

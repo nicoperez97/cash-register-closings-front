@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { FormDialogShellComponent } from '../../shared/components/form-dialog-shell';
 import { ShopService, ServicesApiService } from './services-api.service';
 
 export type ServiceDialogData = {
@@ -19,27 +19,26 @@ export type ServiceDialogData = {
   selector: 'app-service-dialog',
   imports: [
     ReactiveFormsModule,
-    MatDialogModule,
-    MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
-    BusyLabelComponent,
+    FormDialogShellComponent,
   ],
   template: `
-    <h2 mat-dialog-title>
-      <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>{{ isEdit ? 'edit' : 'home_repair_service' }}</mat-icon>
-      </span>
-      <span class="guy-dialog__title-text">
-        <strong>{{ isEdit ? 'Editar servicio' : 'Nuevo servicio' }}</strong>
-        <span>{{ data.shopName }}</span>
-      </span>
-    </h2>
-
-    <mat-dialog-content>
+    <app-form-dialog-shell
+      [title]="isEdit ? 'Editar servicio' : 'Nuevo servicio'"
+      [subtitle]="data.shopName"
+      [icon]="isEdit ? 'edit' : 'home_repair_service'"
+      [busy]="busy()"
+      [canSave]="form.valid"
+      [saveLabel]="isEdit ? 'Guardar' : 'Crear'"
+      [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'"
+      [saveIcon]="isEdit ? 'save' : 'add'"
+      (save)="save()"
+      (cancel)="ref.close(false)"
+    >
       <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Nombre</mat-label>
@@ -83,25 +82,7 @@ export type ServiceDialogData = {
           <mat-slide-toggle formControlName="active">Servicio visible</mat-slide-toggle>
         }
       </form>
-    </mat-dialog-content>
-
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
-        Cancelar
-      </button>
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        [disabled]="form.invalid || busy()"
-        (click)="save()"
-      >
-        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
-          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-          {{ isEdit ? 'Guardar' : 'Crear' }}
-        </app-busy-label>
-      </button>
-    </mat-dialog-actions>
+    </app-form-dialog-shell>
   `,
 })
 export class ServiceDialogComponent {

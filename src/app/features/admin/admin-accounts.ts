@@ -5,6 +5,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { FilterChipsComponent, SegmentTabsComponent } from '../../shared/components/filter-bar';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -26,7 +27,15 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
 
 @Component({
   selector: 'app-admin-accounts',
-  imports: [MatButtonModule, MatDialogModule, MatSnackBarModule, PageHeaderComponent, DataTableComponent],
+  imports: [
+    MatButtonModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    PageHeaderComponent,
+    DataTableComponent,
+    SegmentTabsComponent,
+    FilterChipsComponent,
+  ],
   template: `
     <app-page-header
       title="Cuentas contables"
@@ -37,30 +46,16 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
       (action)="openCreate()"
     />
 
-    <nav class="acc-tabs" role="tablist" aria-label="Tipo de cuenta">
-      @for (tab of typeTabs; track tab.id) {
-        <button
-          type="button"
-          class="acc-tabs__btn"
-          role="tab"
-          [class.acc-tabs__btn--on]="typeTab() === tab.id"
-          [attr.aria-selected]="typeTab() === tab.id"
-          (click)="typeTab.set(tab.id)"
-        >
-          {{ tab.label }}
-        </button>
-      }
-    </nav>
+    <app-segment-tabs
+      ariaLabel="Tipo de cuenta"
+      [fill]="true"
+      [options]="typeTabs"
+      [(value)]="typeTab"
+    />
 
     <div class="acc-filters">
-      <span class="acc-filters__label">Estado</span>
-      <button type="button" class="acc-filters__chip" [class.acc-filters__chip--on]="statusFilter() === 'all'" (click)="statusFilter.set('all')">Todas</button>
-      <button type="button" class="acc-filters__chip" [class.acc-filters__chip--on]="statusFilter() === 'active'" (click)="statusFilter.set('active')">Activas</button>
-      <button type="button" class="acc-filters__chip" [class.acc-filters__chip--on]="statusFilter() === 'inactive'" (click)="statusFilter.set('inactive')">Inactivas</button>
-      <span class="acc-filters__label">Retiro</span>
-      <button type="button" class="acc-filters__chip" [class.acc-filters__chip--on]="withdrawFilter() === 'all'" (click)="withdrawFilter.set('all')">Todos</button>
-      <button type="button" class="acc-filters__chip" [class.acc-filters__chip--on]="withdrawFilter() === 'visible'" (click)="withdrawFilter.set('visible')">Visible</button>
-      <button type="button" class="acc-filters__chip" [class.acc-filters__chip--on]="withdrawFilter() === 'hidden'" (click)="withdrawFilter.set('hidden')">Oculta</button>
+      <app-filter-chips label="Estado" [options]="statusOptions" [(value)]="statusFilter" />
+      <app-filter-chips label="Retiro" [options]="withdrawOptions" [(value)]="withdrawFilter" />
     </div>
 
     <div class="panel-card panel-card--flush">
@@ -78,30 +73,8 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
     </div>
   `,
   styles: `
-    .acc-tabs {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 0.35rem;
+    app-segment-tabs {
       margin: 0 0 0.75rem;
-      padding: 0.28rem;
-      border-radius: 14px;
-      background: color-mix(in srgb, var(--guy-navy, #003366) 5%, var(--guy-card, #fff));
-      border: 1px solid var(--guy-border, #d7e0d9);
-    }
-    .acc-tabs__btn {
-      border: 0;
-      background: transparent;
-      color: var(--guy-muted, #5f6f76);
-      border-radius: 11px;
-      padding: 0.55rem 0.5rem;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .acc-tabs__btn--on {
-      background: var(--guy-card, #fff);
-      color: var(--guy-navy, #003366);
-      box-shadow: 0 1px 3px rgba(0, 30, 50, 0.08);
     }
     .acc-filters {
       display: flex;
@@ -109,38 +82,6 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
       align-items: center;
       gap: 0.4rem;
       margin: 0 0 0.85rem;
-    }
-    .acc-filters__label {
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--guy-muted, #5f6f76);
-      margin-left: 0.25rem;
-    }
-    .acc-filters__label:first-child {
-      margin-left: 0;
-    }
-    .acc-filters__chip {
-      border: 1px solid var(--guy-border, #d7e0d9);
-      background: var(--guy-card, #fff);
-      color: var(--guy-text, #1b2a33);
-      border-radius: 999px;
-      padding: 0.28rem 0.75rem;
-      font: inherit;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .acc-filters__chip--on {
-      border-color: var(--guy-green, #2e7d32);
-      color: var(--guy-green, #2e7d32);
-      background: color-mix(in srgb, var(--guy-green, #2e7d32) 10%, #fff);
-    }
-    @media (max-width: 720px) {
-      .acc-tabs {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
     }
   `,
 })
@@ -158,6 +99,16 @@ export class AdminAccountsPage {
   readonly statusFilter = signal<AccountStatusFilter>('active');
   readonly withdrawFilter = signal<AccountWithdrawFilter>('all');
   readonly typeTabs = TYPE_TABS;
+  readonly statusOptions = [
+    { id: 'all' as const, label: 'Todas' },
+    { id: 'active' as const, label: 'Activas' },
+    { id: 'inactive' as const, label: 'Inactivas' },
+  ];
+  readonly withdrawOptions = [
+    { id: 'all' as const, label: 'Todos' },
+    { id: 'visible' as const, label: 'Visible' },
+    { id: 'hidden' as const, label: 'Oculta' },
+  ];
 
   readonly visibleRows = computed(() => {
     const tab = this.typeTab();

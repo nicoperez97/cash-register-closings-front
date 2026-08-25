@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { FormDialogShellComponent } from '../../shared/components/form-dialog-shell';
 import { ShopSupplier, SuppliersApiService } from './suppliers-api.service';
 
 export type SupplierDialogData = {
@@ -19,27 +19,26 @@ export type SupplierDialogData = {
   selector: 'app-supplier-dialog',
   imports: [
     ReactiveFormsModule,
-    MatDialogModule,
-    MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
-    BusyLabelComponent,
+    FormDialogShellComponent,
   ],
   template: `
-    <h2 mat-dialog-title>
-      <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>{{ isEdit ? 'edit' : 'local_shipping' }}</mat-icon>
-      </span>
-      <span class="guy-dialog__title-text">
-        <strong>{{ isEdit ? 'Editar proveedor' : 'Nuevo proveedor' }}</strong>
-        <span>{{ data.shopName }}</span>
-      </span>
-    </h2>
-
-    <mat-dialog-content>
+    <app-form-dialog-shell
+      [title]="isEdit ? 'Editar proveedor' : 'Nuevo proveedor'"
+      [subtitle]="data.shopName"
+      [icon]="isEdit ? 'edit' : 'local_shipping'"
+      [busy]="busy()"
+      [canSave]="form.valid"
+      [saveLabel]="isEdit ? 'Guardar' : 'Crear'"
+      [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'"
+      [saveIcon]="isEdit ? 'save' : 'add'"
+      (save)="save()"
+      (cancel)="ref.close(false)"
+    >
       <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Nombre</mat-label>
@@ -83,25 +82,7 @@ export type SupplierDialogData = {
           <mat-slide-toggle formControlName="active">Proveedor visible</mat-slide-toggle>
         }
       </form>
-    </mat-dialog-content>
-
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
-        Cancelar
-      </button>
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        [disabled]="form.invalid || busy()"
-        (click)="save()"
-      >
-        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
-          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-          {{ isEdit ? 'Guardar' : 'Crear' }}
-        </app-busy-label>
-      </button>
-    </mat-dialog-actions>
+    </app-form-dialog-shell>
   `,
 })
 export class SupplierDialogComponent {
