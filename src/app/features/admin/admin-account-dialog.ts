@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
@@ -26,6 +27,9 @@ export interface AdminAccountRow {
   userFullName?: string | null;
   active: boolean;
   hideFromCashWithdraw?: boolean;
+  listInExpenses?: boolean;
+  listInIncomes?: boolean;
+  listInTransfers?: boolean;
   openingBalance?: number | string | null;
 }
 
@@ -76,6 +80,7 @@ interface UserOption {
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
+    MatCheckboxModule,
     MatIconModule,
     MatSnackBarModule,
     BusyLabelComponent,
@@ -151,9 +156,19 @@ interface UserOption {
           </mat-form-field>
         }
 
-        <mat-slide-toggle formControlName="hideFromCashWithdraw">
-          Ocultar en «Quién se lo lleva»
-        </mat-slide-toggle>
+        <div class="account-lists">
+          <p class="account-lists__title">Mostrar esta cuenta en</p>
+          <p class="account-lists__hint">Si no está tildada, no aparece al cargar ese movimiento.</p>
+          <mat-checkbox formControlName="listInExpenses">Gastos</mat-checkbox>
+          <mat-checkbox formControlName="listInIncomes">Ingresos</mat-checkbox>
+          <mat-checkbox formControlName="listInTransfers">Movimientos entre cuentas</mat-checkbox>
+          <mat-checkbox
+            formControlName="listInCashWithdraw"
+            [disabled]="form.controls.type.value === 'SUPPLIER' || form.controls.type.value === 'SERVICE'"
+          >
+            Cierres (quién se lo lleva)
+          </mat-checkbox>
+        </div>
 
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Cuenta activa</mat-slide-toggle>
@@ -178,6 +193,27 @@ interface UserOption {
         </app-busy-label>
       </button>
     </mat-dialog-actions>
+  `,
+  styles: `
+    .account-lists {
+      display: grid;
+      gap: 0.35rem;
+      padding: 0.15rem 0 0.35rem;
+    }
+    .account-lists__title {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .account-lists__hint {
+      margin: 0 0 0.25rem;
+      font-size: 0.8rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.35;
+    }
   `,
 })
 export class AdminAccountDialogComponent implements OnInit {
@@ -212,7 +248,10 @@ export class AdminAccountDialogComponent implements OnInit {
     ],
     linkedPaymentMethod: this.fb.control<string | null>(this.account?.linkedPaymentMethod ?? null),
     userIds: this.fb.nonNullable.control<string[]>(this.initialUserIds()),
-    hideFromCashWithdraw: [this.account?.hideFromCashWithdraw ?? false],
+    listInExpenses: [this.account?.listInExpenses !== false],
+    listInIncomes: [this.account?.listInIncomes !== false],
+    listInTransfers: [this.account?.listInTransfers !== false],
+    listInCashWithdraw: [!(this.account?.hideFromCashWithdraw ?? false)],
     openingBalance: [Number(this.account?.openingBalance ?? 0)],
     active: [this.account?.active ?? true],
   });
@@ -242,7 +281,10 @@ export class AdminAccountDialogComponent implements OnInit {
       linkedPaymentMethod: raw.linkedPaymentMethod || null,
       userIds: raw.userIds ?? [],
       hideFromCashWithdraw:
-        raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? true : !!raw.hideFromCashWithdraw,
+        raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? true : !raw.listInCashWithdraw,
+      listInExpenses: !!raw.listInExpenses,
+      listInIncomes: !!raw.listInIncomes,
+      listInTransfers: !!raw.listInTransfers,
       ...(this.canConfigureOpeningBalances
         ? { openingBalance: Number(raw.openingBalance ?? 0) }
         : {}),

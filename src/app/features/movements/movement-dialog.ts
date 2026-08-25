@@ -20,6 +20,7 @@ import {
   LedgerAccount,
   Movement,
   MovementsApiService,
+  accountListedIn,
   expenseReceiptRequired,
 } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
@@ -145,14 +146,14 @@ function toDateString(value: Date | null): string {
                   <mat-option value="">Elegí una cuenta</mat-option>
                 }
                 @if (filteredLocalFrom().length) {
-                  <mat-optgroup [label]="isTransfer ? 'Cuentas de sistema' : 'Local'">
+                  <mat-optgroup [label]="isTransfer ? 'Cajas y canales' : 'Local'">
                     @for (a of filteredLocalFrom(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
-                @if (!isTransfer && filteredOtherFrom().length) {
-                  <mat-optgroup label="Otras cuentas">
+                @if (filteredOtherFrom().length) {
+                  <mat-optgroup [label]="isTransfer ? 'Socios y otras' : 'Otras cuentas'">
                     @for (a of filteredOtherFrom(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
@@ -194,14 +195,14 @@ function toDateString(value: Date | null): string {
                   <mat-option value="">Sin cuenta</mat-option>
                 }
                 @if (filteredLocalTo().length) {
-                  <mat-optgroup [label]="isTransfer ? 'Cuentas de sistema' : 'Local'">
+                  <mat-optgroup [label]="isTransfer ? 'Cajas y canales' : 'Local'">
                     @for (a of filteredLocalTo(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
-                @if (!isTransfer && filteredOtherTo().length) {
-                  <mat-optgroup label="Otras cuentas">
+                @if (filteredOtherTo().length) {
+                  <mat-optgroup [label]="isTransfer ? 'Socios y otras' : 'Otras cuentas'">
                     @for (a of filteredOtherTo(); track a.id) {
                       <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
                     }
@@ -773,14 +774,23 @@ export class MovementDialogComponent {
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
   });
 
+  private listedForKind(account: LedgerAccount): boolean {
+    return accountListedIn(
+      account,
+      this.isTransfer ? 'transfers' : this.isIncome ? 'incomes' : 'expenses',
+    );
+  }
+
   readonly localAccounts = computed(() =>
-    this.selectableAccounts().filter((a) =>
-      this.isTransfer ? a.type === 'SYSTEM' || a.type === 'CHANNEL' : a.type === 'CHANNEL' || a.type === 'SYSTEM',
+    this.selectableAccounts().filter(
+      (a) => this.listedForKind(a) && (a.type === 'CHANNEL' || a.type === 'SYSTEM'),
     ),
   );
 
   readonly otherAccounts = computed(() =>
-    this.selectableAccounts().filter((a) => a.type !== 'CHANNEL' && a.type !== 'SYSTEM'),
+    this.selectableAccounts().filter(
+      (a) => this.listedForKind(a) && a.type !== 'CHANNEL' && a.type !== 'SYSTEM',
+    ),
   );
 
   readonly fromQuery = signal('');

@@ -245,7 +245,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'swap_horiz',
         tone: 'do',
         anyOf: ['accountTransfers.manage'],
-        body: 'Indicá origen, destino y monto. No lleva concepto. Solo ves cuentas de sistema (caja, canales e ingreso/egreso), no socios ni proveedores.',
+        body: 'Indicá origen, destino y monto. No lleva concepto. Aparecen todas las cuentas tildadas en Cuentas → Mostrar esta cuenta en → Movimientos entre cuentas.',
         tip: 'La plantilla es la misma del libro. En la vista previa Gemini analiza el archivo; marcá módulos, asigná cuentas y conceptos, y en Saldos ves cómo queda cada cuenta.',
       },
     ],
@@ -980,6 +980,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Se usan en gastos, transferencias entre cuentas, pagos y cierres. Sin cuenta, no hay dónde anotar la plata.',
         items: [
           'Saldo inicial: se suma al saldo de movimientos. Si la cuenta ya tiene plata y después le ponés un inicial, ese monto se agrega (no reemplaza). Solo lo carga un super admin.',
+          'En cada cuenta tildá dónde se lista: Gastos, Ingresos, Movimientos entre cuentas y Cierres (quién se lo lleva).',
         ],
       },
     ],
