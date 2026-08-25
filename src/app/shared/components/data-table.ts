@@ -1064,6 +1064,7 @@ export class DataTableComponent {
   constructor() {
     effect(() => {
       this.search();
+      this.rows();
       if (!this.serverPaging()) this.pageIndex.set(0);
     });
     effect(() => {
