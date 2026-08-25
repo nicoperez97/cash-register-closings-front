@@ -17,6 +17,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { SegmentTabsComponent } from '../../shared/components/filter-bar';
 import { downloadTablePdf } from '../../shared/pdf/html-pdf';
 import type { ExportFormat } from '../../shared/components/export-menu';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -92,6 +93,7 @@ import {
     SpinnerComponent,
     PaymentCardComponent,
     PaymentsFiltersPanelComponent,
+    SegmentTabsComponent,
   ],
   template: `
     <app-page-header
@@ -104,28 +106,13 @@ import {
     />
 
     <div class="pay-tabs-bar">
-      <nav class="pay-tabs" role="tablist" aria-label="Estado de los pagos">
-        <button
-          type="button"
-          class="pay-tabs__btn"
-          role="tab"
-          [class.pay-tabs__btn--on]="listTab() === 'pending'"
-          [attr.aria-selected]="listTab() === 'pending'"
-          (click)="setListTab('pending')"
-        >
-          Pendientes
-        </button>
-        <button
-          type="button"
-          class="pay-tabs__btn"
-          role="tab"
-          [class.pay-tabs__btn--on]="listTab() === 'paid'"
-          [attr.aria-selected]="listTab() === 'paid'"
-          (click)="setListTab('paid')"
-        >
-          Pagados
-        </button>
-      </nav>
+      <app-segment-tabs
+        ariaLabel="Estado de los pagos"
+        [fill]="true"
+        [options]="listTabOptions"
+        [value]="listTab()"
+        (valueChange)="setListTab($event)"
+      />
       <button
         type="button"
         class="pay-sort"
@@ -413,6 +400,10 @@ export class PaymentsPage {
   readonly mineOnly = signal(false);
   readonly exporting = signal(false);
   readonly listTab = signal<PaymentListTab>('pending');
+  readonly listTabOptions = [
+    { id: 'pending' as const, label: 'Pendientes' },
+    { id: 'paid' as const, label: 'Pagados' },
+  ];
   /** Evita que un listado de Pendientes pise uno de Pagados (enlace desde Gastos). */
   private loadGen = 0;
   private awaitDeepLinkTab = false;
