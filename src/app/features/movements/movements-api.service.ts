@@ -76,6 +76,11 @@ export interface LedgerAccount {
 
 export type AccountListSurface = 'expenses' | 'incomes' | 'transfers';
 
+/** Proveedores y servicios tienen cuenta interna, pero no se eligen en movimientos. */
+export function isMovementAccountType(type?: string | null): boolean {
+  return type !== 'SUPPLIER' && type !== 'SERVICE';
+}
+
 export function accountListedIn(
   account: Pick<LedgerAccount, 'listInExpenses' | 'listInIncomes' | 'listInTransfers'>,
   surface: AccountListSurface,
