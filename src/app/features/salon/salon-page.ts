@@ -89,8 +89,29 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
     } @else if (view() === 'diagrama') {
       <p class="salon-lead text-muted">
         Mesas físicas por sector. Máximo 3 personas; según el lugar a veces solo entran 2.
-        Esto no cambia reservas ni cupos.
+        Si el salón está vacío, se arma solo con el pico de reservas confirmadas; después lo podés
+        cambiar.
       </p>
+      @if (canManage()) {
+        <div class="salon-toolbar">
+          <button
+            type="button"
+            class="salon-add"
+            [disabled]="!!suggesting()"
+            (click)="applyFromReservations()"
+          >
+            <app-busy-label
+              [busy]="!!suggesting()"
+              busyLabel="Armando…"
+              [spinnerSize]="16"
+              spinnerTone="inherit"
+            >
+              <mat-icon>auto_awesome</mat-icon>
+              Armar desde reservas
+            </app-busy-label>
+          </button>
+        </div>
+      }
       <div class="salon-sectors">
         @for (sector of areas; track sector.id) {
           <section class="salon-sector panel-card" [attr.data-area]="sector.id">
@@ -117,22 +138,6 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
                   >
                     <mat-icon>add</mat-icon>
                     Mesa
-                  </app-busy-label>
-                </button>
-                <button
-                  type="button"
-                  class="salon-add"
-                  [disabled]="!!suggesting()"
-                  (click)="applyFromReservations()"
-                >
-                  <app-busy-label
-                    [busy]="!!suggesting()"
-                    busyLabel="…"
-                    [spinnerSize]="16"
-                    spinnerTone="inherit"
-                  >
-                    <mat-icon>auto_awesome</mat-icon>
-                    Desde reservas
                   </app-busy-label>
                 </button>
               }
@@ -188,7 +193,9 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
                   }
                 </article>
               } @empty {
-                <p class="salon-empty">Todavía no hay mesas en este sector.</p>
+                <p class="salon-empty">
+                  {{ suggesting() ? 'Armando el salón con las reservas…' : 'Todavía no hay mesas en este sector.' }}
+                </p>
               }
             </div>
           </section>
@@ -196,11 +203,31 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
       </div>
     } @else {
       <p class="salon-lead text-muted">
-        Hasta cuántas mesas armadas de cada tamaño, según el local
+        Hasta cuántas mesas armadas de cada tamaño, según el pico de reservas confirmadas
         ({{ shopRuleHint('INSIDE') }} · {{ shopRuleHint('OUTSIDE') }}).
-        Si falta uno, sumalo: por ejemplo 1 de 8. Tamaño y cantidad se pueden cambiar.
+        Después podés cambiar tamaño y cantidad. Si falta uno, sumalo: por ejemplo 1 de 8.
         Juntar mesas grandes descuenta de estas cantidades.
       </p>
+      @if (canManage()) {
+        <div class="salon-toolbar">
+          <button
+            type="button"
+            class="salon-add"
+            [disabled]="!!suggesting()"
+            (click)="applyFromReservations()"
+          >
+            <app-busy-label
+              [busy]="!!suggesting()"
+              busyLabel="Armando…"
+              [spinnerSize]="16"
+              spinnerTone="inherit"
+            >
+              <mat-icon>auto_awesome</mat-icon>
+              Armar desde reservas
+            </app-busy-label>
+          </button>
+        </div>
+      }
       <div class="salon-sectors">
         @for (sector of areas; track sector.id) {
           <section class="salon-sector panel-card">
@@ -309,6 +336,7 @@ export class SalonPage {
   readonly rulesDraft = signal<RuleDraft>({ INSIDE: [], OUTSIDE: [] });
   readonly addingArea = signal<SalonArea | null>(null);
   readonly suggesting = signal(false);
+  private autoApplied = false;
   readonly savingArea = signal<SalonArea | null>(null);
   readonly labelDrafts = signal<Record<string, string>>({});
   private rowSeq = 0;
@@ -330,10 +358,13 @@ export class SalonPage {
         ['reservations'],
       )
       .pipe(takeUntilDestroyed())
-      .subscribe(() => this.load());
+      .subscribe(() => {
+        if (!this.suggesting()) this.load();
+      });
     effect(() => {
       const shopId = this.shops.selectedShopId();
       untracked(() => {
+        this.autoApplied = false;
         if (shopId) this.load();
       });
     });
@@ -420,26 +451,37 @@ export class SalonPage {
     this.labelDrafts.update((m) => ({ ...m, [id]: value }));
   }
 
-  applyFromReservations(): void {
+  async applyFromReservations(silent = false): Promise<void> {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.suggesting()) return;
+    if (!silent && !this.floorIsEmpty()) {
+      const ok = await this.confirm.confirm(
+        'Armar desde reservas',
+        'Se calculan mesas y reglas según el pico de reservas confirmadas. Las reglas se reemplazan; si faltan mesas físicas, se agregan. Lo que ya hay de más se deja.',
+        { confirmLabel: 'Armar', confirmColor: 'primary', icon: 'auto_awesome' },
+      );
+      if (!ok) return;
+    }
     this.suggesting.set(true);
-    this.api.applyFromReservations(shopId).subscribe({
+    this.api.applyFromReservations(shopId, { onlyIfEmpty: silent }).subscribe({
       next: (floor) => {
-        this.tables.set(floor.tables ?? []);
-        this.savedRules.set(floor.rules ?? []);
-        this.rulesDraft.set({
-          INSIDE: this.rowsForArea('INSIDE', floor.rules ?? []),
-          OUTSIDE: this.rowsForArea('OUTSIDE', floor.rules ?? []),
-        });
+        this.applyFloor(floor);
         this.suggesting.set(false);
-        this.snack.open('Diagrama y reglas armados con las reservas confirmadas', 'OK', {
-          duration: 2800,
-        });
+        if (floor.applied) {
+          this.snack.open(
+            'Diagrama y reglas armados con las reservas. Después podés cambiar mesas y cantidades.',
+            'OK',
+            { duration: 3200 },
+          );
+        } else if (!silent) {
+          this.snack.open('El salón ya tenía mesas o reglas; no se pisó nada.', 'OK', {
+            duration: 2800,
+          });
+        }
       },
       error: (err) => {
         this.suggesting.set(false);
-        this.fail(err, 'No se pudo armar el salón desde las reservas');
+        if (!silent) this.fail(err, 'No se pudo armar el salón desde las reservas');
       },
     });
   }
@@ -562,6 +604,23 @@ export class SalonPage {
       .sort((a, b) => a.partySize - b.partySize);
   }
 
+  private floorIsEmpty(): boolean {
+    if (this.tables().length) return false;
+    return !this.savedRules().some((r) => r.maxCount > 0);
+  }
+
+  private applyFloor(floor: { tables?: SalonTable[]; rules?: SalonAreaRule[] }): void {
+    const tables = floor.tables ?? [];
+    const rules = floor.rules ?? [];
+    this.tables.set(tables);
+    this.savedRules.set(rules);
+    this.rulesDraft.set({
+      INSIDE: this.rowsForArea('INSIDE', rules),
+      OUTSIDE: this.rowsForArea('OUTSIDE', rules),
+    });
+    this.labelDrafts.set({});
+  }
+
   private load(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
@@ -571,14 +630,12 @@ export class SalonPage {
     this.loading.set(true);
     this.api.getFloor(shopId).subscribe({
       next: (floor) => {
-        this.tables.set(floor.tables);
-        this.savedRules.set(floor.rules);
-        this.rulesDraft.set({
-          INSIDE: this.rowsForArea('INSIDE', floor.rules),
-          OUTSIDE: this.rowsForArea('OUTSIDE', floor.rules),
-        });
-        this.labelDrafts.set({});
+        this.applyFloor(floor);
         this.loading.set(false);
+        if (this.canManage() && !this.autoApplied && this.floorIsEmpty()) {
+          this.autoApplied = true;
+          void this.applyFromReservations(true);
+        }
       },
       error: (err) => {
         this.loading.set(false);

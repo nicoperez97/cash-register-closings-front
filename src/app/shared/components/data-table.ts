@@ -147,6 +147,7 @@ export interface DataTableColumn {
               [class.w-100]="!dense()"
               [class.data-table__table--fit]="dense()"
               [class.data-table__table--sticky]="hasStickyColumns()"
+              [class.data-table__table--sticky-end]="showActions()"
               [class.data-table__table--dense]="dense()"
             >
               @if (selectable()) {
@@ -190,6 +191,7 @@ export interface DataTableColumn {
                     [class.data-table__primary]="i === 0"
                     [class.data-table__avatar-cell]="col.kind === 'avatar'"
                     [ngClass]="col.cellClass ? col.cellClass(row) : ''"
+                    [attr.title]="col.cellClass ? ('' + cellValue(row, col)) : null"
                   >
                     @if (col.kind === 'avatar') {
                       <app-user-avatar
@@ -217,7 +219,7 @@ export interface DataTableColumn {
                 </ng-container>
               }
               @if (showActions()) {
-                <ng-container matColumnDef="actions" [sticky]="stickyActions()">
+                <ng-container matColumnDef="actions" [stickyEnd]="stickyActionsEnd()">
                   <th mat-header-cell *matHeaderCellDef class="data-table__actions-head">Acciones</th>
                   <td
                     mat-cell
@@ -672,6 +674,36 @@ export interface DataTableColumn {
           10px 0 18px -8px rgba(0, 51, 102, 0.28);
       }
 
+      .data-table__table--sticky .mat-mdc-table-sticky-border-elem-left,
+      .data-table__table--sticky-end .mat-mdc-table-sticky-border-elem-left {
+        border-left: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 18%, transparent);
+        box-shadow:
+          -1px 0 0 color-mix(in srgb, var(--guy-green, #2e7d32) 35%, transparent),
+          -10px 0 18px -8px rgba(0, 51, 102, 0.28);
+      }
+
+      .data-table__table--sticky-end .mat-mdc-header-cell.mat-mdc-table-sticky-footer,
+      .data-table__table--sticky-end .mat-mdc-cell.mat-mdc-table-sticky-footer,
+      .data-table__table--sticky-end .mat-mdc-header-cell.mat-table-sticky-border-elem-left,
+      .data-table__table--sticky-end .mat-mdc-cell.mat-mdc-table-sticky-footer,
+      .data-table__table--sticky-end th.data-table__actions-head,
+      .data-table__table--sticky-end td.data-table__actions {
+        background: var(--guy-table-sticky, #eef3f1) !important;
+        z-index: 4;
+      }
+
+      .data-table__table--sticky-end th.data-table__actions-head {
+        background: var(--guy-table-sticky-header, #e4ece8) !important;
+        z-index: 5;
+      }
+
+      .data-table__clip {
+        max-width: 16rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .data-table--dense .mat-mdc-header-row {
         height: 34px;
       }
@@ -997,13 +1029,11 @@ export class DataTableComponent {
   readonly displayed = computed(() => {
     const stickyKeys = this.columns().filter((c) => c.sticky).map((c) => c.key);
     const scrollKeys = this.columns().filter((c) => !c.sticky).map((c) => c.key);
-    const hasSticky = stickyKeys.length > 0;
     const cols: string[] = [
       ...(this.selectable() ? ['select'] : []),
-      ...(this.showActions() && hasSticky ? ['actions'] : []),
       ...stickyKeys,
       ...scrollKeys,
-      ...(this.showActions() && !hasSticky ? ['actions'] : []),
+      ...(this.showActions() ? ['actions'] : []),
     ];
     return cols;
   });
@@ -1013,8 +1043,8 @@ export class DataTableComponent {
   /** Keep checkbox aligned with sticky data columns while scrolling. */
   readonly stickySelect = computed(() => this.selectable() && this.hasStickyColumns());
 
-  /** Keep actions sticky before the name column (not at the far right). */
-  readonly stickyActions = computed(() => this.showActions() && this.hasStickyColumns());
+  /** Keep the actions column pinned to the right while the table scrolls. */
+  readonly stickyActionsEnd = computed(() => this.showActions());
 
   readonly selectedSet = computed(() => new Set(this.selection()));
 

@@ -366,7 +366,11 @@ export class MovementsListPage {
       });
     }
     base.push(
-      { key: 'description', label: 'Descripción' },
+      {
+        key: 'description',
+        label: 'Descripción',
+        cellClass: () => 'data-table__clip',
+      },
       {
         key: 'amountUyu',
         label: 'Monto',
@@ -826,6 +830,7 @@ export class MovementsListPage {
       queryParams: {
         payment: paymentId,
         shop: shopId || null,
+        tab: 'paid',
       },
     });
   }

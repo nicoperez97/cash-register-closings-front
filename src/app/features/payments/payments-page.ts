@@ -72,6 +72,7 @@ import {
   paymentMatchesKind,
   shouldRedirectPaymentKind,
   statusesForPaymentTab,
+  tabForPaymentStatus,
   type PaymentKind,
   type PaymentListTab,
   type PaymentsDisplayMode,
@@ -412,6 +413,9 @@ export class PaymentsPage {
   readonly mineOnly = signal(false);
   readonly exporting = signal(false);
   readonly listTab = signal<PaymentListTab>('pending');
+  /** Evita que un listado de Pendientes pise uno de Pagados (enlace desde Gastos). */
+  private loadGen = 0;
+  private awaitDeepLinkTab = false;
   readonly includeRejected = signal(false);
   readonly includeCancelled = signal(false);
   readonly sortKey = signal<PaymentSortKey>(loadPaymentSort());
@@ -555,6 +559,29 @@ export class PaymentsPage {
   }
 
   constructor() {
+    const qp = this.route.snapshot.queryParamMap;
+    const paymentId = (qp.get('payment') || '').trim();
+    const shopFromLink = (qp.get('shop') || '').trim();
+    const tabParam = (qp.get('tab') || '').trim();
+    if (paymentId) {
+      this.focusedPaymentId.set(paymentId);
+      if (tabParam === 'paid' || tabParam === 'pending') {
+        this.listTab.set(tabParam);
+        this.statusFilter.setValue(
+          statusesForPaymentTab(tabParam, {
+            rejected: this.includeRejected(),
+            cancelled: this.includeCancelled(),
+          }),
+          { emitEvent: false },
+        );
+      } else {
+        this.awaitDeepLinkTab = true;
+      }
+      if (shopFromLink && shopFromLink !== this.shopId()) {
+        this.shops.selectShop(shopFromLink);
+      }
+    }
+
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shopId();
@@ -569,6 +596,10 @@ export class PaymentsPage {
       // en bucle (con lista vacía el spinner nunca cortaba).
       untracked(() => {
         this.reloadMeta(shopId);
+        if (this.awaitDeepLinkTab) {
+          this.resolveDeepLinkTabThenLoad(shopId);
+          return;
+        }
         this.reload();
       });
     });
@@ -588,17 +619,6 @@ export class PaymentsPage {
     this.employeeFilter.valueChanges.subscribe(() => this.reload());
     this.amountMinFilter.valueChanges.subscribe(() => this.reload());
     this.amountMaxFilter.valueChanges.subscribe(() => this.reload());
-
-    // Enlace profundo: /payments/...?payment=id&shop=shopId
-    const qp = this.route.snapshot.queryParamMap;
-    const paymentId = (qp.get('payment') || '').trim();
-    const shopFromLink = (qp.get('shop') || '').trim();
-    if (paymentId) {
-      this.focusedPaymentId.set(paymentId);
-      if (shopFromLink && shopFromLink !== this.shopId()) {
-        this.shops.selectShop(shopFromLink);
-      }
-    }
   }
 
   private listFilterOpts() {
@@ -763,11 +783,13 @@ export class PaymentsPage {
       this.pendingScrollY = null;
     }
     const optsList = this.listFilterOpts();
+    const gen = ++this.loadGen;
     // Si ya hay filas, no reemplazar la lista por el spinner (salta al top).
     const soft = untracked(() => this.rows().length > 0);
     if (!soft) this.loading.set(true);
     this.api.list(shopId, optsList).subscribe({
       next: (rows) => {
+        if (gen !== this.loadGen) return;
         this.rows.set(rows);
         this.loading.set(false);
         untracked(() => this.paymentsInbox.refresh());
@@ -775,6 +797,7 @@ export class PaymentsPage {
         this.restoreScrollIfNeeded();
       },
       error: () => {
+        if (gen !== this.loadGen) return;
         this.loading.set(false);
         this.pendingScrollY = null;
         this.snack.open('No se pudieron cargar los pagos', 'OK', { duration: 3000 });
@@ -789,6 +812,63 @@ export class PaymentsPage {
     requestAnimationFrame(() => {
       window.scrollTo({ top: y, left: 0, behavior: 'instant' as ScrollBehavior });
     });
+  }
+
+  /** Sin `tab` en el query: pide el pago y abre Pendientes o Pagados antes de listar. */
+  private resolveDeepLinkTabThenLoad(shopId: string): void {
+    const id = this.focusedPaymentId();
+    if (!id) {
+      this.awaitDeepLinkTab = false;
+      this.reload();
+      return;
+    }
+    this.loading.set(true);
+    this.api.get(shopId, id).subscribe({
+      next: (p) => {
+        this.awaitDeepLinkTab = false;
+        const redirectPath = shouldRedirectPaymentKind(p, this.kind());
+        if (redirectPath) {
+          void this.router.navigate([redirectPath], {
+            queryParams: {
+              payment: p.id,
+              shop: p.shopId,
+              tab: tabForPaymentStatus(p.status),
+            },
+            replaceUrl: true,
+          });
+          return;
+        }
+        this.applyDeepLinkFilters(p);
+        this.reload();
+      },
+      error: () => {
+        this.awaitDeepLinkTab = false;
+        this.loading.set(false);
+        this.deepLinkHandled = true;
+        this.snack.open('No se encontró el pago del enlace', 'OK', { duration: 3500 });
+        this.clearDeepLinkQuery();
+        this.reload();
+      },
+    });
+  }
+
+  private applyDeepLinkFilters(p: ShopPayment): void {
+    const cleared = clearedFiltersForDeepLink(p);
+    this.mineOnly.set(cleared.mineOnly);
+    this.validatorFilter.setValue(cleared.validatorFilter, { emitEvent: false });
+    this.payerFilter.setValue(cleared.payerFilter, { emitEvent: false });
+    this.supplierFilter.setValue(cleared.supplierFilter, { emitEvent: false });
+    this.serviceFilter.setValue(cleared.serviceFilter, { emitEvent: false });
+    this.employeeFilter.setValue(cleared.employeeFilter, { emitEvent: false });
+    this.amountMinFilter.setValue(cleared.amountMin, { emitEvent: false });
+    this.amountMaxFilter.setValue(cleared.amountMax, { emitEvent: false });
+    this.dueRange.reset(cleared.dueRange, { emitEvent: false });
+    this.paidRange.reset(cleared.paidRange, { emitEvent: false });
+    this.listTab.set(cleared.listTab);
+    this.includeRejected.set(cleared.includeRejected);
+    this.includeCancelled.set(cleared.includeCancelled);
+    this.statusFilter.setValue(cleared.statusFilter, { emitEvent: false });
+    this.filtersCollapsed.set(false);
   }
 
   private async afterListLoaded(): Promise<void> {
@@ -818,43 +898,20 @@ export class PaymentsPage {
         const redirectPath = shouldRedirectPaymentKind(p, this.kind());
         if (redirectPath) {
           void this.router.navigate([redirectPath], {
-            queryParams: { payment: p.id, shop: p.shopId },
+            queryParams: {
+              payment: p.id,
+              shop: p.shopId,
+              tab: tabForPaymentStatus(p.status),
+            },
             replaceUrl: true,
           });
           return;
         }
 
-        // Limpiar filtros que lo ocultan y volver a listar.
-        const cleared = clearedFiltersForDeepLink(p);
-        this.mineOnly.set(cleared.mineOnly);
-        this.validatorFilter.setValue(cleared.validatorFilter, { emitEvent: false });
-        this.payerFilter.setValue(cleared.payerFilter, { emitEvent: false });
-        this.supplierFilter.setValue(cleared.supplierFilter, { emitEvent: false });
-        this.serviceFilter.setValue(cleared.serviceFilter, { emitEvent: false });
-        this.employeeFilter.setValue(cleared.employeeFilter, { emitEvent: false });
-        this.amountMinFilter.setValue(cleared.amountMin, { emitEvent: false });
-        this.amountMaxFilter.setValue(cleared.amountMax, { emitEvent: false });
-        this.dueRange.reset(cleared.dueRange, { emitEvent: false });
-        this.paidRange.reset(cleared.paidRange, { emitEvent: false });
-        this.listTab.set(cleared.listTab);
-        this.includeRejected.set(cleared.includeRejected);
-        this.includeCancelled.set(cleared.includeCancelled);
-        this.statusFilter.setValue(cleared.statusFilter, { emitEvent: false });
-        this.filtersCollapsed.set(false);
+        this.applyDeepLinkFilters(p);
         this.deepLinkHandled = true;
-        this.loading.set(true);
-        this.api.list(shopId, this.listFilterOpts()).subscribe({
-          next: (rows) => {
-            this.rows.set(rows);
-            this.loading.set(false);
-            this.scrollToFocusedPayment();
-            this.clearDeepLinkQuery();
-          },
-          error: () => {
-            this.loading.set(false);
-            this.snack.open('No se pudo abrir el pago del enlace', 'OK', { duration: 3500 });
-          },
-        });
+        this.reload();
+        this.clearDeepLinkQuery();
       },
       error: () => {
         this.deepLinkHandled = true;
@@ -880,7 +937,7 @@ export class PaymentsPage {
   private clearDeepLinkQuery(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { payment: null, shop: null },
+      queryParams: { payment: null, shop: null, tab: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });

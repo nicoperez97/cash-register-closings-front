@@ -213,6 +213,41 @@ type PaymentDraft = {
         gap: 0.5rem;
         margin: 0.15rem 0 0.35rem;
       }
+      .pay-desc {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .pay-desc__label {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--guy-navy, #003366);
+      }
+      .pay-desc__input {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 5.5rem;
+        margin: 0;
+        padding: 0.75rem 0.85rem;
+        border: 1.5px solid var(--guy-navy, #003366);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--guy-navy, #003366);
+        font: inherit;
+        font-size: 1rem;
+        line-height: 1.4;
+        resize: vertical;
+      }
+      .pay-desc__input:focus {
+        outline: 2px solid color-mix(in srgb, var(--guy-navy, #003366) 35%, transparent);
+        outline-offset: 1px;
+      }
+      .pay-desc__input::placeholder {
+        color: var(--guy-muted, #5f6f76);
+      }
     `,
   ],
   template: `
@@ -268,6 +303,17 @@ type PaymentDraft = {
             }
           </mat-select>
         </mat-form-field>
+
+        <div class="pay-desc">
+          <label class="pay-desc__label" for="pay-notes">Descripción</label>
+          <textarea
+            id="pay-notes"
+            class="pay-desc__input"
+            formControlName="notes"
+            rows="3"
+            placeholder="Qué se está pagando"
+          ></textarea>
+        </div>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Monto</mat-label>
@@ -611,16 +657,6 @@ type PaymentDraft = {
               <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
             }
           </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Notas / descripción</mat-label>
-          <textarea
-            matInput
-            rows="2"
-            formControlName="notes"
-            placeholder="Si queda vacío, se usa la descripción del concepto"
-          ></textarea>
         </mat-form-field>
 
         @if (!isEdit) {
