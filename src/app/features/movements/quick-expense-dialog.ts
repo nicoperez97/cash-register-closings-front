@@ -26,6 +26,7 @@ import {
   LedgerAccount,
   Movement,
   MovementsApiService,
+  accountListedIn,
   expenseReceiptRequired,
 } from './movements-api.service';
 
@@ -385,6 +386,7 @@ export class QuickExpenseDialogComponent {
         a.active !== false &&
         a.id !== this.egresoAccountId() &&
         a.id !== this.ingresoAccountId() &&
+        accountListedIn(a, this.isIncome ? 'incomes' : 'expenses') &&
         (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
     ),
   );
@@ -407,6 +409,7 @@ export class QuickExpenseDialogComponent {
         a.active !== false &&
         a.id !== this.egresoAccountId() &&
         a.id !== this.form.controls.fromAccountId.value &&
+        accountListedIn(a, this.isIncome ? 'incomes' : 'expenses') &&
         (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
     ),
   );

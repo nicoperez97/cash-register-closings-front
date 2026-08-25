@@ -65,10 +65,28 @@ export interface LedgerAccount {
   shopId: string;
   name: string;
   code: string;
-  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM';
+  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
   linkedPaymentMethod?: string | null;
   userIds?: string[];
   active: boolean;
+  listInExpenses?: boolean;
+  listInIncomes?: boolean;
+  listInTransfers?: boolean;
+}
+
+export type AccountListSurface = 'expenses' | 'incomes' | 'transfers';
+
+export function accountListedIn(
+  account: Pick<LedgerAccount, 'listInExpenses' | 'listInIncomes' | 'listInTransfers'>,
+  surface: AccountListSurface,
+): boolean {
+  const value =
+    surface === 'expenses'
+      ? account.listInExpenses
+      : surface === 'incomes'
+        ? account.listInIncomes
+        : account.listInTransfers;
+  return value !== false && Number(value ?? 1) !== 0;
 }
 
 export interface Concept {
