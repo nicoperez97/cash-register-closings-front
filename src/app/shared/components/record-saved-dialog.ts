@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,6 +19,13 @@ export type RecordSavedDialogData = {
   fields: RecordSavedField[];
   /** Texto completo a compartir. Si no viene, se arma desde fields. */
   shareText?: string;
+  icon?: string;
+  iconOk?: boolean;
+  listAction?: {
+    label: string;
+    commands: string | string[];
+    queryParams?: Record<string, string | number | boolean | null>;
+  };
 };
 
 @Component({
@@ -25,8 +33,12 @@ export type RecordSavedDialogData = {
   imports: [MatDialogModule, MatButtonModule, MatIconModule, MatSnackBarModule],
   template: `
     <h2 mat-dialog-title>
-      <span class="guy-dialog__title-icon guy-dialog__title-icon--ok" aria-hidden="true">
-        <mat-icon>check_circle</mat-icon>
+      <span
+        class="guy-dialog__title-icon"
+        [class.guy-dialog__title-icon--ok]="data.iconOk !== false"
+        aria-hidden="true"
+      >
+        <mat-icon>{{ data.icon || 'check_circle' }}</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
         <strong>{{ data.title }}</strong>
@@ -46,6 +58,12 @@ export type RecordSavedDialogData = {
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
+      @if (data.listAction) {
+        <button mat-stroked-button type="button" class="record-saved-list" (click)="goToList()">
+          <mat-icon>list</mat-icon>
+          {{ data.listAction.label }}
+        </button>
+      }
       <button mat-stroked-button type="button" (click)="share()" [disabled]="sharing()">
         <mat-icon>share</mat-icon>
         Compartir
@@ -88,14 +106,26 @@ export type RecordSavedDialogData = {
     .record-saved-summary__total dd {
       font-size: 1.05rem;
     }
+    .record-saved-list {
+      margin-right: auto;
+    }
   `,
 })
 export class RecordSavedDialogComponent {
   readonly data = inject<RecordSavedDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<RecordSavedDialogComponent, boolean>);
   private readonly snack = inject(MatSnackBar);
+  private readonly router = inject(Router);
 
   readonly sharing = signal(false);
+
+  goToList(): void {
+    const action = this.data.listAction;
+    if (!action) return;
+    const commands = Array.isArray(action.commands) ? action.commands : [action.commands];
+    this.ref.close(true);
+    void this.router.navigate(commands, { queryParams: action.queryParams });
+  }
 
   async share(): Promise<void> {
     const text =

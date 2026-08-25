@@ -51,9 +51,11 @@ import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import { PaymentFilePreviewDialogComponent } from '../payments/payment-file-preview-dialog';
+import { PaymentsApiService } from '../payments/payments-api.service';
 import {
   movementSavedDialogData,
   movementSharePayload,
+  paymentPreviewDialogData,
 } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
 
@@ -292,6 +294,7 @@ export class MovementsListPage {
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly paymentsApi = inject(PaymentsApiService);
 
   private readonly filtersUi = createFiltersCollapsed('movements');
   readonly filtersCollapsed = this.filtersUi.collapsed;
@@ -817,22 +820,45 @@ export class MovementsListPage {
 
   private viewInPayments(row: Movement): void {
     const paymentId = row.paymentId;
-    if (!paymentId) return;
     const shopId = row.shopId || this.shopId();
-    const party = row.paymentPartyType;
-    const path =
-      party === 'service'
-        ? '/payments/services'
-        : party === 'employee'
-          ? '/payments/employees'
-          : '/payments/suppliers';
-    void this.router.navigate([path], {
-      queryParams: {
-        payment: paymentId,
-        shop: shopId || null,
-        tab: 'paid',
+    if (!paymentId || !shopId) return;
+    this.paymentsApi.get(shopId, paymentId).subscribe({
+      next: (payment) => {
+        this.dialogTitle.track(
+          this.dialog.open(RecordSavedDialogComponent, {
+            width: '440px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            data: {
+              ...paymentPreviewDialogData(
+                payment,
+                this.shops.selectedShop()?.name ?? 'Local',
+              ),
+              listAction: {
+                label: 'Ir a pagos',
+                commands: [this.paymentsListPath(row)],
+                queryParams: {
+                  payment: paymentId,
+                  shop: shopId,
+                  tab: 'paid',
+                },
+              },
+            },
+          }),
+          'Pago',
+        );
+      },
+      error: () => {
+        this.snack.open('No se pudo cargar el pago', 'OK', { duration: 3200 });
       },
     });
+  }
+
+  private paymentsListPath(row: Movement): string {
+    const party = row.paymentPartyType;
+    if (party === 'service') return '/payments/services';
+    if (party === 'employee') return '/payments/employees';
+    return '/payments/suppliers';
   }
 
   async onRemove(row: Movement): Promise<void> {

@@ -1,4 +1,3 @@
-import { Router } from '@angular/router';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -16,8 +15,14 @@ import {
 } from '../../shared/components/notify-confirm-dialog';
 import { firstValueFrom } from 'rxjs';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { paymentDeepLink, paymentSharePayload } from '../../shared/components/record-share-builders';
+import {
+  movementPreviewDialogData,
+  paymentDeepLink,
+  paymentSharePayload,
+} from '../../shared/components/record-share-builders';
 import { copyText, shareText } from '../../shared/utils/share-text';
+import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
+import { MovementsApiService } from '../movements/movements-api.service';
 import { PaymentsApiService, ShopPayment } from './payments-api.service';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import type { PaymentKind, PaymentsDisplayMode } from './payments-page-actions';
@@ -336,7 +341,12 @@ import {
         </button>
       }
       @if (payment().status === 'PAID') {
-        <button mat-stroked-button type="button" (click)="viewInExpenses(payment())">
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="previewBusy()"
+          (click)="viewInExpenses(payment())"
+        >
           <mat-icon>payments</mat-icon>
           Ver en gastos
         </button>
@@ -451,7 +461,7 @@ export class PaymentCardComponent {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirm = inject(ConfirmDialogService);
-  private readonly router = inject(Router);
+  private readonly movementsApi = inject(MovementsApiService);
 
   readonly payment = input.required<ShopPayment>();
   readonly viewMode = input.required<PaymentsDisplayMode>();
@@ -459,6 +469,7 @@ export class PaymentCardComponent {
   readonly selected = input(false);
   readonly focused = input(false);
   readonly payBusy = input(false);
+  readonly previewBusy = signal(false);
   readonly kind = input<PaymentKind>('supplier');
   readonly billedKind = computed(() => this.kind() !== 'employee');
   readonly compactMeta = computed(() => {
@@ -597,23 +608,41 @@ export class PaymentCardComponent {
   }
 
   viewInExpenses(p: ShopPayment): void {
-    if (p.status !== 'PAID') return;
-    const paidAt = (p.paidAt || '').trim().slice(0, 10);
-    const partyType = p.supplierId
-      ? 'supplier'
-      : p.serviceId
-        ? 'service'
-        : p.employeeId
-          ? 'employee'
-          : null;
-    void this.router.navigate(['/expenses'], {
-      queryParams: {
-        paymentId: p.id,
-        from: paidAt || null,
-        to: paidAt || null,
-        source: 'payment',
-        partyType,
-        conceptId: p.conceptId || null,
+    if (p.status !== 'PAID' || this.previewBusy()) return;
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.previewBusy.set(true);
+    this.movementsApi.list(shopId, { kind: 'expense', paymentId: p.id }).subscribe({
+      next: (rows) => {
+        this.previewBusy.set(false);
+        const movement = rows[0];
+        if (!movement) {
+          this.snack.open('No se encontró el gasto de este pago', 'OK', { duration: 3200 });
+          return;
+        }
+        this.dialogTitle.track(
+          this.dialog.open(RecordSavedDialogComponent, {
+            width: '440px',
+            maxWidth: '95vw',
+            panelClass: 'guy-dialog',
+            data: {
+              ...movementPreviewDialogData(
+                movement,
+                this.shops.selectedShop()?.name ?? 'Local',
+              ),
+              listAction: {
+                label: 'Ir a gastos',
+                commands: ['/expenses'],
+                queryParams: this.expenseListQuery(p),
+              },
+            },
+          }),
+          'Gasto',
+        );
+      },
+      error: () => {
+        this.previewBusy.set(false);
+        this.snack.open('No se pudo cargar el gasto', 'OK', { duration: 3200 });
       },
     });
   }
@@ -716,6 +745,25 @@ export class PaymentCardComponent {
     this.snack.open(ok ? 'Monto copiado' : 'No se pudo copiar', 'OK', {
       duration: ok ? 2000 : 2500,
     });
+  }
+
+  private expenseListQuery(p: ShopPayment): Record<string, string | null> {
+    const paidAt = (p.paidAt || '').trim().slice(0, 10);
+    const partyType = p.supplierId
+      ? 'supplier'
+      : p.serviceId
+        ? 'service'
+        : p.employeeId
+          ? 'employee'
+          : null;
+    return {
+      paymentId: p.id,
+      from: paidAt || null,
+      to: paidAt || null,
+      source: 'payment',
+      partyType,
+      conceptId: p.conceptId || null,
+    };
   }
 
   private openFilePreview(title: string, fileName: string, blob: Blob): void {

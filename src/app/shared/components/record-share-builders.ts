@@ -1,4 +1,7 @@
-import { Movement } from '../../features/movements/movements-api.service';
+import {
+  Movement,
+  expensePaymentMethodLabel,
+} from '../../features/movements/movements-api.service';
 import {
   ShopPayment,
   paymentMethodLabel,
@@ -11,7 +14,7 @@ import {
 } from '../../features/closings/closings-api.service';
 import { closingStatusLabel } from '../../core/i18n/labels';
 import { formatDateAr, formatMoneyAr } from '../utils/share-text';
-import { RecordSavedDialogData } from './record-saved-dialog';
+import { RecordSavedDialogData, RecordSavedField } from './record-saved-dialog';
 
 export function movementSavedDialogData(
   movement: Movement,
@@ -53,6 +56,30 @@ export function movementSavedDialogData(
   };
 }
 
+export function movementPreviewDialogData(
+  movement: Movement,
+  shopName: string,
+): RecordSavedDialogData {
+  const saved = movementSavedDialogData(movement, shopName);
+  const method = expensePaymentMethodLabel(movement.paymentMethod);
+  const fields = [...saved.fields];
+  if (movement.paymentMethod) {
+    const amountIdx = fields.findIndex((f) => f.emphasize);
+    fields.splice(amountIdx >= 0 ? amountIdx : fields.length, 0, {
+      label: 'Forma de pago',
+      value: method,
+    });
+  }
+  return {
+    ...saved,
+    title: 'Gasto',
+    subtitle: 'Salió de un pago abonado.',
+    icon: 'payments',
+    iconOk: false,
+    fields,
+  };
+}
+
 function paymentParty(payment: ShopPayment): { label: string; name: string } {
   if (payment.serviceId) return { label: 'Servicio', name: payment.serviceName || '—' };
   if (payment.supplierId) return { label: 'Proveedor', name: payment.supplierName || '—' };
@@ -69,6 +96,14 @@ function paymentKindSegment(payment: ShopPayment): 'suppliers' | 'services' | 'e
   if (payment.supplierId) return 'suppliers';
   return 'employees';
 }
+
+const PAYMENT_STATUS_SHARE_LABEL: Record<string, string> = {
+  PENDING_VALIDATION: 'Pendiente de validar',
+  VALIDATED: 'Validado · por pagar',
+  REJECTED: 'Rechazado',
+  PAID: 'Pagado',
+  CANCELLED: 'Cancelado',
+};
 
 export function paymentPaidDialogData(
   payment: ShopPayment,
@@ -110,13 +145,50 @@ export function paymentPaidDialogData(
   };
 }
 
-const PAYMENT_STATUS_SHARE_LABEL: Record<string, string> = {
-  PENDING_VALIDATION: 'Pendiente de validar',
-  VALIDATED: 'Validado · por pagar',
-  REJECTED: 'Rechazado',
-  PAID: 'Pagado',
-  CANCELLED: 'Cancelado',
-};
+export function paymentPreviewDialogData(
+  payment: ShopPayment,
+  shopName: string,
+): RecordSavedDialogData {
+  const paid = paymentPaidDialogData(payment, shopName);
+  const party = paymentParty(payment);
+  const notes = payment.notes?.trim();
+  const fields: RecordSavedField[] = [
+    { label: 'Local', value: shopName },
+    { label: 'Concepto', value: payment.title?.trim() || 'Sin concepto' },
+    { label: party.label, value: party.name },
+    {
+      label: 'Estado',
+      value: PAYMENT_STATUS_SHARE_LABEL[payment.status] ?? payment.status,
+    },
+    { label: 'Paga', value: payment.payerName?.trim() || '—' },
+    { label: 'Valida', value: payment.validatorName?.trim() || '—' },
+    { label: 'Cuenta que paga', value: payment.accountName || '—' },
+    { label: 'Forma de pago', value: paymentMethodLabel(payment.paymentMethod) },
+  ];
+  if (payment.dueDate) {
+    fields.push({ label: 'Vencimiento', value: formatDateAr(payment.dueDate) });
+  }
+  if (payment.paidAt) {
+    fields.push({ label: 'Pagado', value: formatDateAr(payment.paidAt) });
+  }
+  if (notes) {
+    fields.push({ label: 'Descripción', value: notes });
+  }
+  fields.push({
+    label: 'Monto',
+    value: formatMoneyAr(payment.amount),
+    emphasize: true,
+  });
+  return {
+    ...paid,
+    title: 'Pago',
+    subtitle: 'Gasto generado por este pago.',
+    icon: 'receipt_long',
+    iconOk: false,
+    fields,
+    shareText: buildPaymentShareLines(payment, shopName).join('\n'),
+  };
+}
 
 /** Texto completo para compartir un pago (datos + enlace opcional). */
 export function buildPaymentShareLines(
