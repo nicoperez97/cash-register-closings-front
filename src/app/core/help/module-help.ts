@@ -198,7 +198,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Si el gasto tiene comprobante, aparece en la columna Comprobante. El clip lo abre (foto o PDF).',
           'En computadora, Acciones queda fija a la derecha: no hace falta scrollear al final de la fila.',
         ],
-        tip: 'Desde un pago abonado, Ver en gastos te trae acá. En un gasto de origen Pago, Ver en pagos abre el pago. No borres un gasto con origen Pago: revertí el pago en Pagos.',
+        tip: 'Desde un pago abonado, Ver en gastos abre el gasto en un recuadro. En un gasto de origen Pago, Ver en pagos abre el pago. En ambos recuadros podés ir al listado. No borres un gasto con origen Pago: revertí el pago en Pagos.',
       },
       {
         title: 'Saldos',
@@ -347,7 +347,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Validar: elegí la cuenta que paga. Ahí recién se pide, no al crear.',
           'Pagar: elegí cuenta y forma de pago. Se crea el gasto en Cuentas → Gastos (proveedor, servicio o empleado).',
           'Un abonado no se edita: usá Marcar no pagado (borra el gasto), editá y volvé a abonar.',
-          'En un pago pagado, Ver en gastos abre Gastos con el filtro de ese pago. Desde el gasto, Ver en pagos abre la pestaña Pagados y ese pago.',
+          'En un pago pagado, Ver en gastos abre el gasto. Desde el gasto, Ver en pagos abre el pago. En el recuadro podés ir al listado.',
           'Rechazar o cancelar: sale de Pendientes; en Pagados solo si activás esos chips.',
         ],
         tip: 'Al abonar se crea el gasto; al marcar no pagado se elimina. No borres el gasto desde Gastos.',
