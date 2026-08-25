@@ -245,7 +245,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'swap_horiz',
         tone: 'do',
         anyOf: ['accountTransfers.manage'],
-        body: 'Indicá origen, destino y monto. No lleva concepto. Aparecen todas las cuentas tildadas en Cuentas → Mostrar esta cuenta en → Movimientos entre cuentas.',
+        body: 'Indicá origen, destino y monto. No lleva concepto. Aparecen las cuentas tildadas en Cuentas → Mostrar esta cuenta en → Movimientos entre cuentas. Los proveedores y servicios no se listan: se pagan desde Pagos.',
         tip: 'La plantilla es la misma del libro. En la vista previa Gemini analiza el archivo; marcá módulos, asigná cuentas y conceptos, y en Saldos ves cómo queda cada cuenta.',
       },
     ],

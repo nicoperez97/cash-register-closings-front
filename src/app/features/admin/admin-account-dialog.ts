@@ -156,19 +156,18 @@ interface UserOption {
           </mat-form-field>
         }
 
-        <div class="account-lists">
-          <p class="account-lists__title">Mostrar esta cuenta en</p>
-          <p class="account-lists__hint">Si no está tildada, no aparece al cargar ese movimiento.</p>
-          <mat-checkbox formControlName="listInExpenses">Gastos</mat-checkbox>
-          <mat-checkbox formControlName="listInIncomes">Ingresos</mat-checkbox>
-          <mat-checkbox formControlName="listInTransfers">Movimientos entre cuentas</mat-checkbox>
-          <mat-checkbox
-            formControlName="listInCashWithdraw"
-            [disabled]="form.controls.type.value === 'SUPPLIER' || form.controls.type.value === 'SERVICE'"
-          >
-            Cierres (quién se lo lleva)
-          </mat-checkbox>
-        </div>
+        @if (form.controls.type.value !== 'SUPPLIER' && form.controls.type.value !== 'SERVICE') {
+          <div class="account-lists">
+            <p class="account-lists__title">Mostrar esta cuenta en</p>
+            <p class="account-lists__hint">Si no está tildada, no aparece al cargar ese movimiento.</p>
+            <mat-checkbox formControlName="listInExpenses">Gastos</mat-checkbox>
+            <mat-checkbox formControlName="listInIncomes">Ingresos</mat-checkbox>
+            <mat-checkbox formControlName="listInTransfers">Movimientos entre cuentas</mat-checkbox>
+            <mat-checkbox formControlName="listInCashWithdraw">
+              Cierres (quién se lo lleva)
+            </mat-checkbox>
+          </div>
+        }
 
         @if (isEdit) {
           <mat-slide-toggle formControlName="active">Cuenta activa</mat-slide-toggle>
@@ -282,9 +281,9 @@ export class AdminAccountDialogComponent implements OnInit {
       userIds: raw.userIds ?? [],
       hideFromCashWithdraw:
         raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? true : !raw.listInCashWithdraw,
-      listInExpenses: !!raw.listInExpenses,
-      listInIncomes: !!raw.listInIncomes,
-      listInTransfers: !!raw.listInTransfers,
+      listInExpenses: raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? false : !!raw.listInExpenses,
+      listInIncomes: raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? false : !!raw.listInIncomes,
+      listInTransfers: raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? false : !!raw.listInTransfers,
       ...(this.canConfigureOpeningBalances
         ? { openingBalance: Number(raw.openingBalance ?? 0) }
         : {}),

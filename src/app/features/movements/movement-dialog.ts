@@ -22,6 +22,7 @@ import {
   MovementsApiService,
   accountListedIn,
   expenseReceiptRequired,
+  isMovementAccountType,
 } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
@@ -769,7 +770,10 @@ export class MovementDialogComponent {
       [this.movement?.fromAccountId, this.movement?.toAccountId].filter(Boolean) as string[],
     );
     return this.accounts()
-      .filter((a) => a.active !== false || selected.has(a.id))
+      .filter((a) => {
+        if (!isMovementAccountType(a.type) && !selected.has(a.id)) return false;
+        return a.active !== false || selected.has(a.id);
+      })
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
   });
