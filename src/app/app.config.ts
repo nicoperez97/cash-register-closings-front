@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { provideRouter, TitleStrategy, withPreloading, PreloadAllModules } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideServiceWorker, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { provideServiceWorker, SwPush, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBarConfig } from '@angular/material/snack-bar';
@@ -38,6 +38,7 @@ registerLocaleData(localeEsAr);
 function watchAppUpdates(): void {
   const updates = inject(SwUpdate);
   const dialog = inject(MatDialog);
+  const push = inject(SwPush);
   if (!updates.isEnabled) return;
 
   let prompting = false;
@@ -80,14 +81,27 @@ function watchAppUpdates(): void {
     .pipe(filter((event): event is VersionReadyEvent => event.type === 'VERSION_READY'))
     .subscribe(() => promptReload());
 
-  // Revisa periódicamente y al volver a la pestaña
-  void updates.checkForUpdate();
-  setInterval(() => void updates.checkForUpdate(), 6 * 60 * 60 * 1000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      void updates.checkForUpdate();
+  const check = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    void updates.checkForUpdate().catch(() => undefined);
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      void navigator.serviceWorker.getRegistration().then((reg) => {
+        if (reg?.waiting) promptReload();
+      });
     }
+  };
+
+  check();
+  [5_000, 15_000, 35_000].forEach((ms) => setTimeout(check, ms));
+  setInterval(check, 60_000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') check();
   });
+  window.addEventListener('focus', check);
+  window.addEventListener('pageshow', check);
+  if (push.isEnabled) {
+    push.messages.subscribe(() => check());
+  }
 }
 
 async function refreshSession(): Promise<void> {
