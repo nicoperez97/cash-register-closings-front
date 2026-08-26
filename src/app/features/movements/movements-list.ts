@@ -81,8 +81,8 @@ import { shareText } from '../../shared/utils/share-text';
     <app-page-header
       [title]="pageTitle()"
       [subtitle]="shops.selectedShop()?.name ?? 'Sin local'"
-      [actionLabel]="canManage() ? actionLabel() : ''"
-      [actionDisabled]="!canManage()"
+      [actionLabel]="canManage() && kind() !== 'all' ? actionLabel() : ''"
+      [actionDisabled]="!canManage() || kind() === 'all'"
       [actionIcon]="kind() === 'transfer' ? 'swap_horiz' : kind() === 'income' ? 'south_west' : 'payments'"
       [actionLarge]="true"
       (action)="onPrimaryAction()"
@@ -90,7 +90,7 @@ import { shareText } from '../../shared/utils/share-text';
 
     @if (shopId()) {
       <div class="xl-toolbar mb-3">
-        @if (canManage()) {
+        @if (canManage() && kind() !== 'all') {
           <button
             mat-stroked-button
             type="button"
@@ -166,7 +166,7 @@ import { shareText } from '../../shared/utils/share-text';
               </mat-form-field>
             }
 
-            @if (kind() === 'expense') {
+            @if (kind() === 'expense' || kind() === 'all') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Origen</mat-label>
                 <mat-select formControlName="source">
@@ -280,8 +280,8 @@ import { shareText } from '../../shared/utils/share-text';
   `,
 })
 export class MovementsListPage {
-  /** `expense` = Gastos · `income` = Ingresos · `transfer` = Movimientos entre cuentas */
-  readonly kind = input<MovementKind>('expense');
+  /** `expense` = Gastos · `income` = Ingresos · `transfer` = Movimientos entre cuentas · `all` = Transacciones */
+  readonly kind = input<MovementKind | 'all'>('expense');
 
   private readonly api = inject(MovementsApiService);
   private readonly employeesApi = inject(EmployeesApiService);
@@ -315,6 +315,7 @@ export class MovementsListPage {
   readonly templateBusy = signal(false);
 
   readonly pageTitle = computed(() => {
+    if (this.kind() === 'all') return 'Transacciones';
     if (this.kind() === 'transfer') return 'Movimientos entre cuentas';
     if (this.kind() === 'income') return 'Ingresos';
     return 'Gastos';
@@ -410,13 +411,23 @@ export class MovementsListPage {
   });
 
   readonly canEditRow = (row: Movement) => {
+    if (row.closingId && !this.auth.isAdmin()) return false;
+    if (this.kind() === 'all') {
+      const user = this.auth.currentUser();
+      const shopId = this.shopId();
+      return (
+        this.canEditExpense() ||
+        hasShopPermission(user, shopId, 'incomes.manage') ||
+        hasShopPermission(user, shopId, 'accountTransfers.manage')
+      );
+    }
     if (this.kind() === 'expense' && row.source === 'payment' && row.paymentId) {
       return true;
     }
     if (this.kind() === 'expense') {
-      return this.canEditExpense() && (!row.closingId || this.auth.isAdmin());
+      return this.canEditExpense();
     }
-    return this.canManage() && (!row.closingId || this.auth.isAdmin());
+    return this.canManage();
   };
 
   readonly canRemoveRow = (row: Movement) => {
@@ -430,11 +441,9 @@ export class MovementsListPage {
     return this.canManage() && row.source !== 'payment' && (!row.closingId || this.auth.isAdmin());
   };
 
-  readonly editLabelFor = (row: Movement) =>
-    row.source === 'payment' ? 'Ver en pagos' : 'Editar';
+  readonly editLabelFor = (_row: Movement) => 'Editar';
 
-  readonly editIconFor = (row: Movement) =>
-    row.source === 'payment' ? 'receipt_long' : 'edit';
+  readonly editIconFor = (_row: Movement) => 'edit';
 
   readonly canShareRow = (_row: Movement) => true;
 
@@ -553,6 +562,11 @@ export class MovementsListPage {
     return canEditShopExpenses(this.auth.currentUser(), this.shopId());
   }
 
+  private apiKind(): MovementKind | null {
+    const k = this.kind();
+    return k === 'all' ? null : k;
+  }
+
   canManage(): boolean {
     const perm =
       this.kind() === 'transfer'
@@ -620,7 +634,7 @@ export class MovementsListPage {
     const from = this.formatDate(this.range.controls.start.value) ?? undefined;
     const to = this.formatDate(this.range.controls.end.value) ?? undefined;
     this.exporting.set(true);
-    this.api.exportExcel(shopId, { from, to, kind: this.kind() }).subscribe({
+    this.api.exportExcel(shopId, { from, to, kind: this.apiKind() }).subscribe({
       next: (blob) => {
         this.exporting.set(false);
         const url = URL.createObjectURL(blob);
@@ -670,7 +684,7 @@ export class MovementsListPage {
 
   private currentFilters(): MovementFilters {
     const f = this.filters.getRawValue();
-    const expense = this.kind() === 'expense';
+    const expense = this.kind() === 'expense' || this.kind() === 'all';
     const withConcept = expense || this.kind() === 'income';
     return {
       from: this.formatDate(this.range.controls.start.value),
@@ -686,7 +700,7 @@ export class MovementsListPage {
         ? ((f.invoiced || null) as MovementFilters['invoiced'])
         : null,
       q: f.q || null,
-      kind: this.kind(),
+      kind: this.apiKind(),
       paymentId: expense ? this.focusPaymentId() : null,
     };
   }
@@ -756,7 +770,8 @@ export class MovementsListPage {
   openExcelImport(): void {
     const shopId = this.shopId();
     if (!shopId || !this.canManage()) return;
-    const kind = this.kind();
+    const kind = this.apiKind();
+    if (!kind) return;
     this.dialogTitle
       .track(
         this.dialog.open(MovementsExcelImportDialogComponent, {
@@ -785,7 +800,8 @@ export class MovementsListPage {
   downloadTemplate(): void {
     const shopId = this.shopId();
     if (!shopId || !this.canManage() || this.templateBusy()) return;
-    const kind = this.kind();
+    const kind = this.apiKind();
+    if (!kind) return;
     this.templateBusy.set(true);
     this.api.downloadImportTemplate(shopId, kind).subscribe({
       next: (blob) => {
@@ -810,10 +826,6 @@ export class MovementsListPage {
   }
 
   openEdit(row: Movement): void {
-    if (this.kind() === 'expense' && row.source === 'payment' && row.paymentId) {
-      this.viewInPayments(row);
-      return;
-    }
     if (row.closingId && !this.auth.isAdmin()) return;
     this.openDialog({ mode: 'edit', movement: row });
   }

@@ -223,11 +223,28 @@ export class MainLayoutComponent {
         icon: 'swap_horiz',
       });
     }
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'expenses.read') ||
+        hasShopPermission(user, shopId, 'incomes.read') ||
+        hasShopPermission(user, shopId, 'accountTransfers.read'))
+    ) {
+      cuentas.push({
+        label: 'Transacciones',
+        route: '/transactions',
+        icon: 'receipt_long',
+      });
+    }
     if (shopId && hasShopPermission(user, shopId, 'partnerSplits.read')) {
       cuentas.push({
         label: 'División de socios',
         route: '/partner-splits',
         icon: 'groups',
+      });
+      cuentas.push({
+        label: 'Divisiones',
+        route: '/splits',
+        icon: 'history',
       });
     }
     if (cuentas.length) {
@@ -629,7 +646,14 @@ export class MainLayoutComponent {
     if (path.startsWith('/account-transfers')) {
       return hasShopPermission(user, shopId, 'accountTransfers.read');
     }
-    if (path.startsWith('/partner-splits')) {
+    if (path.startsWith('/transactions')) {
+      return (
+        hasShopPermission(user, shopId, 'expenses.read') ||
+        hasShopPermission(user, shopId, 'incomes.read') ||
+        hasShopPermission(user, shopId, 'accountTransfers.read')
+      );
+    }
+    if (path.startsWith('/partner-splits') || path.startsWith('/splits')) {
       return hasShopPermission(user, shopId, 'partnerSplits.read');
     }
     if (path.startsWith('/my-production')) {

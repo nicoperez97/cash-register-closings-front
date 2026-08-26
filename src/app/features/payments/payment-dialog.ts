@@ -626,7 +626,7 @@ type PaymentDraft = {
           </mat-select>
         </mat-form-field>
 
-        @if (isPaidStatus()) {
+        @if (showPayingAccount()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Cuenta que paga</mat-label>
             <mat-select
@@ -722,8 +722,8 @@ export class PaymentDialogComponent {
   readonly isSupplierKind = this.data.kind === 'supplier';
   readonly isServiceKind = this.data.kind === 'service';
   readonly isBilledKind = this.isSupplierKind || this.isServiceKind;
-  /** @deprecated Los abonados ya no se editan; se revierte el estado primero. */
-  readonly isPaidEdit = false;
+  readonly isPaidEdit =
+    this.data.mode === 'edit' && this.data.payment?.status === 'PAID';
   readonly paymentMethods = PAYMENT_METHOD_OPTIONS;
   readonly paymentPriorities = PAYMENT_PRIORITY_OPTIONS;
 
@@ -884,6 +884,14 @@ export class PaymentDialogComponent {
 
   isPaidStatus(): boolean {
     return !this.isEdit && this.form.controls.status.value === 'PAID';
+  }
+
+  showPayingAccount(): boolean {
+    return (
+      this.isPaidStatus() ||
+      this.isPaidEdit ||
+      (this.isEdit && this.seed?.status === 'VALIDATED')
+    );
   }
 
   private snapshot(): PaymentDraft {

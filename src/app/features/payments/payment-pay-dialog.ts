@@ -13,10 +13,12 @@ import {
 
 export type PaymentPayDialogData = {
   payment: ShopPayment;
+  accounts: Array<{ id: string; name: string }>;
 };
 
 export type PaymentPayDialogResult = {
   paymentMethod: PaymentMethod;
+  accountId: string;
 };
 
 @Component({
@@ -37,6 +39,14 @@ export type PaymentPayDialogResult = {
         <strong>$ {{ amountLabel }}</strong>? Se crea un movimiento contable.
       </p>
       <form [formGroup]="form" class="pay-confirm__form">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Cuenta que paga</mat-label>
+          <mat-select formControlName="accountId">
+            @for (a of data.accounts; track a.id) {
+              <mat-option [value]="a.id">{{ a.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Forma de pago</mat-label>
           <mat-select formControlName="paymentMethod">
@@ -85,6 +95,10 @@ export class PaymentPayDialogComponent {
   readonly amountLabel = Number(this.data.payment.amount ?? 0).toLocaleString('es-AR');
 
   readonly form = this.fb.group({
+    accountId: [
+      this.data.payment.accountId || this.data.accounts[0]?.id || null,
+      Validators.required,
+    ],
     paymentMethod: [
       (this.data.payment.paymentMethod as PaymentMethod | null) ??
         ('transfer' as PaymentMethod),
@@ -95,7 +109,8 @@ export class PaymentPayDialogComponent {
   confirm(): void {
     if (this.form.invalid) return;
     const paymentMethod = this.form.controls.paymentMethod.value;
-    if (!paymentMethod) return;
-    this.ref.close({ paymentMethod });
+    const accountId = this.form.controls.accountId.value;
+    if (!paymentMethod || !accountId) return;
+    this.ref.close({ paymentMethod, accountId });
   }
 }

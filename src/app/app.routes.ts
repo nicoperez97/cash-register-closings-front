@@ -413,6 +413,24 @@ export const routes: Routes = [
         title: 'División de socios',
       },
       {
+        path: 'splits',
+        canActivate: [permissionGuard('partnerSplits.read')],
+        loadComponent: () =>
+          import('./features/partner-splits/splits-history-page').then(
+            (m) => m.SplitsHistoryPage,
+          ),
+        title: 'Divisiones',
+      },
+      {
+        path: 'transactions',
+        canActivate: [
+          anyPermissionGuard('expenses.read', 'incomes.read', 'accountTransfers.read'),
+        ],
+        loadComponent: () =>
+          import('./features/movements/transactions-list').then((m) => m.TransactionsListPage),
+        title: 'Transacciones',
+      },
+      {
         path: 'movements',
         redirectTo: 'expenses',
         pathMatch: 'full',
