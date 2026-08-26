@@ -425,7 +425,9 @@ import {
           }
           @if (
             canEdit() &&
-            (payment().status === 'PENDING_VALIDATION' || payment().status === 'VALIDATED')
+            (payment().status === 'PENDING_VALIDATION' ||
+              payment().status === 'VALIDATED' ||
+              payment().status === 'PAID')
           ) {
             <button mat-menu-item type="button" (click)="editRequested.emit(payment())">
               <mat-icon>edit</mat-icon>

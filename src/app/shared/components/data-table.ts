@@ -1219,17 +1219,12 @@ export class DataTableComponent {
   }
 
   rowIsClickable(row: any): boolean {
-    if (this.selectable()) return true;
-    return this.showActions() && this.actionsEnabled() && this.rowCanEdit(row);
+    return this.selectable();
   }
 
   onRowClick(row: any) {
     if (this.selectable()) {
       this.toggleRow(row, !this.isSelected(row));
-      return;
-    }
-    if (this.showActions() && this.actionsEnabled() && this.rowCanEdit(row)) {
-      this.edit.emit(row);
     }
   }
 

@@ -201,59 +201,81 @@ function pinSourceForCapture(source: HTMLElement, widthPx?: number): () => void 
   };
 }
 
+function addCanvasPage(
+  pdf: jsPDF,
+  canvas: HTMLCanvasElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', x, y, w, h, undefined, 'FAST');
+}
+
 function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = false): void {
   const pageW = 595.28;
   const pageH = 841.89;
-  const margin = 28;
+  const margin = 22;
   const fitW = pageW - margin * 2;
   const fitH = pageH - margin * 2;
-  if (singlePage) {
+  const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+
+  const saveFitOnePage = () => {
     const scale = Math.min(fitW / Math.max(canvas.width, 1), fitH / Math.max(canvas.height, 1));
     const imgW = canvas.width * scale;
     const imgH = canvas.height * scale;
-    const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
-    const url = canvas.toDataURL('image/jpeg', 0.97);
-    pdf.addImage(
-      url,
-      'JPEG',
-      margin + (fitW - imgW) / 2,
-      margin + (fitH - imgH) / 2,
-      imgW,
-      imgH,
-      undefined,
-      'FAST',
-    );
+    addCanvasPage(pdf, canvas, margin + (fitW - imgW) / 2, margin, imgW, imgH);
+    pdf.save(filename);
+  };
+
+  if (singlePage) {
+    saveFitOnePage();
+    return;
+  }
+
+  let imgW = fitW;
+  let imgH = (canvas.height * imgW) / Math.max(canvas.width, 1);
+  if (imgH < fitH * 0.72) {
+    const scale = Math.min(1.28, fitH / imgH);
+    imgW *= scale;
+    imgH *= scale;
+    if (imgW > fitW) {
+      const s = fitW / imgW;
+      imgW = fitW;
+      imgH *= s;
+    }
+  }
+
+  if (imgH <= fitH + 0.5) {
+    addCanvasPage(pdf, canvas, margin + (fitW - imgW) / 2, margin, imgW, imgH);
     pdf.save(filename);
     return;
   }
-  let imgW = fitW;
-  let imgH = (canvas.height * imgW) / Math.max(canvas.width, 1);
-  if (imgH < fitH * 0.62) {
-    const scale = Math.min(1.55, (fitH * 0.82) / imgH);
-    imgW *= scale;
-    imgH *= scale;
+
+  // Un poco de más: achicar a una hoja en vez de cortar una fila al medio.
+  if (imgH <= fitH * 1.42) {
+    saveFitOnePage();
+    return;
   }
-  if (imgW > fitW) {
-    const scale = fitW / imgW;
-    imgW = fitW;
-    imgH *= scale;
-  }
-  const x = margin + (fitW - imgW) / 2;
-  const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
-  const url = canvas.toDataURL('image/jpeg', 0.97);
-  if (imgH <= pageH - margin) {
-    pdf.addImage(url, 'JPEG', x, margin, imgW, imgH, undefined, 'FAST');
-  } else {
-    let remaining = imgH;
-    let offset = 0;
-    pdf.addImage(url, 'JPEG', x, offset, imgW, imgH, undefined, 'FAST');
-    remaining -= pageH;
-    while (remaining > 8) {
-      offset -= pageH;
-      pdf.addPage();
-      pdf.addImage(url, 'JPEG', x, offset, imgW, imgH, undefined, 'FAST');
-      remaining -= pageH;
-    }
+
+  const pxPerPt = canvas.width / imgW;
+  const pagePx = fitH * pxPerPt;
+  let y = 0;
+  let page = 0;
+  while (y < canvas.height - 0.5) {
+    const slicePx = Math.min(pagePx, canvas.height - y);
+    const slice = document.createElement('canvas');
+    slice.width = canvas.width;
+    slice.height = Math.max(1, Math.round(slicePx));
+    const ctx = slice.getContext('2d');
+    if (!ctx) break;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, slice.width, slice.height);
+    ctx.drawImage(canvas, 0, Math.round(y), canvas.width, slicePx, 0, 0, canvas.width, slice.height);
+    if (page > 0) pdf.addPage();
+    addCanvasPage(pdf, slice, margin, margin, imgW, slice.height / pxPerPt);
+    y += slicePx;
+    page += 1;
   }
   pdf.save(filename);
 }
@@ -452,6 +474,41 @@ function waitForElement(doc: Document, selector: string, timeoutMs: number): Pro
   });
 }
 
+export async function downloadHtmlPdf(opts: {
+  filename: string;
+  html: string;
+  widthPx?: number;
+  singlePage?: boolean;
+}): Promise<void> {
+  const width = opts.widthPx ?? 920;
+  const wrap = document.createElement('div');
+  wrap.id = `pdf-html-${Date.now()}`;
+  wrap.style.cssText = [
+    'position:fixed',
+    'left:-12000px',
+    'top:0',
+    `width:${width}px`,
+    'padding:0',
+    'margin:0',
+    'background:#fff',
+    'color:#1b2a33',
+    'font:14px Figtree,Segoe UI,sans-serif',
+  ].join(';');
+  wrap.innerHTML = opts.html;
+  document.body.appendChild(wrap);
+  try {
+    await withGeneratingMask(() =>
+      downloadElementPdf(wrap, opts.filename, {
+        background: '#ffffff',
+        widthPx: width,
+        singlePage: opts.singlePage === true,
+      }),
+    );
+  } finally {
+    wrap.remove();
+  }
+}
+
 export async function downloadTablePdf(opts: {
   title: string;
   subtitle?: string;
@@ -462,20 +519,20 @@ export async function downloadTablePdf(opts: {
   const wrap = document.createElement('div');
   wrap.id = `pdf-table-${Date.now()}`;
   wrap.style.cssText =
-    'position:fixed;left:-12000px;top:0;width:920px;padding:28px 24px;background:#fff;color:#1a1f1c;font:14px Figtree,Segoe UI,sans-serif;';
+    'position:fixed;left:-12000px;top:0;width:920px;padding:16px 18px;background:#fff;color:#1a1f1c;font:13px Figtree,Segoe UI,sans-serif;';
   const rowsHtml = opts.rows
     .map(
       (row) =>
-        `<tr>${row.map((c) => `<td>${escapePdfHtml(String(c ?? ''))}</td>`).join('')}</tr>`,
+        `<tr>${row.map((c) => `<td style="padding:3px 3px;border-bottom:1px solid #eee">${escapePdfHtml(String(c ?? ''))}</td>`).join('')}</tr>`,
     )
     .join('');
   wrap.innerHTML = `
-    <h1 style="margin:0 0 4px;font:700 20px Figtree,sans-serif">${escapePdfHtml(opts.title)}</h1>
-    ${opts.subtitle ? `<p style="margin:0 0 16px;color:#556">${escapePdfHtml(opts.subtitle)}</p>` : ''}
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
+    <h1 style="margin:0 0 2px;font:700 16px Figtree,sans-serif">${escapePdfHtml(opts.title)}</h1>
+    ${opts.subtitle ? `<p style="margin:0 0 8px;color:#556;font-size:11px">${escapePdfHtml(opts.subtitle)}</p>` : ''}
+    <table style="width:100%;border-collapse:collapse;font-size:10px">
       <thead>
         <tr>
-          ${opts.headers.map((h) => `<th style="text-align:left;border-bottom:1px solid #ccc;padding:6px 4px">${escapePdfHtml(h)}</th>`).join('')}
+          ${opts.headers.map((h) => `<th style="text-align:left;border-bottom:1px solid #ccc;padding:3px 3px">${escapePdfHtml(h)}</th>`).join('')}
         </tr>
       </thead>
       <tbody>${rowsHtml || `<tr><td colspan="${opts.headers.length}">Sin datos</td></tr>`}</tbody>

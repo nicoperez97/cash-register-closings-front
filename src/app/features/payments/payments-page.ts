@@ -982,16 +982,16 @@ export class PaymentsPage {
     });
   }
 
-  openEdit(p: ShopPayment): void {
+  async openEdit(p: ShopPayment): Promise<void> {
     if (!this.canEditPayment()) return;
-    if (p.status === 'PAID') {
-      this.snack.open(
-        'Un pago abonado no se edita. Marcálo como no pagado (se elimina el gasto), editá y volvé a abonarlo.',
-        'OK',
-        { duration: 4500 },
-      );
-      return;
-    }
+    const ok = await this.confirm.confirm(
+      'Editar pago',
+      p.status === 'PAID'
+        ? 'Este pago ya está abonado. Si lo editás, el gasto ligado también cambia. ¿Abrimos la ficha?'
+        : 'Vas a editar el pago. Si está ligado a un gasto, ese gasto se actualiza. ¿Abrimos la ficha?',
+      { confirmLabel: 'Abrir', confirmColor: 'primary', icon: 'edit' },
+    );
+    if (!ok) return;
     this.openDialog('edit', p);
   }
 
@@ -1096,6 +1096,11 @@ export class PaymentsPage {
 
   async pay(p: ShopPayment): Promise<void> {
     if (this.actionBusyId()) return;
+    const accounts = buildPaymentDialogAccounts(this.accounts(), p);
+    if (!accounts.length) {
+      this.snack.open('No hay cuentas para asignar al pago', 'OK', { duration: 3500 });
+      return;
+    }
     const result = await firstValueFrom(
       this.dialogTitle
         .track(
@@ -1103,18 +1108,21 @@ export class PaymentsPage {
             width: '420px',
             maxWidth: '95vw',
             panelClass: 'guy-dialog',
-            data: { payment: p },
+            data: { payment: p, accounts: buildPaymentDialogAccounts(this.accounts(), p) },
           }),
           'Marcar como pagado',
         )
         .afterClosed(),
     );
-    if (!result?.paymentMethod) return;
+    if (!result?.paymentMethod || !result?.accountId) return;
     const shopId = this.shopId();
     if (!shopId || this.actionBusyId()) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     this.actionBusyId.set(p.id);
-    this.api.pay(shopId, p.id, { paymentMethod: result.paymentMethod }).subscribe({
+    this.api.pay(shopId, p.id, {
+      paymentMethod: result.paymentMethod,
+      accountId: result.accountId,
+    }).subscribe({
       next: (paid) => {
         this.actionBusyId.set(null);
         this.reload({ preserveScroll: true });

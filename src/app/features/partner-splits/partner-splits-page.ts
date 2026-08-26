@@ -1,6 +1,7 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,6 +25,7 @@ import {
   PartnerSplitPreview,
   PartnerSplitsApiService,
 } from './partner-splits-api.service';
+import { downloadPartnerSplitPdf } from './split-pdf';
 
 function money(value: number): string {
   const n = Number(value || 0);
@@ -58,6 +60,7 @@ function parseMoney(raw: number | string): number {
     PageHeaderComponent,
     LoadingStateComponent,
     MoneyInputDirective,
+    RouterLink,
   ],
   template: `
     <app-page-header
@@ -73,7 +76,7 @@ function parseMoney(raw: number | string): number {
           <h2 class="split-title">Socios que participan</h2>
           <p class="hint">
             El total se reparte en partes iguales entre los socios marcados. Lo que dejes en
-            canales y los extras se restan antes de repartir.
+            socios, canales y los extras se restan antes de repartir.
           </p>
           <div class="split-partners">
             @for (p of data.availablePartners; track p.accountId) {
@@ -96,16 +99,29 @@ function parseMoney(raw: number | string): number {
       <section class="panel-card mb-3 split-sheet">
         <div class="split-cards">
           @for (row of data.partners; track row.accountId) {
-            <button type="button" class="split-card" (click)="openAccount(row.accountId, row.name)">
-              <strong>{{ row.name }}</strong>
+            <div class="split-card">
+              <button type="button" class="split-link" (click)="openAccount(row.accountId, row.name)">
+                {{ row.name }}
+              </button>
               <span>Saldo <b [class.neg]="row.current < 0">{{ money(row.current) }}</b></span>
+              <span>Se queda <b>{{ money(row.target) }}</b></span>
               <span>
                 A saldar
                 <b [class.neg]="row.difference < 0" [class.pos]="row.difference > 0">
                   {{ money(row.difference) }}
                 </b>
               </span>
-            </button>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Dejar en la cuenta</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  step="0.01"
+                  [ngModel]="row.leaveAmount"
+                  (ngModelChange)="setLeave(row.accountId, $event)"
+                />
+              </mat-form-field>
+            </div>
           }
           @for (row of data.channels; track row.accountId) {
             <div class="split-card split-card--channel">
@@ -113,6 +129,7 @@ function parseMoney(raw: number | string): number {
                 {{ row.name }}
               </button>
               <span>Saldo <b [class.neg]="row.current < 0">{{ money(row.current) }}</b></span>
+              <span>Se queda <b>{{ money(row.target) }}</b></span>
               <span>
                 A saldar
                 <b [class.neg]="row.difference < 0" [class.pos]="row.difference > 0">
@@ -144,24 +161,43 @@ function parseMoney(raw: number | string): number {
               <tr>
                 <th>Cuenta</th>
                 <th>Saldo</th>
+                <th>Se queda</th>
                 <th>A saldar</th>
                 <th>Dejar</th>
               </tr>
             </thead>
             <tbody>
               @for (row of data.partners; track row.accountId) {
-                <tr class="split-table__click" (click)="openAccount(row.accountId, row.name)">
-                  <td>{{ row.name }}</td>
+                <tr>
+                  <td>
+                    <button
+                      type="button"
+                      class="split-link"
+                      (click)="openAccount(row.accountId, row.name)"
+                    >
+                      {{ row.name }}
+                    </button>
+                  </td>
                   <td [class.neg]="row.current < 0">{{ money(row.current) }}</td>
+                  <td>{{ money(row.target) }}</td>
                   <td [class.neg]="row.difference < 0" [class.pos]="row.difference > 0">
                     {{ money(row.difference) }}
                   </td>
-                  <td></td>
+                  <td class="split-table__leave">
+                    <input
+                      class="split-leave-input"
+                      type="number"
+                      step="0.01"
+                      [ngModel]="row.leaveAmount"
+                      (ngModelChange)="setLeave(row.accountId, $event)"
+                      aria-label="Dejar en la cuenta"
+                    />
+                  </td>
                 </tr>
               }
               @if (data.channels.length) {
                 <tr class="split-table__section">
-                  <td colspan="4">Canales</td>
+                  <td colspan="5">Canales</td>
                 </tr>
               }
               @for (row of data.channels; track row.accountId) {
@@ -176,6 +212,7 @@ function parseMoney(raw: number | string): number {
                     </button>
                   </td>
                   <td [class.neg]="row.current < 0">{{ money(row.current) }}</td>
+                  <td>{{ money(row.target) }}</td>
                   <td [class.neg]="row.difference < 0" [class.pos]="row.difference > 0">
                     {{ money(row.difference) }}
                   </td>
@@ -194,6 +231,7 @@ function parseMoney(raw: number | string): number {
               <tr class="split-table__total">
                 <td>TOTAL</td>
                 <td>{{ money(data.totals.balances) }}</td>
+                <td></td>
                 <td>{{ money(data.totals.differences) }}</td>
                 <td></td>
               </tr>
@@ -246,14 +284,14 @@ function parseMoney(raw: number | string): number {
             </button>
           </div>
           <div class="split-summary">
-            <div><span>Reservado en canales</span><strong>{{ money(data.totals.reserves) }}</strong></div>
+            <div><span>Reservado (dejar)</span><strong>{{ money(data.totals.reserves) }}</strong></div>
             <div><span>Extras</span><strong>{{ money(extrasSum(data.extras)) }}</strong></div>
             <div class="split-summary__total">
               <span>TOTAL a repartir</span>
               <strong>{{ money(toDistribute(data)) }}</strong>
             </div>
             <p class="hint">
-              Cada socio queda con {{ money(data.totals.share) }} si la división cierra.
+              Cada socio queda con su parte ({{ money(data.totals.share) }}) más lo que dejaste en su cuenta.
             </p>
           </div>
         </div>
@@ -266,7 +304,7 @@ function parseMoney(raw: number | string): number {
             <p class="hint">
               {{ data.transfers.length }}
               {{ data.transfers.length === 1 ? 'pase' : 'pases' }}
-              para dejar a cada socio con {{ money(data.totals.share) }}.
+              para dejar a cada socio con su parte ({{ money(data.totals.share) }}) más lo reservado.
             </p>
           </div>
           <div class="split-transfers-wrap">
@@ -297,6 +335,14 @@ function parseMoney(raw: number | string): number {
       }
 
       <div class="split-actions">
+        <button mat-stroked-button type="button" [disabled]="busy()" (click)="onExportPdf()">
+          <mat-icon>picture_as_pdf</mat-icon>
+          Exportar PDF
+        </button>
+        <a mat-stroked-button routerLink="/splits">
+          <mat-icon>history</mat-icon>
+          Divisiones
+        </a>
         <button mat-stroked-button type="button" [disabled]="busy()" (click)="save()">
           Guardar armado
         </button>
@@ -368,7 +414,7 @@ function parseMoney(raw: number | string): number {
       font: inherit;
       color: inherit;
       text-align: left;
-      cursor: pointer;
+      cursor: default;
     }
     .split-card span {
       display: flex;
@@ -811,6 +857,12 @@ export class PartnerSplitsPage {
         extras: current.extras,
         channelLeaves: current.config.channelLeaves,
       },
+      partners: res.partners.map((p) => ({
+        ...p,
+        leaveAmount:
+          current.config.channelLeaves.find((c) => c.accountId === p.accountId)?.leaveAmount ??
+          p.leaveAmount,
+      })),
       channels: res.channels.map((ch) => ({
         ...ch,
         leaveAmount:
@@ -830,6 +882,12 @@ export class PartnerSplitsPage {
       availablePartners: data.availablePartners.map((p) => ({
         ...p,
         included: config.partnerAccountIds.includes(p.accountId),
+      })),
+      partners: data.partners.map((p) => ({
+        ...p,
+        leaveAmount:
+          config.channelLeaves.find((c) => c.accountId === p.accountId)?.leaveAmount ??
+          p.leaveAmount,
       })),
       channels: data.channels.map((ch) => ({
         ...ch,
@@ -906,6 +964,19 @@ export class PartnerSplitsPage {
     });
     const cfg = this.config();
     this.setConfig({ ...cfg, extras: cfg.extras.filter((e) => e.id !== id) }, true);
+  }
+
+  async onExportPdf(): Promise<void> {
+    const data = this.preview();
+    if (!data) return;
+    try {
+      await downloadPartnerSplitPdf(
+        data,
+        this.shops.selectedShop()?.name ?? 'Local',
+      );
+    } catch {
+      this.snack.open('No se pudo generar el PDF', 'OK', { duration: 3500 });
+    }
   }
 
   save(): void {

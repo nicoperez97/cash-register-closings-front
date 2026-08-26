@@ -77,4 +77,25 @@ export class PartnerSplitsApiService {
       config,
     );
   }
+
+  listRuns(shopId: string) {
+    return this.http.get<PartnerSplitRun[]>(`${this.base}/shops/${shopId}/partner-splits/runs`);
+  }
+
+  getRun(shopId: string, id: string) {
+    return this.http.get<PartnerSplitRun>(
+      `${this.base}/shops/${shopId}/partner-splits/runs/${id}`,
+    );
+  }
 }
+
+export type PartnerSplitRun = {
+  id: string;
+  shopId: string;
+  appliedAt: string;
+  appliedByUserId: string | null;
+  appliedByName: string | null;
+  transferCount: number;
+  distributedAmount: number;
+  snapshot?: PartnerSplitPreview & { createdIds?: string[] };
+};
