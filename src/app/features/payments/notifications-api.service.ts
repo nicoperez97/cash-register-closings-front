@@ -36,6 +36,7 @@ export interface AppNotification {
   body: string;
   paymentId: string | null;
   closingId?: string | null;
+  targetId?: string | null;
   read: boolean;
   readAt: string | null;
   createdAt: string;

@@ -48,6 +48,7 @@ import { takeInputFile } from '../../shared/utils/input-file';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import {
   paymentPaidDialogData,
+  paymentPreviewDialogData,
   paymentsSharePayload,
 } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
@@ -301,6 +302,7 @@ export class PaymentsPage {
   /** Pago resaltado al abrir un enlace directo (?payment=…). */
   readonly focusedPaymentId = signal<string | null>(null);
   private deepLinkHandled = false;
+  private notificationPreviewFor: string | null = null;
   private focusClearTimer: ReturnType<typeof setTimeout> | null = null;
   /** Scroll a restaurar tras un reload suave (validar/pagar/etc.). */
   private pendingScrollY: number | null = null;
@@ -830,6 +832,7 @@ export class PaymentsPage {
           return;
         }
         this.applyDeepLinkFilters(p);
+        this.openPaymentNotificationPreview(p);
         this.reload();
       },
       error: () => {
@@ -880,6 +883,8 @@ export class PaymentsPage {
     if (this.visibleRows().some((p) => p.id === focusId)) {
       this.deepLinkHandled = true;
       this.scrollToFocusedPayment();
+      const row = this.visibleRows().find((p) => p.id === focusId);
+      if (row) this.openPaymentNotificationPreview(row);
       this.clearDeepLinkQuery();
       return;
     }
@@ -901,6 +906,7 @@ export class PaymentsPage {
 
         this.applyDeepLinkFilters(p);
         this.deepLinkHandled = true;
+        this.openPaymentNotificationPreview(p);
         this.reload();
         this.clearDeepLinkQuery();
       },
@@ -923,6 +929,24 @@ export class PaymentsPage {
     this.focusClearTimer = setTimeout(() => {
       if (this.focusedPaymentId() === id) this.focusedPaymentId.set(null);
     }, 8000);
+  }
+
+  private openPaymentNotificationPreview(payment: ShopPayment): void {
+    if (this.notificationPreviewFor === payment.id) return;
+    this.notificationPreviewFor = payment.id;
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    this.dialogTitle.track(
+      this.dialog.open(RecordSavedDialogComponent, {
+        width: '440px',
+        maxWidth: '95vw',
+        panelClass: 'guy-dialog',
+        data: {
+          ...paymentPreviewDialogData(payment, shopName),
+          subtitle: 'Desde la notificación.',
+        },
+      }),
+      'Pago',
+    );
   }
 
   private clearDeepLinkQuery(): void {

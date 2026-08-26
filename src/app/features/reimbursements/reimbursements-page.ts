@@ -1,4 +1,6 @@
 import { Component, computed, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -20,6 +22,8 @@ import {
   ReimbursementsApiService,
 } from './reimbursements-api.service';
 import { ReimbursementsInboxService } from './reimbursements-inbox.service';
+import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
 
 function isoToday(): string {
   const d = new Date();
@@ -61,6 +65,7 @@ function statusLabel(status: ReimbursementStatus): string {
     MatSelectModule,
     MatDatepickerModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
     LoadingStateComponent,
   ],
@@ -362,6 +367,11 @@ export class ReimbursementsPage {
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private openedReimbursementId: string | null = null;
 
   readonly loading = signal(true);
   readonly aliasBusy = signal(false);
@@ -441,6 +451,7 @@ export class ReimbursementsPage {
         this.rows.set(rows ?? []);
         this.loading.set(false);
         this.inbox.refresh();
+        this.openReimbursementFromQuery(rows ?? []);
       },
       error: (err) => {
         this.rows.set([]);
@@ -448,6 +459,44 @@ export class ReimbursementsPage {
         const msg = err?.error?.message ?? 'No se pudieron cargar los reintegros';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
+    });
+  }
+
+  private openReimbursementFromQuery(rows: ReimbursementRow[]): void {
+    const id = (this.route.snapshot.queryParamMap.get('reimbursement') || '').trim();
+    if (!id || this.openedReimbursementId === id) return;
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    this.openedReimbursementId = id;
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    this.dialogTitle.track(
+      this.dialog.open(RecordSavedDialogComponent, {
+        width: '440px',
+        maxWidth: '95vw',
+        panelClass: 'guy-dialog',
+        data: {
+          title: 'Reintegro',
+          subtitle: 'Desde la notificación.',
+          shareTitle: `Reintegro · ${shopName}`,
+          icon: 'receipt_long',
+          iconOk: false,
+          fields: [
+            { label: 'Local', value: shopName },
+            { label: 'Productor', value: row.employeeName || '—' },
+            { label: 'Descripción', value: row.description || '—' },
+            { label: 'Fecha', value: row.expenseDate || '—' },
+            { label: 'Estado', value: statusLabel(row.status) },
+            { label: 'Monto', value: money(row.amount), emphasize: true },
+          ],
+        },
+      }),
+      'Reintegro',
+    );
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { reimbursement: null, shop: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 

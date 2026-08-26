@@ -43,6 +43,7 @@ import {
   notificationIcon,
   notificationToneClass,
 } from '../../../features/payments/notifications-api.service';
+import { notificationRouterLink } from '../../notifications/notification-deep-link';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PushNotificationsService } from '../../../features/payments/push-notifications.service';
 import { UserAvatarComponent } from '../../../shared/components/user-avatar';
@@ -536,53 +537,8 @@ export class ToolbarComponent implements OnInit {
     if (n.shopId && n.shopId !== this.shopContext.selectedShopId()) {
       this.shopContext.selectShop(n.shopId);
     }
-    if (n.closingId || n.type === 'CLOSING_CREATED') {
-      const path = n.closingId ? `/closings/${n.closingId}` : '/closings';
-      void this.router.navigateByUrl(path);
-      return;
-    }
-    if (n.type === 'CASH_WITHDRAWAL_PICKED') {
-      void this.router.navigateByUrl('/cash-withdrawals');
-      return;
-    }
-    if (n.type === 'PRODUCTION_HOURS_LOGGED') {
-      void this.router.navigateByUrl('/production-attendance');
-      return;
-    }
-    if (n.type === 'STOCK_BELOW_MINIMUM' || n.type === 'STOCK_SHARED') {
-      void this.router.navigateByUrl('/stock');
-      return;
-    }
-    if (
-      n.type === 'BEVERAGE_STOCK_BELOW_MINIMUM' ||
-      n.type === 'BEVERAGE_STOCK_SHARED'
-    ) {
-      void this.router.navigateByUrl('/beverage-stock');
-      return;
-    }
-    if (
-      n.type === 'SHORTAGE_CREATED' ||
-      n.type === 'SHORTAGE_LEVEL_LOW' ||
-      n.type === 'SHORTAGE_RESOLVED'
-    ) {
-      void this.router.navigateByUrl('/shortages');
-      return;
-    }
-    if (n.paymentId || n.type.startsWith('PAYMENT_')) {
-      void this.router.navigateByUrl('/payments/suppliers');
-      return;
-    }
-    if (n.type === 'RESERVATION_REQUEST') {
-      void this.router.navigateByUrl('/reservations');
-      return;
-    }
-    if (n.type.startsWith('MOVEMENT_')) {
-      void this.router.navigateByUrl('/expenses');
-      return;
-    }
-    if (n.type === 'REIMBURSEMENT_CREATED') {
-      void this.router.navigateByUrl('/reimbursements');
-    }
+    const link = notificationRouterLink(n);
+    void this.router.navigate(link.commands, { queryParams: link.queryParams });
   }
 
   notifIcon(type: string): string {

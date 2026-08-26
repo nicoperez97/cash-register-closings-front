@@ -162,6 +162,10 @@ export class MovementsApiService {
     });
   }
 
+  get(shopId: string, id: string) {
+    return this.http.get<Movement>(`${this.base}/shops/${shopId}/movements/${id}`);
+  }
+
   create(
     shopId: string,
     body: Partial<Movement> & { notifyAdmins?: boolean; kind?: MovementKind },

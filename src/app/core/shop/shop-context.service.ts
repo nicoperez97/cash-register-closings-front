@@ -131,6 +131,8 @@ export class ShopContextService {
   selectShop(shopId: string): boolean {
     const current = this.selectedShopId();
     if (current === shopId) return false;
+    const list = this.shopsSignal();
+    if (list.length && !list.some((s) => s.id === shopId)) return false;
     this.selectedId.set(shopId);
     localStorage.setItem(SHOP_KEY, shopId);
     return true;

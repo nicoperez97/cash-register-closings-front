@@ -455,6 +455,7 @@ export class MovementsListPage {
   constructor() {
     usePageRefresh(() => this.applyFilter());
     this.applyExpenseDeepLink();
+    this.applyMovementNotificationDeepLink();
     effect(() => {
       const shopId = this.shopId();
       this.kind();
@@ -556,6 +557,94 @@ export class MovementsListPage {
   private parseIsoDate(iso: string): Date {
     const [y, m, d] = iso.split('-').map(Number);
     return new Date(y, (m || 1) - 1, d || 1);
+  }
+
+  private openedMovementId: string | null = null;
+
+  private applyMovementNotificationDeepLink(): void {
+    const movementId = (this.route.snapshot.queryParamMap.get('movement') || '').trim();
+    const shopFromLink = (this.route.snapshot.queryParamMap.get('shop') || '').trim();
+    if (!movementId) return;
+    if (shopFromLink && shopFromLink !== this.shopId()) {
+      this.shops.selectShop(shopFromLink);
+    }
+    const shopId = this.shopId() || shopFromLink;
+    if (!shopId || this.openedMovementId === movementId) return;
+
+    this.api.get(shopId, movementId).subscribe({
+      next: (row) => {
+        const wantedKind = this.inferMovementKind(row);
+        if (this.kind() !== 'all' && wantedKind !== this.kind()) {
+          const path =
+            wantedKind === 'income'
+              ? '/incomes'
+              : wantedKind === 'transfer'
+                ? '/account-transfers'
+                : '/expenses';
+          void this.router.navigate([path], {
+            queryParams: { shop: shopId, movement: row.id },
+            replaceUrl: true,
+          });
+          return;
+        }
+        this.openedMovementId = movementId;
+        const date = String(row.businessDate || '').slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const d = this.parseIsoDate(date);
+          this.range.controls.start.setValue(d, { emitEvent: false });
+          this.range.controls.end.setValue(d, { emitEvent: false });
+        }
+        this.openMovementNotificationPreview(row);
+        this.clearMovementQuery();
+        this.reloadToken.update((n) => n + 1);
+      },
+      error: () => {
+        this.openedMovementId = movementId;
+        this.snack.open('No se encontró el movimiento de la notificación', 'OK', {
+          duration: 3500,
+        });
+        this.clearMovementQuery();
+      },
+    });
+  }
+
+  private inferMovementKind(row: Movement): MovementKind {
+    const concept = String(row.conceptKind || '').toUpperCase();
+    if (concept === 'INCOME') return 'income';
+    if (concept === 'EXPENSE') return 'expense';
+    const to = String(row.toAccountName || '').toLowerCase();
+    const from = String(row.fromAccountName || '').toLowerCase();
+    if (to.includes('egreso')) return 'expense';
+    if (from.includes('ingreso')) return 'income';
+    return 'transfer';
+  }
+
+  private openMovementNotificationPreview(row: Movement): void {
+    const shopName = this.shops.selectedShop()?.name ?? 'Local';
+    this.dialogTitle.track(
+      this.dialog.open(RecordSavedDialogComponent, {
+        width: '440px',
+        maxWidth: '95vw',
+        panelClass: 'guy-dialog',
+        data: {
+          ...movementSavedDialogData(row, shopName),
+          title: 'Movimiento',
+          subtitle: 'Desde la notificación.',
+          icon: 'receipt_long',
+          iconOk: false,
+        },
+      }),
+      'Movimiento',
+    );
+  }
+
+  private clearMovementQuery(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { movement: null, shop: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   canEditExpense(): boolean {

@@ -1,6 +1,6 @@
 /* Custom SW: Angular ngsw + Web Push (iOS PWA / Android / desktop). */
 /* global self, clients, registration */
-/* rev: shop-logo-icon-v2 */
+/* rev: notification-deeplink-v1 */
 importScripts('./ngsw-worker.js');
 
 self.addEventListener('push', (event) => {
@@ -64,9 +64,22 @@ self.addEventListener('push', (event) => {
   event.waitUntil(Promise.all([show, setBadge]));
 });
 
+function resolveNotificationUrl(data) {
+  const raw = (data && data.url) || '/';
+  try {
+    const u = new URL(raw, self.location.origin);
+    if (data && data.shopId && !u.searchParams.get('shop')) {
+      u.searchParams.set('shop', data.shopId);
+    }
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return raw;
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification && event.notification.data && event.notification.data.url) || '/';
+  const targetUrl = resolveNotificationUrl(event.notification && event.notification.data);
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {

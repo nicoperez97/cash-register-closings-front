@@ -60,7 +60,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Notificaciones',
         icon: 'notifications',
         tone: 'do',
-        body: 'Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos.',
+        body: 'Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos. Si tocás un aviso (en la campana o en el celular), abre ese local y el módulo. Cuando se puede, también abre el dato: el pago, el gasto, el cierre, el faltante o la reserva.',
         tip: 'Si no te habilitaron un aviso, no lo ves acá.',
       },
       {

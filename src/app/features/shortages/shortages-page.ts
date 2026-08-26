@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -497,6 +498,9 @@ export class ShortagesPage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private openedShortageId: string | null = null;
 
   readonly rows = signal<Shortage[]>([]);
   readonly loading = signal(true);
@@ -579,6 +583,7 @@ export class ShortagesPage {
       next: (rows) => {
         this.rows.set(rows);
         this.loading.set(false);
+        this.openShortageFromQuery(rows ?? []);
       },
       error: () => {
         this.loading.set(false);
@@ -629,6 +634,21 @@ export class ShortagesPage {
 
   openEdit(row: Shortage): void {
     this.openDialog({ mode: 'edit', shortage: row });
+  }
+
+  private openShortageFromQuery(rows: Shortage[]): void {
+    const id = (this.route.snapshot.queryParamMap.get('shortage') || '').trim();
+    if (!id || this.openedShortageId === id) return;
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    this.openedShortageId = id;
+    this.openEdit(row);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { shortage: null, shop: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   async onDelete(row: Shortage): Promise<void> {
