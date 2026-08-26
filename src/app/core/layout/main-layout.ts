@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NavigationCancel,
@@ -544,9 +544,17 @@ export class MainLayoutComponent {
       }
     });
 
+    this.applyShopFromUrl(this.router.url);
+    effect(() => {
+      this.shopContext.shops();
+      untracked(() => this.applyShopFromUrl(this.router.url));
+    });
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.currentUrl.set(e.urlAfterRedirects));
+      .subscribe((e) => {
+        this.currentUrl.set(e.urlAfterRedirects);
+        this.applyShopFromUrl(e.urlAfterRedirects);
+      });
 
     this.router.events.subscribe((e) => {
       if (e instanceof NavigationStart) {
@@ -566,6 +574,16 @@ export class MainLayoutComponent {
         this.routeLoading.set(false);
       }
     });
+  }
+
+  private applyShopFromUrl(url: string): void {
+    try {
+      const shop = this.router.parseUrl(url).queryParams['shop'];
+      const id = typeof shop === 'string' ? shop.trim() : '';
+      if (id) this.shopContext.selectShop(id);
+    } catch {
+      // ignore
+    }
   }
 
   private isPathAllowed(path: string, user: NonNullable<ReturnType<AuthService['currentUser']>>, shopId: string): boolean {

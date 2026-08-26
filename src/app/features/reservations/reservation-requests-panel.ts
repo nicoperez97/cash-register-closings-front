@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -323,6 +324,9 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   private readonly confirm = inject(ConfirmDialogService);
   readonly shops = inject(ShopContextService);
   private readonly live = inject(ShopLiveClient);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private openedRequestId: string | null = null;
 
   readonly accepted = output<ReservationRequestAccepted>();
   readonly refreshAll = output<void>();
@@ -374,7 +378,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadRequests();
+    this.loadRequests(() => this.openRequestFromQuery());
     this.requestsPoll = setInterval(() => this.loadRequests(), 120_000);
   }
 
@@ -763,6 +767,21 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
     this.refreshAll.emit();
   }
 
+  private openRequestFromQuery(): void {
+    const id = (this.route.snapshot.queryParamMap.get('request') || '').trim();
+    if (!id || this.openedRequestId === id) return;
+    const req = this.pendingRequests().find((r) => r.id === id);
+    if (!req) return;
+    this.openedRequestId = id;
+    void this.askDecision(req, 'accept');
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { request: null, shop: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   private loadRequests(afterLoad?: () => void): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
@@ -775,6 +794,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       next: (rows) => {
         this.requestsBusy.set(false);
         this.pendingRequests.set(rows ?? []);
+        this.openRequestFromQuery();
         afterLoad?.();
       },
       error: () => {

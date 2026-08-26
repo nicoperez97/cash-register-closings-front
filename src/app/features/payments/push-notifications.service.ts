@@ -2,6 +2,7 @@ import { Injectable, inject, signal, isDevMode } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SwPush } from '@angular/service-worker';
+import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
@@ -28,6 +29,7 @@ export class PushNotificationsService {
   private readonly pageRefresh = inject(PageRefreshService);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly router = inject(Router);
 
   readonly supported = signal(this.detectSupport());
   readonly permission = signal<NotificationPermission | 'unsupported'>(
@@ -53,10 +55,10 @@ export class PushNotificationsService {
     this.swPush.notificationClicks.subscribe((ev) => {
       this.inbox.refresh();
       this.pageRefresh.refreshFromInbox();
-      const url = (ev.notification?.data as { url?: string } | undefined)?.url;
-      if (url && typeof window !== 'undefined') {
-        // El SW ya navega; esto cubre algunos browsers
-        void url;
+      const data = ev.notification?.data as { url?: string; shopId?: string } | undefined;
+      const url = data?.url;
+      if (url) {
+        void this.router.navigateByUrl(url);
       }
     });
   }
