@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,10 +20,18 @@ import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
 import { newId } from '../../core/utils/id';
 import {
-  formatBusinessDayHint,
   formatIsoDateDisplay,
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
+import {
+  formatShiftHint,
+  resolveCurrentShift,
+  shopBusinessOpening,
+  shopHasMultipleShifts,
+  shopShiftsOf,
+  shiftHoursLabel,
+  type ShopShift,
+} from '../../core/shop/shop-shifts';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ShopClosingSource, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
@@ -156,6 +164,18 @@ import {
                 <mat-hint>{{ businessDayHint() }}</mat-hint>
               }
             </mat-form-field>
+            @if (showShiftSelect()) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__shift">
+                <mat-label>Turno</mat-label>
+                <mat-select formControlName="shiftId">
+                  @for (shift of shopShifts(); track shift.id) {
+                    <mat-option [value]="shift.id">
+                      {{ shift.name }} · {{ shiftHoursLabel(shift) }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
           </div>
 
           @if (isMobile()) {
@@ -319,6 +339,9 @@ export class ClosingsFormPage implements OnInit {
   private readonly breakpointObserver = inject(BreakpointObserver);
 
   readonly shop = this.shops.selectedShop;
+  readonly shopShifts = computed(() => shopShiftsOf(this.shop()));
+  readonly showShiftSelect = computed(() => shopHasMultipleShifts(this.shop()));
+  private userPickedShift = false;
   readonly tipsEnabled = computed(() => !!this.shop()?.tipsEnabled);
   readonly tipEmployees = signal<Employee[]>([]);
   readonly tipEditorValue = signal<TipsEditorState | null>(null);
@@ -357,12 +380,13 @@ export class ClosingsFormPage implements OnInit {
     const shop = this.shop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shop?.openingTime,
+      openingTime: shopBusinessOpening(shop),
     });
   }
 
   readonly form = this.fb.group({
     businessDate: [null as Date | null, Validators.required],
+    shiftId: [''],
     posSystemAmount: [null as number | null],
     cardAmount: [null as number | null],
     cashAmount: [null as number | null],
@@ -422,8 +446,27 @@ export class ClosingsFormPage implements OnInit {
   readonly businessDayHint = computed(() => {
     const date = toDateString(this.formValue()?.businessDate as Date | string | null);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
-    return formatBusinessDayHint(date, this.shop()?.openingTime);
+    const shiftId = String(this.formValue()?.shiftId ?? '');
+    const shifts = this.shopShifts();
+    const shift =
+      shifts.find((s) => s.id === shiftId) ?? resolveCurrentShift(this.shop());
+    return formatShiftHint(date, shift, shifts);
   });
+
+  private readonly autoSelectShift = effect(() => {
+    if (this.isEdit()) return;
+    const shop = this.shop();
+    const shifts = shopShiftsOf(shop);
+    if (!shifts.length || this.userPickedShift) return;
+    const next = resolveCurrentShift(shop).id;
+    if (this.form.controls.shiftId.value !== next) {
+      this.form.patchValue({ shiftId: next }, { emitEvent: false });
+    }
+  });
+
+  shiftHoursLabel(shift: ShopShift): string {
+    return shiftHoursLabel(shift);
+  }
 
   readonly locksCard = computed(() => this.hasPosnetType('PVS'));
   readonly locksMp = computed(() => this.hasPosnetType('MERCADO_PAGO'));
@@ -605,6 +648,9 @@ export class ClosingsFormPage implements OnInit {
   }
 
   ngOnInit(): void {
+    this.form.controls.shiftId.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.userPickedShift = true;
+    });
     const shopId = this.shops.selectedShopId();
     if (shopId) {
       this.api.shopUsers(shopId).subscribe({
@@ -696,12 +742,17 @@ export class ClosingsFormPage implements OnInit {
       this.form.patchValue(
         defaultNewClosingPatch(this.shop(), today, (v) => this.emptyNum(v), toDateInput),
       );
+      this.form.patchValue(
+        { shiftId: resolveCurrentShift(this.shop()).id },
+        { emitEvent: false },
+      );
       this.initPaymentLines();
       this.loadTipDay(today);
       this.savedSourceAmounts = null;
       this.syncSourceAmounts();
       this.syncOtherCobros([]);
       if (this.restoreClosingDraft()) {
+        this.userPickedShift = true;
         this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
           duration: 4000,
         });

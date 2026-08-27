@@ -246,6 +246,7 @@ export function patchClosingFormValues(
 ): void {
   form.patchValue({
     businessDate: toDateInput(closing.businessDate),
+    shiftId: closing.shiftId ?? '',
     posSystemAmount: emptyNum(closing.posSystemAmount),
     cardAmount: emptyNum(closing.cardAmount),
     cashAmount: emptyNum(closing.cashAmount),

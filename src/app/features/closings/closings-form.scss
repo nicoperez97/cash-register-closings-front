@@ -43,7 +43,8 @@
 }
 
 .closing-form__fields--date {
-  grid-template-columns: minmax(0, 18rem);
+  grid-template-columns: minmax(0, 18rem) minmax(0, 16rem);
+  align-items: start;
 }
 
 .closing-form__fields .mat-mdc-form-field {
@@ -110,6 +111,17 @@
 
 :host ::ng-deep .closing-form__fields--date .mat-mdc-form-field-subscript-wrapper {
   display: block;
+}
+
+:host ::ng-deep .closing-form__fields--date .mat-mdc-form-field-infix {
+  min-height: 44px !important;
+  max-height: 44px;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+:host ::ng-deep .closing-form__shift .mat-mdc-select-value-text {
+  white-space: nowrap;
 }
 
 @media (max-width: 960px) {

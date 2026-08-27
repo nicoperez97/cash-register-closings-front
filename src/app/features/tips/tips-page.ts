@@ -16,6 +16,7 @@ import {
   formatIsoDateDisplay,
   resolveShopBusinessDate,
 } from '../../core/shop/business-date';
+import { shopBusinessOpening } from '../../core/shop/shop-shifts';
 import { EmployeesApiService, Employee } from '../employees/employees-api.service';
 import { TipsApiService, TipDay } from './tips-api.service';
 import { TipsInboxService } from './tips-inbox.service';
@@ -233,7 +234,7 @@ export class TipsPage {
   readonly businessDayHint = computed(() => {
     const date = this.selectedDate();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
-    return formatBusinessDayHint(date, this.shops.selectedShop()?.openingTime);
+    return formatBusinessDayHint(date, shopBusinessOpening(this.shops.selectedShop()));
   });
   readonly isBusinessToday = computed(() => this.selectedDate() === this.defaultDate());
 
@@ -310,7 +311,7 @@ export class TipsPage {
     const shop = this.shops.selectedShop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shop?.openingTime,
+      openingTime: shopBusinessOpening(shop),
     });
   }
 

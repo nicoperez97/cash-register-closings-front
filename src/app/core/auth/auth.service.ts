@@ -231,6 +231,7 @@ export class AuthService {
         menuEnabled: !!s.menuEnabled,
         timezone: s.timezone ?? null,
         openingTime: s.openingTime ?? null,
+        shifts: Array.isArray(s.shifts) ? s.shifts : [],
       })),
     });
   }

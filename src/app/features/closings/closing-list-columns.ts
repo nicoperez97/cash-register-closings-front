@@ -6,6 +6,7 @@ const money = (v: unknown) => `$ ${Number(v ?? 0).toLocaleString('es-AR')}`;
 export function closingMoneyColumns(): DataTableColumn[] {
   return [
     { key: 'businessDate', label: 'Fecha' },
+    { key: 'shiftName', label: 'Turno' },
     {
       key: 'posSystemAmount',
       label: 'Caja sistema',

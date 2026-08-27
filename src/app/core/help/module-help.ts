@@ -85,7 +85,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'list',
         tone: 'read',
         anyOf: ['closings.read', 'closings.create'],
-        body: 'Cada fila es un día. Primero ves caja sistema, total declarado y la diferencia en color (si el declarado es mayor, estás a favor en verde). Después el desglose: efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros y egresos.',
+        body: 'Cada fila es un día (y un turno, si el local tiene más de uno). Primero ves caja sistema, total declarado y la diferencia en color (si el declarado es mayor, estás a favor en verde). Después el desglose: efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros y egresos.',
         items: [
           'Entrá al cierre para ver el detalle.',
           'En el celular la lista viene compacta. Con el botón de info de cada fila ves el detalle, o cambiá a vista detallada junto a Buscar.',
@@ -136,7 +136,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'checklist',
         tone: 'do',
         anyOf: ['closings.create', 'closings.update'],
-        body: 'Andá sección por sección: cobros, efectivo, posnets, retiro, egresos del cierre, propinas y notas.',
+        body: 'Andá sección por sección: cobros, efectivo, posnets, retiro, egresos del cierre, propinas y notas. Si el local tiene más de un turno, elegí en qué turno cerrás (viene el que está vigente: sigue hasta que abre el siguiente).',
         items: [
           'Los egresos del cierre salen de conceptos con categoría Cierre: monto y descripción.',
           'Las propinas van en un paso aparte.',
@@ -194,7 +194,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Origen: Cierre, Pago o Manual.',
           'Tipo de pago: a proveedores, servicios o empleados (solo filas de pagos).',
+          'En Transacciones también filtrás por tipo (gasto, ingreso o pase), cuenta, forma de pago, empleado, comprobante y turno si el local tiene más de uno.',
           'También podés filtrar por concepto, facturado y texto en la descripción.',
+          'Descargar Excel o PDF usa los mismos filtros que la lista.',
           'Si el gasto tiene comprobante, aparece en la columna Comprobante. El clip lo abre (foto o PDF).',
           'En computadora, Acciones queda fija a la derecha: no hace falta scrollear al final de la fila.',
           'En el teléfono, el lápiz abre el gasto. Tocar la tarjeta no lo edita.',
@@ -670,7 +672,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'storefront',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Mes, día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia. “Hoy” usa el mismo día laboral que el cierre nuevo: hasta la hora de apertura del local sigue siendo el día anterior.',
+        body: 'Mes, día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia. “Hoy” y el turno usan el mismo criterio que el cierre: el día y el turno siguen hasta que abre el siguiente.',
         tip: 'Si el local apagó “Presentismo con horario”, solo se marca presente / ausente / feriado: no hay entrada, salida ni extra.',
       },
       {
@@ -924,7 +926,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Menú lateral: creá grupos, reordená con las flechas y con ⋮ renombrá, mové de grupo u ocultá módulos.',
           'Tocá el título de cada bloque para expandir o contraer la configuración.',
-          'Entrada y salida de servicio: default para quien no tiene horario propio.',
+          'Turnos: nombre, apertura de turno y cierre de turno. Si hay uno solo, no se pide elegir en el cierre ni en el presentismo.',
+          'Entrada y salida de servicio: default para quien no tiene horario propio (si el turno es de día completo).',
           'Presentismo con horario: si lo apagás, el tablero es solo presente / ausente / feriado.',
           'Módulos públicos: carta /m, normas /n, reservas, presentismo.',
           'iPad antiguo (iOS 9): usá /legacy/index.html. Safari viejo no puede abrir la app normal.',

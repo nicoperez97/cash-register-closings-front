@@ -29,6 +29,7 @@ export type ClosingFormDniTransferRaw = {
 /** Raw value shape from the closings form (getRawValue). */
 export type ClosingFormRawValue = {
   businessDate: Date | string | null;
+  shiftId?: string | null;
   posSystemAmount: unknown;
   cardAmount: unknown;
   cashAmount: unknown;
@@ -165,6 +166,7 @@ export function prepareClosingSaveBody(
   const body: CashClosingInput & Record<string, unknown> = {
     ...raw,
     businessDate: toDateString(raw.businessDate as Date | string | null),
+    shiftId: String(raw.shiftId ?? '').trim() || null,
     posSystemAmount: closingNum(raw.posSystemAmount),
     cardAmount: closingNum(raw.cardAmount),
     cashAmount: closingNum(raw.cashAmount),
