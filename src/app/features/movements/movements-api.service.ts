@@ -130,6 +130,10 @@ export interface MovementFilters {
   partyType?: 'supplier' | 'service' | 'employee' | null;
   invoiced?: 'true' | 'false' | null;
   paymentId?: string | null;
+  paymentMethod?: ExpensePaymentMethod | string | null;
+  employeeId?: string | null;
+  hasReceipt?: 'true' | 'false' | null;
+  shiftId?: string | null;
 }
 
 function filtersToParams(filters: MovementFilters): HttpParams {
@@ -148,6 +152,10 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   set('partyType', filters.partyType);
   set('invoiced', filters.invoiced);
   set('paymentId', filters.paymentId);
+  set('paymentMethod', filters.paymentMethod);
+  set('employeeId', filters.employeeId);
+  set('hasReceipt', filters.hasReceipt);
+  set('shiftId', filters.shiftId);
   return params;
 }
 
@@ -251,7 +259,7 @@ export class MovementsApiService {
     });
   }
 
-  exportExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to' | 'kind'> = {}) {
+  exportExcel(shopId: string, filters: MovementFilters = {}) {
     return this.http.get(`${this.base}/shops/${shopId}/movements/export.xlsx`, {
       params: filtersToParams(filters),
       responseType: 'blob',

@@ -31,11 +31,13 @@ import { isUserVisible } from '../../shared/user-visibility';
 import {
   Concept,
   LedgerAccount,
+  EXPENSE_PAYMENT_METHOD_OPTIONS,
   Movement,
   MovementFilters,
   MovementKind,
   MovementsApiService,
   expensePaymentMethodLabel,
+  isMovementAccountType,
 } from './movements-api.service';
 import {
   MovementDialogComponent,
@@ -58,6 +60,7 @@ import {
   paymentPreviewDialogData,
 } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
+import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts';
 
 @Component({
   selector: 'app-movements-list',
@@ -122,11 +125,13 @@ import { shareText } from '../../shared/utils/share-text';
             <h2 class="guy-filters__title">Filtros</h2>
             <p class="guy-filters__subtitle">
               {{
-                kind() === 'transfer'
-                  ? 'Buscá por período y texto'
-                  : kind() === 'income'
-                    ? 'Buscá por período, concepto y texto'
-                    : 'Buscá por período, origen, tipo, concepto y texto'
+                kind() === 'all'
+                  ? 'Buscá por período, tipo, cuenta, origen, concepto y texto'
+                  : kind() === 'transfer'
+                    ? 'Buscá por período, cuenta y texto'
+                    : kind() === 'income'
+                      ? 'Buscá por período, concepto, cuenta y texto'
+                      : 'Buscá por período, origen, tipo, concepto y texto'
               }}
             </p>
           </div>
@@ -151,13 +156,25 @@ import { shareText } from '../../shared/utils/share-text';
                 <input matEndDate formControlName="end" placeholder="Hasta" />
               </mat-date-range-input>
               <mat-datepicker-toggle matIconSuffix [for]="picker" />
-              <mat-date-range-picker #picker />
+              <mat-date-range-picker #picker (closed)="applyFilter()" />
             </mat-form-field>
 
-            @if (kind() === 'expense' || kind() === 'income') {
+            @if (kind() === 'all') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Tipo</mat-label>
+                <mat-select formControlName="movementKind" (selectionChange)="applyFilter()">
+                  <mat-option value="">Todos</mat-option>
+                  <mat-option value="expense">Gasto</mat-option>
+                  <mat-option value="income">Ingreso</mat-option>
+                  <mat-option value="transfer">Pase entre cuentas</mat-option>
+                </mat-select>
+              </mat-form-field>
+            }
+
+            @if (kind() !== 'transfer') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Concepto</mat-label>
-                <mat-select formControlName="conceptId">
+                <mat-select formControlName="conceptId" (selectionChange)="applyFilter()">
                   <mat-option value="">Todos</mat-option>
                   @for (c of concepts(); track c.id) {
                     <mat-option [value]="c.id">{{ c.name }}</mat-option>
@@ -166,10 +183,20 @@ import { shareText } from '../../shared/utils/share-text';
               </mat-form-field>
             }
 
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cuenta</mat-label>
+              <mat-select formControlName="accountId" (selectionChange)="applyFilter()">
+                <mat-option value="">Todas</mat-option>
+                @for (a of filterAccounts(); track a.id) {
+                  <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
             @if (kind() === 'expense' || kind() === 'all') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Origen</mat-label>
-                <mat-select formControlName="source">
+                <mat-select formControlName="source" (selectionChange)="applyFilter()">
                   <mat-option value="">Todos</mat-option>
                   <mat-option value="closing">Cierre</mat-option>
                   <mat-option value="payment">Pago</mat-option>
@@ -179,20 +206,65 @@ import { shareText } from '../../shared/utils/share-text';
 
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Tipo de pago</mat-label>
-                <mat-select formControlName="partyType">
+                <mat-select formControlName="partyType" (selectionChange)="applyFilter()">
                   <mat-option value="">Todos</mat-option>
                   <mat-option value="supplier">A proveedores</mat-option>
                   <mat-option value="service">A servicios</mat-option>
                   <mat-option value="employee">A empleados</mat-option>
                 </mat-select>
               </mat-form-field>
+            }
 
+            @if (kind() !== 'transfer') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Facturado</mat-label>
-                <mat-select formControlName="invoiced">
+                <mat-select formControlName="invoiced" (selectionChange)="applyFilter()">
                   <mat-option value="">Todos</mat-option>
                   <mat-option value="true">Sí</mat-option>
                   <mat-option value="false">No</mat-option>
+                </mat-select>
+              </mat-form-field>
+            }
+
+            @if (kind() === 'expense' || kind() === 'all') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Forma de pago</mat-label>
+                <mat-select formControlName="paymentMethod" (selectionChange)="applyFilter()">
+                  <mat-option value="">Todas</mat-option>
+                  @for (opt of paymentMethodOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Empleado</mat-label>
+                <mat-select formControlName="employeeId" (selectionChange)="applyFilter()">
+                  <mat-option value="">Todos</mat-option>
+                  @for (e of employees(); track e.id) {
+                    <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Comprobante</mat-label>
+                <mat-select formControlName="hasReceipt" (selectionChange)="applyFilter()">
+                  <mat-option value="">Todos</mat-option>
+                  <mat-option value="true">Con archivo</mat-option>
+                  <mat-option value="false">Sin archivo</mat-option>
+                </mat-select>
+              </mat-form-field>
+            }
+
+            @if (hasShiftFilter()) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Turno</mat-label>
+                <mat-select formControlName="shiftId" (selectionChange)="applyFilter()">
+                  <mat-option value="">Todos</mat-option>
+                  @for (s of shopShifts(); track s.id) {
+                    <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                  }
                 </mat-select>
               </mat-form-field>
             }
@@ -334,16 +406,47 @@ export class MovementsListPage {
   });
 
   readonly filters = new FormGroup({
+    movementKind: new FormControl('', { nonNullable: true }),
     conceptId: new FormControl('', { nonNullable: true }),
+    accountId: new FormControl('', { nonNullable: true }),
     source: new FormControl('', { nonNullable: true }),
     partyType: new FormControl('', { nonNullable: true }),
     invoiced: new FormControl('', { nonNullable: true }),
+    paymentMethod: new FormControl('', { nonNullable: true }),
+    employeeId: new FormControl('', { nonNullable: true }),
+    hasReceipt: new FormControl('', { nonNullable: true }),
+    shiftId: new FormControl('', { nonNullable: true }),
     q: new FormControl('', { nonNullable: true }),
   });
+
+  readonly paymentMethodOptions = EXPENSE_PAYMENT_METHOD_OPTIONS;
+
+  readonly filterAccounts = computed(() =>
+    this.accounts()
+      .filter((a) => a.active && isMovementAccountType(a.type))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+  );
+
+  readonly shopShifts = computed(() => shopShiftsOf(this.shops.selectedShop()));
+  readonly hasShiftFilter = computed(() => shopHasMultipleShifts(this.shops.selectedShop()));
 
   readonly columns = computed((): DataTableColumn[] => {
     const base: DataTableColumn[] = [
       { key: 'businessDate', label: 'Fecha' },
+    ];
+    if (this.kind() === 'all') {
+      base.push({
+        key: 'kind',
+        label: 'Tipo',
+        format: (r) => {
+          const k = this.inferMovementKind(r as Movement);
+          if (k === 'income') return 'Ingreso';
+          if (k === 'transfer') return 'Pase';
+          return 'Gasto';
+        },
+      });
+    }
+    base.push(
       {
         key: 'fromAccountName',
         label: 'Cuenta',
@@ -354,15 +457,15 @@ export class MovementsListPage {
         label: 'Destino',
         format: (r) => String(r['toAccountName'] || r['toUserName'] || '—'),
       },
-    ];
-    if (this.kind() === 'expense' || this.kind() === 'income') {
+    );
+    if (this.kind() !== 'transfer') {
       base.push({
         key: 'conceptName',
         label: 'Concepto',
         format: (r) => r['conceptName'] ?? '—',
       });
     }
-    if (this.kind() === 'expense') {
+    if (this.kind() === 'expense' || this.kind() === 'all') {
       base.push({
         key: 'paymentMethod',
         label: 'Forma de pago',
@@ -381,7 +484,7 @@ export class MovementsListPage {
         format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-AR')}`,
       },
       { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
-      ...(this.kind() === 'expense'
+      ...(this.kind() === 'expense' || this.kind() === 'all'
         ? [
             {
               key: 'hasReceiptFile',
@@ -474,13 +577,17 @@ export class MovementsListPage {
         next: (rows) => this.accounts.set(rows),
         error: () => this.accounts.set([]),
       });
-      if (this.kind() === 'expense' || this.kind() === 'income') {
-        this.api.concepts(shopId, { kind: this.kind() === 'income' ? 'INCOME' : 'EXPENSE' }).subscribe({
+      if (this.kind() === 'transfer') {
+        this.concepts.set([]);
+      } else {
+        const conceptOpts =
+          this.kind() === 'all'
+            ? { for: 'movement' as const }
+            : { kind: this.kind() === 'income' ? ('INCOME' as const) : ('EXPENSE' as const) };
+        this.api.concepts(shopId, conceptOpts).subscribe({
           next: (rows) => this.concepts.set(rows),
           error: () => this.concepts.set([]),
         });
-      } else {
-        this.concepts.set([]);
       }
       this.employeesApi.list(shopId).subscribe({
         next: (rows) => this.employees.set(rows.map((e) => ({ id: e.id, fullName: e.fullName }))),
@@ -531,7 +638,13 @@ export class MovementsListPage {
             ? partyType
             : '',
         conceptId: conceptId || '',
+        movementKind: '',
+        accountId: '',
         invoiced: '',
+        paymentMethod: '',
+        employeeId: '',
+        hasReceipt: '',
+        shiftId: '',
         q: '',
       },
       { emitEvent: false },
@@ -707,7 +820,7 @@ export class MovementsListPage {
       await downloadColumnsPdf({
         title: this.pageTitle(),
         subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''}`,
-        filename: `${this.kind() === 'transfer' ? 'transferencias' : this.kind() === 'income' ? 'ingresos' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
+        filename: `${this.kind() === 'all' ? 'transacciones' : this.kind() === 'transfer' ? 'transferencias' : this.kind() === 'income' ? 'ingresos' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.pdf`,
         columns: this.columns(),
         rows: this.rows(),
       });
@@ -723,13 +836,13 @@ export class MovementsListPage {
     const from = this.formatDate(this.range.controls.start.value) ?? undefined;
     const to = this.formatDate(this.range.controls.end.value) ?? undefined;
     this.exporting.set(true);
-    this.api.exportExcel(shopId, { from, to, kind: this.apiKind() }).subscribe({
+    this.api.exportExcel(shopId, this.currentFilters()).subscribe({
       next: (blob) => {
         this.exporting.set(false);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${this.kind() === 'transfer' ? 'transferencias' : this.kind() === 'income' ? 'ingresos' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
+        a.download = `${this.kind() === 'all' ? 'transacciones' : this.kind() === 'transfer' ? 'transferencias' : this.kind() === 'income' ? 'ingresos' : 'gastos'}-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from || 'inicio'}_${to || 'hoy'}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
       },
@@ -761,10 +874,16 @@ export class MovementsListPage {
       end: new Date(),
     });
     this.filters.reset({
+      movementKind: '',
       conceptId: '',
+      accountId: '',
       source: '',
       partyType: '',
       invoiced: '',
+      paymentMethod: '',
+      employeeId: '',
+      hasReceipt: '',
+      shiftId: '',
       q: '',
     });
     this.focusPaymentId.set(null);
@@ -774,24 +893,42 @@ export class MovementsListPage {
   private currentFilters(): MovementFilters {
     const f = this.filters.getRawValue();
     const expense = this.kind() === 'expense' || this.kind() === 'all';
-    const withConcept = expense || this.kind() === 'income';
+    const withConcept = this.kind() !== 'transfer';
+    const movementKind =
+      this.kind() === 'all' && (f.movementKind === 'expense' || f.movementKind === 'income' || f.movementKind === 'transfer')
+        ? f.movementKind
+        : this.apiKind();
     return {
       from: this.formatDate(this.range.controls.start.value),
       to: this.formatDate(this.range.controls.end.value),
+      accountId: f.accountId || null,
       conceptId: withConcept ? f.conceptId || null : null,
-      source: expense
-        ? ((f.source || null) as MovementFilters['source'])
-        : null,
-      partyType: expense
-        ? ((f.partyType || null) as MovementFilters['partyType'])
-        : null,
-      invoiced: expense
-        ? ((f.invoiced || null) as MovementFilters['invoiced'])
-        : null,
+      source: expense ? ((f.source || null) as MovementFilters['source']) : null,
+      partyType: expense ? ((f.partyType || null) as MovementFilters['partyType']) : null,
+      invoiced: withConcept ? ((f.invoiced || null) as MovementFilters['invoiced']) : null,
+      paymentMethod: expense ? f.paymentMethod || null : null,
+      employeeId: expense ? f.employeeId || null : null,
+      hasReceipt: expense ? ((f.hasReceipt || null) as MovementFilters['hasReceipt']) : null,
+      shiftId: this.hasShiftFilter() ? f.shiftId || null : null,
       q: f.q || null,
-      kind: this.apiKind(),
+      kind: movementKind,
       paymentId: expense ? this.focusPaymentId() : null,
     };
+  }
+
+  private rowSource(row: Movement): 'closing' | 'payment' | 'manual' {
+    if (row.source === 'payment' || row.source === 'closing' || row.source === 'manual') {
+      return row.source;
+    }
+    if (row.paymentId) return 'payment';
+    if (row.closingId) return 'closing';
+    return 'manual';
+  }
+
+  private narrowBySource(rows: Movement[]): Movement[] {
+    const source = this.currentFilters().source;
+    if (!source) return rows;
+    return rows.filter((row) => this.rowSource(row) === source);
   }
 
   private load(): void {
@@ -803,7 +940,7 @@ export class MovementsListPage {
     this.loading.set(true);
     this.api.list(shopId, this.currentFilters()).subscribe({
       next: (rows) => {
-        this.rows.set(rows);
+        this.rows.set(this.narrowBySource(rows));
         this.loading.set(false);
         const focusPay = this.focusPaymentId();
         if (focusPay && this.kind() === 'expense') {

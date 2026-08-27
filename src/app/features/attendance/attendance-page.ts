@@ -39,11 +39,18 @@ import {
   AttendanceShareRangeResult,
 } from './attendance-share-range-dialog';
 import {
-  formatBusinessDayHint,
   parseIsoDateParts,
   resolveShopBusinessDate,
   zonedDateParts,
 } from '../../core/shop/business-date';
+import {
+  formatShiftHint,
+  resolveCurrentShift,
+  shopBusinessOpening,
+  shopHasMultipleShifts,
+  shopShiftsOf,
+  shiftHoursLabel,
+} from '../../core/shop/shop-shifts';
 
 interface AttendanceDayCell {
   id?: string;
@@ -169,6 +176,21 @@ const MONTH_LABELS = [
                 (ngModelChange)="onQuickDayChange($event)"
                 aria-label="Fecha de asistencia"
               />
+              @if (showShiftSelect()) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="today-panel__shift">
+                  <mat-label>Turno</mat-label>
+                  <mat-select
+                    [ngModel]="selectedShiftId()"
+                    (ngModelChange)="onShiftChange($event)"
+                  >
+                    @for (shift of shopShifts(); track shift.id) {
+                      <mat-option [value]="shift.id">
+                        {{ shift.name }} · {{ shiftHoursLabel(shift) }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
               <button
                 mat-icon-button
                 type="button"
@@ -905,8 +927,26 @@ const MONTH_LABELS = [
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 0.15rem;
+        gap: 0.35rem 0.45rem;
         margin-top: 0.45rem;
+      }
+      .today-panel__shift {
+        width: min(100%, 15.5rem);
+        margin: 0;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-text-field-wrapper {
+        height: 40px;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-form-field-infix {
+        min-height: 40px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-select-value-text {
+        white-space: nowrap;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-form-field-subscript-wrapper {
+        display: none;
       }
       .today-panel__day-input {
         border: 1px solid var(--guy-border, #d7e0d9);
@@ -1301,6 +1341,9 @@ export class AttendancePage {
   private readonly live = inject(ShopLiveClient);
 
   readonly shopId = this.shops.selectedShopId;
+  readonly shopShifts = computed(() => shopShiftsOf(this.shops.selectedShop()));
+  readonly showShiftSelect = computed(() => shopHasMultipleShifts(this.shops.selectedShop()));
+  readonly selectedShiftId = signal('');
   private readonly tableWrap = viewChild<ElementRef<HTMLElement>>('tableWrap');
   readonly months = MONTH_LABELS.map((label, idx) => ({ value: idx + 1, label }));
   readonly years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
@@ -1309,7 +1352,7 @@ export class AttendancePage {
     const shop = this.shops.selectedShop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shop?.openingTime,
+      openingTime: shopBusinessOpening(shop),
     });
   }
 
@@ -1322,9 +1365,13 @@ export class AttendancePage {
 
   readonly todayParts = computed(() => this.shopTodayParts());
   readonly todayIso = computed(() => this.shopBusinessDateIso());
-  readonly businessDayHint = computed(() =>
-    formatBusinessDayHint(this.todayIso(), this.shops.selectedShop()?.openingTime),
-  );
+  readonly businessDayHint = computed(() => {
+    const shop = this.shops.selectedShop();
+    const shifts = shopShiftsOf(shop);
+    const shiftId = this.selectedShiftId();
+    const shift = shifts.find((s) => s.id === shiftId) ?? resolveCurrentShift(shop);
+    return formatShiftHint(this.todayIso(), shift, shifts);
+  });
   readonly todayDay = computed(() => this.todayParts().day);
   readonly todayYear = computed(() => this.todayParts().year);
   readonly todayMonth = computed(() => this.todayParts().month);
@@ -1513,6 +1560,7 @@ export class AttendancePage {
             params: {
               year: String(key.year),
               month: String(key.month),
+              shiftId: this.selectedShiftId(),
               _: String(Date.now()),
             },
             headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
@@ -1523,6 +1571,17 @@ export class AttendancePage {
   }
 
   constructor() {
+    effect(() => {
+      const shop = this.shops.selectedShop();
+      const current = resolveCurrentShift(shop).id;
+      const selected = this.selectedShiftId();
+      const ids = shopShiftsOf(shop).map((s) => s.id);
+      if (!selected || !ids.includes(selected)) {
+        this.selectedShiftId.set(current);
+        void this.reload();
+        void this.loadTodayMarks();
+      }
+    });
     usePageRefresh(async () => {
       await Promise.all([this.reload(), this.loadTodayMarks()]);
     });
@@ -1753,6 +1812,7 @@ export class AttendancePage {
     const items = fixed.map((e) => ({
       employeeId: e.employeeId,
       date,
+      shiftId: this.selectedShiftId() || undefined,
       isPresent: true,
       ...(holiday ? { isHoliday: true } : {}),
     }));
@@ -1806,6 +1866,7 @@ export class AttendancePage {
     const items = emps.map((e) => ({
       employeeId: e.employeeId,
       date,
+      shiftId: this.selectedShiftId() || undefined,
       isHoliday: nextHoliday,
     }));
     this.saving.set(true);
@@ -1865,6 +1926,7 @@ export class AttendancePage {
     const items = emps.map((e) => ({
       employeeId: e.employeeId,
       date,
+      shiftId: this.selectedShiftId() || undefined,
       isHoliday: nextHoliday,
     }));
     this.saving.set(true);
@@ -1932,6 +1994,7 @@ export class AttendancePage {
         params: {
           year: String(y),
           month: String(m),
+          shiftId: this.selectedShiftId(),
           _: String(Date.now()),
         },
         headers: {
@@ -1975,6 +2038,7 @@ export class AttendancePage {
         {
           employeeId: emp.employeeId,
           date,
+          shiftId: this.selectedShiftId() || undefined,
           ...patch,
         },
       )
@@ -2089,6 +2153,7 @@ export class AttendancePage {
         params: {
           year: String(year),
           month: String(month),
+          shiftId: this.selectedShiftId(),
           _: String(Date.now()),
         },
         headers: {
@@ -2134,8 +2199,20 @@ export class AttendancePage {
     return this.shops.selectedShop()?.serviceAttendanceWithHours !== false;
   }
 
+  onShiftChange(shiftId: string): void {
+    this.selectedShiftId.set(shiftId);
+    void this.reload();
+    void this.loadTodayMarks();
+  }
+
+  shiftHoursLabel = shiftHoursLabel;
+
   private shopShiftDefaults() {
     const shop = this.shops.selectedShop();
+    const shift = shopShiftsOf(shop).find((s) => s.id === this.selectedShiftId());
+    if (shift && shift.opensAt !== shift.closesAt) {
+      return { checkIn: shift.opensAt, checkOut: shift.closesAt };
+    }
     return {
       checkIn: shop?.serviceDefaultCheckIn || '18:00',
       checkOut: shop?.serviceDefaultCheckOut || '00:00',
@@ -2492,6 +2569,7 @@ export class AttendancePage {
       .post<AttendanceDayCell>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
         employeeId: emp.employeeId,
         date,
+        shiftId: this.selectedShiftId() || undefined,
         ...patch,
       })
       .subscribe({

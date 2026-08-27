@@ -15,6 +15,8 @@ export interface CashClosing {
   id: string;
   shopId: string;
   businessDate: string;
+  shiftId?: string | null;
+  shiftName?: string | null;
   posSystemAmount: number;
   cardAmount: number;
   cashAmount: number;

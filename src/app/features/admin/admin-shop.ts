@@ -20,6 +20,7 @@ import {
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
+import { defaultShopShift, shopShiftsOf, type ShopShift } from '../../core/shop/shop-shifts';
 import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
@@ -568,11 +569,6 @@ const TIMEZONE_OPTIONS = [
                 <mat-hint>Monto sugerido al abrir un cierre</mat-hint>
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Hora de apertura</mat-label>
-                <input matInput type="time" formControlName="openingTime" />
-                <mat-hint>El día del cierre corre hasta esta hora del día siguiente</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Zona horaria</mat-label>
                 <mat-select formControlName="timezone">
                   @for (tz of timezoneOptions; track tz.value) {
@@ -581,6 +577,45 @@ const TIMEZONE_OPTIONS = [
                 </mat-select>
                 <mat-hint>Día calendario de reservas y pantallas públicas</mat-hint>
               </mat-form-field>
+            </div>
+            <div class="shop-admin__posnets-head" style="margin-top: 0.75rem">
+              <p class="text-muted small mb-0">
+                Turnos del local. Apertura y cierre de cada uno. El día laboral empieza en la
+                apertura más temprana. Si hay un solo turno, no se pide elegir en el cierre ni
+                en el presentismo.
+              </p>
+              <button mat-stroked-button type="button" (click)="addShift()">
+                <mat-icon>add</mat-icon>
+                Agregar turno
+              </button>
+            </div>
+            <div class="shop-admin__shifts" formArrayName="shifts">
+              @for (row of shifts.controls; track row; let i = $index) {
+                <div class="shop-admin__shift-row" [formGroupName]="i">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Nombre</mat-label>
+                    <input matInput formControlName="name" placeholder="ej. Mediodía" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Apertura de turno</mat-label>
+                    <input matInput type="time" formControlName="opensAt" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Cierre de turno</mat-label>
+                    <input matInput type="time" formControlName="closesAt" />
+                  </mat-form-field>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="shop-admin__posnet-remove"
+                    aria-label="Quitar turno"
+                    [disabled]="shifts.length < 2"
+                    (click)="removeShift(i)"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              }
             </div>
             <div class="shop-admin__toggle-list">
               <div class="shop-admin__toggle">
@@ -1728,6 +1763,18 @@ const TIMEZONE_OPTIONS = [
         gap: 0.6rem;
         align-items: center;
       }
+      .shop-admin__shifts {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-bottom: 0.85rem;
+      }
+      .shop-admin__shift-row {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 1fr auto;
+        gap: 0.6rem;
+        align-items: center;
+      }
       .shop-admin__posnet-remove {
         color: #c62828;
       }
@@ -1756,7 +1803,8 @@ const TIMEZONE_OPTIONS = [
         }
       }
       @media (max-width: 640px) {
-        .shop-admin__posnet-row {
+        .shop-admin__posnet-row,
+        .shop-admin__shift-row {
           grid-template-columns: 1fr;
         }
       }
@@ -1993,6 +2041,7 @@ export class AdminShopPage implements OnInit {
       ]),
     }),
     posnets: this.fb.array([]),
+    shifts: this.fb.array([]),
     closingSources: this.fb.array([]),
   });
 
@@ -2054,6 +2103,10 @@ export class AdminShopPage implements OnInit {
 
   get posnets(): FormArray {
     return this.form.get('posnets') as FormArray;
+  }
+
+  get shifts(): FormArray {
+    return this.form.get('shifts') as FormArray;
   }
 
   get closingSources(): FormArray {
@@ -2199,6 +2252,7 @@ export class AdminShopPage implements OnInit {
     this.applyLogoFromShop(shop.logoUrl);
     this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
+    this.setShifts(shopShiftsOf(shop));
     this.emailSmtpConfigured.set(!!shop.emailSmtpConfigured);
     this.clearSmtpPasswordOnSave.set(false);
     if (shopId) {
@@ -2245,6 +2299,7 @@ export class AdminShopPage implements OnInit {
           this.clearSmtpPasswordOnSave.set(false);
           this.applyEmailLists(s.emailNotificationTypes, s.emailNotificationUserIds);
           this.setPosnets(s.posnets ?? []);
+          this.setShifts(shopShiftsOf(s));
           this.applyPaymentConceptCategories(s.paymentConceptCategories);
           this.navConfigDraft.set(s.navConfig ?? null);
           this.shops.upsertShop(s);
@@ -2375,6 +2430,36 @@ export class AdminShopPage implements OnInit {
 
   removePosnet(index: number): void {
     this.posnets.removeAt(index);
+  }
+
+  addShift(): void {
+    const next = defaultShopShift(this.form.controls.openingTime.value);
+    next.name = `Turno ${this.shifts.length + 1}`;
+    this.shifts.push(this.buildShiftGroup(next));
+  }
+
+  removeShift(index: number): void {
+    if (this.shifts.length < 2) return;
+    this.shifts.removeAt(index);
+  }
+
+  private setShifts(rows: ShopShift[]): void {
+    this.shifts.clear();
+    for (const row of rows) {
+      this.shifts.push(this.buildShiftGroup(row));
+    }
+    if (!this.shifts.length) {
+      this.shifts.push(this.buildShiftGroup(defaultShopShift(this.form.controls.openingTime.value)));
+    }
+  }
+
+  private buildShiftGroup(value: ShopShift) {
+    return this.fb.nonNullable.group({
+      id: [value.id || newId()],
+      name: [value.name || 'Turno', Validators.required],
+      opensAt: [value.opensAt || '10:00', Validators.required],
+      closesAt: [value.closesAt || value.opensAt || '10:00', Validators.required],
+    });
   }
 
   private applyPaymentConceptCategories(raw?: unknown): void {
@@ -2675,6 +2760,14 @@ export class AdminShopPage implements OnInit {
       currency: raw.currency || 'ARS',
       defaultChangeAmount: raw.defaultChangeAmount,
       openingTime: raw.openingTime || '10:00',
+      shifts: (raw.shifts as ShopShift[])
+        .map((s) => ({
+          id: s.id || newId(),
+          name: String(s.name ?? '').trim(),
+          opensAt: s.opensAt,
+          closesAt: s.closesAt,
+        }))
+        .filter((s) => !!s.name),
       timezone: raw.timezone || 'America/Argentina/Buenos_Aires',
       productionDefaultHours: raw.productionDefaultHours ?? 8,
       serviceDefaultCheckIn: raw.serviceDefaultCheckIn || '18:00',

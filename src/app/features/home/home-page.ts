@@ -1,10 +1,13 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import {
@@ -14,6 +17,13 @@ import {
 import { APP_BRAND } from '../../core/config/app-brand';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { parseIsoDateParts, resolveShopBusinessDate } from '../../core/shop/business-date';
+import {
+  resolveCurrentShift,
+  shopBusinessOpening,
+  shopHasMultipleShifts,
+  shopShiftsOf,
+  shiftHoursLabel,
+} from '../../core/shop/shop-shifts';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission } from '../../core/auth/auth.models';
 import { ClosingsApiService } from '../closings/closings-api.service';
@@ -55,6 +65,9 @@ interface BalanceRowExt extends BalanceAccountRow {
   selector: 'app-home-page',
   imports: [
     RouterLink,
+    FormsModule,
+    MatFormFieldModule,
+    MatSelectModule,
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
@@ -182,6 +195,21 @@ interface BalanceRowExt extends BalanceAccountRow {
                 · Franco
               }
             </p>
+            @if (showShiftSelect()) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="today-panel__shift">
+                <mat-label>Turno</mat-label>
+                <mat-select
+                  [ngModel]="selectedShiftId()"
+                  (ngModelChange)="onShiftChange($event)"
+                >
+                  @for (shift of shopShifts(); track shift.id) {
+                    <mat-option [value]="shift.id">
+                      {{ shift.name }} · {{ shiftHoursLabel(shift) }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
           </div>
           <div class="today-panel__actions">
             @if (attendanceEmployees().length && !isTodayClosed()) {
@@ -287,6 +315,25 @@ interface BalanceRowExt extends BalanceAccountRow {
         color: var(--guy-muted, #5f6f76);
         text-transform: capitalize;
       }
+      .today-panel__shift {
+        display: block;
+        width: min(100%, 15.5rem);
+        margin-top: 0.45rem;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-text-field-wrapper {
+        height: 40px;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-form-field-infix {
+        min-height: 40px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-select-value-text {
+        white-space: nowrap;
+      }
+      :host ::ng-deep .today-panel__shift .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
       .today-panel__actions {
         display: flex;
         flex-wrap: wrap;
@@ -388,6 +435,10 @@ export class HomePageComponent {
   readonly sharingAttendance = signal(false);
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
   readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
+  readonly selectedShiftId = signal('');
+  readonly shopShifts = computed(() => shopShiftsOf(this.shopContext.selectedShop()));
+  readonly showShiftSelect = computed(() => shopHasMultipleShifts(this.shopContext.selectedShop()));
+  readonly shiftHoursLabel = shiftHoursLabel;
   readonly supplierPaymentsPending = signal<number | null>(null);
   readonly supplierPaymentsToValidateMine = signal<number | null>(null);
   readonly supplierPaymentsToPayMine = signal<number | null>(null);
@@ -403,8 +454,14 @@ export class HomePageComponent {
     const shop = this.shopContext.selectedShop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shop?.openingTime,
+      openingTime: shopBusinessOpening(shop),
     });
+  }
+
+  onShiftChange(shiftId: string): void {
+    this.selectedShiftId.set(shiftId);
+    const shopId = this.shopContext.selectedShopId();
+    if (shopId) this.loadAttendanceToday(shopId);
   }
 
   readonly presentTodayCount = computed(() => {
@@ -593,6 +650,10 @@ export class HomePageComponent {
         this.attendanceEmployees.set([]);
         this.todayMarks.set({});
       } else {
+        const current = resolveCurrentShift(this.shopContext.selectedShop()).id;
+        if (!this.selectedShiftId() || !shopShiftsOf(this.shopContext.selectedShop()).some((s) => s.id === this.selectedShiftId())) {
+          this.selectedShiftId.set(current);
+        }
         this.loadAttendanceToday(shopId);
       }
 
@@ -870,10 +931,17 @@ export class HomePageComponent {
     const cur = this.todayMarks()[emp.employeeId];
     const nextPresent = !this.isPresentToday(emp.employeeId);
     const dayIsHoliday = Object.values(this.todayMarks()).some((m) => m.isHoliday);
-    const body: { employeeId: string; date: string; isPresent: boolean; isHoliday?: boolean } = {
+    const body: {
+      employeeId: string;
+      date: string;
+      isPresent: boolean;
+      isHoliday?: boolean;
+      shiftId?: string;
+    } = {
       employeeId: emp.employeeId,
       date: this.attendanceTodayIso(),
       isPresent: nextPresent,
+      shiftId: this.selectedShiftId() || undefined,
     };
     if (nextPresent && (!!cur?.isHoliday || dayIsHoliday)) {
       body.isHoliday = true;
@@ -916,6 +984,7 @@ export class HomePageComponent {
     const holiday = Object.values(this.todayMarks()).some((m) => m.isHoliday);
     const items = fixed.map((e) => ({
       employeeId: e.employeeId,
+      shiftId: this.selectedShiftId() || undefined,
       date: this.attendanceTodayIso(),
       isPresent: true,
       ...(holiday ? { isHoliday: true } : {}),
@@ -961,6 +1030,7 @@ export class HomePageComponent {
     const items = emps.map((e) => ({
       employeeId: e.employeeId,
       date: this.attendanceTodayIso(),
+      shiftId: this.selectedShiftId() || undefined,
       isHoliday: nextHoliday,
     }));
     this.attendanceBusy.set(true);
@@ -997,6 +1067,7 @@ export class HomePageComponent {
         params: {
           year: String(parts?.year ?? new Date().getFullYear()),
           month: String(parts?.month ?? new Date().getMonth() + 1),
+          shiftId: this.selectedShiftId(),
         },
       })
       .subscribe({
