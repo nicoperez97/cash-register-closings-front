@@ -49,6 +49,7 @@ import {
   shopBusinessOpening,
   shopHasMultipleShifts,
   shopShiftsOf,
+  shiftsOnIsoDate,
   shiftHoursLabel,
 } from '../../core/shop/shop-shifts';
 
@@ -1341,8 +1342,10 @@ export class AttendancePage {
   private readonly live = inject(ShopLiveClient);
 
   readonly shopId = this.shops.selectedShopId;
-  readonly shopShifts = computed(() => shopShiftsOf(this.shops.selectedShop()));
-  readonly showShiftSelect = computed(() => shopHasMultipleShifts(this.shops.selectedShop()));
+  readonly shopShifts = computed(() =>
+    shiftsOnIsoDate(this.shops.selectedShop(), this.todayIso()),
+  );
+  readonly showShiftSelect = computed(() => this.shopShifts().length > 1);
   readonly selectedShiftId = signal('');
   private readonly tableWrap = viewChild<ElementRef<HTMLElement>>('tableWrap');
   readonly months = MONTH_LABELS.map((label, idx) => ({ value: idx + 1, label }));
@@ -1352,7 +1355,7 @@ export class AttendancePage {
     const shop = this.shops.selectedShop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shopBusinessOpening(shop),
+      openingTime: shopBusinessOpening(shop, new Date()),
     });
   }
 
@@ -1573,11 +1576,13 @@ export class AttendancePage {
   constructor() {
     effect(() => {
       const shop = this.shops.selectedShop();
+      const todayShifts = this.shopShifts();
       const current = resolveCurrentShift(shop).id;
+      const ids = todayShifts.map((s) => s.id);
+      const next = ids.includes(current) ? current : (ids[0] ?? current);
       const selected = this.selectedShiftId();
-      const ids = shopShiftsOf(shop).map((s) => s.id);
       if (!selected || !ids.includes(selected)) {
-        this.selectedShiftId.set(current);
+        this.selectedShiftId.set(next);
         void this.reload();
         void this.loadTodayMarks();
       }

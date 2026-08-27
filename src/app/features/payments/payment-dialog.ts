@@ -38,7 +38,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber } from '../../shared/utils/money';
 import { Observable, catchError, concatMap, from, map, of, switchMap } from 'rxjs';
 
-export type PaymentDialogKind = 'supplier' | 'employee' | 'service';
+export type PaymentDialogKind = 'supplier' | 'employee' | 'service' | 'partner';
 
 export type PaymentDialogData = {
   shopId: string;
@@ -457,7 +457,7 @@ type PaymentDraft = {
               </button>
             </div>
           }
-        } @else {
+        } @else if (!isPartnerKind) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Empleado</mat-label>
             <mat-select formControlName="employeeId">
@@ -628,7 +628,7 @@ type PaymentDraft = {
 
         @if (showPayingAccount()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Cuenta que paga</mat-label>
+            <mat-label>{{ isPartnerKind ? 'Cuenta emisora' : 'Cuenta que paga' }}</mat-label>
             <mat-select
               formControlName="accountId"
               panelClass="guy-select-search-panel"
@@ -645,8 +645,22 @@ type PaymentDraft = {
                 <mat-option disabled>Sin resultados</mat-option>
               }
             </mat-select>
-            <mat-hint>Cuenta desde la que sale el dinero (egreso)</mat-hint>
+            <mat-hint>{{
+              isPartnerKind ? 'Cuenta de la que sale el dinero' : 'Cuenta desde la que sale el dinero (egreso)'
+            }}</mat-hint>
           </mat-form-field>
+          @if (isPartnerKind) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cuenta receptora</mat-label>
+              <mat-select formControlName="toAccountId">
+                <mat-option [value]="null">Sin asignar</mat-option>
+                @for (a of data.accounts; track a.id) {
+                  <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                }
+              </mat-select>
+              <mat-hint>Cuenta del socio que recibe</mat-hint>
+            </mat-form-field>
+          }
         }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -721,6 +735,7 @@ export class PaymentDialogComponent {
   readonly isDuplicate = this.data.mode === 'duplicate';
   readonly isSupplierKind = this.data.kind === 'supplier';
   readonly isServiceKind = this.data.kind === 'service';
+  readonly isPartnerKind = this.data.kind === 'partner';
   readonly isBilledKind = this.isSupplierKind || this.isServiceKind;
   readonly isPaidEdit =
     this.data.mode === 'edit' && this.data.payment?.status === 'PAID';
@@ -864,6 +879,7 @@ export class PaymentDialogComponent {
     payerUserId: [this.seed?.payerUserId ?? (null as string | null)],
     validatorUserId: [this.seed?.validatorUserId ?? (null as string | null)],
     accountId: [this.seed?.accountId ?? (null as string | null)],
+    toAccountId: [this.seed?.toAccountId ?? (null as string | null)],
     paymentMethod: [this.seed?.paymentMethod ?? (null as PaymentMethod | null)],
     notes: [this.seed?.notes ?? ''],
     invoiceLegalName: [this.seed?.invoiceLegalName ?? ''],
@@ -888,6 +904,7 @@ export class PaymentDialogComponent {
 
   showPayingAccount(): boolean {
     return (
+      this.isPartnerKind ||
       this.isPaidStatus() ||
       this.isPaidEdit ||
       (this.isEdit && this.seed?.status === 'VALIDATED')
@@ -1371,6 +1388,13 @@ export class PaymentDialogComponent {
         })),
       );
     }
+    if (this.isPartnerKind) {
+      return of({
+        supplierId: null,
+        serviceId: null,
+        employeeId: null,
+      });
+    }
     return of({
       supplierId: null,
       serviceId: null,
@@ -1447,6 +1471,11 @@ export class PaymentDialogComponent {
             payerUserId: raw.payerUserId || null,
             validatorUserId: raw.validatorUserId || null,
             accountId: raw.accountId ? String(raw.accountId) : null,
+            toAccountId: this.isPartnerKind
+              ? raw.toAccountId
+                ? String(raw.toAccountId)
+                : null
+              : null,
             paymentMethod: (raw.paymentMethod as PaymentMethod | null) || null,
             notes: (raw.notes ?? '').trim() || null,
             ...invoice,
@@ -1474,7 +1503,11 @@ export class PaymentDialogComponent {
             if (this.isServiceKind && !sameStr(next.serviceId, prev.serviceId)) {
               body['serviceId'] = next.serviceId;
             }
-            if (!this.isBilledKind && !sameStr(next.employeeId, prev.employeeId)) {
+            if (
+              !this.isBilledKind &&
+              !this.isPartnerKind &&
+              !sameStr(next.employeeId, prev.employeeId)
+            ) {
               body['employeeId'] = next.employeeId;
             }
             if (!sameStr(next.payerUserId, prev.payerUserId)) body['payerUserId'] = next.payerUserId;
@@ -1482,6 +1515,9 @@ export class PaymentDialogComponent {
               body['validatorUserId'] = next.validatorUserId;
             }
             if (!sameStr(next.accountId, prev.accountId)) body['accountId'] = next.accountId;
+            if (this.isPartnerKind && !sameStr(next.toAccountId, prev.toAccountId)) {
+              body['toAccountId'] = next.toAccountId;
+            }
             if (!sameStr(next.paymentMethod, prev.paymentMethod)) {
               body['paymentMethod'] = next.paymentMethod;
             }
@@ -1705,6 +1741,11 @@ export class PaymentDialogComponent {
             payerUserId: raw.payerUserId || null,
             validatorUserId: raw.validatorUserId || null,
             accountId: raw.accountId ? String(raw.accountId) : null,
+            toAccountId: this.isPartnerKind
+              ? raw.toAccountId
+                ? String(raw.toAccountId)
+                : null
+              : null,
             paymentMethod: (raw.paymentMethod as PaymentMethod | null) || null,
             notes: (raw.notes ?? '').trim() || null,
             ...invoice,

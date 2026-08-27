@@ -46,6 +46,8 @@ export type PartnerSplitPreview = {
     amount: number;
   }>;
   createdCount?: number;
+  createdMovementCount?: number;
+  createdPaymentCount?: number;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -71,7 +73,23 @@ export class PartnerSplitsApiService {
     );
   }
 
-  apply(shopId: string, config: PartnerSplitConfig) {
+  apply(
+    shopId: string,
+    config: PartnerSplitConfig & {
+      partnerActions?: Array<{
+        accountId?: string;
+        fromAccountId?: string;
+        toAccountId?: string;
+        generate: 'payment' | 'movement';
+      }>;
+      partnerComplete?: Array<{
+        accountId?: string;
+        fromAccountId?: string;
+        toAccountId?: string;
+        complete: boolean;
+      }>;
+    },
+  ) {
     return this.http.post<PartnerSplitPreview>(
       `${this.base}/shops/${shopId}/partner-splits/apply`,
       config,
@@ -97,5 +115,21 @@ export type PartnerSplitRun = {
   appliedByName: string | null;
   transferCount: number;
   distributedAmount: number;
-  snapshot?: PartnerSplitPreview & { createdIds?: string[] };
+  snapshot?: PartnerSplitPreview & {
+    createdIds?: string[];
+    createdMovementIds?: string[];
+    createdPaymentIds?: string[];
+    partnerActions?: Array<{
+      accountId?: string;
+      fromAccountId?: string;
+      toAccountId?: string;
+      generate: 'payment' | 'movement';
+    }>;
+    partnerComplete?: Array<{
+      accountId?: string;
+      fromAccountId?: string;
+      toAccountId?: string;
+      complete: boolean;
+    }>;
+  };
 };

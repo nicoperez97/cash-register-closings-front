@@ -4,11 +4,14 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { PartnerSplitRun, PartnerSplitsApiService } from './partner-splits-api.service';
 import { downloadPartnerSplitPdf } from './split-pdf';
+import { SplitRunDetailDialogComponent } from './split-run-detail-dialog';
 
 @Component({
   selector: 'app-splits-history-page',
@@ -47,10 +50,16 @@ import { downloadPartnerSplitPdf } from './split-pdf';
                 {{ money(row.distributedAmount) }}
               </p>
             </div>
-            <button mat-stroked-button type="button" (click)="exportPdf(row)">
-              <mat-icon>picture_as_pdf</mat-icon>
-              PDF
-            </button>
+            <div class="split-hist__actions">
+              <button mat-stroked-button type="button" (click)="openDetail(row)">
+                <mat-icon>info</mat-icon>
+                Detalle
+              </button>
+              <button mat-stroked-button type="button" (click)="exportPdf(row)">
+                <mat-icon>picture_as_pdf</mat-icon>
+                PDF
+              </button>
+            </div>
           </article>
         }
       </div>
@@ -79,12 +88,20 @@ import { downloadPartnerSplitPdf } from './split-pdf';
       margin: 0.25rem 0 0;
       color: var(--guy-muted, #5f6f76);
     }
+    .split-hist__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: flex-end;
+    }
   `,
 })
 export class SplitsHistoryPage {
   readonly shops = inject(ShopContextService);
   private readonly api = inject(PartnerSplitsApiService);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
 
   readonly rows = signal<PartnerSplitRun[]>([]);
   readonly loading = signal(true);
@@ -118,6 +135,32 @@ export class SplitsHistoryPage {
       maximumFractionDigits: 2,
     });
     return n < 0 ? `-$${abs}` : `$${abs}`;
+  }
+
+  openDetail(row: PartnerSplitRun): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.api.getRun(shopId, row.id).subscribe({
+      next: (full) => {
+        if (!full.snapshot) {
+          this.snack.open('Esa división no tiene detalle', 'OK', { duration: 3000 });
+          return;
+        }
+        this.dialogTitle.track(
+          this.dialog.open(SplitRunDetailDialogComponent, {
+            width: '640px',
+            maxWidth: '96vw',
+            panelClass: 'guy-dialog',
+            data: {
+              run: full,
+              shopName: this.shops.selectedShop()?.name ?? '',
+            },
+          }),
+          'Detalle de división',
+        );
+      },
+      error: () => this.snack.open('No se pudo abrir la división', 'OK', { duration: 3500 }),
+    });
   }
 
   exportPdf(row: PartnerSplitRun): void {

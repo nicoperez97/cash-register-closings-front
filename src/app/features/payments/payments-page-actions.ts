@@ -2,7 +2,7 @@ import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
 import type { PaymentStatus, ShopPayment } from './payments-api.service';
 
-export type PaymentKind = 'supplier' | 'employee' | 'service';
+export type PaymentKind = 'supplier' | 'employee' | 'service' | 'partner';
 export type PaymentListTab = 'pending' | 'paid';
 export type PaymentsViewMode = 'cards' | 'list';
 export type PaymentsMobileView = 'compact' | 'list';
@@ -140,13 +140,19 @@ export function paymentsExportFilename(
   stamp: string,
 ): string {
   const kindSlug =
-    kind === 'supplier' ? 'proveedores' : kind === 'service' ? 'servicios' : 'empleados';
+    kind === 'supplier'
+      ? 'proveedores'
+      : kind === 'service'
+        ? 'servicios'
+        : kind === 'partner'
+          ? 'socios'
+          : 'empleados';
   return `pagos-${kindSlug}-${shopFileSlug(shopNameOrSlug)}-${stamp}.xlsx`;
 }
 
 export function buildPaymentDialogAccounts(
   accounts: Array<{ id: string; name: string }>,
-  payment?: Pick<ShopPayment, 'accountId' | 'accountName'> | null,
+  payment?: Pick<ShopPayment, 'accountId' | 'accountName' | 'toAccountId' | 'toAccountName'> | null,
 ): Array<{ id: string; name: string }> {
   const next = [...accounts];
   if (
@@ -155,6 +161,13 @@ export function buildPaymentDialogAccounts(
     !next.some((a) => a.id === payment.accountId)
   ) {
     next.unshift({ id: payment.accountId, name: payment.accountName });
+  }
+  if (
+    payment?.toAccountId &&
+    payment.toAccountName &&
+    !next.some((a) => a.id === payment.toAccountId)
+  ) {
+    next.unshift({ id: payment.toAccountId, name: payment.toAccountName });
   }
   return next;
 }
@@ -174,21 +187,23 @@ export function buildPaymentDialogUsers<
 }
 
 export function kindOfPayment(
-  payment: Pick<ShopPayment, 'supplierId' | 'serviceId'>,
+  payment: Pick<ShopPayment, 'supplierId' | 'serviceId' | 'toAccountId'>,
 ): PaymentKind {
   if (payment.serviceId) return 'service';
   if (payment.supplierId) return 'supplier';
+  if (payment.toAccountId) return 'partner';
   return 'employee';
 }
 
 export function paymentKindPath(kind: PaymentKind): string {
   if (kind === 'supplier') return '/payments/suppliers';
   if (kind === 'service') return '/payments/services';
+  if (kind === 'partner') return '/payments/partners';
   return '/payments/employees';
 }
 
 export function paymentMatchesKind(
-  payment: Pick<ShopPayment, 'supplierId' | 'serviceId'>,
+  payment: Pick<ShopPayment, 'supplierId' | 'serviceId' | 'toAccountId'>,
   kind: PaymentKind,
 ): boolean {
   return kindOfPayment(payment) === kind;
@@ -196,7 +211,7 @@ export function paymentMatchesKind(
 
 /** Si el pago del deep-link es de otra sección, ruta destino; si no, null. */
 export function shouldRedirectPaymentKind(
-  payment: Pick<ShopPayment, 'supplierId' | 'serviceId'>,
+  payment: Pick<ShopPayment, 'supplierId' | 'serviceId' | 'toAccountId'>,
   currentKind: PaymentKind,
 ): string | null {
   const wanted = kindOfPayment(payment);

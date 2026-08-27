@@ -580,9 +580,9 @@ const TIMEZONE_OPTIONS = [
             </div>
             <div class="shop-admin__posnets-head" style="margin-top: 0.75rem">
               <p class="text-muted small mb-0">
-                Turnos del local. Apertura y cierre de cada uno. El día laboral empieza en la
-                apertura más temprana. Si hay un solo turno, no se pide elegir en el cierre ni
-                en el presentismo.
+                Turnos del local. Cada uno tiene días, apertura y cierre. El día laboral de ese día
+                empieza en la apertura más temprana de sus turnos. Si ese día hay un solo turno,
+                no se pide elegir en el cierre ni en el presentismo.
               </p>
               <button mat-stroked-button type="button" (click)="addShift()">
                 <mat-icon>add</mat-icon>
@@ -614,6 +614,18 @@ const TIMEZONE_OPTIONS = [
                   >
                     <mat-icon>delete</mat-icon>
                   </button>
+                  <div class="shop-admin__shift-days" role="group" aria-label="Días del turno">
+                    @for (d of weekdayOptions; track d.value) {
+                      <button
+                        type="button"
+                        class="shop-admin__weekday"
+                        [class.shop-admin__weekday--on]="isShiftWeekday(i, d.value)"
+                        (click)="toggleShiftWeekday(i, d.value)"
+                      >
+                        {{ d.label }}
+                      </button>
+                    }
+                  </div>
                 </div>
               }
             </div>
@@ -1773,7 +1785,14 @@ const TIMEZONE_OPTIONS = [
         display: grid;
         grid-template-columns: 1.3fr 1fr 1fr auto;
         gap: 0.6rem;
-        align-items: center;
+        align-items: start;
+      }
+      .shop-admin__shift-days {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding-bottom: 0.15rem;
       }
       .shop-admin__posnet-remove {
         color: #c62828;
@@ -2453,12 +2472,32 @@ export class AdminShopPage implements OnInit {
     }
   }
 
+  isShiftWeekday(index: number, day: number): boolean {
+    const days = this.shifts.at(index)?.get('weekdays')?.value as number[] | undefined;
+    return Array.isArray(days) && days.includes(day);
+  }
+
+  toggleShiftWeekday(index: number, day: number): void {
+    const ctrl = this.shifts.at(index)?.get('weekdays');
+    if (!ctrl) return;
+    const cur = Array.isArray(ctrl.value) ? [...ctrl.value] : [];
+    const next = cur.includes(day) ? cur.filter((d) => d !== day) : [...cur, day];
+    if (!next.length) return;
+    ctrl.setValue(next.sort((a, b) => a - b));
+    ctrl.markAsDirty();
+  }
+
   private buildShiftGroup(value: ShopShift) {
+    const weekdays =
+      Array.isArray(value.weekdays) && value.weekdays.length
+        ? [...value.weekdays]
+        : [0, 1, 2, 3, 4, 5, 6];
     return this.fb.nonNullable.group({
       id: [value.id || newId()],
       name: [value.name || 'Turno', Validators.required],
       opensAt: [value.opensAt || '10:00', Validators.required],
       closesAt: [value.closesAt || value.opensAt || '10:00', Validators.required],
+      weekdays: [weekdays],
     });
   }
 
@@ -2766,6 +2805,7 @@ export class AdminShopPage implements OnInit {
           name: String(s.name ?? '').trim(),
           opensAt: s.opensAt,
           closesAt: s.closesAt,
+          weekdays: Array.isArray(s.weekdays) ? [...s.weekdays] : [0, 1, 2, 3, 4, 5, 6],
         }))
         .filter((s) => !!s.name),
       timezone: raw.timezone || 'America/Argentina/Buenos_Aires',

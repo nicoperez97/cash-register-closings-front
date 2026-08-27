@@ -70,3 +70,34 @@ export function notificationUrl(n: NotificationLinkInput): string {
   const qs = new URLSearchParams(queryParams).toString();
   return qs ? `${path}?${qs}` : path;
 }
+
+/** Arma la ruta interna de una push (url o type + ids). */
+export function pathFromPushData(data?: {
+  url?: string | null;
+  type?: string | null;
+  shopId?: string | null;
+  paymentId?: string | null;
+  closingId?: string | null;
+  targetId?: string | null;
+} | null): string {
+  if (!data) return '/';
+  const raw = String(data.url || '').trim();
+  if (raw && raw !== '/') {
+    try {
+      const u = new URL(raw, 'https://local.invalid');
+      return `${u.pathname}${u.search}${u.hash}` || '/';
+    } catch {
+      return raw.startsWith('/') ? raw : `/${raw}`;
+    }
+  }
+  if (data.type) {
+    return notificationUrl({
+      type: data.type,
+      shopId: data.shopId,
+      paymentId: data.paymentId,
+      closingId: data.closingId,
+      targetId: data.targetId,
+    });
+  }
+  return '/';
+}

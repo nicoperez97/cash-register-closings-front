@@ -22,6 +22,7 @@ import {
   shopBusinessOpening,
   shopHasMultipleShifts,
   shopShiftsOf,
+  shiftsOnIsoDate,
   shiftHoursLabel,
 } from '../../core/shop/shop-shifts';
 import { AuthService } from '../../core/auth/auth.service';
@@ -436,8 +437,10 @@ export class HomePageComponent {
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
   readonly todayMarks = signal<Record<string, { isPresent: boolean; isHoliday: boolean }>>({});
   readonly selectedShiftId = signal('');
-  readonly shopShifts = computed(() => shopShiftsOf(this.shopContext.selectedShop()));
-  readonly showShiftSelect = computed(() => shopHasMultipleShifts(this.shopContext.selectedShop()));
+  readonly shopShifts = computed(() =>
+    shiftsOnIsoDate(this.shopContext.selectedShop(), this.attendanceTodayIso()),
+  );
+  readonly showShiftSelect = computed(() => this.shopShifts().length > 1);
   readonly shiftHoursLabel = shiftHoursLabel;
   readonly supplierPaymentsPending = signal<number | null>(null);
   readonly supplierPaymentsToValidateMine = signal<number | null>(null);
@@ -454,7 +457,7 @@ export class HomePageComponent {
     const shop = this.shopContext.selectedShop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shopBusinessOpening(shop),
+      openingTime: shopBusinessOpening(shop, new Date()),
     });
   }
 
@@ -650,9 +653,14 @@ export class HomePageComponent {
         this.attendanceEmployees.set([]);
         this.todayMarks.set({});
       } else {
-        const current = resolveCurrentShift(this.shopContext.selectedShop()).id;
-        if (!this.selectedShiftId() || !shopShiftsOf(this.shopContext.selectedShop()).some((s) => s.id === this.selectedShiftId())) {
-          this.selectedShiftId.set(current);
+        const shop = this.shopContext.selectedShop();
+        const todayShifts = this.shopShifts();
+        const current = resolveCurrentShift(shop).id;
+        const next = todayShifts.some((s) => s.id === current)
+          ? current
+          : (todayShifts[0]?.id ?? current);
+        if (!this.selectedShiftId() || !todayShifts.some((s) => s.id === this.selectedShiftId())) {
+          this.selectedShiftId.set(next);
         }
         this.loadAttendanceToday(shopId);
       }

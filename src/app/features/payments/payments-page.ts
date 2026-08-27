@@ -8,9 +8,9 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -315,17 +315,20 @@ export class PaymentsPage {
     const k = this.routeData()['paymentKind'];
     if (k === 'employee') return 'employee';
     if (k === 'service') return 'service';
+    if (k === 'partner') return 'partner';
     return 'supplier';
   });
   readonly isSupplierKind = computed(() => this.kind() === 'supplier');
 
   readonly pageTitle = computed(() => {
     if (this.kind() === 'service') return 'Pagos a servicios';
+    if (this.kind() === 'partner') return 'Pagos a socios';
     return this.isSupplierKind() ? 'Pagos a proveedores' : 'Pagos a empleados';
   });
   readonly pageSubtitle = computed(() => {
     const shop = this.shops.selectedShop()?.name ?? 'Sin local';
     if (this.kind() === 'service') return `${shop} · con servicio asignado`;
+    if (this.kind() === 'partner') return `${shop} · cuenta emisora y receptora`;
     return this.isSupplierKind()
       ? `${shop} · con proveedor asignado`
       : `${shop} · internos (sueldos, reintegros, etc.)`;
@@ -333,11 +336,13 @@ export class PaymentsPage {
   readonly emptyTitle = computed(() => {
     if (this.listTab() === 'paid') {
       if (this.kind() === 'service') return 'Sin pagos a servicios en esta vista';
+      if (this.kind() === 'partner') return 'Sin pagos a socios en esta vista';
       return this.isSupplierKind()
         ? 'Sin pagos a proveedores en esta vista'
         : 'Sin pagos a empleados en esta vista';
     }
     if (this.kind() === 'service') return 'Sin pagos a servicios pendientes';
+    if (this.kind() === 'partner') return 'Sin pagos a socios pendientes';
     return this.isSupplierKind() ? 'Sin pagos a proveedores pendientes' : 'Sin pagos a empleados pendientes';
   });
   readonly emptyHint = computed(() => {
@@ -345,12 +350,16 @@ export class PaymentsPage {
       return 'Acá se ven los pagados. Podés sumar rechazados y cancelados.';
     }
     if (this.kind() === 'service') return 'Creá un pago y asignale un servicio.';
+    if (this.kind() === 'partner') {
+      return 'Aplicá una división y elegí Generar pago, o creá un pago con cuenta emisora y receptora.';
+    }
     return this.isSupplierKind()
       ? 'Creá un pago y asignale un proveedor.'
       : 'Creá un pago sin proveedor ni servicio para esta sección.';
   });
   readonly emptyIcon = computed(() => {
     if (this.kind() === 'service') return 'home_repair_service';
+    if (this.kind() === 'partner') return 'groups';
     return this.isSupplierKind() ? 'local_shipping' : 'badge';
   });
 
@@ -552,28 +561,9 @@ export class PaymentsPage {
   }
 
   constructor() {
-    const qp = this.route.snapshot.queryParamMap;
-    const paymentId = (qp.get('payment') || '').trim();
-    const shopFromLink = (qp.get('shop') || '').trim();
-    const tabParam = (qp.get('tab') || '').trim();
-    if (paymentId) {
-      this.focusedPaymentId.set(paymentId);
-      if (tabParam === 'paid' || tabParam === 'pending') {
-        this.listTab.set(tabParam);
-        this.statusFilter.setValue(
-          statusesForPaymentTab(tabParam, {
-            rejected: this.includeRejected(),
-            cancelled: this.includeCancelled(),
-          }),
-          { emitEvent: false },
-        );
-      } else {
-        this.awaitDeepLinkTab = true;
-      }
-      if (shopFromLink && shopFromLink !== this.shopId()) {
-        this.shops.selectShop(shopFromLink);
-      }
-    }
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((qp) => {
+      this.onPaymentQueryChange(qp);
+    });
 
     usePageRefresh(() => this.reload());
     effect(() => {
@@ -754,7 +744,12 @@ export class PaymentsPage {
       next: (rows) => this.employees.set(rows),
       error: () => this.employees.set([]),
     });
-    this.movementsApi.concepts(shopId, { for: this.kind() }).subscribe({
+    const kind = this.kind();
+    const conceptOpts =
+      kind === 'supplier' || kind === 'service' || kind === 'employee'
+        ? { for: kind }
+        : {};
+    this.movementsApi.concepts(shopId, conceptOpts).subscribe({
       next: (rows: Concept[]) =>
         this.concepts.set(rows.map((c) => ({ id: c.id, name: c.name, description: c.description }))),
       error: () => this.concepts.set([]),
@@ -805,6 +800,41 @@ export class PaymentsPage {
     requestAnimationFrame(() => {
       window.scrollTo({ top: y, left: 0, behavior: 'instant' as ScrollBehavior });
     });
+  }
+
+  private onPaymentQueryChange(qp: ParamMap): void {
+    const paymentId = (qp.get('payment') || '').trim();
+    if (!paymentId) return;
+    if (this.focusedPaymentId() === paymentId && this.deepLinkHandled) return;
+    this.deepLinkHandled = false;
+    this.notificationPreviewFor = null;
+    this.focusedPaymentId.set(paymentId);
+    const tabParam = (qp.get('tab') || '').trim();
+    const shopFromLink = (qp.get('shop') || '').trim();
+    if (tabParam === 'paid' || tabParam === 'pending') {
+      this.listTab.set(tabParam);
+      this.statusFilter.setValue(
+        statusesForPaymentTab(tabParam, {
+          rejected: this.includeRejected(),
+          cancelled: this.includeCancelled(),
+        }),
+        { emitEvent: false },
+      );
+      this.awaitDeepLinkTab = false;
+    } else {
+      this.awaitDeepLinkTab = true;
+    }
+    if (shopFromLink && shopFromLink !== this.shopId()) {
+      this.shops.selectShop(shopFromLink);
+      return;
+    }
+    const shopId = this.shopId();
+    if (!shopId) return;
+    if (this.awaitDeepLinkTab) {
+      this.resolveDeepLinkTabThenLoad(shopId);
+      return;
+    }
+    this.reload();
   }
 
   /** Sin `tab` en el query: pide el pago y abre Pendientes o Pagados antes de listar. */
@@ -990,7 +1020,13 @@ export class PaymentsPage {
     const opts = this.listFilterOpts();
     const kind = this.kind();
     this.exporting.set(true);
-    this.api.exportExcel(shopId, { ...opts, kind }).subscribe({
+    this.api.exportExcel(shopId, {
+      ...opts,
+      kind:
+        kind === 'supplier' || kind === 'service' || kind === 'employee' || kind === 'partner'
+          ? kind
+          : undefined,
+    }).subscribe({
       next: (blob) => {
         this.exporting.set(false);
         const stamp = new Date().toISOString().slice(0, 10);
@@ -1039,7 +1075,13 @@ export class PaymentsPage {
           ? { supplierId: null as string | null, serviceId: null as string | null }
           : kind === 'service'
             ? { supplierId: null as string | null, employeeId: null as string | null }
-            : { serviceId: null as string | null, employeeId: null as string | null }
+            : kind === 'partner'
+              ? {
+                  supplierId: null as string | null,
+                  serviceId: null as string | null,
+                  employeeId: null as string | null,
+                }
+              : { serviceId: null as string | null, employeeId: null as string | null }
         : undefined;
     const accounts = buildPaymentDialogAccounts(this.accounts(), payment);
     this.dialogTitle

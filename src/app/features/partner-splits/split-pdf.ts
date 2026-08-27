@@ -48,18 +48,19 @@ function actionCell(difference: number): string {
   return `<span class="act act-in">Recibe ${escapePdfHtml(money(n))}</span>`;
 }
 
+function toMove(preview: PartnerSplitPreview): number {
+  return (preview.transfers ?? []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+}
+
 function leadText(preview: PartnerSplitPreview): string {
   const n = preview.partners.length;
   const share = money(preview.totals.share);
-  const dist = Number(preview.totals.toDistribute || 0);
+  const moved = toMove(preview);
   if (!n) return 'No hay socios marcados para repartir.';
-  if (dist < -0.004) {
-    return `Faltante ${moneyAbs(dist)}. ${n} socios: cada uno queda con ${share} más lo dejado en su cuenta.`;
+  if (moved > 0.004) {
+    return `Se mueven ${money(moved)} para dejar a cada socio con ${share} más lo dejado en su cuenta.`;
   }
-  if (dist > 0.004) {
-    return `A repartir ${money(dist)} entre ${n} socios. Cada uno queda con ${share} más lo dejado en su cuenta.`;
-  }
-  return `Sin monto a repartir. Cada socio queda con ${share}.`;
+  return `No hay pases: los socios ya tienen su parte (${share}).`;
 }
 
 function accountRows(rows: PartnerSplitRow[]): string {
@@ -271,7 +272,7 @@ export async function downloadPartnerSplitPdf(
         ${kpi('Total saldos', preview.totals.balances)}
         ${kpi('Reservado', preview.totals.reserves)}
         ${kpi('Extras', preview.totals.extras)}
-        ${kpi('A repartir', preview.totals.toDistribute)}
+        ${kpi('A repartir', toMove(preview))}
       </div>
       <div class="cols">
         <section class="block">

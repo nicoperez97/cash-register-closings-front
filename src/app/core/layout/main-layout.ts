@@ -361,6 +361,12 @@ export class MainLayoutComponent {
         icon: 'badge',
         badge: this.paymentsInbox.pendingEmployeeCount() || null,
       });
+      pagos.push({
+        label: 'A socios',
+        route: '/payments/partners',
+        icon: 'groups',
+        badge: this.paymentsInbox.pendingPartnerCount() || null,
+      });
     }
     if (shopId && hasShopPermission(user, shopId, 'suppliers.read')) {
       pagos.push({ label: 'Proveedores', route: '/suppliers', icon: 'inventory_2' });

@@ -6,7 +6,9 @@ import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { pathFromPushData } from '../../core/notifications/notification-deep-link';
 import { NotificationsInboxService } from './notifications-inbox.service';
 import { PageRefreshService } from '../../core/page-refresh.service';
 import {
@@ -30,6 +32,7 @@ export class PushNotificationsService {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly router = inject(Router);
+  private readonly shops = inject(ShopContextService);
 
   readonly supported = signal(this.detectSupport());
   readonly permission = signal<NotificationPermission | 'unsupported'>(
@@ -44,23 +47,66 @@ export class PushNotificationsService {
   private promptInFlight: Promise<void> | null = null;
   private promptedThisSession = false;
 
-  /** Escucha push en foreground para refrescar el badge. */
+  /** Escucha push en foreground para refrescar el badge y abrir el deep link. */
   ensureListening(): void {
-    if (this.listening || !this.swPush.isEnabled) return;
+    if (this.listening) return;
     this.listening = true;
-    this.swPush.messages.subscribe(() => {
-      this.inbox.refresh();
-      this.pageRefresh.refreshFromInbox();
-    });
-    this.swPush.notificationClicks.subscribe((ev) => {
-      this.inbox.refresh();
-      this.pageRefresh.refreshFromInbox();
-      const data = ev.notification?.data as { url?: string; shopId?: string } | undefined;
-      const url = data?.url;
-      if (url) {
-        void this.router.navigateByUrl(url);
-      }
-    });
+    if (this.swPush.isEnabled) {
+      this.swPush.messages.subscribe(() => {
+        this.inbox.refresh();
+        this.pageRefresh.refreshFromInbox();
+      });
+      this.swPush.notificationClicks.subscribe((ev) => {
+        this.inbox.refresh();
+        this.pageRefresh.refreshFromInbox();
+        this.openFromPush(ev.notification?.data);
+      });
+    }
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('message', (ev: MessageEvent) => {
+        const msg = ev.data as { type?: string; url?: string; data?: unknown } | undefined;
+        if (msg?.type !== 'CRC_NOTIFICATION_CLICK') return;
+        this.inbox.refresh();
+        this.pageRefresh.refreshFromInbox();
+        this.openFromPush(msg.data ?? { url: msg.url });
+      });
+      void this.consumePendingClick();
+    }
+  }
+
+  private openFromPush(data: unknown): void {
+    const path = pathFromPushData(
+      data as {
+        url?: string | null;
+        type?: string | null;
+        shopId?: string | null;
+        paymentId?: string | null;
+        closingId?: string | null;
+        targetId?: string | null;
+      },
+    );
+    if (!path || path === '/') return;
+    try {
+      const parsed = new URL(path, window.location.origin);
+      const shop = parsed.searchParams.get('shop');
+      if (shop) this.shops.selectShop(shop);
+      void this.router.navigateByUrl(parsed.pathname + parsed.search + parsed.hash);
+    } catch {
+      void this.router.navigateByUrl(path);
+    }
+  }
+
+  private async consumePendingClick(): Promise<void> {
+    try {
+      const cache = await caches.open('crc-push-pending');
+      const res = await cache.match('/__crc_pending_click');
+      if (!res) return;
+      const url = (await res.text()).trim();
+      await cache.delete('/__crc_pending_click');
+      if (url) this.openFromPush({ url });
+    } catch {
+      // ignore
+    }
   }
 
   private detectSupport(): boolean {
