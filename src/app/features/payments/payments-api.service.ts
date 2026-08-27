@@ -325,7 +325,12 @@ export class PaymentsApiService {
   pay(
     shopId: string,
     id: string,
-    body?: { paidAt?: string; accountId?: string; paymentMethod?: PaymentMethod },
+    body?: {
+      paidAt?: string;
+      accountId?: string;
+      paymentMethod?: PaymentMethod;
+      amount?: number;
+    },
   ) {
     return this.http.post<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}/pay`, body ?? {});
   }

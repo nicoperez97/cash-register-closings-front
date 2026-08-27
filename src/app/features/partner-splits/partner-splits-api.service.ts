@@ -80,7 +80,7 @@ export class PartnerSplitsApiService {
         accountId?: string;
         fromAccountId?: string;
         toAccountId?: string;
-        generate: 'payment' | 'movement';
+        generate: 'skip' | 'payment' | 'movement';
       }>;
       partnerComplete?: Array<{
         accountId?: string;
@@ -123,7 +123,7 @@ export type PartnerSplitRun = {
       accountId?: string;
       fromAccountId?: string;
       toAccountId?: string;
-      generate: 'payment' | 'movement';
+      generate: 'skip' | 'payment' | 'movement';
     }>;
     partnerComplete?: Array<{
       accountId?: string;

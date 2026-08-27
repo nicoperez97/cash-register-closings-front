@@ -3,8 +3,10 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { MoneyInputDirective } from '../../shared/directives/money-input';
 import {
   PAYMENT_METHOD_OPTIONS,
   PaymentMethod,
@@ -19,7 +21,22 @@ export type PaymentPayDialogData = {
 export type PaymentPayDialogResult = {
   paymentMethod: PaymentMethod;
   accountId: string;
+  amount: number;
 };
+
+function parseMoney(raw: unknown): number {
+  if (raw === '' || raw === null || raw === undefined) return NaN;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
+  const n = Number(String(raw).replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function moneyLabel(value: number): string {
+  return Number(value || 0).toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 @Component({
   selector: 'app-payment-pay-dialog',
@@ -28,17 +45,35 @@ export type PaymentPayDialogResult = {
     MatDialogModule,
     MatButtonModule,
     MatFormFieldModule,
+    MatInputModule,
     MatSelectModule,
     MatIconModule,
+    MoneyInputDirective,
   ],
   template: `
     <h2 mat-dialog-title>Marcar como pagado</h2>
     <mat-dialog-content>
       <p class="pay-confirm__lead">
-        ¿Confirmás el pago de <strong>{{ data.payment.title || 'Sin concepto' }}</strong> por
-        <strong>$ {{ amountLabel }}</strong>? Se crea un movimiento contable.
+        ¿Confirmás el pago de <strong>{{ data.payment.title || 'Sin concepto' }}</strong>?
+        Se crea un movimiento contable por el monto que indiques.
       </p>
       <form [formGroup]="form" class="pay-confirm__form">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Cuánto se paga</mat-label>
+          <input matInput type="text" inputmode="decimal" appMoney formControlName="amount" />
+          <mat-hint>
+            Total {{ totalLabel }}.
+            <button type="button" class="pay-confirm__hint-btn" (click)="fillTotal()">
+              Usar total
+            </button>
+          </mat-hint>
+        </mat-form-field>
+        @if (remainderAmount() > 0.004) {
+          <p class="pay-confirm__debt">
+            Queda deuda de <strong>$ {{ moneyLabel(remainderAmount()) }}</strong>: se crea otro
+            pago pendiente con los mismos datos.
+          </p>
+        }
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Cuenta que paga</mat-label>
           <mat-select formControlName="accountId">
@@ -63,7 +98,7 @@ export type PaymentPayDialogResult = {
         mat-flat-button
         color="primary"
         type="button"
-        [disabled]="form.invalid"
+        [disabled]="form.invalid || !amountOk()"
         (click)="confirm()"
       >
         <mat-icon>paid</mat-icon>
@@ -83,6 +118,23 @@ export type PaymentPayDialogResult = {
         gap: 0.75rem;
         min-width: min(100%, 320px);
       }
+      .pay-confirm__hint-btn {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--guy-primary, #1d65a0);
+        font: inherit;
+        font-weight: 650;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .pay-confirm__debt {
+        margin: -0.25rem 0 0;
+        color: var(--guy-muted, #5f6f76);
+        font-size: 0.86rem;
+        line-height: 1.4;
+      }
     `,
   ],
 })
@@ -92,9 +144,12 @@ export class PaymentPayDialogComponent {
   private readonly fb = inject(FormBuilder);
 
   readonly methods = PAYMENT_METHOD_OPTIONS;
-  readonly amountLabel = Number(this.data.payment.amount ?? 0).toLocaleString('es-AR');
+  readonly total = Math.round(Number(this.data.payment.amount ?? 0) * 100) / 100;
+  readonly totalLabel = moneyLabel(this.total);
+  readonly moneyLabel = moneyLabel;
 
   readonly form = this.fb.group({
+    amount: [String(this.total), Validators.required],
     accountId: [
       this.data.payment.accountId || this.data.accounts[0]?.id || null,
       Validators.required,
@@ -106,11 +161,27 @@ export class PaymentPayDialogComponent {
     ],
   });
 
+  remainderAmount(): number {
+    const paid = parseMoney(this.form.controls.amount.value);
+    if (!Number.isFinite(paid)) return 0;
+    return Math.round((this.total - paid) * 100) / 100;
+  }
+
+  amountOk(): boolean {
+    const paid = parseMoney(this.form.controls.amount.value);
+    return Number.isFinite(paid) && paid > 0.004 && paid <= this.total + 0.004;
+  }
+
+  fillTotal(): void {
+    this.form.controls.amount.setValue(String(this.total));
+  }
+
   confirm(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid || !this.amountOk()) return;
     const paymentMethod = this.form.controls.paymentMethod.value;
     const accountId = this.form.controls.accountId.value;
+    const amount = Math.round(parseMoney(this.form.controls.amount.value) * 100) / 100;
     if (!paymentMethod || !accountId) return;
-    this.ref.close({ paymentMethod, accountId });
+    this.ref.close({ paymentMethod, accountId, amount });
   }
 }

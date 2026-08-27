@@ -17,7 +17,7 @@ export type SplitRunSnapshot = PartnerSplitPreview & {
     accountId?: string;
     fromAccountId?: string;
     toAccountId?: string;
-    generate: 'payment' | 'movement';
+    generate: 'skip' | 'payment' | 'movement';
   }>;
   partnerComplete?: Array<{
     accountId?: string;
@@ -266,13 +266,15 @@ export class SplitRunDetailDialogComponent {
       const betweenPartners =
         partnerIds.has(t.fromAccountId) && partnerIds.has(t.toAccountId);
       if (betweenPartners) {
-        const mode =
-          actionBy.get(key) === 'payment' ||
-          actionBy.get(t.fromAccountId) === 'payment' ||
-          actionBy.get(t.toAccountId) === 'payment'
+        const raw =
+          actionBy.get(key) ?? actionBy.get(t.fromAccountId) ?? actionBy.get(t.toAccountId);
+        const kind =
+          raw === 'payment'
             ? 'Pago'
-            : 'Movimiento';
-        return { ...t, kind: mode };
+            : raw === 'movement'
+              ? 'Movimiento'
+              : 'Sin asiento';
+        return { ...t, kind };
       }
       const partnerId = partnerIds.has(t.toAccountId) ? t.toAccountId : t.fromAccountId;
       const done = completeBy.get(key) ?? completeBy.get(partnerId);
