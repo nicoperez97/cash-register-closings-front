@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import type { PartnerSplitPreview } from './partner-splits-api.service';
 
-export type PartnerGenerateMode = 'payment' | 'movement';
+export type PartnerGenerateMode = 'skip' | 'payment' | 'movement';
 
 export type PartnerSplitApplyResult = {
   partnerActions: Array<{
@@ -71,8 +71,8 @@ function money(value: number): string {
     <mat-dialog-content>
       @if (step() === 1) {
         <p class="hint">
-          Cada tarjeta es un pase de una cuenta a otra. Elegí si se genera un pago en A
-          socios (ya validado) o un pase en Movimientos entre cuentas.
+          Cada tarjeta es un pase entre socios. Por defecto no se hace nada y queda pendiente.
+          Elegí Pago (A socios) o Movimiento si querés anotarlo ahora.
         </p>
         <div class="rows">
           @for (row of partnerRows; track row.fromAccountId + row.toAccountId) {
@@ -83,7 +83,8 @@ function money(value: number): string {
               </div>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Generar</mat-label>
-                <mat-select [(ngModel)]="row.generate">
+                <mat-select [(ngModel)]="row.generate" (ngModelChange)="onGenerateChange()">
+                  <mat-option value="skip">No hacer nada</mat-option>
                   <mat-option value="payment">Pago</mat-option>
                   <mat-option value="movement">Movimiento</mat-option>
                 </mat-select>
@@ -199,15 +200,22 @@ export class PartnerSplitApplyDialogComponent {
   readonly partnerRows = this.buildRows('partner');
   readonly channelRows = this.buildRows('channel');
   readonly step = signal<1 | 2>(this.partnerRows.length ? 1 : 2);
-  private readonly completeTick = signal(0);
+  private readonly changeTick = signal(0);
 
   hasChanges(): boolean {
-    this.completeTick();
-    return this.partnerRows.length > 0 || this.channelRows.some((r) => r.complete);
+    this.changeTick();
+    return (
+      this.partnerRows.some((r) => r.generate !== 'skip') ||
+      this.channelRows.some((r) => r.complete)
+    );
+  }
+
+  onGenerateChange(): void {
+    this.changeTick.update((n) => n + 1);
   }
 
   onCompleteChange(): void {
-    this.completeTick.update((n) => n + 1);
+    this.changeTick.update((n) => n + 1);
   }
 
   private partnerIds(): Set<string> {
@@ -231,7 +239,7 @@ export class PartnerSplitApplyDialogComponent {
         fromName: t.fromName,
         toName: t.toName,
         amount: t.amount,
-        generate: 'movement' as PartnerGenerateMode,
+        generate: 'skip' as PartnerGenerateMode,
         complete: false,
       }));
   }

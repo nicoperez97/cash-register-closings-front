@@ -1180,7 +1180,7 @@ export class PaymentsPage {
         )
         .afterClosed(),
     );
-    if (!result?.paymentMethod || !result?.accountId) return;
+    if (!result?.paymentMethod || !result?.accountId || !(result.amount > 0)) return;
     const shopId = this.shopId();
     if (!shopId || this.actionBusyId()) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
@@ -1188,6 +1188,7 @@ export class PaymentsPage {
     this.api.pay(shopId, p.id, {
       paymentMethod: result.paymentMethod,
       accountId: result.accountId,
+      amount: result.amount,
     }).subscribe({
       next: (paid) => {
         this.actionBusyId.set(null);
