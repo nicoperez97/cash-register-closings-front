@@ -183,6 +183,15 @@ import {
           <span class="pay-card__label">Servicio</span>
           <strong>{{ payment().serviceName || '—' }}</strong>
         </div>
+      } @else if (kind() === 'partner') {
+        <div>
+          <span class="pay-card__label">Emisora</span>
+          <strong>{{ payment().accountName || '—' }}</strong>
+        </div>
+        <div>
+          <span class="pay-card__label">Receptora</span>
+          <strong>{{ payment().toAccountName || '—' }}</strong>
+        </div>
       } @else {
         <div>
           <span class="pay-card__label">Empleado</span>
@@ -473,7 +482,7 @@ export class PaymentCardComponent {
   readonly payBusy = input(false);
   readonly previewBusy = signal(false);
   readonly kind = input<PaymentKind>('supplier');
-  readonly billedKind = computed(() => this.kind() !== 'employee');
+  readonly billedKind = computed(() => this.kind() === 'supplier' || this.kind() === 'service');
   readonly compactMeta = computed(() => {
     const p = this.payment();
     const bits = [this.statusLabel(p.status)];
@@ -486,7 +495,9 @@ export class PaymentCardComponent {
         ? p.supplierName
         : this.kind() === 'service'
           ? p.serviceName
-          : p.employeeName;
+          : this.kind() === 'partner'
+            ? [p.accountName, p.toAccountName].filter(Boolean).join(' → ')
+            : p.employeeName;
     if (party) bits.push(party);
     return bits.join(' · ');
   });

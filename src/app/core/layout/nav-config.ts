@@ -57,6 +57,7 @@ export const NAV_ITEM_DEFS: Array<{
   { id: 'paymentsSuppliers', defaultGroup: 'pagos', route: '/payments/suppliers' },
   { id: 'paymentsServices', defaultGroup: 'pagos', route: '/payments/services' },
   { id: 'paymentsEmployees', defaultGroup: 'pagos', route: '/payments/employees' },
+  { id: 'paymentsPartners', defaultGroup: 'pagos', route: '/payments/partners' },
   { id: 'suppliers', defaultGroup: 'pagos', route: '/suppliers' },
   { id: 'services', defaultGroup: 'pagos', route: '/services' },
   { id: 'reports', defaultGroup: 'reportes', route: '/reports' },

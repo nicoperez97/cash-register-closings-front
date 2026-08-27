@@ -49,6 +49,7 @@ const DEFAULT_ITEM_LABELS: Record<string, string> = {
   paymentsSuppliers: 'A proveedores',
   paymentsServices: 'A servicios',
   paymentsEmployees: 'A empleados',
+  paymentsPartners: 'A socios',
   suppliers: 'Proveedores',
   services: 'Servicios',
   reports: 'Cierres (reporte)',

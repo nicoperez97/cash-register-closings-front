@@ -65,6 +65,8 @@ export interface ShopPayment {
   validatorName: string | null;
   accountId: string | null;
   accountName: string | null;
+  toAccountId?: string | null;
+  toAccountName?: string | null;
   paymentMethod: PaymentMethod | null;
   supplierId: string | null;
   supplierName: string | null;
@@ -113,6 +115,7 @@ export interface UpsertPaymentBody {
   payerUserId?: string | null;
   validatorUserId?: string | null;
   accountId?: string | null;
+  toAccountId?: string | null;
   paymentMethod?: PaymentMethod | null;
   supplierId?: string | null;
   employeeId?: string | null;
@@ -207,7 +210,7 @@ export class PaymentsApiService {
     shopId: string,
     opts?: {
       status?: string | string[];
-      kind?: 'supplier' | 'employee' | 'service';
+      kind?: 'supplier' | 'employee' | 'service' | 'partner';
       payerUserId?: string | string[] | null;
       validatorUserId?: string | string[] | null;
       mine?: boolean;

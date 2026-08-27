@@ -184,7 +184,7 @@ type FilterUser = {
             }
           </mat-select>
         </mat-form-field>
-      } @else {
+      } @else if (kind() === 'employee') {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Empleado</mat-label>
           <mat-select [formControl]="employeeFilter()" multiple>

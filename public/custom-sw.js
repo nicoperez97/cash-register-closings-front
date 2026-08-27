@@ -1,6 +1,6 @@
 /* Custom SW: Angular ngsw + Web Push (iOS PWA / Android / desktop). */
 /* global self, clients, registration */
-/* rev: notification-deeplink-v1 */
+/* rev: notification-deeplink-v2 */
 importScripts('./ngsw-worker.js');
 
 self.addEventListener('push', (event) => {
@@ -42,9 +42,13 @@ self.addEventListener('push', (event) => {
     renotify: true,
     data: {
       url: data.url || '/',
+      type: data.type || null,
       shopId: data.shopId || null,
       shopName: data.shopName || null,
       notificationId: data.notificationId || null,
+      paymentId: data.paymentId || null,
+      closingId: data.closingId || null,
+      targetId: data.targetId || null,
     },
   };
   if (data.image) {
@@ -65,33 +69,60 @@ self.addEventListener('push', (event) => {
 });
 
 function resolveNotificationUrl(data) {
-  const raw = (data && data.url) || '/';
+  if (!data) return '/';
+  let raw = String(data.url || '').trim();
+  if ((!raw || raw === '/') && data.paymentId) {
+    const q = new URLSearchParams();
+    if (data.shopId) q.set('shop', data.shopId);
+    q.set('payment', data.paymentId);
+    raw = `/payments/suppliers?${q.toString()}`;
+  }
   try {
     const u = new URL(raw, self.location.origin);
-    if (data && data.shopId && !u.searchParams.get('shop')) {
-      u.searchParams.set('shop', data.shopId);
+    if (data.shopId && !u.searchParams.get('shop')) u.searchParams.set('shop', data.shopId);
+    if (data.paymentId && !u.searchParams.get('payment')) {
+      u.searchParams.set('payment', data.paymentId);
     }
     return u.pathname + u.search + u.hash;
   } catch {
-    return raw;
+    return raw || '/';
+  }
+}
+
+const PENDING_CACHE = 'crc-push-pending';
+const PENDING_KEY = '/__crc_pending_click';
+
+async function savePendingUrl(url) {
+  try {
+    const cache = await caches.open(PENDING_CACHE);
+    await cache.put(PENDING_KEY, new Response(url, { headers: { 'Content-Type': 'text/plain' } }));
+  } catch {
+    // ignore
   }
 }
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = resolveNotificationUrl(event.notification && event.notification.data);
+  const data = (event.notification && event.notification.data) || {};
+  const targetUrl = resolveNotificationUrl(data);
+  const absolute = new URL(targetUrl, self.location.origin).href;
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    (async () => {
+      await savePendingUrl(targetUrl);
+      const clientList = await clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
       for (const client of clientList) {
-        if ('focus' in client) {
-          if ('navigate' in client) {
-            return client.navigate(targetUrl).then((c) => (c && c.focus ? c.focus() : client.focus()));
-          }
-          return client.focus();
+        try {
+          client.postMessage({ type: 'CRC_NOTIFICATION_CLICK', url: targetUrl, data });
+        } catch {
+          // ignore
         }
+        if ('focus' in client) return client.focus();
       }
-      if (clients.openWindow) return clients.openWindow(targetUrl);
+      if (clients.openWindow) return clients.openWindow(absolute);
       return undefined;
-    }),
+    })(),
   );
 });

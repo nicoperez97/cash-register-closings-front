@@ -246,6 +246,14 @@ export const routes: Routes = [
         title: 'Pagos a servicios',
       },
       {
+        path: 'payments/partners',
+        canActivate: [permissionGuard('payments.read')],
+        data: { paymentKind: 'partner' },
+        loadComponent: () =>
+          import('./features/payments/payments-page').then((m) => m.PaymentsPage),
+        title: 'Pagos a socios',
+      },
+      {
         path: 'suppliers',
         canActivate: [permissionGuard('suppliers.read')],
         loadComponent: () =>

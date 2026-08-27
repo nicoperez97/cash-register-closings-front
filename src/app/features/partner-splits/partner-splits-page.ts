@@ -26,6 +26,10 @@ import {
   PartnerSplitsApiService,
 } from './partner-splits-api.service';
 import { downloadPartnerSplitPdf } from './split-pdf';
+import {
+  PartnerSplitApplyDialogComponent,
+  type PartnerSplitApplyResult,
+} from './partner-split-apply-dialog';
 
 function money(value: number): string {
   const n = Number(value || 0);
@@ -288,10 +292,16 @@ function parseMoney(raw: number | string): number {
             <div><span>Extras</span><strong>{{ money(extrasSum(data.extras)) }}</strong></div>
             <div class="split-summary__total">
               <span>TOTAL a repartir</span>
-              <strong>{{ money(toDistribute(data)) }}</strong>
+              <strong>{{ money(toMove(data)) }}</strong>
             </div>
             <p class="hint">
-              Cada socio queda con su parte ({{ money(data.totals.share) }}) más lo que dejaste en su cuenta.
+              @if (data.transfers.length) {
+                Cada socio queda con su parte ({{ money(data.totals.share) }}) más lo que
+                dejaste en su cuenta.
+              } @else {
+                No hay nada que mover: los socios ya tienen la misma parte y no hay saldo
+                en canales.
+              }
             </p>
           </div>
         </div>
@@ -839,8 +849,10 @@ export class PartnerSplitsPage {
     return round2(extras.reduce((sum, extra) => sum + Number(extra.amount || 0), 0));
   }
 
-  toDistribute(data: PartnerSplitPreview): number {
-    return round2(data.totals.balances - data.totals.reserves - this.extrasSum(data.extras));
+  toMove(data: PartnerSplitPreview): number {
+    return round2(
+      (data.transfers ?? []).reduce((sum, t) => sum + Number(t.amount || 0), 0),
+    );
   }
 
   private applyRemotePreview(res: PartnerSplitPreview): void {
@@ -1001,19 +1013,36 @@ export class PartnerSplitsPage {
     const shopId = this.shops.selectedShopId();
     const data = this.preview();
     if (!shopId || !data?.transfers.length) return;
-    const ok = await this.confirm.confirm(
-      'Aplicar división',
-      `Se van a crear ${data.transfers.length} pases entre cuentas para dejar a cada socio con ${money(data.totals.share)}.`,
-      { confirmLabel: 'Aplicar' },
-    );
-    if (!ok) return;
+    const choice = await this.dialogTitle
+      .track(
+        this.dialog.open(PartnerSplitApplyDialogComponent, {
+          width: '560px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: { preview: data },
+        }),
+        'Aplicar división',
+      )
+      .afterClosed()
+      .toPromise();
+    const picked = choice as PartnerSplitApplyResult | null | undefined;
+    if (!picked) return;
     this.busy.set(true);
-    this.api.apply(shopId, this.config()).subscribe({
+    this.api.apply(shopId, { ...this.config(), ...picked }).subscribe({
       next: (res) => {
         this.extraAmountDrafts.set({});
         this.preview.set(res);
         this.busy.set(false);
-        this.snack.open(`Se crearon ${res.createdCount ?? 0} pases`, 'OK', { duration: 4000 });
+        const payments = res.createdPaymentCount ?? 0;
+        const movements = res.createdMovementCount ?? res.createdCount ?? 0;
+        const bits = [];
+        if (movements) bits.push(`${movements} ${movements === 1 ? 'pase' : 'pases'}`);
+        if (payments) bits.push(`${payments} ${payments === 1 ? 'pago' : 'pagos'} a socios`);
+        this.snack.open(
+          bits.length ? `Se crearon ${bits.join(' y ')}` : 'División aplicada',
+          'OK',
+          { duration: 4000 },
+        );
       },
       error: (err) => {
         this.busy.set(false);

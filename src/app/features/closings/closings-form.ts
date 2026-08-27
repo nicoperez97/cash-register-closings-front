@@ -29,6 +29,7 @@ import {
   shopBusinessOpening,
   shopHasMultipleShifts,
   shopShiftsOf,
+  shiftsOnIsoDate,
   shiftHoursLabel,
   type ShopShift,
 } from '../../core/shop/shop-shifts';
@@ -339,8 +340,20 @@ export class ClosingsFormPage implements OnInit {
   private readonly breakpointObserver = inject(BreakpointObserver);
 
   readonly shop = this.shops.selectedShop;
-  readonly shopShifts = computed(() => shopShiftsOf(this.shop()));
-  readonly showShiftSelect = computed(() => shopHasMultipleShifts(this.shop()));
+  readonly shopShifts = computed(() => {
+    const shop = this.shop();
+    const date = toDateString(this.formValue()?.businessDate as Date | string | null);
+    const list = /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? shiftsOnIsoDate(shop, date)
+      : shopShiftsOf(shop);
+    const currentId = String(this.formValue()?.shiftId ?? '');
+    if (currentId && !list.some((s) => s.id === currentId)) {
+      const extra = shopShiftsOf(shop).find((s) => s.id === currentId);
+      if (extra) return [...list, extra];
+    }
+    return list;
+  });
+  readonly showShiftSelect = computed(() => this.shopShifts().length > 1);
   private userPickedShift = false;
   readonly tipsEnabled = computed(() => !!this.shop()?.tipsEnabled);
   readonly tipEmployees = signal<Employee[]>([]);
@@ -380,7 +393,7 @@ export class ClosingsFormPage implements OnInit {
     const shop = this.shop();
     return resolveShopBusinessDate(new Date(), {
       timezone: shop?.timezone,
-      openingTime: shopBusinessOpening(shop),
+      openingTime: shopBusinessOpening(shop, new Date()),
     });
   }
 
@@ -456,9 +469,10 @@ export class ClosingsFormPage implements OnInit {
   private readonly autoSelectShift = effect(() => {
     if (this.isEdit()) return;
     const shop = this.shop();
-    const shifts = shopShiftsOf(shop);
+    const shifts = this.shopShifts();
     if (!shifts.length || this.userPickedShift) return;
-    const next = resolveCurrentShift(shop).id;
+    const current = resolveCurrentShift(shop).id;
+    const next = shifts.some((s) => s.id === current) ? current : shifts[0].id;
     if (this.form.controls.shiftId.value !== next) {
       this.form.patchValue({ shiftId: next }, { emitEvent: false });
     }

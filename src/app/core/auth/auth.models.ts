@@ -838,7 +838,13 @@ export interface ShopSummary {
   /** Hora de apertura HH:mm; el día laboral dura hasta esa hora del día siguiente. */
   openingTime?: string;
   /** Turnos del local (apertura y cierre de cada uno). */
-  shifts?: Array<{ id: string; name: string; opensAt: string; closesAt: string }>;
+  shifts?: Array<{
+    id: string;
+    name: string;
+    opensAt: string;
+    closesAt: string;
+    weekdays?: number[];
+  }>;
   /** Horas por defecto al marcar asistencia en producción. */
   productionDefaultHours?: number;
   /** Días de franco (0=domingo … 6=sábado). */
