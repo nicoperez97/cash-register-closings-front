@@ -18,6 +18,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { PaymentsInboxService } from '../payments/payments-inbox.service';
 import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { AccountMovementsDialogComponent } from '../movements/account-movements-dialog';
 import {
@@ -762,6 +763,7 @@ export class PartnerSplitsPage {
   private readonly confirm = inject(ConfirmDialogService);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
+  private readonly paymentsInbox = inject(PaymentsInboxService);
 
   readonly loading = signal(false);
   readonly busy = signal(false);
@@ -1043,6 +1045,7 @@ export class PartnerSplitsPage {
           'OK',
           { duration: 4000 },
         );
+        if (payments) this.paymentsInbox.refresh();
       },
       error: (err) => {
         this.busy.set(false);
