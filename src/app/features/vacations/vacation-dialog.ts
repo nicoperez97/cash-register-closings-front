@@ -91,7 +91,7 @@ function formatIso(d: Date | null): string | null {
         </mat-form-field>
 
         <p class="vac-days text-muted small mb-0">
-          Días hábiles:
+          Días:
           <strong>{{ previewDays() ?? '—' }}</strong>
           <span class="vac-days__hint">(sin los francos del local)</span>
         </p>

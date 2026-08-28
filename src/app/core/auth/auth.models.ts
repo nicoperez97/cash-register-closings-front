@@ -611,7 +611,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Vacaciones',
     icon: 'beach_access',
     group: 'people',
-    hint: 'Registro de vacaciones de empleados y socios (días hábiles, sin goce)',
+    hint: 'Registro de vacaciones de empleados y socios (días sin franco, sin goce)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },

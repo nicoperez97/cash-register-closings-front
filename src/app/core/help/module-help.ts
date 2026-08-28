@@ -872,8 +872,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'beach_access',
         tone: 'read',
         anyOf: ['vacations.read'],
-        body: 'Dos pestañas: Empleados y Socios. Ves el rango, los días hábiles y si es sin goce.',
-        tip: 'Los días hábiles no cuentan los francos del local (Admin → Local). Si el local abre el finde, esos días sí entran.',
+        body: 'Dos pestañas: Empleados y Socios. Ves el rango, los días y si es sin goce.',
+        tip: 'Los días no cuentan los francos del local (Admin → Local). Si el local abre el finde, esos días sí entran.',
       },
       {
         title: 'Cargar',
@@ -883,7 +883,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Elegí la persona, el período y confirmá. “Sin goce de sueldo” viene marcado.',
         items: [
           'Tocá Cargar vacaciones en la pestaña Empleados o Socios.',
-          'El contador de días hábiles se actualiza al elegir el rango.',
+          'El contador de días se actualiza al elegir el rango.',
         ],
         tip: 'Esto no cambia el presentismo ni la liquidación; es solo el registro.',
       },
