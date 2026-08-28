@@ -404,6 +404,9 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'employees.read')) {
       personal.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
     }
+    if (shopId && hasShopPermission(user, shopId, 'vacations.read')) {
+      personal.push({ label: 'Vacaciones', route: '/vacations', icon: 'beach_access' });
+    }
     if (shopId && hasShopPermission(user, shopId, 'candidates.read')) {
       personal.push({ label: 'CVs / Candidatos', route: '/candidates', icon: 'person_search' });
     }
@@ -658,6 +661,9 @@ export class MainLayoutComponent {
     }
     if (path.startsWith('/employees')) {
       return hasShopPermission(user, shopId, 'employees.read');
+    }
+    if (path.startsWith('/vacations')) {
+      return hasShopPermission(user, shopId, 'vacations.read');
     }
     if (path.startsWith('/candidates')) {
       return hasShopPermission(user, shopId, 'candidates.read');
