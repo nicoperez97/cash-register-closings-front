@@ -189,7 +189,7 @@ export class VacationsPage {
       label: 'Hasta',
       format: (r) => this.formatDisplayDate(String(r['toDate'] ?? '')),
     },
-    { key: 'businessDays', label: 'Días hábiles' },
+    { key: 'businessDays', label: 'Días' },
     {
       key: 'unpaid',
       label: 'Sin goce',
