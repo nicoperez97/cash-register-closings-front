@@ -93,7 +93,7 @@ function formatIso(d: Date | null): string | null {
         <p class="vac-days text-muted small mb-0">
           Días hábiles:
           <strong>{{ previewDays() ?? '—' }}</strong>
-          <span class="vac-days__hint">(sin fines de semana ni francos del local)</span>
+          <span class="vac-days__hint">(sin los francos del local)</span>
         </p>
 
         <mat-checkbox formControlName="unpaid">Sin goce de sueldo</mat-checkbox>
