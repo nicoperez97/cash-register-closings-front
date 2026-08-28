@@ -448,6 +448,7 @@ export class MainLayoutComponent {
     }
     if (canManageShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
       admin.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
+      admin.push({ label: 'Actividad', route: '/admin/user-activity', icon: 'leaderboard' });
     }
     if (shopId && hasShopPermission(user, shopId, 'accounts.manage')) {
       admin.push({ label: 'Cuentas', route: '/admin/accounts', icon: 'account_balance' });

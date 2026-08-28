@@ -8,8 +8,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
+import { openUserAvatarPreview } from '../../shared/components/open-user-avatar-preview';
+import { userAvatarSrc } from '../../core/utils/drive-url';
 import { ShopNavEditorComponent } from '../admin/shop-nav-editor';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -57,7 +60,10 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
               [avatarUrl]="profile()?.avatarUrl ?? auth.currentUser()?.avatarUrl ?? null"
               [hasAvatar]="!!(profile()?.hasAvatar || auth.currentUser()?.hasAvatar)"
               [cacheKey]="avatarBust()"
+              [previewable]="hasAvatarPhoto()"
+              [previewSubtitle]="profile()?.email ?? auth.currentUser()?.email ?? null"
               size="lg"
+              [alt]="profile()?.fullName || auth.currentUser()?.fullName || 'Tu perfil'"
             />
           </div>
           <div class="account-identity__meta">
@@ -73,6 +79,12 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
                 hidden
                 (change)="onAvatarFile($event)"
               />
+              @if (hasAvatarPhoto()) {
+                <button mat-stroked-button type="button" [disabled]="busy()" (click)="viewAvatar()">
+                  <mat-icon>zoom_in</mat-icon>
+                  Ver foto
+                </button>
+              }
               <button
                 mat-stroked-button
                 type="button"
@@ -82,7 +94,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
                 <mat-icon>photo_camera</mat-icon>
                 Subir foto
               </button>
-              @if (profile()?.hasAvatar || profile()?.avatarUrl) {
+              @if (hasAvatarPhoto()) {
                 <button mat-button type="button" color="warn" [disabled]="busy()" (click)="removeAvatar()">
                   Quitar
                 </button>
@@ -623,6 +635,7 @@ export class ProfilePage {
   readonly shops = inject(ShopContextService);
   private readonly api = inject(ProfileApiService);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   readonly profile = signal<UserProfile | null>(null);
   readonly prefs = signal<ShopProfilePreferences | null>(null);
@@ -639,6 +652,35 @@ export class ProfilePage {
     if (!p) return true;
     return p.usingShopMenuDefault || p.navConfig == null;
   });
+
+  hasAvatarPhoto(): boolean {
+    const p = this.profile();
+    const u = this.auth.currentUser();
+    return !!(p?.hasAvatar || p?.avatarUrl || u?.hasAvatar || u?.avatarUrl);
+  }
+
+  viewAvatar(): void {
+    const p = this.profile();
+    const u = this.auth.currentUser();
+    const src = userAvatarSrc(
+      {
+        id: p?.id ?? u?.id ?? null,
+        avatarUrl: p?.avatarUrl ?? u?.avatarUrl ?? null,
+        hasAvatar: this.hasAvatarPhoto(),
+      },
+      this.avatarBust(),
+    );
+    if (!src) return;
+    openUserAvatarPreview(
+      this.dialog,
+      {
+        title: p?.fullName || u?.fullName || 'Tu perfil',
+        src,
+        subtitle: p?.email ?? u?.email ?? null,
+      },
+      'Foto de perfil',
+    );
+  }
 
   readonly form = new FormGroup({
     fullName: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(2)] }),

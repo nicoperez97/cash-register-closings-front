@@ -485,7 +485,7 @@ export class QuickExpenseDialogComponent {
       return;
     }
     if (this.missingReceipt()) {
-      this.snack.open('Con transferencia o tarjeta el comprobante es obligatorio', 'OK', {
+      this.snack.open('Con transferencia el comprobante es obligatorio', 'OK', {
         duration: 3500,
       });
       return;

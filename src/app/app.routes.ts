@@ -347,6 +347,13 @@ export const routes: Routes = [
         title: 'Usuarios',
       },
       {
+        path: 'admin/user-activity',
+        canActivate: [shopUsersGuard],
+        loadComponent: () =>
+          import('./features/admin/user-activity-page').then((m) => m.UserActivityPage),
+        title: 'Actividad de usuarios',
+      },
+      {
         path: 'admin/accounts',
         canActivate: [permissionGuard('accounts.manage')],
         loadComponent: () =>
