@@ -389,6 +389,13 @@ export const routes: Routes = [
         title: 'Empleados',
       },
       {
+        path: 'vacations',
+        canActivate: [permissionGuard('vacations.read')],
+        loadComponent: () =>
+          import('./features/vacations/vacations-page').then((m) => m.VacationsPage),
+        title: 'Vacaciones',
+      },
+      {
         path: 'candidates',
         canActivate: [permissionGuard('candidates.read')],
         loadComponent: () =>

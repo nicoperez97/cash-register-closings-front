@@ -65,6 +65,7 @@ export const NAV_ITEM_DEFS: Array<{
   { id: 'reportsProducts', defaultGroup: 'reportes', route: '/reports/products' },
   { id: 'reportsStats', defaultGroup: 'reportes', route: '/reports/stats' },
   { id: 'employees', defaultGroup: 'personal', route: '/employees' },
+  { id: 'vacations', defaultGroup: 'personal', route: '/vacations' },
   { id: 'candidates', defaultGroup: 'personal', route: '/candidates' },
   { id: 'payroll', defaultGroup: 'personal', route: '/payroll' },
   { id: 'commissions', defaultGroup: 'personal', route: '/commissions' },

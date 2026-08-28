@@ -63,6 +63,8 @@ export type Permission =
   | 'reimbursements.self'
   | 'reimbursements.read'
   | 'reimbursements.manage'
+  | 'vacations.read'
+  | 'vacations.manage'
   | 'serviceRules.read'
   | 'serviceRules.manage';
 
@@ -126,6 +128,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'reimbursements.self',
   'reimbursements.read',
   'reimbursements.manage',
+  'vacations.read',
+  'vacations.manage',
   'serviceRules.read',
   'serviceRules.manage',
 ];
@@ -193,6 +197,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'tips.manage',
     'reimbursements.read',
     'reimbursements.manage',
+    'vacations.read',
+    'vacations.manage',
   ],
   CASHIER: ['closings.create', 'closings.read', 'tips.create', 'tips.read'],
   VIEWER: [
@@ -222,6 +228,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'orders.read',
     'tips.read',
     'reimbursements.read',
+    'vacations.read',
   ],
   PARTNER: [
     'closings.read',
@@ -267,6 +274,7 @@ export type ModuleKey =
   | 'orders'
   | 'tips'
   | 'reimbursements'
+  | 'vacations'
   | 'serviceRules'
   | 'shop'
   | 'users';
@@ -596,6 +604,18 @@ export const MODULE_DEFS: ModuleDef[] = [
       { value: 'self', label: 'Solo mis gastos', short: 'Míos' },
       { value: 'read', label: 'Ver', short: 'Ver' },
       { value: 'manage', label: 'Gestionar (pagar)', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'vacations',
+    label: 'Vacaciones',
+    icon: 'beach_access',
+    group: 'people',
+    hint: 'Registro de vacaciones de empleados y socios (días hábiles, sin goce)',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
     ],
   },
   {
