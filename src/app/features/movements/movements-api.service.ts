@@ -24,7 +24,7 @@ export function expensePaymentMethodLabel(
 export function expenseReceiptRequired(
   method: ExpensePaymentMethod | string | null | undefined,
 ): boolean {
-  return method === 'transfer' || method === 'card';
+  return method === 'transfer';
 }
 
 export interface Movement {

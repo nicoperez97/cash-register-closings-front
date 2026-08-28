@@ -63,6 +63,7 @@ function accountTypeLabel(row: Record<string, unknown>): string {
           [columns]="columns()"
           [rows]="rows()"
           [loading]="loading()"
+          [previewAvatars]="true"
           [showActions]="true"
           [canRemove]="canRemoveRow"
           [removeLabel]="removeActionLabel()"

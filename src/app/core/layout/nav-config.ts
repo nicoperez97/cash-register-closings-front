@@ -75,6 +75,7 @@ export const NAV_ITEM_DEFS: Array<{
   { id: 'adminQr', defaultGroup: 'admin', route: '/admin/qr' },
   { id: 'adminInstrucciones', defaultGroup: 'admin', route: '/admin/instrucciones' },
   { id: 'adminUsers', defaultGroup: 'admin', route: '/admin/users' },
+  { id: 'adminUserActivity', defaultGroup: 'admin', route: '/admin/user-activity' },
   { id: 'adminAccounts', defaultGroup: 'admin', route: '/admin/accounts' },
   { id: 'adminConcepts', defaultGroup: 'admin', route: '/admin/concepts' },
   { id: 'adminSalesSystems', defaultGroup: 'admin', route: '/admin/sales-systems' },

@@ -198,6 +198,8 @@ export interface DataTableColumn {
                         [userId]="avatarUserId(row, col)"
                         [avatarUrl]="avatarUrlOf(row, col)"
                         [hasAvatar]="avatarHas(row, col)"
+                        [previewable]="avatarPreviewable(row, col)"
+                        [previewSubtitle]="avatarPreviewSubtitle(row)"
                         size="sm"
                         [alt]="altText(row['fullName'] || 'Usuario')"
                       />
@@ -207,6 +209,8 @@ export interface DataTableColumn {
                           [userId]="avatarUserId(row, col)"
                           [avatarUrl]="avatarUrlOf(row, col)"
                           [hasAvatar]="avatarHas(row, col)"
+                          [previewable]="avatarPreviewable(row, col)"
+                          [previewSubtitle]="avatarPreviewSubtitle(row)"
                           size="sm"
                           [alt]="altText(cellValue(row, col))"
                         />
@@ -338,6 +342,8 @@ export interface DataTableColumn {
                             [userId]="avatarUserId(row, pcol)"
                             [avatarUrl]="avatarUrlOf(row, pcol)"
                             [hasAvatar]="avatarHas(row, pcol)"
+                            [previewable]="avatarPreviewable(row, pcol)"
+                            [previewSubtitle]="avatarPreviewSubtitle(row)"
                             size="sm"
                             [alt]="altText(cellValue(row, columns()[0]))"
                           />
@@ -394,6 +400,8 @@ export interface DataTableColumn {
                               [userId]="avatarUserId(row, col)"
                               [avatarUrl]="avatarUrlOf(row, col)"
                               [hasAvatar]="avatarHas(row, col)"
+                              [previewable]="avatarPreviewable(row, col)"
+                              [previewSubtitle]="avatarPreviewSubtitle(row)"
                               size="sm"
                               [alt]="altText(cellValue(row, col))"
                             />
@@ -402,6 +410,8 @@ export interface DataTableColumn {
                               [userId]="avatarUserId(row, pcol)"
                               [avatarUrl]="avatarUrlOf(row, pcol)"
                               [hasAvatar]="avatarHas(row, pcol)"
+                              [previewable]="avatarPreviewable(row, pcol)"
+                              [previewSubtitle]="avatarPreviewSubtitle(row)"
                               size="sm"
                               [alt]="altText(cellValue(row, col))"
                             />
@@ -415,6 +425,8 @@ export interface DataTableColumn {
                             [userId]="avatarUserId(row, col)"
                             [avatarUrl]="avatarUrlOf(row, col)"
                             [hasAvatar]="avatarHas(row, col)"
+                            [previewable]="avatarPreviewable(row, col)"
+                            [previewSubtitle]="avatarPreviewSubtitle(row)"
                             size="sm"
                             [alt]="altText(row['fullName'] || col.label)"
                           />
@@ -975,6 +987,8 @@ export class DataTableComponent {
   readonly canPreview = input<(row: any) => boolean>();
   readonly previewLabel = input('Ver comprobante');
   readonly previewIcon = input('attach_file');
+  /** Tocar la foto de perfil abre un visor ampliado. */
+  readonly previewAvatars = input(false);
   readonly editLabelFor = input<(row: any) => string>();
   readonly editIconFor = input<(row: any) => string>();
   /** Opt-in row selection via checkboxes. */
@@ -1204,6 +1218,15 @@ export class DataTableComponent {
   avatarHas(row: any, col: DataTableColumn): boolean {
     const key = col.hasAvatarKey ?? 'hasAvatar';
     return !!(row?.[key] || this.avatarUrlOf(row, col));
+  }
+
+  avatarPreviewable(row: any, col: DataTableColumn): boolean {
+    return this.previewAvatars() && this.avatarHas(row, col);
+  }
+
+  avatarPreviewSubtitle(row: any): string | null {
+    const email = row?.email;
+    return typeof email === 'string' && email.trim() ? email.trim() : null;
   }
 
   trackRow(row: any, index: number): string | number {
