@@ -873,7 +873,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'read',
         anyOf: ['vacations.read'],
         body: 'Dos pestañas: Empleados y Socios. Ves el rango, los días hábiles y si es sin goce.',
-        tip: 'Los días hábiles no cuentan sábados, domingos ni los francos del local (Admin → Local).',
+        tip: 'Los días hábiles no cuentan los francos del local (Admin → Local). Si el local abre el finde, esos días sí entran.',
       },
       {
         title: 'Cargar',
