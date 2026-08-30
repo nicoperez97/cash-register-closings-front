@@ -1,19 +1,13 @@
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTabsModule } from '@angular/material/tabs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
-import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import {
-  SelectSearchComponent,
   filterBySelectQuery,
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
@@ -25,15 +19,19 @@ import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '..
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
-import { ClosingsApiService, CLOSING_SOURCE_KIND_OPTIONS, closingSourceKindNeedsAccount, SalesSystemOption, ShopClosingSource } from '../closings/closings-api.service';
+import {
+  ClosingsApiService,
+  CLOSING_SOURCE_KIND_OPTIONS,
+  closingSourceKindNeedsAccount,
+  SalesSystemOption,
+  ShopClosingSource,
+} from '../closings/closings-api.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { firstValueFrom, startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { AdminAccountDialogComponent, AdminAccountRow, LINKED_PAYMENT_METHOD_OPTIONS } from './admin-account-dialog';
-import { AdminAccountDeleteService } from './admin-account-delete-dialog';
-import { activeLabel } from '../../core/i18n/labels';
+import { AdminAccountRow } from './admin-account-dialog';
 import {
   CONCEPT_CATEGORY_OPTIONS,
   DEFAULT_PAYMENT_CONCEPT_CATEGORIES,
@@ -44,7 +42,10 @@ import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
 import { ShopNavEditorComponent } from './shop-nav-editor';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
-import { UserAvatarComponent } from '../../shared/components/user-avatar';
+import { AdminShopIdentityComponent } from './admin-shop-identity';
+import { AdminShopOperationComponent } from './admin-shop-operation';
+import { AdminShopDevicesComponent } from './admin-shop-devices';
+import { AdminShopAdvancedComponent } from './admin-shop-advanced';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -87,18 +88,6 @@ interface ShopUserOption {
   hasAvatar?: boolean;
 }
 
-/** Campos del cierre → medio vinculado a cuenta canal. */
-const CLOSING_DEPOSIT_FIELDS = [
-  { value: 'card', label: 'PVS / Tarjeta' },
-  { value: 'mercadoPago', label: 'Mercado Pago' },
-  { value: 'cash', label: 'Efectivo' },
-  { value: 'accountDni', label: 'Cuenta DNI' },
-  { value: 'delivery', label: 'Delivery' },
-  { value: 'transfer', label: 'Transferencia' },
-  { value: 'other', label: 'Otros' },
-] as const;
-
-/** 0=domingo … 6=sábado (Date.getDay()). */
 const WEEKDAY_OPTIONS = [
   { value: 1, label: 'Lun' },
   { value: 2, label: 'Mar' },
@@ -120,20 +109,17 @@ const TIMEZONE_OPTIONS = [
   selector: 'app-admin-shop',
   imports: [
     ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatButtonModule,
-    MatSelectModule,
-    MatSlideToggleModule,
-    MatCheckboxModule,
-    MatSnackBarModule,
     MatIconModule,
+    MatSnackBarModule,
     MatDialogModule,
+    MatTabsModule,
     PageHeaderComponent,
-    DataTableComponent,
-    SelectSearchComponent,
     ShopNavEditorComponent,
-    UserAvatarComponent,
+    AdminShopIdentityComponent,
+    AdminShopOperationComponent,
+    AdminShopDevicesComponent,
+    AdminShopAdvancedComponent,
   ],
   template: `
     <app-page-header
@@ -142,1177 +128,153 @@ const TIMEZONE_OPTIONS = [
     />
 
     <form
-      class="shop-admin"
+      class="shop-admin shop-admin--tabs"
       [formGroup]="form"
       (ngSubmit)="save()"
       [style.--guy-primary]="liveAccentSecondary()"
       [style.--guy-navy]="liveAccentSecondary()"
       [style.--guy-blue]="liveAccentSecondary()"
     >
-      <aside class="shop-admin__preview panel-card">
-        <p class="shop-admin__preview-label">Vista previa</p>
-        <div
-          class="shop-admin__brand"
-          [style.--preview-accent]="liveAccent()"
-          [style.--preview-accent-secondary]="liveAccentSecondary()"
-        >
-          <div class="shop-admin__logo-wrap">
-            @if (previewUrl()) {
-              <img
-                [src]="previewUrl()"
-                alt="Logo del local"
-                referrerpolicy="no-referrer"
-                class="shop-admin__logo"
-              />
-            } @else {
-              <mat-icon class="shop-admin__logo-fallback">storefront</mat-icon>
-            }
-          </div>
-          <div class="shop-admin__brand-text">
-            <strong>{{ liveName() || 'Nombre del local' }}</strong>
-            <span>{{ liveSlug() || 'slug-del-local' }}</span>
-          </div>
-        </div>
-        <div class="shop-admin__swatch-row">
-          <span class="shop-admin__swatch" [style.background]="liveAccent()"></span>
-          <span class="shop-admin__swatch" [style.background]="liveAccentSecondary()"></span>
-          <span class="text-muted small">
-            {{ liveAccent() }} · {{ liveAccentSecondary() }}
-          </span>
-        </div>
-        <p class="text-muted small mb-0">
-          Así se ve en el menú lateral y en botones del local.
-        </p>
-      </aside>
-
-      <div class="shop-admin__fields">
-        <nav class="guy-form-toc shop-admin__toc" aria-label="Secciones del local">
-          @for (s of tocSections; track s.id) {
-            <button type="button" class="guy-form-toc__chip" (click)="scrollToSection(s.id)">
-              {{ s.label }}
-            </button>
-          }
-        </nav>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-identidad"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-identidad')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-identidad')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-identidad')"
-          >
-            <h2 class="guy-section-title">Identidad</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <p class="text-muted small mb-3">Nombre visible y URL interna del local.</p>
-          <div class="guy-form-grid guy-form-grid--2">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Nombre</mat-label>
-              <input matInput formControlName="name" autocomplete="organization" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Slug</mat-label>
-              <input matInput formControlName="slug" />
-              <mat-hint>Solo minúsculas, números y guiones</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Email del local (Gmail)</mat-label>
-              <input
-                matInput
-                type="email"
-                formControlName="email"
-                placeholder="local@gmail.com"
-                autocomplete="email"
-              />
-              <mat-hint>Remitente y usuario SMTP de las notificaciones</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Instagram</mat-label>
-              <span matPrefix class="shop-admin__ig-prefix">@</span>
-              <input
-                matInput
-                formControlName="instagramHandle"
-                placeholder="tuttopassa"
-                autocomplete="off"
-              />
-              <mat-hint>Se muestra si el formulario público está cerrado</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Teléfono / WhatsApp</mat-label>
-              <input
-                matInput
-                type="tel"
-                formControlName="phone"
-                placeholder="+598 99 123 456"
-                autocomplete="tel"
-              />
-              <mat-hint>Con código de país. Lo usamos después para avisos por WhatsApp</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Contraseña de aplicación</mat-label>
-              <input
-                matInput
-                type="password"
-                formControlName="emailSmtpPassword"
-                autocomplete="new-password"
-                [placeholder]="emailSmtpConfigured() ? '•••••••• (dejar vacío para no cambiar)' : 'Contraseña de app de Gmail'"
-              />
-              <mat-hint>
-                @if (emailSmtpConfigured()) {
-                  Ya hay una contraseña guardada. Completá solo si querés cambiarla.
-                } @else {
-                  Gmail → verificación en 2 pasos → contraseña de aplicación
-                }
-              </mat-hint>
-            </mat-form-field>
-            @if (emailSmtpConfigured()) {
-              <div class="shop-admin__smtp-actions">
-                <button
-                  mat-stroked-button
-                  type="button"
-                  (click)="markClearSmtpPassword()"
-                >
-                  <mat-icon>link_off</mat-icon>
-                  Quitar contraseña SMTP
-                </button>
-              </div>
-            }
-          </div>
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-notificaciones"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-notificaciones')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-notificaciones')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-notificaciones')"
-          >
-            <h2 class="guy-section-title">Notificaciones por correo</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <p class="text-muted small mb-3">
-            Activá el envío de mails, elegí qué avisos se mandan y a qué usuarios del local.
-            Por defecto todos los tipos y todos los usuarios están chequeados.
-          </p>
-
-          <mat-slide-toggle formControlName="emailNotificationsEnabled" class="mb-3">
-            Enviar notificaciones por correo
-          </mat-slide-toggle>
-
-          @if (form.controls.emailNotificationsEnabled.value) {
-            <div class="shop-admin__email-grid">
-              <div>
-                <h3 class="shop-admin__op-title">Qué mails se envían</h3>
-                <div class="shop-admin__check-list">
-                  <button mat-stroked-button type="button" class="mb-2" (click)="toggleAllEmailTypes()">
-                    {{ allEmailTypesSelected() ? 'Desmarcar todos' : 'Marcar todos' }}
-                  </button>
-                  @for (t of emailTypeOptions; track t.value) {
-                    <mat-checkbox
-                      [checked]="isEmailTypeSelected(t.value)"
-                      (change)="toggleEmailType(t.value)"
-                    >
-                      {{ t.label }}
-                    </mat-checkbox>
-                  }
-                </div>
-              </div>
-              <div>
-                <h3 class="shop-admin__op-title">A quién</h3>
-                <div class="shop-admin__check-list">
-                  <button mat-stroked-button type="button" class="mb-2" (click)="toggleAllEmailUsers()">
-                    {{ allEmailUsersSelected() ? 'Desmarcar todos' : 'Marcar todos' }}
-                  </button>
-                  @if (!shopUsers().length) {
-                    <p class="text-muted small">No hay usuarios en este local.</p>
-                  }
-                  @for (u of shopUsers(); track u.id) {
-                    <mat-checkbox
-                      class="shop-admin__user-check"
-                      [checked]="isEmailUserSelected(u.id)"
-                      (change)="toggleEmailUser(u.id)"
-                    >
-                      <span class="shop-admin__user-row">
-                        <app-user-avatar
-                          [userId]="u.id"
-                          [avatarUrl]="u.avatarUrl ?? null"
-                          [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
-                          size="sm"
-                          [alt]="u.fullName"
-                        />
-                        <span class="shop-admin__user-copy">
-                          <span>{{ u.fullName }}</span>
-                          <span class="text-muted small">{{ u.email }}</span>
-                        </span>
-                      </span>
-                    </mat-checkbox>
-                  }
-                </div>
-              </div>
-            </div>
-          }
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section shop-admin__appearance"
-          id="shop-sec-apariencia"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-apariencia')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-apariencia')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-apariencia')"
-          >
-            <h2 class="guy-section-title">Apariencia</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <p class="text-muted small mb-3">
-            Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
-          </p>
-
-          <div class="shop-admin__logo-block">
-            @if (uploadedLogoPath()) {
-              <div class="shop-admin__logo-file">
-                <mat-icon>image</mat-icon>
-                <div>
-                  <strong>Logo desde archivo</strong>
-                  <p class="text-muted small mb-0">
-                    Subido al servidor. Si pegás un link abajo, reemplaza este archivo al guardar.
-                  </p>
-                </div>
-              </div>
-            }
-            <mat-form-field appearance="outline" class="shop-admin__logo-field" subscriptSizing="dynamic">
-              <mat-label>URL del logo (opcional)</mat-label>
-              <input
-                matInput
-                formControlName="logoUrl"
-                placeholder="Pegá el vínculo de Drive o una URL directa"
-              />
-              <mat-hint>
-                Usá <strong>una</strong> opción: subir archivo o pegar un link (Drive con “Cualquiera
-                con el enlace”, o URL directa). No pongas rutas internas.
-              </mat-hint>
-            </mat-form-field>
-            <div class="shop-admin__logo-actions">
-              <input
-                #logoFile
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/*"
-                hidden
-                (change)="onLogoFile($event)"
-              />
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="logoUploading() || !shops.selectedShopId()"
-                (click)="logoFile.click()"
+      <mat-tab-group
+        class="shop-admin__tabs"
+        animationDuration="0ms"
+        [selectedIndex]="selectedTab()"
+        (selectedIndexChange)="selectedTab.set($event)"
+      >
+        <mat-tab label="Identidad">
+          <div class="shop-admin__tab-panel shop-admin__tab-panel--identity">
+            <aside class="shop-admin__preview panel-card">
+              <p class="shop-admin__preview-label">Vista previa</p>
+              <div
+                class="shop-admin__brand"
+                [style.--preview-accent]="liveAccent()"
+                [style.--preview-accent-secondary]="liveAccentSecondary()"
               >
-                <mat-icon>upload</mat-icon>
-                {{ logoUploading() ? 'Subiendo…' : 'Subir desde archivos' }}
-              </button>
-              @if (hasLogo()) {
-                <button mat-stroked-button type="button" (click)="clearLogo()">
-                  <mat-icon>hide_image</mat-icon>
-                  Quitar logo
-                </button>
-              }
-            </div>
-          </div>
-
-          <div class="shop-admin__colors">
-            <div class="shop-admin__color-row">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Color principal</mat-label>
-                <input matInput formControlName="accentColor" placeholder="#007A14" />
-                <mat-hint>Hex (#RRGGBB) · menú activo y botones</mat-hint>
-              </mat-form-field>
-              <div class="shop-admin__color-picker">
-                <label class="shop-admin__color-label" for="accentPicker">Principal</label>
-                <input
-                  id="accentPicker"
-                  type="color"
-                  [value]="colorPickerValue()"
-                  (input)="onAccentPicker($event)"
-                />
-                <span
-                  class="shop-admin__swatch shop-admin__swatch--lg"
-                  [style.background]="liveAccent()"
-                  aria-hidden="true"
-                ></span>
-              </div>
-            </div>
-
-            <div class="shop-admin__color-row">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Color de énfasis</mat-label>
-                <input matInput formControlName="accentSecondary" placeholder="#F9A825" />
-                <mat-hint>Hex (#RRGGBB) · títulos y detalles (reemplaza el negro)</mat-hint>
-              </mat-form-field>
-              <div class="shop-admin__color-picker">
-                <label class="shop-admin__color-label" for="accentSecondaryPicker">Énfasis</label>
-                <input
-                  id="accentSecondaryPicker"
-                  type="color"
-                  [value]="colorSecondaryPickerValue()"
-                  (input)="onAccentSecondaryPicker($event)"
-                />
-                <span
-                  class="shop-admin__swatch shop-admin__swatch--lg"
-                  [style.background]="liveAccentSecondary()"
-                  aria-hidden="true"
-                ></span>
-              </div>
-            </div>
-          </div>
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-menu"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-menu')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-menu')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-menu')"
-          >
-            <h2 class="guy-section-title">Menú lateral</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <app-shop-nav-editor
-            [value]="navConfigDraft()"
-            (valueChange)="onNavConfigChange($event)"
-          />
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-operacion"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-operacion')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-operacion')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-operacion')"
-          >
-            <h2 class="guy-section-title">Operación</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <p class="text-muted small mb-3">
-            Caja, producción, POS y módulos del día a día.
-          </p>
-
-          <div
-            class="shop-admin__op-block"
-            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-caja')"
-          >
-            <button
-              type="button"
-              class="shop-admin__op-toggle"
-              (click)="toggleSection('op-caja')"
-              [attr.aria-expanded]="!isSectionCollapsed('op-caja')"
-            >
-              <h3 class="shop-admin__op-title">Caja</h3>
-              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="shop-admin__op-body">
-            <div class="guy-form-grid guy-form-grid--2">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Etiqueta de unidades</mat-label>
-                <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
-                <mat-hint>Cómo se llaman las unidades vendidas</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Moneda</mat-label>
-                <mat-select formControlName="currency">
-                  <mat-option value="ARS">ARS · Peso argentino</mat-option>
-                  <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
-                  <mat-option value="USD">USD · Dólar</mat-option>
-                  <mat-option value="EUR">EUR · Euro</mat-option>
-                  <mat-option value="BRL">BRL · Real</mat-option>
-                  <mat-option value="CLP">CLP · Peso chileno</mat-option>
-                  <mat-option value="PYG">PYG · Guaraní</mat-option>
-                </mat-select>
-                <mat-hint>Moneda de operación del local</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cambio por defecto</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  formControlName="defaultChangeAmount"
-                  min="0"
-                  step="1"
-                  inputmode="decimal"
-                />
-                <mat-hint>Monto sugerido al abrir un cierre</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Zona horaria</mat-label>
-                <mat-select formControlName="timezone">
-                  @for (tz of timezoneOptions; track tz.value) {
-                    <mat-option [value]="tz.value">{{ tz.label }}</mat-option>
+                <div class="shop-admin__logo-wrap">
+                  @if (previewUrl()) {
+                    <img
+                      [src]="previewUrl()"
+                      alt="Logo del local"
+                      referrerpolicy="no-referrer"
+                      class="shop-admin__logo"
+                    />
+                  } @else {
+                    <mat-icon class="shop-admin__logo-fallback">storefront</mat-icon>
                   }
-                </mat-select>
-                <mat-hint>Día calendario de reservas y pantallas públicas</mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="shop-admin__posnets-head" style="margin-top: 0.75rem">
+                </div>
+                <div class="shop-admin__brand-text">
+                  <strong>{{ liveName() || 'Nombre del local' }}</strong>
+                  <span>{{ liveSlug() || 'slug-del-local' }}</span>
+                </div>
+              </div>
+              <div class="shop-admin__swatch-row">
+                <span class="shop-admin__swatch" [style.background]="liveAccent()"></span>
+                <span class="shop-admin__swatch" [style.background]="liveAccentSecondary()"></span>
+                <span class="text-muted small">
+                  {{ liveAccent() }} · {{ liveAccentSecondary() }}
+                </span>
+              </div>
               <p class="text-muted small mb-0">
-                Turnos del local. Cada uno tiene días, apertura y cierre. El día laboral de ese día
-                empieza en la apertura más temprana de sus turnos. Si ese día hay un solo turno,
-                no se pide elegir en el cierre ni en el presentismo.
+                Así se ve en el menú lateral y en botones del local.
               </p>
-              <button mat-stroked-button type="button" (click)="addShift()">
-                <mat-icon>add</mat-icon>
-                Agregar turno
-              </button>
-            </div>
-            <div class="shop-admin__shifts" formArrayName="shifts">
-              @for (row of shifts.controls; track row; let i = $index) {
-                <div class="shop-admin__shift-row" [formGroupName]="i">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Nombre</mat-label>
-                    <input matInput formControlName="name" placeholder="ej. Mediodía" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Apertura de turno</mat-label>
-                    <input matInput type="time" formControlName="opensAt" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Cierre de turno</mat-label>
-                    <input matInput type="time" formControlName="closesAt" />
-                  </mat-form-field>
-                  <button
-                    mat-icon-button
-                    type="button"
-                    class="shop-admin__posnet-remove"
-                    aria-label="Quitar turno"
-                    [disabled]="shifts.length < 2"
-                    (click)="removeShift(i)"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                  <div class="shop-admin__shift-days" role="group" aria-label="Días del turno">
-                    @for (d of weekdayOptions; track d.value) {
-                      <button
-                        type="button"
-                        class="shop-admin__weekday"
-                        [class.shop-admin__weekday--on]="isShiftWeekday(i, d.value)"
-                        (click)="toggleShiftWeekday(i, d.value)"
-                      >
-                        {{ d.label }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-            <div class="shop-admin__toggle-list">
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Comensales</strong>
-                  <p class="text-muted small mb-0">
-                    Pedir cantidad de comensales en cada cierre.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="coversEnabled"
-                  aria-label="Comensales habilitados"
-                />
-              </div>
-            </div>
+            </aside>
+            <div class="shop-admin__fields">
+              <app-admin-shop-identity
+                [shopId]="shops.selectedShopId()"
+                [shopUsers]="shopUsers()"
+                [emailTypeOptions]="emailTypeOptions"
+                [emailSmtpConfigured]="emailSmtpConfigured()"
+                [emailNotificationsOn]="!!formValue()?.emailNotificationsEnabled"
+                [allEmailTypesSelected]="allEmailTypesSelected()"
+                [allEmailUsersSelected]="allEmailUsersSelected()"
+                [isEmailTypeSelected]="isEmailTypeSelectedBound"
+                [isEmailUserSelected]="isEmailUserSelectedBound"
+                [uploadedLogoPath]="uploadedLogoPath()"
+                [logoUploading]="logoUploading()"
+                [hasLogo]="hasLogo()"
+                [accentPicker]="colorPickerValue()"
+                [accentSecondaryPicker]="colorSecondaryPickerValue()"
+                [liveAccent]="liveAccent()"
+                [liveAccentSecondary]="liveAccentSecondary()"
+                (clearSmtp)="markClearSmtpPassword()"
+                (toggleEmailType)="toggleEmailType($event)"
+                (toggleAllEmailTypes)="toggleAllEmailTypes()"
+                (toggleEmailUser)="toggleEmailUser($event)"
+                (toggleAllEmailUsers)="toggleAllEmailUsers()"
+                (logoFileSelected)="onLogoFile($event)"
+                (clearLogo)="clearLogo()"
+                (accentPickerChange)="onAccentPicker($event)"
+                (accentSecondaryPickerChange)="onAccentSecondaryPicker($event)"
+              />
             </div>
           </div>
+        </mat-tab>
 
-          <div
-            class="shop-admin__op-block"
-            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-produccion')"
-          >
-            <button
-              type="button"
-              class="shop-admin__op-toggle"
-              (click)="toggleSection('op-produccion')"
-              [attr.aria-expanded]="!isSectionCollapsed('op-produccion')"
-            >
-              <h3 class="shop-admin__op-title">Producción</h3>
-              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="shop-admin__op-body">
-            <div class="guy-form-grid guy-form-grid--2">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Horas por defecto</mat-label>
-                <input
-                  matInput
-                  type="number"
-                  formControlName="productionDefaultHours"
-                  min="0"
-                  max="24"
-                  step="0.5"
-                  inputmode="decimal"
-                />
-                <mat-hint>Al marcar presente en Asistencia · Producción</mat-hint>
-              </mat-form-field>
-              <p class="shop-admin__op-note">
-                Se aplica al tocar un día en la grilla de producción. Se puede editar después
-                manteniendo el dedo / clic derecho.
-              </p>
-            </div>
-            </div>
-          </div>
-
-          <div
-            class="shop-admin__op-block"
-            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-servicio')"
-          >
-            <button
-              type="button"
-              class="shop-admin__op-toggle"
-              (click)="toggleSection('op-servicio')"
-              [attr.aria-expanded]="!isSectionCollapsed('op-servicio')"
-            >
-              <h3 class="shop-admin__op-title">Servicio</h3>
-              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="shop-admin__op-body">
-            <mat-slide-toggle formControlName="serviceAttendanceWithHours">
-              Presentismo con horario
-            </mat-slide-toggle>
-            <p class="shop-admin__op-note">
-              Apagado: solo presente / ausente / feriado, como antes. Encendido: cada persona
-              tiene entrada y salida, y se calculan extras.
-            </p>
-            @if (form.controls.serviceAttendanceWithHours.value) {
-              <div class="guy-form-grid guy-form-grid--2">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Hora de entrada default</mat-label>
-                  <input matInput type="time" formControlName="serviceDefaultCheckIn" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Hora de retirada default</mat-label>
-                  <input matInput type="time" formControlName="serviceDefaultCheckOut" />
-                  <mat-hint>Se usa si el empleado no tiene horario propio. Extra = salida real menos retirada.</mat-hint>
-                </mat-form-field>
-              </div>
-            }
-            </div>
-          </div>
-
-          <div
-            class="shop-admin__op-block"
-            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-ventas-pos')"
-          >
-            <button
-              type="button"
-              class="shop-admin__op-toggle"
-              (click)="toggleSection('op-ventas-pos')"
-              [attr.aria-expanded]="!isSectionCollapsed('op-ventas-pos')"
-            >
-              <h3 class="shop-admin__op-title">Ventas POS</h3>
-              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="shop-admin__op-body">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Sistema de ventas</mat-label>
-              <mat-select formControlName="salesSystemId">
-                <mat-option [value]="null">Sin sistema</mat-option>
-                @for (s of salesSystems(); track s.id) {
-                  <mat-option [value]="s.id">{{ s.name }}</mat-option>
-                }
-              </mat-select>
-              <mat-hint>Cómo interpretar reportes (Restosoft, WeMenu, etc.)</mat-hint>
-            </mat-form-field>
-            </div>
-          </div>
-
-          <div
-            class="shop-admin__op-block"
-            id="shop-sec-conceptos"
-            formGroupName="paymentConceptCategories"
-            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-conceptos')"
-          >
-            <button
-              type="button"
-              class="shop-admin__op-toggle"
-              (click)="toggleSection('op-conceptos')"
-              [attr.aria-expanded]="!isSectionCollapsed('op-conceptos')"
-            >
-              <h3 class="shop-admin__op-title">Conceptos en pagos</h3>
-              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="shop-admin__op-body">
-            <p class="text-muted small mb-3">
-              Qué categorías de concepto se listan al cargar cada tipo de pago. Un concepto puede
-              tener varias categorías (Administración → Conceptos).
-            </p>
-            <div class="guy-form-grid guy-form-grid--2">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Pagos a proveedores</mat-label>
-                <mat-select formControlName="supplier" multiple>
-                  @for (opt of conceptCategoryOptions; track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Pagos a servicios</mat-label>
-                <mat-select formControlName="service" multiple>
-                  @for (opt of conceptCategoryOptions; track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                  }
-                </mat-select>
-                <mat-hint>Ej. Servicios y Proveedores</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Pagos a empleados</mat-label>
-                <mat-select formControlName="employee" multiple>
-                  @for (opt of conceptCategoryOptions; track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Movimientos</mat-label>
-                <mat-select formControlName="movement" multiple>
-                  @for (opt of conceptCategoryOptions; track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-            </div>
-            </div>
-          </div>
-
-          <div
-            class="shop-admin__op-block shop-admin__op-block--last"
-            [class.shop-admin__op-block--collapsed]="isSectionCollapsed('op-modulos')"
-          >
-            <button
-              type="button"
-              class="shop-admin__op-toggle"
-              (click)="toggleSection('op-modulos')"
-              [attr.aria-expanded]="!isSectionCollapsed('op-modulos')"
-            >
-              <h3 class="shop-admin__op-title">Módulos públicos</h3>
-              <mat-icon class="shop-admin__op-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="shop-admin__op-body">
-            <div class="shop-admin__toggle-list">
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Reservas</strong>
-                  <p class="text-muted small mb-0">
-                    Módulo interno y pantalla pública del local.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="reservationsEnabled"
-                  aria-label="Reservas habilitadas"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Formulario público de reservas</strong>
-                  <p class="text-muted small mb-0">
-                    Link para que la gente pida mesa. Se puede apagar desde Reservas.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="reservationSignupEnabled"
-                  aria-label="Formulario público de reservas"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Sector adentro</strong>
-                  <p class="text-muted small mb-0">
-                    Pedidos de mesa en el salón.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="reservationInsideEnabled"
-                  aria-label="Sector adentro"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Sector afuera</strong>
-                  <p class="text-muted small mb-0">
-                    Pedidos de mesa en la vereda / patio.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="reservationOutsideEnabled"
-                  aria-label="Sector afuera"
-                />
-              </div>
-              <div class="shop-admin__party-rules">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Adentro hasta</mat-label>
-                  <input
-                    matInput
-                    type="number"
-                    min="1"
-                    max="99"
-                    inputmode="numeric"
-                    formControlName="reservationInsideMaxPartySize"
-                    placeholder="Ilimitado"
-                  />
-                  <mat-hint>Vacío = sin tope de personas adentro</mat-hint>
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Afuera hasta</mat-label>
-                  <input
-                    matInput
-                    type="number"
-                    min="1"
-                    max="99"
-                    inputmode="numeric"
-                    formControlName="reservationOutsideMinPartySize"
-                    placeholder="Ilimitado"
-                  />
-                  <mat-hint>Vacío = sin tope de personas afuera</mat-hint>
-                </mat-form-field>
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Lista de espera</strong>
-                  <p class="text-muted small mb-0">
-                    Cola de espera y su pantalla pública.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="waitingListEnabled"
-                  aria-label="Lista de espera habilitada"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Propinas</strong>
-                  <p class="text-muted small mb-0">
-                    Caja diaria de propinas y reparto por empleado.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="tipsEnabled"
-                  aria-label="Propinas habilitadas"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Presentismo público</strong>
-                  <p class="text-muted small mb-0">
-                    El personal entra con el link y ve su mes, sin usuario de la app.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="publicAttendanceEnabled"
-                  aria-label="Presentismo público"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Normas públicas</strong>
-                  <p class="text-muted small mb-0">
-                    Página para imprimir y pegar las normas pre y post servicio.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="publicServiceRulesEnabled"
-                  aria-label="Normas de servicio públicas"
-                />
-              </div>
-              <div class="shop-admin__toggle">
-                <div>
-                  <strong>Carta pública</strong>
-                  <p class="text-muted small mb-0">
-                    Página con las cartas del local (menú, vinos, etc.). Se cargan en Administración → Carta.
-                  </p>
-                </div>
-                <mat-slide-toggle
-                  formControlName="menuEnabled"
-                  aria-label="Carta pública"
-                />
-              </div>
-            </div>
-            </div>
-          </div>
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-francos"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-francos')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-francos')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-francos')"
-          >
-            <h2 class="guy-section-title">Días de franco</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <p class="text-muted small mb-3">
-            Marcá los días en que el local no abre. Se reflejan en presentismo.
-          </p>
-          <div class="shop-admin__weekdays">
-            <div class="shop-admin__weekday-chips">
-              @for (d of weekdayOptions; track d.value) {
-                <button
-                  type="button"
-                  class="shop-admin__weekday"
-                  [class.shop-admin__weekday--on]="isClosedWeekday(d.value)"
-                  (click)="toggleClosedWeekday(d.value)"
-                >
-                  {{ d.label }}
-                </button>
-              }
-            </div>
-          </div>
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-posnets"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-posnets')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-posnets')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-posnets')"
-          >
-            <h2 class="guy-section-title">Posnets</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <div class="shop-admin__posnets-head">
-            <p class="text-muted small mb-0">
-              Terminales del local (PVS / Mercado Pago). Cuenta DNI se carga por transferencias en el
-              cierre; el tipo Cuenta DNI queda disponible por si lo necesitás.
-            </p>
-            <button mat-stroked-button type="button" (click)="addPosnet()">
-              <mat-icon>add</mat-icon>
-              Agregar posnet
-            </button>
-          </div>
-          <div class="shop-admin__posnets" formArrayName="posnets">
-            @for (row of posnets.controls; track row; let i = $index) {
-              <div class="shop-admin__posnet-row" [formGroupName]="i">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Nombre</mat-label>
-                  <input matInput formControlName="name" placeholder="ej. Caja 1" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Tipo</mat-label>
-                  <mat-select formControlName="type">
-                    @for (opt of posnetTypes; track opt.value) {
-                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-                <button
-                  mat-icon-button
-                  type="button"
-                  class="shop-admin__posnet-remove"
-                  aria-label="Quitar posnet"
-                  (click)="removePosnet(i)"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
-            } @empty {
-              <p class="text-muted small mb-0">
-                Sin posnets. En el cierre, PVS y Mercado Pago se cargan a mano; Cuenta DNI por
-                transferencias.
-              </p>
-            }
-          </div>
-          </div>
-        </section>
-
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-closing-sources"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-closing-sources')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-closing-sources')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-closing-sources')"
-          >
-            <h2 class="guy-section-title">Cuentas aparte</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <div class="shop-admin__posnets-head">
-            <p class="text-muted small mb-0">
-              Pedidos Ya, delivery propio u otras fuentes que no deben entrar al total declarado.
-              Podés tener ninguna, una o varias. Si rinden después o tienen cuenta propia, se
-              suman aparte en el cierre del día.
-            </p>
-            <div class="shop-admin__source-actions">
-              <button mat-stroked-button type="button" (click)="addClosingSource()">
-                <mat-icon>add</mat-icon>
-                Agregar fuente
-              </button>
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="sourceSaving()"
-                (click)="saveClosingSources()"
-              >
-                <mat-icon>save</mat-icon>
-                {{ sourceSaving() ? 'Guardando…' : 'Guardar fuentes' }}
-              </button>
-            </div>
-          </div>
-          <div class="shop-admin__sources" formArrayName="closingSources">
-            @for (row of closingSources.controls; track row; let i = $index) {
-              <div class="shop-admin__source-row" [formGroupName]="i">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Nombre</mat-label>
-                  <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Qué hacer con el monto</mat-label>
-                  <mat-select formControlName="kind" (selectionChange)="onClosingSourceKindChange(i)">
-                    @for (opt of closingSourceKinds; track opt.value) {
-                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-                @if (sourceNeedsAccount(i)) {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Cuenta destino</mat-label>
-                    <mat-select
-                      formControlName="accountId"
-                      panelClass="guy-select-search-panel"
-                      (openedChange)="onSelectSearchOpened($event, accountSearchQuery)"
-                    >
-                      <mat-option disabled class="select-search-opt">
-                        <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
-                      </mat-option>
-                      <mat-option [value]="null">Elegí una cuenta</mat-option>
-                      @for (a of filteredSourceAccounts(row.get('accountId')?.value); track a.id) {
-                        <mat-option [value]="a.id">{{ a.name }}</mat-option>
-                      }
-                      @if (accountSearchQuery() && !filteredSourceAccounts(row.get('accountId')?.value).length) {
-                        <mat-option disabled>Sin resultados</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                } @else {
-                  <span class="shop-admin__source-spacer" aria-hidden="true"></span>
-                }
-                <mat-checkbox formControlName="includeInDeclared">Suma al declarado</mat-checkbox>
-                <button
-                  mat-icon-button
-                  type="button"
-                  class="shop-admin__posnet-remove"
-                  aria-label="Quitar fuente"
-                  (click)="removeClosingSource(i)"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
-            } @empty {
-              <p class="text-muted small mb-0">
-                Sin fuentes extra. El cierre usa solo PVS, efectivo, MP, DNI, delivery y
-                transferencia.
-              </p>
-            }
-          </div>
-          </div>
-        </section>
-
-        @if (canManageAccounts()) {
-          <section
-            class="panel-card guy-form-section"
-            id="shop-admin-closing-deposits"
-            [class.guy-form-section--collapsed]="isSectionCollapsed('shop-admin-closing-deposits')"
-          >
-            <button
-              type="button"
-              class="guy-section-toggle"
-              (click)="toggleSection('shop-admin-closing-deposits')"
-              [attr.aria-expanded]="!isSectionCollapsed('shop-admin-closing-deposits')"
-            >
-              <h2 class="guy-section-title">Depósito del cierre</h2>
-              <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="guy-form-section__body">
-            <div class="shop-admin__posnets-head">
-              <p class="text-muted small mb-0">
-                A qué cuenta canal va cada campo del cierre (PVS, Mercado Pago, efectivo…).
-              </p>
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="depositSaving()"
-                (click)="savePaymentDeposits()"
-              >
-                <mat-icon>save</mat-icon>
-                {{ depositSaving() ? 'Guardando…' : 'Guardar depósitos' }}
-              </button>
-            </div>
-            <div class="shop-admin__deposits" [formGroup]="depositForm">
-              @for (field of closingDepositFields; track field.value) {
-                <div class="shop-admin__deposit-row">
-                  <span class="shop-admin__deposit-label">{{ field.label }}</span>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Cuenta destino</mat-label>
-                    <mat-select
-                      [formControlName]="field.value"
-                      panelClass="guy-select-search-panel"
-                      (openedChange)="onSelectSearchOpened($event, accountSearchQuery)"
-                    >
-                      <mat-option disabled class="select-search-opt">
-                        <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
-                      </mat-option>
-                      <mat-option [value]="null">Sin vincular</mat-option>
-                      @for (a of filteredDepositAccounts(depositForm.get(field.value)?.value); track a.id) {
-                        <mat-option [value]="a.id">{{ a.name }}</mat-option>
-                      }
-                      @if (accountSearchQuery() && !filteredDepositAccounts(depositForm.get(field.value)?.value).length) {
-                        <mat-option disabled>Sin resultados</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                </div>
-              }
-            </div>
-            </div>
-          </section>
-
-          <section
-            class="panel-card guy-form-section"
-            id="shop-admin-channel-accounts"
-            [class.guy-form-section--collapsed]="isSectionCollapsed('shop-admin-channel-accounts')"
-          >
-            <button
-              type="button"
-              class="guy-section-toggle"
-              (click)="toggleSection('shop-admin-channel-accounts')"
-              [attr.aria-expanded]="!isSectionCollapsed('shop-admin-channel-accounts')"
-            >
-              <h2 class="guy-section-title">Cuentas canal</h2>
-              <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="guy-form-section__body">
-            <div class="shop-admin__posnets-head">
-              <p class="text-muted small mb-0">
-                Medios de cobro del local (PVS, efectivo, MP…). Todas las cuentas están en
-                Administración → Cuentas.
-              </p>
-              <button mat-stroked-button type="button" (click)="openCreateAccount()">
-                <mat-icon>add</mat-icon>
-                Nueva cuenta
-              </button>
-            </div>
-            <app-data-table
-              [columns]="accountColumns"
-              [rows]="accounts()"
-              [sortable]="true"
-              [canRemove]="canRemoveAccount"
-              (edit)="openEditAccount($event)"
-              (remove)="onRemoveAccount($event)"
+        <mat-tab label="Operación">
+          <div class="shop-admin__tab-panel">
+            <app-admin-shop-operation
+              [timezoneOptions]="timezoneOptions"
+              [weekdayOptions]="weekdayOptions"
+              [salesSystems]="salesSystems()"
+              [conceptCategoryOptions]="conceptCategoryOptions"
+              [serviceWithHours]="!!formValue()?.serviceAttendanceWithHours"
+              [canManageAccounts]="canManageAccounts()"
+              [isShiftWeekday]="isShiftWeekdayBound"
+              [isClosedWeekday]="isClosedWeekdayBound"
+              (addShift)="addShift()"
+              (removeShift)="removeShift($event)"
+              (toggleShiftWeekday)="toggleShiftWeekday($event.index, $event.day)"
+              (toggleClosedWeekday)="toggleClosedWeekday($event)"
             />
-            </div>
-          </section>
-        }
+          </div>
+        </mat-tab>
 
-        <section
-          class="panel-card guy-form-section"
-          id="shop-sec-estado"
-          [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-estado')"
-        >
-          <button
-            type="button"
-            class="guy-section-toggle"
-            (click)="toggleSection('shop-sec-estado')"
-            [attr.aria-expanded]="!isSectionCollapsed('shop-sec-estado')"
-          >
-            <h2 class="guy-section-title">Estado</h2>
-            <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-          <div class="guy-form-section__body">
-          <div class="shop-admin__toggle">
-            <div>
-              <strong>Local habilitado</strong>
-              <p class="text-muted small mb-0">
-                Si está deshabilitado no aparece en el selector de locales.
+        <mat-tab label="Dispositivos">
+          <div class="shop-admin__tab-panel">
+            <app-admin-shop-devices
+              [posnetTypes]="posnetTypes"
+              [closingSourceKinds]="closingSourceKinds"
+              [sourceSaving]="sourceSaving()"
+              [(accountSearchQuery)]="accountSearchQuery"
+              [sourceNeedsAccount]="sourceNeedsAccountBound"
+              [filteredSourceAccounts]="filteredSourceAccountsBound"
+              (addPosnet)="addPosnet()"
+              (removePosnet)="removePosnet($event)"
+              (addClosingSource)="addClosingSource()"
+              (removeClosingSource)="removeClosingSource($event)"
+              (closingSourceKindChange)="onClosingSourceKindChange($event)"
+              (saveClosingSources)="saveClosingSources()"
+              (selectOpened)="onSelectSearchOpened($event, accountSearchQuery)"
+            />
+          </div>
+        </mat-tab>
+
+        <mat-tab label="Menú">
+          <div class="shop-admin__tab-panel">
+            <section class="panel-card guy-form-section">
+              <h2 class="guy-section-title">Menú lateral</h2>
+              <p class="text-muted small mb-3">
+                Grupos y módulos visibles en el menú de este local.
               </p>
-            </div>
-            <mat-slide-toggle formControlName="active" aria-label="Local habilitado" />
+              <app-shop-nav-editor
+                [value]="navConfigDraft()"
+                (valueChange)="onNavConfigChange($event)"
+              />
+            </section>
           </div>
+        </mat-tab>
+
+        <mat-tab label="Avanzado">
+          <div class="shop-admin__tab-panel">
+            <app-admin-shop-advanced
+              [isSuperAdmin]="isSuperAdmin()"
+              (openBackup)="openBackupTools()"
+            />
           </div>
-        </section>
+        </mat-tab>
+      </mat-tab-group>
 
-        @if (isSuperAdmin()) {
-          <section
-            class="panel-card guy-form-section shop-admin__danger"
-            id="shop-sec-peligro"
-            [class.guy-form-section--collapsed]="isSectionCollapsed('shop-sec-peligro')"
-          >
-            <button
-              type="button"
-              class="guy-section-toggle"
-              (click)="toggleSection('shop-sec-peligro')"
-              [attr.aria-expanded]="!isSectionCollapsed('shop-sec-peligro')"
-            >
-              <h2 class="guy-section-title">Zona peligrosa</h2>
-              <mat-icon class="guy-section-toggle__chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-            <div class="guy-form-section__body">
-            <p class="text-muted small mb-3">
-              Solo super admin. Dump por módulo o total (Excel o SQL), cargar Excel, y reset parcial o
-              total. Se conserva configuración y usuarios.
-            </p>
-            <div class="shop-admin__danger-actions">
-              <button
-                mat-flat-button
-                color="warn"
-                type="button"
-                (click)="openBackupTools()"
-              >
-                <mat-icon>shield</mat-icon>
-                Dump y reset…
-              </button>
-            </div>
-            </div>
-          </section>
-        }
-
-        <div class="shop-admin__save-spacer guy-form-save-spacer" aria-hidden="true"></div>
-      </div>
-
+      <div class="shop-admin__save-spacer guy-form-save-spacer" aria-hidden="true"></div>
       <div class="shop-admin__save-bar guy-form-save-bar" [style.--save-accent]="liveAccent()">
         <button
           mat-flat-button
@@ -1326,606 +288,7 @@ const TIMEZONE_OPTIONS = [
       </div>
     </form>
   `,
-  styles: [
-    `
-      .shop-admin {
-        display: grid;
-        gap: 1rem;
-        align-items: start;
-      }
-      @media (min-width: 960px) {
-        .shop-admin {
-          grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-          gap: 1.25rem;
-        }
-      }
-      .shop-admin__preview {
-        position: sticky;
-        top: 0.75rem;
-      }
-      .shop-admin__preview-label {
-        margin: 0 0 0.75rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--guy-muted, #5f6f76);
-      }
-      .shop-admin__brand {
-        display: flex;
-        align-items: center;
-        gap: 0.85rem;
-        padding: 0.85rem;
-        border-radius: 12px;
-        border: 1px solid color-mix(in srgb, var(--preview-accent, #2e7d32) 35%, var(--guy-border, #ddd));
-        background: linear-gradient(
-          135deg,
-          color-mix(in srgb, var(--preview-accent, #2e7d32) 14%, var(--guy-card, #fff)),
-          color-mix(in srgb, var(--preview-accent-secondary, #f9a825) 10%, var(--guy-card, #fff))
-        );
-        margin-bottom: 0.85rem;
-      }
-      .shop-admin__logo-wrap {
-        width: 52px;
-        height: 52px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        background: var(--guy-card, #fff);
-        border: 1px solid var(--guy-border, #ddd);
-        overflow: hidden;
-        flex-shrink: 0;
-      }
-      .shop-admin__logo {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-      }
-      .shop-admin__logo-fallback {
-        color: var(--preview-accent, #2e7d32);
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
-      }
-      .shop-admin__brand-text {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.15rem;
-      }
-      .shop-admin__brand-text strong {
-        font-size: 1rem;
-        color: var(--preview-accent-secondary, var(--guy-navy, #003366));
-        line-height: 1.25;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .shop-admin__brand-text span {
-        font-size: 0.8rem;
-        color: var(--guy-muted, #5f6f76);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .shop-admin__swatch-row {
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        margin-bottom: 0.65rem;
-      }
-      .shop-admin__swatch {
-        width: 22px;
-        height: 22px;
-        border-radius: 6px;
-        border: 1px solid var(--guy-border, #ddd);
-        flex-shrink: 0;
-      }
-      .shop-admin__swatch--lg {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-      }
-      .shop-admin__fields {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        min-width: 0;
-      }
-      .shop-admin__fields > .guy-form-toc {
-        /* sticks under page chrome while scrolling sections */
-        top: 0.15rem;
-      }
-      .shop-admin__fields .panel-card {
-        scroll-margin-top: 4.25rem;
-      }
-      .shop-admin__full {
-        grid-column: 1 / -1;
-      }
-      .shop-admin__appearance {
-        display: flex;
-        flex-direction: column;
-      }
-      .shop-admin__logo-field {
-        width: 100%;
-        margin-bottom: 0.35rem;
-      }
-      .shop-admin__logo-block {
-        display: flex;
-        flex-direction: column;
-        gap: 0.65rem;
-        margin-bottom: 0.35rem;
-      }
-      .shop-admin__logo-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        align-items: center;
-      }
-      .shop-admin__logo-file {
-        display: flex;
-        gap: 0.65rem;
-        align-items: flex-start;
-        padding: 0.7rem 0.85rem;
-        border-radius: 10px;
-        border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 30%, var(--guy-border, #ddd));
-        background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, transparent);
-      }
-      .shop-admin__logo-file mat-icon {
-        color: var(--guy-accent, #2e7d32);
-        flex-shrink: 0;
-      }
-      .shop-admin__logo-file strong {
-        display: block;
-        font-size: 0.9rem;
-      }
-      .shop-admin__colors {
-        display: flex;
-        flex-direction: column;
-        gap: 1.15rem;
-        margin-top: 0.85rem;
-      }
-      .shop-admin__color-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 0.85rem;
-        align-items: start;
-      }
-      .shop-admin__color-row > mat-form-field {
-        width: 100%;
-        min-width: 0;
-      }
-      .shop-admin__color-picker {
-        display: flex;
-        align-items: center;
-        gap: 0.65rem;
-        min-height: 56px;
-        padding-top: 0.35rem;
-      }
-      .shop-admin__color-label {
-        font-size: 0.85rem;
-        color: var(--guy-muted, #5f6f76);
-        margin: 0;
-        white-space: nowrap;
-      }
-      input[type='color'] {
-        width: 48px;
-        height: 40px;
-        padding: 0;
-        border: 1px solid var(--guy-border, #ddd);
-        border-radius: 8px;
-        background: transparent;
-        cursor: pointer;
-      }
-      @media (max-width: 560px) {
-        .shop-admin__color-row {
-          grid-template-columns: 1fr;
-        }
-        .shop-admin__color-picker {
-          padding-top: 0;
-          min-height: 0;
-        }
-      }
-      .shop-admin__op-block {
-        padding: 1rem 0 1.15rem;
-        border-bottom: 1px solid var(--guy-border, #e4ebe6);
-      }
-      .shop-admin__op-block--last {
-        border-bottom: 0;
-        padding-bottom: 0;
-      }
-      .shop-admin__op-title {
-        margin: 0 0 0.75rem;
-        font-size: 0.8rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: var(--guy-muted, #5f6f76);
-      }
-      .shop-admin__op-note {
-        margin: 0;
-        align-self: start;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        border: 1px dashed var(--guy-border, #d7e0d9);
-        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, transparent);
-        font-size: 0.85rem;
-        line-height: 1.45;
-        color: var(--guy-muted, #5f6f76);
-      }
-      .shop-admin__toggle-list {
-        display: flex;
-        flex-direction: column;
-        margin-top: 0.35rem;
-        border: 1px solid var(--guy-border, #ddd);
-        border-radius: 12px;
-        overflow: hidden;
-        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, var(--guy-card, #fff));
-      }
-      .shop-admin__toggle-list .shop-admin__toggle {
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-      }
-      .shop-admin__toggle-list .shop-admin__toggle + .shop-admin__toggle {
-        border-top: 1px solid var(--guy-border, #e4ebe6);
-      }
-      .shop-admin__party-rules {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-        gap: 0.85rem 1rem;
-        padding: 0.85rem 1rem 1rem;
-        border-top: 1px solid var(--guy-border, #e4ebe6);
-      }
-      .shop-admin__party-rules mat-form-field {
-        width: 100%;
-      }
-      .shop-admin__toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        border: 1px solid var(--guy-border, #ddd);
-        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 70%, var(--guy-card, #fff));
-      }
-      .shop-admin__toggle strong {
-        display: block;
-        font-size: 0.95rem;
-        color: var(--guy-navy, #003366);
-        margin-bottom: 0.15rem;
-      }
-      .shop-admin__save-spacer {
-        height: 5.25rem;
-      }
-      .shop-admin__save-bar {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: calc(
-          0.85rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px)
-        );
-        z-index: 40;
-        display: flex;
-        justify-content: center;
-        pointer-events: none;
-        padding: 0 1rem;
-      }
-      .shop-admin__save-btn {
-        pointer-events: auto;
-        min-width: 12.5rem;
-        height: 3rem !important;
-        padding: 0 1.35rem !important;
-        border-radius: 999px !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.01em;
-        color: #fff !important;
-        background: var(--save-accent, var(--guy-primary, #1d65a0)) !important;
-        box-shadow:
-          0 10px 28px color-mix(in srgb, var(--save-accent, #1d65a0) 38%, transparent),
-          0 2px 8px rgba(8, 20, 30, 0.16) !important;
-        transition:
-          transform 0.15s ease,
-          box-shadow 0.15s ease,
-          filter 0.15s ease;
-      }
-      .shop-admin__save-btn:not(:disabled):hover {
-        filter: brightness(1.06);
-        transform: translateY(-1px);
-        box-shadow:
-          0 14px 32px color-mix(in srgb, var(--save-accent, #1d65a0) 42%, transparent),
-          0 4px 12px rgba(8, 20, 30, 0.18) !important;
-      }
-      .shop-admin__save-btn:not(:disabled):active {
-        transform: translateY(1px);
-        box-shadow:
-          0 6px 16px color-mix(in srgb, var(--save-accent, #1d65a0) 30%, transparent),
-          0 1px 4px rgba(8, 20, 30, 0.14) !important;
-      }
-      .shop-admin__save-btn:disabled {
-        opacity: 0.55;
-        box-shadow: 0 4px 12px rgba(8, 20, 30, 0.1) !important;
-      }
-      .shop-admin__save-btn mat-icon {
-        margin-right: 0.35rem;
-        font-size: 1.2rem;
-        width: 1.2rem;
-        height: 1.2rem;
-      }
-      .shop-admin__danger {
-        border-color: color-mix(in srgb, #c62828 28%, var(--guy-border, #ddd));
-      }
-      .shop-admin__danger-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .shop-admin__posnets-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        margin-bottom: 0.85rem;
-      }
-      .shop-admin__posnets-head .guy-section-title {
-        margin-bottom: 0.25rem;
-      }
-      .guy-section-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        width: 100%;
-        margin: 0 0 0.85rem;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        cursor: pointer;
-        text-align: left;
-        color: inherit;
-      }
-      .guy-section-toggle .guy-section-title {
-        margin: 0;
-      }
-      .guy-section-toggle__chevron {
-        flex-shrink: 0;
-        transition: transform 0.22s ease;
-        color: var(--guy-muted, #666);
-      }
-      .guy-form-section--collapsed .guy-section-toggle {
-        margin-bottom: 0;
-      }
-      .guy-form-section--collapsed .guy-section-toggle__chevron {
-        transform: rotate(-90deg);
-      }
-      .guy-form-section__body {
-        overflow: hidden;
-        max-height: 8000px;
-        opacity: 1;
-        transform: translateY(0);
-        transition:
-          max-height 0.35s ease,
-          opacity 0.22s ease,
-          transform 0.22s ease;
-      }
-      .guy-form-section--collapsed .guy-form-section__body {
-        max-height: 0;
-        opacity: 0;
-        transform: translateY(-0.35rem);
-        pointer-events: none;
-      }
-      .shop-admin__op-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        width: 100%;
-        margin: 0 0 0.65rem;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        cursor: pointer;
-        text-align: left;
-        color: inherit;
-      }
-      .shop-admin__op-toggle .shop-admin__op-title {
-        margin: 0;
-      }
-      .shop-admin__op-toggle__chevron {
-        flex-shrink: 0;
-        font-size: 1.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        transition: transform 0.22s ease;
-        color: var(--guy-muted, #666);
-      }
-      .shop-admin__op-block--collapsed .shop-admin__op-toggle {
-        margin-bottom: 0;
-      }
-      .shop-admin__op-block--collapsed .shop-admin__op-toggle__chevron {
-        transform: rotate(-90deg);
-      }
-      .shop-admin__op-body {
-        overflow: hidden;
-        max-height: 4000px;
-        opacity: 1;
-        transform: translateY(0);
-        transition:
-          max-height 0.3s ease,
-          opacity 0.2s ease,
-          transform 0.2s ease;
-      }
-      .shop-admin__op-block--collapsed .shop-admin__op-body {
-        max-height: 0;
-        opacity: 0;
-        transform: translateY(-0.25rem);
-        pointer-events: none;
-      }
-      .shop-admin__posnets {
-        display: flex;
-        flex-direction: column;
-        gap: 0.6rem;
-      }
-      .shop-admin__posnet-row {
-        display: grid;
-        grid-template-columns: 1.4fr 1fr auto;
-        gap: 0.6rem;
-        align-items: center;
-      }
-      .shop-admin__shifts {
-        display: flex;
-        flex-direction: column;
-        gap: 0.6rem;
-        margin-bottom: 0.85rem;
-      }
-      .shop-admin__shift-row {
-        display: grid;
-        grid-template-columns: 1.3fr 1fr 1fr auto;
-        gap: 0.6rem;
-        align-items: start;
-      }
-      .shop-admin__shift-days {
-        grid-column: 1 / -1;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        padding-bottom: 0.15rem;
-      }
-      .shop-admin__posnet-remove {
-        color: #c62828;
-      }
-      .shop-admin__source-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .shop-admin__sources {
-        display: flex;
-        flex-direction: column;
-        gap: 0.7rem;
-      }
-      .shop-admin__source-row {
-        display: grid;
-        grid-template-columns: 1.2fr 1.6fr minmax(10rem, 1.2fr) auto auto;
-        gap: 0.6rem;
-        align-items: center;
-      }
-      .shop-admin__source-spacer {
-        display: block;
-      }
-      @media (max-width: 960px) {
-        .shop-admin__source-row {
-          grid-template-columns: 1fr;
-        }
-      }
-      @media (max-width: 640px) {
-        .shop-admin__posnet-row,
-        .shop-admin__shift-row {
-          grid-template-columns: 1fr;
-        }
-      }
-      @media (max-width: 959px) {
-        .shop-admin__preview {
-          position: static;
-        }
-      }
-      @media (max-width: 960px) {
-        .shop-admin__preview {
-          /* compact preview on mobile so form starts sooner */
-          padding: 0.85rem;
-        }
-      }
-      .shop-admin__weekdays {
-        display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
-      }
-      .shop-admin__email-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1.25rem;
-      }
-      .shop-admin__smtp-actions {
-        margin-top: 0.15rem;
-      }
-      .shop-admin__ig-prefix {
-        margin-right: 0.15rem;
-        font-weight: 700;
-        opacity: 0.7;
-      }
-      @media (max-width: 800px) {
-        .shop-admin__email-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-      .shop-admin__check-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-      }
-      .shop-admin__user-check {
-        --mdc-checkbox-state-layer-size: 36px;
-      }
-      .shop-admin__user-row {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.55rem;
-        min-width: 0;
-      }
-      .shop-admin__user-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 0.05rem;
-        min-width: 0;
-        line-height: 1.25;
-      }
-      .shop-admin__weekday-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-      }
-      .shop-admin__weekday {
-        min-width: 2.75rem;
-        border: 1px solid var(--guy-border, #d7e0d9);
-        background: #fff;
-        border-radius: 999px;
-        padding: 0.4rem 0.7rem;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--guy-navy, #003366);
-        cursor: pointer;
-      }
-      .shop-admin__weekday--on {
-        background: color-mix(in srgb, var(--guy-navy, #003366) 12%, transparent);
-        border-color: var(--guy-navy, #003366);
-      }
-      .shop-admin__deposits {
-        display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
-      }
-      .shop-admin__deposit-row {
-        display: grid;
-        grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
-        gap: 0.75rem;
-        align-items: center;
-      }
-      .shop-admin__deposit-label {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: var(--guy-navy, #003366);
-      }
-      @media (max-width: 600px) {
-        .shop-admin__deposit-row {
-          grid-template-columns: 1fr;
-          gap: 0.25rem;
-        }
-      }
-    `,
-  ],
+  styleUrl: './admin-shop.scss',
 })
 export class AdminShopPage implements OnInit {
   private readonly fb = inject(FormBuilder);
@@ -1937,61 +300,35 @@ export class AdminShopPage implements OnInit {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
-  private readonly accountDelete = inject(AdminAccountDeleteService);
   readonly shops = inject(ShopContextService);
 
+  readonly selectedTab = signal(0);
   readonly salesSystems = signal<SalesSystemOption[]>([]);
-  readonly accounts = signal<AdminAccountRow[]>([]);
   readonly allLedgerAccounts = signal<AdminAccountRow[]>([]);
   readonly shopUsers = signal<ShopUserOption[]>([]);
   readonly saving = signal(false);
-  readonly depositSaving = signal(false);
   readonly sourceSaving = signal(false);
   readonly logoUploading = signal(false);
   readonly logoCacheBust = signal(Date.now());
-  /** Path relativo del logo subido (`shops/{id}/logo.png`); no se muestra en el input de URL. */
   readonly uploadedLogoPath = signal<string | null>(null);
   readonly posnetTypes = POSNET_TYPE_OPTIONS;
   readonly emailTypeOptions = EMAIL_NOTIFICATION_TYPE_OPTIONS;
   readonly emailSmtpConfigured = signal(false);
   readonly clearSmtpPasswordOnSave = signal(false);
   readonly navConfigDraft = signal<ShopNavConfig | null>(null);
-  readonly closingDepositFields = CLOSING_DEPOSIT_FIELDS;
   readonly closingSourceKinds = CLOSING_SOURCE_KIND_OPTIONS;
   private removedClosingSourceIds: string[] = [];
 
-  readonly depositForm = this.fb.nonNullable.group({
-    card: this.fb.control<string | null>(null),
-    mercadoPago: this.fb.control<string | null>(null),
-    cash: this.fb.control<string | null>(null),
-    accountDni: this.fb.control<string | null>(null),
-    delivery: this.fb.control<string | null>(null),
-    transfer: this.fb.control<string | null>(null),
-    other: this.fb.control<string | null>(null),
-  });
+  readonly accountSearchQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
 
-  readonly accountColumns: DataTableColumn[] = [
-    { key: 'name', label: 'Nombre' },
-    { key: 'code', label: 'Código' },
-    {
-      key: 'linkedPaymentMethod',
-      label: 'Depósito',
-      format: (r) => this.paymentMethodLabel(String(r['linkedPaymentMethod'] ?? '')),
-    },
-    {
-      key: 'hideFromCashWithdraw',
-      label: 'Retiro',
-      format: (r) => (r['hideFromCashWithdraw'] ? 'Oculta' : 'Visible'),
-    },
-    { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
-  ];
-
-  readonly canRemoveAccount = (row: AdminAccountRow) => row.type !== 'SYSTEM';
-
-  paymentMethodLabel(value: string): string {
-    if (!value) return '—';
-    return LINKED_PAYMENT_METHOD_OPTIONS.find((o) => o.value === value)?.label ?? value;
-  }
+  readonly isEmailTypeSelectedBound = (type: string) => this.isEmailTypeSelected(type);
+  readonly isEmailUserSelectedBound = (id: string) => this.isEmailUserSelected(id);
+  readonly isShiftWeekdayBound = (index: number, day: number) => this.isShiftWeekday(index, day);
+  readonly isClosedWeekdayBound = (day: number) => this.isClosedWeekday(day);
+  readonly sourceNeedsAccountBound = (index: number) => this.sourceNeedsAccount(index);
+  readonly filteredSourceAccountsBound = (keepId?: string | null) =>
+    this.filteredSourceAccounts(keepId);
 
   private toPartyRule(raw: number | string | null | undefined): number | null {
     if (raw === null || raw === undefined || raw === '') return null;
@@ -2068,58 +405,6 @@ export class AdminShopPage implements OnInit {
   readonly timezoneOptions = TIMEZONE_OPTIONS;
   readonly conceptCategoryOptions = CONCEPT_CATEGORY_OPTIONS;
 
-  readonly tocSections = [
-    { id: 'shop-sec-identidad', label: 'Identidad' },
-    { id: 'shop-sec-notificaciones', label: 'Mails' },
-    { id: 'shop-sec-apariencia', label: 'Apariencia' },
-    { id: 'shop-sec-menu', label: 'Menú' },
-    { id: 'shop-sec-operacion', label: 'Operación' },
-    { id: 'shop-sec-conceptos', label: 'Conceptos' },
-    { id: 'shop-sec-francos', label: 'Francos' },
-    { id: 'shop-sec-posnets', label: 'Posnets' },
-    { id: 'shop-sec-closing-sources', label: 'Cuentas aparte' },
-    { id: 'shop-admin-closing-deposits', label: 'Depósitos' },
-    { id: 'shop-admin-channel-accounts', label: 'Cuentas' },
-    { id: 'shop-sec-estado', label: 'Estado' },
-  ] as const;
-
-  scrollToSection(id: string): void {
-    this.collapsedSections.update((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    // Conceptos vive dentro de Operación.
-    if (id === 'shop-sec-conceptos') {
-      this.collapsedSections.update((prev) => {
-        if (!prev.has('shop-sec-operacion') && !prev.has('op-conceptos')) return prev;
-        const next = new Set(prev);
-        next.delete('shop-sec-operacion');
-        next.delete('op-conceptos');
-        return next;
-      });
-    }
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  readonly collapsedSections = signal<ReadonlySet<string>>(new Set());
-
-  isSectionCollapsed(id: string): boolean {
-    return this.collapsedSections().has(id);
-  }
-
-  toggleSection(id: string): void {
-    this.collapsedSections.update((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   get posnets(): FormArray {
     return this.form.get('posnets') as FormArray;
   }
@@ -2136,9 +421,6 @@ export class AdminShopPage implements OnInit {
     this.allLedgerAccounts().filter((a) => a.active && a.type !== 'SYSTEM'),
   );
 
-  readonly accountSearchQuery = signal('');
-  readonly onSelectSearchOpened = onSelectSearchOpened;
-
   filteredSourceAccounts(keepId?: string | null) {
     return filterBySelectQuery(
       this.sourceAccountOptions(),
@@ -2148,11 +430,7 @@ export class AdminShopPage implements OnInit {
     );
   }
 
-  filteredDepositAccounts(keepId?: string | null) {
-    return filterBySelectQuery(this.accounts(), this.accountSearchQuery(), (a) => a.name, keepId);
-  }
-
-  private readonly formValue = toSignal(
+  readonly formValue = toSignal(
     this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
     { initialValue: this.form.getRawValue() },
   );
@@ -2180,7 +458,6 @@ export class AdminShopPage implements OnInit {
     );
   });
 
-  /** Link pegado gana sobre archivo subido; si no hay link, usa el path subido. */
   private effectiveLogoRaw(): string {
     const link = (this.formValue()?.logoUrl ?? '').trim();
     if (link && !isUploadedShopLogoPath(link)) return link;
@@ -2204,17 +481,11 @@ export class AdminShopPage implements OnInit {
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {
-        this.accounts.set([]);
         this.allLedgerAccounts.set([]);
         this.closingSources.clear();
         return;
       }
-      if (!this.canManageAccounts()) {
-        this.accounts.set([]);
-        this.allLedgerAccounts.set([]);
-      } else {
-        this.reloadAccounts();
-      }
+      this.reloadAccounts();
       this.reloadClosingSources();
     });
   }
@@ -2231,41 +502,7 @@ export class AdminShopPage implements OnInit {
     });
     const shop = this.shops.selectedShop();
     if (!shop) return;
-    this.form.patchValue({
-      name: shop.name,
-      slug: shop.slug,
-      email: shop.email ?? '',
-      instagramHandle: shop.instagramHandle ?? '',
-      phone: shop.phone ?? '',
-      emailSmtpPassword: '',
-      emailNotificationsEnabled: shop.emailNotificationsEnabled !== false,
-      accentColor: shop.accentColor ?? '#2E7D32',
-      accentSecondary: shop.accentSecondary ?? '#F9A825',
-      unitsLabel: shop.unitsLabel ?? '',
-      currency: shop.currency ?? 'ARS',
-      defaultChangeAmount: shop.defaultChangeAmount ?? 0,
-      openingTime: shop.openingTime ?? '10:00',
-      timezone: shop.timezone ?? 'America/Argentina/Buenos_Aires',
-      productionDefaultHours: shop.productionDefaultHours ?? 8,
-      serviceDefaultCheckIn: shop.serviceDefaultCheckIn || '18:00',
-      serviceDefaultCheckOut: shop.serviceDefaultCheckOut || '00:00',
-      serviceAttendanceWithHours: shop.serviceAttendanceWithHours !== false,
-      closedWeekdays: Array.isArray(shop.closedWeekdays) ? [...shop.closedWeekdays] : [],
-      coversEnabled: !!shop.coversEnabled,
-      reservationsEnabled: !!shop.reservationsEnabled,
-      reservationSignupEnabled: shop.reservationSignupEnabled !== false,
-      reservationInsideEnabled: shop.reservationInsideEnabled !== false,
-      reservationOutsideEnabled: shop.reservationOutsideEnabled !== false,
-      reservationInsideMaxPartySize: shop.reservationInsideMaxPartySize ?? null,
-      reservationOutsideMinPartySize: shop.reservationOutsideMinPartySize ?? null,
-      waitingListEnabled: !!shop.waitingListEnabled,
-      tipsEnabled: !!shop.tipsEnabled,
-      publicAttendanceEnabled: !!shop.publicAttendanceEnabled,
-      publicServiceRulesEnabled: !!shop.publicServiceRulesEnabled,
-      menuEnabled: !!shop.menuEnabled,
-      active: shop.active ?? true,
-      salesSystemId: shop.salesSystemId ?? null,
-    });
+    this.patchShopForm(shop);
     this.applyPaymentConceptCategories(shop.paymentConceptCategories);
     this.navConfigDraft.set(shop.navConfig ?? null);
     this.applyLogoFromShop(shop.logoUrl);
@@ -2278,41 +515,7 @@ export class AdminShopPage implements OnInit {
       this.loadShopUsers(shopId, shop.emailNotificationUserIds ?? null);
       this.http.get<any>(`${environment.apiUrl}/shops/${shopId}`).subscribe({
         next: (s) => {
-          this.form.patchValue({
-            salesSystemId: s.salesSystemId ?? null,
-            name: s.name,
-            slug: s.slug,
-            email: s.email ?? '',
-            instagramHandle: s.instagramHandle ?? '',
-            phone: s.phone ?? '',
-            emailSmtpPassword: '',
-            emailNotificationsEnabled: s.emailNotificationsEnabled !== false,
-            accentColor: s.accentColor ?? '#2E7D32',
-            accentSecondary: s.accentSecondary ?? '#F9A825',
-            unitsLabel: s.unitsLabel ?? '',
-            currency: s.currency ?? 'ARS',
-            defaultChangeAmount: s.defaultChangeAmount ?? 0,
-            openingTime: s.openingTime ?? '10:00',
-            timezone: s.timezone ?? 'America/Argentina/Buenos_Aires',
-            productionDefaultHours: s.productionDefaultHours ?? 8,
-            closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
-            coversEnabled: !!s.coversEnabled,
-            reservationsEnabled: !!s.reservationsEnabled,
-            reservationSignupEnabled: s.reservationSignupEnabled !== false,
-            reservationInsideEnabled: s.reservationInsideEnabled !== false,
-            reservationOutsideEnabled: s.reservationOutsideEnabled !== false,
-            reservationInsideMaxPartySize: s.reservationInsideMaxPartySize ?? null,
-            reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
-            waitingListEnabled: !!s.waitingListEnabled,
-            tipsEnabled: !!s.tipsEnabled,
-            publicAttendanceEnabled: !!s.publicAttendanceEnabled,
-            publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
-            serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
-            serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
-            serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
-            menuEnabled: !!s.menuEnabled,
-            active: !!s.active,
-          });
+          this.patchShopForm(s);
           this.applyLogoFromShop(s.logoUrl);
           this.emailSmtpConfigured.set(!!s.emailSmtpConfigured);
           this.clearSmtpPasswordOnSave.set(false);
@@ -2326,6 +529,77 @@ export class AdminShopPage implements OnInit {
         },
       });
     }
+  }
+
+  private patchShopForm(s: {
+    name?: string;
+    slug?: string;
+    email?: string | null;
+    instagramHandle?: string | null;
+    phone?: string | null;
+    emailNotificationsEnabled?: boolean;
+    accentColor?: string | null;
+    accentSecondary?: string | null;
+    unitsLabel?: string | null;
+    currency?: string | null;
+    defaultChangeAmount?: number | null;
+    openingTime?: string | null;
+    timezone?: string | null;
+    productionDefaultHours?: number | null;
+    closedWeekdays?: number[] | null;
+    coversEnabled?: boolean;
+    reservationsEnabled?: boolean;
+    reservationSignupEnabled?: boolean;
+    reservationInsideEnabled?: boolean;
+    reservationOutsideEnabled?: boolean;
+    reservationInsideMaxPartySize?: number | null;
+    reservationOutsideMinPartySize?: number | null;
+    waitingListEnabled?: boolean;
+    tipsEnabled?: boolean;
+    publicAttendanceEnabled?: boolean;
+    publicServiceRulesEnabled?: boolean;
+    serviceDefaultCheckIn?: string | null;
+    serviceDefaultCheckOut?: string | null;
+    serviceAttendanceWithHours?: boolean;
+    menuEnabled?: boolean;
+    active?: boolean;
+    salesSystemId?: string | null;
+  }): void {
+    this.form.patchValue({
+      name: s.name ?? '',
+      slug: s.slug ?? '',
+      email: s.email ?? '',
+      instagramHandle: s.instagramHandle ?? '',
+      phone: s.phone ?? '',
+      emailSmtpPassword: '',
+      emailNotificationsEnabled: s.emailNotificationsEnabled !== false,
+      accentColor: s.accentColor ?? '#2E7D32',
+      accentSecondary: s.accentSecondary ?? '#F9A825',
+      unitsLabel: s.unitsLabel ?? '',
+      currency: s.currency ?? 'ARS',
+      defaultChangeAmount: s.defaultChangeAmount ?? 0,
+      openingTime: s.openingTime ?? '10:00',
+      timezone: s.timezone ?? 'America/Argentina/Buenos_Aires',
+      productionDefaultHours: s.productionDefaultHours ?? 8,
+      closedWeekdays: Array.isArray(s.closedWeekdays) ? [...s.closedWeekdays] : [],
+      coversEnabled: !!s.coversEnabled,
+      reservationsEnabled: !!s.reservationsEnabled,
+      reservationSignupEnabled: s.reservationSignupEnabled !== false,
+      reservationInsideEnabled: s.reservationInsideEnabled !== false,
+      reservationOutsideEnabled: s.reservationOutsideEnabled !== false,
+      reservationInsideMaxPartySize: s.reservationInsideMaxPartySize ?? null,
+      reservationOutsideMinPartySize: s.reservationOutsideMinPartySize ?? null,
+      waitingListEnabled: !!s.waitingListEnabled,
+      tipsEnabled: !!s.tipsEnabled,
+      publicAttendanceEnabled: !!s.publicAttendanceEnabled,
+      publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
+      serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
+      serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
+      serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
+      menuEnabled: !!s.menuEnabled,
+      active: s.active ?? true,
+      salesSystemId: s.salesSystemId ?? null,
+    });
   }
 
   colorPickerValue(): string {
@@ -2379,7 +653,6 @@ export class AdminShopPage implements OnInit {
       next: (users) => {
         const active = (users ?? []).filter((u) => u.active !== false);
         this.shopUsers.set(active);
-        // null = todos chequeados por defecto; [] = ninguno
         if (savedUserIds === null || savedUserIds === undefined) {
           this.form.controls.emailNotificationUserIds.setValue(active.map((u) => u.id));
         } else {
@@ -2555,7 +828,9 @@ export class AdminShopPage implements OnInit {
   }
 
   sourceNeedsAccount(index: number): boolean {
-    return closingSourceKindNeedsAccount(String(this.closingSources.at(index)?.get('kind')?.value ?? ''));
+    return closingSourceKindNeedsAccount(
+      String(this.closingSources.at(index)?.get('kind')?.value ?? ''),
+    );
   }
 
   onClosingSourceKindChange(index: number): void {
@@ -2597,10 +872,16 @@ export class AdminShopPage implements OnInit {
         };
         if (raw.id) {
           const updated = await firstValueFrom(this.api.updateClosingSource(shopId, raw.id, body));
-          row?.patchValue({ id: updated.id, accountId: updated.accountId ?? null }, { emitEvent: false });
+          row?.patchValue(
+            { id: updated.id, accountId: updated.accountId ?? null },
+            { emitEvent: false },
+          );
         } else {
           const created = await firstValueFrom(this.api.createClosingSource(shopId, body));
-          row?.patchValue({ id: created.id, accountId: created.accountId ?? null }, { emitEvent: false });
+          row?.patchValue(
+            { id: created.id, accountId: created.accountId ?? null },
+            { emitEvent: false },
+          );
         }
       }
       this.snack.open('Fuentes extra actualizadas', 'OK', { duration: 2500 });
@@ -2608,7 +889,9 @@ export class AdminShopPage implements OnInit {
       await this.auth.refreshMe();
       this.settlementsInbox.refresh();
     } catch (err) {
-      const msg = (err as { error?: { message?: string | string[] } })?.error?.message ?? 'No se pudieron guardar las fuentes';
+      const msg =
+        (err as { error?: { message?: string | string[] } })?.error?.message ??
+        'No se pudieron guardar las fuentes';
       this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
     } finally {
       this.sourceSaving.set(false);
@@ -2634,134 +917,13 @@ export class AdminShopPage implements OnInit {
     });
   }
 
-  reloadAccounts(after?: () => void): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId || !this.canManageAccounts()) return;
-    this.http
-      .get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`)
-      .subscribe({
-        next: (rows) => {
-          this.allLedgerAccounts.set(rows);
-          const channels = rows.filter((r) => r.type === 'CHANNEL');
-          this.accounts.set(channels);
-          this.syncDepositForm(channels);
-          after?.();
-        },
-        error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
-      });
-  }
-
-  private syncDepositForm(channels: AdminAccountRow[]): void {
-    const next: Record<string, string | null> = {
-      card: null,
-      mercadoPago: null,
-      cash: null,
-      accountDni: null,
-      delivery: null,
-      transfer: null,
-      other: null,
-    };
-    for (const a of channels) {
-      const method = a.linkedPaymentMethod;
-      if (method && method in next) {
-        next[method] = a.id;
-      }
-    }
-    this.depositForm.patchValue(next, { emitEvent: false });
-  }
-
-  savePaymentDeposits(): void {
+  reloadAccounts(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
-    const raw = this.depositForm.getRawValue();
-    const used = Object.values(raw).filter((id): id is string => !!id);
-    if (new Set(used).size !== used.length) {
-      this.snack.open('Cada cuenta solo puede recibir un medio del cierre', 'OK', {
-        duration: 3500,
-      });
-      return;
-    }
-    this.depositSaving.set(true);
-    this.http
-      .put<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts/payment-deposits`, raw)
-      .subscribe({
-        next: (rows) => {
-          this.depositSaving.set(false);
-          const channels = rows.filter((r) => r.type === 'CHANNEL');
-          this.accounts.set(channels);
-          this.syncDepositForm(channels);
-          this.snack.open('Depósitos del cierre actualizados', 'OK', { duration: 2500 });
-        },
-        error: (err) => {
-          this.depositSaving.set(false);
-          const msg = err?.error?.message ?? 'No se pudieron guardar los depósitos';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-        },
-      });
-  }
-
-  openCreateAccount(): void {
-    this.openAccountDialog({ mode: 'create' });
-  }
-
-  openEditAccount(row: AdminAccountRow): void {
-    this.openAccountDialog({ mode: 'edit', account: row });
-  }
-
-  async onRemoveAccount(row: AdminAccountRow): Promise<void> {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    const deleted = await this.accountDelete.remove(shopId, row);
-    if (deleted) {
-      this.reloadAccounts(() => this.scrollToChannelAccounts());
-    }
-  }
-
-  private scrollToChannelAccounts(fallbackY?: number): void {
-    const go = () => {
-      const el = document.getElementById('shop-admin-channel-accounts');
-      if (el) {
-        el.scrollIntoView({ block: 'start', behavior: 'auto' });
-        return;
-      }
-      if (fallbackY != null) {
-        window.scrollTo({ top: fallbackY, left: 0, behavior: 'auto' });
-      }
-    };
-    requestAnimationFrame(() => {
-      go();
-      requestAnimationFrame(go);
+    this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
+      next: (rows) => this.allLedgerAccounts.set(rows),
+      error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
     });
-  }
-
-  private openAccountDialog(
-    mode: { mode: 'create' } | { mode: 'edit'; account: AdminAccountRow },
-  ): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    const scrollY = window.scrollY;
-    this.dialogTitle
-      .track(
-        this.dialog.open(AdminAccountDialogComponent, {
-          width: '520px',
-          maxWidth: '96vw',
-          panelClass: 'guy-dialog',
-          data: {
-            ...mode,
-            shopId,
-            ...(mode.mode === 'create' ? { defaultType: 'CHANNEL' as const } : {}),
-          },
-        }),
-        mode.mode === 'edit' ? 'Editar cuenta' : 'Nueva cuenta',
-      )
-      .afterClosed()
-      .subscribe((ok) => {
-        if (ok) {
-          this.reloadAccounts(() => this.scrollToChannelAccounts(scrollY));
-        } else {
-          this.scrollToChannelAccounts(scrollY);
-        }
-      });
   }
 
   markClearSmtpPassword(): void {
@@ -2883,9 +1045,7 @@ export class AdminShopPage implements OnInit {
         this.shops.upsertShop(s, { bustLogo: true });
         this.snack.open('Logo quitado', 'OK', { duration: 2000 });
       },
-      error: () => {
-        // El campo ya quedó vacío; se persistirá al guardar el formulario.
-      },
+      error: () => {},
     });
   }
 

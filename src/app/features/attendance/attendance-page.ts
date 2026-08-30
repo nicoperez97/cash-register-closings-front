@@ -2212,12 +2212,9 @@ export class AttendancePage {
 
   shiftHoursLabel = shiftHoursLabel;
 
+  /** Defaults del local (y luego del empleado). Independientes del turno de caja. */
   private shopShiftDefaults() {
     const shop = this.shops.selectedShop();
-    const shift = shopShiftsOf(shop).find((s) => s.id === this.selectedShiftId());
-    if (shift && shift.opensAt !== shift.closesAt) {
-      return { checkIn: shift.opensAt, checkOut: shift.closesAt };
-    }
     return {
       checkIn: shop?.serviceDefaultCheckIn || '18:00',
       checkOut: shop?.serviceDefaultCheckOut || '00:00',
