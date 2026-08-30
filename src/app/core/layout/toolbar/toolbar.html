@@ -188,7 +188,7 @@
             para activar push.
           </p>
         }
-        @if (loadingNotifs()) {
+        @if (loadingNotifs() && !notifications().length) {
           <p class="notif-panel__empty">Cargando…</p>
         } @else if (!notifications().length) {
           <p class="notif-panel__empty">No hay notificaciones</p>

@@ -12,6 +12,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,6 +20,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import {
+  Subject,
+  catchError,
+  finalize,
+  map,
+  of,
+  switchMap,
+  timeout,
+} from 'rxjs';
 import { APP_BRAND } from '../../config/app-brand';
 import { AuthService } from '../../auth/auth.service';
 import {
@@ -112,6 +122,9 @@ export class ToolbarComponent implements OnInit {
   readonly unreadCount = this.notifsInbox.unreadCount;
   readonly notifications = signal<AppNotification[]>([]);
   readonly loadingNotifs = signal(false);
+
+  /** Recarga la lista; cancela un pedido anterior (p. ej. colgado al volver de background). */
+  private readonly loadNotifs$ = new Subject<{ markRead: boolean; showSpinner: boolean }>();
 
   /** Ancho libre (px) para los accesos rápidos, medido en el DOM. */
   private readonly availableQuickWidth = signal(0);
@@ -274,12 +287,46 @@ export class ToolbarComponent implements OnInit {
       this.inlineQuickLimit();
       queueMicrotask(() => this.measureQuickSpace());
     });
+
+    this.loadNotifs$
+      .pipe(
+        switchMap(({ markRead, showSpinner }) => {
+          if (showSpinner) this.loadingNotifs.set(true);
+          const shopId = this.shopContext.selectedShopId();
+          return this.notificationsApi.list(shopId).pipe(
+            timeout({ first: 12_000 }),
+            map((rows) => ({ rows, markRead })),
+            catchError(() => of({ rows: null as AppNotification[] | null, markRead })),
+            finalize(() => this.loadingNotifs.set(false)),
+          );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe(({ rows, markRead }) => {
+        if (!rows) return;
+        this.notifications.set(rows);
+        if (markRead && (this.unreadCount() > 0 || rows.some((n) => !n.read))) {
+          this.markAllRead(true);
+        }
+      });
+
+    if (typeof document !== 'undefined') {
+      const onVis = () => {
+        if (document.visibilityState !== 'visible' || !this.auth.getToken()) return;
+        // Precarga al volver: el panel no arranca en blanco si la red tarda.
+        this.loadNotifs$.next({ markRead: false, showSpinner: false });
+      };
+      document.addEventListener('visibilitychange', onVis);
+      this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVis));
+    }
   }
 
   ngOnInit(): void {
     this.notifsInbox.ensureStarted();
     this.notifsInbox.refresh();
     void this.push.refreshStatus().then(() => this.push.promptEnableIfNeeded());
+    // Lista en caché para que la campana no arranque en “Cargando…”.
+    this.loadNotifs$.next({ markRead: false, showSpinner: false });
   }
 
   private bindQuickSpaceObserver(): void {
@@ -450,22 +497,10 @@ export class ToolbarComponent implements OnInit {
   }
 
   openNotifications(): void {
-    this.loadingNotifs.set(true);
     void this.push.refreshStatus();
-    const shopId = this.shopContext.selectedShopId();
-    const shouldMarkRead = this.unreadCount() > 0;
-    this.notificationsApi.list(shopId).subscribe({
-      next: (rows) => {
-        this.notifications.set(rows);
-        this.loadingNotifs.set(false);
-        if (shouldMarkRead || rows.some((n) => !n.read)) {
-          this.markAllRead(true);
-        }
-      },
-      error: () => {
-        this.notifications.set([]);
-        this.loadingNotifs.set(false);
-      },
+    this.loadNotifs$.next({
+      markRead: true,
+      showSpinner: this.notifications().length === 0,
     });
   }
 
