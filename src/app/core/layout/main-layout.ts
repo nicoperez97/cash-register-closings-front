@@ -443,7 +443,7 @@ export class MainLayoutComponent {
       admin.push({ label: 'Locales', route: '/admin/shops', icon: 'store' });
     }
     if (shopId && canManageShop(user, shopId)) {
-      admin.push({ label: 'Local', route: '/admin/shop', icon: 'storefront' });
+      admin.push({ label: 'Configuración del local', route: '/admin/shop', icon: 'storefront' });
       admin.push({ label: 'Mensajes', route: '/admin/messages', icon: 'mail' });
       admin.push({ label: 'Carta', route: '/admin/menu', icon: 'menu_book' });
       admin.push({ label: 'QR', route: '/admin/qr', icon: 'qr_code_2' });

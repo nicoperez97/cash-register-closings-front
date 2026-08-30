@@ -105,6 +105,25 @@
   color: var(--guy-primary, #003366);
 }
 
+.tb-btn--label {
+  width: auto;
+  min-width: auto;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  line-height: 1.1;
+
+  span {
+    font-size: 0.84rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 @keyframes tb-btn-in {
   from {
     opacity: 0;

@@ -38,7 +38,10 @@ export interface AdminShopEmailTypeOption {
   template: `
     <section class="panel-card guy-form-section">
       <h2 class="guy-section-title">Identidad</h2>
-      <p class="text-muted small mb-3">Nombre visible y datos de contacto del local.</p>
+      <p class="text-muted small mb-3">
+        Nombre que ves en la app, slug de la URL interna, Instagram y teléfono. El email y la
+        contraseña de aplicación son para mandar mails desde este local.
+      </p>
       <div class="guy-form-grid guy-form-grid--2">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Nombre</mat-label>
@@ -117,7 +120,8 @@ export interface AdminShopEmailTypeOption {
     <section class="panel-card guy-form-section">
       <h2 class="guy-section-title">Notificaciones por correo</h2>
       <p class="text-muted small mb-3">
-        Activá el envío de mails, elegí qué avisos se mandan y a qué usuarios del local.
+        Elegí qué avisos se mandan y a quién. Hace falta el email del local y la contraseña de
+        aplicación de Gmail arriba.
       </p>
       <mat-slide-toggle formControlName="emailNotificationsEnabled" class="mb-3">
         Enviar notificaciones por correo
@@ -179,7 +183,8 @@ export interface AdminShopEmailTypeOption {
     <section class="panel-card guy-form-section shop-admin__appearance">
       <h2 class="guy-section-title">Apariencia</h2>
       <p class="text-muted small mb-3">
-        Logo y color del local en la app y en las PWAs de Reservas / Lista de espera.
+        Logo y colores del menú, botones y pantallas públicas (reservas / lista de espera). Subí un
+        archivo o pegá un link; no uses los dos a la vez.
       </p>
       <div class="shop-admin__logo-block">
         @if (uploadedLogoPath()) {

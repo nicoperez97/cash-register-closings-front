@@ -547,7 +547,7 @@ export class SalesProductsPage {
     const shop = this.shops.selectedShop();
     if (!shop?.salesSystemId) {
       this.snack.open(
-        'Configurá el sistema de ventas (Restosoft / WeMenu) en Administrar local',
+        'Configurá el sistema de ventas (Restosoft / WeMenu) en Configuración del local → Operación',
         'OK',
         { duration: 4500 },
       );

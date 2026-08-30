@@ -27,7 +27,6 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canEditShopExpenses, hasShopPermission } from '../../core/auth/auth.models';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
-import { isUserVisible } from '../../shared/user-visibility';
 import {
   Concept,
   LedgerAccount,
@@ -799,8 +798,6 @@ export class MovementsListPage {
           data: {
             shopId,
             shopName: this.shops.selectedShop()?.name ?? 'Local',
-            accounts: this.accounts(),
-            concepts: this.concepts(),
             kind: this.kind() === 'income' ? 'income' : 'expense',
           },
         }),
@@ -1162,32 +1159,11 @@ export class MovementsListPage {
     });
   }
 
-  /** Al editar, incluye el concepto actual aunque no esté validado. */
-  private dialogConcepts(movement?: Movement): Concept[] {
-    const list = [...this.concepts()];
-    if (!movement?.conceptId || list.some((c) => c.id === movement.conceptId)) return list;
-    list.unshift({
-      id: movement.conceptId,
-      shopId: movement.shopId,
-      name: movement.conceptName || 'Concepto',
-      kind: (movement.conceptKind as Concept['kind']) || 'EXPENSE',
-      description: null,
-      validated: false,
-      active: true,
-    });
-    return list;
-  }
-
   private openDialog(mode: { mode: 'create' } | { mode: 'edit'; movement: Movement }): void {
     const shopId = this.shopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     const kind = this.kind();
-    const keepIds = new Set(
-      mode.mode === 'edit'
-        ? [mode.movement.fromUserId, mode.movement.toUserId].filter(Boolean)
-        : [],
-    );
     const title =
       mode.mode === 'edit'
         ? kind === 'transfer'
@@ -1208,12 +1184,6 @@ export class MovementsListPage {
             kind,
             shopId,
             shopName,
-            accounts: this.accounts(),
-            concepts: this.dialogConcepts(mode.mode === 'edit' ? mode.movement : undefined),
-            employees: this.employees(),
-            users: this.users().filter(
-              (u) => isUserVisible(u, 'movements') || keepIds.has(u.id),
-            ),
           },
         }),
         title,

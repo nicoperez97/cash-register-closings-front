@@ -13,7 +13,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -34,9 +33,11 @@ import { OfflineService } from '../../offline/offline.service';
 import { ShopContextService } from '../../shop/shop-context.service';
 import { PageRefreshService } from '../../page-refresh.service';
 import { DialogTitleService } from '../../../shared/services/dialog-title.service';
-import { MovementsApiService } from '../../../features/movements/movements-api.service';
-import { EmployeesApiService } from '../../../features/employees/employees-api.service';
 import { QuickExpenseDialogComponent } from '../../../features/movements/quick-expense-dialog';
+import {
+  applyToolbarConfig,
+  effectiveToolbarConfig,
+} from '../toolbar-config';
 import {
   AppNotification,
   NotificationsApiService,
@@ -95,8 +96,6 @@ export class ToolbarComponent implements OnInit {
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
-  private readonly movementsApi = inject(MovementsApiService);
-  private readonly employeesApi = inject(EmployeesApiService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject(ElementRef<HTMLElement>);
@@ -113,14 +112,14 @@ export class ToolbarComponent implements OnInit {
   readonly unreadCount = this.notifsInbox.unreadCount;
   readonly notifications = signal<AppNotification[]>([]);
   readonly loadingNotifs = signal(false);
-  readonly quickExpenseBusy = signal(false);
 
   /** Ancho libre (px) para los accesos rápidos, medido en el DOM. */
   private readonly availableQuickWidth = signal(0);
 
   /**
-   * Accesos filtrados por permiso del local activo.
-   * Cajero / productor tienen atajos propios.
+   * Accesos filtrados por permiso del local activo (built-in + custom).
+   * Cajero/productor solo ven lo que su rol puede abrir; el resto ve
+   * todos los atajos para los que tienen permiso (p. ej. Nuevo cierre + stock).
    */
   readonly quickActions = computed((): ToolbarQuickAction[] => {
     const user = this.auth.currentUser();
@@ -128,68 +127,48 @@ export class ToolbarComponent implements OnInit {
     const shop = this.shopContext.selectedShop();
     if (!user || !shopId) return [];
 
-    if (isCashierOnly(user, shopId)) {
-      return [
-        {
-          id: 'new-closing',
-          kind: 'route',
-          label: 'Nuevo cierre',
-          icon: 'point_of_sale',
-          route: '/closings/new',
-        },
-      ];
+    const cashierOnly = isCashierOnly(user, shopId);
+    const producerOnly = isProducerOnly(user, shopId);
+    const items: ToolbarQuickAction[] = [];
+    const cfg = effectiveToolbarConfig(shop);
+
+    const pushRoute = (id: string, label: string, icon: string, route: string) => {
+      items.push({ id, kind: 'route', label, icon, route });
+    };
+
+    if (cashierOnly) {
+      if (hasShopPermission(user, shopId, 'closings.create')) {
+        pushRoute('new-closing', 'Nuevo cierre', 'point_of_sale', '/closings/new');
+      }
+      return applyToolbarConfig(items, cfg);
     }
 
-    if (isProducerOnly(user, shopId)) {
-      const items: ToolbarQuickAction[] = [
-        {
-          id: 'my-hours',
-          kind: 'route',
-          label: 'Mis horas',
-          icon: 'restaurant',
-          route: '/my-production',
-        },
-      ];
+    if (producerOnly) {
+      pushRoute('my-hours', 'Mis horas', 'restaurant', '/my-production');
       if (hasShopPermission(user, shopId, 'reimbursements.self')) {
-        items.push({
-          id: 'my-reimbursements',
-          kind: 'route',
-          label: 'Reintegros',
-          icon: 'receipt_long',
-          route: '/reimbursements',
-        });
+        pushRoute('my-reimbursements', 'Reintegros', 'receipt_long', '/reimbursements');
       }
       if (hasShopPermission(user, shopId, 'stock.read')) {
-        items.push({
-          id: 'stock',
-          kind: 'route',
-          label: 'Alimentos',
-          icon: 'inventory',
-          route: '/stock',
-        });
+        pushRoute('stock', 'Alimentos', 'inventory', '/stock');
       }
       if (hasShopPermission(user, shopId, 'beverageStock.read')) {
-        items.push({
-          id: 'beverage-stock',
-          kind: 'route',
-          label: 'Bebidas',
-          icon: 'local_bar',
-          route: '/beverage-stock',
-        });
+        pushRoute('beverage-stock', 'Bebidas', 'local_bar', '/beverage-stock');
       }
       if (hasShopPermission(user, shopId, 'shortages.read')) {
-        items.push({
-          id: 'shortages',
-          kind: 'route',
-          label: 'Faltantes',
-          icon: 'error_outline',
-          route: '/shortages',
-        });
+        pushRoute('shortages', 'Faltantes', 'error_outline', '/shortages');
       }
-      return items;
+      if (cfg?.custom?.length) {
+        const seen = new Set(items.map((i) => i.id));
+        for (const c of cfg.custom) {
+          if (!c?.id || !c.route || seen.has(c.id)) continue;
+          if (!this.producerAllowsRoute(c.route, user, shopId)) continue;
+          seen.add(c.id);
+          pushRoute(c.id, c.label, c.icon || 'bolt', c.route);
+        }
+      }
+      return applyToolbarConfig(items, cfg);
     }
 
-    const items: ToolbarQuickAction[] = [];
     if (hasShopPermission(user, shopId, 'expenses.manage')) {
       items.push({
         id: 'quick-expense',
@@ -202,66 +181,58 @@ export class ToolbarComponent implements OnInit {
       hasShopPermission(user, shopId, 'closings.read') ||
       hasShopPermission(user, shopId, 'closings.create')
     ) {
-      items.push({
-        id: 'closings',
-        kind: 'route',
-        label: 'Cierres',
-        icon: 'point_of_sale',
-        route: '/closings',
-      });
+      pushRoute('closings', 'Cierres', 'point_of_sale', '/closings');
     }
     if (hasShopPermission(user, shopId, 'shortages.read')) {
-      items.push({
-        id: 'shortages',
-        kind: 'route',
-        label: 'Faltantes',
-        icon: 'error_outline',
-        route: '/shortages',
-      });
+      pushRoute('shortages', 'Faltantes', 'error_outline', '/shortages');
     }
     if (hasShopPermission(user, shopId, 'payments.read')) {
-      items.push({
-        id: 'payments',
-        kind: 'route',
-        label: 'Pagos',
-        icon: 'local_shipping',
-        route: '/payments/suppliers',
-      });
+      pushRoute('payments', 'Pagos', 'local_shipping', '/payments/suppliers');
     }
-    if (
-      shop?.reservationsEnabled &&
-      hasShopPermission(user, shopId, 'reservations.read')
-    ) {
-      items.push({
-        id: 'reservations',
-        kind: 'route',
-        label: 'Reservas',
-        icon: 'table_restaurant',
-        route: '/reservations',
-      });
+    if (shop?.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read')) {
+      pushRoute('reservations', 'Reservas', 'table_restaurant', '/reservations');
     }
-    if (
-      shop?.waitingListEnabled &&
-      hasShopPermission(user, shopId, 'waitingList.read')
-    ) {
-      items.push({
-        id: 'waiting-list',
-        kind: 'route',
-        label: 'Lista de espera',
-        icon: 'hourglass_top',
-        route: '/waiting-list',
-      });
+    if (shop?.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read')) {
+      pushRoute('waiting-list', 'Lista de espera', 'hourglass_top', '/waiting-list');
     }
     if (shop?.tipsEnabled && hasShopPermission(user, shopId, 'tips.read')) {
-      items.push({
-        id: 'tips',
-        kind: 'route',
-        label: 'Propinas',
-        icon: 'volunteer_activism',
-        route: '/tips',
-      });
+      pushRoute('tips', 'Propinas', 'volunteer_activism', '/tips');
     }
-    return items;
+    if (hasShopPermission(user, shopId, 'closings.create')) {
+      pushRoute('new-closing', 'Nuevo cierre', 'point_of_sale', '/closings/new');
+    }
+    if (hasShopPermission(user, shopId, 'reimbursements.self')) {
+      pushRoute('my-hours', 'Mis horas', 'restaurant', '/my-production');
+    }
+    if (
+      hasShopPermission(user, shopId, 'reimbursements.self') ||
+      hasShopPermission(user, shopId, 'reimbursements.read')
+    ) {
+      pushRoute('my-reimbursements', 'Reintegros', 'receipt_long', '/reimbursements');
+    }
+    if (hasShopPermission(user, shopId, 'stock.read')) {
+      pushRoute('stock', 'Alimentos', 'inventory', '/stock');
+    }
+    if (hasShopPermission(user, shopId, 'beverageStock.read')) {
+      pushRoute('beverage-stock', 'Bebidas', 'local_bar', '/beverage-stock');
+    }
+
+    if (cfg?.custom?.length) {
+      const seen = new Set(items.map((i) => i.id));
+      for (const c of cfg.custom) {
+        if (!c?.id || !c.route || seen.has(c.id)) continue;
+        seen.add(c.id);
+        pushRoute(c.id, c.label, c.icon || 'bolt', c.route);
+      }
+    }
+
+    return applyToolbarConfig(items, cfg);
+  });
+
+  /** true cuando hay un solo atajo: botón con nombre en vez de ícono. */
+  readonly singleQuickAction = computed(() => {
+    const all = this.quickActions();
+    return all.length === 1 ? all[0]! : null;
   });
 
   /**
@@ -271,6 +242,8 @@ export class ToolbarComponent implements OnInit {
   readonly inlineQuickLimit = computed(() => {
     const all = this.quickActions().length;
     if (!all) return 0;
+    // Un solo atajo: siempre inline (botón con nombre), también en móvil.
+    if (all === 1) return 1;
     if (this.isMobile()) return 0;
     const avail = this.availableQuickWidth();
     if (avail < QUICK_BTN) return 0;
@@ -424,53 +397,56 @@ export class ToolbarComponent implements OnInit {
     if (item.id === 'quick-expense') this.openQuickExpense();
   }
 
+  /** Rutas que un productor-only puede abrir (custom). */
+  private producerAllowsRoute(
+    route: string,
+    user: NonNullable<ReturnType<AuthService['currentUser']>>,
+    shopId: string,
+  ): boolean {
+    const path = route.split('?')[0] || route;
+    if (path === '/my-production') return true;
+    if (path.startsWith('/reimbursements')) {
+      return hasShopPermission(user, shopId, 'reimbursements.self');
+    }
+    if (path === '/stock') return hasShopPermission(user, shopId, 'stock.read');
+    if (path === '/beverage-stock') {
+      return hasShopPermission(user, shopId, 'beverageStock.read');
+    }
+    if (path.startsWith('/shortages')) {
+      return hasShopPermission(user, shopId, 'shortages.read');
+    }
+    if (path.startsWith('/orders')) return hasShopPermission(user, shopId, 'orders.read');
+    return false;
+  }
+
   openQuickExpense(): void {
     const shopId = this.shopContext.selectedShopId();
     if (
       !shopId ||
-      this.quickExpenseBusy() ||
       !hasShopPermission(this.auth.currentUser(), shopId, 'expenses.manage')
     ) {
       return;
     }
-    this.quickExpenseBusy.set(true);
-    forkJoin({
-      accounts: this.movementsApi.accounts(shopId),
-      concepts: this.movementsApi.concepts(shopId, { for: 'movement' }),
-      employees: this.employeesApi.list(shopId).pipe(catchError(() => of([]))),
-    }).subscribe({
-      next: ({ accounts, concepts, employees }) => {
-        this.quickExpenseBusy.set(false);
-        this.dialogTitle
-          .track(
-            this.dialog.open(QuickExpenseDialogComponent, {
-              width: '440px',
-              maxWidth: '96vw',
-              panelClass: 'guy-dialog',
-              data: {
-                shopId,
-                shopName: this.shopContext.selectedShop()?.name ?? 'Local',
-                accounts: accounts ?? [],
-                concepts: concepts ?? [],
-                employees: employees ?? [],
-              },
-            }),
-            'Gasto rápido',
-          )
-          .afterClosed()
-          .subscribe((saved) => {
-            if (saved && this.pageRefresh.hasHandler()) {
-              void this.pageRefresh.refresh();
-            }
-          });
-      },
-      error: () => {
-        this.quickExpenseBusy.set(false);
-        this.snack.open('No se pudieron cargar cuentas/conceptos', 'OK', {
-          duration: 3500,
-        });
-      },
-    });
+    this.dialogTitle
+      .track(
+        this.dialog.open(QuickExpenseDialogComponent, {
+          width: '440px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            shopName: this.shopContext.selectedShop()?.name ?? 'Local',
+            kind: 'expense' as const,
+          },
+        }),
+        'Gasto rápido',
+      )
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved && this.pageRefresh.hasHandler()) {
+          void this.pageRefresh.refresh();
+        }
+      });
   }
 
   openNotifications(): void {

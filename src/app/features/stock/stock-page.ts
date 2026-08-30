@@ -1418,7 +1418,6 @@ export class StockPage {
             shopId,
             shopName,
             kind: this.kind(),
-            categories: this.categories(),
           },
         }),
         mode.mode === 'edit' ? 'Editar producto' : 'Nuevo producto',

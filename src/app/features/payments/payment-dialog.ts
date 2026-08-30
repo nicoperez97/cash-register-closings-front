@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
@@ -28,36 +29,47 @@ import {
   PaymentStatus,
   ShopPayment,
 } from './payments-api.service';
+import {
+  buildPaymentDialogAccounts,
+  buildPaymentDialogUsers,
+  filterActivePaymentAccounts,
+  mapShopUsersForPayments,
+} from './payments-page-actions';
 import { PAYMENT_STATUS_OPTIONS } from './payments-display.util';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
 import { ShopService, ServicesApiService } from '../services/services-api.service';
-import { Employee } from '../employees/employees-api.service';
+import { Employee, EmployeesApiService } from '../employees/employees-api.service';
+import { ClosingsApiService } from '../closings/closings-api.service';
+import { MovementsApiService } from '../movements/movements-api.service';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber } from '../../shared/utils/money';
-import { Observable, catchError, concatMap, from, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, concatMap, forkJoin, from, map, of, switchMap } from 'rxjs';
 
 export type PaymentDialogKind = 'supplier' | 'employee' | 'service' | 'partner';
+
+export type PaymentDialogUser = {
+  id: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  hasAvatar?: boolean;
+};
 
 export type PaymentDialogData = {
   shopId: string;
   shopName: string;
-  users: Array<{
-    id: string;
-    fullName: string;
-    avatarUrl?: string | null;
-    hasAvatar?: boolean;
-  }>;
+  /** Semilla opcional; el diálogo siempre recarga al abrir. */
+  users?: PaymentDialogUser[];
   /** Cuentas con las que se puede pagar (no proveedores / servicios / sistema). */
-  accounts: Array<{ id: string; name: string }>;
-  suppliers: ShopSupplier[];
-  services: ShopService[];
-  employees: Employee[];
+  accounts?: Array<{ id: string; name: string }>;
+  suppliers?: ShopSupplier[];
+  services?: ShopService[];
+  employees?: Employee[];
   canManageSuppliers: boolean;
   canManageServices: boolean;
   /** Conceptos validados para el campo Concepto. */
-  concepts: Array<{ id: string; name: string; description?: string | null }>;
+  concepts?: Array<{ id: string; name: string; description?: string | null }>;
   /** Determina si se pide proveedor, servicio o empleado. */
   kind: PaymentDialogKind;
 } & (
@@ -87,6 +99,7 @@ type PaymentDraft = {
     MatSelectModule,
     MatDatepickerModule,
     MatIconModule,
+    MatProgressSpinnerModule,
     MatSnackBarModule,
     MatExpansionModule,
     BusyLabelComponent,
@@ -248,6 +261,25 @@ type PaymentDraft = {
       .pay-desc__input::placeholder {
         color: var(--guy-muted, #5f6f76);
       }
+      .pay-dialog__loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.85rem;
+        min-height: 8rem;
+        color: var(--guy-muted, #5f6f76);
+        font-size: 0.9rem;
+      }
+      .pay-dialog__loading p {
+        margin: 0;
+      }
+      .pay-dialog__empty {
+        margin: 0.5rem 0;
+        color: var(--guy-muted, #5f6f76);
+        font-size: 0.92rem;
+        line-height: 1.45;
+      }
     `,
   ],
   template: `
@@ -261,6 +293,25 @@ type PaymentDraft = {
       </span>
     </h2>
 
+    @if (loadingLists()) {
+      <mat-dialog-content class="pay-dialog__loading">
+        <mat-spinner diameter="36" />
+        <p>Cargando…</p>
+      </mat-dialog-content>
+    } @else if (listsFailed()) {
+      <mat-dialog-content>
+        <p class="pay-dialog__empty">
+          No se pudieron cargar cuentas, conceptos o catálogos. Probá de nuevo.
+        </p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" (click)="reloadLists()">
+          <mat-icon>refresh</mat-icon>
+          Reintentar
+        </button>
+      </mat-dialog-actions>
+    } @else {
     <mat-dialog-content>
       @if (!isEdit && drafts().length > 1) {
         <div class="pay-tabs">
@@ -462,7 +513,7 @@ type PaymentDraft = {
             <mat-label>Empleado</mat-label>
             <mat-select formControlName="employeeId">
               <mat-option [value]="null">Sin empleado</mat-option>
-              @for (e of data.employees; track e.id) {
+              @for (e of employees(); track e.id) {
                 <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
               }
             </mat-select>
@@ -588,7 +639,7 @@ type PaymentDraft = {
           <mat-label>Quién debería pagar</mat-label>
           <mat-select formControlName="payerUserId">
             <mat-option [value]="null">Sin asignar</mat-option>
-            @for (u of data.users; track u.id) {
+            @for (u of users(); track u.id) {
               <mat-option [value]="u.id">
                 <span class="pay-user-opt">
                   <app-user-avatar
@@ -609,7 +660,7 @@ type PaymentDraft = {
           <mat-label>Quién debería validar</mat-label>
           <mat-select formControlName="validatorUserId">
             <mat-option [value]="null">Sin asignar</mat-option>
-            @for (u of data.users; track u.id) {
+            @for (u of users(); track u.id) {
               <mat-option [value]="u.id">
                 <span class="pay-user-opt">
                   <app-user-avatar
@@ -654,7 +705,7 @@ type PaymentDraft = {
               <mat-label>Cuenta receptora</mat-label>
               <mat-select formControlName="toAccountId">
                 <mat-option [value]="null">Sin asignar</mat-option>
-                @for (a of data.accounts; track a.id) {
+                @for (a of accounts(); track a.id) {
                   <mat-option [value]="a.id">{{ a.name }}</mat-option>
                 }
               </mat-select>
@@ -713,15 +764,19 @@ type PaymentDraft = {
         </app-busy-label>
       </button>
     </mat-dialog-actions>
+    }
   `,
 })
-export class PaymentDialogComponent {
+export class PaymentDialogComponent implements OnInit {
   readonly data = inject<PaymentDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<PaymentDialogComponent, boolean>);
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(PaymentsApiService);
   private readonly suppliersApi = inject(SuppliersApiService);
   private readonly servicesApi = inject(ServicesApiService);
+  private readonly employeesApi = inject(EmployeesApiService);
+  private readonly movementsApi = inject(MovementsApiService);
+  private readonly closingsApi = inject(ClosingsApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly auth = inject(AuthService);
@@ -755,9 +810,17 @@ export class PaymentDialogComponent {
   readonly accountQuery = signal('');
   readonly supplierQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly loadingLists = signal(true);
+  readonly listsFailed = signal(false);
+  readonly accounts = signal<Array<{ id: string; name: string }>>(this.data.accounts ?? []);
+  readonly concepts = signal<Array<{ id: string; name: string; description?: string | null }>>(
+    this.data.concepts ?? [],
+  );
+  readonly employees = signal<Employee[]>([...(this.data.employees ?? [])]);
+  readonly users = signal<PaymentDialogUser[]>([...(this.data.users ?? [])]);
   readonly filteredAccounts = computed(() =>
     filterBySelectQuery(
-      this.data.accounts,
+      this.accounts(),
       this.accountQuery(),
       (a) => a.name,
       this.form.controls.accountId.value,
@@ -775,7 +838,7 @@ export class PaymentDialogComponent {
   readonly conceptQuery = signal('');
   readonly filteredConcepts = computed(() =>
     filterBySelectQuery(
-      this.data.concepts,
+      this.concepts(),
       this.conceptQuery(),
       (c) => c.name,
       this.form.controls.conceptId.value,
@@ -783,7 +846,7 @@ export class PaymentDialogComponent {
   );
 
   onConceptChange(id: string | null): void {
-    const concept = this.data.concepts.find((c) => c.id === id) ?? null;
+    const concept = this.concepts().find((c) => c.id === id) ?? null;
     this.form.controls.title.setValue(concept?.name ?? '');
     const notes = String(this.form.controls.notes.value ?? '').trim();
     if (!notes && concept?.description) {
@@ -795,7 +858,7 @@ export class PaymentDialogComponent {
     if (this.seed?.conceptId) return this.seed.conceptId;
     const title = (this.seed?.title ?? '').trim();
     if (!title) return null;
-    return this.data.concepts.find((c) => c.name === title)?.id ?? null;
+    return this.concepts().find((c) => c.name === title)?.id ?? null;
   }
 
   readonly titleIcon = this.isEdit ? 'edit' : this.isDuplicate ? 'content_copy' : 'payments';
@@ -825,12 +888,82 @@ export class PaymentDialogComponent {
   readonly existingInvoiceName = signal<string | null>(
     this.isEdit && this.seed?.hasInvoiceFile ? (this.seed.invoiceFileName ?? 'factura') : null,
   );
-  readonly suppliers = signal<ShopSupplier[]>([...this.data.suppliers]);
+  readonly suppliers = signal<ShopSupplier[]>([...(this.data.suppliers ?? [])]);
   readonly services = signal<ShopService[]>([...(this.data.services ?? [])]);
   readonly newSupplierName = this.fb.nonNullable.control('');
   readonly newSupplierAlias = this.fb.nonNullable.control('');
   readonly newServiceName = this.fb.nonNullable.control('');
   readonly newServiceAlias = this.fb.nonNullable.control('');
+
+  ngOnInit(): void {
+    this.reloadLists();
+  }
+
+  reloadLists(): void {
+    const shopId = this.data.shopId;
+    if (!shopId) {
+      this.loadingLists.set(false);
+      this.listsFailed.set(true);
+      return;
+    }
+    const payment =
+      this.data.mode === 'edit' || this.data.mode === 'duplicate' ? this.data.payment : null;
+    const conceptOpts =
+      this.data.kind === 'supplier' ||
+      this.data.kind === 'service' ||
+      this.data.kind === 'employee'
+        ? { for: this.data.kind }
+        : {};
+    this.loadingLists.set(true);
+    this.listsFailed.set(false);
+    forkJoin({
+      accounts: this.movementsApi.accounts(shopId).pipe(catchError(() => of(null))),
+      concepts: this.movementsApi.concepts(shopId, conceptOpts).pipe(catchError(() => of(null))),
+      suppliers: this.suppliersApi.list(shopId).pipe(catchError(() => of(null))),
+      services: this.servicesApi.list(shopId).pipe(catchError(() => of(null))),
+      employees: this.employeesApi.list(shopId).pipe(catchError(() => of(null))),
+      users: this.closingsApi.shopUsers(shopId).pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ accounts, concepts, suppliers, services, employees, users }) => {
+        this.loadingLists.set(false);
+        if (!accounts || !concepts || !suppliers || !services || !employees || !users) {
+          this.listsFailed.set(true);
+          if (accounts) {
+            this.accounts.set(
+              buildPaymentDialogAccounts(filterActivePaymentAccounts(accounts), payment),
+            );
+          }
+          if (concepts) {
+            this.concepts.set(
+              concepts.map((c) => ({ id: c.id, name: c.name, description: c.description })),
+            );
+          }
+          if (suppliers) this.suppliers.set(suppliers);
+          if (services) this.services.set(services);
+          if (employees) this.employees.set(employees);
+          if (users) {
+            this.users.set(buildPaymentDialogUsers(mapShopUsersForPayments(users), payment));
+          }
+          return;
+        }
+        this.accounts.set(
+          buildPaymentDialogAccounts(filterActivePaymentAccounts(accounts), payment),
+        );
+        this.concepts.set(
+          concepts.map((c) => ({ id: c.id, name: c.name, description: c.description })),
+        );
+        this.suppliers.set(suppliers);
+        this.services.set(services);
+        this.employees.set(employees);
+        this.users.set(buildPaymentDialogUsers(mapShopUsersForPayments(users), payment));
+        this.listsFailed.set(false);
+      },
+      error: () => {
+        this.loadingLists.set(false);
+        this.listsFailed.set(true);
+      },
+    });
+  }
 
   private parseDate(value: string | Date | null | undefined): Date | null {
     if (!value) return null;

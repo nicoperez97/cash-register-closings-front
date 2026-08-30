@@ -1,7 +1,7 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { catchError, firstValueFrom, of } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -9,6 +9,7 @@ import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angu
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -42,7 +43,8 @@ type CategoryDialogData = {
 type RuleDialogData = {
   shopId: string;
   shopName: string;
-  categories: ServiceRuleCategory[];
+  /** Seed opcional; el diálogo vuelve a cargar al abrir. */
+  categories?: ServiceRuleCategory[];
   defaultPhase: ServiceRulePhase;
   defaultCategoryId: string | null;
 } & ({ mode: 'create' } | { mode: 'edit'; rule: ServiceRule });
@@ -148,6 +150,7 @@ export class ServiceRuleCategoryDialogComponent {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
+    MatProgressSpinnerModule,
     BusyLabelComponent,
   ],
   template: `
@@ -160,45 +163,83 @@ export class ServiceRuleCategoryDialogComponent {
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
-    <mat-dialog-content>
-      <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
-        <div class="phase-field">
-          <span class="phase-field__label">Momento</span>
-          <mat-button-toggle-group formControlName="phase" hideSingleSelectionIndicator>
-            @for (opt of phases; track opt.value) {
-              <mat-button-toggle [value]="opt.value">{{ opt.label }}</mat-button-toggle>
-            }
-          </mat-button-toggle-group>
-        </div>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Categoría</mat-label>
-          <mat-select formControlName="categoryId">
-            @for (c of data.categories; track c.id) {
-              <mat-option [value]="c.id">{{ c.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Título</mat-label>
-          <input matInput formControlName="title" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Texto</mat-label>
-          <textarea matInput rows="5" formControlName="body"></textarea>
-        </mat-form-field>
-      </form>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">Cancelar</button>
-      <button mat-flat-button color="primary" type="button" [disabled]="form.invalid || busy()" (click)="save()">
-        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
-          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-          {{ isEdit ? 'Guardar' : 'Crear' }}
-        </app-busy-label>
-      </button>
-    </mat-dialog-actions>
+    @if (loadingLists()) {
+      <mat-dialog-content class="rule-dlg__loading">
+        <mat-spinner diameter="36" />
+        <p>Cargando categorías…</p>
+      </mat-dialog-content>
+    } @else if (listsFailed()) {
+      <mat-dialog-content>
+        <p class="rule-dlg__empty">No se pudieron cargar las categorías. Probá de nuevo.</p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" (click)="reloadLists()">
+          <mat-icon>refresh</mat-icon>
+          Reintentar
+        </button>
+      </mat-dialog-actions>
+    } @else if (!categories().length) {
+      <mat-dialog-content>
+        <p class="rule-dlg__empty">Primero creá una categoría para poder cargar normas.</p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)">Cerrar</button>
+      </mat-dialog-actions>
+    } @else {
+      <mat-dialog-content>
+        <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
+          <div class="phase-field">
+            <span class="phase-field__label">Momento</span>
+            <mat-button-toggle-group formControlName="phase" hideSingleSelectionIndicator>
+              @for (opt of phases; track opt.value) {
+                <mat-button-toggle [value]="opt.value">{{ opt.label }}</mat-button-toggle>
+              }
+            </mat-button-toggle-group>
+          </div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Categoría</mat-label>
+            <mat-select formControlName="categoryId">
+              @for (c of categories(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Título</mat-label>
+            <input matInput formControlName="title" autocomplete="off" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Texto</mat-label>
+            <textarea matInput rows="5" formControlName="body"></textarea>
+          </mat-form-field>
+        </form>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" [disabled]="form.invalid || busy()" (click)="save()">
+          <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+            <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+            {{ isEdit ? 'Guardar' : 'Crear' }}
+          </app-busy-label>
+        </button>
+      </mat-dialog-actions>
+    }
   `,
   styles: `
+    .rule-dlg__loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .rule-dlg__empty {
+      margin: 0;
+      color: var(--guy-muted, #5f6f76);
+    }
     .phase-field {
       display: flex;
       flex-direction: column;
@@ -224,7 +265,7 @@ export class ServiceRuleCategoryDialogComponent {
     }
   `,
 })
-export class ServiceRuleDialogComponent {
+export class ServiceRuleDialogComponent implements OnInit {
   readonly data = inject<RuleDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<ServiceRuleDialogComponent, ServiceRule | boolean>);
   private readonly fb = inject(FormBuilder);
@@ -235,18 +276,66 @@ export class ServiceRuleDialogComponent {
   readonly rule = this.data.mode === 'edit' ? this.data.rule : null;
   readonly phases = SERVICE_RULE_PHASES;
   readonly busy = signal(false);
+  readonly loadingLists = signal(true);
+  readonly listsFailed = signal(false);
+  readonly categories = signal<ServiceRuleCategory[]>(this.data.categories ?? []);
   readonly form = this.fb.nonNullable.group({
     phase: [this.rule?.phase ?? this.data.defaultPhase, Validators.required],
     categoryId: [
-      this.rule?.categoryId ?? this.data.defaultCategoryId ?? this.data.categories[0]?.id ?? '',
+      this.rule?.categoryId ??
+        this.data.defaultCategoryId ??
+        this.data.categories?.[0]?.id ??
+        '',
       Validators.required,
     ],
     title: [this.rule?.title ?? '', Validators.required],
     body: [this.rule?.body ?? '', Validators.required],
   });
 
+  ngOnInit(): void {
+    this.reloadLists();
+  }
+
+  reloadLists(): void {
+    const shopId = this.data.shopId;
+    if (!shopId) {
+      this.loadingLists.set(false);
+      this.listsFailed.set(true);
+      return;
+    }
+    this.loadingLists.set(true);
+    this.listsFailed.set(false);
+    this.api
+      .list(shopId)
+      .pipe(catchError(() => of(null)))
+      .subscribe({
+        next: (bundle) => {
+          this.loadingLists.set(false);
+          if (!bundle) {
+            this.listsFailed.set(true);
+            return;
+          }
+          const cats = (bundle.categories ?? []).filter((c) => c.active !== false);
+          this.categories.set(cats);
+          this.listsFailed.set(false);
+          const current = this.form.controls.categoryId.value;
+          if (!current || !cats.some((c) => c.id === current)) {
+            this.form.controls.categoryId.setValue(
+              this.data.defaultCategoryId && cats.some((c) => c.id === this.data.defaultCategoryId)
+                ? this.data.defaultCategoryId
+                : (cats[0]?.id ?? ''),
+            );
+          }
+        },
+        error: () => {
+          this.loadingLists.set(false);
+          this.listsFailed.set(true);
+        },
+      });
+  }
+
   save(): void {
-    if (this.form.invalid) {
+    if (this.form.invalid || this.loadingLists() || this.listsFailed() || !this.categories().length) {
       this.form.markAllAsTouched();
       return;
     }
@@ -588,7 +677,7 @@ export class ServiceRulesImportPreviewDialogComponent {
             El link todavía no está publicado.
             @if (canManageShop()) {
               Activalo en
-              <a routerLink="/admin/shop">Local → Normas públicas</a>.
+              <a routerLink="/admin/shop/operacion">Configuración del local → Normas públicas</a>.
             } @else {
               Pedile a un admin que active “Normas públicas” en el local.
             }
@@ -1038,15 +1127,10 @@ export class ServiceRulesPage {
   openRule(phase: ServiceRulePhase, categoryId: string | null, rule?: ServiceRule): void {
     const shopId = this.shopId();
     if (!shopId) return;
-    if (!this.categories().length) {
-      this.snack.open('Primero creá una categoría', 'OK', { duration: 2500 });
-      return;
-    }
     const data: RuleDialogData = rule
       ? {
           shopId,
           shopName: this.shops.selectedShop()?.name ?? '',
-          categories: this.categories(),
           defaultPhase: rule.phase,
           defaultCategoryId: rule.categoryId,
           mode: 'edit',
@@ -1055,7 +1139,6 @@ export class ServiceRulesPage {
       : {
           shopId,
           shopName: this.shops.selectedShop()?.name ?? '',
-          categories: this.categories(),
           defaultPhase: phase,
           defaultCategoryId: categoryId,
           mode: 'create',

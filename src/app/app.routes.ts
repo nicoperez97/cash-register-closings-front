@@ -309,7 +309,53 @@ export const routes: Routes = [
         canActivate: [permissionGuard('shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-shop').then((m) => m.AdminShopPage),
-        title: 'Local',
+        title: 'Configuración del local',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-hub').then((m) => m.AdminShopHubPage),
+            title: 'Configuración del local',
+          },
+          {
+            path: 'identidad',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopIdentidadPage,
+              ),
+            title: 'Identidad',
+          },
+          {
+            path: 'operacion',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopOperacionPage,
+              ),
+            title: 'Operación',
+          },
+          {
+            path: 'dispositivos',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopDispositivosPage,
+              ),
+            title: 'Dispositivos',
+          },
+          {
+            path: 'menu',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then((m) => m.AdminShopMenuPage),
+            title: 'Menú',
+          },
+          {
+            path: 'avanzado',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopAvanzadoPage,
+              ),
+            title: 'Avanzado',
+          },
+        ],
       },
       {
         path: 'admin/messages',

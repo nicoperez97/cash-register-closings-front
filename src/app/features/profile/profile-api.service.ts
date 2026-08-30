@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
+import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
 import { safeUploadFileName } from '../../shared/utils/input-file';
 
 export interface UserProfile {
@@ -27,11 +28,14 @@ export interface ShopProfilePreferences {
   shopId: string;
   shopNavConfig: ShopNavConfig | null;
   navConfig: ShopNavConfig | null;
+  shopToolbarConfig?: ShopToolbarConfig | null;
+  toolbarConfig?: ShopToolbarConfig | null;
   mutedNotificationTypes: string[];
   mutedAppNotificationTypes?: string[];
   mutedEmailNotificationTypes?: string[];
   eligibleNotifications: EligibleNotification[];
   usingShopMenuDefault: boolean;
+  usingShopToolbarDefault?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -67,6 +71,7 @@ export class ProfileApiService {
     shopId: string,
     body: {
       navConfig?: ShopNavConfig | null;
+      toolbarConfig?: ShopToolbarConfig | null;
       mutedNotificationTypes?: string[] | null;
       mutedAppNotificationTypes?: string[] | null;
       mutedEmailNotificationTypes?: string[] | null;

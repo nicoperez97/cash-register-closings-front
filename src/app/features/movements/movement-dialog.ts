@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,9 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
 import { takeInputFile } from '../../shared/utils/input-file';
@@ -33,8 +36,11 @@ import {
 import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { UserVisibility } from '../../shared/user-visibility';
+import { isUserVisible } from '../../shared/user-visibility';
 import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber } from '../../shared/utils/money';
+import { EmployeesApiService } from '../employees/employees-api.service';
+import { ClosingsApiService } from '../closings/closings-api.service';
 
 export interface MovementEmployeeOption {
   id: string;
@@ -59,10 +65,11 @@ export interface MovementUserOption {
 export type MovementDialogData = {
   shopId: string;
   shopName: string;
-  accounts: LedgerAccount[];
-  concepts: Concept[];
-  employees: MovementEmployeeOption[];
-  users: MovementUserOption[];
+  /** Semilla opcional; el diálogo siempre recarga al abrir. */
+  accounts?: LedgerAccount[];
+  concepts?: Concept[];
+  employees?: MovementEmployeeOption[];
+  users?: MovementUserOption[];
   /** expense = gasto · income = ingreso · transfer = entre cuentas */
   kind?: 'expense' | 'income' | 'transfer';
 } & ({ mode: 'create' } | { mode: 'edit'; movement: Movement });
@@ -95,6 +102,7 @@ function toDateString(value: Date | null): string {
     MatIconModule,
     MatSnackBarModule,
     MatCheckboxModule,
+    MatProgressSpinnerModule,
     BusyLabelComponent,
     SelectSearchComponent,
     NotifyRecipientsFieldComponent,
@@ -111,6 +119,23 @@ function toDateString(value: Date | null): string {
       </span>
     </h2>
 
+    @if (loadingLists()) {
+      <mat-dialog-content class="mov-loading">
+        <mat-spinner diameter="36" />
+        <p>Cargando cuentas y conceptos…</p>
+      </mat-dialog-content>
+    } @else if (listsFailed()) {
+      <mat-dialog-content>
+        <p class="mov-empty">No se pudieron cargar cuentas o conceptos. Probá de nuevo.</p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" (click)="reloadLists()">
+          <mat-icon>refresh</mat-icon>
+          Reintentar
+        </button>
+      </mat-dialog-actions>
+    } @else {
     <mat-dialog-content>
       <form class="guy-dialog__form mov-form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -372,7 +397,7 @@ function toDateString(value: Date | null): string {
                 <mat-icon matPrefix>badge</mat-icon>
                 <mat-select formControlName="employeeId">
                   <mat-option [value]="null">Sin empleado</mat-option>
-                  @for (e of data.employees; track e.id) {
+                  @for (e of employees(); track e.id) {
                     <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
                   }
                 </mat-select>
@@ -417,9 +442,25 @@ function toDateString(value: Date | null): string {
         </app-busy-label>
       </button>
     </mat-dialog-actions>
+    }
   `,
   styles: [
     `
+      .mov-loading {
+        display: grid;
+        place-items: center;
+        gap: 0.75rem;
+        padding: 1.5rem 1rem;
+        text-align: center;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .mov-loading p,
+      .mov-empty {
+        margin: 0;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        color: var(--guy-muted, #5f6f76);
+      }
       .mov-actions {
         display: flex !important;
         flex-direction: row !important;
@@ -669,11 +710,13 @@ function toDateString(value: Date | null): string {
     `,
   ],
 })
-export class MovementDialogComponent {
+export class MovementDialogComponent implements OnInit {
   readonly data = inject<MovementDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<MovementDialogComponent, boolean | Movement>);
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(MovementsApiService);
+  private readonly employeesApi = inject(EmployeesApiService);
+  private readonly closingsApi = inject(ClosingsApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
@@ -683,6 +726,8 @@ export class MovementDialogComponent {
   readonly notifyIds = signal<string[]>([]);
   readonly receiptFile = signal<File | null>(null);
   readonly paymentMethods = EXPENSE_PAYMENT_METHOD_OPTIONS;
+  readonly loadingLists = signal(true);
+  readonly listsFailed = signal(false);
 
   readonly isEdit = this.data.mode === 'edit';
   readonly isTransfer = (this.data.kind ?? 'expense') === 'transfer';
@@ -701,7 +746,10 @@ export class MovementDialogComponent {
   readonly movement = this.data.mode === 'edit' ? this.data.movement : null;
   readonly busy = signal(false);
   readonly showMore = signal(false);
-  readonly accounts = signal<LedgerAccount[]>([...this.data.accounts]);
+  readonly accounts = signal<LedgerAccount[]>([...(this.data.accounts ?? [])]);
+  readonly concepts = signal<Concept[]>([...(this.data.concepts ?? [])]);
+  readonly employees = signal<MovementEmployeeOption[]>([...(this.data.employees ?? [])]);
+  readonly users = signal<MovementUserOption[]>([...(this.data.users ?? [])]);
 
   private defaultBusinessDate(): string {
     const shop = this.shops.selectedShop();
@@ -765,6 +813,101 @@ export class MovementDialogComponent {
     }
   }
 
+  ngOnInit(): void {
+    this.reloadLists();
+  }
+
+  reloadLists(): void {
+    const shopId = this.data.shopId;
+    if (!shopId) {
+      this.loadingLists.set(false);
+      this.listsFailed.set(true);
+      return;
+    }
+    this.loadingLists.set(true);
+    this.listsFailed.set(false);
+    const conceptOpts = this.isTransfer
+      ? null
+      : this.isIncome
+        ? { kind: 'INCOME' as const }
+        : { kind: 'EXPENSE' as const };
+    forkJoin({
+      accounts: this.api.accounts(shopId).pipe(catchError(() => of(null))),
+      concepts: conceptOpts
+        ? this.api.concepts(shopId, conceptOpts).pipe(catchError(() => of(null)))
+        : of([] as Concept[]),
+      employees: this.employeesApi.list(shopId).pipe(catchError(() => of(null))),
+      users: this.closingsApi.shopUsers(shopId).pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ accounts, concepts, employees, users }) => {
+        this.loadingLists.set(false);
+        if (!accounts || concepts === null || !employees || !users) {
+          this.listsFailed.set(true);
+          if (accounts) this.accounts.set(accounts);
+          if (concepts) this.concepts.set(concepts);
+          if (employees) {
+            this.employees.set(employees.map((e) => ({ id: e.id, fullName: e.fullName })));
+          }
+          if (users) {
+            this.users.set(
+              users.map((u) => ({
+                id: u.id,
+                fullName: u.fullName,
+                email: u.email,
+                ledgerAccounts: u.ledgerAccounts ?? [],
+                visibility: u.visibility,
+                hideFromCashWithdraw: u.hideFromCashWithdraw,
+              })),
+            );
+          }
+          return;
+        }
+        this.accounts.set(accounts);
+        this.concepts.set(this.mergeEditConcept(concepts));
+        this.employees.set(employees.map((e) => ({ id: e.id, fullName: e.fullName })));
+        const keepIds = new Set(
+          this.movement
+            ? [this.movement.fromUserId, this.movement.toUserId].filter(Boolean)
+            : [],
+        );
+        this.users.set(
+          users
+            .map((u) => ({
+              id: u.id,
+              fullName: u.fullName,
+              email: u.email,
+              ledgerAccounts: u.ledgerAccounts ?? [],
+              visibility: u.visibility,
+              hideFromCashWithdraw: u.hideFromCashWithdraw,
+            }))
+            .filter((u) => isUserVisible(u, 'movements') || keepIds.has(u.id)),
+        );
+        this.listsFailed.set(false);
+      },
+      error: () => {
+        this.loadingLists.set(false);
+        this.listsFailed.set(true);
+      },
+    });
+  }
+
+  private mergeEditConcept(list: Concept[]): Concept[] {
+    const movement = this.movement;
+    if (!movement?.conceptId || list.some((c) => c.id === movement.conceptId)) return list;
+    return [
+      {
+        id: movement.conceptId,
+        shopId: movement.shopId,
+        name: movement.conceptName || 'Concepto',
+        kind: (movement.conceptKind as Concept['kind']) || 'EXPENSE',
+        description: null,
+        validated: false,
+        active: true,
+      },
+      ...list,
+    ];
+  }
+
   private readonly selectableAccounts = computed(() => {
     const selected = new Set(
       [this.movement?.fromAccountId, this.movement?.toAccountId].filter(Boolean) as string[],
@@ -804,7 +947,7 @@ export class MovementDialogComponent {
 
   readonly filteredConcepts = computed(() =>
     filterBySelectQuery(
-      this.data.concepts,
+      this.concepts(),
       this.conceptQuery(),
       (c) => c.name,
       this.form.controls.conceptId.value,
@@ -846,10 +989,10 @@ export class MovementDialogComponent {
 
   accountLabel(account: LedgerAccount): string {
     const names = (account.userIds ?? [])
-      .map((id) => this.data.users.find((u) => u.id === id)?.fullName?.trim())
+      .map((id) => this.users().find((u) => u.id === id)?.fullName?.trim())
       .filter((name): name is string => !!name);
     if (!names.length) {
-      const linked = this.data.users.find((u) =>
+      const linked = this.users().find((u) =>
         (u.ledgerAccounts ?? []).some((a) => a.id === account.id),
       );
       if (linked?.fullName) names.push(linked.fullName);
@@ -969,7 +1112,7 @@ export class MovementDialogComponent {
     if (!account || account.type === 'CHANNEL' || account.type === 'SYSTEM') return null;
     if (account.userIds?.[0]) return account.userIds[0];
     return (
-      this.data.users.find((u) => (u.ledgerAccounts ?? []).some((a) => a.id === accountId))?.id ??
+      this.users().find((u) => (u.ledgerAccounts ?? []).some((a) => a.id === accountId))?.id ??
       null
     );
   }

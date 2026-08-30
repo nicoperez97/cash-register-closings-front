@@ -905,6 +905,14 @@ export interface ShopSummary {
   } | null;
   /** Override de menú del usuario en este local; null = usar navConfig del local. */
   myNavConfig?: ShopSummary['navConfig'];
+  /** Accesos rápidos de la toolbar. null = defaults. */
+  toolbarConfig?: {
+    order?: string[];
+    hidden?: string[];
+    custom?: Array<{ id: string; label: string; icon: string; route: string }>;
+  } | null;
+  /** Override de accesos rápidos del usuario; null = usar toolbarConfig del local. */
+  myToolbarConfig?: ShopSummary['toolbarConfig'];
   mutedNotificationTypes?: string[];
   isStockAdmin?: boolean;
   isBeverageStockAdmin?: boolean;

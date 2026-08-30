@@ -8,6 +8,12 @@ import {
   ElementRef,
   viewChild,
 } from '@angular/core';
+import {
+  CdkDragDrop,
+  DragDropModule,
+  moveItemInArray,
+  transferArrayItem,
+} from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -61,16 +67,19 @@ const DEFAULT_ITEM_LABELS: Record<string, string> = {
   payroll: 'Liquidaciones',
   commissions: 'Comisiones',
   adminShops: 'Locales',
-  adminShop: 'Local',
+  adminShop: 'Configuración del local',
   adminMessages: 'Mensajes',
   adminMenu: 'Carta',
   adminQr: 'QR',
   adminInstrucciones: 'Instrucciones',
   adminUsers: 'Usuarios',
+  adminUserActivity: 'Actividad',
   adminAccounts: 'Cuentas',
   adminConcepts: 'Conceptos',
   adminSalesSystems: 'Sistemas',
   adminPosProducts: 'Platos y rubros',
+  vacations: 'Vacaciones',
+  myProduction: 'Mis horas',
 };
 
 type EditorItem = {
@@ -83,6 +92,7 @@ type EditorItem = {
 @Component({
   selector: 'app-shop-nav-editor',
   imports: [
+    DragDropModule,
     FormsModule,
     MatButtonModule,
     MatIconModule,
@@ -96,7 +106,8 @@ type EditorItem = {
     <div class="nav-ed">
       <div class="nav-ed__toolbar">
         <p class="nav-ed__help">
-          Renombrá, reordená u ocultá módulos. Usá ⋮ para moverlos de grupo. Inicio queda arriba.
+          Arrastrá grupos e ítems para ordenar. Usá ⋮ para renombrar o mover de grupo. Inicio queda
+          arriba.
         </p>
         <div class="nav-ed__toolbar-actions">
           <button mat-stroked-button type="button" (click)="addGroup()">
@@ -110,184 +121,178 @@ type EditorItem = {
         </div>
       </div>
 
-      @for (g of groups(); track g.id; let gi = $index) {
-        <div
-          class="nav-ed__group"
-          [class.nav-ed__group--collapsed]="isGroupCollapsed(g.id)"
-        >
-          <div class="nav-ed__group-head">
-            <button
-              type="button"
-              class="nav-ed__group-toggle"
-              (click)="toggleGroupCollapsed(g.id)"
-              [attr.aria-expanded]="!isGroupCollapsed(g.id)"
-              [attr.aria-label]="isGroupCollapsed(g.id) ? 'Expandir grupo' : 'Contraer grupo'"
-            >
-              <mat-icon class="nav-ed__group-chevron" aria-hidden="true">expand_more</mat-icon>
-            </button>
-
-            @if (editingGroupId() === g.id) {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="nav-ed__rename">
-                <mat-label>Nombre del grupo</mat-label>
-                <input
-                  #groupEditInput
-                  matInput
-                  [ngModel]="editDraft()"
-                  (ngModelChange)="editDraft.set($event)"
-                  [ngModelOptions]="{ standalone: true }"
-                  (keydown.enter)="$event.preventDefault(); commitGroupEdit(g.id)"
-                  (keydown.escape)="$event.preventDefault(); cancelEdit()"
-                  (blur)="commitGroupEdit(g.id)"
-                />
-              </mat-form-field>
-            } @else {
-              <div class="nav-ed__label-wrap">
-                <strong class="nav-ed__label">{{ g.label }}</strong>
-                <button
-                  mat-icon-button
-                  type="button"
-                  class="nav-ed__icon-btn"
-                  aria-label="Renombrar grupo"
-                  (click)="startGroupEdit(g.id, g.label)"
-                >
-                  <mat-icon>edit</mat-icon>
-                </button>
-              </div>
-            }
-
-            <span class="nav-ed__moves">
+      <div class="nav-ed__groups" cdkDropList (cdkDropListDropped)="onGroupDrop($event)">
+        @for (g of groups(); track g.id; let gi = $index) {
+          <div
+            class="nav-ed__group"
+            cdkDrag
+            [cdkDragData]="g.id"
+            [class.nav-ed__group--collapsed]="isGroupCollapsed(g.id)"
+          >
+            <div class="nav-ed__group-drag-ph" *cdkDragPlaceholder></div>
+            <div class="nav-ed__group-head">
               <button
-                mat-icon-button
                 type="button"
-                class="nav-ed__icon-btn"
-                aria-label="Subir grupo"
-                [disabled]="gi === 0"
-                (click)="moveGroup(gi, -1)"
+                class="nav-ed__handle"
+                cdkDragHandle
+                [attr.aria-label]="'Arrastrar grupo ' + g.label"
               >
-                <mat-icon>arrow_upward</mat-icon>
+                <mat-icon>drag_indicator</mat-icon>
               </button>
               <button
-                mat-icon-button
                 type="button"
-                class="nav-ed__icon-btn"
-                aria-label="Bajar grupo"
-                [disabled]="gi === groups().length - 1"
-                (click)="moveGroup(gi, 1)"
+                class="nav-ed__group-toggle"
+                (click)="toggleGroupCollapsed(g.id)"
+                [attr.aria-expanded]="!isGroupCollapsed(g.id)"
+                [attr.aria-label]="isGroupCollapsed(g.id) ? 'Expandir grupo' : 'Contraer grupo'"
               >
-                <mat-icon>arrow_downward</mat-icon>
+                <mat-icon class="nav-ed__group-chevron" aria-hidden="true">expand_more</mat-icon>
               </button>
-              @if (canDeleteGroup(g.id)) {
-                <button
-                  mat-icon-button
-                  type="button"
-                  class="nav-ed__icon-btn"
-                  aria-label="Eliminar grupo"
-                  (click)="deleteGroup(g.id)"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
-              }
-            </span>
-          </div>
 
-          <div class="nav-ed__group-body">
-            <div class="nav-ed__group-body-inner">
-              @for (it of itemsInGroup(g.id); track it.id; let ii = $index) {
-                <div class="nav-ed__row" [class.nav-ed__row--hidden]="it.hidden">
-                  @if (editingItemId() === it.id) {
-                    <mat-form-field
-                      appearance="outline"
-                      subscriptSizing="dynamic"
-                      class="nav-ed__rename"
-                    >
-                      <mat-label>Nombre</mat-label>
-                      <input
-                        #itemEditInput
-                        matInput
-                        [ngModel]="editDraft()"
-                        (ngModelChange)="editDraft.set($event)"
-                        [ngModelOptions]="{ standalone: true }"
-                        (keydown.enter)="$event.preventDefault(); commitItemEdit(it.id)"
-                        (keydown.escape)="$event.preventDefault(); cancelEdit()"
-                        (blur)="commitItemEdit(it.id)"
-                      />
-                    </mat-form-field>
-                  } @else {
-                    <span class="nav-ed__item-label">{{ it.label }}</span>
-                  }
-
-                  <div class="nav-ed__row-actions">
-                    <mat-slide-toggle
-                      class="nav-ed__visible"
-                      [checked]="!it.hidden"
-                      [attr.aria-label]="it.hidden ? 'Mostrar ' + it.label : 'Ocultar ' + it.label"
-                      matTooltip="Visible en el menú"
-                      (change)="setHidden(it.id, !$event.checked)"
-                    />
-                    <button
-                      mat-icon-button
-                      type="button"
-                      class="nav-ed__icon-btn"
-                      aria-label="Subir ítem"
-                      [disabled]="ii === 0"
-                      (click)="moveItem(g.id, ii, -1)"
-                    >
-                      <mat-icon>arrow_upward</mat-icon>
-                    </button>
-                    <button
-                      mat-icon-button
-                      type="button"
-                      class="nav-ed__icon-btn"
-                      aria-label="Bajar ítem"
-                      [disabled]="ii === itemsInGroup(g.id).length - 1"
-                      (click)="moveItem(g.id, ii, 1)"
-                    >
-                      <mat-icon>arrow_downward</mat-icon>
-                    </button>
-                    <button
-                      mat-icon-button
-                      type="button"
-                      class="nav-ed__icon-btn"
-                      [matMenuTriggerFor]="itemMenu"
-                      aria-label="Más acciones"
-                    >
-                      <mat-icon>more_vert</mat-icon>
-                    </button>
-                    <mat-menu #itemMenu="matMenu" xPosition="before">
-                      <button mat-menu-item type="button" (click)="startItemEdit(it.id, it.label)">
-                        <mat-icon>edit</mat-icon>
-                        <span>Renombrar</span>
-                      </button>
-                      <button mat-menu-item type="button" [matMenuTriggerFor]="moveMenu">
-                        <mat-icon>drive_file_move</mat-icon>
-                        <span>Mover a…</span>
-                      </button>
-                      <button mat-menu-item type="button" (click)="setHidden(it.id, !it.hidden)">
-                        <mat-icon>{{ it.hidden ? 'visibility' : 'visibility_off' }}</mat-icon>
-                        <span>{{ it.hidden ? 'Mostrar' : 'Ocultar' }}</span>
-                      </button>
-                    </mat-menu>
-                    <mat-menu #moveMenu="matMenu" xPosition="before">
-                      @for (og of groups(); track og.id) {
-                        <button
-                          mat-menu-item
-                          type="button"
-                          [disabled]="og.id === it.groupId"
-                          (click)="moveItemToGroup(it.id, og.id)"
-                        >
-                          {{ og.label }}
-                        </button>
-                      }
-                    </mat-menu>
-                  </div>
+              @if (editingGroupId() === g.id) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="nav-ed__rename">
+                  <mat-label>Nombre del grupo</mat-label>
+                  <input
+                    #groupEditInput
+                    matInput
+                    [ngModel]="editDraft()"
+                    (ngModelChange)="editDraft.set($event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    (keydown.enter)="$event.preventDefault(); commitGroupEdit(g.id)"
+                    (keydown.escape)="$event.preventDefault(); cancelEdit()"
+                    (blur)="commitGroupEdit(g.id)"
+                  />
+                </mat-form-field>
+              } @else {
+                <div class="nav-ed__label-wrap">
+                  <strong class="nav-ed__label">{{ g.label }}</strong>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="nav-ed__icon-btn"
+                    aria-label="Renombrar grupo"
+                    (click)="startGroupEdit(g.id, g.label)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
                 </div>
-              } @empty {
-                <p class="nav-ed__empty">Sin ítems en este grupo</p>
               }
+
+              <span class="nav-ed__moves">
+                @if (canDeleteGroup(g.id)) {
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="nav-ed__icon-btn"
+                    aria-label="Eliminar grupo"
+                    (click)="deleteGroup(g.id)"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                }
+              </span>
+            </div>
+
+            <div class="nav-ed__group-body">
+              <div
+                class="nav-ed__group-body-inner"
+                cdkDropList
+                [id]="dropListId(g.id)"
+                [cdkDropListData]="g.id"
+                [cdkDropListConnectedTo]="connectedDropLists()"
+                (cdkDropListDropped)="onItemDrop($event)"
+              >
+                @for (it of itemsInGroup(g.id); track it.id; let ii = $index) {
+                  <div
+                    class="nav-ed__row"
+                    cdkDrag
+                    [cdkDragData]="it.id"
+                    [class.nav-ed__row--hidden]="it.hidden"
+                  >
+                    <div class="nav-ed__row-drag-ph" *cdkDragPlaceholder></div>
+                    <button
+                      type="button"
+                      class="nav-ed__handle nav-ed__handle--row"
+                      cdkDragHandle
+                      [attr.aria-label]="'Arrastrar ' + it.label"
+                    >
+                      <mat-icon>drag_indicator</mat-icon>
+                    </button>
+                    @if (editingItemId() === it.id) {
+                      <mat-form-field
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                        class="nav-ed__rename"
+                      >
+                        <mat-label>Nombre</mat-label>
+                        <input
+                          #itemEditInput
+                          matInput
+                          [ngModel]="editDraft()"
+                          (ngModelChange)="editDraft.set($event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          (keydown.enter)="$event.preventDefault(); commitItemEdit(it.id)"
+                          (keydown.escape)="$event.preventDefault(); cancelEdit()"
+                          (blur)="commitItemEdit(it.id)"
+                        />
+                      </mat-form-field>
+                    } @else {
+                      <span class="nav-ed__item-label">{{ it.label }}</span>
+                    }
+
+                    <div class="nav-ed__row-actions">
+                      <mat-slide-toggle
+                        class="nav-ed__visible"
+                        [checked]="!it.hidden"
+                        [attr.aria-label]="it.hidden ? 'Mostrar ' + it.label : 'Ocultar ' + it.label"
+                        matTooltip="Visible en el menú"
+                        (change)="setHidden(it.id, !$event.checked)"
+                      />
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="nav-ed__icon-btn"
+                        [matMenuTriggerFor]="itemMenu"
+                        aria-label="Más acciones"
+                      >
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                      <mat-menu #itemMenu="matMenu" xPosition="before">
+                        <button mat-menu-item type="button" (click)="startItemEdit(it.id, it.label)">
+                          <mat-icon>edit</mat-icon>
+                          <span>Renombrar</span>
+                        </button>
+                        <button mat-menu-item type="button" [matMenuTriggerFor]="moveMenu">
+                          <mat-icon>drive_file_move</mat-icon>
+                          <span>Mover a…</span>
+                        </button>
+                        <button mat-menu-item type="button" (click)="setHidden(it.id, !it.hidden)">
+                          <mat-icon>{{ it.hidden ? 'visibility' : 'visibility_off' }}</mat-icon>
+                          <span>{{ it.hidden ? 'Mostrar' : 'Ocultar' }}</span>
+                        </button>
+                      </mat-menu>
+                      <mat-menu #moveMenu="matMenu" xPosition="before">
+                        @for (og of groups(); track og.id) {
+                          <button
+                            mat-menu-item
+                            type="button"
+                            [disabled]="og.id === it.groupId"
+                            (click)="moveItemToGroup(it.id, og.id)"
+                          >
+                            {{ og.label }}
+                          </button>
+                        }
+                      </mat-menu>
+                    </div>
+                  </div>
+                } @empty {
+                  <p class="nav-ed__empty">Sin ítems en este grupo</p>
+                }
+              </div>
             </div>
           </div>
-        </div>
-      }
+        }
+      </div>
     </div>
   `,
   styles: `
@@ -442,6 +447,53 @@ type EditorItem = {
       flex-shrink: 0;
       margin-left: auto;
     }
+    .nav-ed__handle {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--guy-muted, #666);
+      cursor: grab;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-ed__handle:active {
+      cursor: grabbing;
+    }
+    .nav-ed__handle mat-icon {
+      font-size: 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+    .nav-ed__handle--row {
+      width: 2rem;
+      height: 2rem;
+    }
+    .nav-ed__groups {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .nav-ed__group.cdk-drag-preview {
+      box-shadow: 0 10px 28px rgba(27, 42, 51, 0.16);
+    }
+    .nav-ed__group-drag-ph,
+    .nav-ed__row-drag-ph {
+      min-height: 3rem;
+      border-radius: 10px;
+      border: 1px dashed color-mix(in srgb, var(--guy-primary, #1d65a0) 35%, var(--guy-border, #d7e0d9));
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, transparent);
+    }
+    .nav-ed__row.cdk-drag-preview {
+      box-shadow: 0 6px 18px rgba(27, 42, 51, 0.12);
+      background: var(--guy-card, #fff);
+      border-radius: 8px;
+    }
     .nav-ed__empty {
       margin: 0.35rem 0 0.15rem;
       font-size: 0.85rem;
@@ -449,27 +501,53 @@ type EditorItem = {
     }
     @media (max-width: 720px) {
       .nav-ed__row {
-        flex-wrap: wrap;
-        align-items: flex-start;
-        padding: 0.45rem 0;
-        gap: 0.25rem;
+        flex-wrap: nowrap;
+        align-items: center;
+        padding: 0.15rem 0;
+        gap: 0.2rem;
+        min-height: 2.5rem;
       }
-      .nav-ed__item-label,
+      .nav-ed__item-label {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 0.9rem;
+      }
       .nav-ed__rename {
-        flex: 1 1 100%;
+        flex: 1 1 auto;
+        min-width: 0;
       }
       .nav-ed__row-actions {
-        width: 100%;
+        width: auto;
         margin-left: 0;
-        justify-content: flex-end;
+        flex-shrink: 0;
+      }
+      .nav-ed__handle,
+      .nav-ed__handle--row {
+        width: 2rem;
+        height: 2rem;
+      }
+      .nav-ed__icon-btn {
+        width: 2.25rem;
+        height: 2.25rem;
+        --mdc-icon-button-state-layer-size: 2.25rem;
+      }
+      .nav-ed__visible {
+        margin: 0 0.1rem;
+        transform: scale(0.92);
+        transform-origin: center right;
       }
       .nav-ed__group-head {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        gap: 0.15rem;
       }
       .nav-ed__moves {
-        width: 100%;
-        margin-left: 0;
-        justify-content: flex-end;
+        width: auto;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+      .nav-ed__label-wrap {
+        flex: 1 1 auto;
+        min-width: 0;
       }
     }
   `,
@@ -507,6 +585,12 @@ export class ShopNavEditorComponent {
     }
     return ordered;
   });
+
+  readonly connectedDropLists = computed(() => this.groups().map((g) => this.dropListId(g.id)));
+
+  dropListId(groupId: string): string {
+    return `nav-ed-items-${groupId}`;
+  }
 
   constructor() {
     effect(() => {
@@ -651,6 +735,46 @@ export class ShopNavEditorComponent {
     this.commit({
       ...this.draft(),
       groups: list.map((g) => ({ id: g.id, label: g.label })),
+    });
+  }
+
+  onGroupDrop(event: CdkDragDrop<string>): void {
+    if (event.previousIndex === event.currentIndex) return;
+    const list = this.groups().map((g) => ({ id: g.id, label: g.label }));
+    moveItemInArray(list, event.previousIndex, event.currentIndex);
+    this.commit({ ...this.draft(), groups: list });
+  }
+
+  onItemDrop(event: CdkDragDrop<string>): void {
+    const fromGroup = String(event.previousContainer.data ?? '');
+    const toGroup = String(event.container.data ?? '');
+    if (!fromGroup || !toGroup) return;
+
+    if (event.previousContainer === event.container) {
+      if (event.previousIndex === event.currentIndex) return;
+      const items = this.itemsInGroup(fromGroup).map((i) => i.id);
+      moveItemInArray(items, event.previousIndex, event.currentIndex);
+      this.commit({
+        ...this.draft(),
+        itemOrder: { ...(this.draft().itemOrder ?? {}), [fromGroup]: items },
+      });
+      return;
+    }
+
+    const fromItems = this.itemsInGroup(fromGroup).map((i) => i.id);
+    const toItems = this.itemsInGroup(toGroup).map((i) => i.id);
+    transferArrayItem(fromItems, toItems, event.previousIndex, event.currentIndex);
+    const itemId = toItems[event.currentIndex];
+    if (!itemId) return;
+    const itemGroup = { ...(this.draft().itemGroup ?? {}), [itemId]: toGroup };
+    this.commit({
+      ...this.draft(),
+      itemGroup,
+      itemOrder: {
+        ...(this.draft().itemOrder ?? {}),
+        [fromGroup]: fromItems,
+        [toGroup]: toItems,
+      },
     });
   }
 

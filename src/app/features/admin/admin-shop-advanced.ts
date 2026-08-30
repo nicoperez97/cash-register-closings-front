@@ -11,11 +11,14 @@ import { MatIconModule } from '@angular/material/icon';
   template: `
     <section class="panel-card guy-form-section">
       <h2 class="guy-section-title">Estado</h2>
+      <p class="text-muted small mb-3">
+        Si apagás el local, deja de aparecer en el selector. No borra datos.
+      </p>
       <div class="shop-admin__toggle">
         <div>
           <strong>Local habilitado</strong>
           <p class="text-muted small mb-0">
-            Si está deshabilitado no aparece en el selector de locales.
+            Deshabilitado = no se elige en el menú de locales.
           </p>
         </div>
         <mat-slide-toggle formControlName="active" aria-label="Local habilitado" />
@@ -26,8 +29,8 @@ import { MatIconModule } from '@angular/material/icon';
       <section class="panel-card guy-form-section shop-admin__danger">
         <h2 class="guy-section-title">Zona peligrosa</h2>
         <p class="text-muted small mb-3">
-          Solo super admin. Dump por módulo o total (Excel o SQL), cargar Excel, y reset parcial o
-          total. Se conserva configuración y usuarios.
+          Solo super admin. Acá bajás o cargás dumps y podés vaciar módulos. Pedí confirmación
+          escribiendo RESET. Se conservan configuración y usuarios.
         </p>
         <div class="shop-admin__danger-actions">
           <button mat-flat-button color="warn" type="button" (click)="openBackup.emit()">

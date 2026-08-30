@@ -14,9 +14,11 @@ import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import { openUserAvatarPreview } from '../../shared/components/open-user-avatar-preview';
 import { userAvatarSrc } from '../../core/utils/drive-url';
 import { ShopNavEditorComponent } from '../admin/shop-nav-editor';
+import { ShopToolbarEditorComponent } from '../admin/shop-toolbar-editor';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
+import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
 import {
   EligibleNotification,
   ProfileApiService,
@@ -32,6 +34,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
     PageHeaderComponent,
     UserAvatarComponent,
     ShopNavEditorComponent,
+    ShopToolbarEditorComponent,
     ReactiveFormsModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -248,6 +251,59 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
         </div>
         @if (shopId()) {
           <app-shop-nav-editor [value]="menuDraft()" (valueChange)="onMenuChange($event)" />
+        }
+      </section>
+
+      <section class="panel-card profile-card profile-menu" style="--i: 3">
+        <div class="menu-head">
+          <div class="menu-head__copy">
+            <div class="menu-head__title-row">
+              <h2 class="section-title">Accesos rápidos</h2>
+              @if (shopId()) {
+                <span
+                  class="menu-source"
+                  [class.menu-source--mine]="!usingShopToolbar()"
+                  [matTooltip]="
+                    usingShopToolbar()
+                      ? 'Estás viendo los atajos del local. Guardá los tuyos para personalizarlos.'
+                      : 'Tus atajos ganan sobre los del local en la barra superior.'
+                  "
+                >
+                  <mat-icon>{{ usingShopToolbar() ? 'storefront' : 'person' }}</mat-icon>
+                  {{ usingShopToolbar() ? 'Atajos del local' : 'Tus atajos' }}
+                </span>
+              }
+            </div>
+            <p class="text-muted">
+              Primero se usan tus atajos; si no tenés, los del local. Los permisos siguen filtrando.
+            </p>
+          </div>
+          <div class="menu-actions" [class.menu-actions--sticky]="toolbarDirty()">
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="busy() || !shopId() || usingShopToolbar()"
+              (click)="resetToolbar()"
+            >
+              Usar atajos del local
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="busy() || !shopId() || !toolbarDirty()"
+              (click)="saveToolbar()"
+            >
+              <mat-icon>save</mat-icon>
+              Guardar atajos
+            </button>
+          </div>
+        </div>
+        @if (shopId()) {
+          <app-shop-toolbar-editor
+            [value]="toolbarDraft()"
+            (valueChange)="onToolbarChange($event)"
+          />
         }
       </section>
     </div>
@@ -644,6 +700,8 @@ export class ProfilePage {
   readonly avatarBust = signal(Date.now());
   readonly menuDraft = signal<ShopNavConfig | null>(null);
   readonly menuDirty = signal(false);
+  readonly toolbarDraft = signal<ShopToolbarConfig | null>(null);
+  readonly toolbarDirty = signal(false);
 
   readonly shopId = this.shops.selectedShopId;
   readonly eligible = computed(() => this.prefs()?.eligibleNotifications ?? []);
@@ -651,6 +709,11 @@ export class ProfilePage {
     const p = this.prefs();
     if (!p) return true;
     return p.usingShopMenuDefault || p.navConfig == null;
+  });
+  readonly usingShopToolbar = computed(() => {
+    const p = this.prefs();
+    if (!p) return true;
+    return p.usingShopToolbarDefault === true || p.toolbarConfig == null;
   });
 
   hasAvatarPhoto(): boolean {
@@ -718,6 +781,7 @@ export class ProfilePage {
     if (!shopId) {
       this.prefs.set(null);
       this.menuDraft.set(null);
+      this.toolbarDraft.set(null);
       return;
     }
     this.api.getPreferences(shopId).subscribe({
@@ -725,18 +789,21 @@ export class ProfilePage {
         this.prefs.set(prefs);
         this.menuDraft.set(prefs.navConfig ?? prefs.shopNavConfig ?? null);
         this.menuDirty.set(false);
+        this.toolbarDraft.set(prefs.toolbarConfig ?? prefs.shopToolbarConfig ?? null);
+        this.toolbarDirty.set(false);
       },
       error: () => this.prefs.set(null),
     });
   }
 
-  /** Aplica prefs al shop activo para que la sidebar use myNavConfig de inmediato. */
+  /** Aplica prefs al shop activo para que sidebar/toolbar usen overrides de inmediato. */
   private syncShopFromPrefs(p: ShopProfilePreferences): void {
     const shop = this.shops.selectedShop();
     if (!shop || shop.id !== p.shopId) return;
     const next = {
       ...shop,
       myNavConfig: p.navConfig ?? null,
+      myToolbarConfig: p.toolbarConfig ?? null,
       mutedNotificationTypes: p.mutedNotificationTypes ?? [],
     };
     this.shops.upsertShop(next);
@@ -925,6 +992,71 @@ export class ProfilePage {
       error: () => {
         this.busy.set(false);
         this.snack.open('No se pudo restablecer el menú', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  onToolbarChange(cfg: ShopToolbarConfig | null): void {
+    this.toolbarDraft.set(cfg);
+    this.toolbarDirty.set(true);
+  }
+
+  saveToolbar(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    const sent = this.toolbarDraft();
+    this.busy.set(true);
+    this.api.updatePreferences(shopId, { toolbarConfig: sent }).subscribe({
+      next: (p) => {
+        this.prefs.set(p);
+        // null intencional = “usar del local”. Cualquier otro envío debe volver persistido.
+        if (sent != null && p.toolbarConfig == null) {
+          this.toolbarDirty.set(true);
+          this.busy.set(false);
+          this.snack.open('No se pudieron guardar los atajos. Probá de nuevo.', 'OK', {
+            duration: 4000,
+          });
+          return;
+        }
+        this.toolbarDraft.set(
+          p.toolbarConfig != null ? p.toolbarConfig : (p.shopToolbarConfig ?? null),
+        );
+        this.toolbarDirty.set(false);
+        this.syncShopFromPrefs(p);
+        this.busy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open(
+          sent == null
+            ? 'Volviste a los atajos del local'
+            : 'Atajos guardados · ya se usan en la barra',
+          'OK',
+          { duration: 2800 },
+        );
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudieron guardar los atajos', 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  resetToolbar(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.busy.set(true);
+    this.api.updatePreferences(shopId, { toolbarConfig: null }).subscribe({
+      next: (p) => {
+        this.prefs.set(p);
+        this.toolbarDraft.set(p.shopToolbarConfig ?? null);
+        this.toolbarDirty.set(false);
+        this.syncShopFromPrefs(p);
+        this.busy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open('Volviste a los atajos del local', 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudieron restablecer los atajos', 'OK', { duration: 3500 });
       },
     });
   }

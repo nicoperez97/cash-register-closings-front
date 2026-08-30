@@ -1120,11 +1120,8 @@ export class PaymentsPage {
 
   async validate(p: ShopPayment): Promise<void> {
     if (this.actionBusyId()) return;
-    const accounts = buildPaymentDialogAccounts(this.accounts(), p);
-    if (!accounts.length) {
-      this.snack.open('No hay cuentas para asignar al pago', 'OK', { duration: 3500 });
-      return;
-    }
+    const shopId = this.shopId();
+    if (!shopId) return;
     const result = await firstValueFrom(
       this.dialogTitle
         .track(
@@ -1132,15 +1129,18 @@ export class PaymentsPage {
             width: '420px',
             maxWidth: '95vw',
             panelClass: 'guy-dialog',
-            data: { payment: p, accounts },
+            data: {
+              shopId,
+              payment: p,
+              accounts: buildPaymentDialogAccounts(this.accounts(), p),
+            },
           }),
           'Validar pago',
         )
         .afterClosed(),
     );
     if (!result?.accountId) return;
-    const shopId = this.shopId();
-    if (!shopId || this.actionBusyId()) return;
+    if (this.actionBusyId()) return;
     this.actionBusyId.set(p.id);
     this.api.validate(shopId, p.id, { accountId: result.accountId }).subscribe({
       next: () => {
@@ -1162,11 +1162,8 @@ export class PaymentsPage {
 
   async pay(p: ShopPayment): Promise<void> {
     if (this.actionBusyId()) return;
-    const accounts = buildPaymentDialogAccounts(this.accounts(), p);
-    if (!accounts.length) {
-      this.snack.open('No hay cuentas para asignar al pago', 'OK', { duration: 3500 });
-      return;
-    }
+    const shopId = this.shopId();
+    if (!shopId) return;
     const result = await firstValueFrom(
       this.dialogTitle
         .track(
@@ -1174,15 +1171,18 @@ export class PaymentsPage {
             width: '420px',
             maxWidth: '95vw',
             panelClass: 'guy-dialog',
-            data: { payment: p, accounts: buildPaymentDialogAccounts(this.accounts(), p) },
+            data: {
+              shopId,
+              payment: p,
+              accounts: buildPaymentDialogAccounts(this.accounts(), p),
+            },
           }),
           'Marcar como pagado',
         )
         .afterClosed(),
     );
     if (!result?.paymentMethod || !result?.accountId || !(result.amount > 0)) return;
-    const shopId = this.shopId();
-    if (!shopId || this.actionBusyId()) return;
+    if (this.actionBusyId()) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     this.actionBusyId.set(p.id);
     this.api.pay(shopId, p.id, {
