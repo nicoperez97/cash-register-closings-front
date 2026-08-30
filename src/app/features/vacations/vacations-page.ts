@@ -321,28 +321,6 @@ export class VacationsPage {
       this.tabIndex.set(personType === 'EMPLOYEE' ? 0 : 1);
     }
 
-    const persons = personType === 'EMPLOYEE' ? [...this.employees()] : [...this.partners()];
-    if (mode.mode === 'edit') {
-      const currentId =
-        personType === 'EMPLOYEE'
-          ? mode.vacation.employeeId
-          : mode.vacation.partnerAccountId;
-      const currentName = mode.vacation.personName;
-      if (currentId && !persons.some((p) => p.id === currentId)) {
-        persons.unshift({ id: currentId, name: currentName || '—' });
-      }
-    }
-    if (!persons.length) {
-      this.snack.open(
-        personType === 'EMPLOYEE'
-          ? 'No hay empleados activos para cargar vacaciones'
-          : 'No hay cuentas de socio activas para cargar vacaciones',
-        'OK',
-        { duration: 3500 },
-      );
-      return;
-    }
-
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     this.dialogTitle
       .track(
@@ -350,7 +328,7 @@ export class VacationsPage {
           width: '480px',
           maxWidth: '96vw',
           panelClass: 'guy-dialog',
-          data: { ...mode, shopId, shopName, personType, persons },
+          data: { ...mode, shopId, shopName, personType },
         }),
         mode.mode === 'edit' ? 'Editar vacaciones' : 'Cargar vacaciones',
       )

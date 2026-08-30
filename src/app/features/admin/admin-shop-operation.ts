@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import {
   ControlContainer,
   FormArray,
@@ -12,6 +12,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
+import { ADMIN_SHOP_HOST } from './admin-shop-host';
 
 export interface AdminShopTimezoneOption {
   value: string;
@@ -47,385 +48,393 @@ export interface AdminShopConceptCategoryOption {
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Caja</h2>
-      <p class="text-muted small mb-3">
-        Moneda, cambio sugerido y turnos de caja. Los turnos parten el día en cierres y presentismo
-        (elegís en qué turno cargás). No definen la entrada/salida del personal.
-      </p>
-      <div class="guy-form-grid guy-form-grid--2">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Etiqueta de unidades</mat-label>
-          <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
-          <mat-hint>Cómo se llaman las unidades vendidas</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Moneda</mat-label>
-          <mat-select formControlName="currency">
-            <mat-option value="ARS">ARS · Peso argentino</mat-option>
-            <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
-            <mat-option value="USD">USD · Dólar</mat-option>
-            <mat-option value="EUR">EUR · Euro</mat-option>
-            <mat-option value="BRL">BRL · Real</mat-option>
-            <mat-option value="CLP">CLP · Peso chileno</mat-option>
-            <mat-option value="PYG">PYG · Guaraní</mat-option>
-          </mat-select>
-          <mat-hint>Moneda de operación del local</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cambio por defecto</mat-label>
-          <input
-            matInput
-            type="number"
-            formControlName="defaultChangeAmount"
-            min="0"
-            step="1"
-            inputmode="decimal"
-          />
-          <mat-hint>Monto sugerido al abrir un cierre</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Zona horaria</mat-label>
-          <mat-select formControlName="timezone">
-            @for (tz of timezoneOptions(); track tz.value) {
-              <mat-option [value]="tz.value">{{ tz.label }}</mat-option>
-            }
-          </mat-select>
-          <mat-hint>Día calendario de reservas y pantallas públicas</mat-hint>
-        </mat-form-field>
-      </div>
-
-      <div class="shop-admin__posnets-head" style="margin-top: 0.75rem">
-        <p class="text-muted small mb-0">
-          Turnos de caja: nombre, días, apertura y cierre. Si ese día hay un solo turno, no se pide
-          elegir en el cierre ni en el presentismo. Apertura = cierre significa día completo (24 h).
-        </p>
-        <button mat-stroked-button type="button" (click)="addShift.emit()">
-          <mat-icon>add</mat-icon>
-          Agregar turno
-        </button>
-      </div>
-      <div class="shop-admin__shifts" formArrayName="shifts">
-        @for (row of shifts.controls; track row; let i = $index) {
-          <div class="shop-admin__shift-row" [formGroupName]="i">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Nombre</mat-label>
-              <input matInput formControlName="name" placeholder="ej. Mediodía" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Apertura de turno</mat-label>
-              <input matInput type="time" formControlName="opensAt" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Cierre de turno</mat-label>
-              <input matInput type="time" formControlName="closesAt" />
-            </mat-form-field>
-            <button
-              mat-icon-button
-              type="button"
-              class="shop-admin__posnet-remove"
-              aria-label="Quitar turno"
-              [disabled]="shifts.length < 2"
-              (click)="removeShift.emit(i)"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
-            <div class="shop-admin__shift-days" role="group" aria-label="Días del turno">
-              @for (d of weekdayOptions(); track d.value) {
-                <button
-                  type="button"
-                  class="shop-admin__weekday"
-                  [class.shop-admin__weekday--on]="isShiftWeekday()(i, d.value)"
-                  (click)="toggleShiftWeekday.emit({ index: i, day: d.value })"
-                >
-                  {{ d.label }}
-                </button>
+    <div class="op">
+      <section class="panel-card op__card">
+        <header class="op__head">
+          <h2 class="op__title">Caja</h2>
+          <p class="op__lead">Moneda, cambio y comensales del cierre.</p>
+        </header>
+        <div class="guy-form-grid guy-form-grid--2">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Etiqueta de unidades</mat-label>
+            <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Moneda</mat-label>
+            <mat-select formControlName="currency">
+              <mat-option value="ARS">ARS · Peso argentino</mat-option>
+              <mat-option value="UYU">UYU · Peso uruguayo</mat-option>
+              <mat-option value="USD">USD · Dólar</mat-option>
+              <mat-option value="EUR">EUR · Euro</mat-option>
+              <mat-option value="BRL">BRL · Real</mat-option>
+              <mat-option value="CLP">CLP · Peso chileno</mat-option>
+              <mat-option value="PYG">PYG · Guaraní</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Cambio por defecto</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="defaultChangeAmount"
+              min="0"
+              step="1"
+              inputmode="decimal"
+            />
+            <mat-hint>Al abrir un cierre</mat-hint>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Zona horaria</mat-label>
+            <mat-select formControlName="timezone">
+              @for (tz of timezoneOptions(); track tz.value) {
+                <mat-option [value]="tz.value">{{ tz.label }}</mat-option>
               }
-            </div>
-          </div>
-        }
-      </div>
-      <div class="shop-admin__toggle-list" style="margin-top: 0.85rem">
-        <div class="shop-admin__toggle">
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="op__row-toggle">
           <div>
             <strong>Comensales</strong>
-            <p class="text-muted small mb-0">Pedir cantidad de comensales en cada cierre.</p>
+            <span>Pedir cantidad en cada cierre</span>
           </div>
           <mat-slide-toggle formControlName="coversEnabled" aria-label="Comensales habilitados" />
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Presentismo de servicio</h2>
-      <p class="text-muted small mb-3">
-        Entrada y retirada default del personal. Son independientes de los turnos de caja. Cada
-        empleado puede tener las suyas en Empleados.
-      </p>
-      <mat-slide-toggle formControlName="serviceAttendanceWithHours">
-        Presentismo con entrada y salida
-      </mat-slide-toggle>
-      <p class="shop-admin__op-note" style="margin-top: 0.75rem">
-        Apagado: solo presente / ausente / feriado. Encendido: se cargan entrada y salida, y se
-        calculan extras (salida real menos retirada).
-      </p>
-      @if (serviceWithHours()) {
-        <div class="guy-form-grid guy-form-grid--2" style="margin-top: 0.85rem">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Entrada default del personal</mat-label>
-            <input matInput type="time" formControlName="serviceDefaultCheckIn" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Retirada default del personal</mat-label>
-            <input matInput type="time" formControlName="serviceDefaultCheckOut" />
-            <mat-hint>Si el empleado no tiene horario propio. Extra = salida real − retirada.</mat-hint>
-          </mat-form-field>
-        </div>
-      }
-    </section>
-
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Producción</h2>
-      <p class="text-muted small mb-3">
-        Horas sugeridas al marcar presente en Asistencia · Producción (no es entrada/salida).
-      </p>
-      <div class="guy-form-grid guy-form-grid--2">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Horas por defecto</mat-label>
-          <input
-            matInput
-            type="number"
-            formControlName="productionDefaultHours"
-            min="0"
-            max="24"
-            step="0.5"
-            inputmode="decimal"
-          />
-          <mat-hint>Al marcar presente en la grilla de producción</mat-hint>
-        </mat-form-field>
-        <p class="shop-admin__op-note">
-          Se aplica al tocar un día. Después se puede editar manteniendo el dedo / clic derecho.
+      <section class="panel-card op__card">
+        <header class="op__head op__head--row">
+          <div>
+            <h2 class="op__title">Turnos de caja</h2>
+            <p class="op__lead">
+              Parten el día en cierres y presentismo. No son la entrada/retirada del personal.
+            </p>
+          </div>
+          <button mat-flat-button color="primary" type="button" class="op__add" (click)="addShift.emit()">
+            <mat-icon>add</mat-icon>
+            Agregar
+          </button>
+        </header>
+        <p class="op__tip">
+          Un solo turno ese día = no se pide elegir. Apertura = cierre → día completo (24 h).
         </p>
-      </div>
-    </section>
-
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Ventas POS</h2>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Sistema de ventas</mat-label>
-        <mat-select formControlName="salesSystemId">
-          <mat-option [value]="null">Sin sistema</mat-option>
-          @for (s of salesSystems(); track s.id) {
-            <mat-option [value]="s.id">{{ s.name }}</mat-option>
+        <div class="op__shifts" formArrayName="shifts">
+          @for (row of shifts.controls; track row; let i = $index) {
+            <article class="op__shift" [formGroupName]="i">
+              <div class="op__shift-top">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__shift-name">
+                  <mat-label>Nombre</mat-label>
+                  <input matInput formControlName="name" placeholder="ej. Noche" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Abre</mat-label>
+                  <input matInput type="time" formControlName="opensAt" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Cierra</mat-label>
+                  <input matInput type="time" formControlName="closesAt" />
+                </mat-form-field>
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="op__shift-del"
+                  aria-label="Quitar turno"
+                  [disabled]="shifts.length < 2"
+                  (click)="removeShift.emit(i)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+              <div class="op__days" role="group" [attr.aria-label]="'Días de ' + (row.get('name')?.value || 'turno')">
+                @for (d of weekdayOptions(); track d.value) {
+                  <button
+                    type="button"
+                    class="op__day"
+                    [class.op__day--on]="isShiftWeekday()(i, d.value)"
+                    (click)="toggleShiftWeekday.emit({ index: i, day: d.value })"
+                  >
+                    {{ d.label }}
+                  </button>
+                }
+              </div>
+            </article>
           }
-        </mat-select>
-        <mat-hint>Cómo interpretar reportes (Restosoft, WeMenu, etc.)</mat-hint>
-      </mat-form-field>
-    </section>
-
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Conceptos en pagos</h2>
-      <p class="text-muted small mb-3">
-        Qué categorías se listan al cargar cada tipo de pago. Los conceptos en sí se gestionan en
-        <a routerLink="/admin/concepts">Administración → Conceptos</a>.
-      </p>
-      <div class="guy-form-grid guy-form-grid--2" formGroupName="paymentConceptCategories">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Pagos a proveedores</mat-label>
-          <mat-select formControlName="supplier" multiple>
-            @for (opt of conceptCategoryOptions(); track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Pagos a servicios</mat-label>
-          <mat-select formControlName="service" multiple>
-            @for (opt of conceptCategoryOptions(); track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-          <mat-hint>Ej. Servicios y Proveedores</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Pagos a empleados</mat-label>
-          <mat-select formControlName="employee" multiple>
-            @for (opt of conceptCategoryOptions(); track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Movimientos</mat-label>
-          <mat-select formControlName="movement" multiple>
-            @for (opt of conceptCategoryOptions(); track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      </div>
-    </section>
-
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Módulos públicos</h2>
-      <p class="text-muted small mb-3">Reservas, lista de espera, presentismo y carta pública.</p>
-      <div class="shop-admin__toggle-list">
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Reservas</strong>
-            <p class="text-muted small mb-0">Módulo interno y pantalla pública del local.</p>
-          </div>
-          <mat-slide-toggle formControlName="reservationsEnabled" aria-label="Reservas habilitadas" />
         </div>
-        <div class="shop-admin__toggle">
+      </section>
+
+      <section class="panel-card op__card">
+        <header class="op__head">
+          <h2 class="op__title">Presentismo</h2>
+          <p class="op__lead">
+            Entrada y retirada default del personal. Independiente de los turnos. Override en Empleados.
+          </p>
+        </header>
+        <div class="op__row-toggle op__row-toggle--accent">
           <div>
-            <strong>Formulario público de reservas</strong>
-            <p class="text-muted small mb-0">
-              Link para que la gente pida mesa. Se puede apagar desde Reservas.
-            </p>
+            <strong>Con entrada y salida</strong>
+            <span>Apagado: solo presente / ausente / feriado</span>
           </div>
           <mat-slide-toggle
-            formControlName="reservationSignupEnabled"
-            aria-label="Formulario público de reservas"
+            formControlName="serviceAttendanceWithHours"
+            aria-label="Presentismo con entrada y salida"
           />
         </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Sector adentro</strong>
-            <p class="text-muted small mb-0">Pedidos de mesa en el salón.</p>
+        @if (serviceWithHours()) {
+          <div class="guy-form-grid guy-form-grid--2 op__after-toggle">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Entrada default</mat-label>
+              <input matInput type="time" formControlName="serviceDefaultCheckIn" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Retirada default</mat-label>
+              <input matInput type="time" formControlName="serviceDefaultCheckOut" />
+              <mat-hint>Extra = salida real − retirada</mat-hint>
+            </mat-form-field>
           </div>
-          <mat-slide-toggle formControlName="reservationInsideEnabled" aria-label="Sector adentro" />
-        </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Sector afuera</strong>
-            <p class="text-muted small mb-0">Pedidos de mesa en la vereda / patio.</p>
-          </div>
-          <mat-slide-toggle
-            formControlName="reservationOutsideEnabled"
-            aria-label="Sector afuera"
-          />
-        </div>
-        <div class="shop-admin__party-rules">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Adentro hasta</mat-label>
+        }
+      </section>
+
+      <div class="op__pair">
+        <section class="panel-card op__card">
+          <header class="op__head">
+            <h2 class="op__title">Producción</h2>
+            <p class="op__lead">Horas al marcar en Asistencia · Producción.</p>
+          </header>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__field-full">
+            <mat-label>Horas por defecto</mat-label>
             <input
               matInput
               type="number"
-              min="1"
-              max="99"
-              inputmode="numeric"
-              formControlName="reservationInsideMaxPartySize"
-              placeholder="Ilimitado"
+              formControlName="productionDefaultHours"
+              min="0"
+              max="24"
+              step="0.5"
+              inputmode="decimal"
             />
-            <mat-hint>Vacío = sin tope de personas adentro</mat-hint>
+            <mat-hint>Se puede editar después en la grilla</mat-hint>
+          </mat-form-field>
+        </section>
+
+        <section class="panel-card op__card">
+          <header class="op__head">
+            <h2 class="op__title">Ventas POS</h2>
+            <p class="op__lead">Cómo leer reportes de caja.</p>
+          </header>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__field-full">
+            <mat-label>Sistema de ventas</mat-label>
+            <mat-select formControlName="salesSystemId">
+              <mat-option [value]="null">Sin sistema</mat-option>
+              @for (s of salesSystems(); track s.id) {
+                <mat-option [value]="s.id">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </section>
+      </div>
+
+      <section class="panel-card op__card">
+        <header class="op__head">
+          <h2 class="op__title">Conceptos en pagos</h2>
+          <p class="op__lead">
+            Categorías al cargar cada tipo de pago.
+            <a routerLink="/admin/concepts">Administrar conceptos</a>
+          </p>
+        </header>
+        <div class="guy-form-grid guy-form-grid--2" formGroupName="paymentConceptCategories">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Proveedores</mat-label>
+            <mat-select formControlName="supplier" multiple>
+              @for (opt of conceptCategoryOptions(); track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Afuera hasta</mat-label>
-            <input
-              matInput
-              type="number"
-              min="1"
-              max="99"
-              inputmode="numeric"
-              formControlName="reservationOutsideMinPartySize"
-              placeholder="Ilimitado"
-            />
-            <mat-hint>Vacío = sin tope de personas afuera</mat-hint>
+            <mat-label>Servicios</mat-label>
+            <mat-select formControlName="service" multiple>
+              @for (opt of conceptCategoryOptions(); track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Empleados</mat-label>
+            <mat-select formControlName="employee" multiple>
+              @for (opt of conceptCategoryOptions(); track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Movimientos</mat-label>
+            <mat-select formControlName="movement" multiple>
+              @for (opt of conceptCategoryOptions(); track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
         </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Lista de espera</strong>
-            <p class="text-muted small mb-0">Cola de espera y su pantalla pública.</p>
-          </div>
-          <mat-slide-toggle
-            formControlName="waitingListEnabled"
-            aria-label="Lista de espera habilitada"
-          />
-        </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Propinas</strong>
-            <p class="text-muted small mb-0">Caja diaria de propinas y reparto por empleado.</p>
-          </div>
-          <mat-slide-toggle formControlName="tipsEnabled" aria-label="Propinas habilitadas" />
-        </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Presentismo público</strong>
-            <p class="text-muted small mb-0">
-              El personal entra con el link y ve su mes, sin usuario de la app.
-            </p>
-          </div>
-          <mat-slide-toggle
-            formControlName="publicAttendanceEnabled"
-            aria-label="Presentismo público"
-          />
-        </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Normas públicas</strong>
-            <p class="text-muted small mb-0">
-              Página para imprimir y pegar las normas pre y post servicio.
-            </p>
-          </div>
-          <mat-slide-toggle
-            formControlName="publicServiceRulesEnabled"
-            aria-label="Normas de servicio públicas"
-          />
-        </div>
-        <div class="shop-admin__toggle">
-          <div>
-            <strong>Carta pública</strong>
-            <p class="text-muted small mb-0">
-              Página con las cartas del local. Se cargan en Administración → Carta.
-            </p>
-          </div>
-          <mat-slide-toggle formControlName="menuEnabled" aria-label="Carta pública" />
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Días de franco</h2>
-      <p class="text-muted small mb-3">
-        Días en que el local no abre. Se reflejan en presentismo y vacaciones.
-      </p>
-      <div class="shop-admin__weekdays">
-        <div class="shop-admin__weekday-chips">
+      <section class="panel-card op__card">
+        <header class="op__head">
+          <h2 class="op__title">Módulos</h2>
+          <p class="op__lead">Qué está activo en el local y en pantallas públicas.</p>
+        </header>
+
+        <h3 class="op__subtitle">Reservas</h3>
+        <div class="op__toggles">
+          <div class="op__row-toggle">
+            <div>
+              <strong>Reservas</strong>
+              <span>Módulo interno y pantalla pública</span>
+            </div>
+            <mat-slide-toggle formControlName="reservationsEnabled" aria-label="Reservas" />
+          </div>
+          @if (reservationsOn()) {
+            <div class="op__row-toggle">
+              <div>
+                <strong>Formulario público</strong>
+                <span>Link para pedir mesa</span>
+              </div>
+              <mat-slide-toggle
+                formControlName="reservationSignupEnabled"
+                aria-label="Formulario público de reservas"
+              />
+            </div>
+            <div class="op__row-toggle">
+              <div>
+                <strong>Sector adentro</strong>
+                <span>Mesas en el salón</span>
+              </div>
+              <mat-slide-toggle formControlName="reservationInsideEnabled" aria-label="Sector adentro" />
+            </div>
+            <div class="op__row-toggle">
+              <div>
+                <strong>Sector afuera</strong>
+                <span>Vereda / patio</span>
+              </div>
+              <mat-slide-toggle
+                formControlName="reservationOutsideEnabled"
+                aria-label="Sector afuera"
+              />
+            </div>
+            <div class="guy-form-grid guy-form-grid--2 op__party">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Adentro hasta</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="1"
+                  max="99"
+                  inputmode="numeric"
+                  formControlName="reservationInsideMaxPartySize"
+                  placeholder="Sin tope"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Afuera hasta</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="1"
+                  max="99"
+                  inputmode="numeric"
+                  formControlName="reservationOutsideMinPartySize"
+                  placeholder="Sin tope"
+                />
+              </mat-form-field>
+            </div>
+          } @else {
+            <p class="op__tip">Reservas apagadas: el local no ofrece mesas por este módulo.</p>
+          }
+        </div>
+
+        <h3 class="op__subtitle">Otros</h3>
+        <div class="op__toggles">
+          <div class="op__row-toggle">
+            <div>
+              <strong>Lista de espera</strong>
+              <span>Cola y pantalla pública</span>
+            </div>
+            <mat-slide-toggle formControlName="waitingListEnabled" aria-label="Lista de espera" />
+          </div>
+          <div class="op__row-toggle">
+            <div>
+              <strong>Propinas</strong>
+              <span>Caja diaria y reparto</span>
+            </div>
+            <mat-slide-toggle formControlName="tipsEnabled" aria-label="Propinas" />
+          </div>
+          <div class="op__row-toggle">
+            <div>
+              <strong>Presentismo público</strong>
+              <span>El personal ve su mes con el link</span>
+            </div>
+            <mat-slide-toggle
+              formControlName="publicAttendanceEnabled"
+              aria-label="Presentismo público"
+            />
+          </div>
+          <div class="op__row-toggle">
+            <div>
+              <strong>Normas públicas</strong>
+              <span>Página para imprimir</span>
+            </div>
+            <mat-slide-toggle
+              formControlName="publicServiceRulesEnabled"
+              aria-label="Normas públicas"
+            />
+          </div>
+          <div class="op__row-toggle">
+            <div>
+              <strong>Carta pública</strong>
+              <span>Se carga en Administración → Carta</span>
+            </div>
+            <mat-slide-toggle formControlName="menuEnabled" aria-label="Carta pública" />
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card op__card">
+        <header class="op__head">
+          <h2 class="op__title">Días de franco</h2>
+          <p class="op__lead">Días sin apertura. Impacta presentismo y vacaciones.</p>
+        </header>
+        <div class="op__days op__days--franco" role="group" aria-label="Días de franco">
           @for (d of weekdayOptions(); track d.value) {
             <button
               type="button"
-              class="shop-admin__weekday"
-              [class.shop-admin__weekday--on]="isClosedWeekday()(d.value)"
+              class="op__day"
+              [class.op__day--on]="isClosedWeekday()(d.value)"
               (click)="toggleClosedWeekday.emit(d.value)"
             >
               {{ d.label }}
             </button>
           }
         </div>
-      </div>
-    </section>
-
-    @if (canManageAccounts()) {
-      <section class="panel-card guy-form-section shop-admin__link-card">
-        <h2 class="guy-section-title">Cuentas y depósitos</h2>
-        <p class="text-muted small mb-3">
-          Cuentas canal, depósitos del cierre y el resto del dinero del local se gestionan en
-          Administración → Cuentas.
-        </p>
-        <a mat-stroked-button routerLink="/admin/accounts">
-          <mat-icon>account_balance</mat-icon>
-          Ir a Cuentas
-        </a>
       </section>
-    }
+
+      @if (canManageAccounts()) {
+        <aside class="op__accounts panel-card">
+          <div class="op__accounts-copy">
+            <mat-icon aria-hidden="true">account_balance</mat-icon>
+            <div>
+              <strong>Cuentas y depósitos</strong>
+              <p>Canal, depósitos del cierre y el resto del dinero.</p>
+            </div>
+          </div>
+          <a mat-stroked-button routerLink="/admin/accounts" class="op__accounts-btn">
+            Ir a Cuentas
+            <mat-icon>arrow_forward</mat-icon>
+          </a>
+        </aside>
+      }
+    </div>
   `,
-  styleUrl: './admin-shop.scss',
+  styleUrl: './admin-shop-operation.scss',
 })
 export class AdminShopOperationComponent {
-  private readonly parentForm = inject(FormGroupDirective);
+  private readonly host = inject(ADMIN_SHOP_HOST);
 
   readonly timezoneOptions = input<readonly AdminShopTimezoneOption[]>([]);
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
@@ -441,7 +450,11 @@ export class AdminShopOperationComponent {
   readonly toggleShiftWeekday = output<{ index: number; day: number }>();
   readonly toggleClosedWeekday = output<number>();
 
+  readonly reservationsOn = computed(
+    () => !!this.host.formValue()?.reservationsEnabled,
+  );
+
   get shifts(): FormArray {
-    return this.parentForm.form.get('shifts') as FormArray;
+    return this.host.form.get('shifts') as FormArray;
   }
 }

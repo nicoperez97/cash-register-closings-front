@@ -13,6 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { SelectSearchComponent } from '../../shared/components/select-search';
+import { ADMIN_SHOP_HOST } from './admin-shop-host';
 
 export interface AdminShopPosnetTypeOption {
   value: string;
@@ -47,8 +48,9 @@ export interface AdminShopAccountOption {
       <h2 class="guy-section-title">Posnets</h2>
       <div class="shop-admin__posnets-head">
         <p class="text-muted small mb-0">
-          Terminales del local (PVS / Mercado Pago). Cuenta DNI se carga por transferencias en el
-          cierre; el tipo Cuenta DNI queda disponible por si lo necesitás.
+          Posnet = terminal en el local (PVS / Mercado Pago) que aparece en el cierre. Si cobrás por
+          Pedidos Ya u otra fuente aparte, usá <strong>Cuentas aparte</strong> más abajo, no un
+          posnet.
         </p>
         <button mat-stroked-button type="button" (click)="addPosnet.emit()">
           <mat-icon>add</mat-icon>
@@ -93,8 +95,9 @@ export interface AdminShopAccountOption {
       <h2 class="guy-section-title">Cuentas aparte</h2>
       <div class="shop-admin__posnets-head">
         <p class="text-muted small mb-0">
-          Pedidos Ya, delivery propio u otras fuentes que no deben entrar al total declarado.
-          Si rinden después o tienen cuenta propia, se suman aparte en el cierre del día.
+          Fuentes que no deben sumar al total declarado (Pedidos Ya, delivery propio, etc.). Si
+          rinden después o van a una cuenta, elegí el destino. Guardá con el botón de esta sección
+          (es aparte del Guardar cambios del pie).
         </p>
         <div class="shop-admin__source-actions">
           <button mat-stroked-button type="button" (click)="addClosingSource.emit()">
@@ -178,7 +181,7 @@ export interface AdminShopAccountOption {
   styleUrl: './admin-shop.scss',
 })
 export class AdminShopDevicesComponent {
-  private readonly parentForm = inject(FormGroupDirective);
+  private readonly host = inject(ADMIN_SHOP_HOST);
 
   readonly posnetTypes = input<readonly AdminShopPosnetTypeOption[]>([]);
   readonly closingSourceKinds = input<readonly AdminShopClosingSourceKindOption[]>([]);
@@ -198,11 +201,11 @@ export class AdminShopDevicesComponent {
   readonly selectOpened = output<boolean>();
 
   get posnets(): FormArray {
-    return this.parentForm.form.get('posnets') as FormArray;
+    return this.host.form.get('posnets') as FormArray;
   }
 
   get closingSources(): FormArray {
-    return this.parentForm.form.get('closingSources') as FormArray;
+    return this.host.form.get('closingSources') as FormArray;
   }
 
   accountIdOf(row: AbstractControl): string | null {

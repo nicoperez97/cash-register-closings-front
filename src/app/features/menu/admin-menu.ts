@@ -132,7 +132,7 @@ function toPrice(value: unknown): number | null {
           <h2>Página pública</h2>
           @if (!enabled()) {
             <p class="menu-admin__warn">
-              La carta pública está apagada. Activala en Administración → Local → Módulos públicos.
+              La carta pública está apagada. Activala en Configuración del local → Operación → Módulos públicos.
             </p>
           }
           @if (shopSlug()) {

@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,7 +7,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { catchError, of } from 'rxjs';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
   StockApiService,
@@ -20,7 +22,8 @@ export type StockProductDialogData = {
   shopId: string;
   shopName: string;
   kind: StockKind;
-  categories: StockCategory[];
+  /** Seed opcional; el diálogo vuelve a cargar al abrir. */
+  categories?: StockCategory[];
 } & ({ mode: 'create' } | { mode: 'edit'; product: StockProduct });
 
 @Component({
@@ -34,6 +37,7 @@ export type StockProductDialogData = {
     MatSelectModule,
     MatSlideToggleModule,
     MatIconModule,
+    MatProgressSpinnerModule,
     MatSnackBarModule,
     BusyLabelComponent,
   ],
@@ -48,107 +52,140 @@ export type StockProductDialogData = {
       </span>
     </h2>
 
-    <mat-dialog-content>
-      <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Nombre del producto</mat-label>
-          <mat-icon matPrefix>inventory_2</mat-icon>
-          <input matInput formControlName="name" />
-          @if (form.controls.name.touched && form.controls.name.hasError('required')) {
-            <mat-error>Ingresá un nombre</mat-error>
+    @if (loadingLists()) {
+      <mat-dialog-content class="stock-dlg__loading">
+        <mat-spinner diameter="36" />
+        <p>Cargando categorías…</p>
+      </mat-dialog-content>
+    } @else if (listsFailed()) {
+      <mat-dialog-content>
+        <p class="stock-dlg__empty">No se pudieron cargar las categorías. Probá de nuevo.</p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" (click)="reloadLists()">
+          <mat-icon>refresh</mat-icon>
+          Reintentar
+        </button>
+      </mat-dialog-actions>
+    } @else {
+      <mat-dialog-content>
+        <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Nombre del producto</mat-label>
+            <mat-icon matPrefix>inventory_2</mat-icon>
+            <input matInput formControlName="name" />
+            @if (form.controls.name.touched && form.controls.name.hasError('required')) {
+              <mat-error>Ingresá un nombre</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-slide-toggle formControlName="createCategory">
+            Crear categoría nueva
+          </mat-slide-toggle>
+
+          @if (form.controls.createCategory.value) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Nombre de categoría</mat-label>
+              <mat-icon matPrefix>category</mat-icon>
+              <input matInput formControlName="newCategoryName" />
+            </mat-form-field>
+          } @else {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Categoría</mat-label>
+              <mat-icon matPrefix>category</mat-icon>
+              <mat-select formControlName="categoryId">
+                @for (c of categories(); track c.id) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
           }
-        </mat-form-field>
 
-        <mat-slide-toggle formControlName="createCategory">
-          Crear categoría nueva
-        </mat-slide-toggle>
+          @if (!isEdit) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cantidad inicial</mat-label>
+              <mat-icon matPrefix>tag</mat-icon>
+              <input
+                matInput
+                type="number"
+                min="0"
+                step="1"
+                inputmode="decimal"
+                formControlName="quantity"
+              />
+            </mat-form-field>
+          }
 
-        @if (form.controls.createCategory.value) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Nombre de categoría</mat-label>
-            <mat-icon matPrefix>category</mat-icon>
-            <input matInput formControlName="newCategoryName" />
-          </mat-form-field>
-        } @else {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Categoría</mat-label>
-            <mat-icon matPrefix>category</mat-icon>
-            <mat-select formControlName="categoryId">
-              @for (c of data.categories; track c.id) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        }
-
-        @if (!isEdit) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Cantidad inicial</mat-label>
-            <mat-icon matPrefix>tag</mat-icon>
+            <mat-label>Stock mínimo</mat-label>
+            <mat-icon matPrefix>warning</mat-icon>
             <input
               matInput
               type="number"
               min="0"
               step="1"
               inputmode="decimal"
-              formControlName="quantity"
+              formControlName="minQuantity"
             />
           </mat-form-field>
-        }
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Stock mínimo</mat-label>
-          <mat-icon matPrefix>warning</mat-icon>
-          <input
-            matInput
-            type="number"
-            min="0"
-            step="1"
-            inputmode="decimal"
-            formControlName="minQuantity"
-          />
-        </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Stock máximo</mat-label>
+            <mat-icon matPrefix>vertical_align_top</mat-icon>
+            <input
+              matInput
+              type="number"
+              min="0"
+              step="1"
+              inputmode="decimal"
+              formControlName="maxQuantity"
+            />
+            <mat-hint>Usado al reponer. La cantidad puede superar este valor con +/-.</mat-hint>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Stock máximo</mat-label>
-          <mat-icon matPrefix>vertical_align_top</mat-icon>
-          <input
-            matInput
-            type="number"
-            min="0"
-            step="1"
-            inputmode="decimal"
-            formControlName="maxQuantity"
-          />
-          <mat-hint>Usado al reponer. La cantidad puede superar este valor con +/-.</mat-hint>
-        </mat-form-field>
+          @if (isEdit) {
+            <mat-slide-toggle formControlName="active">Producto visible</mat-slide-toggle>
+          }
+        </form>
+      </mat-dialog-content>
 
-        @if (isEdit) {
-          <mat-slide-toggle formControlName="active">Producto visible</mat-slide-toggle>
-        }
-      </form>
-    </mat-dialog-content>
-
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
-        Cancelar
-      </button>
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        [disabled]="busy() || !canSave()"
-        (click)="save()"
-      >
-        <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
-          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
-          {{ isEdit ? 'Guardar' : 'Crear' }}
-        </app-busy-label>
-      </button>
-    </mat-dialog-actions>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)" [disabled]="busy()">
+          Cancelar
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="busy() || !canSave()"
+          (click)="save()"
+        >
+          <app-busy-label [busy]="busy()" [busyLabel]="isEdit ? 'Guardando…' : 'Creando…'">
+            <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+            {{ isEdit ? 'Guardar' : 'Crear' }}
+          </app-busy-label>
+        </button>
+      </mat-dialog-actions>
+    }
+  `,
+  styles: `
+    .stock-dlg__loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .stock-dlg__empty {
+      margin: 0;
+      color: var(--guy-muted, #5f6f76);
+    }
   `,
 })
-export class StockProductDialogComponent {
+export class StockProductDialogComponent implements OnInit {
   readonly data = inject<StockProductDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<StockProductDialogComponent, boolean>);
   private readonly fb = inject(FormBuilder);
@@ -158,11 +195,14 @@ export class StockProductDialogComponent {
   readonly isEdit = this.data.mode === 'edit';
   private readonly product = this.data.mode === 'edit' ? this.data.product : null;
   readonly busy = signal(false);
+  readonly loadingLists = signal(true);
+  readonly listsFailed = signal(false);
+  readonly categories = signal<StockCategory[]>(this.data.categories ?? []);
 
   readonly form = this.fb.nonNullable.group({
     name: [this.product?.name ?? '', Validators.required],
     createCategory: [false],
-    categoryId: [this.product?.categoryId ?? (this.data.categories[0]?.id ?? '')],
+    categoryId: [this.product?.categoryId ?? (this.data.categories?.[0]?.id ?? '')],
     newCategoryName: [''],
     quantity: [this.product?.quantity ?? 0],
     minQuantity: [this.product?.minQuantity ?? 0],
@@ -170,7 +210,45 @@ export class StockProductDialogComponent {
     active: [this.product?.active ?? true],
   });
 
+  ngOnInit(): void {
+    this.reloadLists();
+  }
+
+  reloadLists(): void {
+    const shopId = this.data.shopId;
+    if (!shopId) {
+      this.loadingLists.set(false);
+      this.listsFailed.set(true);
+      return;
+    }
+    this.loadingLists.set(true);
+    this.listsFailed.set(false);
+    this.api
+      .listCategories(shopId, this.data.kind)
+      .pipe(catchError(() => of(null)))
+      .subscribe({
+        next: (rows) => {
+          this.loadingLists.set(false);
+          if (!rows) {
+            this.listsFailed.set(true);
+            return;
+          }
+          this.categories.set(rows);
+          this.listsFailed.set(false);
+          const current = this.form.controls.categoryId.value;
+          if (!current || !rows.some((c) => c.id === current)) {
+            this.form.controls.categoryId.setValue(rows[0]?.id ?? '');
+          }
+        },
+        error: () => {
+          this.loadingLists.set(false);
+          this.listsFailed.set(true);
+        },
+      });
+  }
+
   canSave(): boolean {
+    if (this.loadingLists() || this.listsFailed()) return false;
     const raw = this.form.getRawValue();
     if (!raw.name.trim()) return false;
     if (raw.createCategory) return !!raw.newCategoryName.trim();

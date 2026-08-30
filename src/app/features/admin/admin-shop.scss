@@ -1,10 +1,28 @@
 .shop-admin {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
 }
-.shop-admin--tabs {
+:host {
   display: block;
+  width: 100%;
+  min-width: 0;
+}
+/* El outlet no debe ocupar celda de layout; la ruta hija es hermana. */
+.shop-admin > router-outlet {
+  display: none;
+}
+.shop-admin--shell,
+.shop-admin--hub,
+.shop-admin--tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  width: 100%;
 }
 .shop-admin__tabs {
   display: block;
@@ -15,6 +33,7 @@
   gap: 1rem;
   padding: 1rem 0 0;
   min-width: 0;
+  width: 100%;
 }
 .shop-admin__tab-panel--identity {
   display: grid;
@@ -22,10 +41,6 @@
   align-items: start;
 }
 @media (min-width: 960px) {
-  .shop-admin:not(.shop-admin--tabs) {
-    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-    gap: 1.25rem;
-  }
   .shop-admin__tab-panel--identity {
     grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
     gap: 1.25rem;

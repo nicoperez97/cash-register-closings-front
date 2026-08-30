@@ -202,6 +202,8 @@ export class AuthService {
         logoUrl: s.logoUrl ?? null,
         myNavConfig: s.myNavConfig ?? null,
         navConfig: s.navConfig ?? null,
+        myToolbarConfig: s.myToolbarConfig ?? null,
+        toolbarConfig: s.toolbarConfig ?? null,
         mutedNotificationTypes: s.mutedNotificationTypes ?? [],
         canEditExpenses: !!s.canEditExpenses,
         canEditPayments: !!s.canEditPayments,

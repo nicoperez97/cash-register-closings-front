@@ -13,12 +13,11 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
-import { Employee, EmployeesApiService, ShopUserOption } from './employees-api.service';
+import { Employee, EmployeesApiService } from './employees-api.service';
 import { EmployeeDialogComponent } from './employee-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
-import { isUserVisible } from '../../shared/user-visibility';
 
 @Component({
   selector: 'app-employees-list',
@@ -100,7 +99,6 @@ export class EmployeesListPage {
 
   readonly rows = signal<Employee[]>([]);
   readonly loading = signal(true);
-  readonly users = signal<ShopUserOption[]>([]);
   readonly includeInactive = signal(false);
 
   readonly columns: DataTableColumn[] = [
@@ -161,15 +159,10 @@ export class EmployeesListPage {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {
         this.rows.set([]);
-        this.users.set([]);
         this.loading.set(false);
         return;
       }
       this.reload();
-      this.api.shopUsers(shopId).subscribe({
-        next: (users) => this.users.set(users),
-        error: () => this.users.set([]),
-      });
     });
   }
 
@@ -248,7 +241,6 @@ export class EmployeesListPage {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const linkedUserId = mode.mode === 'edit' ? mode.employee.userId : null;
     this.dialogTitle
       .track(
         this.dialog.open(EmployeeDialogComponent, {
@@ -261,16 +253,6 @@ export class EmployeesListPage {
             shopName,
             serviceAttendanceWithHours:
               this.shops.selectedShop()?.serviceAttendanceWithHours !== false,
-            users: this.users().filter(
-              (u) => isUserVisible(u, 'employeeLink') || u.id === linkedUserId,
-            ),
-            producers: this.rows()
-              .filter((e) => !!e.producesFood && e.active)
-              .map((e) => ({
-                id: e.id,
-                fullName: e.fullName,
-                supervisorEmployeeId: e.supervisorEmployeeId ?? null,
-              })),
           },
         }),
         mode.mode === 'edit' ? 'Editar empleado' : 'Nuevo empleado',

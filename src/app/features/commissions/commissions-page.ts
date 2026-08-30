@@ -485,8 +485,6 @@ export class CommissionsPage {
             ...mode,
             shopId,
             shopName: this.shops.selectedShop()?.name ?? '',
-            employees: this.employees(),
-            categories: this.categories(),
           },
         }),
         mode.mode === 'edit' ? 'Editar regla' : 'Nueva regla',

@@ -51,67 +51,88 @@
 
   @if (quickActions().length) {
     <div class="toolbar-quick" role="navigation" aria-label="Accesos rápidos">
-      @for (item of inlineQuickActions(); track item.id; let i = $index) {
-        @if (item.kind === 'route') {
+      @if (singleQuickAction(); as only) {
+        @if (only.kind === 'route') {
           <a
-            class="tb-btn"
-            [style.--tb-i]="i"
-            [routerLink]="item.route"
-            [matTooltip]="item.label"
-            [attr.aria-label]="item.label"
+            class="tb-btn tb-btn--label"
+            [style.--tb-i]="0"
+            [routerLink]="only.route"
+            [attr.aria-label]="only.label"
           >
-            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ only.label }}</span>
           </a>
         } @else {
           <button
             type="button"
-            class="tb-btn"
-            [style.--tb-i]="i"
-            [disabled]="item.id === 'quick-expense' && quickExpenseBusy()"
-            [matTooltip]="item.label"
-            [attr.aria-label]="item.label"
-            (click)="onQuickAction(item)"
+            class="tb-btn tb-btn--label"
+            [style.--tb-i]="0"
+            [attr.aria-label]="only.label"
+            (click)="onQuickAction(only)"
           >
-            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ only.label }}</span>
           </button>
         }
-      }
-
-      @if (menuQuickActions().length) {
-        <button
-          type="button"
-          class="tb-btn tb-btn--more"
-          [style.--tb-i]="inlineQuickActions().length"
-          [matMenuTriggerFor]="quickMenu"
-          [matTooltip]="inlineQuickActions().length ? 'Más accesos' : 'Accesos rápidos'"
-          [attr.aria-label]="inlineQuickActions().length ? 'Más accesos' : 'Accesos rápidos'"
-        >
-          <mat-icon>{{ inlineQuickActions().length ? 'more_horiz' : 'apps' }}</mat-icon>
-        </button>
-
-        <mat-menu #quickMenu="matMenu" class="toolbar-quick-menu" xPosition="after">
-          <div class="toolbar-quick-menu__head" (click)="$event.stopPropagation()">
-            Accesos rápidos
-          </div>
-          @for (item of menuQuickActions(); track item.id) {
-            @if (item.kind === 'route') {
-              <a mat-menu-item [routerLink]="item.route">
-                <mat-icon>{{ item.icon }}</mat-icon>
-                <span>{{ item.label }}</span>
-              </a>
-            } @else {
-              <button
-                mat-menu-item
-                type="button"
-                [disabled]="item.id === 'quick-expense' && quickExpenseBusy()"
-                (click)="onQuickAction(item)"
-              >
-                <mat-icon>{{ item.icon }}</mat-icon>
-                <span>{{ item.label }}</span>
-              </button>
-            }
+      } @else {
+        @for (item of inlineQuickActions(); track item.id; let i = $index) {
+          @if (item.kind === 'route') {
+            <a
+              class="tb-btn"
+              [style.--tb-i]="i"
+              [routerLink]="item.route"
+              [matTooltip]="item.label"
+              [attr.aria-label]="item.label"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+            </a>
+          } @else {
+            <button
+              type="button"
+              class="tb-btn"
+              [style.--tb-i]="i"
+              [matTooltip]="item.label"
+              [attr.aria-label]="item.label"
+              (click)="onQuickAction(item)"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+            </button>
           }
-        </mat-menu>
+        }
+
+        @if (menuQuickActions().length) {
+          <button
+            type="button"
+            class="tb-btn tb-btn--more"
+            [style.--tb-i]="inlineQuickActions().length"
+            [matMenuTriggerFor]="quickMenu"
+            [matTooltip]="inlineQuickActions().length ? 'Más accesos' : 'Accesos rápidos'"
+            [attr.aria-label]="inlineQuickActions().length ? 'Más accesos' : 'Accesos rápidos'"
+          >
+            <mat-icon>{{ inlineQuickActions().length ? 'more_horiz' : 'apps' }}</mat-icon>
+          </button>
+
+          <mat-menu #quickMenu="matMenu" class="toolbar-quick-menu" xPosition="after">
+            <div class="toolbar-quick-menu__head" (click)="$event.stopPropagation()">
+              Accesos rápidos
+            </div>
+            @for (item of menuQuickActions(); track item.id) {
+              @if (item.kind === 'route') {
+                <a mat-menu-item [routerLink]="item.route">
+                  <mat-icon>{{ item.icon }}</mat-icon>
+                  <span>{{ item.label }}</span>
+                </a>
+              } @else {
+                <button
+                  mat-menu-item
+                  type="button"
+                  (click)="onQuickAction(item)"
+                >
+                  <mat-icon>{{ item.icon }}</mat-icon>
+                  <span>{{ item.label }}</span>
+                </button>
+              }
+            }
+          </mat-menu>
+        }
       }
     </div>
   }

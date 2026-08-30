@@ -252,8 +252,6 @@ export class AdminPosProductsPage implements OnInit {
           data: {
             shopId,
             product,
-            categories: this.categories(),
-            subcategories: [],
           },
         }),
         'Editar plato',

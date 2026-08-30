@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,7 +6,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import {
   SelectSearchComponent,
@@ -33,8 +36,9 @@ import {
 export type QuickExpenseDialogData = {
   shopId: string;
   shopName: string;
-  accounts: LedgerAccount[];
-  concepts: Concept[];
+  /** Semilla opcional; el diálogo siempre recarga al abrir. */
+  accounts?: LedgerAccount[];
+  concepts?: Concept[];
   kind?: 'expense' | 'income';
 };
 
@@ -52,6 +56,7 @@ function todayIso(timezone?: string | null): string {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
+    MatProgressSpinnerModule,
     MatSnackBarModule,
     BusyLabelComponent,
     SelectSearchComponent,
@@ -100,6 +105,24 @@ function todayIso(timezone?: string | null): string {
           Cerrar
         </button>
       </mat-dialog-actions>
+    } @else if (loadingLists()) {
+      <mat-dialog-content class="quick-exp__loading">
+        <mat-spinner diameter="36" />
+        <p>Cargando conceptos y cuentas…</p>
+      </mat-dialog-content>
+    } @else if (listsFailed()) {
+      <mat-dialog-content>
+        <p class="quick-exp__empty">
+          No se pudieron cargar conceptos o cuentas. Probá de nuevo.
+        </p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="ref.close(false)">Cancelar</button>
+        <button mat-flat-button color="primary" type="button" (click)="reloadLists()">
+          <mat-icon>refresh</mat-icon>
+          Reintentar
+        </button>
+      </mat-dialog-actions>
     } @else {
       <mat-dialog-content>
         <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
@@ -123,8 +146,12 @@ function todayIso(timezone?: string | null): string {
               @for (c of filteredExpenseConcepts(); track c.id) {
                 <mat-option [value]="c.id">{{ c.name }}</mat-option>
               }
-              @if (conceptQuery() && !filteredExpenseConcepts().length) {
-                <mat-option disabled>Sin resultados</mat-option>
+              @if (!filteredExpenseConcepts().length) {
+                <mat-option disabled>{{
+                  conceptQuery()
+                    ? 'Sin resultados'
+                    : 'No hay conceptos de ' + (isIncome ? 'ingreso' : 'gasto')
+                }}</mat-option>
               }
             </mat-select>
             @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
@@ -133,21 +160,21 @@ function todayIso(timezone?: string | null): string {
           </mat-form-field>
 
           @if (!isIncome) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Forma de pago</mat-label>
-            <mat-icon matPrefix>payments</mat-icon>
-            <mat-select formControlName="paymentMethod">
-              @for (opt of paymentMethods; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Forma de pago</mat-label>
+              <mat-icon matPrefix>payments</mat-icon>
+              <mat-select formControlName="paymentMethod">
+                @for (opt of paymentMethods; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              </mat-select>
+              @if (
+                form.controls.paymentMethod.touched &&
+                form.controls.paymentMethod.hasError('required')
+              ) {
+                <mat-error>Elegí efectivo, transferencia o tarjeta</mat-error>
               }
-            </mat-select>
-            @if (
-              form.controls.paymentMethod.touched &&
-              form.controls.paymentMethod.hasError('required')
-            ) {
-              <mat-error>Elegí efectivo, transferencia o tarjeta</mat-error>
-            }
-          </mat-form-field>
+            </mat-form-field>
           }
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -164,15 +191,19 @@ function todayIso(timezone?: string | null): string {
               @for (a of filteredFromAccounts(); track a.id) {
                 <mat-option [value]="a.id">{{ a.name }}</mat-option>
               }
-              @if (accountQuery() && !filteredFromAccounts().length) {
-                <mat-option disabled>Sin resultados</mat-option>
+              @if (!filteredFromAccounts().length) {
+                <mat-option disabled>{{
+                  accountQuery() ? 'Sin resultados' : 'No hay cuentas disponibles'
+                }}</mat-option>
               }
             </mat-select>
             @if (
               form.controls.fromAccountId.touched &&
               form.controls.fromAccountId.hasError('required')
             ) {
-              <mat-error>{{ isIncome ? 'Elegí a qué cuenta entra' : 'Elegí de qué cuenta sale' }}</mat-error>
+              <mat-error>{{
+                isIncome ? 'Elegí a qué cuenta entra' : 'Elegí de qué cuenta sale'
+              }}</mat-error>
             }
           </mat-form-field>
 
@@ -183,44 +214,49 @@ function todayIso(timezone?: string | null): string {
           </mat-form-field>
 
           @if (!isIncome) {
-          <div class="quick-exp__receipt">
-            <span class="quick-exp__receipt-label">{{
-              receiptRequired() ? 'Comprobante' : 'Comprobante (opcional)'
-            }}</span>
-            <div class="quick-exp__receipt-actions">
-              <button mat-stroked-button type="button" (click)="cameraInput.click()">
-                <mat-icon>photo_camera</mat-icon>
-                Foto
-              </button>
-              <button mat-stroked-button type="button" (click)="fileInput.click()">
-                <mat-icon>upload_file</mat-icon>
-                Archivo
-              </button>
-            </div>
-            <input
-              #cameraInput
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              (change)="onReceiptPicked($event)"
-            />
-            <input
-              #fileInput
-              type="file"
-              accept="image/*,application/pdf"
-              hidden
-              (change)="onReceiptPicked($event)"
-            />
-            @if (receiptFile(); as file) {
-              <p class="quick-exp__receipt-name">
-                {{ file.name }}
-                <button mat-icon-button type="button" aria-label="Quitar" (click)="receiptFile.set(null)">
-                  <mat-icon>close</mat-icon>
+            <div class="quick-exp__receipt">
+              <span class="quick-exp__receipt-label">{{
+                receiptRequired() ? 'Comprobante' : 'Comprobante (opcional)'
+              }}</span>
+              <div class="quick-exp__receipt-actions">
+                <button mat-stroked-button type="button" (click)="cameraInput.click()">
+                  <mat-icon>photo_camera</mat-icon>
+                  Foto
                 </button>
-              </p>
-            }
-          </div>
+                <button mat-stroked-button type="button" (click)="fileInput.click()">
+                  <mat-icon>upload_file</mat-icon>
+                  Archivo
+                </button>
+              </div>
+              <input
+                #cameraInput
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                (change)="onReceiptPicked($event)"
+              />
+              <input
+                #fileInput
+                type="file"
+                accept="image/*,application/pdf"
+                hidden
+                (change)="onReceiptPicked($event)"
+              />
+              @if (receiptFile(); as file) {
+                <p class="quick-exp__receipt-name">
+                  {{ file.name }}
+                  <button
+                    mat-icon-button
+                    type="button"
+                    aria-label="Quitar"
+                    (click)="receiptFile.set(null)"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </p>
+              }
+            </div>
           }
         </form>
       </mat-dialog-content>
@@ -233,7 +269,12 @@ function todayIso(timezone?: string | null): string {
           mat-flat-button
           color="primary"
           type="button"
-          [disabled]="form.invalid || busy() || !(isIncome ? ingresoAccountId() : egresoAccountId()) || missingReceipt()"
+          [disabled]="
+            form.invalid ||
+            busy() ||
+            !(isIncome ? ingresoAccountId() : egresoAccountId()) ||
+            missingReceipt()
+          "
           (click)="save()"
         >
           <app-busy-label [busy]="busy()" busyLabel="Guardando…">
@@ -245,6 +286,25 @@ function todayIso(timezone?: string | null): string {
     }
   `,
   styles: `
+    .quick-exp__loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+      min-height: 8rem;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.9rem;
+    }
+    .quick-exp__loading p {
+      margin: 0;
+    }
+    .quick-exp__empty {
+      margin: 0.5rem 0;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
     .quick-exp__ok {
       margin: 0 0 0.75rem;
       color: var(--guy-muted, #5f6f76);
@@ -282,27 +342,6 @@ function todayIso(timezone?: string | null): string {
     .quick-exp__total dd {
       font-size: 1.05rem;
     }
-    .quick-exp__notify {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.35rem;
-      cursor: pointer;
-    }
-    .quick-exp__notify span {
-      display: flex;
-      flex-direction: column;
-      gap: 0.1rem;
-      padding-top: 0.2rem;
-    }
-    .quick-exp__notify strong {
-      font-size: 0.9rem;
-      font-weight: 650;
-      color: var(--guy-navy, #003366);
-    }
-    .quick-exp__notify small {
-      font-size: 0.75rem;
-      color: var(--guy-muted, #5f6f76);
-    }
     .quick-exp__receipt {
       display: grid;
       gap: 0.45rem;
@@ -327,7 +366,7 @@ function todayIso(timezone?: string | null): string {
     }
   `,
 })
-export class QuickExpenseDialogComponent {
+export class QuickExpenseDialogComponent implements OnInit {
   readonly data = inject<QuickExpenseDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<QuickExpenseDialogComponent, Movement | boolean>);
   private readonly fb = inject(FormBuilder);
@@ -340,33 +379,33 @@ export class QuickExpenseDialogComponent {
   readonly sharing = signal(false);
   readonly saved = signal<Movement | null>(null);
   readonly receiptFile = signal<File | null>(null);
+  readonly loadingLists = signal(true);
+  readonly listsFailed = signal(false);
+  readonly accounts = signal<LedgerAccount[]>(this.data.accounts ?? []);
+  readonly concepts = signal<Concept[]>(this.data.concepts ?? []);
   readonly isIncome = (this.data.kind ?? 'expense') === 'income';
 
   readonly egresoAccountId = computed(() => {
-    const hit = this.data.accounts.find(
+    const hit = this.accounts().find(
       (a) =>
         a.active !== false &&
-        (a.code?.toUpperCase() === 'EGRESO' ||
-          a.name.toLowerCase().includes('egreso')),
+        (a.code?.toUpperCase() === 'EGRESO' || a.name.toLowerCase().includes('egreso')),
     );
     return hit?.id ?? null;
   });
 
   readonly ingresoAccountId = computed(() => {
-    const hit = this.data.accounts.find(
+    const hit = this.accounts().find(
       (a) =>
         a.active !== false &&
-        (a.code?.toUpperCase() === 'INGRESO' ||
-          a.name.toLowerCase().includes('ingreso')),
+        (a.code?.toUpperCase() === 'INGRESO' || a.name.toLowerCase().includes('ingreso')),
     );
     return hit?.id ?? null;
   });
 
   readonly expenseConcepts = computed(() =>
-    this.data.concepts.filter(
-      (c) =>
-        c.active !== false &&
-        c.kind === (this.isIncome ? 'INCOME' : 'EXPENSE'),
+    this.concepts().filter(
+      (c) => c.active !== false && c.kind === (this.isIncome ? 'INCOME' : 'EXPENSE'),
     ),
   );
 
@@ -381,7 +420,7 @@ export class QuickExpenseDialogComponent {
   );
 
   readonly fromAccounts = computed(() =>
-    this.data.accounts.filter(
+    this.accounts().filter(
       (a) =>
         a.active !== false &&
         a.id !== this.egresoAccountId() &&
@@ -402,26 +441,6 @@ export class QuickExpenseDialogComponent {
     ),
   );
 
-  readonly destQuery = signal('');
-  readonly destAccounts = computed(() =>
-    this.data.accounts.filter(
-      (a) =>
-        a.active !== false &&
-        a.id !== this.egresoAccountId() &&
-        a.id !== this.form.controls.fromAccountId.value &&
-        accountListedIn(a, this.isIncome ? 'incomes' : 'expenses') &&
-        (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'PARTNER'),
-    ),
-  );
-  readonly filteredDestAccounts = computed(() =>
-    filterBySelectQuery(
-      this.destAccounts(),
-      this.destQuery(),
-      (a) => a.name,
-      this.form.controls.toAccountId.value,
-    ),
-  );
-
   readonly paymentMethods = EXPENSE_PAYMENT_METHOD_OPTIONS;
 
   readonly form = this.fb.nonNullable.group({
@@ -435,6 +454,44 @@ export class QuickExpenseDialogComponent {
     toAccountId: [''],
     description: [''],
   });
+
+  ngOnInit(): void {
+    this.reloadLists();
+  }
+
+  reloadLists(): void {
+    const shopId = this.data.shopId;
+    if (!shopId) {
+      this.loadingLists.set(false);
+      this.listsFailed.set(true);
+      return;
+    }
+    this.loadingLists.set(true);
+    this.listsFailed.set(false);
+    forkJoin({
+      accounts: this.api.accounts(shopId).pipe(catchError(() => of(null))),
+      concepts: this.api
+        .concepts(shopId, { kind: this.isIncome ? 'INCOME' : 'EXPENSE' })
+        .pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ accounts, concepts }) => {
+        this.loadingLists.set(false);
+        if (!accounts || !concepts) {
+          this.listsFailed.set(true);
+          if (accounts) this.accounts.set(accounts);
+          if (concepts) this.concepts.set(concepts);
+          return;
+        }
+        this.accounts.set(accounts);
+        this.concepts.set(concepts);
+        this.listsFailed.set(false);
+      },
+      error: () => {
+        this.loadingLists.set(false);
+        this.listsFailed.set(true);
+      },
+    });
+  }
 
   receiptRequired(): boolean {
     if (this.isIncome) return false;
@@ -506,9 +563,7 @@ export class QuickExpenseDialogComponent {
         invoiced: false,
         notifyAdmins: true,
         kind: this.isIncome ? 'income' : 'expense',
-        paymentMethod: this.isIncome
-          ? null
-          : (raw.paymentMethod as ExpensePaymentMethod),
+        paymentMethod: this.isIncome ? null : (raw.paymentMethod as ExpensePaymentMethod),
       })
       .subscribe({
         next: (saved) => {

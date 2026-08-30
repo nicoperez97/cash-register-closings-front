@@ -1,12 +1,21 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  computed,
+  effect,
+  forwardRef,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatTabsModule } from '@angular/material/tabs';
-import { PageHeaderComponent } from '../../shared/components/page-header';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, firstValueFrom, map, startWith } from 'rxjs';
 import {
   filterBySelectQuery,
   onSelectSearchOpened,
@@ -18,7 +27,6 @@ import { defaultShopShift, shopShiftsOf, type ShopShift } from '../../core/shop/
 import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
-import { Router } from '@angular/router';
 import {
   ClosingsApiService,
   CLOSING_SOURCE_KIND_OPTIONS,
@@ -27,8 +35,6 @@ import {
   ShopClosingSource,
 } from '../closings/closings-api.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { firstValueFrom, startWith } from 'rxjs';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { AdminAccountRow } from './admin-account-dialog';
@@ -40,12 +46,9 @@ import {
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
-import { ShopNavEditorComponent } from './shop-nav-editor';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
-import { AdminShopIdentityComponent } from './admin-shop-identity';
-import { AdminShopOperationComponent } from './admin-shop-operation';
-import { AdminShopDevicesComponent } from './admin-shop-devices';
-import { AdminShopAdvancedComponent } from './admin-shop-advanced';
+import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
+import { ADMIN_SHOP_HOST } from './admin-shop-host';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -107,185 +110,34 @@ const TIMEZONE_OPTIONS = [
 
 @Component({
   selector: 'app-admin-shop',
-  imports: [
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatIconModule,
-    MatSnackBarModule,
-    MatDialogModule,
-    MatTabsModule,
-    PageHeaderComponent,
-    ShopNavEditorComponent,
-    AdminShopIdentityComponent,
-    AdminShopOperationComponent,
-    AdminShopDevicesComponent,
-    AdminShopAdvancedComponent,
+  imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatSnackBarModule, MatDialogModule, RouterOutlet],
+  providers: [
+    { provide: ADMIN_SHOP_HOST, useExisting: forwardRef(() => AdminShopPage) },
   ],
   template: `
-    <app-page-header
-      title="Administrar local"
-      [subtitle]="shops.selectedShop()?.name ?? 'Configuración del local activo'"
-    />
-
     <form
-      class="shop-admin shop-admin--tabs"
+      class="shop-admin shop-admin--shell"
       [formGroup]="form"
       (ngSubmit)="save()"
-      [style.--guy-primary]="liveAccentSecondary()"
-      [style.--guy-navy]="liveAccentSecondary()"
-      [style.--guy-blue]="liveAccentSecondary()"
+      [style.--guy-accent]="liveAccent()"
+      [style.--guy-primary]="liveAccent()"
     >
-      <mat-tab-group
-        class="shop-admin__tabs"
-        animationDuration="0ms"
-        [selectedIndex]="selectedTab()"
-        (selectedIndexChange)="selectedTab.set($event)"
-      >
-        <mat-tab label="Identidad">
-          <div class="shop-admin__tab-panel shop-admin__tab-panel--identity">
-            <aside class="shop-admin__preview panel-card">
-              <p class="shop-admin__preview-label">Vista previa</p>
-              <div
-                class="shop-admin__brand"
-                [style.--preview-accent]="liveAccent()"
-                [style.--preview-accent-secondary]="liveAccentSecondary()"
-              >
-                <div class="shop-admin__logo-wrap">
-                  @if (previewUrl()) {
-                    <img
-                      [src]="previewUrl()"
-                      alt="Logo del local"
-                      referrerpolicy="no-referrer"
-                      class="shop-admin__logo"
-                    />
-                  } @else {
-                    <mat-icon class="shop-admin__logo-fallback">storefront</mat-icon>
-                  }
-                </div>
-                <div class="shop-admin__brand-text">
-                  <strong>{{ liveName() || 'Nombre del local' }}</strong>
-                  <span>{{ liveSlug() || 'slug-del-local' }}</span>
-                </div>
-              </div>
-              <div class="shop-admin__swatch-row">
-                <span class="shop-admin__swatch" [style.background]="liveAccent()"></span>
-                <span class="shop-admin__swatch" [style.background]="liveAccentSecondary()"></span>
-                <span class="text-muted small">
-                  {{ liveAccent() }} · {{ liveAccentSecondary() }}
-                </span>
-              </div>
-              <p class="text-muted small mb-0">
-                Así se ve en el menú lateral y en botones del local.
-              </p>
-            </aside>
-            <div class="shop-admin__fields">
-              <app-admin-shop-identity
-                [shopId]="shops.selectedShopId()"
-                [shopUsers]="shopUsers()"
-                [emailTypeOptions]="emailTypeOptions"
-                [emailSmtpConfigured]="emailSmtpConfigured()"
-                [emailNotificationsOn]="!!formValue()?.emailNotificationsEnabled"
-                [allEmailTypesSelected]="allEmailTypesSelected()"
-                [allEmailUsersSelected]="allEmailUsersSelected()"
-                [isEmailTypeSelected]="isEmailTypeSelectedBound"
-                [isEmailUserSelected]="isEmailUserSelectedBound"
-                [uploadedLogoPath]="uploadedLogoPath()"
-                [logoUploading]="logoUploading()"
-                [hasLogo]="hasLogo()"
-                [accentPicker]="colorPickerValue()"
-                [accentSecondaryPicker]="colorSecondaryPickerValue()"
-                [liveAccent]="liveAccent()"
-                [liveAccentSecondary]="liveAccentSecondary()"
-                (clearSmtp)="markClearSmtpPassword()"
-                (toggleEmailType)="toggleEmailType($event)"
-                (toggleAllEmailTypes)="toggleAllEmailTypes()"
-                (toggleEmailUser)="toggleEmailUser($event)"
-                (toggleAllEmailUsers)="toggleAllEmailUsers()"
-                (logoFileSelected)="onLogoFile($event)"
-                (clearLogo)="clearLogo()"
-                (accentPickerChange)="onAccentPicker($event)"
-                (accentSecondaryPickerChange)="onAccentSecondaryPicker($event)"
-              />
-            </div>
-          </div>
-        </mat-tab>
+      <router-outlet />
 
-        <mat-tab label="Operación">
-          <div class="shop-admin__tab-panel">
-            <app-admin-shop-operation
-              [timezoneOptions]="timezoneOptions"
-              [weekdayOptions]="weekdayOptions"
-              [salesSystems]="salesSystems()"
-              [conceptCategoryOptions]="conceptCategoryOptions"
-              [serviceWithHours]="!!formValue()?.serviceAttendanceWithHours"
-              [canManageAccounts]="canManageAccounts()"
-              [isShiftWeekday]="isShiftWeekdayBound"
-              [isClosedWeekday]="isClosedWeekdayBound"
-              (addShift)="addShift()"
-              (removeShift)="removeShift($event)"
-              (toggleShiftWeekday)="toggleShiftWeekday($event.index, $event.day)"
-              (toggleClosedWeekday)="toggleClosedWeekday($event)"
-            />
-          </div>
-        </mat-tab>
-
-        <mat-tab label="Dispositivos">
-          <div class="shop-admin__tab-panel">
-            <app-admin-shop-devices
-              [posnetTypes]="posnetTypes"
-              [closingSourceKinds]="closingSourceKinds"
-              [sourceSaving]="sourceSaving()"
-              [(accountSearchQuery)]="accountSearchQuery"
-              [sourceNeedsAccount]="sourceNeedsAccountBound"
-              [filteredSourceAccounts]="filteredSourceAccountsBound"
-              (addPosnet)="addPosnet()"
-              (removePosnet)="removePosnet($event)"
-              (addClosingSource)="addClosingSource()"
-              (removeClosingSource)="removeClosingSource($event)"
-              (closingSourceKindChange)="onClosingSourceKindChange($event)"
-              (saveClosingSources)="saveClosingSources()"
-              (selectOpened)="onSelectSearchOpened($event, accountSearchQuery)"
-            />
-          </div>
-        </mat-tab>
-
-        <mat-tab label="Menú">
-          <div class="shop-admin__tab-panel">
-            <section class="panel-card guy-form-section">
-              <h2 class="guy-section-title">Menú lateral</h2>
-              <p class="text-muted small mb-3">
-                Grupos y módulos visibles en el menú de este local.
-              </p>
-              <app-shop-nav-editor
-                [value]="navConfigDraft()"
-                (valueChange)="onNavConfigChange($event)"
-              />
-            </section>
-          </div>
-        </mat-tab>
-
-        <mat-tab label="Avanzado">
-          <div class="shop-admin__tab-panel">
-            <app-admin-shop-advanced
-              [isSuperAdmin]="isSuperAdmin()"
-              (openBackup)="openBackupTools()"
-            />
-          </div>
-        </mat-tab>
-      </mat-tab-group>
-
-      <div class="shop-admin__save-spacer guy-form-save-spacer" aria-hidden="true"></div>
-      <div class="shop-admin__save-bar guy-form-save-bar" [style.--save-accent]="liveAccent()">
-        <button
-          mat-flat-button
-          type="submit"
-          class="shop-admin__save-btn"
-          [disabled]="form.invalid || saving()"
-        >
-          <mat-icon>save</mat-icon>
-          {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
-        </button>
-      </div>
+      @if (showSaveBar()) {
+        <div class="shop-admin__save-spacer guy-form-save-spacer" aria-hidden="true"></div>
+        <div class="shop-admin__save-bar guy-form-save-bar" [style.--save-accent]="liveAccent()">
+          <button
+            mat-flat-button
+            type="submit"
+            class="shop-admin__save-btn"
+            [disabled]="form.invalid || saving()"
+          >
+            <mat-icon>save</mat-icon>
+            {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+        </div>
+      }
     </form>
   `,
   styleUrl: './admin-shop.scss',
@@ -302,7 +154,6 @@ export class AdminShopPage implements OnInit {
   private readonly dialogTitle = inject(DialogTitleService);
   readonly shops = inject(ShopContextService);
 
-  readonly selectedTab = signal(0);
   readonly salesSystems = signal<SalesSystemOption[]>([]);
   readonly allLedgerAccounts = signal<AdminAccountRow[]>([]);
   readonly shopUsers = signal<ShopUserOption[]>([]);
@@ -316,6 +167,7 @@ export class AdminShopPage implements OnInit {
   readonly emailSmtpConfigured = signal(false);
   readonly clearSmtpPasswordOnSave = signal(false);
   readonly navConfigDraft = signal<ShopNavConfig | null>(null);
+  readonly toolbarConfigDraft = signal<ShopToolbarConfig | null>(null);
   readonly closingSourceKinds = CLOSING_SOURCE_KIND_OPTIONS;
   private removedClosingSourceIds: string[] = [];
 
@@ -476,6 +328,22 @@ export class AdminShopPage implements OnInit {
     this.logoCacheBust.set(Date.now());
   }
 
+  /** Save bar solo en submódulos (no en el hub). */
+  readonly showSaveBar = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => /\/admin\/shop\/(identidad|operacion|dispositivos|menu|avanzado)/.test(e.urlAfterRedirects)),
+      startWith(
+        /\/admin\/shop\/(identidad|operacion|dispositivos|menu|avanzado)/.test(this.router.url),
+      ),
+    ),
+    {
+      initialValue: /\/admin\/shop\/(identidad|operacion|dispositivos|menu|avanzado)/.test(
+        this.router.url,
+      ),
+    },
+  );
+
   constructor() {
     usePageRefresh(() => this.reloadAccounts());
     effect(() => {
@@ -505,6 +373,7 @@ export class AdminShopPage implements OnInit {
     this.patchShopForm(shop);
     this.applyPaymentConceptCategories(shop.paymentConceptCategories);
     this.navConfigDraft.set(shop.navConfig ?? null);
+    this.toolbarConfigDraft.set(shop.toolbarConfig ?? null);
     this.applyLogoFromShop(shop.logoUrl);
     this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
@@ -524,6 +393,7 @@ export class AdminShopPage implements OnInit {
           this.setShifts(shopShiftsOf(s));
           this.applyPaymentConceptCategories(s.paymentConceptCategories);
           this.navConfigDraft.set(s.navConfig ?? null);
+          this.toolbarConfigDraft.set(s.toolbarConfig ?? null);
           this.shops.upsertShop(s);
           this.loadShopUsers(shopId, s.emailNotificationUserIds ?? null);
         },
@@ -936,6 +806,10 @@ export class AdminShopPage implements OnInit {
     this.navConfigDraft.set(cfg);
   }
 
+  onToolbarConfigChange(cfg: ShopToolbarConfig | null): void {
+    this.toolbarConfigDraft.set(cfg);
+  }
+
   save(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.form.invalid || this.saving()) return;
@@ -992,6 +866,7 @@ export class AdminShopPage implements OnInit {
       salesSystemId: raw.salesSystemId || null,
       paymentConceptCategories: { ...raw.paymentConceptCategories },
       navConfig: this.navConfigDraft(),
+      toolbarConfig: this.toolbarConfigDraft(),
       posnets: (raw.posnets as ShopPosnet[])
         .map((p) => ({
           id: p.id,

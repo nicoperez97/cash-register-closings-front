@@ -40,8 +40,6 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { EmployeesApiService } from '../employees/employees-api.service';
-import { catchError, forkJoin, of } from 'rxjs';
 
 interface AttendanceEmployee {
   employeeId: string;
@@ -164,7 +162,6 @@ interface BalanceRowExt extends BalanceAccountRow {
           mat-flat-button
           color="primary"
           type="button"
-          [disabled]="quickExpenseBusy()"
           (click)="openQuickExpense()"
         >
           <mat-icon>payments</mat-icon>
@@ -180,7 +177,7 @@ interface BalanceRowExt extends BalanceAccountRow {
       @if (canEditShop()) {
         <a mat-stroked-button routerLink="/admin/shop">
           <mat-icon>storefront</mat-icon>
-          Local
+          Configuración del local
         </a>
       }
     </div>
@@ -419,7 +416,6 @@ export class HomePageComponent {
   readonly auth = inject(AuthService);
   private readonly api = inject(ClosingsApiService);
   private readonly movementsApi = inject(MovementsApiService);
-  private readonly employeesApi = inject(EmployeesApiService);
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly http = inject(HttpClient);
@@ -427,7 +423,6 @@ export class HomePageComponent {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly router = inject(Router);
-  readonly quickExpenseBusy = signal(false);
 
   private readonly reportSummary = signal<any>(null);
   private readonly refreshTick = signal(0);
@@ -788,41 +783,25 @@ export class HomePageComponent {
 
   openQuickExpense(): void {
     const shopId = this.shopContext.selectedShopId();
-    if (!shopId || !this.canManageMovements() || this.quickExpenseBusy()) return;
-    this.quickExpenseBusy.set(true);
-    forkJoin({
-      accounts: this.movementsApi.accounts(shopId),
-      concepts: this.movementsApi.concepts(shopId, { for: 'movement' }),
-      employees: this.employeesApi.list(shopId).pipe(catchError(() => of([]))),
-    }).subscribe({
-      next: ({ accounts, concepts, employees }) => {
-        this.quickExpenseBusy.set(false);
-        this.dialogTitle
-          .track(
-            this.dialog.open(QuickExpenseDialogComponent, {
-              width: '440px',
-              maxWidth: '96vw',
-              panelClass: 'guy-dialog',
-              data: {
-                shopId,
-                shopName: this.shopContext.selectedShop()?.name ?? 'Local',
-                accounts: accounts ?? [],
-                concepts: concepts ?? [],
-                employees: employees ?? [],
-              },
-            }),
-            'Gasto rápido',
-          )
-          .afterClosed()
-          .subscribe((saved) => {
-            if (saved) this.refreshTick.update((n) => n + 1);
-          });
-      },
-      error: () => {
-        this.quickExpenseBusy.set(false);
-        this.snack.open('No se pudieron cargar cuentas/conceptos', 'OK', { duration: 3500 });
-      },
-    });
+    if (!shopId || !this.canManageMovements()) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(QuickExpenseDialogComponent, {
+          width: '440px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            shopName: this.shopContext.selectedShop()?.name ?? 'Local',
+            kind: 'expense' as const,
+          },
+        }),
+        'Gasto rápido',
+      )
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) this.refreshTick.update((n) => n + 1);
+      });
   }
 
   canViewPayments(): boolean {
