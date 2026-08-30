@@ -527,7 +527,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Consulta de reserva por mail: /mi-reserva (pendiente, confirmada o rechazada con motivo).',
           'Horarios y textos del formulario: Salón → Horarios.',
           'Ahí también elegís si el horario es obligatorio. Un día se cambia en Aviso y cupos.',
-          'Desde el admin podés cargar sin tope de cupo.',
+          'Desde el admin podés cargar y editar sin tope de cupo ni de personas por sector.',
           'Abierto / Adentro / Afuera piden confirmación, para no cambiarlos sin querer.',
         ],
       },
