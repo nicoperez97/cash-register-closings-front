@@ -52,6 +52,7 @@ interface AttendanceMonthResponse {
     employeeId: string;
     fullName: string;
     type?: 'FIXED' | 'ROTATING';
+    worksThisShift?: boolean;
     days: Record<string, { isPresent?: boolean; isHoliday?: boolean } | undefined>;
   }>;
 }
@@ -496,10 +497,21 @@ export class HomePageComponent {
       } else {
         const total = this.attendanceEmployees().length;
         const present = this.presentTodayCount();
+        const shiftName = this.showShiftSelect()
+          ? this.shopShifts().find((s) => s.id === this.selectedShiftId())?.name
+          : null;
         items.push({
           label: 'Presentes hoy',
           value: total ? `${present} / ${total}` : '—',
-          hint: total ? (present === total ? 'Completo' : 'Presentismo') : 'Sin empleados',
+          hint: !total
+            ? 'Sin empleados'
+            : present === total
+              ? shiftName
+                ? `Completo · ${shiftName}`
+                : 'Completo'
+              : shiftName
+                ? `Presentismo · ${shiftName}`
+                : 'Presentismo',
           icon: 'event_available',
           route: '/attendance',
           tone: total && present === total ? 'ok' : total && present === 0 ? 'warn' : 'default',
@@ -1059,14 +1071,15 @@ export class HomePageComponent {
       })
       .subscribe({
         next: (data) => {
-          const employees = (data.employees ?? []).map((e) => ({
+          const forShift = (data.employees ?? []).filter((e) => e.worksThisShift !== false);
+          const employees = forShift.map((e) => ({
             employeeId: e.employeeId,
             fullName: e.fullName,
             type: e.type === 'ROTATING' ? ('ROTATING' as const) : ('FIXED' as const),
           }));
           this.attendanceEmployees.set(employees);
           const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
-          for (const e of data.employees ?? []) {
+          for (const e of forShift) {
             const cell = e.days?.[iso];
             marks[e.employeeId] = {
               isPresent: !!cell?.isPresent,

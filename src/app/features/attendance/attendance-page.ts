@@ -397,6 +397,51 @@ const MONTH_LABELS = [
               </tfoot>
             </table>
           </div>
+          <div class="ot-report__cards" aria-label="Resumen de horas extra">
+            @for (row of sum.items; track row.employeeId) {
+              <article
+                class="ot-report__card"
+                [class.ot-report__card--zero]="!row.overtimeHours"
+              >
+                <h3 class="ot-report__card-name">{{ row.fullName }}</h3>
+                <dl class="ot-report__card-grid">
+                  <div>
+                    <dt>Días</dt>
+                    <dd>{{ row.presentDays }}</dd>
+                  </div>
+                  <div>
+                    <dt>Hs extra</dt>
+                    <dd>{{ row.overtimeHours }}</dd>
+                  </div>
+                  <div>
+                    <dt>$/hora</dt>
+                    <dd>{{ money(row.overtimeHourRate) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Costo</dt>
+                    <dd>{{ money(row.overtimeCost) }}</dd>
+                  </div>
+                </dl>
+              </article>
+            }
+            <article class="ot-report__card ot-report__card--total">
+              <h3 class="ot-report__card-name">Total</h3>
+              <dl class="ot-report__card-grid">
+                <div>
+                  <dt>Días</dt>
+                  <dd>{{ sum.totals.presentDays }}</dd>
+                </div>
+                <div>
+                  <dt>Hs extra</dt>
+                  <dd>{{ sum.totals.overtimeHours }}</dd>
+                </div>
+                <div class="ot-report__card-span">
+                  <dt>Costo</dt>
+                  <dd>{{ money(sum.totals.overtimeCost) }}</dd>
+                </div>
+              </dl>
+            </article>
+          </div>
         } @else {
           <p class="ot-report__empty">Elegí el rango y tocá Ver para ver el resumen.</p>
         }
@@ -1145,27 +1190,31 @@ const MONTH_LABELS = [
         color: var(--guy-accent, #f27d16);
         white-space: nowrap;
       }
+      .ot-report {
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+      }
       .ot-report__head {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-start;
         justify-content: space-between;
         gap: 0.75rem 1rem;
-        margin-bottom: 0.85rem;
+        margin-bottom: 0.75rem;
       }
       .ot-report__filters {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 0.75rem 1rem;
-        margin-bottom: 0.85rem;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem 0.75rem;
+        align-items: end;
+        margin-bottom: 0.75rem;
       }
       .ot-report__field {
         display: flex;
         flex-direction: column;
         gap: 0.28rem;
-        min-width: 9.5rem;
-        flex: 0 1 10.5rem;
+        min-width: 0;
         font-size: 0.68rem;
         font-weight: 700;
         letter-spacing: 0.02em;
@@ -1188,13 +1237,12 @@ const MONTH_LABELS = [
         background: #fff;
       }
       .ot-report__checks {
+        grid-column: 1 / -1;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.35rem 1rem;
-        flex: 1 1 14rem;
-        min-height: 42px;
-        padding-bottom: 0.15rem;
+        gap: 0.25rem 1rem;
+        min-width: 0;
       }
       .ot-report__check {
         margin: 0;
@@ -1211,14 +1259,17 @@ const MONTH_LABELS = [
         margin: 0;
       }
       .ot-report__wrap {
-        margin: 0 -0.15rem;
+        margin: 0;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
         border: 1px solid var(--guy-border, #e6ebf0);
         border-radius: 12px;
         background: #fff;
+        max-width: 100%;
       }
       .ot-report__table {
         width: 100%;
+        min-width: 28rem;
         border-collapse: collapse;
         font-size: 0.9rem;
       }
@@ -1253,9 +1304,12 @@ const MONTH_LABELS = [
       .ot-report__row--zero td {
         color: var(--guy-muted, #5f6f76);
       }
+      .ot-report__cards {
+        display: none;
+      }
       .ot-report__empty {
         margin: 0;
-        padding: 0.85rem 0.2rem 0.15rem;
+        padding: 0.65rem 0.1rem 0;
         font-size: 0.88rem;
         color: var(--guy-muted, #5f6f76);
       }
@@ -1393,6 +1447,8 @@ const MONTH_LABELS = [
         .ot-report__head {
           flex-direction: column;
           align-items: stretch;
+          gap: 0.55rem;
+          margin-bottom: 0.65rem;
         }
         .ot-report__actions {
           width: 100%;
@@ -1403,19 +1459,65 @@ const MONTH_LABELS = [
           min-width: 0;
         }
         .ot-report__filters {
-          flex-direction: column;
-          align-items: stretch;
+          margin-bottom: 0.65rem;
         }
-        .ot-report__field {
-          flex: 1 1 auto;
+        .ot-report__wrap {
+          display: none;
+        }
+        .ot-report__cards {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .ot-report__card {
+          padding: 0.7rem 0.8rem;
+          border: 1px solid var(--guy-border, #e6ebf0);
+          border-radius: 12px;
+          background: #fff;
+        }
+        .ot-report__card--zero {
+          opacity: 0.72;
+        }
+        .ot-report__card--total {
+          background: color-mix(in srgb, var(--guy-border, #e6ebf0) 35%, #fff);
+          border-color: color-mix(in srgb, var(--guy-navy, #003366) 18%, var(--guy-border, #e6ebf0));
+        }
+        .ot-report__card-name {
+          margin: 0 0 0.45rem;
+          font-size: 0.92rem;
+          font-weight: 800;
+          color: var(--guy-navy, #003366);
+        }
+        .ot-report__card-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.4rem 0.75rem;
+          margin: 0;
+        }
+        .ot-report__card-grid > div,
+        .ot-report__card-span {
           min-width: 0;
-          width: 100%;
         }
-        .ot-report__checks {
-          flex-direction: column;
-          align-items: flex-start;
-          min-height: 0;
-          padding-bottom: 0;
+        .ot-report__card-span {
+          grid-column: 1 / -1;
+        }
+        .ot-report__card-grid dt {
+          margin: 0;
+          font-size: 0.68rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: var(--guy-muted, #5f6f76);
+        }
+        .ot-report__card-grid dd {
+          margin: 0.1rem 0 0;
+          font-size: 0.95rem;
+          font-weight: 750;
+          font-variant-numeric: tabular-nums;
+          color: var(--guy-navy, #003366);
+        }
+        .ot-report__card--total .ot-report__card-grid dd {
+          font-weight: 800;
         }
         .att-excel-range {
           display: grid;
