@@ -21,6 +21,7 @@ import {
   isCashierOnly,
   isProducerOnly,
 } from '../auth/auth.models';
+import { canAccessAppRoute } from '../auth/route-access';
 import { ToolbarComponent } from './toolbar/toolbar';
 import { SidebarComponent, NavItem } from './sidebar/sidebar';
 import { ShopContextService } from '../shop/shop-context.service';
@@ -33,7 +34,7 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
-import { applyNavConfig, effectiveNavConfig, isNavPathHidden } from './nav-config';
+import { applyNavConfig, effectiveNavConfig } from './nav-config';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -527,7 +528,13 @@ export class MainLayoutComponent {
         return;
       }
       if (isCashierOnly(user, shopId)) {
-        if (path !== '/closings/new') {
+        const allowed =
+          path.startsWith('/closings/new') ||
+          path === '/profile' ||
+          (path.startsWith('/tips') &&
+            hasShopPermission(user, shopId, 'tips.read') &&
+            this.shopFeature('tips'));
+        if (!allowed) {
           void this.router.navigateByUrl(home);
         }
         return;
@@ -598,157 +605,16 @@ export class MainLayoutComponent {
 
   private isPathAllowed(path: string, user: NonNullable<ReturnType<AuthService['currentUser']>>, shopId: string): boolean {
     const shop = this.shopContext.selectedShop();
-    const navConfig = effectiveNavConfig(shop);
-    if (
-      !this.auth.isSuperAdmin() &&
-      isNavPathHidden(path, navConfig)
-    ) {
-      return false;
-    }
-    if (path.startsWith('/closings/new')) {
-      return hasShopPermission(user, shopId, 'closings.create');
-    }
-    if (path.startsWith('/closings/')) {
-      return hasShopPermission(user, shopId, 'closings.update') || hasShopPermission(user, shopId, 'closings.read');
-    }
-    if (path.startsWith('/closings')) {
-      return hasShopPermission(user, shopId, 'closings.read') || hasShopPermission(user, shopId, 'closings.create');
-    }
-    if (path.startsWith('/cash-withdrawals')) {
-      return hasShopPermission(user, shopId, 'cashWithdrawals.read');
-    }
-    if (path.startsWith('/settlements')) {
-      return (
-        hasShopPermission(user, shopId, 'settlements.read') &&
-        (this.settlementsInbox.enabled() || !!this.shopContext.selectedShop()?.settlementsEnabled)
-      );
-    }
-    if (path.startsWith('/reports')) {
-      return hasShopPermission(user, shopId, 'reports.view');
-    }
-    if (path.startsWith('/admin/shops')) {
-      return this.auth.isSuperAdmin();
-    }
-    if (path.startsWith('/admin/shop')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/admin/messages')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/admin/menu')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/admin/qr')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/admin/instrucciones')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/admin/users')) {
-      return canManageShopUsers(user, shopId);
-    }
-    if (path.startsWith('/admin/accounts')) {
-      return hasShopPermission(user, shopId, 'accounts.manage');
-    }
-    if (path.startsWith('/admin/concepts')) {
-      return hasShopPermission(user, shopId, 'concepts.manage');
-    }
-    if (path.startsWith('/admin/sales-systems')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/admin/pos-products')) {
-      return canManageShop(user, shopId);
-    }
-    if (path.startsWith('/employees')) {
-      return hasShopPermission(user, shopId, 'employees.read');
-    }
-    if (path.startsWith('/vacations')) {
-      return hasShopPermission(user, shopId, 'vacations.read');
-    }
-    if (path.startsWith('/candidates')) {
-      return hasShopPermission(user, shopId, 'candidates.read');
-    }
-    if (path.startsWith('/expenses') || path.startsWith('/movements')) {
-      return hasShopPermission(user, shopId, 'expenses.read');
-    }
-    if (path.startsWith('/incomes')) {
-      return hasShopPermission(user, shopId, 'incomes.read');
-    }
-    if (path.startsWith('/account-transfers')) {
-      return hasShopPermission(user, shopId, 'accountTransfers.read');
-    }
-    if (path.startsWith('/transactions')) {
-      return (
-        hasShopPermission(user, shopId, 'expenses.read') ||
-        hasShopPermission(user, shopId, 'incomes.read') ||
-        hasShopPermission(user, shopId, 'accountTransfers.read')
-      );
-    }
-    if (path.startsWith('/partner-splits') || path.startsWith('/splits')) {
-      return hasShopPermission(user, shopId, 'partnerSplits.read');
-    }
-    if (path.startsWith('/my-production')) {
-      return hasShopPermission(user, shopId, 'attendance.self');
-    }
-    if (path.startsWith('/attendance') || path.startsWith('/production-attendance')) {
-      return hasShopPermission(user, shopId, 'attendance.read');
-    }
-    if (path.startsWith('/reservations')) {
-      return (
-        hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')
-      );
-    }
-    if (path.startsWith('/waiting-list')) {
-      return (
-        hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')
-      );
-    }
-    if (path.startsWith('/salon')) {
-      return (
-        hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')
-      );
-    }
-    if (path.startsWith('/tips')) {
-      return hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips');
-    }
-    if (path.startsWith('/payments')) {
-      return hasShopPermission(user, shopId, 'payments.read');
-    }
-    if (path.startsWith('/suppliers')) {
-      return hasShopPermission(user, shopId, 'suppliers.read');
-    }
-    if (path.startsWith('/services')) {
-      return hasShopPermission(user, shopId, 'services.read');
-    }
-    if (path === '/stock' || path.startsWith('/stock/')) {
-      return hasShopPermission(user, shopId, 'stock.read');
-    }
-    if (path === '/beverage-stock' || path.startsWith('/beverage-stock/')) {
-      return hasShopPermission(user, shopId, 'beverageStock.read');
-    }
-    if (path.startsWith('/shortages')) {
-      return hasShopPermission(user, shopId, 'shortages.read');
-    }
-    if (path.startsWith('/orders')) {
-      return hasShopPermission(user, shopId, 'orders.read');
-    }
-    if (path.startsWith('/salaries') || path.startsWith('/payroll')) {
-      return hasShopPermission(user, shopId, 'payroll.read');
-    }
-    if (path.startsWith('/commissions')) {
-      return hasShopPermission(user, shopId, 'commissions.read');
-    }
-    if (path.startsWith('/reimbursements')) {
-      return (
-        hasShopPermission(user, shopId, 'reimbursements.read') ||
-        hasShopPermission(user, shopId, 'reimbursements.manage') ||
-        hasShopPermission(user, shopId, 'reimbursements.self')
-      );
-    }
-    if (path.startsWith('/service-rules')) {
-      return hasShopPermission(user, shopId, 'serviceRules.read');
-    }
-    return true;
+    return canAccessAppRoute(path, user, shopId, {
+      features: {
+        reservationsEnabled: shop?.reservationsEnabled,
+        waitingListEnabled: shop?.waitingListEnabled,
+        tipsEnabled: shop?.tipsEnabled,
+        settlementsEnabled:
+          this.settlementsInbox.enabled() || !!shop?.settlementsEnabled,
+      },
+      navConfig: effectiveNavConfig(shop),
+    });
   }
 
   toggleSidenav(): void {

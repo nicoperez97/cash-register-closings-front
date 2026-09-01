@@ -45,6 +45,10 @@ import { PageRefreshService } from '../../page-refresh.service';
 import { DialogTitleService } from '../../../shared/services/dialog-title.service';
 import { QuickExpenseDialogComponent } from '../../../features/movements/quick-expense-dialog';
 import {
+  canAccessCustomRoute,
+  type ShopRouteFeatures,
+} from '../../auth/route-access';
+import {
   applyToolbarConfig,
   effectiveToolbarConfig,
 } from '../toolbar-config';
@@ -172,9 +176,10 @@ export class ToolbarComponent implements OnInit {
       }
       if (cfg?.custom?.length) {
         const seen = new Set(items.map((i) => i.id));
+        const features = this.routeFeatures();
         for (const c of cfg.custom) {
           if (!c?.id || !c.route || seen.has(c.id)) continue;
-          if (!this.producerAllowsRoute(c.route, user, shopId)) continue;
+          if (!canAccessCustomRoute(c.route, user, shopId, { features })) continue;
           seen.add(c.id);
           pushRoute(c.id, c.label, c.icon || 'bolt', c.route);
         }
@@ -232,8 +237,10 @@ export class ToolbarComponent implements OnInit {
 
     if (cfg?.custom?.length) {
       const seen = new Set(items.map((i) => i.id));
+      const features = this.routeFeatures();
       for (const c of cfg.custom) {
         if (!c?.id || !c.route || seen.has(c.id)) continue;
+        if (!canAccessCustomRoute(c.route, user, shopId, { features })) continue;
         seen.add(c.id);
         pushRoute(c.id, c.label, c.icon || 'bolt', c.route);
       }
@@ -445,25 +452,14 @@ export class ToolbarComponent implements OnInit {
   }
 
   /** Rutas que un productor-only puede abrir (custom). */
-  private producerAllowsRoute(
-    route: string,
-    user: NonNullable<ReturnType<AuthService['currentUser']>>,
-    shopId: string,
-  ): boolean {
-    const path = route.split('?')[0] || route;
-    if (path === '/my-production') return true;
-    if (path.startsWith('/reimbursements')) {
-      return hasShopPermission(user, shopId, 'reimbursements.self');
-    }
-    if (path === '/stock') return hasShopPermission(user, shopId, 'stock.read');
-    if (path === '/beverage-stock') {
-      return hasShopPermission(user, shopId, 'beverageStock.read');
-    }
-    if (path.startsWith('/shortages')) {
-      return hasShopPermission(user, shopId, 'shortages.read');
-    }
-    if (path.startsWith('/orders')) return hasShopPermission(user, shopId, 'orders.read');
-    return false;
+  private routeFeatures(): ShopRouteFeatures {
+    const shop = this.shopContext.selectedShop();
+    return {
+      reservationsEnabled: shop?.reservationsEnabled,
+      waitingListEnabled: shop?.waitingListEnabled,
+      tipsEnabled: shop?.tipsEnabled,
+      settlementsEnabled: shop?.settlementsEnabled,
+    };
   }
 
   openQuickExpense(): void {

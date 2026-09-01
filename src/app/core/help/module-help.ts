@@ -46,7 +46,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'profile',
     title: 'Perfil',
-    summary: 'Tu cuenta, avisos del local, el menú lateral y los atajos de la barra superior.',
+    summary: 'Tu cuenta y avisos del local. Si tenés permisos amplios, también personalizás menú y atajos.',
     blocks: [
       {
         title: 'Cuenta',
@@ -71,7 +71,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Menú lateral',
         icon: 'menu',
         tone: 'do',
-        body: 'La barra lateral usa primero Tu menú (si lo guardaste) y, si no, el Menú del local. Arrastrá para ordenar; con ⋮ renombrás, movés de grupo u ocultás un módulo.',
+        body: 'La barra lateral usa primero Tu menú (si lo guardaste) y, si no, el Menú del local. Solo ves módulos a los que tenés acceso en ese local.',
         items: [
           'Guardar menú aplica tu orden de inmediato en la barra lateral.',
           'Usar menú del local borra tu personalización y vuelve al del local.',
@@ -81,13 +81,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Accesos rápidos',
         icon: 'bolt',
         tone: 'do',
-        body: 'Los íconos de la barra superior usan primero Tus atajos (si los guardaste) y, si no, los Atajos del local. Arrastrá para ordenar, ocultá o sumá atajos de otros módulos; los permisos siguen filtrando lo que ves. Si queda un solo atajo, se muestra un botón con su nombre.',
+        body: 'Los íconos de la barra superior usan primero Tus atajos (si los guardaste) y, si no, los Atajos del local. Solo ves atajos de módulos a los que tenés acceso.',
         items: [
           'Guardar atajos aplica tu orden de inmediato en la barra superior.',
           'Usar atajos del local borra tu personalización y vuelve a los del local.',
           'Agregar atajo suma un módulo (Gastos, Pedidos, etc.) a la barra.',
         ],
-        tip: 'Si no ves un atajo, puede estar oculto o sin permiso en ese local.',
+        tip: 'Si no ves un atajo, puede estar oculto o sin permiso en ese local. Con acceso solo a cierres no aparecen las secciones de menú ni atajos.',
       },
     ],
   },

@@ -6,7 +6,9 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "private": true,
   "packageManager": "npm@11.7.0",
@@ -39,6 +41,7 @@
     "png-to-ico": "^3.0.2",
     "prettier": "^3.8.1",
     "sharp": "^0.35.3",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.8"
   }
 }

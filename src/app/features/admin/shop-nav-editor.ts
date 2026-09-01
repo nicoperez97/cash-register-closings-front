@@ -1,6 +1,7 @@
 import {
   Component,
   computed,
+  inject,
   input,
   output,
   signal,
@@ -27,6 +28,9 @@ import {
   NAV_ITEM_DEFS,
   ShopNavConfig,
 } from '../../core/layout/nav-config';
+import { AuthService } from '../../core/auth/auth.service';
+import { ShopContextService } from '../../core/shop/shop-context.service';
+import { canAccessNavItem, type ShopRouteFeatures } from '../../core/auth/route-access';
 
 const DEFAULT_ITEM_LABELS: Record<string, string> = {
   closings: 'Cierres',
@@ -554,7 +558,12 @@ type EditorItem = {
 })
 export class ShopNavEditorComponent {
   readonly value = input<ShopNavConfig | null>(null);
+  /** En perfil: solo módulos accesibles. En admin del local: catálogo completo. */
+  readonly filterByUserPermissions = input(true);
   readonly valueChange = output<ShopNavConfig | null>();
+
+  private readonly auth = inject(AuthService);
+  private readonly shops = inject(ShopContextService);
 
   private readonly draft = signal<ShopNavConfig>(this.defaultConfig());
   private readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
@@ -661,7 +670,18 @@ export class ShopNavEditorComponent {
     const itemGroup = cfg.itemGroup ?? {};
     const itemLabels = cfg.itemLabels ?? {};
     const order = cfg.itemOrder?.[groupId] ?? [];
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    const features = this.routeFeatures();
+    const filterByPerms = this.filterByUserPermissions();
     const items = NAV_ITEM_DEFS.filter((d) => d.defaultGroup)
+      .filter((d) =>
+        !filterByPerms ||
+        canAccessNavItem(d.id, d.route, user, shopId, {
+          features,
+          respectNavHidden: false,
+        }),
+      )
       .map((d) => {
         const gid = itemGroup[d.id] ?? d.defaultGroup!;
         return {
@@ -813,11 +833,24 @@ export class ShopNavEditorComponent {
   }
 
   private defaultConfig(): ShopNavConfig {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    const features = this.routeFeatures();
+    const filterByPerms = this.filterByUserPermissions();
     const itemGroup: Record<string, string> = {};
     const itemOrder: Record<string, string[]> = {};
     for (const def of NAV_GROUP_DEFS) itemOrder[def.id] = [];
     for (const def of NAV_ITEM_DEFS) {
       if (!def.defaultGroup) continue;
+      if (
+        filterByPerms &&
+        !canAccessNavItem(def.id, def.route, user, shopId, {
+          features,
+          respectNavHidden: false,
+        })
+      ) {
+        continue;
+      }
       itemGroup[def.id] = def.defaultGroup;
       itemOrder[def.defaultGroup] = [...(itemOrder[def.defaultGroup] ?? []), def.id];
     }
@@ -827,6 +860,16 @@ export class ShopNavEditorComponent {
       itemOrder,
       hidden: [],
       itemLabels: {},
+    };
+  }
+
+  private routeFeatures(): ShopRouteFeatures {
+    const shop = this.shops.selectedShop();
+    return {
+      reservationsEnabled: shop?.reservationsEnabled,
+      waitingListEnabled: shop?.waitingListEnabled,
+      tipsEnabled: shop?.tipsEnabled,
+      settlementsEnabled: shop?.settlementsEnabled,
     };
   }
 
