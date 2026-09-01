@@ -32,12 +32,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Empezá acá',
         icon: 'waving_hand',
         tone: 'read',
-        body: 'Esta pantalla resume el local. Lo que ves depende de tus permisos: no todos tienen los mismos atajos.',
+        body: 'Esta pantalla muestra botones según tus permisos en el local. Tocá el módulo que necesites.',
         items: [
-          'Arriba: ir a lo que más usás (cierres, pagos, reservas…).',
-          'Presentismo de hoy, si tenés acceso.',
+          'Los botones grandes son tus tareas habituales (cierre, stock, pagos…).',
+          'Si solo cargás cierres, vas a ver Nuevo cierre, no el listado.',
+          'Presentismo de hoy y saldos, si tenés acceso.',
           'Campana: avisos de pagos, movimientos y más.',
-          'Saldos: cada cuenta es lo que entra menos lo que sale. Tocá una cuenta para ver sus movimientos.',
         ],
         tip: 'Si llega un aviso mientras estás en una lista, esa pantalla se recarga sola. No hace falta tirar para actualizar.',
       },
@@ -46,7 +46,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'profile',
     title: 'Perfil',
-    summary: 'Tu cuenta y avisos del local. Si tenés permisos amplios, también personalizás menú y atajos.',
+    summary: 'Tu cuenta y avisos del local. Solo administradores personalizan menú y atajos.',
     blocks: [
       {
         title: 'Cuenta',
@@ -87,7 +87,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Usar atajos del local borra tu personalización y vuelve a los del local.',
           'Agregar atajo suma un módulo (Gastos, Pedidos, etc.) a la barra.',
         ],
-        tip: 'Si no ves un atajo, puede estar oculto o sin permiso en ese local. Con acceso solo a cierres no aparecen las secciones de menú ni atajos.',
+        tip: 'Si no ves un atajo, puede estar oculto o sin permiso en ese local. Solo administradores ven las secciones de menú y atajos.',
       },
     ],
   },

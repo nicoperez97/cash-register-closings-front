@@ -1314,11 +1314,33 @@ export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): 
   return '/';
 }
 
-/** Cajero/productor: no personalizan menú ni atajos (layout fijo). */
-export function canCustomizeLayout(user: AuthUser | null, shopId: string | null): boolean {
+/** Solo puede cargar cierres (sin editar/bloquear/listar). */
+export function isClosingsCreateOnly(user: AuthUser | null, shopId: string | null): boolean {
   if (!user || !shopId) return false;
-  if (isCashierOnly(user, shopId) || isProducerOnly(user, shopId)) return false;
-  return true;
+  const perms = permissionsForShop(user, shopId);
+  if (!perms.includes('closings.create')) return false;
+  return !perms.includes('closings.update') && !perms.includes('closings.lock');
+}
+
+/** Puede ver el listado con filtros (no aplica a “solo crear”). */
+export function canViewClosingsList(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (isClosingsCreateOnly(user, shopId)) return false;
+  return hasShopPermission(user, shopId, 'closings.read');
+}
+
+/** Super admin global o administrador del local (rol ADMIN/OWNER). */
+export function isShopAdministrator(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user) return false;
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return true;
+  if (!shopId) return false;
+  const role = effectiveRoleForShop(user, shopId);
+  return role === 'OWNER' || role === 'ADMIN';
+}
+
+/** Cajero/productor/empleado: no personalizan menú ni atajos (solo admin del local). */
+export function canCustomizeLayout(user: AuthUser | null, shopId: string | null): boolean {
+  return isShopAdministrator(user, shopId);
 }
 
 export function canEditShopExpenses(user: AuthUser | null, shopId: string | null): boolean {

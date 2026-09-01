@@ -3,6 +3,7 @@ import { authGuard } from './core/guards/auth.guard';
 import {
   permissionGuard,
   anyPermissionGuard,
+  closingsListGuard,
   shopFeatureGuard,
   shopUsersGuard,
   superAdminGuard,
@@ -91,7 +92,7 @@ export const routes: Routes = [
       },
       {
         path: 'closings',
-        canActivate: [anyPermissionGuard('closings.read', 'closings.create')],
+        canActivate: [closingsListGuard],
         loadComponent: () =>
           import('./features/closings/closings-list').then((m) => m.ClosingsListPage),
         title: 'Cierres',

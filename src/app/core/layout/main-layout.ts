@@ -19,7 +19,9 @@ import {
   defaultHomeRoute,
   hasShopPermission,
   isCashierOnly,
+  isClosingsCreateOnly,
   isProducerOnly,
+  canViewClosingsList,
 } from '../auth/auth.models';
 import { canAccessAppRoute } from '../auth/route-access';
 import { ToolbarComponent } from './toolbar/toolbar';
@@ -163,9 +165,11 @@ export class MainLayoutComponent {
     const operacion: NonNullable<NavItem['children']> = [];
     if (
       shopId &&
-      (hasShopPermission(user, shopId, 'closings.read') ||
-        hasShopPermission(user, shopId, 'closings.create'))
+      isClosingsCreateOnly(user, shopId) &&
+      hasShopPermission(user, shopId, 'closings.create')
     ) {
+      operacion.push({ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' });
+    } else if (shopId && canViewClosingsList(user, shopId)) {
       operacion.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
     }
     if (shopId && hasShopPermission(user, shopId, 'cashWithdrawals.read')) {
@@ -554,6 +558,13 @@ export class MainLayoutComponent {
           void this.router.navigateByUrl(home);
         }
         return;
+      }
+      if (isClosingsCreateOnly(user, shopId)) {
+        const onList = path === '/closings' || path === '/closings/';
+        if (onList) {
+          void this.router.navigateByUrl('/closings/new');
+          return;
+        }
       }
       if (path === '/' || path === '') return;
       if (!this.isPathAllowed(path, user, shopId)) {

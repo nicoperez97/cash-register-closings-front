@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
-import { Permission, canManageShopUsers, defaultHomeRoute, hasShopPermission } from '../auth/auth.models';
+import { Permission, canManageShopUsers, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly } from '../auth/auth.models';
 import { SettlementsInboxService } from '../../features/settlements/settlements-inbox.service';
 
 /** Permisos que un super admin puede usar sin local seleccionado. */
@@ -56,6 +56,28 @@ export const anyPermissionGuard = (...permissions: Permission[]): CanActivateFn 
     }
     return router.createUrlTree([defaultHomeRoute(user, shopId)]);
   };
+};
+
+/** Listado de cierres: no para usuarios con permiso solo de crear. */
+export const closingsListGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+  const user = auth.currentUser();
+  const shopId = shops.selectedShopId();
+  if (!shopId) {
+    return router.createUrlTree([defaultHomeRoute(user, null)]);
+  }
+  if (isClosingsCreateOnly(user, shopId)) {
+    return router.createUrlTree(['/closings/new']);
+  }
+  if (!canViewClosingsList(user, shopId)) {
+    return router.createUrlTree([defaultHomeRoute(user, shopId)]);
+  }
+  return true;
 };
 
 /** Solo Super admin (OWNER). */

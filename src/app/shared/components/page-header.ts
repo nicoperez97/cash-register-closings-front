@@ -7,7 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { hasShopPermission, Permission } from '../../core/auth/auth.models';
+import { hasShopPermission, Permission, canViewClosingsList } from '../../core/auth/auth.models';
 import { helpIdFromPath, topicById } from '../../core/help/module-help';
 import { HelpDialogComponent } from './help-dialog';
 import { DialogTitleService } from '../services/dialog-title.service';
@@ -100,6 +100,9 @@ export class PageHeaderComponent {
     const shopId = this.shops.selectedShopId();
     const blocks = topic.blocks.filter((b) => {
       if (!b.anyOf?.length) return true;
+      if (topic.id === 'closings' && b.title === 'La lista') {
+        return canViewClosingsList(user, shopId);
+      }
       return b.anyOf.some((p: Permission) => hasShopPermission(user, shopId, p));
     });
     this.dialogTitle.track(
