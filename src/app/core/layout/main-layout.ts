@@ -411,7 +411,7 @@ export class MainLayoutComponent {
       personal.push({ label: 'CVs / Candidatos', route: '/candidates', icon: 'person_search' });
     }
     if (shopId && hasShopPermission(user, shopId, 'payroll.read')) {
-      personal.push({ label: 'Liquidaciones', route: '/payroll', icon: 'request_quote' });
+      personal.push({ label: 'Sueldos', route: '/salaries', icon: 'request_quote' });
     }
     if (shopId && hasShopPermission(user, shopId, 'commissions.read')) {
       personal.push({ label: 'Comisiones', route: '/commissions', icon: 'percent' });
@@ -732,7 +732,7 @@ export class MainLayoutComponent {
     if (path.startsWith('/orders')) {
       return hasShopPermission(user, shopId, 'orders.read');
     }
-    if (path.startsWith('/payroll')) {
+    if (path.startsWith('/salaries') || path.startsWith('/payroll')) {
       return hasShopPermission(user, shopId, 'payroll.read');
     }
     if (path.startsWith('/commissions')) {

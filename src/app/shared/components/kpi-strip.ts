@@ -88,6 +88,14 @@ export interface KpiItem {
     `
       :host {
         display: block;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .row {
+        --bs-gutter-x: 0.5rem;
+        margin-left: 0;
+        margin-right: 0;
+        max-width: 100%;
       }
       .guy-kpi__top {
         display: flex;

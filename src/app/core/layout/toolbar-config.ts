@@ -83,7 +83,7 @@ export const TOOLBAR_ADDABLE_MODULE_DEFS: readonly ToolbarCustomAction[] = [
   { id: 'nav:service-rules', label: 'Normas', icon: 'menu_book', route: '/service-rules' },
   { id: 'nav:employees', label: 'Empleados', icon: 'badge', route: '/employees' },
   { id: 'nav:vacations', label: 'Vacaciones', icon: 'beach_access', route: '/vacations' },
-  { id: 'nav:payroll', label: 'Liquidaciones', icon: 'request_quote', route: '/payroll' },
+  { id: 'nav:payroll', label: 'Sueldos', icon: 'request_quote', route: '/salaries' },
   { id: 'nav:commissions', label: 'Comisiones', icon: 'percent', route: '/commissions' },
   { id: 'nav:reports', label: 'Reportes', icon: 'insights', route: '/reports' },
   {

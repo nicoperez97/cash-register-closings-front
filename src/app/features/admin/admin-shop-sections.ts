@@ -31,7 +31,7 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
     path: 'operacion',
     label: 'Operación',
     icon: 'schedule',
-    blurb: 'Turnos de caja, presentismo, francos y módulos públicos.',
+    blurb: 'Turnos de caja, presentismo, multiplicador de feriado, francos y módulos públicos.',
     subtitle:
       'Día a día del local: caja, horarios del personal, producción y qué módulos están activos.',
   },

@@ -428,10 +428,10 @@ export const MODULE_DEFS: ModuleDef[] = [
   },
   {
     key: 'payroll',
-    label: 'Liquidaciones',
+    label: 'Sueldos',
     icon: 'payments',
     group: 'people',
-    hint: 'Sueldos y liquidaciones',
+    hint: 'Sueldo diario, historial de aumentos y liquidaciones',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -850,6 +850,8 @@ export interface ShopSummary {
   serviceDefaultCheckOut?: string;
   /** Si es false, presentismo de servicio es solo presente/ausente/feriado. */
   serviceAttendanceWithHours?: boolean;
+  /** Multiplicador de feriados en liquidación (default 2). */
+  holidayPayMultiplier?: number;
   /** Carta pública del local. */
   menuEnabled?: boolean;
   defaultChangeAmount: number;

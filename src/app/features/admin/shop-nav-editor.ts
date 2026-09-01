@@ -64,7 +64,7 @@ const DEFAULT_ITEM_LABELS: Record<string, string> = {
   reportsStats: 'Estadísticas',
   employees: 'Empleados',
   candidates: 'CVs',
-  payroll: 'Liquidaciones',
+  payroll: 'Sueldos',
   commissions: 'Comisiones',
   adminShops: 'Locales',
   adminShop: 'Configuración del local',

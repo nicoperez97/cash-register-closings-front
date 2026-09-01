@@ -52,7 +52,7 @@ export type AttendanceShiftDialogResult = {
         </mat-form-field>
       </div>
       <p class="shift-hint">
-        Extra = horas después de la retirada del local ({{ data.defaultCheckOut }}).
+        Extra = horas después de la retirada del turno ({{ data.defaultCheckOut }}).
       </p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">

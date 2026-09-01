@@ -219,6 +219,7 @@ export class AdminShopPage implements OnInit {
     serviceDefaultCheckIn: ['18:00'],
     serviceDefaultCheckOut: ['00:00'],
     serviceAttendanceWithHours: [true],
+    holidayPayMultiplier: [2],
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
     coversEnabled: [false],
     reservationsEnabled: [true],
@@ -431,6 +432,7 @@ export class AdminShopPage implements OnInit {
     serviceDefaultCheckIn?: string | null;
     serviceDefaultCheckOut?: string | null;
     serviceAttendanceWithHours?: boolean;
+    holidayPayMultiplier?: number | null;
     menuEnabled?: boolean;
     active?: boolean;
     salesSystemId?: string | null;
@@ -466,6 +468,7 @@ export class AdminShopPage implements OnInit {
       serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
       serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
       serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
+      holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 2) || 2,
       menuEnabled: !!s.menuEnabled,
       active: s.active ?? true,
       salesSystemId: s.salesSystemId ?? null,
@@ -849,6 +852,7 @@ export class AdminShopPage implements OnInit {
       serviceDefaultCheckIn: raw.serviceDefaultCheckIn || '18:00',
       serviceDefaultCheckOut: raw.serviceDefaultCheckOut || '00:00',
       serviceAttendanceWithHours: raw.serviceAttendanceWithHours,
+      holidayPayMultiplier: Number(raw.holidayPayMultiplier ?? 2) || 2,
       closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
       coversEnabled: raw.coversEnabled,
       reservationsEnabled: raw.reservationsEnabled,

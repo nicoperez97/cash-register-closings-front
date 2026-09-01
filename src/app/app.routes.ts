@@ -551,11 +551,16 @@ export const routes: Routes = [
         title: 'Asistencia · Produccion',
       },
       {
-        path: 'payroll',
+        path: 'salaries',
         canActivate: [permissionGuard('payroll.read')],
         loadComponent: () =>
-          import('./features/payroll/payroll-page').then((m) => m.PayrollPage),
-        title: 'Liquidaciones',
+          import('./features/payroll/payroll-page').then((m) => m.SalariesPage),
+        title: 'Sueldos',
+      },
+      {
+        path: 'payroll',
+        redirectTo: 'salaries',
+        pathMatch: 'full',
       },
       {
         path: 'commissions',
