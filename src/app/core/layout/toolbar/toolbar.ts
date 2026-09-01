@@ -35,7 +35,9 @@ import {
   defaultHomeRoute,
   hasShopPermission,
   isCashierOnly,
+  isClosingsCreateOnly,
   isProducerOnly,
+  canViewClosingsList,
   userRoleLabel,
 } from '../../auth/auth.models';
 import { ThemeService, ThemeMode } from '../../theme/theme.service';
@@ -195,10 +197,7 @@ export class ToolbarComponent implements OnInit {
         icon: 'payments',
       });
     }
-    if (
-      hasShopPermission(user, shopId, 'closings.read') ||
-      hasShopPermission(user, shopId, 'closings.create')
-    ) {
+    if (canViewClosingsList(user, shopId)) {
       pushRoute('closings', 'Cierres', 'point_of_sale', '/closings');
     }
     if (hasShopPermission(user, shopId, 'shortages.read')) {

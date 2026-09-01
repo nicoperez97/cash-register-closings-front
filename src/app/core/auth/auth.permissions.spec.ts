@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   AuthUser,
   canCustomizeLayout,
+  canViewClosingsList,
   expandModulePermissions,
   hasShopPermission,
   isCashierOnly,
+  isClosingsCreateOnly,
+  isShopAdministrator,
   permissionsForShop,
 } from './auth.models';
 import {
@@ -75,6 +78,31 @@ describe('canCustomizeLayout', () => {
   it('cajero no personaliza menú/atajos', () => {
     expect(canCustomizeLayout(cashierUser(), 's1')).toBe(false);
   });
+
+  it('gerente con permisos amplios no personaliza menú', () => {
+    const user = cashierUser();
+    user.globalRole = 'MANAGER';
+    user.shopRoles = { s1: 'MANAGER' };
+    user.shopPermissions = {
+      s1: [
+        'closings.create',
+        'closings.read',
+        'stock.read',
+        'beverageStock.read',
+        'shortages.read',
+      ] as never[],
+    };
+    expect(isShopAdministrator(user, 's1')).toBe(false);
+    expect(canCustomizeLayout(user, 's1')).toBe(false);
+  });
+
+  it('admin del local sí personaliza menú', () => {
+    const user = cashierUser();
+    user.globalRole = 'ADMIN';
+    user.shopRoles = { s1: 'ADMIN' };
+    expect(isShopAdministrator(user, 's1')).toBe(true);
+    expect(canCustomizeLayout(user, 's1')).toBe(true);
+  });
 });
 
 describe('route-access', () => {
@@ -87,14 +115,16 @@ describe('route-access', () => {
   it('cajero puede /closings/new pero no /waiting-list', () => {
     const user = cashierUser();
     expect(canAccessAppRoute('/closings/new', user, 's1', { features })).toBe(true);
+    expect(canAccessAppRoute('/closings', user, 's1', { features })).toBe(false);
     expect(canAccessAppRoute('/waiting-list', user, 's1', { features })).toBe(false);
     expect(canAccessAppRoute('/reservations', user, 's1', { features })).toBe(false);
     expect(canAccessAppRoute('/profile', user, 's1', { features })).toBe(true);
   });
 
-  it('atajos: cajero ve new-closing, no waiting-list', () => {
+  it('atajos: cajero ve new-closing, no closings ni waiting-list', () => {
     const user = cashierUser();
     expect(canAccessToolbarAction('new-closing', user, 's1', { features })).toBe(true);
+    expect(canAccessToolbarAction('closings', user, 's1', { features })).toBe(false);
     expect(canAccessToolbarAction('waiting-list', user, 's1', { features })).toBe(false);
     expect(canAccessToolbarAction('payments', user, 's1', { features })).toBe(false);
   });
@@ -117,5 +147,33 @@ describe('route-access', () => {
   it('ruta desconocida → denegada', () => {
     const user = cashierUser();
     expect(canAccessAppRoute('/ruta-inventada', user, 's1', { features })).toBe(false);
+  });
+});
+
+describe('isClosingsCreateOnly', () => {
+  it('preset solo crear no ve listado', () => {
+    const user = cashierUser();
+    expect(isClosingsCreateOnly(user, 's1')).toBe(true);
+    expect(canViewClosingsList(user, 's1')).toBe(false);
+  });
+
+  it('create + stock sigue sin listado de cierres', () => {
+    const user = cashierUser();
+    user.shopPermissions = {
+      s1: ['closings.create', 'closings.read', 'beverageStock.read'],
+    };
+    expect(isCashierOnly(user, 's1')).toBe(false);
+    expect(isClosingsCreateOnly(user, 's1')).toBe(true);
+    expect(canViewClosingsList(user, 's1')).toBe(false);
+    expect(canAccessAppRoute('/beverage-stock', user, 's1', {
+      features: { waitingListEnabled: true, tipsEnabled: true, reservationsEnabled: true },
+    })).toBe(true);
+  });
+
+  it('visor con read sí ve listado', () => {
+    const user = cashierUser();
+    user.shopPermissions = { s1: ['closings.read'] };
+    expect(isClosingsCreateOnly(user, 's1')).toBe(false);
+    expect(canViewClosingsList(user, 's1')).toBe(true);
   });
 });

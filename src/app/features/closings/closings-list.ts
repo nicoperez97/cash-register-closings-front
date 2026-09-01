@@ -15,7 +15,7 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
+import { hasShopPermission, isClosingsCreateOnly } from '../../core/auth/auth.models';
 import { ClosingsApiService, CashClosing, ShopUserOption } from './closings-api.service';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
@@ -276,7 +276,12 @@ export class ClosingsListPage {
   constructor() {
     usePageRefresh(() => this.applyFilter());
     effect(() => {
+      const user = this.auth.currentUser();
       const id = this.shopId();
+      if (id && isClosingsCreateOnly(user, id)) {
+        void this.router.navigateByUrl('/closings/new');
+        return;
+      }
       this.reloadToken();
       if (!id) {
         this.rows.set([]);

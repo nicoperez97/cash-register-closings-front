@@ -26,7 +26,11 @@ import {
   shiftHoursLabel,
 } from '../../core/shop/shop-shifts';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageShop, hasShopPermission } from '../../core/auth/auth.models';
+import { canManageShop, hasShopPermission, canViewClosingsList } from '../../core/auth/auth.models';
+import {
+  homePrimaryShortcutId,
+  homeShortcutsFor,
+} from '../../core/home/home-actions';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { closingMoneyColumns } from '../closings/closing-list-columns';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
@@ -79,13 +83,57 @@ interface BalanceRowExt extends BalanceAccountRow {
   ],
   template: `
     <app-page-header
+      eyebrow="Inicio"
+      helpId="home"
       [title]="shopContext.selectedShop()?.name ?? 'Inicio'"
       [subtitle]="headerSubtitle()"
-      [actionLabel]="canCreateShop() ? 'Crear local' : canCreateClosing() ? 'Nuevo cierre' : ''"
-      [actionIcon]="canCreateShop() ? 'add_business' : 'add'"
+      [actionLabel]="headerActionLabel()"
+      [actionIcon]="headerActionIcon()"
       [actionLarge]="true"
-      (action)="canCreateShop() ? goCreateShop() : goCreate()"
+      (action)="onHeaderAction()"
     />
+
+    @if (actionButtons().length || canExport()) {
+      <div
+        class="home-actions mb-3 guy-stagger"
+        [class.home-actions--tiles]="useActionTiles()"
+      >
+        @for (s of actionButtons(); track s.id) {
+          @if (s.kind === 'route') {
+            @if (s.primary) {
+              <a
+                class="home-actions__btn home-actions__btn--primary"
+                mat-flat-button
+                color="primary"
+                [routerLink]="s.route"
+              >
+                <mat-icon>{{ s.icon }}</mat-icon>
+                <span>{{ s.label }}</span>
+              </a>
+            } @else {
+              <a class="home-actions__btn" mat-stroked-button [routerLink]="s.route">
+                <mat-icon>{{ s.icon }}</mat-icon>
+                <span>{{ s.label }}</span>
+              </a>
+            }
+          } @else if (s.kind === 'action' && s.action === 'quick-expense') {
+            <button
+              class="home-actions__btn home-actions__btn--primary"
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="openQuickExpense()"
+            >
+              <mat-icon>{{ s.icon }}</mat-icon>
+              <span>{{ s.label }}</span>
+            </button>
+          }
+        }
+        @if (canExport()) {
+          <app-export-menu class="home-actions__export" label="Descargar" (pick)="onExportMonth($event)" />
+        }
+      </div>
+    }
 
     @if (kpis().length) {
       <app-kpi-strip [items]="kpis()" class="mb-3" />
@@ -117,71 +165,6 @@ interface BalanceRowExt extends BalanceAccountRow {
         </div>
       </a>
     }
-
-    <div class="home-shortcuts guy-shortcuts guy-stagger mb-3">
-      @if (canCreateShop()) {
-        <a mat-stroked-button routerLink="/admin/shops">
-          <mat-icon>add_business</mat-icon>
-          Crear local
-        </a>
-      }
-      @if (canReadClosings()) {
-        <a mat-flat-button color="primary" routerLink="/closings">
-          <mat-icon>point_of_sale</mat-icon>
-          Cierres
-        </a>
-      }
-        @if (canViewReports()) {
-          <a mat-stroked-button routerLink="/reports">
-            <mat-icon>insights</mat-icon>
-            Reportes
-          </a>
-          @if (canExport()) {
-            <app-export-menu label="Descargar" (pick)="onExportMonth($event)" />
-          }
-        }
-      @if (canOpenReservations()) {
-        <a mat-stroked-button routerLink="/reservations">
-          <mat-icon>table_restaurant</mat-icon>
-          Reservas
-        </a>
-      }
-      @if (canOpenWaitingList()) {
-        <a mat-stroked-button routerLink="/waiting-list">
-          <mat-icon>hourglass_top</mat-icon>
-          Lista de espera
-        </a>
-      }
-      @if (canOpenTips()) {
-        <a mat-stroked-button routerLink="/tips">
-          <mat-icon>volunteer_activism</mat-icon>
-          Propinas
-        </a>
-      }
-      @if (canManageMovements()) {
-        <button
-          mat-flat-button
-          color="primary"
-          type="button"
-          (click)="openQuickExpense()"
-        >
-          <mat-icon>payments</mat-icon>
-          Gasto rápido
-        </button>
-      }
-      @if (canViewPayments()) {
-        <a mat-stroked-button routerLink="/payments/suppliers">
-          <mat-icon>payments</mat-icon>
-          Pagos
-        </a>
-      }
-      @if (canEditShop()) {
-        <a mat-stroked-button routerLink="/admin/shop">
-          <mat-icon>storefront</mat-icon>
-          Configuración del local
-        </a>
-      }
-    </div>
 
     @if (canViewAttendance()) {
       <div class="panel-card mb-3 today-panel guy-enter-scale">
@@ -290,7 +273,9 @@ interface BalanceRowExt extends BalanceAccountRow {
       </div>
     }
 
-    <p class="text-center text-muted mt-4 mb-0 small">{{ brand.tagline }}</p>
+    @if (!actionButtons().length && !kpis().length && !canViewAttendance() && !canViewBalances()) {
+      <p class="text-center text-muted mt-4 mb-0 small">{{ brand.tagline }}</p>
+    }
   `,
   styles: [
     `
@@ -408,6 +393,46 @@ interface BalanceRowExt extends BalanceAccountRow {
       .pending-reservations-card__right mat-icon {
         color: var(--guy-muted, #5f6f76);
       }
+      .home-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .home-actions--tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(9.25rem, 1fr));
+        gap: 0.65rem;
+      }
+      .home-actions__btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        min-height: 2.5rem;
+      }
+      .home-actions--tiles .home-actions__btn {
+        flex-direction: column;
+        min-height: 5.75rem;
+        padding: 0.85rem 0.65rem !important;
+        text-align: center;
+        line-height: 1.25;
+        white-space: normal;
+      }
+      .home-actions--tiles .home-actions__btn mat-icon {
+        margin: 0;
+        font-size: 1.65rem;
+        width: 1.65rem;
+        height: 1.65rem;
+      }
+      .home-actions--tiles .home-actions__btn span {
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+      .home-actions__export {
+        grid-column: 1 / -1;
+        justify-self: start;
+      }
     `,
   ],
 })
@@ -448,6 +473,32 @@ export class HomePageComponent {
   readonly employeePaymentsToValidateMine = signal<number | null>(null);
   readonly employeePaymentsToPayMine = signal<number | null>(null);
   readonly pendingReservations = computed(() => this.reservationsInbox.pendingRequests());
+
+  readonly routeFeatures = computed(() => {
+    const shop = this.shopContext.selectedShop();
+    return {
+      reservationsEnabled: !!shop?.reservationsEnabled,
+      waitingListEnabled: !!shop?.waitingListEnabled,
+      tipsEnabled: !!shop?.tipsEnabled,
+      settlementsEnabled: !!shop?.settlementsEnabled,
+    };
+  });
+
+  readonly actionButtons = computed(() =>
+    homeShortcutsFor(
+      this.auth.currentUser(),
+      this.shopContext.selectedShopId(),
+      this.routeFeatures(),
+    ),
+  );
+
+  /** Grilla grande de botones cuando hay pocos módulos o poco tablero debajo. */
+  readonly useActionTiles = computed(() => {
+    const n = this.actionButtons().length;
+    if (!n) return false;
+    if (n <= 8) return true;
+    return !this.kpis().length && !this.canViewAttendance() && !this.canViewBalances();
+  });
 
   private attendanceTodayIso(): string {
     const shop = this.shopContext.selectedShop();
@@ -621,7 +672,7 @@ export class HomePageComponent {
       const shopId = this.shopContext.selectedShopId();
       const user = this.auth.currentUser();
       const canViewReports = hasShopPermission(user, shopId, 'reports.view');
-      const canReadClosings = hasShopPermission(user, shopId, 'closings.read');
+      const canReadClosings = canViewClosingsList(user, shopId);
       if (!shopId || (!canViewReports && !canReadClosings)) {
         this.reportSummary.set(null);
       } else {
@@ -740,6 +791,36 @@ export class HomePageComponent {
     return `${date} · Sin local asignado`;
   }
 
+  headerActionLabel(): string {
+    if (this.actionButtons().length) return '';
+    const id = homePrimaryShortcutId(
+      this.auth.currentUser(),
+      this.shopContext.selectedShopId(),
+    );
+    if (id === 'admin-shops') return 'Crear local';
+    if (id === 'new-closing') return 'Nuevo cierre';
+    return '';
+  }
+
+  headerActionIcon(): string {
+    const id = homePrimaryShortcutId(
+      this.auth.currentUser(),
+      this.shopContext.selectedShopId(),
+    );
+    if (id === 'admin-shops') return 'add_business';
+    if (id === 'new-closing') return 'add';
+    return 'add';
+  }
+
+  onHeaderAction(): void {
+    const id = homePrimaryShortcutId(
+      this.auth.currentUser(),
+      this.shopContext.selectedShopId(),
+    );
+    if (id === 'admin-shops') this.goCreateShop();
+    else if (id === 'new-closing') this.goCreate();
+  }
+
   todayLabel(): string {
     return new Date().toLocaleDateString('es-AR', {
       weekday: 'long',
@@ -770,7 +851,7 @@ export class HomePageComponent {
 
   canReadClosings(): boolean {
     const shopId = this.shopContext.selectedShopId();
-    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'closings.read');
+    return !!shopId && canViewClosingsList(this.auth.currentUser(), shopId);
   }
 
   canViewReports(): boolean {

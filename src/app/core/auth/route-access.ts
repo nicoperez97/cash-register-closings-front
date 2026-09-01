@@ -3,7 +3,9 @@ import {
   canConfigureShopOpeningBalances,
   canManageShop,
   canManageShopUsers,
+  canViewClosingsList,
   hasShopPermission,
+  isClosingsCreateOnly,
   isSuperAdminUser,
 } from './auth.models';
 import { navItemIdForRoute } from '../layout/nav-config';
@@ -62,16 +64,14 @@ export function canAccessAppRoute(
   if (path.startsWith('/closings/new')) {
     return hasShopPermission(user, shopId, 'closings.create');
   }
+  if (path === '/closings' || path === '/closings/') {
+    return canViewClosingsList(user, shopId);
+  }
   if (path.startsWith('/closings/')) {
     return (
       hasShopPermission(user, shopId, 'closings.update') ||
-      hasShopPermission(user, shopId, 'closings.read')
-    );
-  }
-  if (path.startsWith('/closings')) {
-    return (
-      hasShopPermission(user, shopId, 'closings.read') ||
-      hasShopPermission(user, shopId, 'closings.create')
+      (!isClosingsCreateOnly(user, shopId) &&
+        hasShopPermission(user, shopId, 'closings.read'))
     );
   }
   if (path.startsWith('/cash-withdrawals')) {
