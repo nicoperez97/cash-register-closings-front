@@ -773,7 +773,7 @@ export function migrateModuleLevels(
   if (out.expenses && out.expenses !== 'none' && (!out.incomes || out.incomes === 'none')) {
     out.incomes = out.expenses;
   }
-  if (!out.orders || out.orders === 'none') {
+  if (!Object.prototype.hasOwnProperty.call(raw, 'orders')) {
     const fromStock = [out.stock, out.beverageStock, out.shortages];
     if (fromStock.includes('manage')) out.orders = 'manage';
     else if (fromStock.includes('read')) out.orders = 'read';

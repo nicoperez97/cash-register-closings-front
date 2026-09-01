@@ -1038,6 +1038,10 @@ export class AdminUserDialogComponent implements OnInit {
       const out: Record<string, string> = {};
       for (const d of this.visibleModules) {
         const v = raw[d.key] ?? 'none';
+        if (d.key === 'orders') {
+          out[d.key] = v;
+          continue;
+        }
         if (v && v !== 'none') out[d.key] = v;
       }
       return out;

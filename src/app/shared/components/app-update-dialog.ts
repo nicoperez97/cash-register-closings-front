@@ -1,8 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { BusyLabelComponent } from './busy-label';
+
+export const APP_UPDATE_AUTO_SECONDS = 30;
 
 export type AppUpdateDialogData = {
   activate: () => Promise<void>;
@@ -24,8 +26,8 @@ export type AppUpdateDialogData = {
 
       <h2 id="upd-title" class="upd__title">Nueva versión lista</h2>
       <p id="upd-desc" class="upd__lead">
-        Hay una actualización disponible. Para seguir usando la app con seguridad y las últimas
-        mejoras, tenés que actualizar ahora.
+        Hay una actualización disponible. Podés actualizar ahora o esperar: en
+        <strong>{{ secondsLeft() }} s</strong> la app se reinicia sola.
       </p>
 
       <ul class="upd__points" aria-hidden="true">
@@ -39,7 +41,7 @@ export type AppUpdateDialogData = {
         </li>
         <li>
           <mat-icon>timer</mat-icon>
-          <span>Tarda unos segundos</span>
+          <span>Se actualiza sola en {{ secondsLeft() }} s</span>
         </li>
       </ul>
 
@@ -60,7 +62,7 @@ export type AppUpdateDialogData = {
       @if (error()) {
         <p class="upd__error" role="alert">{{ error() }}</p>
       } @else {
-        <p class="upd__hint">La app se reinicia sola al terminar.</p>
+        <p class="upd__hint">Si no tocás nada, se actualiza sola al llegar a 0.</p>
       }
     </div>
   `,
@@ -196,6 +198,12 @@ export type AppUpdateDialogData = {
       box-shadow: 0 10px 24px color-mix(in srgb, var(--guy-primary, #1d65a0) 28%, transparent);
     }
 
+    .upd__lead strong {
+      color: var(--guy-navy, #1d65a0);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
     .upd__hint,
     .upd__error {
       position: relative;
@@ -243,19 +251,42 @@ export type AppUpdateDialogData = {
     }
   `,
 })
-export class AppUpdateDialogComponent {
+export class AppUpdateDialogComponent implements OnDestroy {
   private readonly data = inject<AppUpdateDialogData>(MAT_DIALOG_DATA);
   private readonly ref = inject(MatDialogRef<AppUpdateDialogComponent, boolean>);
 
   readonly busy = signal(false);
   readonly error = signal('');
+  readonly secondsLeft = signal(APP_UPDATE_AUTO_SECONDS);
+  private tickId: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.ref.disableClose = true;
+    this.tickId = setInterval(() => {
+      const next = this.secondsLeft() - 1;
+      if (next <= 0) {
+        this.clearTick();
+        void this.update();
+        return;
+      }
+      this.secondsLeft.set(next);
+    }, 1000);
+  }
+
+  ngOnDestroy(): void {
+    this.clearTick();
+  }
+
+  private clearTick(): void {
+    if (this.tickId != null) {
+      clearInterval(this.tickId);
+      this.tickId = null;
+    }
   }
 
   async update(): Promise<void> {
     if (this.busy()) return;
+    this.clearTick();
     this.busy.set(true);
     this.error.set('');
     try {
