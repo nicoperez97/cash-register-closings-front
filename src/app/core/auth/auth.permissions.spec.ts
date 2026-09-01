@@ -8,6 +8,7 @@ import {
   isCashierOnly,
   isClosingsCreateOnly,
   isShopAdministrator,
+  migrateModuleLevels,
   permissionsForShop,
 } from './auth.models';
 import {
@@ -147,6 +148,22 @@ describe('route-access', () => {
   it('ruta desconocida → denegada', () => {
     const user = cashierUser();
     expect(canAccessAppRoute('/ruta-inventada', user, 's1', { features })).toBe(false);
+  });
+});
+
+describe('migrateModuleLevels', () => {
+  it('orders none explícito no se infiere desde stock', () => {
+    const levels = migrateModuleLevels({
+      stock: 'manage',
+      beverageStock: 'manage',
+      orders: 'none',
+    });
+    expect(levels.orders).toBe('none');
+  });
+
+  it('sin orders en mapa sí se infiere desde stock', () => {
+    const levels = migrateModuleLevels({ stock: 'read' });
+    expect(levels.orders).toBe('read');
   });
 });
 
