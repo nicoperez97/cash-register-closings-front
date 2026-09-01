@@ -5,6 +5,11 @@ import type { UserVisibility } from '../../shared/user-visibility';
 
 export type EmployeeType = 'FIXED' | 'ROTATING';
 
+export type EmployeeShiftAssignment = {
+  shiftId: string;
+  type: EmployeeType;
+};
+
 export interface Employee {
   id: string;
   shopId: string;
@@ -13,8 +18,12 @@ export interface Employee {
   userId?: string | null;
   hireDate?: string | null;
   notes?: string | null;
-  /** Fijo entra en “Todos presentes”; rotativo solo a mano. */
+  /** Resumen legacy: fijo si tiene al menos un turno fijo. */
   type: EmployeeType;
+  /** Tipo por turno de caja. Vacío = aplica `type` a todos. */
+  shiftAssignments?: EmployeeShiftAssignment[];
+  /** Si cuenta para el presentismo semanal en liquidación. */
+  countsForAttendanceBonus?: boolean;
   /** Si produce comida → aparece en asistencia de producción. */
   producesFood?: boolean;
   /** Productor supervisor a cargo. */
@@ -22,6 +31,8 @@ export interface Employee {
   /** Alias o CBU para reintegros. */
   bankAlias?: string | null;
   overtimeHourRate?: number;
+  /** null = hereda el del local. */
+  holidayPayMultiplier?: number | null;
   serviceCheckIn?: string | null;
   serviceCheckOut?: string | null;
   active: boolean;

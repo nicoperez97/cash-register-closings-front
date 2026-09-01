@@ -134,7 +134,7 @@ export interface DataTableColumn {
             </div>
           </div>
         } @else {
-          <div class="table-responsive data-table__desktop">
+          <div class="data-table__scroller data-table__desktop">
             <table
               mat-table
               matSort
@@ -147,7 +147,7 @@ export interface DataTableColumn {
               [class.w-100]="!dense()"
               [class.data-table__table--fit]="dense()"
               [class.data-table__table--sticky]="hasStickyColumns()"
-              [class.data-table__table--sticky-end]="showActions()"
+              [class.data-table__table--sticky-end]="stickyActionsEnd()"
               [class.data-table__table--dense]="dense()"
             >
               @if (selectable()) {
@@ -541,6 +541,8 @@ export interface DataTableColumn {
     `
       :host {
         display: block;
+        max-width: 100%;
+        min-width: 0;
       }
 
       .data-table-toolbar {
@@ -548,6 +550,13 @@ export interface DataTableColumn {
         align-items: flex-start;
         gap: 0.55rem;
         margin-bottom: 0.85rem;
+        max-width: 100%;
+        min-width: 0;
+      }
+
+      .data-table__scroller {
+        max-width: 100%;
+        min-width: 0;
       }
 
       .data-table-search-wrap {
@@ -654,6 +663,17 @@ export interface DataTableColumn {
       .data-table__actions-head {
         width: 1%;
         white-space: nowrap;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
+      }
+
+      .data-table__actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.1rem;
+        white-space: nowrap;
+        overflow: visible;
       }
 
       .data-table__table--sticky {
@@ -776,12 +796,6 @@ export interface DataTableColumn {
         ::ng-deep .mat-mdc-paginator-range-label {
           margin: 0 0.5rem 0 0;
         }
-      }
-
-      .data-table__actions {
-        display: flex;
-        align-items: center;
-        gap: 0.1rem;
       }
 
       .data-table__edit {
@@ -1058,7 +1072,10 @@ export class DataTableComponent {
   readonly stickySelect = computed(() => this.selectable() && this.hasStickyColumns());
 
   /** Keep the actions column pinned to the right while the table scrolls. */
-  readonly stickyActionsEnd = computed(() => this.showActions());
+  /** Sticky a la derecha solo si hay columnas sticky a la izquierda (tablas anchas). */
+  readonly stickyActionsEnd = computed(
+    () => this.showActions() && this.hasStickyColumns(),
+  );
 
   readonly selectedSet = computed(() => new Set(this.selection()));
 

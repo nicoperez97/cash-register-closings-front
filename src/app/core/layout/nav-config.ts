@@ -67,7 +67,7 @@ export const NAV_ITEM_DEFS: Array<{
   { id: 'employees', defaultGroup: 'personal', route: '/employees' },
   { id: 'vacations', defaultGroup: 'personal', route: '/vacations' },
   { id: 'candidates', defaultGroup: 'personal', route: '/candidates' },
-  { id: 'payroll', defaultGroup: 'personal', route: '/payroll' },
+  { id: 'payroll', defaultGroup: 'personal', route: '/salaries' },
   { id: 'commissions', defaultGroup: 'personal', route: '/commissions' },
   { id: 'adminShops', defaultGroup: 'admin', route: '/admin/shops' },
   { id: 'adminShop', defaultGroup: 'admin', route: '/admin/shop' },

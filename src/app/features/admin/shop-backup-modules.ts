@@ -99,7 +99,7 @@ export const BACKUP_MODULE_OPTIONS: BackupModuleOption[] = [
     ],
   },
   { id: 'candidates', label: 'CVs / Candidatos', group: 'personal', alsoClears: [] },
-  { id: 'payroll', label: 'Liquidaciones', group: 'personal', alsoClears: [] },
+  { id: 'payroll', label: 'Sueldos', group: 'personal', alsoClears: [] },
   { id: 'commissions', label: 'Comisiones', group: 'personal', alsoClears: [] },
   { id: 'attendance', label: 'Asistencia servicio', group: 'personal', alsoClears: [] },
   { id: 'productionAttendance', label: 'Asistencia producción', group: 'personal', alsoClears: [] },

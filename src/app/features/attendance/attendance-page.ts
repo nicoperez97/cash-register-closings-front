@@ -70,6 +70,8 @@ interface AttendanceEmployeeRow {
   serviceCheckIn?: string | null;
   serviceCheckOut?: string | null;
   type?: 'FIXED' | 'ROTATING';
+  worksThisShift?: boolean;
+  countsForAttendanceBonus?: boolean;
   days: Record<string, AttendanceDayCell>;
 }
 
@@ -153,68 +155,60 @@ const MONTH_LABELS = [
     }
 
     @if (shopId() && employees().length) {
-      <div class="panel-card mb-3 today-panel">
-        <div class="today-panel__head">
-          <div>
+      <div
+        class="panel-card mb-3 today-panel"
+        [class.today-panel--closed]="isQuickDayClosed()"
+        [class.today-panel--timed]="shiftTimesEnabled()"
+      >
+        <div class="today-panel__bar">
+          <div class="today-panel__meta">
             <h2 class="today-panel__title">{{ isQuickDayToday() ? 'Hoy' : 'Día' }}</h2>
-            <p class="today-panel__date">{{ quickDayLabel() }}</p>
-            @if (isQuickDayToday()) {
-              <p class="today-panel__hint">{{ businessDayHint() }}</p>
-            }
-            <div class="today-panel__day-nav">
-              <button
-                mat-icon-button
-                type="button"
-                aria-label="Día anterior"
-                (click)="shiftQuickDay(-1)"
-              >
-                <mat-icon>chevron_left</mat-icon>
-              </button>
-              <input
-                class="today-panel__day-input"
-                type="date"
-                [ngModel]="quickDayIso()"
-                (ngModelChange)="onQuickDayChange($event)"
-                aria-label="Fecha de asistencia"
-              />
-              @if (showShiftSelect()) {
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="today-panel__shift">
-                  <mat-label>Turno</mat-label>
-                  <mat-select
-                    [ngModel]="selectedShiftId()"
-                    (ngModelChange)="onShiftChange($event)"
-                  >
-                    @for (shift of shopShifts(); track shift.id) {
-                      <mat-option [value]="shift.id">
-                        {{ shift.name }} · {{ shiftHoursLabel(shift) }}
-                      </mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-              }
-              <button
-                mat-icon-button
-                type="button"
-                aria-label="Día siguiente"
-                (click)="shiftQuickDay(1)"
-              >
-                <mat-icon>chevron_right</mat-icon>
-              </button>
-              @if (!isQuickDayToday()) {
-                <button mat-stroked-button type="button" (click)="goQuickDayToday()">
-                  <mat-icon>today</mat-icon>
-                  Hoy
-                </button>
+            <div class="today-panel__meta-text">
+              <span class="today-panel__date">{{ quickDayLabel() }}</span>
+              @if (isQuickDayToday()) {
+                <span class="today-panel__hint">{{ businessDayHint() }}</span>
               }
             </div>
           </div>
+
+          <div class="today-panel__day-nav" role="group" aria-label="Fecha">
+            <button mat-icon-button type="button" aria-label="Día anterior" (click)="shiftQuickDay(-1)">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <input
+              class="today-panel__day-input"
+              type="date"
+              [ngModel]="quickDayIso()"
+              (ngModelChange)="onQuickDayChange($event)"
+              aria-label="Fecha de asistencia"
+            />
+            <button mat-icon-button type="button" aria-label="Día siguiente" (click)="shiftQuickDay(1)">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+
+          @if (!isQuickDayToday()) {
+            <button mat-stroked-button type="button" (click)="goQuickDayToday()">
+              <mat-icon>today</mat-icon>
+              Hoy
+            </button>
+          }
+
+          @if (showShiftSelect()) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="today-panel__shift">
+              <mat-label>Turno</mat-label>
+              <mat-select [ngModel]="selectedShiftId()" (ngModelChange)="onShiftChange($event)">
+                @for (shift of shopShifts(); track shift.id) {
+                  <mat-option [value]="shift.id">
+                    {{ shift.name }} · {{ shiftHoursLabel(shift) }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+
           <div class="today-panel__actions">
-            <button
-              mat-stroked-button
-              type="button"
-              [disabled]="sharing()"
-              (click)="shareToday()"
-            >
+            <button mat-stroked-button type="button" [disabled]="sharing()" (click)="shareToday()">
               <mat-icon>share</mat-icon>
               Compartir
             </button>
@@ -241,8 +235,12 @@ const MONTH_LABELS = [
             }
           </div>
         </div>
+
         @if (isQuickDayClosed()) {
-          <p class="today-panel__closed">Franco del local. No se marca asistencia ese día.</p>
+          <div class="today-panel__closed" role="status">
+            <mat-icon>event_busy</mat-icon>
+            <span><strong>Franco del local.</strong> No se marca asistencia ese día.</span>
+          </div>
         } @else {
           <div class="today-panel__chips">
             @for (emp of employees(); track emp.employeeId) {
@@ -252,36 +250,34 @@ const MONTH_LABELS = [
                 [class.today-chip-row--holiday]="isHolidayToday(emp)"
                 [class.today-chip-row--rotating]="emp.type === 'ROTATING'"
               >
-                <div class="today-chip-main">
-                  <button
-                    type="button"
-                    class="today-chip"
-                    [class.today-chip--present]="isPresentToday(emp)"
-                    [class.today-chip--holiday]="isHolidayToday(emp)"
-                    [class.today-chip--rotating]="emp.type === 'ROTATING'"
-                    [disabled]="!canManage() || saving()"
-                    [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
-                    (click)="togglePresentToday(emp)"
-                    (contextmenu)="toggleHolidayToday($event, emp)"
-                    (pointerdown)="onPressStart($event, () => toggleHolidayToday($event, emp))"
-                    (pointermove)="onPressMove($event)"
-                    (pointerup)="onPressEnd()"
-                    (pointerleave)="onPressEnd()"
-                    (pointercancel)="onPressEnd()"
-                  >
-                    <mat-icon>{{
-                      isHolidayToday(emp)
-                        ? 'star'
-                        : isPresentToday(emp)
-                          ? 'check_circle'
-                          : 'radio_button_unchecked'
-                    }}</mat-icon>
-                    <span class="today-chip__name">{{ emp.fullName }}</span>
-                  </button>
+                <button
+                  type="button"
+                  class="today-chip"
+                  [class.today-chip--present]="isPresentToday(emp)"
+                  [class.today-chip--holiday]="isHolidayToday(emp)"
+                  [class.today-chip--rotating]="emp.type === 'ROTATING'"
+                  [disabled]="!canManage() || saving()"
+                  [matTooltip]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
+                  (click)="togglePresentToday(emp)"
+                  (contextmenu)="toggleHolidayToday($event, emp)"
+                  (pointerdown)="onPressStart($event, () => toggleHolidayToday($event, emp))"
+                  (pointermove)="onPressMove($event)"
+                  (pointerup)="onPressEnd()"
+                  (pointerleave)="onPressEnd()"
+                  (pointercancel)="onPressEnd()"
+                >
+                  <mat-icon>{{
+                    isHolidayToday(emp)
+                      ? 'star'
+                      : isPresentToday(emp)
+                        ? 'check_circle'
+                        : 'radio_button_unchecked'
+                  }}</mat-icon>
+                  <span class="today-chip__name">{{ emp.fullName }}</span>
                   @if (shiftTimesEnabled() && overtimeToday(emp) > 0) {
                     <span class="today-ot-badge">+{{ overtimeToday(emp) }}h</span>
                   }
-                </div>
+                </button>
                 @if (shiftTimesEnabled()) {
                   <div class="today-chip-times">
                     <label class="today-ot" [class.today-ot--disabled]="!canManage() || saving() || !isPresentToday(emp)">
@@ -322,18 +318,34 @@ const MONTH_LABELS = [
             <h2 class="today-panel__title">Horas extra</h2>
             <p class="today-panel__date">{{ otSubtitle() }}</p>
           </div>
+          <div class="ot-report__actions">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="otLoading()"
+              (click)="loadOvertimeSummary()"
+            >
+              <mat-icon>query_stats</mat-icon>
+              {{ otLoading() ? 'Calculando…' : 'Ver' }}
+            </button>
+            <app-export-menu
+              [disabled]="!otSummary() || otExporting()"
+              [busy]="otExporting()"
+              label="Descargar"
+              (pick)="onOtExport($event)"
+            />
+          </div>
         </div>
         <div class="ot-report__filters">
-          <div class="ot-report__dates">
-            <label class="ot-report__field">
-              <span>Desde</span>
-              <input type="date" [ngModel]="otFrom()" (ngModelChange)="otFrom.set($event)" />
-            </label>
-            <label class="ot-report__field">
-              <span>Hasta</span>
-              <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
-            </label>
-          </div>
+          <label class="ot-report__field">
+            <span>Desde</span>
+            <input type="date" [ngModel]="otFrom()" (ngModelChange)="otFrom.set($event)" />
+          </label>
+          <label class="ot-report__field">
+            <span>Hasta</span>
+            <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
+          </label>
           <div class="ot-report__checks">
             <mat-checkbox
               class="ot-report__check"
@@ -350,21 +362,9 @@ const MONTH_LABELS = [
               Contar retiros temprano
             </mat-checkbox>
           </div>
-          <div class="ot-report__actions">
-            <button mat-flat-button color="primary" type="button" [disabled]="otLoading()" (click)="loadOvertimeSummary()">
-              <mat-icon>query_stats</mat-icon>
-              Ver
-            </button>
-            <app-export-menu
-              [disabled]="!otSummary() || otExporting()"
-              [busy]="otExporting()"
-              label="Descargar"
-              (pick)="onOtExport($event)"
-            />
-          </div>
         </div>
         @if (otSummary(); as sum) {
-          <div class="concept-report__wrap">
+          <div class="ot-report__wrap">
             <table class="ot-report__table">
               <thead>
                 <tr>
@@ -377,7 +377,7 @@ const MONTH_LABELS = [
               </thead>
               <tbody>
                 @for (row of sum.items; track row.employeeId) {
-                  <tr>
+                  <tr [class.ot-report__row--zero]="!row.overtimeHours">
                     <td>{{ row.fullName }}</td>
                     <td class="num">{{ row.presentDays }}</td>
                     <td class="num">{{ row.overtimeHours }}</td>
@@ -397,6 +397,8 @@ const MONTH_LABELS = [
               </tfoot>
             </table>
           </div>
+        } @else {
+          <p class="ot-report__empty">Elegí el rango y tocá Ver para ver el resumen.</p>
         }
       </div>
     }
@@ -902,37 +904,61 @@ const MONTH_LABELS = [
         );
         box-shadow: inset 0 -2px 0 var(--guy-primary, #1d65a0);
       }
-      .today-panel__head {
+      .today-panel__bar {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
         flex-wrap: wrap;
-        margin-bottom: 0.85rem;
+        align-items: center;
+        gap: 0.5rem 0.65rem;
+        margin-bottom: 0.75rem;
+      }
+      .today-panel__meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+        margin-right: 0.25rem;
       }
       .today-panel__title {
         margin: 0;
-        font-size: 1.1rem;
-        font-weight: 700;
+        font-size: 1.05rem;
+        font-weight: 800;
         color: var(--guy-navy, #003366);
+        line-height: 1.2;
+      }
+      .today-panel__meta-text {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.2rem 0.55rem;
       }
       .today-panel__date {
-        margin: 0.15rem 0 0;
+        margin: 0;
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: var(--guy-navy, #003366);
+        opacity: 0.8;
       }
       .today-panel__hint {
-        margin: 0.2rem 0 0;
-        font-size: 0.78rem;
+        margin: 0;
+        font-size: 0.76rem;
         color: var(--guy-muted, #5f6f76);
       }
       .today-panel__day-nav {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 0.35rem 0.45rem;
-        margin-top: 0.45rem;
+        gap: 0.1rem;
+        padding: 0.1rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 10px;
+        background: #fff;
+      }
+      .today-panel__day-nav button[mat-icon-button] {
+        width: 34px;
+        height: 34px;
+        padding: 0;
       }
       .today-panel__shift {
-        width: min(100%, 15.5rem);
+        width: min(100%, 15rem);
         margin: 0;
       }
       :host ::ng-deep .today-panel__shift .mat-mdc-text-field-wrapper {
@@ -950,31 +976,55 @@ const MONTH_LABELS = [
         display: none;
       }
       .today-panel__day-input {
-        border: 1px solid var(--guy-border, #d7e0d9);
-        border-radius: 10px;
-        padding: 0.35rem 0.55rem;
+        border: 0;
+        border-radius: 8px;
+        padding: 0.25rem 0.35rem;
         font: inherit;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: var(--guy-navy, #003366);
-        background: #fff;
-        min-height: 40px;
-      }
-      .today-panel__closed {
-        margin: 0;
         font-size: 0.88rem;
-        color: var(--guy-muted, #5f6f76);
+        font-weight: 650;
+        color: var(--guy-navy, #003366);
+        background: transparent;
+        min-height: 34px;
+        min-width: 8.6rem;
       }
       .today-panel__actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5rem;
+        gap: 0.4rem;
         align-items: center;
+        margin-left: auto;
+      }
+      .today-panel__closed {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        width: 100%;
+        margin: 0;
+        padding: 0.85rem 1rem;
+        border-radius: 10px;
+        border: 1px solid var(--guy-border, #e6ebf0);
+        background: color-mix(in srgb, var(--guy-border, #e6ebf0) 50%, #fff);
+        color: var(--guy-navy, #003366);
+        font-size: 0.9rem;
+        text-align: center;
+      }
+      .today-panel__closed mat-icon {
+        flex: 0 0 auto;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .today-panel__closed strong {
+        font-weight: 750;
       }
       .today-panel__chips {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5rem;
+        gap: 0.45rem;
+      }
+      .today-panel--timed .today-panel__chips {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
       }
       .today-chip-row {
         display: inline-flex;
@@ -984,17 +1034,20 @@ const MONTH_LABELS = [
         background: #fff;
         border-radius: 999px;
         padding-right: 0.45rem;
+        max-width: 100%;
       }
-      .today-chip-main {
-        display: inline-flex;
-        align-items: center;
-        min-width: 0;
-        gap: 0.2rem;
+      .today-panel--timed .today-chip-row {
+        display: flex;
+        width: 100%;
+        border-radius: 12px;
+        padding: 0.2rem 0.55rem 0.2rem 0.15rem;
+        box-sizing: border-box;
       }
       .today-chip-times {
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
+        gap: 0.45rem;
+        margin-left: auto;
       }
       .today-chip-row--present {
         background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, transparent);
@@ -1021,6 +1074,12 @@ const MONTH_LABELS = [
         font-weight: 600;
         color: var(--guy-navy, #003366);
         cursor: pointer;
+        min-width: 0;
+      }
+      .today-panel--timed .today-chip {
+        flex: 1 1 auto;
+        border-radius: 10px;
+        justify-content: flex-start;
       }
       .today-chip mat-icon {
         font-size: 1.15rem;
@@ -1052,6 +1111,16 @@ const MONTH_LABELS = [
         color: var(--guy-muted, #5f6f76);
         padding-right: 0.2rem;
       }
+      .today-panel--timed .today-ot {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.12rem;
+        padding-right: 0;
+      }
+      .today-panel--timed .today-ot span {
+        font-size: 0.62rem;
+        line-height: 1;
+      }
       .today-ot input {
         width: 5.6rem;
         min-height: 36px;
@@ -1077,25 +1146,26 @@ const MONTH_LABELS = [
         white-space: nowrap;
       }
       .ot-report__head {
-        margin-bottom: 0.65rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem 1rem;
+        margin-bottom: 0.85rem;
       }
       .ot-report__filters {
         display: flex;
-        flex-direction: column;
-        gap: 0.7rem;
-        align-items: stretch;
-        margin-bottom: 0.75rem;
-      }
-      .ot-report__dates {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 0.65rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.75rem 1rem;
+        margin-bottom: 0.85rem;
       }
       .ot-report__field {
         display: flex;
         flex-direction: column;
         gap: 0.28rem;
-        min-width: 0;
+        min-width: 9.5rem;
+        flex: 0 1 10.5rem;
         font-size: 0.68rem;
         font-weight: 700;
         letter-spacing: 0.02em;
@@ -1112,28 +1182,40 @@ const MONTH_LABELS = [
         border-radius: 10px;
         padding: 0.35rem 0.55rem;
         font: inherit;
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 650;
         color: var(--guy-navy, #003366);
         background: #fff;
       }
       .ot-report__checks {
-        display: grid;
-        gap: 0.35rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem 1rem;
+        flex: 1 1 14rem;
+        min-height: 42px;
+        padding-bottom: 0.15rem;
       }
       .ot-report__check {
         margin: 0;
         white-space: normal;
       }
       .ot-report__actions {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         gap: 0.5rem;
+        flex: 0 0 auto;
       }
       .ot-report__actions button {
-        width: 100%;
-        min-width: 0;
         margin: 0;
+      }
+      .ot-report__wrap {
+        margin: 0 -0.15rem;
+        overflow-x: auto;
+        border: 1px solid var(--guy-border, #e6ebf0);
+        border-radius: 12px;
+        background: #fff;
       }
       .ot-report__table {
         width: 100%;
@@ -1142,13 +1224,40 @@ const MONTH_LABELS = [
       }
       .ot-report__table th,
       .ot-report__table td {
-        padding: 0.4rem 0.7rem;
+        padding: 0.55rem 0.85rem;
         border-bottom: 1px solid var(--guy-border, #e6ebf0);
         text-align: left;
+      }
+      .ot-report__table thead th {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+        background: color-mix(in srgb, var(--guy-border, #e6ebf0) 45%, #fff);
+      }
+      .ot-report__table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .ot-report__table tfoot th {
+        border-bottom: none;
+        border-top: 1px solid var(--guy-border, #e6ebf0);
+        background: color-mix(in srgb, var(--guy-border, #e6ebf0) 35%, #fff);
+        font-weight: 800;
       }
       .ot-report__table .num {
         text-align: right;
         font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .ot-report__row--zero td {
+        color: var(--guy-muted, #5f6f76);
+      }
+      .ot-report__empty {
+        margin: 0;
+        padding: 0.85rem 0.2rem 0.15rem;
+        font-size: 0.88rem;
+        color: var(--guy-muted, #5f6f76);
       }
       .today-ot--disabled {
         opacity: 0.65;
@@ -1170,11 +1279,13 @@ const MONTH_LABELS = [
         .today-panel {
           padding: 0.75rem 0.8rem 0.85rem;
         }
-        .today-panel__head {
-          flex-direction: column;
-          align-items: stretch;
-          gap: 0.7rem;
-          margin-bottom: 0.7rem;
+        .today-panel__bar {
+          gap: 0.55rem;
+          margin-bottom: 0.65rem;
+        }
+        .today-panel__meta {
+          width: 100%;
+          margin-right: 0;
         }
         .today-panel__title {
           font-size: 1rem;
@@ -1183,18 +1294,22 @@ const MONTH_LABELS = [
           font-size: 0.8rem;
         }
         .today-panel__day-nav {
-          margin-top: 0.3rem;
-          gap: 0;
+          flex: 1 1 auto;
+          min-width: 0;
         }
         .today-panel__day-input {
           flex: 1 1 auto;
           min-width: 0;
           width: auto;
         }
+        .today-panel__shift {
+          width: 100%;
+        }
         .today-panel__actions {
+          margin-left: 0;
+          width: 100%;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          width: 100%;
           gap: 0.45rem;
         }
         .today-panel__actions button {
@@ -1207,6 +1322,10 @@ const MONTH_LABELS = [
         .today-panel__actions button:last-child:nth-child(odd) {
           grid-column: 1 / -1;
         }
+        .today-panel__closed {
+          justify-content: flex-start;
+          text-align: left;
+        }
         .today-panel__chips {
           flex-direction: column;
           flex-wrap: nowrap;
@@ -1214,17 +1333,11 @@ const MONTH_LABELS = [
         }
         .today-chip-row {
           display: flex;
-          flex-direction: row;
-          align-items: center;
           width: 100%;
           max-width: 100%;
           border-radius: 12px;
           padding: 0.15rem 0.4rem 0.15rem 0.1rem;
           box-sizing: border-box;
-        }
-        .today-chip-main {
-          flex: 1 1 auto;
-          min-width: 0;
         }
         .today-chip {
           flex: 1 1 auto;
@@ -1241,6 +1354,7 @@ const MONTH_LABELS = [
           align-items: center;
           gap: 0.3rem;
           width: auto;
+          margin-left: 0;
           padding: 0;
         }
         .today-ot {
@@ -1275,6 +1389,33 @@ const MONTH_LABELS = [
         .today-ot-badge {
           flex: 0 0 auto;
           padding-right: 0.1rem;
+        }
+        .ot-report__head {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .ot-report__actions {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+        .ot-report__actions > * {
+          min-width: 0;
+        }
+        .ot-report__filters {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .ot-report__field {
+          flex: 1 1 auto;
+          min-width: 0;
+          width: 100%;
+        }
+        .ot-report__checks {
+          flex-direction: column;
+          align-items: flex-start;
+          min-height: 0;
+          padding-bottom: 0;
         }
         .att-excel-range {
           display: grid;
@@ -1424,7 +1565,9 @@ export class AttendancePage {
   readonly otLoading = signal(false);
   readonly otExporting = signal(false);
 
-  readonly employees = computed(() => this.data()?.employees ?? []);
+  readonly employees = computed(() =>
+    (this.data()?.employees ?? []).filter((e) => e.worksThisShift !== false),
+  );
   readonly dayNumbers = computed(() =>
     Array.from({ length: this.data()?.daysInMonth ?? 0 }, (_, i) => i + 1),
   );
@@ -2212,20 +2355,16 @@ export class AttendancePage {
 
   shiftHoursLabel = shiftHoursLabel;
 
-  /** Defaults del local (y luego del empleado). Independientes del turno de caja. */
-  private shopShiftDefaults() {
+  /** Baseline de extras: turno de caja seleccionado si tiene rango; si no, empleado/local. */
+  private empShiftDefaults(emp: AttendanceEmployeeRow) {
+    const shift = this.shopShifts().find((s) => s.id === this.selectedShiftId());
+    if (shift && shift.opensAt !== shift.closesAt) {
+      return { checkIn: shift.opensAt, checkOut: shift.closesAt };
+    }
     const shop = this.shops.selectedShop();
     return {
-      checkIn: shop?.serviceDefaultCheckIn || '18:00',
-      checkOut: shop?.serviceDefaultCheckOut || '00:00',
-    };
-  }
-
-  private empShiftDefaults(emp: AttendanceEmployeeRow) {
-    const shop = this.shopShiftDefaults();
-    return {
-      checkIn: emp.serviceCheckIn || shop.checkIn,
-      checkOut: emp.serviceCheckOut || shop.checkOut,
+      checkIn: emp.serviceCheckIn || shop?.serviceDefaultCheckIn || '18:00',
+      checkOut: emp.serviceCheckOut || shop?.serviceDefaultCheckOut || '00:00',
     };
   }
 

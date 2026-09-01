@@ -18,6 +18,8 @@ import { EmployeeDialogComponent } from './employee-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { shopShiftsOf } from '../../core/shop/shop-shifts';
+import type { EmployeeShiftAssignment } from './employees-api.service';
 
 @Component({
   selector: 'app-employees-list',
@@ -104,9 +106,14 @@ export class EmployeesListPage {
   readonly columns: DataTableColumn[] = [
     { key: 'fullName', label: 'Nombre' },
     {
-      key: 'type',
-      label: 'Tipo',
-      format: (r) => (r['type'] === 'ROTATING' ? 'Rotativo' : 'Fijo'),
+      key: 'shiftAssignments',
+      label: 'Turnos',
+      format: (r) => this.formatShiftAssignments(r),
+    },
+    {
+      key: 'countsForAttendanceBonus',
+      label: 'Presentismo',
+      format: (r) => (r['countsForAttendanceBonus'] === false ? 'No' : 'Sí'),
     },
     {
       key: 'producesFood',
@@ -131,16 +138,6 @@ export class EmployeesListPage {
         const n = this.rows().filter((e) => e.supervisorEmployeeId === id).length;
         return n > 0 ? String(n) : '—';
       },
-    },
-    {
-      key: 'baseSalary',
-      label: 'Sueldo base',
-      format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
-    },
-    {
-      key: 'overtimeHourRate',
-      label: '$ / hora extra',
-      format: (r) => `$ ${Number(r['overtimeHourRate'] ?? 0).toLocaleString('es-AR')}`,
     },
     { key: 'hireDate', label: 'Ingreso' },
     {
@@ -235,6 +232,23 @@ export class EmployeesListPage {
     });
   }
 
+  private formatShiftAssignments(row: Record<string, unknown>): string {
+    const shifts = shopShiftsOf(this.shops.selectedShop());
+    const assignments = (row['shiftAssignments'] as EmployeeShiftAssignment[] | undefined) ?? [];
+    if (!assignments.length) {
+      const legacy = row['type'] === 'ROTATING' ? 'Rotativo' : 'Fijo';
+      return shifts.length ? `${legacy} (todos)` : legacy;
+    }
+    return assignments
+      .map((a) => {
+        const shift = shifts.find((s) => s.id === a.shiftId);
+        const name = shift?.name ?? 'Turno';
+        const role = a.type === 'ROTATING' ? 'rotativo' : 'fijo';
+        return `${name} ${role}`;
+      })
+      .join(', ');
+  }
+
   private openDialog(
     mode: { mode: 'create' } | { mode: 'edit'; employee: Employee },
   ): void {
@@ -251,8 +265,13 @@ export class EmployeesListPage {
             ...mode,
             shopId,
             shopName,
+            shopShifts: shopShiftsOf(this.shops.selectedShop()),
             serviceAttendanceWithHours:
               this.shops.selectedShop()?.serviceAttendanceWithHours !== false,
+            serviceDefaultCheckIn:
+              this.shops.selectedShop()?.serviceDefaultCheckIn || '18:00',
+            serviceDefaultCheckOut:
+              this.shops.selectedShop()?.serviceDefaultCheckOut || '00:00',
           },
         }),
         mode.mode === 'edit' ? 'Editar empleado' : 'Nuevo empleado',

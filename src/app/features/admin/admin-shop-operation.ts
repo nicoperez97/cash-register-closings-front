@@ -191,6 +191,20 @@ export interface AdminShopConceptCategoryOption {
             </mat-form-field>
           </div>
         }
+        <div class="guy-form-grid guy-form-grid--2 op__after-toggle">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Multiplicador feriado (liquidación)</mat-label>
+            <input
+              matInput
+              type="number"
+              min="0.01"
+              step="0.01"
+              inputmode="decimal"
+              formControlName="holidayPayMultiplier"
+            />
+            <mat-hint>Default 2 (el feriado cuenta doble). Cada empleado puede override en Sueldos.</mat-hint>
+          </mat-form-field>
+        </div>
       </section>
 
       <div class="op__pair">
