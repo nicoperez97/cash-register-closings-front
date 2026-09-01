@@ -194,6 +194,7 @@ export class AdminShopDispositivosPage {
         </p>
         <app-shop-nav-editor
           [value]="host.navConfigDraft()"
+          [filterByUserPermissions]="false"
           (valueChange)="host.onNavConfigChange($event)"
         />
       </section>
@@ -206,6 +207,7 @@ export class AdminShopDispositivosPage {
         </p>
         <app-shop-toolbar-editor
           [value]="host.toolbarConfigDraft()"
+          [filterByUserPermissions]="false"
           (valueChange)="host.onToolbarConfigChange($event)"
         />
       </section>

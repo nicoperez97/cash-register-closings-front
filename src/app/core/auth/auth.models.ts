@@ -200,7 +200,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'vacations.read',
     'vacations.manage',
   ],
-  CASHIER: ['closings.create', 'closings.read', 'tips.create', 'tips.read'],
+  CASHIER: ['closings.create', 'tips.create', 'tips.read'],
   VIEWER: [
     'closings.read',
     'cashWithdrawals.read',
@@ -219,6 +219,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'partnerSplits.read',
     'incomes.read',
     'reservations.read',
+    'waitingList.read',
     'payments.read',
     'suppliers.read',
     'services.read',
@@ -988,6 +989,228 @@ export function effectiveRoleForShop(
   return (user.shopRoles?.[shopId] ?? user.globalRole) as GlobalRole;
 }
 
+function addPermission(set: Set<Permission>, ...perms: Permission[]) {
+  for (const p of perms) set.add(p);
+}
+
+/** Expande niveles de módulo → permisos (espejo del API). */
+export function expandModulePermissions(
+  modules: Record<string, string> | null | undefined,
+): Permission[] {
+  const levels = migrateModuleLevels(modules);
+  if (!Object.values(levels).some((v) => v && v !== 'none')) return [];
+  const set = new Set<Permission>();
+
+  switch (levels.closings) {
+    case 'create':
+      addPermission(set, 'closings.create', 'closings.read');
+      break;
+    case 'read':
+      addPermission(set, 'closings.read');
+      break;
+    case 'update':
+      addPermission(set, 'closings.create', 'closings.read', 'closings.update');
+      break;
+    case 'lock':
+      addPermission(
+        set,
+        'closings.create',
+        'closings.read',
+        'closings.update',
+        'closings.lock',
+      );
+      break;
+  }
+
+  switch (levels.reports) {
+    case 'read':
+      addPermission(set, 'reports.view');
+      break;
+    case 'export':
+      addPermission(set, 'reports.view', 'reports.export');
+      break;
+  }
+
+  const pair = (level: string | undefined, read: Permission, manage: Permission) => {
+    if (level === 'read') addPermission(set, read);
+    if (level === 'manage') addPermission(set, read, manage);
+  };
+
+  pair(levels.expenses, 'expenses.read', 'expenses.manage');
+  pair(levels.accountTransfers, 'accountTransfers.read', 'accountTransfers.manage');
+  pair(levels.incomes, 'incomes.read', 'incomes.manage');
+  pair(levels.partnerSplits, 'partnerSplits.read', 'partnerSplits.manage');
+  if (
+    levels.expenses === 'read' ||
+    levels.expenses === 'manage' ||
+    levels.accountTransfers === 'read' ||
+    levels.accountTransfers === 'manage' ||
+    levels.incomes === 'read' ||
+    levels.incomes === 'manage'
+  ) {
+    addPermission(set, 'movements.read');
+    if (
+      levels.expenses === 'manage' ||
+      levels.accountTransfers === 'manage' ||
+      levels.incomes === 'manage'
+    ) {
+      addPermission(set, 'movements.manage');
+    }
+  }
+  pair(levels.cashWithdrawals, 'cashWithdrawals.read', 'cashWithdrawals.manage');
+  pair(levels.settlements, 'settlements.read', 'settlements.manage');
+  switch (levels.attendance) {
+    case 'self':
+      addPermission(set, 'attendance.self');
+      break;
+    case 'read':
+      addPermission(set, 'attendance.read');
+      break;
+    case 'manage':
+      addPermission(set, 'attendance.read', 'attendance.manage');
+      break;
+  }
+  pair(levels.employees, 'employees.read', 'employees.manage');
+  pair(levels.candidates, 'candidates.read', 'candidates.manage');
+  pair(levels.payroll, 'payroll.read', 'payroll.manage');
+  pair(levels.commissions, 'commissions.read', 'commissions.manage');
+  pair(levels.reservations, 'reservations.read', 'reservations.manage');
+  pair(levels.waitingList, 'waitingList.read', 'waitingList.manage');
+  pair(levels.payments, 'payments.read', 'payments.manage');
+  pair(levels.suppliers, 'suppliers.read', 'suppliers.manage');
+  pair(levels.services, 'services.read', 'services.manage');
+  pair(levels.stock, 'stock.read', 'stock.manage');
+  pair(levels.beverageStock, 'beverageStock.read', 'beverageStock.manage');
+  pair(levels.shortages, 'shortages.read', 'shortages.manage');
+  pair(levels.orders, 'orders.read', 'orders.manage');
+  switch (levels.tips) {
+    case 'read':
+      addPermission(set, 'tips.read');
+      break;
+    case 'create':
+      addPermission(set, 'tips.read', 'tips.create');
+      break;
+    case 'manage':
+      addPermission(set, 'tips.read', 'tips.create', 'tips.manage');
+      break;
+  }
+  switch (levels.reimbursements) {
+    case 'self':
+      addPermission(set, 'reimbursements.self');
+      break;
+    case 'read':
+      addPermission(set, 'reimbursements.read');
+      break;
+    case 'manage':
+      addPermission(set, 'reimbursements.read', 'reimbursements.manage');
+      break;
+  }
+  pair(levels.vacations, 'vacations.read', 'vacations.manage');
+  pair(levels.serviceRules, 'serviceRules.read', 'serviceRules.manage');
+  if (levels.payments === 'manage') {
+    addPermission(set, 'suppliers.read', 'suppliers.manage', 'services.read', 'services.manage');
+  }
+  if (levels.payments === 'read') addPermission(set, 'suppliers.read', 'services.read');
+  if (levels.accounts === 'manage') {
+    addPermission(
+      set,
+      'accounts.manage',
+      'expenses.read',
+      'accountTransfers.read',
+      'incomes.read',
+      'movements.read',
+    );
+  }
+  if (levels.concepts === 'manage') {
+    addPermission(
+      set,
+      'concepts.manage',
+      'expenses.read',
+      'accountTransfers.read',
+      'incomes.read',
+      'movements.read',
+    );
+  }
+  if (levels.shop === 'manage') addPermission(set, 'shops.manage');
+  if (levels.users === 'manage') addPermission(set, 'users.manage');
+
+  return [...set];
+}
+
+/** Deriva niveles de módulo desde plantilla de rol (fallback legacy). */
+export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, string> {
+  const perms = new Set(ROLE_PERMISSIONS[role] ?? []);
+  const has = (p: Permission) => perms.has(p);
+  const level = (read: Permission, manage: Permission): string => {
+    if (has(manage)) return 'manage';
+    if (has(read)) return 'read';
+    return 'none';
+  };
+  const closings = (): string => {
+    if (has('closings.lock')) return 'lock';
+    if (has('closings.update')) return 'update';
+    if (has('closings.create')) return 'create';
+    if (has('closings.read')) return 'read';
+    return 'none';
+  };
+  const reports = (): string => {
+    if (has('reports.export')) return 'export';
+    if (has('reports.view')) return 'read';
+    return 'none';
+  };
+  const attendance = (): string => {
+    if (has('attendance.manage')) return 'manage';
+    if (has('attendance.read')) return 'read';
+    if (has('attendance.self')) return 'self';
+    return 'none';
+  };
+  const tips = (): string => {
+    if (has('tips.manage')) return 'manage';
+    if (has('tips.create')) return 'create';
+    if (has('tips.read')) return 'read';
+    return 'none';
+  };
+  const reimbursements = (): string => {
+    if (has('reimbursements.manage')) return 'manage';
+    if (has('reimbursements.read')) return 'read';
+    if (has('reimbursements.self')) return 'self';
+    return 'none';
+  };
+
+  const base = emptyModuleLevels();
+  base.closings = closings();
+  base.reports = reports();
+  base.cashWithdrawals = level('cashWithdrawals.read', 'cashWithdrawals.manage');
+  base.settlements = level('settlements.read', 'settlements.manage');
+  base.expenses = level('expenses.read', 'expenses.manage');
+  base.accountTransfers = level('accountTransfers.read', 'accountTransfers.manage');
+  base.partnerSplits = level('partnerSplits.read', 'partnerSplits.manage');
+  base.incomes = level('incomes.read', 'incomes.manage');
+  base.attendance = attendance();
+  base.employees = level('employees.read', 'employees.manage');
+  base.candidates = level('candidates.read', 'candidates.manage');
+  base.payroll = level('payroll.read', 'payroll.manage');
+  base.commissions = level('commissions.read', 'commissions.manage');
+  base.reservations = level('reservations.read', 'reservations.manage');
+  base.waitingList = level('waitingList.read', 'waitingList.manage');
+  base.payments = level('payments.read', 'payments.manage');
+  base.suppliers = level('suppliers.read', 'suppliers.manage');
+  base.services = level('services.read', 'services.manage');
+  base.stock = level('stock.read', 'stock.manage');
+  base.beverageStock = level('beverageStock.read', 'beverageStock.manage');
+  base.shortages = level('shortages.read', 'shortages.manage');
+  base.orders = level('orders.read', 'orders.manage');
+  base.tips = tips();
+  base.reimbursements = reimbursements();
+  base.vacations = level('vacations.read', 'vacations.manage');
+  base.serviceRules = level('serviceRules.read', 'serviceRules.manage');
+  base.accounts = has('accounts.manage') ? 'manage' : 'none';
+  base.concepts = has('concepts.manage') ? 'manage' : 'none';
+  base.shop = has('shops.manage') ? 'manage' : 'none';
+  base.users = has('users.manage') ? 'manage' : 'none';
+  return base;
+}
+
 export function permissionsForShop(
   user: AuthUser | null,
   shopId: string | null,
@@ -998,12 +1221,21 @@ export function permissionsForShop(
     return [...ALL_PERMISSIONS];
   }
   if (!shopId) return [];
-  const fromApi = user.shopPermissions?.[shopId];
-  if (fromApi) return fromApi as Permission[];
-  // Fallback legacy
+  const shopPerms = user.shopPermissions;
+  if (shopPerms && Object.prototype.hasOwnProperty.call(shopPerms, shopId)) {
+    return shopPerms[shopId] as Permission[];
+  }
+  const modules = user.shopModulePermissions?.[shopId];
+  if (modules && Object.keys(modules).length) {
+    return expandModulePermissions(modules);
+  }
   const role = effectiveRoleForShop(user, shopId);
   if (!role) return [];
-  return ROLE_PERMISSIONS[role] ?? [];
+  return expandModulePermissions(deriveModulesFromRole(role));
+}
+
+export function isSuperAdminUser(user: AuthUser | null): boolean {
+  return user?.globalRole === 'OWNER';
 }
 
 export function hasShopPermission(
@@ -1080,6 +1312,13 @@ export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): 
   if (isCashierOnly(user, shopId)) return '/closings/new';
   if (isProducerOnly(user, shopId)) return '/my-production';
   return '/';
+}
+
+/** Cajero/productor: no personalizan menú ni atajos (layout fijo). */
+export function canCustomizeLayout(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (isCashierOnly(user, shopId) || isProducerOnly(user, shopId)) return false;
+  return true;
 }
 
 export function canEditShopExpenses(user: AuthUser | null, shopId: string | null): boolean {

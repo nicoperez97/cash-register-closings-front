@@ -16,6 +16,7 @@ import { userAvatarSrc } from '../../core/utils/drive-url';
 import { ShopNavEditorComponent } from '../admin/shop-nav-editor';
 import { ShopToolbarEditorComponent } from '../admin/shop-toolbar-editor';
 import { AuthService } from '../../core/auth/auth.service';
+import { canCustomizeLayout } from '../../core/auth/auth.models';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
 import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
@@ -204,6 +205,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
         }
       </section>
 
+      @if (canCustomize()) {
       <section class="panel-card profile-card profile-menu" style="--i: 2">
         <div class="menu-head">
           <div class="menu-head__copy">
@@ -306,6 +308,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
           />
         }
       </section>
+      }
     </div>
   `,
   styles: `
@@ -704,6 +707,9 @@ export class ProfilePage {
   readonly toolbarDirty = signal(false);
 
   readonly shopId = this.shops.selectedShopId;
+  readonly canCustomize = computed(() =>
+    canCustomizeLayout(this.auth.currentUser(), this.shopId()),
+  );
   readonly eligible = computed(() => this.prefs()?.eligibleNotifications ?? []);
   readonly usingShopMenu = computed(() => {
     const p = this.prefs();

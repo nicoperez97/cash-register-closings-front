@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal, effect } from '@angular/core';
+import { Component, computed, inject, input, output, signal, effect } from '@angular/core';
 import {
   CdkDragDrop,
   DragDropModule,
@@ -16,6 +16,13 @@ import {
   type ToolbarCustomAction,
   type ToolbarQuickActionDef,
 } from '../../core/layout/toolbar-config';
+import { AuthService } from '../../core/auth/auth.service';
+import { ShopContextService } from '../../core/shop/shop-context.service';
+import {
+  canAccessCustomRoute,
+  canAccessToolbarAction,
+  type ShopRouteFeatures,
+} from '../../core/auth/route-access';
 
 type DraftRow =
   | (ToolbarQuickActionDef & { hidden: boolean; custom: false })
@@ -34,7 +41,7 @@ type DraftRow =
     <div class="tb-ed">
       <p class="text-muted small mb-2">
         Arrastrá para ordenar y apagá los que no quieras en la barra. Podés sumar atajos de otros
-        módulos. Los permisos del local siguen mandando: si no tenés acceso, no aparece.
+        módulos a los que tengas acceso en este local.
       </p>
 
       <div class="tb-ed__list" role="list" cdkDropList (cdkDropListDropped)="onDrop($event)">
@@ -198,26 +205,62 @@ type DraftRow =
 })
 export class ShopToolbarEditorComponent {
   readonly value = input<ShopToolbarConfig | null>(null);
+  /** En perfil: solo módulos accesibles. En admin del local: catálogo completo. */
+  readonly filterByUserPermissions = input(true);
   readonly valueChange = output<ShopToolbarConfig | null>();
+
+  private readonly auth = inject(AuthService);
+  private readonly shops = inject(ShopContextService);
 
   private readonly draft = signal<ShopToolbarConfig | null>(null);
   /** Evita que el effect externo pise un emit recién hecho. */
   private lastEmittedJson: string | null = null;
 
+  private routeFeatures(): ShopRouteFeatures {
+    const shop = this.shops.selectedShop();
+    return {
+      reservationsEnabled: shop?.reservationsEnabled,
+      waitingListEnabled: shop?.waitingListEnabled,
+      tipsEnabled: shop?.tipsEnabled,
+      settlementsEnabled: shop?.settlementsEnabled,
+    };
+  }
+
+  private canShowBuiltin(id: string): boolean {
+    if (!this.filterByUserPermissions()) return true;
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return canAccessToolbarAction(id, user, shopId, {
+      features: this.routeFeatures(),
+      respectNavHidden: false,
+    });
+  }
+
+  private canShowCustom(route: string): boolean {
+    if (!this.filterByUserPermissions()) return true;
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return canAccessCustomRoute(route, user, shopId, {
+      features: this.routeFeatures(),
+      respectNavHidden: false,
+    });
+  }
+
   readonly rows = computed((): DraftRow[] => {
     const cfg = this.draft() ?? {};
     const hidden = new Set(cfg.hidden ?? []);
-    const custom = cfg.custom ?? [];
-    const byBuiltin = new Map(TOOLBAR_QUICK_ACTION_DEFS.map((d) => [d.id, d]));
+    const custom = (cfg.custom ?? []).filter((c) => this.canShowCustom(c.route));
+    const allowedBuiltins = TOOLBAR_QUICK_ACTION_DEFS.filter((d) => this.canShowBuiltin(d.id));
+    const byBuiltin = new Map(allowedBuiltins.map((d) => [d.id, d]));
     const byCustom = new Map(custom.map((c) => [c.id, c]));
     const allIds = [
       ...(cfg.order?.length
         ? [
             ...cfg.order.filter((id) => byBuiltin.has(id) || byCustom.has(id)),
-            ...TOOLBAR_QUICK_ACTION_DEFS.map((d) => d.id).filter((id) => !cfg.order!.includes(id)),
+            ...allowedBuiltins.map((d) => d.id).filter((id) => !cfg.order!.includes(id)),
             ...custom.map((c) => c.id).filter((id) => !cfg.order!.includes(id)),
           ]
-        : [...TOOLBAR_QUICK_ACTION_DEFS.map((d) => d.id), ...custom.map((c) => c.id)]),
+        : [...allowedBuiltins.map((d) => d.id), ...custom.map((c) => c.id)]),
     ];
     const seen = new Set<string>();
     const orderedIds = allIds.filter((id) => {
@@ -239,7 +282,9 @@ export class ShopToolbarEditorComponent {
       ...TOOLBAR_QUICK_ACTION_DEFS.map((d) => d.id),
       ...(this.draft()?.custom ?? []).map((c) => c.id),
     ]);
-    return TOOLBAR_ADDABLE_MODULE_DEFS.filter((m) => !used.has(m.id));
+    return TOOLBAR_ADDABLE_MODULE_DEFS.filter(
+      (m) => !used.has(m.id) && this.canShowCustom(m.route),
+    );
   });
 
   constructor() {
@@ -303,11 +348,9 @@ export class ShopToolbarEditorComponent {
   }
 
   reset(): void {
-    // Defaults de la app (orden completo, nada oculto, sin custom).
-    // Emitimos un config explícito: si mandamos null en perfil, al guardar
-    // vuelve al del local y parece que “no restauró”.
+    const allowed = TOOLBAR_QUICK_ACTION_DEFS.filter((d) => this.canShowBuiltin(d.id));
     this.commit({
-      order: TOOLBAR_QUICK_ACTION_DEFS.map((d) => d.id),
+      order: allowed.map((d) => d.id),
       hidden: [],
       custom: [],
     });
