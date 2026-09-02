@@ -846,7 +846,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'request_quote',
         tone: 'do',
         anyOf: ['payroll.manage'],
-        body: 'Arriba ves el resumen (a pagar, presentismo, extras). En Período elegí el rango y el presentismo por semana, y tocá Generar. La liquidación suma precio hora × horas trabajadas + feriados (× mult) + extras + presentismo. “Separar por turnos” arma una fila por empleado y turno.',
+        body: 'Arriba ves el resumen (a pagar, presentismo, extras). En Período elegí el rango y el presentismo por semana, y tocá Generar. La liquidación suma precio hora × horas trabajadas + feriados (× mult) + extras + presentismo. La tabla muestra días y horas trabajadas por empleado. “Separar por turnos” arma una fila por empleado y turno.',
         tip: 'Cambiá Presentismo $/semana o Separar por turnos y tocá Generar de nuevo. Descargar arma PDF o Excel con las líneas ya generadas.',
       },
     ],

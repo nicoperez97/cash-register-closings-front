@@ -26,6 +26,12 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 
+const formatHours = (value: unknown) => {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+
 const moneyAlways = (value: unknown) => {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return '$ 0';
@@ -45,6 +51,7 @@ interface PayrollLine {
   shiftId?: string | null;
   shiftName?: string | null;
   daysWorked: number;
+  hoursWorked: number;
   holidayDays: number;
   baseSalarySnapshot: number;
   holidayMultiplierSnapshot: number | null;
@@ -482,13 +489,15 @@ export class SalariesPage {
     let overtime = 0;
     let presentismo = 0;
     let days = 0;
+    let hours = 0;
     for (const l of lines) {
       total += Number(l.total) || 0;
       overtime += Number(l.overtimeAmount) || 0;
       presentismo += Number(l.attendanceBonus) || 0;
       days += Number(l.daysWorked) || 0;
+      hours += Number(l.hoursWorked) || 0;
     }
-    return { total, overtime, presentismo, days, count: lines.length };
+    return { total, overtime, presentismo, days, hours, count: lines.length };
   };
 
   readonly payrollKpis = (): KpiItem[] => {
@@ -507,7 +516,7 @@ export class SalariesPage {
         value: people || '—',
         icon: 'groups',
         tone: people ? 'default' : 'muted',
-        hint: t.days ? `${t.days} días trabajados` : undefined,
+        hint: t.hours ? `${formatHours(t.hours)} h trabajadas` : t.days ? `${t.days} días trabajados` : undefined,
       },
       {
         label: 'Presentismo',
@@ -615,6 +624,11 @@ export class SalariesPage {
     }
     cols.push(
       { key: 'daysWorked', label: 'Días trabajados' },
+      {
+        key: 'hoursWorked',
+        label: 'Horas trabajadas',
+        format: (r) => formatHours(r['hoursWorked']),
+      },
       { key: 'holidayDays', label: 'Feriados' },
       {
         key: 'baseSalarySnapshot',
