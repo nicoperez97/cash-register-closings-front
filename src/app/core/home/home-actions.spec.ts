@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AuthUser } from '../auth/auth.models';
 import {
   homePrimaryShortcutId,
+  homeShortcutLayout,
   homeShortcutsFor,
 } from './home-actions';
 
@@ -57,6 +58,36 @@ describe('homeShortcutsFor', () => {
     expect(ids).toContain('closings');
     expect(ids).not.toContain('new-closing');
     expect(ids).toContain('reports');
+  });
+
+  it('admin con muchos módulos: layout compacto y primarios separados', () => {
+    const u = user({
+      id: 'u1',
+      email: 'a@t.com',
+      globalRole: 'ADMIN',
+      shopIds: ['s1'],
+      shopRoles: { s1: 'ADMIN' },
+    });
+    const layout = homeShortcutLayout(u, 's1');
+    expect(layout.useCompactGrid).toBe(true);
+    expect(layout.primary.map((s) => s.id)).toEqual(
+      expect.arrayContaining(['new-closing', 'quick-expense']),
+    );
+    const secondary = layout.all.filter((s) => !s.primary);
+    expect(secondary.length).toBeGreaterThan(5);
+    expect(secondary.map((s) => s.id)).not.toContain('new-closing');
+  });
+
+  it('excluye atajos duplicados en pantalla', () => {
+    const u = user({
+      id: 'u1',
+      email: 'a@t.com',
+      globalRole: 'ADMIN',
+      shopIds: ['s1'],
+      shopRoles: { s1: 'ADMIN' },
+    });
+    const layout = homeShortcutLayout(u, 's1', undefined, ['reservations']);
+    expect(layout.all.map((s) => s.id)).not.toContain('reservations');
   });
 });
 

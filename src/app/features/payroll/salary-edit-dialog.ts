@@ -1,26 +1,19 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { startWith } from 'rxjs';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import {
-  formatShiftHoursLabel,
-  scheduledShiftHours,
-} from '../../shared/utils/shift-hours';
 import { SalariesApiService, SalaryEmployee } from './salaries-api.service';
 
 export type SalaryEditDialogData = {
   shopId: string;
   shopName: string;
   shopHolidayMultiplier: number;
-  serviceDefaultCheckIn: string;
-  serviceDefaultCheckOut: string;
   employee: SalaryEmployee;
 };
 
@@ -32,6 +25,7 @@ export type SalaryEditDialogData = {
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    MatCheckboxModule,
     MatIconModule,
     MatSnackBarModule,
     BusyLabelComponent,
@@ -50,36 +44,33 @@ export type SalaryEditDialogData = {
     <mat-dialog-content>
       <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Sueldo diario</mat-label>
+          <mat-label>Precio por hora</mat-label>
           <mat-icon matPrefix>payments</mat-icon>
           <input matInput type="number" min="0" inputmode="decimal" formControlName="baseSalary" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Precio por hora extra</mat-label>
-          <mat-icon matPrefix>schedule</mat-icon>
-          <input
-            matInput
-            type="number"
-            min="0"
-            inputmode="decimal"
-            formControlName="overtimeHourRate"
-          />
-          <mat-hint>{{ overtimeHint() }}</mat-hint>
-        </mat-form-field>
+        <mat-checkbox formControlName="differentOvertimeRate">
+          Hora extra con precio diferente
+        </mat-checkbox>
 
-        <p class="salary-dlg__shift">
-          <span>Entrada: {{ effectiveCheckIn() }}</span>
-          <span>Retirada: {{ effectiveCheckOut() }}</span>
-          <span>{{ formatShiftHoursLabel(shiftHours()) }}</span>
-        </p>
-        <p class="salary-dlg__shift-note">
-          @if (usingEmployeeSchedule()) {
-            Horario propio del empleado (Empleados).
-          } @else {
-            Horario default del local.
-          }
-        </p>
+        @if (form.controls.differentOvertimeRate.value) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Precio por hora extra</mat-label>
+            <mat-icon matPrefix>schedule</mat-icon>
+            <input
+              matInput
+              type="number"
+              min="0"
+              inputmode="decimal"
+              formControlName="overtimeHourRate"
+            />
+          </mat-form-field>
+        } @else {
+          <p class="salary-dlg__hint">
+            La hora extra usa el mismo precio hora ($
+            {{ Number(form.controls.baseSalary.value ?? 0).toLocaleString('es-AR') }}).
+          </p>
+        }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Multiplicador feriado</mat-label>
@@ -124,17 +115,9 @@ export type SalaryEditDialogData = {
     </mat-dialog-actions>
   `,
   styles: `
-    .salary-dlg__shift {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem 1.25rem;
-      margin: -0.25rem 0 0.15rem;
-      font-size: 0.9rem;
-      color: var(--guy-ink, #1b2b34);
-    }
-    .salary-dlg__shift-note {
-      margin: 0 0 0.75rem;
-      font-size: 0.8rem;
+    .salary-dlg__hint {
+      margin: -0.25rem 0 0.75rem;
+      font-size: 0.85rem;
       color: var(--guy-muted, #5f6f76);
     }
   `,
@@ -146,52 +129,20 @@ export class SalaryEditDialogComponent {
   private readonly api = inject(SalariesApiService);
   private readonly snack = inject(MatSnackBar);
   readonly busy = signal(false);
-  readonly formatShiftHoursLabel = formatShiftHoursLabel;
+  readonly Number = Number;
 
   readonly form = this.fb.nonNullable.group({
     baseSalary: [this.data.employee.baseSalary, [Validators.required, Validators.min(0)]],
+    differentOvertimeRate: [
+      this.data.employee.hasDifferentOvertimeRate ??
+        (this.data.employee.overtimeHourRate ?? 0) > 0,
+    ],
     overtimeHourRate: [this.data.employee.overtimeHourRate ?? 0, [Validators.min(0)]],
     holidayPayMultiplier: this.fb.control<number | null>(
       this.data.employee.holidayPayMultiplier,
       [Validators.min(0.01)],
     ),
     note: [''],
-  });
-
-  private readonly formValue = toSignal(
-    this.form.valueChanges.pipe(startWith(this.form.getRawValue())),
-    { initialValue: this.form.getRawValue() },
-  );
-
-  readonly effectiveCheckIn = computed(
-    () =>
-      String(this.data.employee.serviceCheckIn ?? '').trim() ||
-      this.data.serviceDefaultCheckIn,
-  );
-
-  readonly effectiveCheckOut = computed(
-    () =>
-      String(this.data.employee.serviceCheckOut ?? '').trim() ||
-      this.data.serviceDefaultCheckOut,
-  );
-
-  readonly usingEmployeeSchedule = computed(
-    () =>
-      !!String(this.data.employee.serviceCheckIn ?? '').trim() ||
-      !!String(this.data.employee.serviceCheckOut ?? '').trim(),
-  );
-
-  readonly shiftHours = computed(() =>
-    scheduledShiftHours(this.effectiveCheckIn(), this.effectiveCheckOut()),
-  );
-
-  readonly overtimeHint = computed(() => {
-    const daily = Number(this.formValue()?.baseSalary ?? 0);
-    const hours = this.shiftHours();
-    const hoursLabel = formatShiftHoursLabel(hours);
-    const rate = hours > 0 && daily > 0 ? Math.round((daily / hours) * 100) / 100 : 0;
-    const rateLabel = rate.toLocaleString('es-AR');
-    return `0 = $${daily.toLocaleString('es-AR')} ÷ ${hoursLabel} (${this.effectiveCheckIn()}→${this.effectiveCheckOut()}) ≈ $${rateLabel}`;
   });
 
   save(): void {
@@ -209,7 +160,7 @@ export class SalaryEditDialogComponent {
     this.api
       .update(this.data.shopId, this.data.employee.id, {
         baseSalary: raw.baseSalary,
-        overtimeHourRate: raw.overtimeHourRate,
+        overtimeHourRate: raw.differentOvertimeRate ? raw.overtimeHourRate : 0,
         holidayPayMultiplier:
           holidayPayMultiplier == null || Number.isNaN(holidayPayMultiplier)
             ? null

@@ -10,6 +10,7 @@ export interface SalaryEmployee {
   baseSalary: number;
   overtimeHourRate: number;
   overtimeHourRateEffective: number;
+  hasDifferentOvertimeRate?: boolean;
   holidayPayMultiplier: number | null;
   holidayPayMultiplierEffective: number;
   hireDate: string | null;

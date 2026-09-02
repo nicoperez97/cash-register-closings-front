@@ -69,6 +69,12 @@ interface AttendanceEmployeeRow {
   overtimeHourRate?: number;
   serviceCheckIn?: string | null;
   serviceCheckOut?: string | null;
+  shiftAssignments?: Array<{
+    shiftId: string;
+    type: 'FIXED' | 'ROTATING';
+    serviceCheckIn?: string | null;
+    serviceCheckOut?: string | null;
+  }>;
   type?: 'FIXED' | 'ROTATING';
   worksThisShift?: boolean;
   countsForAttendanceBonus?: boolean;
@@ -2457,16 +2463,16 @@ export class AttendancePage {
 
   shiftHoursLabel = shiftHoursLabel;
 
-  /** Baseline de extras: turno de caja seleccionado si tiene rango; si no, empleado/local. */
+  /** Horario de servicio del turno (asignación → empleado → local). */
   private empShiftDefaults(emp: AttendanceEmployeeRow) {
-    const shift = this.shopShifts().find((s) => s.id === this.selectedShiftId());
-    if (shift && shift.opensAt !== shift.closesAt) {
-      return { checkIn: shift.opensAt, checkOut: shift.closesAt };
-    }
     const shop = this.shops.selectedShop();
+    const shiftId = this.selectedShiftId();
+    const shopIn = shop?.serviceDefaultCheckIn || '18:00';
+    const shopOut = shop?.serviceDefaultCheckOut || '00:00';
+    const hit = emp.shiftAssignments?.find((a) => a.shiftId === shiftId);
     return {
-      checkIn: emp.serviceCheckIn || shop?.serviceDefaultCheckIn || '18:00',
-      checkOut: emp.serviceCheckOut || shop?.serviceDefaultCheckOut || '00:00',
+      checkIn: hit?.serviceCheckIn || emp.serviceCheckIn || shopIn,
+      checkOut: hit?.serviceCheckOut || emp.serviceCheckOut || shopOut,
     };
   }
 
