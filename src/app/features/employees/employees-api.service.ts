@@ -8,6 +8,8 @@ export type EmployeeType = 'FIXED' | 'ROTATING';
 export type EmployeeShiftAssignment = {
   shiftId: string;
   type: EmployeeType;
+  serviceCheckIn?: string | null;
+  serviceCheckOut?: string | null;
 };
 
 export interface Employee {

@@ -85,6 +85,28 @@ function canUseShortcut(
   return canAccessAppRoute(def.route, user, shopId, routeOpts(features));
 }
 
+export type HomeShortcutLayout = {
+  all: HomeShortcut[];
+  primary: HomeShortcut[];
+  /** Layout compacto en grilla cuando hay muchos módulos visibles. */
+  useCompactGrid: boolean;
+};
+
+const HOME_COMPACT_THRESHOLD = 7;
+
+export function homeShortcutLayout(
+  user: AuthUser | null,
+  shopId: string | null,
+  features?: ShopRouteFeatures | null,
+  excludeIds?: string[],
+): HomeShortcutLayout {
+  const excluded = new Set(excludeIds ?? []);
+  const all = homeShortcutsFor(user, shopId, features).filter((s) => !excluded.has(s.id));
+  const primary = all.filter((s) => s.primary);
+  const useCompactGrid = all.length >= HOME_COMPACT_THRESHOLD;
+  return { all, primary, useCompactGrid };
+}
+
 export function homeShortcutsFor(
   user: AuthUser | null,
   shopId: string | null,

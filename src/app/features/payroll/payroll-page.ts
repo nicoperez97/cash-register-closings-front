@@ -539,7 +539,7 @@ export class SalariesPage {
     },
     {
       key: 'baseSalary',
-      label: 'Sueldo diario',
+      label: '$ / hora',
       format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
     },
     {
@@ -548,7 +548,7 @@ export class SalariesPage {
       format: (r) => {
         const set = Number(r['overtimeHourRate'] ?? 0);
         if (set > 0) return `$ ${set.toLocaleString('es-AR')}`;
-        return `Auto ($ ${Number(r['overtimeHourRateEffective'] ?? 0).toLocaleString('es-AR')})`;
+        return `Igual ($ ${Number(r['overtimeHourRateEffective'] ?? 0).toLocaleString('es-AR')})`;
       },
     },
     {
@@ -618,16 +618,8 @@ export class SalariesPage {
       { key: 'holidayDays', label: 'Feriados' },
       {
         key: 'baseSalarySnapshot',
-        label: 'Sueldo diario',
+        label: '$ / hora',
         format: (r) => `$ ${Number(r['baseSalarySnapshot']).toLocaleString('es-AR')}`,
-      },
-      {
-        key: 'holidayMultiplierSnapshot',
-        label: 'Mult. feriado',
-        format: (r) =>
-          r['holidayMultiplierSnapshot'] == null
-            ? '—'
-            : `×${r['holidayMultiplierSnapshot']}`,
       },
       {
         key: 'overtimeAmount',
@@ -760,8 +752,6 @@ export class SalariesPage {
           shopId,
           shopName: shop.name,
           shopHolidayMultiplier: this.shopHolidayMult(),
-          serviceDefaultCheckIn: shop.serviceDefaultCheckIn || '18:00',
-          serviceDefaultCheckOut: shop.serviceDefaultCheckOut || '00:00',
           employee: row,
         },
       }),

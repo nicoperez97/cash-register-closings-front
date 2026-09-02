@@ -29,7 +29,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, hasShopPermission, canViewClosingsList } from '../../core/auth/auth.models';
 import {
   homePrimaryShortcutId,
-  homeShortcutsFor,
+  homeShortcutLayout,
 } from '../../core/home/home-actions';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { closingMoneyColumns } from '../closings/closing-list-columns';
@@ -93,50 +93,15 @@ interface BalanceRowExt extends BalanceAccountRow {
       (action)="onHeaderAction()"
     />
 
-    @if (actionButtons().length || canExport()) {
-      <div
-        class="home-actions mb-3 guy-stagger"
-        [class.home-actions--tiles]="useActionTiles()"
-      >
-        @for (s of actionButtons(); track s.id) {
-          @if (s.kind === 'route') {
-            @if (s.primary) {
-              <a
-                class="home-actions__btn home-actions__btn--primary"
-                mat-flat-button
-                color="primary"
-                [routerLink]="s.route"
-              >
-                <mat-icon>{{ s.icon }}</mat-icon>
-                <span>{{ s.label }}</span>
-              </a>
-            } @else {
-              <a class="home-actions__btn" mat-stroked-button [routerLink]="s.route">
-                <mat-icon>{{ s.icon }}</mat-icon>
-                <span>{{ s.label }}</span>
-              </a>
-            }
-          } @else if (s.kind === 'action' && s.action === 'quick-expense') {
-            <button
-              class="home-actions__btn home-actions__btn--primary"
-              mat-flat-button
-              color="primary"
-              type="button"
-              (click)="openQuickExpense()"
-            >
-              <mat-icon>{{ s.icon }}</mat-icon>
-              <span>{{ s.label }}</span>
-            </button>
-          }
-        }
-        @if (canExport()) {
-          <app-export-menu class="home-actions__export" label="Descargar" (pick)="onExportMonth($event)" />
-        }
-      </div>
-    }
-
     @if (kpis().length) {
       <app-kpi-strip [items]="kpis()" class="mb-3" />
+    }
+
+    @if (canExport()) {
+      <div class="home-export mb-3">
+        <app-export-menu label="Exportar cierres del mes" (pick)="onExportMonth($event)" />
+        <span class="home-export__hint">Excel o PDF con los cierres del mes en curso</span>
+      </div>
     }
 
     @if (canOpenReservations()) {
@@ -260,6 +225,67 @@ interface BalanceRowExt extends BalanceAccountRow {
       </div>
     }
 
+    @if (bottomShortcuts().length) {
+      <div class="panel-card home-modules mb-3 guy-enter-scale">
+        <div class="home-modules__head">
+          <div>
+            <h2 class="home-modules__title">Módulos</h2>
+            <p class="home-modules__hint">Accesos según tus permisos</p>
+          </div>
+        </div>
+
+        @if (shortcutLayout().useCompactGrid && shortcutLayout().primary.length) {
+          <div class="home-modules__quick">
+            @for (s of shortcutLayout().primary; track s.id) {
+              @if (s.kind === 'route') {
+                <a
+                  class="home-modules__quick-btn"
+                  mat-flat-button
+                  color="primary"
+                  [routerLink]="s.route"
+                >
+                  <mat-icon>{{ s.icon }}</mat-icon>
+                  <span>{{ s.label }}</span>
+                </a>
+              } @else if (s.kind === 'action' && s.action === 'quick-expense') {
+                <button
+                  class="home-modules__quick-btn"
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  (click)="openQuickExpense()"
+                >
+                  <mat-icon>{{ s.icon }}</mat-icon>
+                  <span>{{ s.label }}</span>
+                </button>
+              }
+            }
+          </div>
+        }
+
+        @if (bottomShortcuts().length) {
+          <div
+            class="home-modules__grid"
+            [class.home-modules__grid--tiles]="useModuleTiles()"
+          >
+            @for (s of bottomShortcuts(); track s.id) {
+              @if (s.kind === 'route') {
+                <a class="home-module-tile" [routerLink]="s.route">
+                  <mat-icon class="home-module-tile__icon">{{ s.icon }}</mat-icon>
+                  <span class="home-module-tile__label">{{ s.label }}</span>
+                </a>
+              } @else if (s.kind === 'action' && s.action === 'quick-expense') {
+                <button type="button" class="home-module-tile" (click)="openQuickExpense()">
+                  <mat-icon class="home-module-tile__icon">{{ s.icon }}</mat-icon>
+                  <span class="home-module-tile__label">{{ s.label }}</span>
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+    }
+
     @if (canViewBalances()) {
       <div class="panel-card panel-card--flush mb-3">
         <app-balances-table
@@ -273,7 +299,7 @@ interface BalanceRowExt extends BalanceAccountRow {
       </div>
     }
 
-    @if (!actionButtons().length && !kpis().length && !canViewAttendance() && !canViewBalances()) {
+    @if (!shortcutLayout().all.length && !kpis().length && !canViewAttendance() && !canViewBalances()) {
       <p class="text-center text-muted mt-4 mb-0 small">{{ brand.tagline }}</p>
     }
   `,
@@ -393,45 +419,98 @@ interface BalanceRowExt extends BalanceAccountRow {
       .pending-reservations-card__right mat-icon {
         color: var(--guy-muted, #5f6f76);
       }
-      .home-actions {
+      .home-export {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+      }
+      .home-export__hint {
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .home-modules__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+      }
+      .home-modules__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .home-modules__hint {
+        margin: 0.15rem 0 0;
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .home-modules__quick {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
-        align-items: center;
+        margin-bottom: 0.75rem;
       }
-      .home-actions--tiles {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(9.25rem, 1fr));
-        gap: 0.65rem;
-      }
-      .home-actions__btn {
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
+      .home-modules__quick-btn {
+        flex: 1 1 9rem;
         min-height: 2.5rem;
       }
-      .home-actions--tiles .home-actions__btn {
+      .home-modules__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.45rem;
+      }
+      .home-modules__grid--tiles {
+        grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+        gap: 0.55rem;
+      }
+      .home-module-tile {
+        display: flex;
         flex-direction: column;
-        min-height: 5.75rem;
-        padding: 0.85rem 0.65rem !important;
-        text-align: center;
-        line-height: 1.25;
-        white-space: normal;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        min-height: 4.5rem;
+        padding: 0.55rem 0.35rem;
+        border: 1px solid rgba(0, 51, 102, 0.12);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--guy-navy, #003366);
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
       }
-      .home-actions--tiles .home-actions__btn mat-icon {
-        margin: 0;
-        font-size: 1.65rem;
-        width: 1.65rem;
-        height: 1.65rem;
+      .home-module-tile:hover,
+      .home-module-tile:focus-visible {
+        background: rgba(0, 51, 102, 0.04);
+        border-color: rgba(0, 51, 102, 0.22);
       }
-      .home-actions--tiles .home-actions__btn span {
-        font-size: 0.88rem;
+      .home-module-tile__icon {
+        font-size: 1.35rem;
+        width: 1.35rem;
+        height: 1.35rem;
+        color: var(--guy-primary, #5c1a1a);
+      }
+      .home-module-tile__label {
+        font-size: 0.72rem;
         font-weight: 600;
+        line-height: 1.2;
+        text-align: center;
+        word-break: break-word;
       }
-      .home-actions__export {
-        grid-column: 1 / -1;
-        justify-self: start;
+      .home-modules__grid--tiles .home-module-tile {
+        min-height: 5.25rem;
+      }
+      .home-modules__grid--tiles .home-module-tile__icon {
+        font-size: 1.55rem;
+        width: 1.55rem;
+        height: 1.55rem;
+      }
+      .home-modules__grid--tiles .home-module-tile__label {
+        font-size: 0.8rem;
       }
     `,
   ],
@@ -484,20 +563,34 @@ export class HomePageComponent {
     };
   });
 
-  readonly actionButtons = computed(() =>
-    homeShortcutsFor(
+  readonly shortcutExcludeIds = computed(() => {
+    const exclude: string[] = [];
+    if (this.canOpenReservations()) exclude.push('reservations');
+    return exclude;
+  });
+
+  readonly shortcutLayout = computed(() =>
+    homeShortcutLayout(
       this.auth.currentUser(),
       this.shopContext.selectedShopId(),
       this.routeFeatures(),
+      this.shortcutExcludeIds(),
     ),
   );
 
-  /** Grilla grande de botones cuando hay pocos módulos o poco tablero debajo. */
-  readonly useActionTiles = computed(() => {
-    const n = this.actionButtons().length;
+  readonly bottomShortcuts = computed(() => {
+    const layout = this.shortcutLayout();
+    if (layout.useCompactGrid) {
+      return layout.all.filter((s) => !s.primary);
+    }
+    return layout.all;
+  });
+
+  /** Grilla grande cuando hay pocos módulos en el panel inferior. */
+  readonly useModuleTiles = computed(() => {
+    const n = this.bottomShortcuts().length;
     if (!n) return false;
-    if (n <= 8) return true;
-    return !this.kpis().length && !this.canViewAttendance() && !this.canViewBalances();
+    return n <= 8;
   });
 
   private attendanceTodayIso(): string {
@@ -792,7 +885,7 @@ export class HomePageComponent {
   }
 
   headerActionLabel(): string {
-    if (this.actionButtons().length) return '';
+    if (this.shortcutLayout().all.length) return '';
     const id = homePrimaryShortcutId(
       this.auth.currentUser(),
       this.shopContext.selectedShopId(),

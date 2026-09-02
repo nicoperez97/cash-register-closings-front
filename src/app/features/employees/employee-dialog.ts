@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -42,6 +43,13 @@ export type EmployeeDialogData = {
 } & ({ mode: 'create' } | { mode: 'edit'; employee: Employee });
 
 type ShiftRoleValue = 'OFF' | EmployeeType;
+
+type ShiftRoleForm = {
+  type: ShiftRoleValue;
+  serviceCheckIn: string;
+  serviceCheckOut: string;
+};
+
 function toDateInput(value?: string | null): Date | null {
   if (!value) return null;
   const d = new Date(`${value}T00:00:00`);
@@ -67,6 +75,7 @@ function toDateString(value: Date | null): string | null {
     MatSelectModule,
     MatDatepickerModule,
     MatSlideToggleModule,
+    MatCheckboxModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
@@ -113,23 +122,28 @@ function toDateString(value: Date | null): string | null {
 
           @if (!isEdit) {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Sueldo diario</mat-label>
+              <mat-label>Precio por hora</mat-label>
               <mat-icon matPrefix>payments</mat-icon>
               <input matInput type="number" min="0" inputmode="decimal" formControlName="baseSalary" />
             </mat-form-field>
 
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Precio por hora extra</mat-label>
-              <mat-icon matPrefix>schedule</mat-icon>
-              <input
-                matInput
-                type="number"
-                min="0"
-                inputmode="decimal"
-                formControlName="overtimeHourRate"
-              />
-              <mat-hint>{{ overtimeAutoHint() }}</mat-hint>
-            </mat-form-field>
+            <mat-checkbox formControlName="differentOvertimeRate">
+              Hora extra con precio diferente
+            </mat-checkbox>
+
+            @if (form.controls.differentOvertimeRate.value) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Precio por hora extra</mat-label>
+                <mat-icon matPrefix>schedule</mat-icon>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  inputmode="decimal"
+                  formControlName="overtimeHourRate"
+                />
+              </mat-form-field>
+            }
 
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Multiplicador feriado</mat-label>
@@ -146,44 +160,67 @@ function toDateString(value: Date | null): string | null {
             </mat-form-field>
           } @else {
             <p class="emp-dlg__salary-hint">
-              El sueldo diario, la hora extra y el multiplicador de feriado se editan en
+              El precio por hora, la hora extra y el multiplicador de feriado se editan en
               <strong> Sueldos</strong>.
             </p>
           }
 
-          @if (data.serviceAttendanceWithHours) {
-            <div class="emp-shift">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Entrada de servicio</mat-label>
-                <mat-icon matPrefix>login</mat-icon>
-                <input matInput type="time" formControlName="serviceCheckIn" />
-                <mat-hint>Default local: {{ data.serviceDefaultCheckIn }}</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Retirada de servicio</mat-label>
-                <mat-icon matPrefix>logout</mat-icon>
-                <input matInput type="time" formControlName="serviceCheckOut" />
-                <mat-hint>Default local: {{ data.serviceDefaultCheckOut }}</mat-hint>
-              </mat-form-field>
-            </div>
-            <p class="emp-dlg__shift-meta">{{ shiftSummary() }}</p>
-          }
-
           <div class="emp-shift-roles" formGroupName="shiftRoles">
-            <p class="emp-dlg__section-label">Tipo por turno</p>
-            <p class="emp-dlg__section-hint">
-              En cada turno: fijo (entra en “Todos presentes”), rotativo (solo a mano) o no trabaja.
-            </p>
+            <div class="emp-shift-roles__head">
+              <p class="emp-dlg__section-label">Tipo por turno</p>
+              <p class="emp-dlg__section-hint">
+                Fijo entra en “Todos presentes”; rotativo solo a mano. Si trabaja, cargá horario de servicio.
+              </p>
+            </div>
+
             @for (shift of shopShifts; track shift.id) {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>{{ shift.name }} · {{ shiftHoursLabel(shift) }}</mat-label>
-                <mat-icon matPrefix>schedule</mat-icon>
-                <mat-select [formControlName]="shift.id">
-                  <mat-option value="OFF">No trabaja</mat-option>
-                  <mat-option value="FIXED">Fijo</mat-option>
-                  <mat-option value="ROTATING">Rotativo</mat-option>
-                </mat-select>
-              </mat-form-field>
+              @let role = shiftRoleType(shift.id);
+              @let active = role === 'FIXED' || role === 'ROTATING';
+              <div
+                class="emp-shift-block"
+                [class.emp-shift-block--off]="role === 'OFF'"
+                [class.emp-shift-block--fixed]="role === 'FIXED'"
+                [class.emp-shift-block--rotating]="role === 'ROTATING'"
+                [formGroupName]="shift.id"
+              >
+                <div class="emp-shift-block__header">
+                  <div class="emp-shift-block__title">
+                    <span class="emp-shift-block__name">{{ shift.name }}</span>
+                    <span class="emp-shift-block__hours">{{ shiftHoursLabel(shift) }}</span>
+                  </div>
+                  <mat-form-field
+                    appearance="outline"
+                    subscriptSizing="dynamic"
+                    class="emp-shift-block__type"
+                  >
+                    <mat-select formControlName="type">
+                      <mat-option value="OFF">No trabaja</mat-option>
+                      <mat-option value="FIXED">Fijo</mat-option>
+                      <mat-option value="ROTATING">Rotativo</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                @if (data.serviceAttendanceWithHours && active) {
+                  <div class="emp-shift-block__times">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Entrada</mat-label>
+                      <mat-icon matPrefix>login</mat-icon>
+                      <input matInput type="time" formControlName="serviceCheckIn" />
+                    </mat-form-field>
+                    <mat-icon class="emp-shift-block__arrow" aria-hidden="true">arrow_forward</mat-icon>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Retirada</mat-label>
+                      <mat-icon matPrefix>logout</mat-icon>
+                      <input matInput type="time" formControlName="serviceCheckOut" />
+                    </mat-form-field>
+                  </div>
+                  <p class="emp-dlg__shift-meta">
+                    <mat-icon aria-hidden="true">info_outline</mat-icon>
+                    {{ shiftSummary(shift.id) }}
+                  </p>
+                }
+              </div>
             }
           </div>
 
@@ -304,18 +341,27 @@ function toDateString(value: Date | null): string | null {
       line-height: 1.4;
     }
     .emp-dlg__shift-meta {
-      margin: -0.25rem 0 0.5rem;
-      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin: 0;
+      font-size: 0.8rem;
       color: var(--guy-muted, #5f6f76);
     }
+    .emp-dlg__shift-meta mat-icon {
+      width: 1rem;
+      height: 1rem;
+      font-size: 1rem;
+      opacity: 0.75;
+    }
     .emp-dlg__section-label {
-      margin: 0.25rem 0 0.15rem;
+      margin: 0;
       font-size: 0.82rem;
       font-weight: 750;
       color: var(--guy-navy, #003366);
     }
     .emp-dlg__section-hint {
-      margin: 0 0 0.55rem;
+      margin: 0.2rem 0 0;
       font-size: 0.8rem;
       color: var(--guy-muted, #5f6f76);
       line-height: 1.35;
@@ -323,16 +369,83 @@ function toDateString(value: Date | null): string | null {
     .emp-shift-roles {
       display: flex;
       flex-direction: column;
-      gap: 0.55rem;
+      gap: 0.65rem;
     }
-    .emp-shift {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .emp-shift-roles__head {
+      margin-bottom: 0.15rem;
+    }
+    .emp-shift-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      padding: 0.75rem 0.85rem;
+      border-radius: 10px;
+      border: 1px solid var(--guy-border, #d8e2e8);
+      background: #fff;
+      border-left-width: 3px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .emp-shift-block--off {
+      border-left-color: var(--guy-border, #c5d0d6);
+      background: var(--guy-surface-2, #f8fafb);
+    }
+    .emp-shift-block--fixed {
+      border-left-color: var(--guy-teal, #00838f);
+    }
+    .emp-shift-block--rotating {
+      border-left-color: var(--guy-navy, #003366);
+    }
+    .emp-shift-block__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 0.75rem;
     }
+    .emp-shift-block__title {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+    .emp-shift-block__name {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--guy-ink, #1b2b34);
+    }
+    .emp-shift-block__hours {
+      font-size: 0.78rem;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .emp-shift-block__type {
+      width: 9.5rem;
+      flex-shrink: 0;
+    }
+    .emp-shift-block__type .mat-mdc-form-field-infix {
+      min-height: 2.5rem;
+    }
+    .emp-shift-block__times {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .emp-shift-block__arrow {
+      color: var(--guy-muted, #5f6f76);
+      margin-top: -0.35rem;
+    }
     @media (max-width: 520px) {
-      .emp-shift {
+      .emp-shift-block__header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .emp-shift-block__type {
+        width: 100%;
+      }
+      .emp-shift-block__times {
         grid-template-columns: 1fr;
+      }
+      .emp-shift-block__arrow {
+        display: none;
       }
     }
   `,
@@ -360,30 +473,46 @@ export class EmployeeDialogComponent implements OnInit {
         .map((p) => p.id)
     : [];
 
-  private initialShiftRole(shiftId: string): ShiftRoleValue {
+  private initialShiftRole(shiftId: string): ShiftRoleForm {
     const assignments = this.employee?.shiftAssignments ?? [];
-    if (assignments.length) {
-      const hit = assignments.find((a) => a.shiftId === shiftId);
-      return hit?.type ?? 'OFF';
+    const hit = assignments.find((a) => a.shiftId === shiftId);
+    if (hit) {
+      return {
+        type: hit.type,
+        serviceCheckIn: hit.serviceCheckIn ?? this.employee?.serviceCheckIn ?? '',
+        serviceCheckOut: hit.serviceCheckOut ?? this.employee?.serviceCheckOut ?? '',
+      };
     }
-    return this.employee?.type === 'ROTATING' ? 'ROTATING' : 'FIXED';
+    if (assignments.length) {
+      return { type: 'OFF', serviceCheckIn: '', serviceCheckOut: '' };
+    }
+    const legacyType: ShiftRoleValue =
+      this.employee?.type === 'ROTATING' ? 'ROTATING' : 'FIXED';
+    return {
+      type: legacyType,
+      serviceCheckIn: this.employee?.serviceCheckIn ?? '',
+      serviceCheckOut: this.employee?.serviceCheckOut ?? '',
+    };
   }
 
   readonly form = this.fb.nonNullable.group({
     fullName: [this.employee?.fullName ?? '', Validators.required],
     baseSalary: [this.employee?.baseSalary ?? 0, [Validators.required, Validators.min(0)]],
+    differentOvertimeRate: [(this.employee?.overtimeHourRate ?? 0) > 0],
     overtimeHourRate: [this.employee?.overtimeHourRate ?? 0, [Validators.min(0)]],
     holidayPayMultiplier: this.fb.control<number | null>(
       this.employee?.holidayPayMultiplier ?? null,
       [Validators.min(0.01)],
     ),
-    serviceCheckIn: [this.employee?.serviceCheckIn ?? ''],
-    serviceCheckOut: [this.employee?.serviceCheckOut ?? ''],
     shiftRoles: this.fb.nonNullable.group(
       Object.fromEntries(
         this.shopShifts.map((s) => [
           s.id,
-          this.fb.nonNullable.control<ShiftRoleValue>(this.initialShiftRole(s.id)),
+          this.fb.nonNullable.group({
+            type: this.fb.nonNullable.control<ShiftRoleValue>(this.initialShiftRole(s.id).type),
+            serviceCheckIn: [this.initialShiftRole(s.id).serviceCheckIn],
+            serviceCheckOut: [this.initialShiftRole(s.id).serviceCheckOut],
+          }),
         ]),
       ),
     ),
@@ -407,36 +536,33 @@ export class EmployeeDialogComponent implements OnInit {
     { initialValue: this.form.getRawValue() },
   );
 
-  readonly effectiveCheckIn = computed(() => {
-    const v = String(this.shiftForm()?.serviceCheckIn ?? '').trim();
-    return v || this.data.serviceDefaultCheckIn;
-  });
+  shiftRoleType(shiftId: string): ShiftRoleValue {
+    const roles = (this.shiftForm()?.shiftRoles ?? {}) as Record<string, ShiftRoleForm>;
+    return roles[shiftId]?.type ?? 'OFF';
+  }
 
-  readonly effectiveCheckOut = computed(() => {
-    const v = String(this.shiftForm()?.serviceCheckOut ?? '').trim();
-    return v || this.data.serviceDefaultCheckOut;
-  });
+  private shiftDefaults(shiftId: string): { checkIn: string; checkOut: string } {
+    const shift = this.shopShifts.find((s) => s.id === shiftId);
+    return {
+      checkIn: shift?.opensAt || this.data.serviceDefaultCheckIn,
+      checkOut: shift?.closesAt || this.data.serviceDefaultCheckOut,
+    };
+  }
 
-  readonly shiftHours = computed(() =>
-    scheduledShiftHours(this.effectiveCheckIn(), this.effectiveCheckOut()),
-  );
-
-  readonly shiftSummary = computed(() => {
-    const from = this.effectiveCheckIn();
-    const to = this.effectiveCheckOut();
-    const hours = formatShiftHoursLabel(this.shiftHours());
+  shiftSummary(shiftId: string): string {
+    const roles = (this.shiftForm()?.shiftRoles ?? {}) as Record<string, ShiftRoleForm>;
+    const role = roles[shiftId];
+    const defaults = this.shiftDefaults(shiftId);
+    const from = String(role?.serviceCheckIn ?? '').trim() || defaults.checkIn;
+    const to = String(role?.serviceCheckOut ?? '').trim() || defaults.checkOut;
+    const hours = formatShiftHoursLabel(scheduledShiftHours(from, to));
     const usingDefault =
-      !String(this.shiftForm()?.serviceCheckIn ?? '').trim() &&
-      !String(this.shiftForm()?.serviceCheckOut ?? '').trim();
+      !String(role?.serviceCheckIn ?? '').trim() &&
+      !String(role?.serviceCheckOut ?? '').trim();
     return usingDefault
-      ? `Turno del local: ${from} → ${to} · ${hours}`
-      : `Turno efectivo: ${from} → ${to} · ${hours}`;
-  });
-
-  readonly overtimeAutoHint = computed(() => {
-    const hours = formatShiftHoursLabel(this.shiftHours());
-    return `0 = sueldo diario ÷ ${hours} (${this.effectiveCheckIn()}→${this.effectiveCheckOut()})`;
-  });
+      ? `Default del turno: ${from} → ${to} · ${hours}`
+      : `Horario propio: ${from} → ${to} · ${hours}`;
+  }
 
   ngOnInit(): void {
     this.reloadLists();
@@ -513,18 +639,23 @@ export class EmployeeDialogComponent implements OnInit {
     const shopId = this.data.shopId;
     const raw = this.form.getRawValue();
     const producesFood = !!raw.producesFood;
-    const shiftRoles = (raw.shiftRoles ?? {}) as Record<string, ShiftRoleValue>;
+    const shiftRoles = (raw.shiftRoles ?? {}) as Record<string, ShiftRoleForm>;
     const shiftAssignments = Object.entries(shiftRoles)
-      .filter(([, role]) => role === 'FIXED' || role === 'ROTATING')
-      .map(([shiftId, type]) => ({ shiftId, type: type as EmployeeType }));
+      .filter(([, role]) => role.type === 'FIXED' || role.type === 'ROTATING')
+      .map(([shiftId, role]) => ({
+        shiftId,
+        type: role.type as EmployeeType,
+        serviceCheckIn: role.serviceCheckIn || null,
+        serviceCheckOut: role.serviceCheckOut || null,
+      }));
     if (!shiftAssignments.length) {
       this.snack.open('Elegí al menos un turno donde trabaje', 'OK', { duration: 3000 });
       return;
     }
     const body: Partial<Employee> = {
       fullName: raw.fullName.trim(),
-      serviceCheckIn: raw.serviceCheckIn || null,
-      serviceCheckOut: raw.serviceCheckOut || null,
+      serviceCheckIn: null,
+      serviceCheckOut: null,
       shiftAssignments,
       countsForAttendanceBonus: !!raw.countsForAttendanceBonus,
       producesFood,
@@ -536,7 +667,7 @@ export class EmployeeDialogComponent implements OnInit {
     };
     if (!this.isEdit) {
       body.baseSalary = raw.baseSalary;
-      body.overtimeHourRate = raw.overtimeHourRate;
+      body.overtimeHourRate = raw.differentOvertimeRate ? raw.overtimeHourRate : 0;
       const hol = raw.holidayPayMultiplier;
       body.holidayPayMultiplier =
         hol === null || hol === undefined || Number.isNaN(Number(hol)) ? null : Number(hol);
