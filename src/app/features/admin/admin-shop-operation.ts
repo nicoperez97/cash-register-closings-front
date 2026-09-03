@@ -202,7 +202,7 @@ export interface AdminShopConceptCategoryOption {
               inputmode="decimal"
               formControlName="holidayPayMultiplier"
             />
-            <mat-hint>Default 2 (el feriado cuenta doble). Cada empleado puede override en Sueldos.</mat-hint>
+            <mat-hint>Default 1 (mismo precio hora). ×2 = el feriado cuenta doble. Cada empleado puede override en Sueldos.</mat-hint>
           </mat-form-field>
         </div>
       </section>

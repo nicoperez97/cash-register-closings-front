@@ -20,14 +20,14 @@ function tone(
   start: number,
   frequency: number,
   duration: number,
-  peak = 0.16,
+  peak = 0.28,
 ): void {
   const osc = audio.createOscillator();
   const gain = audio.createGain();
-  osc.type = 'sine';
+  osc.type = 'triangle';
   osc.frequency.setValueAtTime(frequency, start);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(peak, start + 0.018);
+  gain.gain.exponentialRampToValueAtTime(peak, start + 0.012);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   osc.connect(gain);
   gain.connect(audio.destination);
@@ -62,14 +62,16 @@ export function bindReservationAlertSoundUnlock(): void {
   document.addEventListener('keydown', once);
 }
 
-/** Dos notas cortas, tipo llamado de salón. */
+/** Campanita corta (Mi–Sol–Do–Mi), aviso de solicitud web. */
 export function playReservationPendingSound(): void {
   const audio = audioContext();
   if (!audio) return;
   void audio.resume().then(() => {
     if (audio.state !== 'running') return;
-    const now = audio.currentTime;
-    tone(audio, now, 784, 0.14, 0.14);
-    tone(audio, now + 0.13, 1046.5, 0.2, 0.18);
+    const t = audio.currentTime;
+    tone(audio, t, 659.25, 0.1, 0.26);
+    tone(audio, t + 0.09, 783.99, 0.1, 0.28);
+    tone(audio, t + 0.18, 1046.5, 0.12, 0.3);
+    tone(audio, t + 0.32, 1318.5, 0.2, 0.32);
   });
 }
