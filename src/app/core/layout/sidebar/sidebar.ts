@@ -12,6 +12,7 @@ import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../utils/drive-url';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PageRefreshService } from '../../page-refresh.service';
+import { groupIdFromRoute, navGroupPagePath } from '../nav-config';
 
 export interface NavChild {
   label: string;
@@ -152,42 +153,51 @@ export class SidebarComponent {
     }
   }
 
-  /** True si algún hijo coincide con la URL actual (estilo activo). */
-  groupHasActive(item: NavItem): boolean {
-    const path = this.currentUrl().split('?')[0];
-    return (item.children ?? []).some((c) => this.routeMatches(path, c.route));
-  }
-
   /** Abierto por defecto; solo se cierra si el usuario lo contrajo. En rail siempre cerrado visualmente. */
   isGroupOpen(item: NavItem): boolean {
     if (this.rail()) return false;
     return !this.collapsedGroups().has(item.route);
   }
 
-  toggleGroup(item: NavItem, event?: Event): void {
+  /** True si algún hijo coincide con la URL actual, o estamos en el hub del grupo. */
+  groupHasActive(item: NavItem): boolean {
+    const path = this.currentUrl().split('?')[0];
+    const gid = groupIdFromRoute(item.route);
+    if (gid && (path === navGroupPagePath(gid) || path.startsWith(`${navGroupPagePath(gid)}/`))) {
+      return true;
+    }
+    return (item.children ?? []).some((c) => this.routeMatches(path, c.route));
+  }
+
+  /** Click en el grupo (rail o título): abrir la grilla de módulos. */
+  openGroupHub(item: NavItem, event?: Event): void {
+    event?.preventDefault();
+    const gid = groupIdFromRoute(item.route);
+    const target =
+      item.defaultRoute && !item.defaultRoute.startsWith('__')
+        ? item.defaultRoute
+        : gid
+          ? navGroupPagePath(gid)
+          : item.children?.[0]?.route;
+    if (!target) return;
+    if (!this.rail()) {
+      this.collapsedGroups.update((prev) => {
+        const next = new Set(prev);
+        next.delete(item.route);
+        return next;
+      });
+    }
+    void this.router.navigateByUrl(target);
+    this.onNavClick();
+  }
+
+  toggleGroupCollapse(item: NavItem, event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
-
-    const target = item.defaultRoute || item.children?.[0]?.route;
-    if (target && !target.startsWith('__')) {
-      // Menú expandido: abrir el grupo. En rail: navegar sin expandir.
-      if (!this.rail()) {
-        this.collapsedGroups.update((prev) => {
-          const next = new Set(prev);
-          next.delete(item.route);
-          return next;
-        });
-      }
-      void this.router.navigateByUrl(target);
-      this.onNavClick();
-      return;
-    }
-
     if (this.rail()) {
-      // Sin destino: no abrir el rail automáticamente.
+      this.openGroupHub(item);
       return;
     }
-
     this.collapsedGroups.update((prev) => {
       const next = new Set(prev);
       if (next.has(item.route)) next.delete(item.route);

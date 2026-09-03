@@ -36,7 +36,8 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
-import { applyNavConfig, effectiveNavConfig } from './nav-config';
+import { applyNavConfig, effectiveNavConfig, navGroupPagePath } from './nav-config';
+import { NavMenuService } from './nav-menu.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 
@@ -88,6 +89,7 @@ export class MainLayoutComponent {
   private readonly tipsInbox = inject(TipsInboxService);
   private readonly reimbursementsInbox = inject(ReimbursementsInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
+  private readonly navMenu = inject(NavMenuService);
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
@@ -151,7 +153,7 @@ export class MainLayoutComponent {
           label: 'Stock',
           route: '__group_stock',
           icon: 'inventory_2',
-          defaultRoute: stockChildren.find((c) => c.route === '/stock')?.route ?? stockChildren[0]?.route,
+          defaultRoute: navGroupPagePath('stock'),
           children: stockChildren,
         });
       }
@@ -491,6 +493,10 @@ export class MainLayoutComponent {
     this.mainPwa.start();
 
     effect(() => {
+      this.navMenu.items.set(this.navItems());
+    });
+
+    effect(() => {
       const mobile = this.isMobile();
       const prev = this.lastMobile();
       if (prev === mobile) return;
@@ -546,6 +552,7 @@ export class MainLayoutComponent {
       if (isProducerOnly(user, shopId)) {
         const allowed =
           path === '/my-production' ||
+          path.startsWith('/g/') ||
           (path.startsWith('/reimbursements') &&
             hasShopPermission(user, shopId, 'reimbursements.self')) ||
           (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||

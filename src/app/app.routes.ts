@@ -85,6 +85,12 @@ export const routes: Routes = [
         title: 'Inicio',
       },
       {
+        path: 'g/:groupId',
+        loadComponent: () =>
+          import('./features/nav-group/nav-group-page').then((m) => m.NavGroupPageComponent),
+        title: 'Módulos',
+      },
+      {
         path: 'profile',
         loadComponent: () =>
           import('./features/profile/profile-page').then((m) => m.ProfilePage),

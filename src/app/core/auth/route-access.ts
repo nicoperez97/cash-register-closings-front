@@ -214,6 +214,9 @@ export function canAccessAppRoute(
   if (path === '/profile') {
     return true;
   }
+  if (path === '/g' || path.startsWith('/g/')) {
+    return true;
+  }
   if (path.startsWith('/admin/opening-balances')) {
     return canConfigureShopOpeningBalances(user);
   }

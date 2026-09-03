@@ -89,9 +89,14 @@ function groupRoute(id: string): string {
   return `${GROUP_ROUTE_PREFIX}${id}`;
 }
 
-function groupIdFromRoute(route: string): string | null {
+export function groupIdFromRoute(route: string): string | null {
   if (!route.startsWith(GROUP_ROUTE_PREFIX)) return null;
   return route.slice(GROUP_ROUTE_PREFIX.length) || null;
+}
+
+/** Pantalla con los módulos de un grupo del menú. */
+export function navGroupPagePath(groupId: string): string {
+  return `/g/${groupId}`;
 }
 
 export function navItemIdForRoute(route: string): string | null {
@@ -262,7 +267,7 @@ export function applyNavConfig(
       label,
       route: groupRoute(groupId),
       icon,
-      defaultRoute: children[0]?.route,
+      defaultRoute: navGroupPagePath(groupId),
       children,
       badge: meta?.badge,
       badgeInGroup: meta?.badgeInGroup,
@@ -296,7 +301,11 @@ export function applyNavConfig(
         return !id || !hidden.has(id);
       });
       if (!kept.length) continue;
-      out.push({ ...item, children: kept, defaultRoute: kept[0]?.route ?? item.defaultRoute });
+      out.push({
+        ...item,
+        children: kept,
+        defaultRoute: navGroupPagePath(gid) ?? item.defaultRoute,
+      });
       continue;
     }
     const id = navItemIdForRoute(item.route);

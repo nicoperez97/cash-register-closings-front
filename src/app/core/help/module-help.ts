@@ -44,6 +44,24 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: 'nav-group',
+    title: 'Módulos del menú',
+    summary: 'Todos los módulos de un grupo, en una grilla como en Inicio.',
+    blocks: [
+      {
+        title: 'Elegí un módulo',
+        icon: 'apps',
+        tone: 'do',
+        body: 'Esta pantalla lista los módulos de la sección que tocaste en el menú (por ejemplo Operación). Solo ves los que tenés permiso en este local.',
+        items: [
+          'Tocá una tarjeta para abrir ese módulo.',
+          'En el menú, la flecha a la derecha de Operación (u otro grupo) muestra u oculta la lista; el nombre o el ícono abre esta grilla.',
+        ],
+        tip: 'Si el menú está estrecho, tocá el ícono del grupo: también abre esta pantalla.',
+      },
+    ],
+  },
+  {
     id: 'profile',
     title: 'Perfil',
     summary: 'Tu cuenta y avisos del local. Solo administradores personalizan menú y atajos.',
@@ -75,6 +93,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Guardar menú aplica tu orden de inmediato en la barra lateral.',
           'Usar menú del local borra tu personalización y vuelve al del local.',
+          'Si tocás un grupo (Operación, Cuentas, etc.), se abre una grilla con esos módulos. La flecha a la derecha solo abre o cierra la lista. En el menú estrecho, el ícono del grupo abre la misma grilla.',
         ],
       },
       {
@@ -1220,6 +1239,7 @@ export const HELP_TOPICS: HelpTopic[] = [
 
 const PATH_HELP: Array<{ test: (path: string) => boolean; id: string }> = [
   { test: (p) => p === '/' || p === '', id: 'home' },
+  { test: (p) => p.startsWith('/g/'), id: 'nav-group' },
   { test: (p) => p.startsWith('/profile'), id: 'profile' },
   { test: (p) => p.startsWith('/closings/new') || /\/closings\/[^/]+$/.test(p), id: 'closings-new' },
   { test: (p) => p.startsWith('/closings'), id: 'closings' },
@@ -1283,6 +1303,7 @@ export function topicById(id: string | null | undefined): HelpTopic | null {
 
 const TOPIC_ICONS: Record<string, string> = {
   home: 'home',
+  'nav-group': 'apps',
   profile: 'manage_accounts',
   closings: 'point_of_sale',
   'closings-new': 'point_of_sale',
