@@ -27,64 +27,11 @@ import {
   NAV_GROUP_DEFS,
   NAV_ITEM_DEFS,
   ShopNavConfig,
+  navItemLabel,
 } from '../../core/layout/nav-config';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { canAccessNavItem, type ShopRouteFeatures } from '../../core/auth/route-access';
-
-const DEFAULT_ITEM_LABELS: Record<string, string> = {
-  closings: 'Cierres',
-  cashWithdrawals: 'A Retirar',
-  settlements: 'Rendiciones',
-  tips: 'Propinas',
-  serviceRules: 'Normas de servicio',
-  expenses: 'Gastos',
-  incomes: 'Ingresos',
-  accountTransfers: 'Movimientos entre cuentas',
-  transactions: 'Transacciones',
-  partnerSplits: 'División de socios',
-  splits: 'Divisiones',
-  reservations: 'Reservas',
-  waitingList: 'Lista de espera',
-  diagrama: 'Diagrama',
-  salonRules: 'Reglas',
-  salonHours: 'Horarios',
-  stockFood: 'Alimentos',
-  beverageStock: 'Bebidas',
-  shortages: 'Faltantes',
-  orders: 'Pedidos',
-  attendance: 'Asistencia',
-  productionAttendance: 'Presentismo producción',
-  reimbursements: 'Reintegros',
-  paymentsSuppliers: 'A proveedores',
-  paymentsServices: 'A servicios',
-  paymentsEmployees: 'A empleados',
-  paymentsPartners: 'A socios',
-  suppliers: 'Proveedores',
-  services: 'Servicios',
-  reports: 'Cierres (reporte)',
-  reportsConcepts: 'Conceptos',
-  reportsProducts: 'Ventas POS',
-  reportsStats: 'Estadísticas',
-  employees: 'Empleados',
-  candidates: 'CVs',
-  payroll: 'Sueldos',
-  commissions: 'Comisiones',
-  adminShops: 'Locales',
-  adminShop: 'Configuración del local',
-  adminMessages: 'Mensajes',
-  adminMenu: 'Carta',
-  adminQr: 'QR',
-  adminInstrucciones: 'Instrucciones',
-  adminUsers: 'Usuarios',
-  adminUserActivity: 'Actividad',
-  adminAccounts: 'Cuentas',
-  adminConcepts: 'Conceptos',
-  adminSalesSystems: 'Sistemas',
-  adminPosProducts: 'Platos y rubros',
-  vacations: 'Vacaciones',
-  myProduction: 'Mis horas',
-};
 
 type EditorItem = {
   id: string;
@@ -686,7 +633,7 @@ export class ShopNavEditorComponent {
         const gid = itemGroup[d.id] ?? d.defaultGroup!;
         return {
           id: d.id,
-          label: itemLabels[d.id]?.trim() || DEFAULT_ITEM_LABELS[d.id] || d.id,
+          label: itemLabels[d.id]?.trim() || navItemLabel(d.id),
           groupId: gid,
           hidden: hidden.has(d.id),
         };
@@ -739,7 +686,7 @@ export class ShopNavEditorComponent {
   renameItem(itemId: string, label: string): void {
     const trimmed = label.trim();
     const itemLabels = { ...(this.draft().itemLabels ?? {}) };
-    const fallback = DEFAULT_ITEM_LABELS[itemId] || itemId;
+    const fallback = navItemLabel(itemId);
     if (!trimmed || trimmed === fallback) delete itemLabels[itemId];
     else itemLabels[itemId] = trimmed;
     this.commit({ ...this.draft(), itemLabels });

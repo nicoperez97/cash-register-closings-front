@@ -31,6 +31,8 @@ import {
   homePrimaryShortcutId,
   homeShortcutLayout,
 } from '../../core/home/home-actions';
+import { NavMenuService } from '../../core/layout/nav-menu.service';
+import { groupIdFromRoute, navGroupPagePath } from '../../core/layout/nav-config';
 import { ClosingsApiService } from '../closings/closings-api.service';
 import { closingMoneyColumns } from '../closings/closing-list-columns';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
@@ -220,23 +222,27 @@ interface BalanceRowExt extends BalanceAccountRow {
             }
           </div>
         } @else {
-          <p class="text-muted small mb-0">No hay empleados activos para marcar hoy.</p>
+          <p class="text-muted small mb-0">
+            No hay empleados activos para marcar hoy.
+            @if (canManageEmployees()) {
+              <a routerLink="/employees">Cargalos en Empleados</a>.
+            }
+          </p>
         }
       </div>
     }
 
-    @if (bottomShortcuts().length) {
+    @if (dayActions().length || menuGroups().length) {
       <div class="panel-card home-modules mb-3 guy-enter-scale">
-        <div class="home-modules__head">
-          <div>
-            <h2 class="home-modules__title">Módulos</h2>
-            <p class="home-modules__hint">Accesos según tus permisos</p>
+        @if (dayActions().length) {
+          <div class="home-modules__head">
+            <div>
+              <h2 class="home-modules__title">Hoy</h2>
+              <p class="home-modules__hint">Lo que más usás en el turno</p>
+            </div>
           </div>
-        </div>
-
-        @if (shortcutLayout().useCompactGrid && shortcutLayout().primary.length) {
           <div class="home-modules__quick">
-            @for (s of shortcutLayout().primary; track s.id) {
+            @for (s of dayActions(); track s.id) {
               @if (s.kind === 'route') {
                 <a
                   class="home-modules__quick-btn"
@@ -263,23 +269,22 @@ interface BalanceRowExt extends BalanceAccountRow {
           </div>
         }
 
-        @if (bottomShortcuts().length) {
-          <div
-            class="home-modules__grid"
-            [class.home-modules__grid--tiles]="useModuleTiles()"
-          >
-            @for (s of bottomShortcuts(); track s.id) {
-              @if (s.kind === 'route') {
-                <a class="home-module-tile" [routerLink]="s.route">
-                  <mat-icon class="home-module-tile__icon">{{ s.icon }}</mat-icon>
-                  <span class="home-module-tile__label">{{ s.label }}</span>
-                </a>
-              } @else if (s.kind === 'action' && s.action === 'quick-expense') {
-                <button type="button" class="home-module-tile" (click)="openQuickExpense()">
-                  <mat-icon class="home-module-tile__icon">{{ s.icon }}</mat-icon>
-                  <span class="home-module-tile__label">{{ s.label }}</span>
-                </button>
-              }
+        @if (menuGroups().length) {
+          <div class="home-modules__head" [class.home-modules__head--spaced]="dayActions().length">
+            <div>
+              <h2 class="home-modules__title">Menú</h2>
+              <p class="home-modules__hint">Tocá un grupo para ver sus módulos</p>
+            </div>
+          </div>
+          <div class="home-modules__grid home-modules__grid--tiles">
+            @for (g of menuGroups(); track g.route) {
+              <a class="home-module-tile" [routerLink]="g.route">
+                <mat-icon class="home-module-tile__icon">{{ g.icon }}</mat-icon>
+                <span class="home-module-tile__label">{{ g.label }}</span>
+                @if (g.badge && g.badge > 0) {
+                  <span class="home-module-tile__badge">{{ g.badge > 9 ? '9+' : g.badge }}</span>
+                }
+              </a>
             }
           </div>
         }
@@ -299,7 +304,7 @@ interface BalanceRowExt extends BalanceAccountRow {
       </div>
     }
 
-    @if (!shortcutLayout().all.length && !kpis().length && !canViewAttendance() && !canViewBalances()) {
+    @if (!dayActions().length && !menuGroups().length && !kpis().length && !canViewAttendance() && !canViewBalances()) {
       <p class="text-center text-muted mt-4 mb-0 small">{{ brand.tagline }}</p>
     }
   `,
@@ -466,7 +471,11 @@ interface BalanceRowExt extends BalanceAccountRow {
         grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
         gap: 0.55rem;
       }
+      .home-modules__head--spaced {
+        margin-top: 0.85rem;
+      }
       .home-module-tile {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -512,6 +521,21 @@ interface BalanceRowExt extends BalanceAccountRow {
       .home-modules__grid--tiles .home-module-tile__label {
         font-size: 0.8rem;
       }
+      .home-module-tile__badge {
+        position: absolute;
+        top: 0.35rem;
+        right: 0.4rem;
+        min-width: 1.15rem;
+        height: 1.15rem;
+        padding: 0 0.28rem;
+        border-radius: 999px;
+        background: #c62828;
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        line-height: 1.15rem;
+        text-align: center;
+      }
     `,
   ],
 })
@@ -528,6 +552,7 @@ export class HomePageComponent {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly router = inject(Router);
+  private readonly navMenu = inject(NavMenuService);
 
   private readonly reportSummary = signal<any>(null);
   private readonly refreshTick = signal(0);
@@ -578,19 +603,29 @@ export class HomePageComponent {
     ),
   );
 
-  readonly bottomShortcuts = computed(() => {
-    const layout = this.shortcutLayout();
-    if (layout.useCompactGrid) {
-      return layout.all.filter((s) => !s.primary);
-    }
-    return layout.all;
+  readonly dayActions = computed(() => {
+    const wanted = new Set(['new-closing', 'quick-expense', 'payments']);
+    return this.shortcutLayout().all.filter((s) => wanted.has(s.id));
   });
 
-  /** Grilla grande cuando hay pocos módulos en el panel inferior. */
-  readonly useModuleTiles = computed(() => {
-    const n = this.bottomShortcuts().length;
-    if (!n) return false;
-    return n <= 8;
+  readonly menuGroups = computed(() => {
+    return this.navMenu
+      .items()
+      .filter((item) => !!item.children?.length)
+      .map((item) => {
+        const gid = groupIdFromRoute(item.route);
+        const route = gid ? navGroupPagePath(gid) : item.defaultRoute || item.children?.[0]?.route || '/';
+        const badge = (item.children ?? []).reduce((sum, c) => {
+          if (c.badgeInGroup === false) return sum;
+          return sum + (Number(c.badge) || 0);
+        }, item.badgeInGroup === false ? 0 : Number(item.badge) || 0);
+        return {
+          route,
+          label: item.label,
+          icon: item.icon,
+          badge: badge > 0 ? badge : 0,
+        };
+      });
   });
 
   private attendanceTodayIso(): string {
@@ -1022,6 +1057,11 @@ export class HomePageComponent {
   canManageAttendance(): boolean {
     const shopId = this.shopContext.selectedShopId();
     return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'attendance.manage');
+  }
+
+  canManageEmployees(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'employees.manage');
   }
 
   canOpenReservations(): boolean {

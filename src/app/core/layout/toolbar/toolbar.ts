@@ -53,6 +53,7 @@ import {
 import {
   applyToolbarConfig,
   effectiveToolbarConfig,
+  TOOLBAR_QUICK_ACTION_DEFS,
 } from '../toolbar-config';
 import {
   AppNotification,
@@ -190,48 +191,60 @@ export class ToolbarComponent implements OnInit {
     }
 
     if (hasShopPermission(user, shopId, 'expenses.manage')) {
+      const qe = TOOLBAR_QUICK_ACTION_DEFS.find((d) => d.id === 'quick-expense')!;
       items.push({
         id: 'quick-expense',
         kind: 'action',
-        label: 'Gasto rápido',
-        icon: 'payments',
+        label: qe.label,
+        icon: qe.icon,
       });
     }
     if (canViewClosingsList(user, shopId)) {
-      pushRoute('closings', 'Cierres', 'point_of_sale', '/closings');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'closings')!;
+      pushRoute('closings', d.label, d.icon, '/closings');
     }
     if (hasShopPermission(user, shopId, 'shortages.read')) {
-      pushRoute('shortages', 'Faltantes', 'error_outline', '/shortages');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'shortages')!;
+      pushRoute('shortages', d.label, d.icon, '/shortages');
     }
     if (hasShopPermission(user, shopId, 'payments.read')) {
-      pushRoute('payments', 'Pagos', 'local_shipping', '/payments/suppliers');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'payments')!;
+      pushRoute('payments', d.label, d.icon, '/g/pagos');
     }
     if (shop?.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read')) {
-      pushRoute('reservations', 'Reservas', 'table_restaurant', '/reservations');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'reservations')!;
+      pushRoute('reservations', d.label, d.icon, '/reservations');
     }
     if (shop?.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read')) {
-      pushRoute('waiting-list', 'Lista de espera', 'hourglass_top', '/waiting-list');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'waiting-list')!;
+      pushRoute('waiting-list', d.label, d.icon, '/waiting-list');
     }
     if (shop?.tipsEnabled && hasShopPermission(user, shopId, 'tips.read')) {
-      pushRoute('tips', 'Propinas', 'volunteer_activism', '/tips');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'tips')!;
+      pushRoute('tips', d.label, d.icon, '/tips');
     }
     if (hasShopPermission(user, shopId, 'closings.create')) {
-      pushRoute('new-closing', 'Nuevo cierre', 'point_of_sale', '/closings/new');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'new-closing')!;
+      pushRoute('new-closing', d.label, d.icon, '/closings/new');
     }
     if (hasShopPermission(user, shopId, 'reimbursements.self')) {
-      pushRoute('my-hours', 'Mis horas', 'restaurant', '/my-production');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'my-hours')!;
+      pushRoute('my-hours', d.label, d.icon, '/my-production');
     }
     if (
       hasShopPermission(user, shopId, 'reimbursements.self') ||
       hasShopPermission(user, shopId, 'reimbursements.read')
     ) {
-      pushRoute('my-reimbursements', 'Reintegros', 'receipt_long', '/reimbursements');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'my-reimbursements')!;
+      pushRoute('my-reimbursements', d.label, d.icon, '/reimbursements');
     }
     if (hasShopPermission(user, shopId, 'stock.read')) {
-      pushRoute('stock', 'Alimentos', 'inventory', '/stock');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'stock')!;
+      pushRoute('stock', d.label, d.icon, '/stock');
     }
     if (hasShopPermission(user, shopId, 'beverageStock.read')) {
-      pushRoute('beverage-stock', 'Bebidas', 'local_bar', '/beverage-stock');
+      const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'beverage-stock')!;
+      pushRoute('beverage-stock', d.label, d.icon, '/beverage-stock');
     }
 
     if (cfg?.custom?.length) {

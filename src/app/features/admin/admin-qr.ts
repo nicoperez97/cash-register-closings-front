@@ -87,7 +87,7 @@ const DESC_KEY = (shopId: string) => `crc.qr.desc.${shopId}`;
               </button>
               <button mat-stroked-button type="button" (click)="printPdf()">
                 <mat-icon>picture_as_pdf</mat-icon>
-                PDF
+                Descargar para imprimir
               </button>
             </div>
           } @else {

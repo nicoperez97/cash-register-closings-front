@@ -91,6 +91,12 @@ export const routes: Routes = [
         title: 'Módulos',
       },
       {
+        path: 'forbidden',
+        loadComponent: () =>
+          import('./features/auth/access-denied-page').then((m) => m.AccessDeniedPageComponent),
+        title: 'Sin acceso',
+      },
+      {
         path: 'profile',
         loadComponent: () =>
           import('./features/profile/profile-page').then((m) => m.ProfilePage),
@@ -546,7 +552,7 @@ export const routes: Routes = [
         canActivate: [permissionGuard('attendance.read')],
         loadComponent: () =>
           import('./features/attendance/attendance-page').then((m) => m.AttendancePage),
-        title: 'Asistencia · Servicio',
+        title: 'Presentismo de salón',
       },
       {
         path: 'production-attendance',
@@ -555,7 +561,7 @@ export const routes: Routes = [
           import('./features/attendance/production-attendance-page').then(
             (m) => m.ProductionAttendancePage,
           ),
-        title: 'Asistencia · Produccion',
+        title: 'Horas de cocina',
       },
       {
         path: 'salaries',

@@ -119,7 +119,7 @@ function formatIsoShort(iso: string): string {
   ],
   template: `
     <app-page-header
-      title="Asistencia · Produccion"
+      title="Horas de cocina"
       [subtitle]="shops.selectedShop()?.name ?? 'Sin local'"
       [actionLabel]="canManage() ? 'Importar Excel' : ''"
       [actionDisabled]="!canManage()"

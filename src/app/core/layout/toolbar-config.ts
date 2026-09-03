@@ -1,5 +1,12 @@
 /** Config de accesos rápidos de la toolbar (local + override por usuario). */
 
+import {
+  APP_SHORTCUT_DEFS,
+  NAV_ITEM_DEFS,
+  appShortcutById,
+  navItemById,
+} from './nav-config';
+
 export type ToolbarCustomAction = {
   /** Id estable (p. ej. `nav:expenses`). */
   id: string;
@@ -25,89 +32,73 @@ export type ToolbarQuickActionDef = {
   audience: 'staff' | 'cashier' | 'producer';
 };
 
+function shortcutUi(id: string, fallbackLabel: string, fallbackIcon: string) {
+  const short = appShortcutById(id);
+  if (short) return { label: short.label, icon: short.icon };
+  const nav = navItemById(id);
+  if (nav) return { label: nav.label, icon: nav.icon };
+  return { label: fallbackLabel, icon: fallbackIcon };
+}
+
 /**
  * Catálogo estable de atajos built-in (ids usados en toolbar + config).
- * Los permisos/flags del local siguen filtrando en runtime.
+ * Labels/íconos salen del catálogo de navegación / atajos de app.
  */
 export const TOOLBAR_QUICK_ACTION_DEFS: readonly ToolbarQuickActionDef[] = [
-  { id: 'quick-expense', label: 'Gasto rápido', icon: 'payments', audience: 'staff' },
-  { id: 'closings', label: 'Cierres', icon: 'point_of_sale', audience: 'staff' },
-  { id: 'shortages', label: 'Faltantes', icon: 'error_outline', audience: 'staff' },
-  { id: 'payments', label: 'Pagos', icon: 'local_shipping', audience: 'staff' },
-  { id: 'reservations', label: 'Reservas', icon: 'table_restaurant', audience: 'staff' },
-  { id: 'waiting-list', label: 'Lista de espera', icon: 'hourglass_top', audience: 'staff' },
-  { id: 'tips', label: 'Propinas', icon: 'volunteer_activism', audience: 'staff' },
-  { id: 'new-closing', label: 'Nuevo cierre', icon: 'point_of_sale', audience: 'cashier' },
-  { id: 'my-hours', label: 'Mis horas', icon: 'restaurant', audience: 'producer' },
+  { id: 'quick-expense', ...shortcutUi('quick-expense', 'Gasto rápido', 'payments'), audience: 'staff' },
+  { id: 'closings', ...shortcutUi('closings', 'Cierres', 'point_of_sale'), audience: 'staff' },
+  { id: 'shortages', ...shortcutUi('shortages', 'Faltantes', 'error_outline'), audience: 'staff' },
+  { id: 'payments', ...shortcutUi('payments', 'Pagos', 'payments'), audience: 'staff' },
+  { id: 'reservations', ...shortcutUi('reservations', 'Reservas', 'table_restaurant'), audience: 'staff' },
+  { id: 'waiting-list', ...shortcutUi('waitingList', 'Lista de espera', 'hourglass_top'), audience: 'staff' },
+  { id: 'tips', ...shortcutUi('tips', 'Propinas', 'volunteer_activism'), audience: 'staff' },
+  { id: 'new-closing', ...shortcutUi('new-closing', 'Nuevo cierre', 'point_of_sale'), audience: 'cashier' },
+  { id: 'my-hours', ...shortcutUi('myProduction', 'Mis horas', 'restaurant'), audience: 'producer' },
   {
     id: 'my-reimbursements',
-    label: 'Reintegros',
-    icon: 'receipt_long',
+    ...shortcutUi('reimbursements', 'Reintegros', 'receipt_long'),
     audience: 'producer',
   },
-  { id: 'stock', label: 'Alimentos', icon: 'inventory', audience: 'producer' },
-  { id: 'beverage-stock', label: 'Bebidas', icon: 'local_bar', audience: 'producer' },
+  { id: 'stock', ...shortcutUi('stockFood', 'Alimentos', 'inventory'), audience: 'producer' },
+  { id: 'beverage-stock', ...shortcutUi('beverageStock', 'Bebidas', 'local_bar'), audience: 'producer' },
 ] as const;
 
 export const TOOLBAR_QUICK_ACTION_IDS = new Set(
   TOOLBAR_QUICK_ACTION_DEFS.map((d) => d.id),
 );
 
-/** Módulos del menú que se pueden sumar como atajo custom. */
-export const TOOLBAR_ADDABLE_MODULE_DEFS: readonly ToolbarCustomAction[] = [
-  { id: 'nav:expenses', label: 'Gastos', icon: 'payments', route: '/expenses' },
-  { id: 'nav:incomes', label: 'Ingresos', icon: 'south_west', route: '/incomes' },
-  {
-    id: 'nav:account-transfers',
-    label: 'Movimientos',
-    icon: 'swap_horiz',
-    route: '/account-transfers',
+const ADDABLE_NAV_IDS = [
+  'expenses',
+  'incomes',
+  'accountTransfers',
+  'transactions',
+  'partnerSplits',
+  'orders',
+  'attendance',
+  'productionAttendance',
+  'diagrama',
+  'salonHours',
+  'serviceRules',
+  'employees',
+  'vacations',
+  'payroll',
+  'commissions',
+  'reports',
+  'reportsProducts',
+  'cashWithdrawals',
+  'settlements',
+  'suppliers',
+  'services',
+  'adminShop',
+] as const;
+
+/** Módulos del menú que se pueden sumar como atajo custom (desde el catálogo). */
+export const TOOLBAR_ADDABLE_MODULE_DEFS: readonly ToolbarCustomAction[] = ADDABLE_NAV_IDS.map(
+  (id) => {
+    const d = navItemById(id)!;
+    return { id: `nav:${d.id}`, label: d.label, icon: d.icon, route: d.route };
   },
-  { id: 'nav:transactions', label: 'Transacciones', icon: 'receipt_long', route: '/transactions' },
-  {
-    id: 'nav:partner-splits',
-    label: 'División de socios',
-    icon: 'groups',
-    route: '/partner-splits',
-  },
-  { id: 'nav:orders', label: 'Pedidos', icon: 'local_shipping', route: '/orders' },
-  { id: 'nav:attendance', label: 'Asistencia', icon: 'event_available', route: '/attendance' },
-  {
-    id: 'nav:production-attendance',
-    label: 'Presentismo producción',
-    icon: 'restaurant',
-    route: '/production-attendance',
-  },
-  { id: 'nav:diagrama', label: 'Diagrama', icon: 'grid_view', route: '/salon/diagrama' },
-  { id: 'nav:salon-hours', label: 'Horarios salón', icon: 'schedule', route: '/salon/horarios' },
-  { id: 'nav:service-rules', label: 'Normas', icon: 'menu_book', route: '/service-rules' },
-  { id: 'nav:employees', label: 'Empleados', icon: 'badge', route: '/employees' },
-  { id: 'nav:vacations', label: 'Vacaciones', icon: 'beach_access', route: '/vacations' },
-  { id: 'nav:payroll', label: 'Sueldos', icon: 'request_quote', route: '/salaries' },
-  { id: 'nav:commissions', label: 'Comisiones', icon: 'percent', route: '/commissions' },
-  { id: 'nav:reports', label: 'Reportes', icon: 'insights', route: '/reports' },
-  {
-    id: 'nav:reports-products',
-    label: 'Ventas POS',
-    icon: 'restaurant_menu',
-    route: '/reports/products',
-  },
-  {
-    id: 'nav:cash-withdrawals',
-    label: 'A Retirar',
-    icon: 'account_balance_wallet',
-    route: '/cash-withdrawals',
-  },
-  { id: 'nav:settlements', label: 'Rendiciones', icon: 'payments', route: '/settlements' },
-  { id: 'nav:suppliers', label: 'Proveedores', icon: 'store', route: '/suppliers' },
-  { id: 'nav:services', label: 'Servicios', icon: 'handyman', route: '/services' },
-  {
-    id: 'nav:admin-shop',
-    label: 'Config. del local',
-    icon: 'storefront',
-    route: '/admin/shop',
-  },
-];
+);
 
 /**
  * Prioridad: personalización del usuario en el local (`myToolbarConfig`),

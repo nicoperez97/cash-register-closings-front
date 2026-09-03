@@ -26,7 +26,7 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
     <app-page-header
       title="Instrucciones"
       subtitle="Manual completo para administradores"
-      actionLabel="Imprimir / PDF"
+      actionLabel="Descargar PDF"
       actionIcon="picture_as_pdf"
       [actionDisabled]="printing()"
       (action)="downloadPdf()"

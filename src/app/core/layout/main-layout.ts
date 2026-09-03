@@ -36,12 +36,27 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
-import { applyNavConfig, effectiveNavConfig, navGroupPagePath } from './nav-config';
+import { applyNavConfig, appShortcutById, effectiveNavConfig, navGroupPagePath, navLeaf } from './nav-config';
 import { NavMenuService } from './nav-menu.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
+import type { NavChild } from './sidebar/sidebar';
 
 const SIDENAV_EXPANDED_KEY = 'crc.sidenav.expanded';
+
+function leaf(id: string, extra?: Partial<NavChild>): NavChild {
+  return navLeaf(id, extra)!;
+}
+
+function shortcutLeaf(id: string, extra?: Partial<NavChild>): NavChild {
+  const s = appShortcutById(id)!;
+  return {
+    label: s.label,
+    route: 'route' in s ? s.route : '/',
+    icon: s.icon,
+    ...extra,
+  };
+}
 
 function loadSidenavExpanded(): boolean {
   try {
@@ -115,38 +130,29 @@ export class MainLayoutComponent {
     const user = this.auth.currentUser();
     const shopId = this.shopContext.selectedShopId();
     if (isCashierOnly(user, shopId)) {
-      const items: NavItem[] = [
-        { label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' },
-      ];
+      const items: NavItem[] = [shortcutLeaf('new-closing')];
       if (shopId && hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips')) {
-        items.push({
-          label: 'Propinas',
-          route: '/tips',
-          icon: 'volunteer_activism',
-          badge: this.tipsInbox.pendingCount() || null,
-        });
+        items.push(leaf('tips', { badge: this.tipsInbox.pendingCount() || null }));
       }
       return items;
     }
     if (isProducerOnly(user, shopId)) {
-      const items: NavItem[] = [
-        { label: 'Mis horas', route: '/my-production', icon: 'restaurant' },
-      ];
+      const items: NavItem[] = [leaf('myProduction')];
       if (shopId && hasShopPermission(user, shopId, 'reimbursements.self')) {
-        items.push({ label: 'Mis reintegros', route: '/reimbursements', icon: 'receipt_long' });
+        items.push(leaf('reimbursements', { label: 'Mis reintegros' }));
       }
       const stockChildren: NonNullable<NavItem['children']> = [];
       if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
-        stockChildren.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
+        stockChildren.push(leaf('stockFood'));
       }
       if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
-        stockChildren.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
+        stockChildren.push(leaf('beverageStock'));
       }
       if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
-        stockChildren.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+        stockChildren.push(leaf('shortages'));
       }
       if (shopId && hasShopPermission(user, shopId, 'orders.read')) {
-        stockChildren.push({ label: 'Pedidos', route: '/orders', icon: 'local_shipping' });
+        stockChildren.push(leaf('orders'));
       }
       if (stockChildren.length) {
         items.push({
@@ -160,9 +166,7 @@ export class MainLayoutComponent {
       return items;
     }
 
-    const items: NavItem[] = [
-      { label: 'Inicio', route: '/', icon: 'home', exact: true },
-    ];
+    const items: NavItem[] = [{ ...leaf('home'), exact: true }];
 
     const operacion: NonNullable<NavItem['children']> = [];
     if (
@@ -170,41 +174,30 @@ export class MainLayoutComponent {
       isClosingsCreateOnly(user, shopId) &&
       hasShopPermission(user, shopId, 'closings.create')
     ) {
-      operacion.push({ label: 'Nuevo cierre', route: '/closings/new', icon: 'point_of_sale' });
+      operacion.push(shortcutLeaf('new-closing'));
     } else if (shopId && canViewClosingsList(user, shopId)) {
-      operacion.push({ label: 'Cierres', route: '/closings', icon: 'point_of_sale' });
+      operacion.push(leaf('closings'));
     }
     if (shopId && hasShopPermission(user, shopId, 'cashWithdrawals.read')) {
-      operacion.push({
-        label: 'A Retirar',
-        route: '/cash-withdrawals',
-        icon: 'payments',
-        badge: this.cashWithdrawalsInbox.pendingCount() || null,
-      });
+      operacion.push(
+        leaf('cashWithdrawals', { badge: this.cashWithdrawalsInbox.pendingCount() || null }),
+      );
     }
     if (shopId && hasShopPermission(user, shopId, 'settlements.read') && this.settlementsInbox.enabled()) {
-      operacion.push({
-        label: 'Rendiciones',
-        route: '/settlements',
-        icon: 'account_balance_wallet',
-        badge: this.settlementsInbox.pendingCount() || null,
-      });
+      operacion.push(
+        leaf('settlements', { badge: this.settlementsInbox.pendingCount() || null }),
+      );
     }
     if (shopId && hasShopPermission(user, shopId, 'tips.read') && this.shopFeature('tips')) {
-      operacion.push({
-        label: 'Propinas',
-        route: '/tips',
-        icon: 'volunteer_activism',
-        badge: this.tipsInbox.pendingCount() || null,
-        badgeInGroup: false,
-      });
+      operacion.push(
+        leaf('tips', {
+          badge: this.tipsInbox.pendingCount() || null,
+          badgeInGroup: false,
+        }),
+      );
     }
     if (shopId && hasShopPermission(user, shopId, 'serviceRules.read')) {
-      operacion.push({
-        label: 'Normas de servicio',
-        route: '/service-rules',
-        icon: 'menu_book',
-      });
+      operacion.push(leaf('serviceRules'));
     }
     if (operacion.length) {
       items.push({
@@ -218,17 +211,13 @@ export class MainLayoutComponent {
 
     const cuentas: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'expenses.read')) {
-      cuentas.push({ label: 'Gastos', route: '/expenses', icon: 'payments' });
+      cuentas.push(leaf('expenses'));
     }
     if (shopId && hasShopPermission(user, shopId, 'incomes.read')) {
-      cuentas.push({ label: 'Ingresos', route: '/incomes', icon: 'south_west' });
+      cuentas.push(leaf('incomes'));
     }
     if (shopId && hasShopPermission(user, shopId, 'accountTransfers.read')) {
-      cuentas.push({
-        label: 'Movimientos entre cuentas',
-        route: '/account-transfers',
-        icon: 'swap_horiz',
-      });
+      cuentas.push(leaf('accountTransfers'));
     }
     if (
       shopId &&
@@ -236,23 +225,11 @@ export class MainLayoutComponent {
         hasShopPermission(user, shopId, 'incomes.read') ||
         hasShopPermission(user, shopId, 'accountTransfers.read'))
     ) {
-      cuentas.push({
-        label: 'Transacciones',
-        route: '/transactions',
-        icon: 'receipt_long',
-      });
+      cuentas.push(leaf('transactions'));
     }
     if (shopId && hasShopPermission(user, shopId, 'partnerSplits.read')) {
-      cuentas.push({
-        label: 'División de socios',
-        route: '/partner-splits',
-        icon: 'groups',
-      });
-      cuentas.push({
-        label: 'Divisiones',
-        route: '/splits',
-        icon: 'history',
-      });
+      cuentas.push(leaf('partnerSplits'));
+      cuentas.push(leaf('splits'));
     }
     if (cuentas.length) {
       items.push({
@@ -266,21 +243,20 @@ export class MainLayoutComponent {
 
     const salon: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
-      salon.push({
-        label: 'Reservas',
-        route: '/reservations',
-        icon: 'table_restaurant',
-        badge: this.reservationsInbox.menuBadge() || null,
-        badgeInGroup: false,
-      });
+      salon.push(
+        leaf('reservations', {
+          badge: this.reservationsInbox.menuBadge() || null,
+          badgeInGroup: false,
+        }),
+      );
     }
     if (shopId && hasShopPermission(user, shopId, 'waitingList.read') && this.shopFeature('waitingList')) {
-      salon.push({ label: 'Lista de espera', route: '/waiting-list', icon: 'hourglass_top' });
+      salon.push(leaf('waitingList'));
     }
     if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
-      salon.push({ label: 'Diagrama', route: '/salon/diagrama', icon: 'grid_view' });
-      salon.push({ label: 'Reglas', route: '/salon/reglas', icon: 'tune' });
-      salon.push({ label: 'Horarios', route: '/salon/horarios', icon: 'schedule' });
+      salon.push(leaf('diagrama'));
+      salon.push(leaf('salonRules'));
+      salon.push(leaf('salonHours'));
     }
     if (salon.length) {
       items.push({
@@ -296,16 +272,16 @@ export class MainLayoutComponent {
 
     const stockChildren: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'stock.read')) {
-      stockChildren.push({ label: 'Alimentos', route: '/stock', icon: 'inventory' });
+      stockChildren.push(leaf('stockFood'));
     }
     if (shopId && hasShopPermission(user, shopId, 'beverageStock.read')) {
-      stockChildren.push({ label: 'Bebidas', route: '/beverage-stock', icon: 'local_bar' });
+      stockChildren.push(leaf('beverageStock'));
     }
     if (shopId && hasShopPermission(user, shopId, 'shortages.read')) {
-      stockChildren.push({ label: 'Faltantes', route: '/shortages', icon: 'report' });
+      stockChildren.push(leaf('shortages'));
     }
     if (shopId && hasShopPermission(user, shopId, 'orders.read')) {
-      stockChildren.push({ label: 'Pedidos', route: '/orders', icon: 'local_shipping' });
+      stockChildren.push(leaf('orders'));
     }
     if (stockChildren.length) {
       items.push({
@@ -323,17 +299,10 @@ export class MainLayoutComponent {
         route: '__group_asistencia',
         icon: 'event_available',
         defaultRoute: '/attendance',
-        children: [
-          { label: 'Servicio', route: '/attendance', icon: 'storefront' },
-          { label: 'Produccion', route: '/production-attendance', icon: 'restaurant' },
-        ],
+        children: [leaf('attendance'), leaf('productionAttendance')],
       });
     } else if (shopId && hasShopPermission(user, shopId, 'attendance.self')) {
-      items.push({
-        label: 'Mis horas',
-        route: '/my-production',
-        icon: 'restaurant',
-      });
+      items.push(leaf('myProduction'));
     }
     if (
       shopId &&
@@ -341,45 +310,37 @@ export class MainLayoutComponent {
       !hasShopPermission(user, shopId, 'reimbursements.read') &&
       !isProducerOnly(user, shopId)
     ) {
-      items.push({
-        label: 'Mis reintegros',
-        route: '/reimbursements',
-        icon: 'receipt_long',
-      });
+      items.push(leaf('reimbursements', { label: 'Mis reintegros' }));
     }
 
     const pagos: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'payments.read')) {
-      pagos.push({
-        label: 'A proveedores',
-        route: '/payments/suppliers',
-        icon: 'local_shipping',
-        badge: this.paymentsInbox.pendingSupplierCount() || null,
-      });
-      pagos.push({
-        label: 'A servicios',
-        route: '/payments/services',
-        icon: 'home_repair_service',
-        badge: this.paymentsInbox.pendingServiceCount() || null,
-      });
-      pagos.push({
-        label: 'A empleados',
-        route: '/payments/employees',
-        icon: 'badge',
-        badge: this.paymentsInbox.pendingEmployeeCount() || null,
-      });
-      pagos.push({
-        label: 'A socios',
-        route: '/payments/partners',
-        icon: 'groups',
-        badge: this.paymentsInbox.pendingPartnerCount() || null,
-      });
+      pagos.push(
+        leaf('paymentsSuppliers', {
+          badge: this.paymentsInbox.pendingSupplierCount() || null,
+        }),
+      );
+      pagos.push(
+        leaf('paymentsServices', {
+          badge: this.paymentsInbox.pendingServiceCount() || null,
+        }),
+      );
+      pagos.push(
+        leaf('paymentsEmployees', {
+          badge: this.paymentsInbox.pendingEmployeeCount() || null,
+        }),
+      );
+      pagos.push(
+        leaf('paymentsPartners', {
+          badge: this.paymentsInbox.pendingPartnerCount() || null,
+        }),
+      );
     }
     if (shopId && hasShopPermission(user, shopId, 'suppliers.read')) {
-      pagos.push({ label: 'Proveedores', route: '/suppliers', icon: 'inventory_2' });
+      pagos.push(leaf('suppliers'));
     }
     if (shopId && hasShopPermission(user, shopId, 'services.read')) {
-      pagos.push({ label: 'Servicios', route: '/services', icon: 'home_repair_service' });
+      pagos.push(leaf('services'));
     }
     if (pagos.length) {
       items.push({
@@ -399,41 +360,40 @@ export class MainLayoutComponent {
         icon: 'insights',
         defaultRoute: '/reports',
         children: [
-          { label: 'Cierres', route: '/reports', icon: 'insights' },
-          { label: 'Conceptos', route: '/reports/concepts', icon: 'category' },
-          { label: 'Ventas POS', route: '/reports/products', icon: 'restaurant_menu' },
-          { label: 'Estadísticas', route: '/reports/stats', icon: 'analytics' },
+          leaf('reports'),
+          leaf('reportsConcepts'),
+          leaf('reportsProducts'),
+          leaf('reportsStats'),
         ],
       });
     }
 
     const personal: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'employees.read')) {
-      personal.push({ label: 'Empleados', route: '/employees', icon: 'badge' });
+      personal.push(leaf('employees'));
     }
     if (shopId && hasShopPermission(user, shopId, 'vacations.read')) {
-      personal.push({ label: 'Vacaciones', route: '/vacations', icon: 'beach_access' });
+      personal.push(leaf('vacations'));
     }
     if (shopId && hasShopPermission(user, shopId, 'candidates.read')) {
-      personal.push({ label: 'CVs / Candidatos', route: '/candidates', icon: 'person_search' });
+      personal.push(leaf('candidates'));
     }
     if (shopId && hasShopPermission(user, shopId, 'payroll.read')) {
-      personal.push({ label: 'Sueldos', route: '/salaries', icon: 'request_quote' });
+      personal.push(leaf('payroll'));
     }
     if (shopId && hasShopPermission(user, shopId, 'commissions.read')) {
-      personal.push({ label: 'Comisiones', route: '/commissions', icon: 'percent' });
+      personal.push(leaf('commissions'));
     }
     if (
       shopId &&
       (hasShopPermission(user, shopId, 'reimbursements.read') ||
         hasShopPermission(user, shopId, 'reimbursements.manage'))
     ) {
-      personal.push({
-        label: 'Reintegros',
-        route: '/reimbursements',
-        icon: 'receipt_long',
-        badge: this.reimbursementsInbox.pendingCount() || null,
-      });
+      personal.push(
+        leaf('reimbursements', {
+          badge: this.reimbursementsInbox.pendingCount() || null,
+        }),
+      );
     }
     if (personal.length) {
       items.push({
@@ -447,28 +407,28 @@ export class MainLayoutComponent {
 
     const admin: NonNullable<NavItem['children']> = [];
     if (this.auth.isSuperAdmin()) {
-      admin.push({ label: 'Locales', route: '/admin/shops', icon: 'store' });
+      admin.push(leaf('adminShops'));
     }
     if (shopId && canManageShop(user, shopId)) {
-      admin.push({ label: 'Configuración del local', route: '/admin/shop', icon: 'storefront' });
-      admin.push({ label: 'Mensajes', route: '/admin/messages', icon: 'mail' });
-      admin.push({ label: 'Carta', route: '/admin/menu', icon: 'menu_book' });
-      admin.push({ label: 'QR', route: '/admin/qr', icon: 'qr_code_2' });
-      admin.push({ label: 'Instrucciones', route: '/admin/instrucciones', icon: 'help_outline' });
+      admin.push(leaf('adminShop'));
+      admin.push(leaf('adminMessages'));
+      admin.push(leaf('adminMenu'));
+      admin.push(leaf('adminQr'));
+      admin.push(leaf('adminInstrucciones'));
     }
     if (canManageShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
-      admin.push({ label: 'Usuarios', route: '/admin/users', icon: 'group' });
-      admin.push({ label: 'Actividad', route: '/admin/user-activity', icon: 'leaderboard' });
+      admin.push(leaf('adminUsers'));
+      admin.push(leaf('adminUserActivity'));
     }
     if (shopId && hasShopPermission(user, shopId, 'accounts.manage')) {
-      admin.push({ label: 'Cuentas', route: '/admin/accounts', icon: 'account_balance' });
+      admin.push(leaf('adminAccounts'));
     }
     if (shopId && hasShopPermission(user, shopId, 'concepts.manage')) {
-      admin.push({ label: 'Conceptos', route: '/admin/concepts', icon: 'sell' });
+      admin.push(leaf('adminConcepts'));
     }
     if (shopId && canManageShop(user, shopId)) {
-      admin.push({ label: 'Sistemas', route: '/admin/sales-systems', icon: 'dns' });
-      admin.push({ label: 'Platos y rubros', route: '/admin/pos-products', icon: 'restaurant_menu' });
+      admin.push(leaf('adminSalesSystems'));
+      admin.push(leaf('adminPosProducts'));
     }
     if (admin.length) {
       const adminDefault =
@@ -541,11 +501,12 @@ export class MainLayoutComponent {
         const allowed =
           path.startsWith('/closings/new') ||
           path === '/profile' ||
+          path === '/forbidden' ||
           (path.startsWith('/tips') &&
             hasShopPermission(user, shopId, 'tips.read') &&
             this.shopFeature('tips'));
         if (!allowed) {
-          void this.router.navigateByUrl(home);
+          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
         }
         return;
       }
@@ -553,6 +514,7 @@ export class MainLayoutComponent {
         const allowed =
           path === '/my-production' ||
           path.startsWith('/g/') ||
+          path === '/forbidden' ||
           (path.startsWith('/reimbursements') &&
             hasShopPermission(user, shopId, 'reimbursements.self')) ||
           (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
@@ -562,7 +524,7 @@ export class MainLayoutComponent {
             hasShopPermission(user, shopId, 'shortages.read')) ||
           (path.startsWith('/orders') && hasShopPermission(user, shopId, 'orders.read'));
         if (!allowed) {
-          void this.router.navigateByUrl(home);
+          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
         }
         return;
       }
@@ -573,9 +535,9 @@ export class MainLayoutComponent {
           return;
         }
       }
-      if (path === '/' || path === '') return;
+      if (path === '/' || path === '' || path === '/forbidden') return;
       if (!this.isPathAllowed(path, user, shopId)) {
-        void this.router.navigateByUrl(home);
+        void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
       }
     });
 
