@@ -5,14 +5,13 @@ import {
   catchError,
   debounceTime,
   forkJoin,
-  interval,
   of,
-  startWith,
   switchMap,
 } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { PageRefreshService } from '../../core/page-refresh.service';
+import { InboxPollService } from '../../core/inbox/inbox-poll.service';
 import { NotificationsApiService } from './notifications-api.service';
 import { syncAppBadge } from '../../shared/utils/app-badge';
 
@@ -27,6 +26,7 @@ export class NotificationsInboxService {
   private readonly auth = inject(AuthService);
   private readonly injector = inject(Injector);
   private readonly pageRefresh = inject(PageRefreshService);
+  private readonly poll = inject(InboxPollService);
 
   readonly unreadCount = signal(0);
   readonly unreadByShop = signal<Record<string, number>>({});
@@ -90,19 +90,9 @@ export class NotificationsInboxService {
       this.refresh();
     });
 
-    // Backup si no hay tráfico de API (p. ej. app abierta en idle).
-    interval(45000)
-      .pipe(startWith(0))
-      .subscribe(() => {
-        if (this.auth.getToken()) this.refresh();
-      });
-
-    if (typeof document !== 'undefined') {
-      const onVis = () => {
-        if (document.visibilityState === 'visible' && this.auth.getToken()) this.refresh();
-      };
-      document.addEventListener('visibilitychange', onVis);
-    }
+    this.poll.tick$.subscribe(() => {
+      if (this.auth.getToken()) this.refresh();
+    });
   }
 
   refresh(): void {

@@ -247,8 +247,8 @@ function toPrice(value: unknown): number | null {
                   (click)="downloadStyledPdf()"
                   title="PDF generado con el contenido de la carta"
                 >
-                  <mat-icon>print</mat-icon>
-                  PDF estilo web
+                  <mat-icon>picture_as_pdf</mat-icon>
+                  Descargar PDF de la carta
                 </button>
                 <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
                   <mat-icon>sync</mat-icon>

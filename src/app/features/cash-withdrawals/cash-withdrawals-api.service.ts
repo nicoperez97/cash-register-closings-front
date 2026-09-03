@@ -70,6 +70,12 @@ export class CashWithdrawalsApiService {
     );
   }
 
+  pendingCount(shopId: string) {
+    return this.http.get<{ count: number }>(
+      `${this.base}/shops/${shopId}/cash-withdrawals/pending-count`,
+    );
+  }
+
   listHistory(shopId: string) {
     return this.http.get<CashWithdrawalHistoryGroup[]>(
       `${this.base}/shops/${shopId}/cash-withdrawals/history`,

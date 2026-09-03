@@ -3,15 +3,14 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import {
   catchError,
   distinctUntilChanged,
-  interval,
   map,
   of,
-  startWith,
   switchMap,
 } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
+import { InboxPollService } from '../../core/inbox/inbox-poll.service';
 import { CashWithdrawalsApiService } from './cash-withdrawals-api.service';
 
 /** Contador de retiros pendientes para badge de menú «A Retirar». */
@@ -20,6 +19,7 @@ export class CashWithdrawalsInboxService {
   private readonly api = inject(CashWithdrawalsApiService);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly poll = inject(InboxPollService);
 
   readonly pendingCount = signal(0);
 
@@ -32,11 +32,10 @@ export class CashWithdrawalsInboxService {
             this.pendingCount.set(0);
             return of(0);
           }
-          return interval(45000).pipe(
-            startWith(0),
+          return this.poll.tick$.pipe(
             switchMap(() =>
-              this.api.listPending(shopId).pipe(
-                map((res) => res.items.length),
+              this.api.pendingCount(shopId).pipe(
+                map((r) => r.count ?? 0),
                 catchError(() => of(0)),
               ),
             ),
@@ -54,8 +53,8 @@ export class CashWithdrawalsInboxService {
       this.pendingCount.set(0);
       return;
     }
-    this.api.listPending(shopId).subscribe({
-      next: (res) => this.pendingCount.set(res.items.length),
+    this.api.pendingCount(shopId).subscribe({
+      next: (r) => this.pendingCount.set(r.count ?? 0),
       error: () => this.pendingCount.set(0),
     });
   }

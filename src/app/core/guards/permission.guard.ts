@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
 import { Permission, canManageShopUsers, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly } from '../auth/auth.models';
@@ -7,6 +7,11 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 
 /** Permisos que un super admin puede usar sin local seleccionado. */
 const GLOBAL_ADMIN_WITHOUT_SHOP: Permission[] = ['shops.manage'];
+
+function deniedTree(router: Router): UrlTree {
+  const from = router.url?.split('?')[0] || '';
+  return router.createUrlTree(['/forbidden'], from ? { queryParams: { from } } : {});
+}
 
 export const permissionGuard = (permission: Permission): CanActivateFn => {
   return () => {
@@ -31,7 +36,7 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
     }
 
     if (!hasShopPermission(user, shopId, permission)) {
-      return router.createUrlTree([defaultHomeRoute(user, shopId)]);
+      return deniedTree(router);
     }
     return true;
   };
@@ -54,7 +59,7 @@ export const anyPermissionGuard = (...permissions: Permission[]): CanActivateFn 
     if (permissions.some((p) => hasShopPermission(user, shopId, p))) {
       return true;
     }
-    return router.createUrlTree([defaultHomeRoute(user, shopId)]);
+    return deniedTree(router);
   };
 };
 
@@ -75,7 +80,7 @@ export const closingsListGuard: CanActivateFn = () => {
     return router.createUrlTree(['/closings/new']);
   }
   if (!canViewClosingsList(user, shopId)) {
-    return router.createUrlTree([defaultHomeRoute(user, shopId)]);
+    return deniedTree(router);
   }
   return true;
 };
@@ -89,9 +94,7 @@ export const superAdminGuard: CanActivateFn = () => {
     return router.createUrlTree(['/login']);
   }
   if (!auth.isSuperAdmin()) {
-    return router.createUrlTree([
-      defaultHomeRoute(auth.currentUser(), shops.selectedShopId()),
-    ]);
+    return deniedTree(router);
   }
   return true;
 };
@@ -106,7 +109,7 @@ export const shopUsersGuard: CanActivateFn = () => {
   }
   const shopId = shops.selectedShopId();
   if (!canManageShopUsers(auth.currentUser(), shopId)) {
-    return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
+    return deniedTree(router);
   }
   // Admin de local necesita local; super admin puede entrar sin local (alcance "todos").
   if (!shopId && !auth.isAdmin()) {
@@ -137,7 +140,7 @@ export const shopFeatureGuard = (
             ? !!shop?.settlementsEnabled || inject(SettlementsInboxService).enabled()
             : !!shop?.tipsEnabled;
     if (!shopId || !enabled) {
-      return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
+      return deniedTree(router);
     }
     return true;
   };

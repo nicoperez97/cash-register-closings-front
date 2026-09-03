@@ -217,6 +217,9 @@ export function canAccessAppRoute(
   if (path === '/g' || path.startsWith('/g/')) {
     return true;
   }
+  if (path === '/forbidden' || path.startsWith('/forbidden')) {
+    return true;
+  }
   if (path.startsWith('/admin/opening-balances')) {
     return canConfigureShopOpeningBalances(user);
   }

@@ -34,9 +34,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'read',
         body: 'Esta pantalla muestra atajos según tus permisos en el local. Tocá el módulo que necesites.',
         items: [
-          'Arriba ves números del día, reservas pendientes y presentismo.',
+          'Arriba ves números del día, reservas web pendientes y presentismo.',
+          'Hoy: Nuevo cierre, gasto rápido y pagos (si tenés permiso).',
+          'Menú: los mismos grupos que la barra lateral. Tocá uno para ver sus módulos.',
           'Exportar cierres del mes: Excel o PDF del mes en curso (si tenés permiso).',
-          'Los módulos están en una grilla compacta, arriba de los saldos.',
           'Campana: avisos de pagos, movimientos y más.',
         ],
         tip: 'Si llega un aviso mientras estás en una lista, esa pantalla se recarga sola. No hace falta tirar para actualizar.',
@@ -55,7 +56,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Esta pantalla lista los módulos de la sección que tocaste en el menú (por ejemplo Operación). Solo ves los que tenés permiso en este local.',
         items: [
           'Tocá una tarjeta para abrir ese módulo.',
-          'En el menú, la flecha a la derecha de Operación (u otro grupo) muestra u oculta la lista; el nombre o el ícono abre esta grilla.',
+          'Atrás (arriba) vuelve a Inicio. Desde un módulo, Atrás vuelve a esta grilla.',
+          'En el menú, la flecha a la derecha de Operación (u otro grupo) muestra u oculta la lista; el nombre o el ícono abre esta grilla. Las listas empiezan cerradas.',
         ],
         tip: 'Si el menú está estrecho, tocá el ícono del grupo: también abre esta pantalla.',
       },
@@ -93,7 +95,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Guardar menú aplica tu orden de inmediato en la barra lateral.',
           'Usar menú del local borra tu personalización y vuelve al del local.',
-          'Si tocás un grupo (Operación, Cuentas, etc.), se abre una grilla con esos módulos. La flecha a la derecha solo abre o cierra la lista. En el menú estrecho, el ícono del grupo abre la misma grilla.',
+          'Si tocás un grupo (Operación, Cuentas, etc.), se abre una grilla con esos módulos. La flecha a la derecha abre o cierra la lista (empieza contraída). Ese estado se guarda en este usuario. En el menú estrecho, el ícono del grupo abre la misma grilla.',
+          'Arriba de cada módulo hay Atrás: vuelve a la grilla del grupo. En la grilla, Atrás vuelve a Inicio.',
         ],
       },
       {
@@ -264,6 +267,25 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'lock',
         tone: 'lock',
         body: 'Editar y borrar un gasto lo puede el super admin y las personas que él habilite en Usuarios. Crear un gasto sigue con el permiso de gestionar gastos. Al guardar o borrar podés avisar a quien elijas; Todos los admins marca a los administradores del local.',
+      },
+    ],
+  },
+  {
+    id: 'transactions',
+    title: 'Transacciones',
+    summary: 'Gastos, ingresos y pases juntos, con los mismos filtros.',
+    blocks: [
+      {
+        title: 'La lista',
+        icon: 'receipt_long',
+        tone: 'read',
+        anyOf: ['expenses.read', 'incomes.read', 'accountTransfers.read'],
+        body: 'Acá ves el libro completo: gastos, ingresos y movimientos entre cuentas. Filtrá por tipo, cuenta, forma de pago, empleado, comprobante y turno si el local tiene más de uno.',
+        items: [
+          'Para cargar un gasto usá Gastos o Gasto rápido.',
+          'Descargar Excel o PDF usa los mismos filtros que ves en pantalla.',
+        ],
+        tip: 'Si no ves un tipo, puede faltar permiso de gastos, ingresos o pases.',
       },
     ],
   },
@@ -711,7 +733,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: 'attendance',
-    title: 'Asistencia · Servicio',
+    title: 'Presentismo de salón',
     summary: 'Quién vino a trabajar el turno: presente, ausente o feriado, con o sin horas.',
     blocks: [
       {
@@ -745,7 +767,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     id: 'production-attendance',
-    title: 'Asistencia · Producción',
+    title: 'Horas de cocina',
     summary: 'Horas de cocina: quién produce comida y cuánto laburó.',
     blocks: [
       {
@@ -1249,8 +1271,8 @@ const PATH_HELP: Array<{ test: (path: string) => boolean; id: string }> = [
   { test: (p) => p.startsWith('/incomes'), id: 'incomes' },
   { test: (p) => p.startsWith('/account-transfers'), id: 'account-transfers' },
   { test: (p) => p.startsWith('/partner-splits') || p.startsWith('/splits'), id: 'partner-splits' },
-  { test: (p) => p.startsWith('/transactions'), id: 'expenses' },
-  { test: (p) => p.startsWith('/movements'), id: 'expenses' },
+  { test: (p) => p.startsWith('/transactions'), id: 'transactions' },
+  { test: (p) => p.startsWith('/movements'), id: 'transactions' },
   { test: (p) => p.startsWith('/payments'), id: 'payments' },
   { test: (p) => p.startsWith('/suppliers'), id: 'suppliers' },
   { test: (p) => p.startsWith('/services'), id: 'services' },
@@ -1310,6 +1332,7 @@ const TOPIC_ICONS: Record<string, string> = {
   'cash-withdrawals': 'payments',
   settlements: 'account_balance_wallet',
   expenses: 'payments',
+  transactions: 'receipt_long',
   'account-transfers': 'swap_horiz',
   payments: 'payments',
   suppliers: 'inventory_2',

@@ -35,6 +35,32 @@ export interface NavItem {
   defaultRoute?: string;
 }
 
+const EXPANDED_GROUPS_KEY = 'crc.nav.expandedGroups';
+
+function expandedGroupsStorageKey(userId: string): string {
+  return userId ? `${EXPANDED_GROUPS_KEY}.${userId}` : EXPANDED_GROUPS_KEY;
+}
+
+function loadExpandedGroups(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(expandedGroupsStorageKey(userId));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === 'string' && x.startsWith('__group_')));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveExpandedGroups(userId: string, open: ReadonlySet<string>): void {
+  try {
+    localStorage.setItem(expandedGroupsStorageKey(userId), JSON.stringify([...open]));
+  } catch {
+    // ignore
+  }
+}
+
 @Component({
   selector: 'app-sidebar',
   imports: [
@@ -72,8 +98,8 @@ export class SidebarComponent {
   readonly currentUrl = signal(this.router.url);
   readonly shopPickerOpen = signal(false);
   readonly favoriteBusy = signal(false);
-  /** Rutas de grupos contraídos (vacío = todos abiertos por defecto). */
-  private readonly collapsedGroups = signal<ReadonlySet<string>>(new Set());
+  /** Grupos abiertos. Vacío = todos contraídos. Se guarda por usuario. */
+  private readonly expandedGroups = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
     this.notifsInbox.ensureStarted();
@@ -82,10 +108,13 @@ export class SidebarComponent {
       this.logoBroken.set(false);
     });
     effect(() => {
-      // Si cambian URLs de logo, reintentar carga.
       const urls = this.shopContext.shops().map((s) => `${s.id}:${s.logoUrl ?? ''}`).join('|');
       void urls;
       this.brokenShopLogos.set(new Set());
+    });
+    effect(() => {
+      const userId = this.auth.currentUser()?.id ?? '';
+      this.expandedGroups.set(loadExpandedGroups(userId));
     });
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
@@ -153,10 +182,10 @@ export class SidebarComponent {
     }
   }
 
-  /** Abierto por defecto; solo se cierra si el usuario lo contrajo. En rail siempre cerrado visualmente. */
+  /** Contraído por defecto. En rail siempre cerrado visualmente. */
   isGroupOpen(item: NavItem): boolean {
     if (this.rail()) return false;
-    return !this.collapsedGroups().has(item.route);
+    return this.expandedGroups().has(item.route);
   }
 
   /** True si algún hijo coincide con la URL actual, o estamos en el hub del grupo. */
@@ -169,24 +198,16 @@ export class SidebarComponent {
     return (item.children ?? []).some((c) => this.routeMatches(path, c.route));
   }
 
-  /** Click en el grupo (rail o título): abrir la grilla de módulos. */
+  /** Click en el grupo (rail o título): abrir la grilla de módulos. No abre el acordeón. */
   openGroupHub(item: NavItem, event?: Event): void {
     event?.preventDefault();
     const gid = groupIdFromRoute(item.route);
-    const target =
-      item.defaultRoute && !item.defaultRoute.startsWith('__')
+    const target = gid
+      ? navGroupPagePath(gid)
+      : item.defaultRoute && !item.defaultRoute.startsWith('__')
         ? item.defaultRoute
-        : gid
-          ? navGroupPagePath(gid)
-          : item.children?.[0]?.route;
+        : item.children?.[0]?.route;
     if (!target) return;
-    if (!this.rail()) {
-      this.collapsedGroups.update((prev) => {
-        const next = new Set(prev);
-        next.delete(item.route);
-        return next;
-      });
-    }
     void this.router.navigateByUrl(target);
     this.onNavClick();
   }
@@ -198,10 +219,12 @@ export class SidebarComponent {
       this.openGroupHub(item);
       return;
     }
-    this.collapsedGroups.update((prev) => {
+    const userId = this.auth.currentUser()?.id ?? '';
+    this.expandedGroups.update((prev) => {
       const next = new Set(prev);
       if (next.has(item.route)) next.delete(item.route);
       else next.add(item.route);
+      saveExpandedGroups(userId, next);
       return next;
     });
   }

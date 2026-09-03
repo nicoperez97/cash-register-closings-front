@@ -202,6 +202,16 @@ export class PaymentsApiService {
     });
   }
 
+  pendingCounts(shopId: string) {
+    return this.http.get<{
+      total: number;
+      suppliers: number;
+      services: number;
+      employees: number;
+      partners: number;
+    }>(`${this.base}/shops/${shopId}/payments/pending-count`);
+  }
+
   get(shopId: string, id: string) {
     return this.http.get<ShopPayment>(`${this.base}/shops/${shopId}/payments/${id}`);
   }

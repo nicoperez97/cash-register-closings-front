@@ -204,7 +204,7 @@ export class ToolbarComponent implements OnInit {
       pushRoute('shortages', 'Faltantes', 'error_outline', '/shortages');
     }
     if (hasShopPermission(user, shopId, 'payments.read')) {
-      pushRoute('payments', 'Pagos', 'local_shipping', '/payments/suppliers');
+      pushRoute('payments', 'Pagos', 'payments', '/g/pagos');
     }
     if (shop?.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read')) {
       pushRoute('reservations', 'Reservas', 'table_restaurant', '/reservations');

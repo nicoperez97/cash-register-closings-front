@@ -6,7 +6,7 @@ import {
   provideBrowserGlobalErrorListeners,
   LOCALE_ID,
 } from '@angular/core';
-import { provideRouter, TitleStrategy, withPreloading, PreloadAllModules } from '@angular/router';
+import { provideRouter, TitleStrategy } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideServiceWorker, SwPush, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatPaginatorIntl } from '@angular/material/paginator';
@@ -167,7 +167,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
-    provideRouter(routes, withPreloading(PreloadAllModules)),
+    provideRouter(routes),
     provideHttpClient(
       withInterceptors([
         authInterceptor,

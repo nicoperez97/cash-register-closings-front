@@ -3,20 +3,14 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import {
   catchError,
   distinctUntilChanged,
-  interval,
-  map,
   of,
-  startWith,
   switchMap,
 } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
-import { PaymentsApiService, ShopPayment } from './payments-api.service';
-
-function isPending(p: ShopPayment): boolean {
-  return p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED';
-}
+import { InboxPollService } from '../../core/inbox/inbox-poll.service';
+import { PaymentsApiService } from './payments-api.service';
 
 /** Contador de pagos pendientes (validar / abonar) para badges de menú. */
 @Injectable({ providedIn: 'root' })
@@ -24,6 +18,7 @@ export class PaymentsInboxService {
   private readonly api = inject(PaymentsApiService);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly poll = inject(InboxPollService);
 
   readonly pendingCount = signal(0);
   readonly pendingSupplierCount = signal(0);
@@ -40,11 +35,9 @@ export class PaymentsInboxService {
             this.clear();
             return of({ total: 0, suppliers: 0, services: 0, employees: 0, partners: 0 });
           }
-          return interval(45000).pipe(
-            startWith(0),
+          return this.poll.tick$.pipe(
             switchMap(() =>
-              this.api.list(shopId).pipe(
-                map((rows) => this.countsFrom(rows)),
+              this.api.pendingCounts(shopId).pipe(
                 catchError(() =>
                   of({ total: 0, suppliers: 0, services: 0, employees: 0, partners: 0 }),
                 ),
@@ -71,21 +64,10 @@ export class PaymentsInboxService {
       this.clear();
       return;
     }
-    this.api.list(shopId).subscribe({
-      next: (rows) => this.apply(this.countsFrom(rows)),
+    this.api.pendingCounts(shopId).subscribe({
+      next: (c) => this.apply(c),
       error: () => this.clear(),
     });
-  }
-
-  private countsFrom(rows: ShopPayment[]) {
-    const pending = rows.filter(isPending);
-    return {
-      total: pending.length,
-      suppliers: pending.filter((p) => !!p.supplierId).length,
-      services: pending.filter((p) => !!p.serviceId).length,
-      employees: pending.filter((p) => !p.supplierId && !p.serviceId && !p.toAccountId).length,
-      partners: pending.filter((p) => !!p.toAccountId).length,
-    };
   }
 
   private apply(c: {

@@ -19,6 +19,7 @@ import {
       helpId="nav-group"
       [title]="title()"
       [subtitle]="subtitle()"
+      eyebrow="Módulos"
     />
 
     @if (modules().length) {
@@ -36,7 +37,9 @@ import {
         </div>
       </div>
     } @else {
-      <p class="text-muted">No hay módulos visibles en este grupo.</p>
+      <p class="text-muted">
+        No hay módulos visibles en este grupo. Pedile al administrador del local que te habilite el permiso.
+      </p>
     }
   `,
   styles: `

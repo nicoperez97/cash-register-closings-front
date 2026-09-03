@@ -3,15 +3,14 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import {
   catchError,
   distinctUntilChanged,
-  interval,
   map,
   of,
-  startWith,
   switchMap,
 } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
+import { InboxPollService } from '../../core/inbox/inbox-poll.service';
 import { TipsApiService } from './tips-api.service';
 
 /** Contador de propinas pendientes de entrega para badges de menú. */
@@ -20,6 +19,7 @@ export class TipsInboxService {
   private readonly api = inject(TipsApiService);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly poll = inject(InboxPollService);
 
   readonly pendingCount = signal(0);
 
@@ -37,8 +37,7 @@ export class TipsInboxService {
             this.pendingCount.set(0);
             return of(0);
           }
-          return interval(45000).pipe(
-            startWith(0),
+          return this.poll.tick$.pipe(
             switchMap(() =>
               this.api.pendingCount(shopId).pipe(
                 map((r) => r.count ?? 0),

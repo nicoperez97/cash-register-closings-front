@@ -46,6 +46,10 @@ export class SettlementsApiService {
     return this.http.get<PendingSettlement[]>(`${this.base}/shops/${shopId}/settlements/pending`);
   }
 
+  pendingCount(shopId: string) {
+    return this.http.get<{ count: number }>(`${this.base}/shops/${shopId}/settlements/pending-count`);
+  }
+
   listHistory(shopId: string) {
     return this.http.get<SettlementHistoryGroup[]>(
       `${this.base}/shops/${shopId}/settlements/history`,

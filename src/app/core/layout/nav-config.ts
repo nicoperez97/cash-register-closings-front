@@ -149,14 +149,55 @@ function leafFromChild(child: NavChild, groupId: string | null): Leaf | null {
  * Aplica orden de grupos, `itemGroup`, `itemOrder` y `hidden` del local.
  * Home (`/`) queda fijo primero y no se oculta ni mueve.
  */
+/** Click del grupo = grilla `/g/:id`, no el primer hijo (así vale con o sin menú del local). */
+export function assignGroupHubRoutes(items: NavItem[]): NavItem[] {
+  return items.map((item) => {
+    const gid = groupIdFromRoute(item.route);
+    if (!item.children?.length || !gid) return item;
+    return { ...item, defaultRoute: navGroupPagePath(gid) };
+  });
+}
+
+/** Atrás: en un hub de grupo → Inicio; en un módulo → la grilla del grupo. */
+export function navBackTarget(
+  path: string,
+  items: NavItem[],
+  homeRoute = '/',
+): { route: string; label: string } | null {
+  const p = (path.split('?')[0] || path).trim();
+  if (!p || p === '/' || p === homeRoute || p === '/login' || p === '/profile') return null;
+  if (p === '/forbidden' || p.startsWith('/forbidden')) {
+    return { route: homeRoute || '/', label: 'Inicio' };
+  }
+  if (p.startsWith('/g/')) {
+    return { route: homeRoute || '/', label: 'Inicio' };
+  }
+  for (const item of items) {
+    if (!item.children?.length) continue;
+    const gid = groupIdFromRoute(item.route);
+    if (!gid) continue;
+    const onChild = item.children.some(
+      (c) => p === c.route || (c.route !== '/' && p.startsWith(`${c.route}/`)),
+    );
+    if (onChild) {
+      return { route: navGroupPagePath(gid), label: item.label };
+    }
+  }
+  if (homeRoute && homeRoute !== p) {
+    return { route: homeRoute, label: 'Inicio' };
+  }
+  return null;
+}
+
 export function applyNavConfig(
   builtItems: NavItem[],
   config?: ShopNavConfig | null,
 ): NavItem[] {
-  if (!config) return builtItems;
+  const sourced = assignGroupHubRoutes(builtItems);
+  if (!config) return sourced;
 
-  const home = builtItems.find((i) => i.route === '/' && i.exact);
-  const rest = builtItems.filter((i) => !(i.route === '/' && i.exact));
+  const home = sourced.find((i) => i.route === '/' && i.exact);
+  const rest = sourced.filter((i) => !(i.route === '/' && i.exact));
 
   const leaves: Leaf[] = [];
   const groupMeta = new Map<

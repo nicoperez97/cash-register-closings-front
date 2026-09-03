@@ -45,7 +45,7 @@ const HOME_SHORTCUT_DEFS: HomeShortcutDef[] = [
   { id: 'reservations', label: 'Reservas', icon: 'table_restaurant', route: '/reservations' },
   { id: 'waiting-list', label: 'Lista de espera', icon: 'hourglass_top', route: '/waiting-list' },
   { id: 'tips', label: 'Propinas', icon: 'volunteer_activism', route: '/tips' },
-  { id: 'payments', label: 'Pagos', icon: 'local_shipping', route: '/payments/suppliers' },
+  { id: 'payments', label: 'Pagos', icon: 'payments', route: '/g/pagos' },
   { id: 'reports', label: 'Reportes', icon: 'insights', route: '/reports' },
   { id: 'cash-withdrawals', label: 'A retirar', icon: 'payments', route: '/cash-withdrawals' },
   { id: 'settlements', label: 'Rendiciones', icon: 'account_balance_wallet', route: '/settlements' },
@@ -56,7 +56,7 @@ const HOME_SHORTCUT_DEFS: HomeShortcutDef[] = [
   { id: 'beverage-stock', label: 'Bebidas', icon: 'local_bar', route: '/beverage-stock' },
   { id: 'shortages', label: 'Faltantes', icon: 'error_outline', route: '/shortages' },
   { id: 'orders', label: 'Pedidos', icon: 'local_shipping', route: '/orders' },
-  { id: 'attendance', label: 'Presentismo', icon: 'event_available', route: '/attendance' },
+  { id: 'attendance', label: 'Presentismo de salón', icon: 'event_available', route: '/attendance' },
   { id: 'my-production', label: 'Mis horas', icon: 'restaurant', route: '/my-production' },
   { id: 'reimbursements', label: 'Reintegros', icon: 'receipt_long', route: '/reimbursements' },
   { id: 'employees', label: 'Empleados', icon: 'groups', route: '/employees' },
@@ -78,6 +78,22 @@ function canUseShortcut(
     return !!shopId && canAccessToolbarAction('quick-expense', user, shopId, routeOpts(features));
   }
   if (!def.route) return false;
+  if (def.route.startsWith('/g/')) {
+    const groupId = def.route.slice(3).split('/')[0];
+    const probes: Record<string, string[]> = {
+      pagos: [
+        '/payments/suppliers',
+        '/payments/services',
+        '/payments/employees',
+        '/payments/partners',
+        '/suppliers',
+        '/services',
+      ],
+    };
+    const routes = probes[groupId] ?? [];
+    if (!shopId || !routes.length) return false;
+    return routes.some((r) => canAccessAppRoute(r, user, shopId, routeOpts(features)));
+  }
   if (def.global) {
     return isSuperAdminUser(user);
   }

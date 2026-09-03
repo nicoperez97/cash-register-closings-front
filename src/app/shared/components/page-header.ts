@@ -1,5 +1,7 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, Input, Output, EventEmitter, computed, inject } from '@angular/core';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -7,18 +9,31 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { hasShopPermission, Permission, canViewClosingsList } from '../../core/auth/auth.models';
+import {
+  canViewClosingsList,
+  defaultHomeRoute,
+  hasShopPermission,
+  Permission,
+} from '../../core/auth/auth.models';
 import { helpIdFromPath, topicById } from '../../core/help/module-help';
 import { HelpDialogComponent } from './help-dialog';
 import { DialogTitleService } from '../services/dialog-title.service';
 import { ExportMenuComponent, ExportFormat } from './export-menu';
+import { NavMenuService } from '../../core/layout/nav-menu.service';
+import { navBackTarget } from '../../core/layout/nav-config';
 
 @Component({
   selector: 'app-page-header',
-  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, ExportMenuComponent],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, ExportMenuComponent],
   template: `
     <header class="guy-page-header">
       <div class="guy-page-header__text">
+        @if (backLink(); as back) {
+          <a class="guy-page-header__back" [routerLink]="back.route">
+            <mat-icon aria-hidden="true">arrow_back</mat-icon>
+            {{ back.label }}
+          </a>
+        }
         <div class="guy-page-header__eyebrow">{{ eyebrow || brand.eyebrow }}</div>
         <div class="guy-page-header__title-row">
           <h1>{{ title }}</h1>
@@ -72,6 +87,20 @@ export class PageHeaderComponent {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly auth = inject(AuthService);
   private readonly shops = inject(ShopContextService);
+  private readonly navMenu = inject(NavMenuService);
+
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  readonly backLink = computed(() => {
+    const home = defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
+    return navBackTarget(this.currentUrl(), this.navMenu.items(), home);
+  });
 
   @Input({ required: true }) title!: string;
   @Input() subtitle = '';

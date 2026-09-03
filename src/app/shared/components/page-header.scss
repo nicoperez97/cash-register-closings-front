@@ -41,6 +41,28 @@
   flex: 1 1 auto;
 }
 
+.guy-page-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0 0 0.25rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--guy-green, #2e7d32);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.guy-page-header__back mat-icon {
+  font-size: 1.05rem;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
 .guy-page-header__eyebrow {
   font-size: 0.7rem;
   font-weight: 700;

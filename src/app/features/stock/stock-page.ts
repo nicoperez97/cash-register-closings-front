@@ -338,7 +338,7 @@ function loadViewMode(kind: StockKind): ViewMode {
                 @if (canManage()) {
                   Creá el primero con “Nuevo producto”.
                 } @else {
-                  No hay productos cargados.
+                  Pedile a un administrador que cargue productos de {{ kindLabel() }}.
                 }
               </div>
             </div>

@@ -176,7 +176,7 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'cashWithdrawals.read')) {
       operacion.push({
-        label: 'A Retirar',
+        label: 'A retirar',
         route: '/cash-withdrawals',
         icon: 'payments',
         badge: this.cashWithdrawalsInbox.pendingCount() || null,
@@ -324,8 +324,8 @@ export class MainLayoutComponent {
         icon: 'event_available',
         defaultRoute: '/attendance',
         children: [
-          { label: 'Servicio', route: '/attendance', icon: 'storefront' },
-          { label: 'Produccion', route: '/production-attendance', icon: 'restaurant' },
+          { label: 'Presentismo de salón', route: '/attendance', icon: 'storefront' },
+          { label: 'Horas de cocina', route: '/production-attendance', icon: 'restaurant' },
         ],
       });
     } else if (shopId && hasShopPermission(user, shopId, 'attendance.self')) {
@@ -541,11 +541,12 @@ export class MainLayoutComponent {
         const allowed =
           path.startsWith('/closings/new') ||
           path === '/profile' ||
+          path === '/forbidden' ||
           (path.startsWith('/tips') &&
             hasShopPermission(user, shopId, 'tips.read') &&
             this.shopFeature('tips'));
         if (!allowed) {
-          void this.router.navigateByUrl(home);
+          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
         }
         return;
       }
@@ -553,6 +554,7 @@ export class MainLayoutComponent {
         const allowed =
           path === '/my-production' ||
           path.startsWith('/g/') ||
+          path === '/forbidden' ||
           (path.startsWith('/reimbursements') &&
             hasShopPermission(user, shopId, 'reimbursements.self')) ||
           (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
@@ -562,7 +564,7 @@ export class MainLayoutComponent {
             hasShopPermission(user, shopId, 'shortages.read')) ||
           (path.startsWith('/orders') && hasShopPermission(user, shopId, 'orders.read'));
         if (!allowed) {
-          void this.router.navigateByUrl(home);
+          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
         }
         return;
       }
@@ -573,9 +575,9 @@ export class MainLayoutComponent {
           return;
         }
       }
-      if (path === '/' || path === '') return;
+      if (path === '/' || path === '' || path === '/forbidden') return;
       if (!this.isPathAllowed(path, user, shopId)) {
-        void this.router.navigateByUrl(home);
+        void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
       }
     });
 
