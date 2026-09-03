@@ -819,10 +819,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'payments',
         tone: 'read',
         anyOf: ['payroll.read'],
-        body: 'Ves el precio por hora vigente, la hora extra y el multiplicador de feriado. Podés incluir empleados ocultos.',
+        body: 'Ves el precio por hora vigente, la hora extra y el multiplicador de feriado. Por defecto no se muestran empleados ocultos.',
         items: [
           'Si no marcás “Hora extra con precio diferente”, la liquidación usa el mismo precio hora.',
-          'El feriado se multiplica (default del local ×2; cada empleado puede override).',
+          'El feriado se multiplica (default del local ×1; cada empleado puede override).',
         ],
         tip: 'Descargá Excel o PDF de la lista vigente desde esta pestaña.',
       },

@@ -445,10 +445,10 @@ export class SalariesPage {
   readonly years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
 
   readonly tabIndex = signal(0);
-  readonly includeInactive = signal(true);
+  readonly includeInactive = signal(false);
   readonly salaryRows = signal<SalaryEmployee[]>([]);
   readonly salariesLoading = signal(true);
-  readonly shopHolidayMult = signal(2);
+  readonly shopHolidayMult = signal(1);
 
   readonly historyRows = signal<SalaryHistoryRow[]>([]);
   readonly historyLoading = signal(false);
@@ -461,7 +461,7 @@ export class SalariesPage {
   readonly period = signal<PayrollPeriod | null>(null);
   readonly payrollLoading = signal(true);
   readonly busy = signal(false);
-  readonly payrollIncludeInactive = signal(true);
+  readonly payrollIncludeInactive = signal(false);
   readonly attendanceBonusAmount = signal(50000);
   readonly splitByShift = signal(false);
 
@@ -565,7 +565,7 @@ export class SalariesPage {
       label: 'Mult. feriado',
       format: (r) => {
         const own = r['holidayPayMultiplier'];
-        const eff = Number(r['holidayPayMultiplierEffective'] ?? 2);
+        const eff = Number(r['holidayPayMultiplierEffective'] ?? 1);
         return own == null ? `×${eff} (local)` : `×${eff}`;
       },
     },

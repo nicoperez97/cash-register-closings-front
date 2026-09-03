@@ -48,7 +48,7 @@ export class SalariesApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
 
-  list(shopId: string, includeInactive = true) {
+  list(shopId: string, includeInactive = false) {
     return this.http.get<SalariesListResponse>(`${this.base}/shops/${shopId}/salaries`, {
       params: { includeInactive: includeInactive ? 'true' : 'false' },
     });
@@ -83,7 +83,7 @@ export class SalariesApiService {
     });
   }
 
-  exportXlsx(shopId: string, includeInactive = true) {
+  exportXlsx(shopId: string, includeInactive = false) {
     return this.http.get(`${this.base}/shops/${shopId}/salaries/export.xlsx`, {
       params: { includeInactive: includeInactive ? 'true' : 'false' },
       responseType: 'blob',
