@@ -40,7 +40,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Exportar cierres del mes: Excel o PDF del mes en curso (si tenés permiso).',
           'Campana: avisos de pagos, movimientos y más.',
         ],
-        tip: 'Si llega un aviso mientras estás en una lista, esa pantalla se recarga sola. No hace falta tirar para actualizar.',
+        tip: 'Si llega un aviso, la campana y los badges del menú se actualizan solos. No hace falta tirar para actualizar.',
       },
     ],
   },

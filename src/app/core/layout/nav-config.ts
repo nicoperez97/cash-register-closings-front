@@ -21,67 +21,120 @@ export const NAV_GROUP_DEFS: Array<{ id: string; label: string; icon: string }> 
   { id: 'admin', label: 'Administración', icon: 'settings' },
 ];
 
-/** Catálogo de ítems del menú (id estable ↔ ruta). */
-export const NAV_ITEM_DEFS: Array<{
+/** Catálogo de ítems del menú (id estable ↔ ruta, label e ícono únicos). */
+export type NavItemDef = {
   id: string;
+  label: string;
+  icon: string;
   defaultGroup: string | null;
   route: string;
   /** Prefijos adicionales que mapean a este id (p. ej. /closings/123). */
   pathPrefixes?: string[];
-}> = [
-  { id: 'home', defaultGroup: null, route: '/' },
-  { id: 'closings', defaultGroup: 'operacion', route: '/closings', pathPrefixes: ['/closings'] },
-  { id: 'cashWithdrawals', defaultGroup: 'operacion', route: '/cash-withdrawals' },
-  { id: 'settlements', defaultGroup: 'operacion', route: '/settlements' },
-  { id: 'tips', defaultGroup: 'operacion', route: '/tips' },
-  { id: 'serviceRules', defaultGroup: 'operacion', route: '/service-rules' },
-  { id: 'expenses', defaultGroup: 'cuentas', route: '/expenses' },
-  { id: 'incomes', defaultGroup: 'cuentas', route: '/incomes' },
-  { id: 'accountTransfers', defaultGroup: 'cuentas', route: '/account-transfers' },
-  { id: 'transactions', defaultGroup: 'cuentas', route: '/transactions' },
-  { id: 'partnerSplits', defaultGroup: 'cuentas', route: '/partner-splits' },
-  { id: 'splits', defaultGroup: 'cuentas', route: '/splits' },
-  { id: 'reservations', defaultGroup: 'salon', route: '/reservations' },
-  { id: 'waitingList', defaultGroup: 'salon', route: '/waiting-list' },
-  { id: 'diagrama', defaultGroup: 'salon', route: '/salon/diagrama' },
-  { id: 'salonRules', defaultGroup: 'salon', route: '/salon/reglas' },
-  { id: 'salonHours', defaultGroup: 'salon', route: '/salon/horarios' },
-  { id: 'stockFood', defaultGroup: 'stock', route: '/stock' },
-  { id: 'beverageStock', defaultGroup: 'stock', route: '/beverage-stock' },
-  { id: 'shortages', defaultGroup: 'stock', route: '/shortages' },
-  { id: 'orders', defaultGroup: 'stock', route: '/orders' },
-  { id: 'attendance', defaultGroup: 'asistencia', route: '/attendance' },
-  { id: 'productionAttendance', defaultGroup: 'asistencia', route: '/production-attendance' },
-  { id: 'myProduction', defaultGroup: null, route: '/my-production' },
-  { id: 'reimbursements', defaultGroup: 'personal', route: '/reimbursements' },
-  { id: 'paymentsSuppliers', defaultGroup: 'pagos', route: '/payments/suppliers' },
-  { id: 'paymentsServices', defaultGroup: 'pagos', route: '/payments/services' },
-  { id: 'paymentsEmployees', defaultGroup: 'pagos', route: '/payments/employees' },
-  { id: 'paymentsPartners', defaultGroup: 'pagos', route: '/payments/partners' },
-  { id: 'suppliers', defaultGroup: 'pagos', route: '/suppliers' },
-  { id: 'services', defaultGroup: 'pagos', route: '/services' },
-  { id: 'reports', defaultGroup: 'reportes', route: '/reports' },
-  { id: 'reportsConcepts', defaultGroup: 'reportes', route: '/reports/concepts' },
-  { id: 'reportsProducts', defaultGroup: 'reportes', route: '/reports/products' },
-  { id: 'reportsStats', defaultGroup: 'reportes', route: '/reports/stats' },
-  { id: 'employees', defaultGroup: 'personal', route: '/employees' },
-  { id: 'vacations', defaultGroup: 'personal', route: '/vacations' },
-  { id: 'candidates', defaultGroup: 'personal', route: '/candidates' },
-  { id: 'payroll', defaultGroup: 'personal', route: '/salaries' },
-  { id: 'commissions', defaultGroup: 'personal', route: '/commissions' },
-  { id: 'adminShops', defaultGroup: 'admin', route: '/admin/shops' },
-  { id: 'adminShop', defaultGroup: 'admin', route: '/admin/shop' },
-  { id: 'adminMessages', defaultGroup: 'admin', route: '/admin/messages' },
-  { id: 'adminMenu', defaultGroup: 'admin', route: '/admin/menu' },
-  { id: 'adminQr', defaultGroup: 'admin', route: '/admin/qr' },
-  { id: 'adminInstrucciones', defaultGroup: 'admin', route: '/admin/instrucciones' },
-  { id: 'adminUsers', defaultGroup: 'admin', route: '/admin/users' },
-  { id: 'adminUserActivity', defaultGroup: 'admin', route: '/admin/user-activity' },
-  { id: 'adminAccounts', defaultGroup: 'admin', route: '/admin/accounts' },
-  { id: 'adminConcepts', defaultGroup: 'admin', route: '/admin/concepts' },
-  { id: 'adminSalesSystems', defaultGroup: 'admin', route: '/admin/sales-systems' },
-  { id: 'adminPosProducts', defaultGroup: 'admin', route: '/admin/pos-products' },
+};
+
+export const NAV_ITEM_DEFS: NavItemDef[] = [
+  { id: 'home', label: 'Inicio', icon: 'home', defaultGroup: null, route: '/' },
+  { id: 'closings', label: 'Cierres', icon: 'point_of_sale', defaultGroup: 'operacion', route: '/closings', pathPrefixes: ['/closings'] },
+  { id: 'cashWithdrawals', label: 'A retirar', icon: 'payments', defaultGroup: 'operacion', route: '/cash-withdrawals' },
+  { id: 'settlements', label: 'Rendiciones', icon: 'account_balance_wallet', defaultGroup: 'operacion', route: '/settlements' },
+  { id: 'tips', label: 'Propinas', icon: 'volunteer_activism', defaultGroup: 'operacion', route: '/tips' },
+  { id: 'serviceRules', label: 'Normas de servicio', icon: 'menu_book', defaultGroup: 'operacion', route: '/service-rules' },
+  { id: 'expenses', label: 'Gastos', icon: 'payments', defaultGroup: 'cuentas', route: '/expenses' },
+  { id: 'incomes', label: 'Ingresos', icon: 'south_west', defaultGroup: 'cuentas', route: '/incomes' },
+  { id: 'accountTransfers', label: 'Movimientos entre cuentas', icon: 'swap_horiz', defaultGroup: 'cuentas', route: '/account-transfers' },
+  { id: 'transactions', label: 'Transacciones', icon: 'receipt_long', defaultGroup: 'cuentas', route: '/transactions' },
+  { id: 'partnerSplits', label: 'División de socios', icon: 'groups', defaultGroup: 'cuentas', route: '/partner-splits' },
+  { id: 'splits', label: 'Divisiones', icon: 'history', defaultGroup: 'cuentas', route: '/splits' },
+  { id: 'reservations', label: 'Reservas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/reservations' },
+  { id: 'waitingList', label: 'Lista de espera', icon: 'hourglass_top', defaultGroup: 'salon', route: '/waiting-list' },
+  { id: 'diagrama', label: 'Diagrama', icon: 'grid_view', defaultGroup: 'salon', route: '/salon/diagrama' },
+  { id: 'salonRules', label: 'Reglas', icon: 'tune', defaultGroup: 'salon', route: '/salon/reglas' },
+  { id: 'salonHours', label: 'Horarios', icon: 'schedule', defaultGroup: 'salon', route: '/salon/horarios' },
+  { id: 'stockFood', label: 'Alimentos', icon: 'inventory', defaultGroup: 'stock', route: '/stock' },
+  { id: 'beverageStock', label: 'Bebidas', icon: 'local_bar', defaultGroup: 'stock', route: '/beverage-stock' },
+  { id: 'shortages', label: 'Faltantes', icon: 'error_outline', defaultGroup: 'stock', route: '/shortages' },
+  { id: 'orders', label: 'Pedidos', icon: 'local_shipping', defaultGroup: 'stock', route: '/orders' },
+  { id: 'attendance', label: 'Presentismo de salón', icon: 'storefront', defaultGroup: 'asistencia', route: '/attendance' },
+  { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/production-attendance' },
+  { id: 'myProduction', label: 'Mis horas', icon: 'restaurant', defaultGroup: null, route: '/my-production' },
+  { id: 'reimbursements', label: 'Reintegros', icon: 'receipt_long', defaultGroup: 'personal', route: '/reimbursements' },
+  { id: 'paymentsSuppliers', label: 'A proveedores', icon: 'local_shipping', defaultGroup: 'pagos', route: '/payments/suppliers' },
+  { id: 'paymentsServices', label: 'A servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/payments/services' },
+  { id: 'paymentsEmployees', label: 'A empleados', icon: 'badge', defaultGroup: 'pagos', route: '/payments/employees' },
+  { id: 'paymentsPartners', label: 'A socios', icon: 'groups', defaultGroup: 'pagos', route: '/payments/partners' },
+  { id: 'suppliers', label: 'Proveedores', icon: 'inventory_2', defaultGroup: 'pagos', route: '/suppliers' },
+  { id: 'services', label: 'Servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/services' },
+  { id: 'reports', label: 'Cierres', icon: 'insights', defaultGroup: 'reportes', route: '/reports' },
+  { id: 'reportsConcepts', label: 'Conceptos', icon: 'category', defaultGroup: 'reportes', route: '/reports/concepts' },
+  { id: 'reportsProducts', label: 'Ventas POS', icon: 'restaurant_menu', defaultGroup: 'reportes', route: '/reports/products' },
+  { id: 'reportsStats', label: 'Estadísticas', icon: 'analytics', defaultGroup: 'reportes', route: '/reports/stats' },
+  { id: 'employees', label: 'Empleados', icon: 'badge', defaultGroup: 'personal', route: '/employees' },
+  { id: 'vacations', label: 'Vacaciones', icon: 'beach_access', defaultGroup: 'personal', route: '/vacations' },
+  { id: 'candidates', label: 'CVs / Candidatos', icon: 'person_search', defaultGroup: 'personal', route: '/candidates' },
+  { id: 'payroll', label: 'Sueldos', icon: 'request_quote', defaultGroup: 'personal', route: '/salaries' },
+  { id: 'commissions', label: 'Comisiones', icon: 'percent', defaultGroup: 'personal', route: '/commissions' },
+  { id: 'adminShops', label: 'Locales', icon: 'add_business', defaultGroup: 'admin', route: '/admin/shops' },
+  { id: 'adminShop', label: 'Configuración del local', icon: 'storefront', defaultGroup: 'admin', route: '/admin/shop' },
+  { id: 'adminMessages', label: 'Mensajes', icon: 'campaign', defaultGroup: 'admin', route: '/admin/messages' },
+  { id: 'adminMenu', label: 'Carta', icon: 'restaurant_menu', defaultGroup: 'admin', route: '/admin/menu' },
+  { id: 'adminQr', label: 'QR', icon: 'qr_code_2', defaultGroup: 'admin', route: '/admin/qr' },
+  { id: 'adminInstrucciones', label: 'Instrucciones', icon: 'menu_book', defaultGroup: 'admin', route: '/admin/instrucciones' },
+  { id: 'adminUsers', label: 'Usuarios', icon: 'manage_accounts', defaultGroup: 'admin', route: '/admin/users' },
+  { id: 'adminUserActivity', label: 'Actividad', icon: 'history', defaultGroup: 'admin', route: '/admin/user-activity' },
+  { id: 'adminAccounts', label: 'Cuentas', icon: 'account_balance', defaultGroup: 'admin', route: '/admin/accounts' },
+  { id: 'adminConcepts', label: 'Conceptos', icon: 'category', defaultGroup: 'admin', route: '/admin/concepts' },
+  { id: 'adminSalesSystems', label: 'Sistemas', icon: 'dns', defaultGroup: 'admin', route: '/admin/sales-systems' },
+  { id: 'adminPosProducts', label: 'Platos y rubros', icon: 'restaurant', defaultGroup: 'admin', route: '/admin/pos-products' },
 ];
+
+const NAV_ITEM_BY_ID = new Map(NAV_ITEM_DEFS.map((d) => [d.id, d]));
+
+export function navItemById(id: string): NavItemDef | undefined {
+  return NAV_ITEM_BY_ID.get(id);
+}
+
+export function navItemLabel(id: string, fallback = id): string {
+  return NAV_ITEM_BY_ID.get(id)?.label ?? fallback;
+}
+
+/** Hoja de menú desde el catálogo (label/ícono/ruta únicos). */
+export function navLeaf(
+  id: string,
+  extra?: Partial<NavChild>,
+): NavChild | null {
+  const d = NAV_ITEM_BY_ID.get(id);
+  if (!d) return null;
+  return { label: d.label, route: d.route, icon: d.icon, ...extra };
+}
+
+/**
+ * Atajos que no son un ítem del menú (acción o ruta corta).
+ * Labels/íconos alineados al catálogo cuando aplica.
+ */
+export const APP_SHORTCUT_DEFS = [
+  {
+    id: 'new-closing',
+    label: 'Nuevo cierre',
+    icon: 'point_of_sale',
+    route: '/closings/new',
+  },
+  {
+    id: 'quick-expense',
+    label: 'Gasto rápido',
+    icon: 'payments',
+    action: 'quick-expense' as const,
+  },
+  {
+    id: 'payments',
+    label: 'Pagos',
+    icon: 'payments',
+    route: '/g/pagos',
+  },
+] as const;
+
+export function appShortcutById(id: string) {
+  return APP_SHORTCUT_DEFS.find((d) => d.id === id);
+}
 
 const GROUP_ROUTE_PREFIX = '__group_';
 
