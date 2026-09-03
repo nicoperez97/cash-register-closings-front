@@ -208,27 +208,37 @@
           [class.nav-group--active]="groupHasActive(item)"
           [class.nav-group--collapsed]="!isGroupOpen(item)"
         >
-          <button
-            type="button"
-            class="nav-group__title"
-            [attr.aria-expanded]="isGroupOpen(item)"
-            [attr.aria-controls]="'nav-group-' + item.route"
-            [attr.aria-label]="item.label"
-            [matTooltip]="item.label"
-            [matTooltipDisabled]="!rail()"
-            matTooltipPosition="right"
-            matTooltipShowDelay="200"
-            (click)="toggleGroup(item, $event)"
-          >
-            <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-            <span class="nav-group__label">{{ item.label }}</span>
-            @if (groupBadge(item); as gb) {
-              <span class="nav-badge nav-badge--group" aria-label="{{ gb }}">
-                {{ badgeLabel(gb) }}
-              </span>
-            }
-            <mat-icon class="nav-group__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
+          <div class="nav-group__title-row">
+            <button
+              type="button"
+              class="nav-group__title"
+              [attr.aria-expanded]="isGroupOpen(item)"
+              [attr.aria-controls]="'nav-group-' + item.route"
+              [attr.aria-label]="item.label"
+              [matTooltip]="item.label"
+              [matTooltipDisabled]="!rail()"
+              matTooltipPosition="right"
+              matTooltipShowDelay="200"
+              (click)="openGroupHub(item, $event)"
+            >
+              <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+              <span class="nav-group__label">{{ item.label }}</span>
+              @if (groupBadge(item); as gb) {
+                <span class="nav-badge nav-badge--group" aria-label="{{ gb }}">
+                  {{ badgeLabel(gb) }}
+                </span>
+              }
+            </button>
+            <button
+              type="button"
+              class="nav-group__chevron-btn"
+              [attr.aria-label]="'Mostrar u ocultar ' + item.label"
+              [attr.aria-expanded]="isGroupOpen(item)"
+              (click)="toggleGroupCollapse(item, $event)"
+            >
+              <mat-icon class="nav-group__chevron" aria-hidden="true">expand_more</mat-icon>
+            </button>
+          </div>
           <div
             class="nav-group__panel"
             [class.nav-group__panel--open]="isGroupOpen(item)"
