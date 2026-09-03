@@ -268,10 +268,6 @@ export class EmployeesListPage {
             shopShifts: shopShiftsOf(this.shops.selectedShop()),
             serviceAttendanceWithHours:
               this.shops.selectedShop()?.serviceAttendanceWithHours !== false,
-            serviceDefaultCheckIn:
-              this.shops.selectedShop()?.serviceDefaultCheckIn || '18:00',
-            serviceDefaultCheckOut:
-              this.shops.selectedShop()?.serviceDefaultCheckOut || '00:00',
           },
         }),
         mode.mode === 'edit' ? 'Editar empleado' : 'Nuevo empleado',

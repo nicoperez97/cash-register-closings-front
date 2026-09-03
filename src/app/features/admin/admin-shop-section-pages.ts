@@ -119,7 +119,6 @@ export class AdminShopIdentidadPage {
         [weekdayOptions]="host.weekdayOptions"
         [salesSystems]="host.salesSystems()"
         [conceptCategoryOptions]="host.conceptCategoryOptions"
-        [serviceWithHours]="!!host.formValue()?.serviceAttendanceWithHours"
         [canManageAccounts]="host.canManageAccounts()"
         [isShiftWeekday]="host.isShiftWeekdayBound"
         [isClosedWeekday]="host.isClosedWeekdayBound"

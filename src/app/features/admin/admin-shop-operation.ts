@@ -106,7 +106,8 @@ export interface AdminShopConceptCategoryOption {
           <div>
             <h2 class="op__title">Turnos de caja</h2>
             <p class="op__lead">
-              Parten el día en cierres y presentismo. No son la entrada/retirada del personal.
+              Parten el día en cierres y presentismo. Abre/cierra también es la entrada/retirada
+              default del personal (salvo override en Empleados).
             </p>
           </div>
           <button mat-flat-button color="primary" type="button" class="op__add" (click)="addShift.emit()">
@@ -165,7 +166,7 @@ export interface AdminShopConceptCategoryOption {
         <header class="op__head">
           <h2 class="op__title">Presentismo</h2>
           <p class="op__lead">
-            Entrada y retirada default del personal. Independiente de los turnos. Override en Empleados.
+            Entrada y retirada salen del turno de caja o del override en Empleados.
           </p>
         </header>
         <div class="op__row-toggle op__row-toggle--accent">
@@ -178,19 +179,6 @@ export interface AdminShopConceptCategoryOption {
             aria-label="Presentismo con entrada y salida"
           />
         </div>
-        @if (serviceWithHours()) {
-          <div class="guy-form-grid guy-form-grid--2 op__after-toggle">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Entrada default</mat-label>
-              <input matInput type="time" formControlName="serviceDefaultCheckIn" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Retirada default</mat-label>
-              <input matInput type="time" formControlName="serviceDefaultCheckOut" />
-              <mat-hint>Extra = salida real − retirada</mat-hint>
-            </mat-form-field>
-          </div>
-        }
         <div class="guy-form-grid guy-form-grid--2 op__after-toggle">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Multiplicador feriado (liquidación)</mat-label>
@@ -454,7 +442,6 @@ export class AdminShopOperationComponent {
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
   readonly salesSystems = input<readonly AdminShopSalesSystemOption[]>([]);
   readonly conceptCategoryOptions = input<readonly AdminShopConceptCategoryOption[]>([]);
-  readonly serviceWithHours = input(true);
   readonly canManageAccounts = input(false);
   readonly isShiftWeekday = input<(index: number, day: number) => boolean>(() => false);
   readonly isClosedWeekday = input<(day: number) => boolean>(() => false);

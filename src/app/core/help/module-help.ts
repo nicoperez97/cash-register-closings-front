@@ -708,7 +708,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'check_circle',
         tone: 'do',
         anyOf: ['attendance.manage'],
-        body: 'Al pasar presente se copian la entrada y salida del turno de caja (si tiene horario). Si el turno no define rango, se usan las del empleado o del local.',
+        body: 'Al pasar presente se copian la entrada y salida del turno de caja (o el horario propio del empleado si lo tiene). Extra = salida real − retirada.',
         items: [
           'Podés corregir la hora por persona.',
           '“Todos presentes” no incluye rotativos.',
@@ -1006,13 +1006,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'En Administración abrís Configuración del local. Ves tarjetas; cada una abre una pantalla. Guardá con el botón fijo al pie.',
         items: [
           'Identidad: nombre, mails, logo y colores.',
-          'Operación: turnos de caja, entrada/retirada del personal, multiplicador de feriado (liquidación), producción, POS, conceptos en pagos, módulos públicos y francos.',
+          'Operación: turnos de caja (también dan la entrada/retirada de presentismo), multiplicador de feriado (liquidación), producción, POS, conceptos en pagos, módulos públicos y francos.',
           'Dispositivos: posnets y cuentas aparte (Pedidos Ya, etc.).',
           'Menú: grupos y módulos del menú lateral; abajo, Accesos rápidos de la barra (arrastrar, ocultar y agregar atajos).',
           'Avanzado: activar/desactivar el local y dump (super admin).',
           'Cuentas canal y depósitos: Administración → Cuentas.',
         ],
-        tip: 'Arrastrá para ordenar menú y atajos. Cada persona puede personalizarlos en Perfil; si no, usa lo del local. Si queda un solo atajo, la barra muestra un botón con el nombre. Los turnos de caja no cambian la entrada/retirada del personal.',
+        tip: 'Arrastrá para ordenar menú y atajos. Solo administradores del local personalizan menú y atajos (en Perfil o acá); el resto usa lo del local. Si queda un solo atajo, la barra muestra un botón con el nombre. En Empleados podés overridear la entrada/retirada por turno.',
       },
       {
         title: 'Dump (super admin)',

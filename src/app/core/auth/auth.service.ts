@@ -230,7 +230,7 @@ export class AuthService {
         serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
         serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
         serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
-        holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 2) || 2,
+        holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 1) || 1,
         menuEnabled: !!s.menuEnabled,
         timezone: s.timezone ?? null,
         openingTime: s.openingTime ?? null,

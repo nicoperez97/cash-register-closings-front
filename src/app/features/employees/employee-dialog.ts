@@ -38,8 +38,6 @@ export type EmployeeDialogData = {
   producers?: ProducerOption[];
   shopShifts: ShopShift[];
   serviceAttendanceWithHours: boolean;
-  serviceDefaultCheckIn: string;
-  serviceDefaultCheckOut: string;
 } & ({ mode: 'create' } | { mode: 'edit'; employee: Employee });
 
 type ShiftRoleValue = 'OFF' | EmployeeType;
@@ -544,8 +542,8 @@ export class EmployeeDialogComponent implements OnInit {
   private shiftDefaults(shiftId: string): { checkIn: string; checkOut: string } {
     const shift = this.shopShifts.find((s) => s.id === shiftId);
     return {
-      checkIn: shift?.opensAt || this.data.serviceDefaultCheckIn,
-      checkOut: shift?.closesAt || this.data.serviceDefaultCheckOut,
+      checkIn: shift?.opensAt || '18:00',
+      checkOut: shift?.closesAt || '00:00',
     };
   }
 

@@ -2463,16 +2463,15 @@ export class AttendancePage {
 
   shiftHoursLabel = shiftHoursLabel;
 
-  /** Horario de servicio del turno (asignación → empleado → local). */
+  /** Horario de servicio del turno (asignación → empleado → ventana del turno). */
   private empShiftDefaults(emp: AttendanceEmployeeRow) {
-    const shop = this.shops.selectedShop();
     const shiftId = this.selectedShiftId();
-    const shopIn = shop?.serviceDefaultCheckIn || '18:00';
-    const shopOut = shop?.serviceDefaultCheckOut || '00:00';
+    const shift =
+      this.shopShifts().find((s) => s.id === shiftId) ?? this.shopShifts()[0] ?? null;
     const hit = emp.shiftAssignments?.find((a) => a.shiftId === shiftId);
     return {
-      checkIn: hit?.serviceCheckIn || emp.serviceCheckIn || shopIn,
-      checkOut: hit?.serviceCheckOut || emp.serviceCheckOut || shopOut,
+      checkIn: hit?.serviceCheckIn || emp.serviceCheckIn || shift?.opensAt || '18:00',
+      checkOut: hit?.serviceCheckOut || emp.serviceCheckOut || shift?.closesAt || '00:00',
     };
   }
 

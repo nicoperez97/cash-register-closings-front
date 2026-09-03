@@ -845,13 +845,13 @@ export interface ShopSummary {
   publicAttendanceEnabled?: boolean;
   /** Página pública de normas pre/post servicio. */
   publicServiceRulesEnabled?: boolean;
-  /** Hora de entrada default en servicio (HH:mm). */
+  /** @deprecated Legacy; la entrada/retirada sale del turno o del empleado. */
   serviceDefaultCheckIn?: string;
-  /** Hora de retirada default en servicio (HH:mm). */
+  /** @deprecated Legacy; la entrada/retirada sale del turno o del empleado. */
   serviceDefaultCheckOut?: string;
   /** Si es false, presentismo de servicio es solo presente/ausente/feriado. */
   serviceAttendanceWithHours?: boolean;
-  /** Multiplicador de feriados en liquidación (default 2). */
+  /** Multiplicador de feriados en liquidación (default 1). */
   holidayPayMultiplier?: number;
   /** Carta pública del local. */
   menuEnabled?: boolean;
