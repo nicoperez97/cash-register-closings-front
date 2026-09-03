@@ -216,8 +216,6 @@ export class AdminShopPage implements OnInit {
     openingTime: ['10:00'],
     timezone: ['America/Argentina/Buenos_Aires'],
     productionDefaultHours: [8],
-    serviceDefaultCheckIn: ['18:00'],
-    serviceDefaultCheckOut: ['00:00'],
     serviceAttendanceWithHours: [true],
     holidayPayMultiplier: [1],
     closedWeekdays: this.fb.nonNullable.control<number[]>([]),
@@ -429,8 +427,6 @@ export class AdminShopPage implements OnInit {
     tipsEnabled?: boolean;
     publicAttendanceEnabled?: boolean;
     publicServiceRulesEnabled?: boolean;
-    serviceDefaultCheckIn?: string | null;
-    serviceDefaultCheckOut?: string | null;
     serviceAttendanceWithHours?: boolean;
     holidayPayMultiplier?: number | null;
     menuEnabled?: boolean;
@@ -465,8 +461,6 @@ export class AdminShopPage implements OnInit {
       tipsEnabled: !!s.tipsEnabled,
       publicAttendanceEnabled: !!s.publicAttendanceEnabled,
       publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
-      serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
-      serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',
       serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
       holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 1) || 1,
       menuEnabled: !!s.menuEnabled,
@@ -849,8 +843,6 @@ export class AdminShopPage implements OnInit {
         .filter((s) => !!s.name),
       timezone: raw.timezone || 'America/Argentina/Buenos_Aires',
       productionDefaultHours: raw.productionDefaultHours ?? 8,
-      serviceDefaultCheckIn: raw.serviceDefaultCheckIn || '18:00',
-      serviceDefaultCheckOut: raw.serviceDefaultCheckOut || '00:00',
       serviceAttendanceWithHours: raw.serviceAttendanceWithHours,
       holidayPayMultiplier: Number(raw.holidayPayMultiplier ?? 1) || 1,
       closedWeekdays: [...raw.closedWeekdays].sort((a, b) => a - b),
