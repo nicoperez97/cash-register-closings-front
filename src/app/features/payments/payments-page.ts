@@ -627,7 +627,7 @@ export class PaymentsPage {
   setListTab(tab: PaymentListTab): void {
     if (this.listTab() === tab) return;
     this.listTab.set(tab);
-    this.applyListTabStatuses();
+    this.applyListTabStatuses({ showLoading: true });
   }
 
   onSort(key: PaymentSortKey): void {
@@ -638,16 +638,21 @@ export class PaymentsPage {
   togglePaidExtra(kind: 'rejected' | 'cancelled'): void {
     if (kind === 'rejected') this.includeRejected.update((v) => !v);
     else this.includeCancelled.update((v) => !v);
-    this.applyListTabStatuses();
+    this.applyListTabStatuses({ showLoading: true });
   }
 
-  private applyListTabStatuses(): void {
-    this.statusFilter.setValue(
-      statusesForPaymentTab(this.listTab(), {
-        rejected: this.includeRejected(),
-        cancelled: this.includeCancelled(),
-      }),
-    );
+  private applyListTabStatuses(opts?: { showLoading?: boolean }): void {
+    const statuses = statusesForPaymentTab(this.listTab(), {
+      rejected: this.includeRejected(),
+      cancelled: this.includeCancelled(),
+    });
+    if (opts?.showLoading) {
+      // Sin emitEvent: evitamos un reload soft que deja la lista anterior visible.
+      this.statusFilter.setValue(statuses, { emitEvent: false });
+      this.reload({ showLoading: true });
+      return;
+    }
+    this.statusFilter.setValue(statuses);
   }
 
   filterMine(): void {
@@ -756,7 +761,7 @@ export class PaymentsPage {
     });
   }
 
-  reload(opts?: { preserveScroll?: boolean }): void {
+  reload(opts?: { preserveScroll?: boolean; showLoading?: boolean }): void {
     const shopId = this.shopId();
     if (!shopId) {
       this.loading.set(false);
@@ -772,8 +777,9 @@ export class PaymentsPage {
     }
     const optsList = this.listFilterOpts();
     const gen = ++this.loadGen;
-    // Si ya hay filas, no reemplazar la lista por el spinner (salta al top).
-    const soft = untracked(() => this.rows().length > 0);
+    // Si ya hay filas, no reemplazar la lista por el spinner (salta al top),
+    // salvo cambio de pestaña Pendientes/Pagados (showLoading).
+    const soft = !opts?.showLoading && untracked(() => this.rows().length > 0);
     if (!soft) this.loading.set(true);
     this.api.list(shopId, optsList).subscribe({
       next: (rows) => {

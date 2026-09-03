@@ -396,7 +396,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En Pagados podés sumar rechazados y cancelados; si no los pedís, no se mezclan.',
           'Al lado de las pestañas elegís el orden. Por defecto, la última modificación.',
         ],
-        tip: 'Si no ves un pago, cambió de pestaña. Un pagado no aparece en Pendientes.',
+        tip: 'Al cambiar Pendientes/Pagados aparece Cargando. Un pagado no aparece en Pendientes.',
       },
       {
         title: 'Filtros y vistas',
