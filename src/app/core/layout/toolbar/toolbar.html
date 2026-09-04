@@ -203,11 +203,7 @@
                   (click)="openNotification(n)"
                 >
                   <span class="notif-item__icon" [class]="notifTone(n.type)" aria-hidden="true">
-                    @if (n.shopLogoUrl) {
-                      <img class="notif-item__logo" [src]="n.shopLogoUrl" [alt]="n.shopName || ''" />
-                    } @else {
-                      <mat-icon>{{ notifIcon(n.type) }}</mat-icon>
-                    }
+                    <mat-icon>{{ notifIcon(n.type) }}</mat-icon>
                   </span>
                   <span class="notif-item__content">
                     @if (n.shopName) {

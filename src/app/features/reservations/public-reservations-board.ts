@@ -20,6 +20,11 @@ import { BoardInstallBannerComponent } from './board-install-banner';
 import { BoardPwaService } from './board-pwa.service';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatPartyMixItem, partyMixFromReservations } from './reservation-party-summary.util';
+import {
+  bindReservationAlertSoundUnlock,
+  playReservationBoardSound,
+  unlockReservationAlertSound,
+} from './reservation-alert-sound';
 
 @Component({
   selector: 'app-public-reservations-board',
@@ -387,6 +392,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   readonly toast = signal('');
   readonly highlightTick = signal(0);
   readonly mesaDrafts = signal<Record<string, string>>({});
+  private lastChimeAt = 0;
 
   readonly accent = computed(() => this.board()?.shop.accentColor || '#c45c26');
 
@@ -452,6 +458,8 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    bindReservationAlertSoundUnlock();
+    unlockReservationAlertSound();
     this.boardPwa.prime('reservations', this.slug);
     void this.ensureNotificationPermission();
 
@@ -667,6 +675,14 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     }, 25_000);
   }
 
+  private chimeNewReservation(): void {
+    const now = Date.now();
+    if (now - this.lastChimeAt <= 2500) return;
+    this.lastChimeAt = now;
+    unlockReservationAlertSound();
+    playReservationBoardSound();
+  }
+
   private notifyNew(
     rows: Array<{ guestName: string; partySize: number; reservationTime?: string | null }>,
   ): void {
@@ -684,6 +700,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
         : `${rows.length} nuevas reservas (última: ${label})`;
 
     this.showToast(message);
+    this.chimeNewReservation();
 
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {

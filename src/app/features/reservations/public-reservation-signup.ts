@@ -13,7 +13,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
-import { debounceTime, filter, Subscription } from 'rxjs';
+import { debounceTime, filter, finalize, Subscription } from 'rxjs';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatIsoDateWithWeekday, resolveShopCalendarDate } from '../../core/shop/business-date';
 import { resolveShopLogoSrc } from '../../core/utils/drive-url';
@@ -498,6 +498,16 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     applyStatusBar('#0e0c0b', 'dark');
     this.load();
+    this.bindLive();
+  }
+
+  ngOnDestroy(): void {
+    this.unbindLive();
+    resetStatusBar();
+  }
+
+  private bindLive(): void {
+    this.unbindLive();
     this.liveSub = this.live
       .connect(this.slug())
       .pipe(
@@ -507,9 +517,9 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
       .subscribe(() => this.load());
   }
 
-  ngOnDestroy(): void {
+  private unbindLive(): void {
     this.liveSub?.unsubscribe();
-    resetStatusBar();
+    this.liveSub = null;
   }
 
   load(): void {
@@ -813,6 +823,9 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
       return;
     }
     this.busy.set(true);
+    // Liberar el EventSource: con admin + /r abiertos HTTP/1.1 se queda sin slots
+    // y el POST queda en pending sin llegar al server.
+    this.unbindLive();
     this.api
       .createPublicReservationRequest(this.slug(), {
         guestName: name,
@@ -825,9 +838,14 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
         guestComment: this.guestComment.trim() || null,
         website: this.website,
       })
+      .pipe(
+        finalize(() => {
+          this.busy.set(false);
+          if (!this.sent()) this.bindLive();
+        }),
+      )
       .subscribe({
         next: (res) => {
-          this.busy.set(false);
           this.sent.set(true);
           this.sentConfirmed.set(
             !!res?.autoAccepted || String(res?.status ?? '').toUpperCase() === 'ACCEPTED',
@@ -840,7 +858,6 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
           this.sentWhen.set(this.formatWhen(this.businessDate, this.reservationTime));
         },
         error: (err: HttpErrorResponse) => {
-          this.busy.set(false);
           const msg =
             (err.error?.message as string | string[] | undefined) ??
             'No se pudo enviar. Probá de nuevo.';

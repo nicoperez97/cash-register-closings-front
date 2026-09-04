@@ -29,8 +29,16 @@ export function toDateString(value: Date | null): string {
   return `${y}-${m}-${day}`;
 }
 
-export function toTimeString(value: Date | null): string | undefined {
-  if (!value || Number.isNaN(value.getTime())) return undefined;
+export function toTimeString(value: Date | string | null | undefined): string | undefined {
+  if (value == null || value === '') return undefined;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (/^\d{1,2}:\d{2}/.test(t)) return t.slice(0, 5);
+    const parsed = new Date(t);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    value = parsed;
+  }
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return undefined;
   const h = String(value.getHours()).padStart(2, '0');
   const m = String(value.getMinutes()).padStart(2, '0');
   return `${h}:${m}`;
