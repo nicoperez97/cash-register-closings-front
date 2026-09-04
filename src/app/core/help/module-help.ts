@@ -555,6 +555,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'read',
         anyOf: ['reservations.read'],
         body: 'Semana o día, adentro y afuera. El tablero de sala y esta agenda se actualizan solos cuando alguien carga o sienta una mesa.',
+        tip: 'Si llega una solicitud web pendiente, suena un aviso distinto al del tablero. Anotar a mano no suena. En /r suena al aparecer una reserva nueva.',
       },
       {
         title: 'Operar',
@@ -563,7 +564,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['reservations.manage'],
         body: 'Creá, editá, sentá o cancelá. Las solicitudes públicas se aceptan o rechazan acá.',
         items: [
-          'Tablero para la sala: /r',
+          'Tablero para la sala: /r (suena al llegar una reserva a la lista).',
           'Formulario para el cliente: /reservar. Si falta un campo obligatorio, te dice cuál.',
           'Consulta de reserva por mail: /mi-reserva (pendiente, confirmada o rechazada con motivo).',
           'Horarios y textos del formulario: Salón → Horarios.',

@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { finalize } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
   ReservationArea,
@@ -14,7 +15,6 @@ import {
   ReservationRow,
   ReservationsApiService,
 } from './reservations-api.service';
-import { ReservationsInboxService } from './reservations-inbox.service';
 import { toTimeString } from './reservation-date.util';
 import { partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
 
@@ -113,7 +113,6 @@ export type ReservationComposeSaved = {
 })
 export class ReservationComposeFormComponent {
   private readonly api = inject(ReservationsApiService);
-  private readonly inbox = inject(ReservationsInboxService);
   private readonly fb = inject(FormBuilder);
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
@@ -206,46 +205,52 @@ export class ReservationComposeFormComponent {
     const area = raw.area ?? 'INSIDE';
     const partySize = Number(raw.partySize);
     this.saving.set(true);
-    this.api
-      .createReservation(shopId, {
-        businessDate: this.businessDate(),
-        guestName: (raw.guestName ?? '').trim(),
-        partySize,
-        area,
-        reservationTime: toTimeString(raw.reservationTime),
-        tableNumber: (raw.tableNumber ?? '').trim() || null,
-      })
-      .subscribe({
-        next: (created) => {
-          const guestName = (raw.guestName ?? '').trim();
-          const reservationTime = toTimeString(raw.reservationTime) ?? null;
-          this.form.patchValue({
-            guestName: '',
-            partySize: Math.min(2, this.partyMax()),
-            area: this.insideOpen() ? 'INSIDE' : 'OUTSIDE',
-            reservationTime: null,
-            tableNumber: '',
-          });
-          this.saving.set(false);
-          this.flashJustSaved();
-          this.inbox.refresh();
-          this.saved.emit({
-            id: created.id,
-            guestName,
-            partySize,
-            area,
-            reservationTime,
-            row: created,
-          });
-          // Mantener el flujo de carga rápida de varias reservas seguidas.
-          requestAnimationFrame(() => this.focusGuestName());
-        },
-        error: (err) => {
-          this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
-        },
-      });
+    try {
+      this.api
+        .createReservation(shopId, {
+          businessDate: this.businessDate(),
+          guestName: (raw.guestName ?? '').trim(),
+          partySize,
+          area,
+          reservationTime: toTimeString(raw.reservationTime as Date | string | null),
+          tableNumber: (raw.tableNumber ?? '').trim() || null,
+        })
+        .pipe(finalize(() => this.saving.set(false)))
+        .subscribe({
+          next: (created) => {
+            const guestName = (raw.guestName ?? '').trim();
+            const reservationTime =
+              toTimeString(raw.reservationTime as Date | string | null) ?? null;
+            this.form.patchValue({
+              guestName: '',
+              partySize: Math.min(2, this.partyMax()),
+              area: this.insideOpen() ? 'INSIDE' : 'OUTSIDE',
+              reservationTime: null,
+              tableNumber: '',
+            });
+            this.flashJustSaved();
+            // El badge se actualiza por SSE; un refresh HTTP acá satura conexiones
+            // (EventSource + GETs) y el próximo POST queda en pending.
+            this.saved.emit({
+              id: created.id,
+              guestName,
+              partySize,
+              area,
+              reservationTime,
+              row: created,
+            });
+            // Mantener el flujo de carga rápida de varias reservas seguidas.
+            requestAnimationFrame(() => this.focusGuestName());
+          },
+          error: (err) => {
+            const msg = err?.error?.message ?? 'No se pudo guardar';
+            this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+          },
+        });
+    } catch {
+      this.saving.set(false);
+      this.snack.open('No se pudo guardar', 'OK', { duration: 3500 });
+    }
   }
 
   focusGuestName(): void {

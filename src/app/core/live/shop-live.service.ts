@@ -7,6 +7,7 @@ import {
   distinctUntilChanged,
   filter,
   map,
+  share,
   switchMap,
 } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -16,16 +17,21 @@ export type ShopLiveDomain = 'reservations' | 'waiting' | 'attendance' | 'inbox'
 
 export type ShopLiveTick = { domain: ShopLiveDomain | 'hello'; at: number };
 
+/**
+ * Una sola EventSource por URL. Varios watch()/connect() al mismo slug
+ * reutilizan el socket (HTTP/1.1 solo admite ~6 conexiones por host).
+ */
 @Injectable({ providedIn: 'root' })
 export class ShopLiveClient {
   private readonly auth = inject(AuthService);
+  private readonly sharedStreams = new Map<string, Observable<ShopLiveTick>>();
 
   /** Salón / presentismo públicos (por slug). */
   connect(slug: string): Observable<ShopLiveTick> {
     const key = String(slug ?? '').trim();
     if (!key) return EMPTY;
     const url = `${environment.apiUrl}/public/shops/${encodeURIComponent(key)}/live`;
-    return this.openEventSource(url);
+    return this.shared(url);
   }
 
   /** Badges autenticados (JWT en query; EventSource no manda Authorization). */
@@ -34,7 +40,7 @@ export class ShopLiveClient {
     const token = this.auth.getToken();
     if (!id || !token) return EMPTY;
     const url = `${environment.apiUrl}/shops/${encodeURIComponent(id)}/live?access_token=${encodeURIComponent(token)}`;
-    return this.openEventSource(url);
+    return this.shared(url);
   }
 
   watch(
@@ -59,6 +65,15 @@ export class ShopLiveClient {
       filter((tick) => tick.domain === 'inbox'),
       debounceTime(200),
     );
+  }
+
+  private shared(url: string): Observable<ShopLiveTick> {
+    let stream = this.sharedStreams.get(url);
+    if (!stream) {
+      stream = this.openEventSource(url).pipe(share({ resetOnRefCountZero: true }));
+      this.sharedStreams.set(url, stream);
+    }
+    return stream;
   }
 
   private openEventSource(url: string): Observable<ShopLiveTick> {
