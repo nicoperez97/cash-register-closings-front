@@ -37,7 +37,7 @@ import {
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { AdminAccountRow } from './admin-account-dialog';
+import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
 import {
   CONCEPT_CATEGORY_OPTIONS,
   DEFAULT_PAYMENT_CONCEPT_CATEGORIES,
@@ -703,6 +703,40 @@ export class AdminShopPage implements OnInit {
   onClosingSourceKindChange(index: number): void {
     if (this.sourceNeedsAccount(index)) return;
     this.closingSources.at(index)?.patchValue({ accountId: null });
+  }
+
+  openCreateDestinationAccount(index: number): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canManageAccounts()) return;
+    const suggestedName = String(this.closingSources.at(index)?.get('name')?.value ?? '').trim();
+    this.dialogTitle
+      .track(
+        this.dialog.open(AdminAccountDialogComponent, {
+          width: '520px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            mode: 'create' as const,
+            shopId,
+            defaultType: 'CHANNEL' as const,
+            ...(suggestedName ? { suggestedName } : {}),
+          },
+        }),
+        'Nueva cuenta',
+      )
+      .afterClosed()
+      .subscribe((saved) => {
+        if (!saved || typeof saved !== 'object' || !saved.id) {
+          this.reloadAccounts();
+          return;
+        }
+        this.allLedgerAccounts.update((rows) => {
+          if (rows.some((a) => a.id === saved.id)) return rows;
+          return [...rows, saved].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        });
+        this.closingSources.at(index)?.patchValue({ accountId: saved.id });
+        this.reloadAccounts();
+      });
   }
 
   async saveClosingSources(): Promise<void> {

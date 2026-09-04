@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,12 +12,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, startWith } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
 import { takeInputFile } from '../../shared/utils/input-file';
 import {
+  AccountBalancesResponse,
   Concept,
   EXPENSE_PAYMENT_METHOD_OPTIONS,
   ExpensePaymentMethod,
@@ -41,6 +43,13 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber } from '../../shared/utils/money';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
+
+function formatBalance(value: number): string {
+  return `$${Number(value ?? 0).toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 export interface MovementEmployeeOption {
   id: string;
@@ -165,6 +174,11 @@ function toDateString(value: Date | null): string {
                 panelClass="guy-select-search-panel"
                 (openedChange)="onSelectSearchOpened($event, fromQuery)"
               >
+                <mat-select-trigger>
+                  @if (selectedFromAccount(); as selected) {
+                    {{ accountLabel(selected) }}
+                  }
+                </mat-select-trigger>
                 <mat-option disabled class="select-search-opt">
                   <app-select-search [(query)]="fromQuery" placeholder="Buscar cuenta…" />
                 </mat-option>
@@ -174,14 +188,14 @@ function toDateString(value: Date | null): string {
                 @if (filteredLocalFrom().length) {
                   <mat-optgroup [label]="isTransfer ? 'Cajas y canales' : 'Local'">
                     @for (a of filteredLocalFrom(); track a.id) {
-                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                      <mat-option [value]="a.id">{{ fromAccountOptionLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
                 @if (filteredOtherFrom().length) {
                   <mat-optgroup [label]="isTransfer ? 'Socios y otras' : 'Otras cuentas'">
                     @for (a of filteredOtherFrom(); track a.id) {
-                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                      <mat-option [value]="a.id">{{ fromAccountOptionLabel(a) }}</mat-option>
                     }
                   </mat-optgroup>
                 }
@@ -189,6 +203,9 @@ function toDateString(value: Date | null): string {
                   <mat-option disabled>Sin resultados</mat-option>
                 }
               </mat-select>
+              @if (fromAccountBalanceLabel(); as disponible) {
+                <mat-hint>Disponible {{ disponible }}</mat-hint>
+              }
             </mat-form-field>
           </section>
 
@@ -750,6 +767,9 @@ export class MovementDialogComponent implements OnInit {
   readonly concepts = signal<Concept[]>([...(this.data.concepts ?? [])]);
   readonly employees = signal<MovementEmployeeOption[]>([...(this.data.employees ?? [])]);
   readonly users = signal<MovementUserOption[]>([...(this.data.users ?? [])]);
+  /** accountId → saldo actual; vacío si no se pudo cargar. */
+  readonly accountBalances = signal<Record<string, number>>({});
+  readonly balancesLoaded = signal(false);
 
   private defaultBusinessDate(): string {
     const shop = this.shops.selectedShop();
@@ -833,14 +853,18 @@ export class MovementDialogComponent implements OnInit {
         : { kind: 'EXPENSE' as const };
     forkJoin({
       accounts: this.api.accounts(shopId).pipe(catchError(() => of(null))),
+      balances: this.api.balances(shopId).pipe(
+        catchError(() => of(null as AccountBalancesResponse | null)),
+      ),
       concepts: conceptOpts
         ? this.api.concepts(shopId, conceptOpts).pipe(catchError(() => of(null)))
         : of([] as Concept[]),
       employees: this.employeesApi.list(shopId).pipe(catchError(() => of(null))),
       users: this.closingsApi.shopUsers(shopId).pipe(catchError(() => of(null))),
     }).subscribe({
-      next: ({ accounts, concepts, employees, users }) => {
+      next: ({ accounts, balances, concepts, employees, users }) => {
         this.loadingLists.set(false);
+        this.applyBalances(balances);
         if (!accounts || concepts === null || !employees || !users) {
           this.listsFailed.set(true);
           if (accounts) this.accounts.set(accounts);
@@ -887,8 +911,23 @@ export class MovementDialogComponent implements OnInit {
       error: () => {
         this.loadingLists.set(false);
         this.listsFailed.set(true);
+        this.applyBalances(null);
       },
     });
+  }
+
+  private applyBalances(balances: AccountBalancesResponse | null): void {
+    if (!balances?.accounts?.length) {
+      this.accountBalances.set({});
+      this.balancesLoaded.set(false);
+      return;
+    }
+    const map: Record<string, number> = {};
+    for (const row of balances.accounts) {
+      map[row.accountId] = Number(row.balance ?? 0);
+    }
+    this.accountBalances.set(map);
+    this.balancesLoaded.set(true);
   }
 
   private mergeEditConcept(list: Concept[]): Concept[] {
@@ -945,6 +984,27 @@ export class MovementDialogComponent implements OnInit {
   readonly conceptQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
 
+  private readonly fromAccountIdValue = toSignal(
+    this.form.controls.fromAccountId.valueChanges.pipe(
+      startWith(this.form.controls.fromAccountId.value),
+    ),
+    { initialValue: this.form.controls.fromAccountId.value },
+  );
+
+  readonly fromAccountBalanceLabel = computed(() => {
+    const id = this.fromAccountIdValue();
+    if (!id || !this.balancesLoaded()) return null;
+    const bal = this.accountBalances()[id];
+    if (bal === undefined) return null;
+    return formatBalance(bal);
+  });
+
+  readonly selectedFromAccount = computed(() => {
+    const id = this.fromAccountIdValue();
+    if (!id) return null;
+    return this.accounts().find((a) => a.id === id) ?? null;
+  });
+
   readonly filteredConcepts = computed(() =>
     filterBySelectQuery(
       this.concepts(),
@@ -958,16 +1018,16 @@ export class MovementDialogComponent implements OnInit {
     filterBySelectQuery(
       this.localAccounts(),
       this.fromQuery(),
-      (a) => this.accountLabel(a),
-      this.form.controls.fromAccountId.value,
+      (a) => this.fromAccountOptionLabel(a),
+      this.fromAccountIdValue(),
     ),
   );
   readonly filteredOtherFrom = computed(() =>
     filterBySelectQuery(
       this.otherAccounts(),
       this.fromQuery(),
-      (a) => this.accountLabel(a),
-      this.form.controls.fromAccountId.value,
+      (a) => this.fromAccountOptionLabel(a),
+      this.fromAccountIdValue(),
     ),
   );
   readonly filteredLocalTo = computed(() =>
@@ -998,6 +1058,14 @@ export class MovementDialogComponent implements OnInit {
       if (linked?.fullName) names.push(linked.fullName);
     }
     return names.length ? `${account.name} · ${names.join(', ')}` : account.name;
+  }
+
+  fromAccountOptionLabel(account: LedgerAccount): string {
+    const base = this.accountLabel(account);
+    if (!this.balancesLoaded()) return base;
+    const bal = this.accountBalances()[account.id];
+    if (bal === undefined) return base;
+    return `${base} · ${formatBalance(bal)}`;
   }
 
   save(): void {

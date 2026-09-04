@@ -58,10 +58,22 @@ export type AdminAccountDialogData = {
   shopId?: string;
   /** Prefijo de tipo al crear (ej. CHANNEL desde config del local). */
   defaultType?: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
+  /** Nombre sugerido al crear (ej. desde una fuente de cuentas aparte). */
+  suggestedName?: string;
 } & (
   | { mode: 'create' }
   | { mode: 'edit'; account: AdminAccountRow }
 );
+
+function suggestAccountCode(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 24);
+}
 
 interface UserOption {
   id: string;
@@ -217,7 +229,7 @@ interface UserOption {
 })
 export class AdminAccountDialogComponent implements OnInit {
   readonly data = inject<{ shopId: string } & AdminAccountDialogData>(MAT_DIALOG_DATA);
-  readonly ref = inject(MatDialogRef<AdminAccountDialogComponent, boolean>);
+  readonly ref = inject(MatDialogRef<AdminAccountDialogComponent, AdminAccountRow | boolean>);
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
@@ -238,9 +250,19 @@ export class AdminAccountDialogComponent implements OnInit {
     return [];
   }
 
+  private initialCreateName(): string {
+    if (this.isEdit) return this.account?.name ?? '';
+    return String(this.data.suggestedName ?? '').trim();
+  }
+
+  private initialCreateCode(): string {
+    if (this.isEdit) return this.account?.code ?? '';
+    return suggestAccountCode(this.initialCreateName());
+  }
+
   readonly form = this.fb.nonNullable.group({
-    name: [this.account?.name ?? '', Validators.required],
-    code: [this.account?.code ?? '', Validators.required],
+    name: [this.initialCreateName(), Validators.required],
+    code: [this.initialCreateCode(), Validators.required],
     type: [
       this.account?.type ?? this.data.defaultType ?? 'PARTNER',
       Validators.required,
@@ -293,14 +315,17 @@ export class AdminAccountDialogComponent implements OnInit {
 
     const req =
       this.isEdit && this.account
-        ? this.http.patch(`${environment.apiUrl}/shops/${shopId}/accounts/${this.account.id}`, body)
-        : this.http.post(`${environment.apiUrl}/shops/${shopId}/accounts`, body);
+        ? this.http.patch<AdminAccountRow>(
+            `${environment.apiUrl}/shops/${shopId}/accounts/${this.account.id}`,
+            body,
+          )
+        : this.http.post<AdminAccountRow>(`${environment.apiUrl}/shops/${shopId}/accounts`, body);
 
     req.subscribe({
-      next: () => {
+      next: (saved) => {
         this.busy.set(false);
         this.snack.open(this.isEdit ? 'Cuenta actualizada' : 'Cuenta creada', 'OK', { duration: 2500 });
-        this.ref.close(true);
+        this.ref.close(saved);
       },
       error: (err) => {
         this.busy.set(false);

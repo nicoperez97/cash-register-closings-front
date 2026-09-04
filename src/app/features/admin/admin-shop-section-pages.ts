@@ -152,6 +152,7 @@ export class AdminShopOperacionPage {
         [posnetTypes]="host.posnetTypes"
         [closingSourceKinds]="host.closingSourceKinds"
         [sourceSaving]="host.sourceSaving()"
+        [canManageAccounts]="host.canManageAccounts()"
         [(accountSearchQuery)]="host.accountSearchQuery"
         [sourceNeedsAccount]="host.sourceNeedsAccountBound"
         [filteredSourceAccounts]="host.filteredSourceAccountsBound"
@@ -161,6 +162,7 @@ export class AdminShopOperacionPage {
         (removeClosingSource)="host.removeClosingSource($event)"
         (closingSourceKindChange)="host.onClosingSourceKindChange($event)"
         (saveClosingSources)="host.saveClosingSources()"
+        (createDestinationAccount)="host.openCreateDestinationAccount($event)"
         (selectOpened)="host.onSelectSearchOpened($event, host.accountSearchQuery)"
       />
     </div>
