@@ -1,12 +1,13 @@
 import {
   Component,
+  DestroyRef,
   OnInit,
   computed,
-  effect,
   forwardRef,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,8 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { filter, firstValueFrom, map, startWith } from 'rxjs';
+import { catchError, filter, firstValueFrom, map, of, startWith, switchMap } from 'rxjs';
 import {
   filterBySelectQuery,
   onSelectSearchOpened,
@@ -170,6 +170,11 @@ export class AdminShopPage implements OnInit {
   readonly toolbarConfigDraft = signal<ShopToolbarConfig | null>(null);
   readonly closingSourceKinds = CLOSING_SOURCE_KIND_OPTIONS;
   private removedClosingSourceIds: string[] = [];
+  private readonly destroyRef = inject(DestroyRef);
+  /** Fuerza un nuevo GET de fuentes (reintento / pull-to-refresh / post-guardado). */
+  private readonly sourcesReloadTick = signal(0);
+  readonly sourcesLoading = signal(false);
+  readonly sourcesLoadFailed = signal(false);
 
   readonly accountSearchQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
@@ -344,17 +349,56 @@ export class AdminShopPage implements OnInit {
   );
 
   constructor() {
-    usePageRefresh(() => this.reloadAccounts());
-    effect(() => {
-      const shopId = this.shops.selectedShopId();
-      if (!shopId) {
-        this.allLedgerAccounts.set([]);
-        this.closingSources.clear();
-        return;
-      }
+    usePageRefresh(() => {
       this.reloadAccounts();
       this.reloadClosingSources();
     });
+
+    toObservable(
+      computed(() => ({
+        shopId: this.shops.selectedShopId(),
+        tick: this.sourcesReloadTick(),
+      })),
+    )
+      .pipe(
+        switchMap(({ shopId }) => {
+          if (!shopId) {
+            this.allLedgerAccounts.set([]);
+            return of({
+              shopId: null as string | null,
+              rows: null as ShopClosingSource[] | null,
+              failed: false,
+            });
+          }
+          this.reloadAccounts();
+          this.sourcesLoading.set(true);
+          this.sourcesLoadFailed.set(false);
+          return this.api.listClosingSources(shopId).pipe(
+            map((rows) => ({ shopId, rows, failed: false as const })),
+            catchError(() =>
+              of({
+                shopId,
+                rows: null as ShopClosingSource[] | null,
+                failed: true as const,
+              }),
+            ),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((result) => {
+        if (!result.shopId) return;
+        if (this.shops.selectedShopId() !== result.shopId) return;
+        this.sourcesLoading.set(false);
+        if (result.failed) {
+          this.sourcesLoadFailed.set(true);
+          // No vaciar: un error viejo no debe tapar fuentes que ya se veían.
+          this.snack.open('No se pudieron cargar las fuentes extra', 'OK', { duration: 3000 });
+          return;
+        }
+        this.sourcesLoadFailed.set(false);
+        this.setClosingSources(result.rows ?? []);
+      });
   }
 
   ngOnInit(): void {
@@ -662,15 +706,7 @@ export class AdminShopPage implements OnInit {
   }
 
   reloadClosingSources(): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.api.listClosingSources(shopId).subscribe({
-      next: (rows) => this.setClosingSources(rows),
-      error: () => {
-        this.setClosingSources([]);
-        this.snack.open('No se pudieron cargar las fuentes extra', 'OK', { duration: 3000 });
-      },
-    });
+    this.sourcesReloadTick.update((n) => n + 1);
   }
 
   addClosingSource(): void {

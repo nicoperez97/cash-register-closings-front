@@ -525,6 +525,12 @@
         flex-direction: column;
         gap: 0.7rem;
       }
+      .shop-admin__sources-empty-error {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.65rem;
+      }
       .shop-admin__source-row {
         display: grid;
         grid-template-columns: 1.2fr 1.6fr minmax(10rem, 1.2fr) auto auto;
