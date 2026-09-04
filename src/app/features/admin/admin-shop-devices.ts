@@ -177,9 +177,21 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
             </button>
           </div>
         } @empty {
-          <p class="text-muted small mb-0">
-            Sin fuentes extra. El cierre usa solo PVS, efectivo, MP, DNI, delivery y transferencia.
-          </p>
+          @if (sourcesLoading()) {
+            <p class="text-muted small mb-0">Cargando fuentes…</p>
+          } @else if (sourcesLoadFailed()) {
+            <div class="shop-admin__sources-empty-error">
+              <p class="text-muted small mb-0">No se pudieron cargar las fuentes extra.</p>
+              <button mat-stroked-button type="button" (click)="reloadClosingSources.emit()">
+                <mat-icon>refresh</mat-icon>
+                Reintentar
+              </button>
+            </div>
+          } @else {
+            <p class="text-muted small mb-0">
+              Sin fuentes extra. El cierre usa solo PVS, efectivo, MP, DNI, delivery y transferencia.
+            </p>
+          }
         }
       </div>
     </section>
@@ -194,6 +206,8 @@ export class AdminShopDevicesComponent {
   readonly closingSourceKinds = input<readonly AdminShopClosingSourceKindOption[]>([]);
   readonly sourceSaving = input(false);
   readonly canManageAccounts = input(false);
+  readonly sourcesLoading = input(false);
+  readonly sourcesLoadFailed = input(false);
   readonly accountSearchQuery = model('');
   readonly sourceNeedsAccount = input<(index: number) => boolean>(() => false);
   readonly filteredSourceAccounts = input<(keepId?: string | null) => AdminShopAccountOption[]>(
@@ -206,6 +220,7 @@ export class AdminShopDevicesComponent {
   readonly removeClosingSource = output<number>();
   readonly closingSourceKindChange = output<number>();
   readonly saveClosingSources = output<void>();
+  readonly reloadClosingSources = output<void>();
   readonly selectOpened = output<boolean>();
   readonly createDestinationAccount = output<number>();
 

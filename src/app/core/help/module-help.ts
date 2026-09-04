@@ -1049,7 +1049,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Identidad: nombre, mails, logo y colores.',
           'Operación: turnos de caja (también dan la entrada/retirada de presentismo), multiplicador de feriado (liquidación), producción, POS, conceptos en pagos, módulos públicos y francos.',
-          'Dispositivos: posnets y cuentas aparte (Pedidos Ya, etc.). En Cuenta destino podés elegir una cuenta o crear una nueva sin salir de la pantalla.',
+          'Dispositivos: posnets y cuentas aparte (Pedidos Ya, etc.). En Cuenta destino podés elegir una cuenta o crear una nueva sin salir de la pantalla. Si las fuentes no aparecen, usá Reintentar.',
           'Menú: grupos y módulos del menú lateral; abajo, Accesos rápidos de la barra (arrastrar, ocultar y agregar atajos).',
           'Avanzado: activar/desactivar el local y dump (super admin).',
           'Cuentas canal y depósitos: Administración → Cuentas.',

@@ -683,8 +683,13 @@ export class ClosingsFormPage implements OnInit {
           this.syncSourceAmounts();
         },
         error: () => {
-          this.catalogSources = [];
-          this.syncSourceAmounts();
+          this.snack.open('No se pudieron cargar las cuentas aparte', 'OK', {
+            duration: 3000,
+          });
+          if (!this.catalogSources.length) {
+            this.catalogSources = [];
+            this.syncSourceAmounts();
+          }
         },
       });
       this.http
