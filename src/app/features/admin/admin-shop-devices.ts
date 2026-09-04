@@ -30,6 +30,8 @@ export interface AdminShopAccountOption {
   name: string;
 }
 
+export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
+
 @Component({
   selector: 'app-admin-shop-devices',
   imports: [
@@ -96,8 +98,8 @@ export interface AdminShopAccountOption {
       <div class="shop-admin__posnets-head">
         <p class="text-muted small mb-0">
           Fuentes que no deben sumar al total declarado (Pedidos Ya, delivery propio, etc.). Si
-          rinden después o van a una cuenta, elegí el destino. Guardá con el botón de esta sección
-          (es aparte del Guardar cambios del pie).
+          rinden después o van a una cuenta, elegí el destino (o creá una cuenta nueva desde el
+          selector). Guardá con el botón de esta sección (es aparte del Guardar cambios del pie).
         </p>
         <div class="shop-admin__source-actions">
           <button mat-stroked-button type="button" (click)="addClosingSource.emit()">
@@ -140,10 +142,14 @@ export interface AdminShopAccountOption {
                   formControlName="accountId"
                   panelClass="guy-select-search-panel"
                   (openedChange)="selectOpened.emit($event)"
+                  (selectionChange)="onDestinationPicked(i, $event.value)"
                 >
                   <mat-option disabled class="select-search-opt">
                     <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
                   </mat-option>
+                  @if (canManageAccounts()) {
+                    <mat-option [value]="createAccountValue">+ Nueva cuenta…</mat-option>
+                  }
                   <mat-option [value]="null">Elegí una cuenta</mat-option>
                   @for (a of filteredSourceAccounts()(accountIdOf(row)); track a.id) {
                     <mat-option [value]="a.id">{{ a.name }}</mat-option>
@@ -183,9 +189,11 @@ export interface AdminShopAccountOption {
 export class AdminShopDevicesComponent {
   private readonly host = inject(ADMIN_SHOP_HOST);
 
+  readonly createAccountValue = CREATE_DESTINATION_ACCOUNT_VALUE;
   readonly posnetTypes = input<readonly AdminShopPosnetTypeOption[]>([]);
   readonly closingSourceKinds = input<readonly AdminShopClosingSourceKindOption[]>([]);
   readonly sourceSaving = input(false);
+  readonly canManageAccounts = input(false);
   readonly accountSearchQuery = model('');
   readonly sourceNeedsAccount = input<(index: number) => boolean>(() => false);
   readonly filteredSourceAccounts = input<(keepId?: string | null) => AdminShopAccountOption[]>(
@@ -199,6 +207,7 @@ export class AdminShopDevicesComponent {
   readonly closingSourceKindChange = output<number>();
   readonly saveClosingSources = output<void>();
   readonly selectOpened = output<boolean>();
+  readonly createDestinationAccount = output<number>();
 
   get posnets(): FormArray {
     return this.host.form.get('posnets') as FormArray;
@@ -211,5 +220,11 @@ export class AdminShopDevicesComponent {
   accountIdOf(row: AbstractControl): string | null {
     const v = row.get('accountId')?.value;
     return v == null || v === '' ? null : String(v);
+  }
+
+  onDestinationPicked(index: number, value: string | null): void {
+    if (value !== CREATE_DESTINATION_ACCOUNT_VALUE) return;
+    this.closingSources.at(index)?.patchValue({ accountId: null }, { emitEvent: false });
+    this.createDestinationAccount.emit(index);
   }
 }
