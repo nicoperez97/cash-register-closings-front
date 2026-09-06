@@ -20,7 +20,7 @@ export interface AdminAccountRow {
   id: string;
   name: string;
   code: string;
-  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
+  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE' | 'DIVIDENDS';
   linkedPaymentMethod?: string | null;
   userIds?: string[];
   userId?: string | null;
@@ -32,6 +32,7 @@ export interface AdminAccountRow {
   listInTransfers?: boolean;
   openingBalance?: number | string | null;
   commissionPercent?: number | string | null;
+  ownershipPercent?: number | string | null;
 }
 
 export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string }> = [
@@ -132,7 +133,7 @@ interface UserOption {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Tipo</mat-label>
           <mat-icon matPrefix>category</mat-icon>
-          <mat-select formControlName="type" [disabled]="isSystem">
+          <mat-select formControlName="type" [disabled]="isLockedType">
             @for (opt of typeOptions; track opt.value) {
               <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
             }
@@ -169,12 +170,23 @@ interface UserOption {
           </mat-form-field>
         }
 
-        @if (form.controls.type.value !== 'SYSTEM') {
+        @if (form.controls.type.value !== 'SYSTEM' && form.controls.type.value !== 'DIVIDENDS') {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Comisión %</mat-label>
             <input matInput type="number" min="0" max="100" step="0.01" formControlName="commissionPercent" />
             <mat-hint>En Saldos el número grande ya tiene este % descontado. Dejá 0 si no hay comisión.</mat-hint>
             @if (form.controls.commissionPercent.touched && form.controls.commissionPercent.invalid) {
+              <mat-error>Ingresá un número entre 0 y 100</mat-error>
+            }
+          </mat-form-field>
+        }
+
+        @if (form.controls.type.value === 'PARTNER') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>% de división</mat-label>
+            <input matInput type="number" min="0" max="100" step="0.01" formControlName="ownershipPercent" />
+            <mat-hint>Parte de este socio al equilibrar en Divisiones. No es la comisión de saldos.</mat-hint>
+            @if (form.controls.ownershipPercent.touched && form.controls.ownershipPercent.invalid) {
               <mat-error>Ingresá un número entre 0 y 100</mat-error>
             }
           </mat-form-field>
@@ -248,11 +260,18 @@ export class AdminAccountDialogComponent implements OnInit {
   private readonly auth = inject(AuthService);
   readonly canConfigureOpeningBalances = canConfigureShopOpeningBalances(this.auth.currentUser());
 
-  readonly typeOptions = ACCOUNT_TYPE_OPTIONS;
   readonly paymentOptions = LINKED_PAYMENT_METHOD_OPTIONS;
   readonly isEdit = this.data.mode === 'edit';
   private readonly account = this.data.mode === 'edit' ? this.data.account : null;
-  readonly isSystem = this.account?.type === 'SYSTEM';
+  readonly typeOptions =
+    this.account?.type === 'DIVIDENDS'
+      ? [
+          ...ACCOUNT_TYPE_OPTIONS,
+          { value: 'DIVIDENDS' as const, label: accountTypeLabel('DIVIDENDS') },
+        ]
+      : ACCOUNT_TYPE_OPTIONS;
+  readonly isLockedType =
+    this.account?.type === 'SYSTEM' || this.account?.type === 'DIVIDENDS';
   readonly busy = signal(false);
   readonly users = signal<UserOption[]>([]);
 
@@ -288,6 +307,10 @@ export class AdminAccountDialogComponent implements OnInit {
     openingBalance: [Number(this.account?.openingBalance ?? 0)],
     commissionPercent: [
       Number(this.account?.commissionPercent ?? 0),
+      [Validators.min(0), Validators.max(100)],
+    ],
+    ownershipPercent: [
+      Number(this.account?.ownershipPercent ?? 0),
       [Validators.min(0), Validators.max(100)],
     ],
     active: [this.account?.active ?? true],
@@ -326,7 +349,8 @@ export class AdminAccountDialogComponent implements OnInit {
         ? { openingBalance: Number(raw.openingBalance ?? 0) }
         : {}),
       commissionPercent:
-        raw.type === 'SYSTEM' ? 0 : Number(raw.commissionPercent ?? 0),
+        raw.type === 'SYSTEM' || raw.type === 'DIVIDENDS' ? 0 : Number(raw.commissionPercent ?? 0),
+      ownershipPercent: raw.type === 'PARTNER' ? Number(raw.ownershipPercent ?? 0) : 0,
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);

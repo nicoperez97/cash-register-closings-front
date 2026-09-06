@@ -65,7 +65,7 @@ export interface LedgerAccount {
   shopId: string;
   name: string;
   code: string;
-  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE';
+  type: 'PARTNER' | 'CHANNEL' | 'SYSTEM' | 'SUPPLIER' | 'SERVICE' | 'DIVIDENDS';
   linkedPaymentMethod?: string | null;
   userIds?: string[];
   active: boolean;
@@ -176,9 +176,30 @@ export class MovementsApiService {
 
   create(
     shopId: string,
-    body: Partial<Movement> & { notifyAdmins?: boolean; kind?: MovementKind },
+    body: Partial<Movement> & {
+      notifyAdmins?: boolean;
+      kind?: MovementKind;
+      isDividend?: boolean;
+      beneficiaryAccountId?: string | null;
+    },
   ) {
     return this.http.post<Movement>(`${this.base}/shops/${shopId}/movements`, body);
+  }
+
+  sendToDividends(
+    shopId: string,
+    body: {
+      fromAccountId: string;
+      amountUyu: number;
+      businessDate: string;
+      description?: string | null;
+      beneficiaryAccountId?: string | null;
+    },
+  ) {
+    return this.http.post<Movement>(
+      `${this.base}/shops/${shopId}/movements/send-to-dividends`,
+      body,
+    );
   }
 
   update(

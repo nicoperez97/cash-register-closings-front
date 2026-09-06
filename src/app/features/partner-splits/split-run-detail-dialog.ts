@@ -4,12 +4,15 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import type {
+  EqualizePreview,
   PartnerSplitPreview,
   PartnerSplitRow,
   PartnerSplitRun,
 } from './partner-splits-api.service';
 
-export type SplitRunSnapshot = PartnerSplitPreview & {
+export type SplitRunSnapshot = (PartnerSplitPreview | EqualizePreview) & {
+  kind?: 'equalize' | 'split';
+  amount?: number;
   createdIds?: string[];
   createdMovementIds?: string[];
   createdPaymentIds?: string[];
@@ -64,7 +67,7 @@ function actionLabel(difference: number): string {
         <mat-icon>receipt_long</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>División aplicada</strong>
+        <strong>{{ isEqualize ? 'Equilibrado aplicado' : 'División aplicada' }}</strong>
         <span>
           {{ run.appliedAt | date: 'dd/MM/yyyy HH:mm' }}
           · {{ run.appliedByName || '—' }}
@@ -74,61 +77,94 @@ function actionLabel(difference: number): string {
 
     <mat-dialog-content>
       @if (snap; as s) {
-        <div class="kpis">
-          <div>
-            <span>A repartir</span>
-            <strong>{{ money(s.totals.toDistribute) }}</strong>
+        @if (isEqualize) {
+          <div class="kpis">
+            <div>
+              <span>Monto</span>
+              <strong>{{ money(equalizeAmount) }}</strong>
+            </div>
+            <div>
+              <span>Pagos</span>
+              <strong>{{ generatedLabel }}</strong>
+            </div>
+            <div>
+              <span>Movido</span>
+              <strong>{{ money(run.distributedAmount) }}</strong>
+            </div>
           </div>
-          <div>
-            <span>Parte</span>
-            <strong>{{ money(s.totals.share) }}</strong>
-          </div>
-          <div>
-            <span>Generado</span>
-            <strong>{{ generatedLabel }}</strong>
-          </div>
-        </div>
 
-        <section>
-          <h3>Socios</h3>
-          <div class="rows">
-            @for (row of s.partners; track row.accountId) {
-              <article class="row">
-                <strong>{{ row.name }}</strong>
-                <span>Saldo {{ money(row.current) }} · Dejar {{ money(row.leaveAmount ?? 0) }}</span>
-                <span>Se queda {{ money(row.target) }} · {{ actionLabel(row.difference) }}</span>
-              </article>
-            }
-          </div>
-        </section>
-
-        @if (channels.length) {
           <section>
-            <h3>Canales</h3>
+            <h3>Socios</h3>
             <div class="rows">
-              @for (row of channels; track row.accountId) {
+              @for (row of s.partners; track row.accountId) {
                 <article class="row">
                   <strong>{{ row.name }}</strong>
-                  <span>Saldo {{ money(row.current) }} · Dejar {{ money(row.leaveAmount ?? 0) }}</span>
+                  <span
+                    >{{ ownershipOf(row) }}% · Saldo {{ money(row.current) }} · Objetivo
+                    {{ money(row.target) }}</span
+                  >
+                  <span>{{ actionLabel(row.difference) }}</span>
+                </article>
+              }
+            </div>
+          </section>
+        } @else {
+          <div class="kpis">
+            <div>
+              <span>A repartir</span>
+              <strong>{{ money(splitTotals(s).toDistribute) }}</strong>
+            </div>
+            <div>
+              <span>Parte</span>
+              <strong>{{ money(splitTotals(s).share) }}</strong>
+            </div>
+            <div>
+              <span>Generado</span>
+              <strong>{{ generatedLabel }}</strong>
+            </div>
+          </div>
+
+          <section>
+            <h3>Socios</h3>
+            <div class="rows">
+              @for (row of s.partners; track row.accountId) {
+                <article class="row">
+                  <strong>{{ row.name }}</strong>
+                  <span>Saldo {{ money(row.current) }} · Dejar {{ money($any(row).leaveAmount ?? 0) }}</span>
                   <span>Se queda {{ money(row.target) }} · {{ actionLabel(row.difference) }}</span>
                 </article>
               }
             </div>
           </section>
-        }
 
-        @if (extras.length) {
-          <section>
-            <h3>Extras</h3>
-            <div class="rows">
-              @for (e of extras; track e.id) {
-                <article class="row">
-                  <strong>{{ e.label.trim() || 'Extra' }}</strong>
-                  <span>{{ money(e.amount) }}</span>
-                </article>
-              }
-            </div>
-          </section>
+          @if (channels.length) {
+            <section>
+              <h3>Canales</h3>
+              <div class="rows">
+                @for (row of channels; track row.accountId) {
+                  <article class="row">
+                    <strong>{{ row.name }}</strong>
+                    <span>Saldo {{ money(row.current) }} · Dejar {{ money($any(row).leaveAmount ?? 0) }}</span>
+                    <span>Se queda {{ money(row.target) }} · {{ actionLabel(row.difference) }}</span>
+                  </article>
+                }
+              </div>
+            </section>
+          }
+
+          @if (extras.length) {
+            <section>
+              <h3>Extras</h3>
+              <div class="rows">
+                @for (e of extras; track e.id) {
+                  <article class="row">
+                    <strong>{{ e.label.trim() || 'Extra' }}</strong>
+                    <span>{{ money(e.amount) }}</span>
+                  </article>
+                }
+              </div>
+            </section>
+          }
         }
 
         <section>
@@ -220,15 +256,40 @@ export class SplitRunDetailDialogComponent {
   readonly data = inject<SplitRunDetailDialogData>(MAT_DIALOG_DATA);
   readonly run = this.data.run;
   readonly snap = this.run.snapshot as SplitRunSnapshot | undefined;
+  readonly isEqualize =
+    this.run.kind === 'equalize' || this.snap?.kind === 'equalize';
+  readonly equalizeAmount = Number(
+    (this.snap as EqualizePreview | undefined)?.amount ??
+      (this.snap as { amount?: number } | undefined)?.amount ??
+      0,
+  );
   readonly money = money;
   readonly actionLabel = actionLabel;
 
-  readonly channels = (this.snap?.channels ?? []).filter(moved);
-  readonly extras = (this.snap?.extras ?? []).filter(
-    (e) => e.label.trim() || Number(e.amount),
-  );
+  readonly channels = (
+    (this.snap && 'channels' in this.snap ? this.snap.channels : []) ?? []
+  ).filter(moved);
+  readonly extras = (
+    (this.snap && 'extras' in this.snap ? this.snap.extras : []) ?? []
+  ).filter((e) => e.label.trim() || Number(e.amount));
   readonly transfers = this.buildTransfers();
   readonly generatedLabel = this.buildGeneratedLabel();
+
+  ownershipOf(row: PartnerSplitRow): string {
+    const pct = Number(row.ownershipPercent ?? 0);
+    return pct.toLocaleString('es-AR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  splitTotals(s: SplitRunSnapshot): { toDistribute: number; share: number } {
+    if ('toDistribute' in (s.totals ?? {})) {
+      const t = s.totals as PartnerSplitPreview['totals'];
+      return { toDistribute: t.toDistribute, share: t.share };
+    }
+    return { toDistribute: 0, share: 0 };
+  }
 
   private buildGeneratedLabel(): string {
     const s = this.snap;
@@ -243,6 +304,9 @@ export class SplitRunDetailDialogComponent {
   private buildTransfers() {
     const s = this.snap;
     if (!s) return [];
+    if (this.isEqualize) {
+      return (s.transfers ?? []).map((t) => ({ ...t, kind: 'Pago' }));
+    }
     const partnerIds = new Set((s.partners ?? []).map((p) => p.accountId));
     const transferKey = (from?: string, to?: string) => `${from ?? ''}|${to ?? ''}`;
     const actionBy = new Map(

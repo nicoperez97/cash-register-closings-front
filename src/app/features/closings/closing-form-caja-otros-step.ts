@@ -283,11 +283,7 @@ export class ClosingFormCajaOtrosStepComponent {
   }
 
   showCobrosFiles(): boolean {
-    return showClosingStepFiles(
-      this.requireClosingFiles(),
-      this.cobrosHasAmount(),
-      this.cobrosFiles(),
-    );
+    return showClosingStepFiles(this.cobrosHasAmount(), this.cobrosFiles());
   }
 
   cobrosFilesMissing(): boolean {
@@ -300,7 +296,6 @@ export class ClosingFormCajaOtrosStepComponent {
 
   showSourceFiles(index: number): boolean {
     return showClosingStepFiles(
-      this.requireClosingFiles(),
       this.rowTotal(index) > 0,
       this.sourceFiles()[this.rowSourceId(index)] ?? [],
     );

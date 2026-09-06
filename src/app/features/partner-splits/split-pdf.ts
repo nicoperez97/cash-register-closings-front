@@ -1,10 +1,20 @@
 import { downloadHtmlPdf, escapePdfHtml } from '../../shared/pdf/html-pdf';
-import type { PartnerSplitPreview, PartnerSplitRow } from './partner-splits-api.service';
+import type {
+  EqualizePreview,
+  PartnerSplitPreview,
+  PartnerSplitRow,
+} from './partner-splits-api.service';
 
 export type PartnerSplitPdfMeta = {
   appliedAt?: string;
   appliedByName?: string | null;
 };
+
+function isEqualize(
+  preview: PartnerSplitPreview | EqualizePreview,
+): preview is EqualizePreview {
+  return (preview as EqualizePreview).kind === 'equalize';
+}
 
 function money(value: number): string {
   const n = Number(value || 0);
@@ -108,8 +118,10 @@ function extrasBlock(preview: PartnerSplitPreview): string {
   `;
 }
 
-function transferBlock(preview: PartnerSplitPreview): string {
-  if (!preview.transfers.length) {
+function transferBlock(
+  transfers: Array<{ fromName: string; toName: string; amount: number }>,
+): string {
+  if (!transfers.length) {
     return `
       <section class="block">
         <h2>Pases</h2>
@@ -117,7 +129,7 @@ function transferBlock(preview: PartnerSplitPreview): string {
       </section>
     `;
   }
-  const rows = preview.transfers
+  const rows = transfers
     .map(
       (t) => `
         <tr>
@@ -129,7 +141,7 @@ function transferBlock(preview: PartnerSplitPreview): string {
       `,
     )
     .join('');
-  const n = preview.transfers.length;
+  const n = transfers.length;
   return `
     <section class="block">
       <h2>Pases (${n})</h2>
@@ -158,11 +170,15 @@ function kpi(label: string, value: number): string {
 }
 
 export async function downloadPartnerSplitPdf(
-  preview: PartnerSplitPreview,
+  preview: PartnerSplitPreview | EqualizePreview,
   shopName: string,
   filename = 'division-socios.pdf',
   meta?: PartnerSplitPdfMeta,
 ): Promise<void> {
+  if (isEqualize(preview)) {
+    await downloadEqualizePdf(preview, shopName, filename, meta);
+    return;
+  }
   const partnerCount = preview.partners.length;
   const when = meta?.appliedAt
     ? `Aplicada el ${formatWhen(meta.appliedAt)}`
@@ -172,6 +188,134 @@ export async function downloadPartnerSplitPdf(
 
   const html = `
     <div class="split-pdf">
+      ${pdfStyles()}
+      <p class="kicker">División de socios</p>
+      <h1>${escapePdfHtml(shopName)}</h1>
+      <p class="meta">${escapePdfHtml(when)}${escapePdfHtml(by)} · ${partnerCount} ${
+        partnerCount === 1 ? 'socio' : 'socios'
+      }</p>
+      <p class="lead">${escapePdfHtml(leadText(preview))}</p>
+      <div class="kpis">
+        ${kpi('Total saldos', preview.totals.balances)}
+        ${kpi('Reservado', preview.totals.reserves)}
+        ${kpi('Extras', preview.totals.extras)}
+        ${kpi('A repartir', toMove(preview))}
+      </div>
+      <div class="cols">
+        <section class="block">
+          <h2>Socios</h2>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Socio</th>
+                <th class="num">Saldo</th>
+                <th class="num">Deja</th>
+                <th class="num">Queda</th>
+                <th>Hace</th>
+              </tr>
+            </thead>
+            <tbody>${accountRows(preview.partners) || '<tr><td colspan="5">Sin socios</td></tr>'}</tbody>
+          </table>
+        </section>
+        <section class="block">
+          <h2>Canales${channels.length !== preview.channels.length ? ' (con movimiento)' : ''}</h2>
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Canal</th>
+                <th class="num">Saldo</th>
+                <th class="num">Deja</th>
+                <th class="num">Queda</th>
+                <th>Hace</th>
+              </tr>
+            </thead>
+            <tbody>${
+              accountRows(channels) || '<tr><td colspan="5">Sin canales con movimiento</td></tr>'
+            }</tbody>
+          </table>
+        </section>
+      </div>
+      ${extrasBlock(preview)}
+      ${transferBlock(preview.transfers)}
+    </div>
+  `;
+
+  await downloadHtmlPdf({ filename, html, widthPx: 780, singlePage: true });
+}
+
+async function downloadEqualizePdf(
+  preview: EqualizePreview,
+  shopName: string,
+  filename: string,
+  meta?: PartnerSplitPdfMeta,
+): Promise<void> {
+  const partnerCount = preview.partners.length;
+  const when = meta?.appliedAt
+    ? `Aplicado el ${formatWhen(meta.appliedAt)}`
+    : `Armado al ${formatWhen()}`;
+  const by = meta?.appliedByName?.trim() ? ` · ${meta.appliedByName.trim()}` : '';
+  const moved = preview.totals.transferAmount;
+  const lead =
+    moved > 0.004
+      ? `Se mueven ${money(moved)} para dejar a cada socio en su % del monto ${money(preview.amount)}.`
+      : `No hay pases: los socios ya están en el objetivo del monto ${money(preview.amount)}.`;
+  const rows = preview.partners
+    .map(
+      (r) => `
+        <tr>
+          <td>${escapePdfHtml(r.name)}</td>
+          <td class="num">${escapePdfHtml(
+            `${Number(r.ownershipPercent).toLocaleString('es-AR', {
+              maximumFractionDigits: 2,
+            })}%`,
+          )}</td>
+          <td class="num">${moneyHtml(r.current)}</td>
+          <td class="num">${moneyHtml(r.target)}</td>
+          <td>${actionCell(r.difference)}</td>
+        </tr>
+      `,
+    )
+    .join('');
+
+  const html = `
+    <div class="split-pdf">
+      ${pdfStyles()}
+      <p class="kicker">Equilibrar socios</p>
+      <h1>${escapePdfHtml(shopName)}</h1>
+      <p class="meta">${escapePdfHtml(when)}${escapePdfHtml(by)} · ${partnerCount} ${
+        partnerCount === 1 ? 'socio' : 'socios'
+      }</p>
+      <p class="lead">${escapePdfHtml(lead)}</p>
+      <div class="kpis">
+        ${kpi('Monto', preview.amount)}
+        ${kpi('Saldos', preview.totals.balances)}
+        ${kpi('Objetivos', preview.totals.targets)}
+        ${kpi('A mover', moved)}
+      </div>
+      <section class="block">
+        <h2>Socios</h2>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Socio</th>
+              <th class="num">%</th>
+              <th class="num">Saldo</th>
+              <th class="num">Objetivo</th>
+              <th>Hace</th>
+            </tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="5">Sin socios</td></tr>'}</tbody>
+        </table>
+      </section>
+      ${transferBlock(preview.transfers)}
+    </div>
+  `;
+
+  await downloadHtmlPdf({ filename, html, widthPx: 780, singlePage: true });
+}
+
+function pdfStyles(): string {
+  return `
       <style>
         .split-pdf {
           box-sizing: border-box;
@@ -262,56 +406,5 @@ export async function downloadPartnerSplitPdf(
         .act-in { color: #1b6e2a; }
         .arrow { width: 16px; text-align: center; color: #5f6f76; }
       </style>
-      <p class="kicker">División de socios</p>
-      <h1>${escapePdfHtml(shopName)}</h1>
-      <p class="meta">${escapePdfHtml(when)}${escapePdfHtml(by)} · ${partnerCount} ${
-        partnerCount === 1 ? 'socio' : 'socios'
-      }</p>
-      <p class="lead">${escapePdfHtml(leadText(preview))}</p>
-      <div class="kpis">
-        ${kpi('Total saldos', preview.totals.balances)}
-        ${kpi('Reservado', preview.totals.reserves)}
-        ${kpi('Extras', preview.totals.extras)}
-        ${kpi('A repartir', toMove(preview))}
-      </div>
-      <div class="cols">
-        <section class="block">
-          <h2>Socios</h2>
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>Socio</th>
-                <th class="num">Saldo</th>
-                <th class="num">Deja</th>
-                <th class="num">Queda</th>
-                <th>Hace</th>
-              </tr>
-            </thead>
-            <tbody>${accountRows(preview.partners) || '<tr><td colspan="5">Sin socios</td></tr>'}</tbody>
-          </table>
-        </section>
-        <section class="block">
-          <h2>Canales${channels.length !== preview.channels.length ? ' (con movimiento)' : ''}</h2>
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>Canal</th>
-                <th class="num">Saldo</th>
-                <th class="num">Deja</th>
-                <th class="num">Queda</th>
-                <th>Hace</th>
-              </tr>
-            </thead>
-            <tbody>${
-              accountRows(channels) || '<tr><td colspan="5">Sin canales con movimiento</td></tr>'
-            }</tbody>
-          </table>
-        </section>
-      </div>
-      ${extrasBlock(preview)}
-      ${transferBlock(preview)}
-    </div>
   `;
-
-  await downloadHtmlPdf({ filename, html, widthPx: 780, singlePage: true });
 }
