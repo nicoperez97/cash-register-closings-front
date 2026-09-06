@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { debounceTime, firstValueFrom, map, merge, startWith } from 'rxjs';
+import { debounceTime, firstValueFrom, map, merge, startWith, catchError, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { HttpClient } from '@angular/common/http';
@@ -34,7 +34,7 @@ import {
   type ShopShift,
 } from '../../core/shop/shop-shifts';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ShopClosingSource, ShopUserOption } from './closings-api.service';
+import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ClosingStepFile, ClosingStepFileSlot, ShopClosingSource, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { shareText } from '../../shared/utils/share-text';
@@ -56,6 +56,8 @@ import { ClosingFormCajaStepComponent } from './closing-form-caja-step';
 import { ClosingFormEfectivoStepComponent } from './closing-form-efectivo-step';
 import { ClosingFormRetiroStepComponent } from './closing-form-retiro-step';
 import { ClosingFormTipsStepComponent } from './closing-form-tips-step';
+import type { ClosingStepFileView } from './closing-form-step-files';
+import { PaymentFilePreviewDialogComponent } from '../payments/payment-file-preview-dialog';
 import {
   buildDniTransferGroup,
   buildPosnetAmountGroup,
@@ -65,6 +67,8 @@ import {
 import {
   applyTipDayToForm,
   buildExpenseGroup,
+  buildSourceLineGroup,
+  buildOtherCobroGroup,
   cobrosFromClosing,
   defaultNewClosingPatch,
   ensureTrailingAllSourceLines as syncTrailingSourceLines,
@@ -220,8 +224,19 @@ import {
                 [configuredIds]="configuredPosnetIds"
                 [posnetTypes]="posnetTypes"
                 [typeLabels]="posnetTypeLabels"
+                [posnetFiles]="posnetFilesMap()"
+                [cardFiles]="cardFiles()"
+                [mpFiles]="mpFiles()"
+                [filesBusyKey]="parsingKey()"
+                [filesDisabled]="filesDisabled()"
+                [requireClosingFiles]="requireClosingFiles()"
+                [cardHasAmount]="cardAmount() > 0 && !locksCard()"
+                [mpHasAmount]="mpAmount() > 0 && !locksMp()"
                 (add)="addPosnet()"
                 (remove)="removePosnet($event)"
+                (filePicked)="onStepFilesPicked($event.slot, $event.sourceId, $event.files)"
+                (fileView)="onStepFileView($event)"
+                (fileRemove)="onStepFileRemoved($event.slot, $event.sourceId, $event.file)"
               />
             </mat-step>
 
@@ -244,10 +259,25 @@ import {
                 [dniTransfers]="dniTransfers"
                 [dniHint]="dniPanelHint()"
                 [locksDni]="locksDni()"
+                [sourceFiles]="sourceFilesMap()"
+                [dniFiles]="dniStepFiles()"
+                [cobrosFiles]="cobrosStepFiles()"
+                [filesBusyKey]="parsingKey()"
+                [filesDisabled]="filesDisabled()"
+                [requireClosingFiles]="requireClosingFiles()"
+                [dniHasAmount]="dniNeedsFiles()"
+                [cobrosHasAmount]="cobrosTotal() > 0"
                 (remove)="removeOtherCobro($event)"
                 (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
                 (addDni)="addDniTransfer()"
                 (removeDni)="removeDniTransfer($event)"
+                (filePicked)="onStepFilesPicked('channel', $event.sourceId, $event.files)"
+                (fileView)="onStepFileView($event)"
+                (fileRemove)="onStepFileRemoved('channel', $event.sourceId, $event.file)"
+                (dniFilePicked)="onStepFilesPicked('account_dni', null, $event)"
+                (dniFileRemove)="onStepFileRemoved('account_dni', null, $event)"
+                (cobrosFilePicked)="onStepFilesPicked('other', null, $event)"
+                (cobrosFileRemove)="onStepFileRemoved('other', null, $event)"
               />
             </mat-step>
 
@@ -280,6 +310,14 @@ import {
                 [breakdown]="cajaBreakdown()"
                 [difference]="cajaDifference()"
                 [differenceLabel]="cajaDifferenceLabel()"
+                [files]="posSystemFiles()"
+                [filesBusy]="parsingKey() === 'pos_system'"
+                [filesDisabled]="filesDisabled()"
+                [requireClosingFiles]="requireClosingFiles()"
+                [hasAmount]="posAmount() > 0"
+                (filePicked)="onStepFilesPicked('pos_system', null, $event)"
+                (fileView)="onStepFileView($event)"
+                (fileRemove)="onStepFileRemoved('pos_system', null, $event)"
               />
             </mat-step>
 
@@ -446,6 +484,19 @@ export class ClosingsFormPage implements OnInit {
   private catalogSources: ShopClosingSource[] = [];
   private savedSourceAmounts: CashClosing['sourceAmounts'] | null = null;
   readonly sourceCount = signal(0);
+  readonly savedStepFiles = signal<ClosingStepFile[]>([]);
+  readonly pendingStepFiles = signal<
+    Array<{ pendingId: string; slot: ClosingStepFileSlot; sourceId: string | null; file: File }>
+  >([]);
+  readonly parsingKey = signal<string | null>(null);
+  readonly filesDisabled = () => this.isLocked() && !this.auth.isAdmin();
+  readonly posSystemFiles = computed(() => this.slotFiles('pos_system'));
+  readonly cardFiles = computed(() => this.slotFiles('card'));
+  readonly mpFiles = computed(() => this.slotFiles('mercado_pago'));
+  readonly dniStepFiles = computed(() => this.slotFiles('account_dni'));
+  readonly cobrosStepFiles = computed(() => this.slotFiles('other'));
+  readonly sourceFilesMap = computed(() => this.sourcedFilesMap('channel'));
+  readonly posnetFilesMap = computed(() => this.sourcedFilesMap('posnet'));
 
   private readonly formValue = toSignal(
     this.form.valueChanges.pipe(
@@ -490,8 +541,16 @@ export class ClosingsFormPage implements OnInit {
 
   readonly cardAmount = computed(() => this.n(this.formValue().cardAmount));
   readonly cashAmount = computed(() => this.n(this.formValue().cashAmount));
+  readonly mpAmount = computed(() => this.n(this.formValue().mercadoPagoAmount));
   readonly accountDniAmount = computed(() => this.n(this.formValue().accountDniAmount));
   readonly posAmount = computed(() => this.n(this.formValue().posSystemAmount));
+  readonly requireClosingFiles = computed(() => !!this.shop()?.requireClosingFiles);
+  readonly dniNeedsFiles = computed(() => {
+    const transfers = (this.formValue().dniTransfers ?? []) as Array<{ amount?: unknown }>;
+    const hasTransfer = transfers.some((t) => this.n(t.amount) > 0);
+    if (this.hasPosnetType('CUENTA_DNI')) return hasTransfer;
+    return this.n(this.formValue().accountDniAmount) > 0 || hasTransfer;
+  });
 
   readonly declaredTotal = computed(() => {
     const v = this.formValue();
@@ -753,6 +812,8 @@ export class ClosingsFormPage implements OnInit {
         }
         this.loadTipDay(c.businessDate);
         this.savedSourceAmounts = c.sourceAmounts ?? [];
+        this.savedStepFiles.set(c.stepFiles ?? []);
+        this.pendingStepFiles.set([]);
         this.syncSourceAmounts();
         this.syncOtherCobros(cobrosFromClosing(c));
       });
@@ -897,6 +958,348 @@ export class ClosingsFormPage implements OnInit {
     ensureTrailingSourceLines(this.fb, lines, (v) => this.emptyNum(v));
   }
 
+  onStepFilesPicked(slot: ClosingStepFileSlot, sourceId: string | null, files: File[]): void {
+    for (const file of files) {
+      this.stepFileQueue.push({ slot, sourceId, file });
+    }
+    void this.drainStepFiles();
+  }
+
+  onStepFileRemoved(slot: ClosingStepFileSlot, sourceId: string | null, file: ClosingStepFileView): void {
+    this.removeStepFileView(slot, sourceId, file);
+  }
+
+  private stepFileQueue: Array<{
+    slot: ClosingStepFileSlot;
+    sourceId: string | null;
+    file: File;
+  }> = [];
+  private stepFileDraining = false;
+
+  private async drainStepFiles(): Promise<void> {
+    if (this.stepFileDraining) return;
+    this.stepFileDraining = true;
+    try {
+      while (this.stepFileQueue.length) {
+        const next = this.stepFileQueue.shift();
+        if (!next) break;
+        await this.handleStepFile(next.slot, next.sourceId, next.file);
+      }
+    } finally {
+      this.stepFileDraining = false;
+    }
+  }
+
+  onStepFileView(file: ClosingStepFileView): void {
+    if (file.pendingId) {
+      const pending = this.pendingStepFiles().find((p) => p.pendingId === file.pendingId);
+      if (!pending) return;
+      this.openStepFilePreview(pending.file.name, pending.file);
+      return;
+    }
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.closingId || !file.savedId) return;
+    this.api.downloadStepFile(shopId, this.closingId, file.savedId).subscribe({
+      next: (blob) => this.openStepFilePreview(file.name, blob),
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo abrir el archivo';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  private openStepFilePreview(fileName: string, blob: Blob): void {
+    this.dialog.open(PaymentFilePreviewDialogComponent, {
+      width: '920px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'guy-dialog',
+      data: { title: 'Archivo del cierre', fileName, blob },
+    });
+  }
+
+  private async handleStepFile(
+    slot: ClosingStepFileSlot,
+    sourceId: string | null,
+    file: File,
+  ): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.filesDisabled()) return;
+    const key = this.stepFileKey(slot, sourceId);
+    if (this.stepFileViews(slot, sourceId).length >= 6) {
+      this.snack.open('Ya hay demasiados archivos en este paso', 'OK', { duration: 3000 });
+      return;
+    }
+    const sourceName = this.stepFileLabel(slot, sourceId);
+    this.parsingKey.set(key);
+
+    if (this.closingId) {
+      try {
+        const res = await firstValueFrom(
+          this.api.uploadStepFile(shopId, this.closingId, file, slot, sourceId, sourceName),
+        );
+        this.savedStepFiles.update((list) => [...list, res.file]);
+        this.applyParsedStepAmount(slot, sourceId, res.amount, res.warning);
+      } catch (err: unknown) {
+        const msg =
+          (err as { error?: { message?: string | string[] } })?.error?.message ??
+          'No se pudo subir el archivo';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : String(msg), 'OK', { duration: 4000 });
+      } finally {
+        this.parsingKey.set(null);
+      }
+      return;
+    }
+
+    try {
+      const parsed = await firstValueFrom(this.api.parseStepFile(shopId, file, slot, sourceName));
+      this.pendingStepFiles.update((list) => [
+        ...list,
+        { pendingId: newId(), slot, sourceId, file },
+      ]);
+      this.applyParsedStepAmount(slot, sourceId, parsed.amount, parsed.warning);
+    } catch (err: unknown) {
+      this.pendingStepFiles.update((list) => [
+        ...list,
+        { pendingId: newId(), slot, sourceId, file },
+      ]);
+      const msg =
+        (err as { error?: { message?: string | string[] } })?.error?.message ??
+        'Archivo adjunto. Completá el monto a mano.';
+      this.snack.open(Array.isArray(msg) ? msg.join(', ') : String(msg), 'OK', { duration: 4000 });
+    } finally {
+      this.parsingKey.set(null);
+    }
+  }
+
+  private removeStepFileView(
+    slot: ClosingStepFileSlot,
+    sourceId: string | null,
+    file: ClosingStepFileView,
+  ): void {
+    if (file.pendingId) {
+      this.pendingStepFiles.update((list) => list.filter((p) => p.pendingId !== file.pendingId));
+      return;
+    }
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.closingId || !file.savedId) return;
+    this.api.removeStepFile(shopId, this.closingId, file.savedId).subscribe({
+      next: () => {
+        this.savedStepFiles.update((list) => list.filter((f) => f.id !== file.savedId));
+      },
+      error: (err) => {
+        const msg = err?.error?.message ?? 'No se pudo quitar el archivo';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  private applyParsedStepAmount(
+    slot: ClosingStepFileSlot,
+    sourceId: string | null,
+    amount: number | null,
+    warning: string | null,
+  ): void {
+    if (amount != null && amount > 0) {
+      if (slot === 'pos_system') {
+        this.addToMoneyControl('posSystemAmount', amount);
+      } else if (slot === 'card') {
+        this.addToMoneyControl('cardAmount', amount);
+      } else if (slot === 'mercado_pago') {
+        this.addToMoneyControl('mercadoPagoAmount', amount);
+      } else if (slot === 'account_dni') {
+        this.applyDniParsedAmount(amount);
+      } else if (slot === 'other') {
+        this.applyCobroParsedAmount(amount);
+      } else if (slot === 'posnet' && sourceId) {
+        this.applyPosnetParsedAmount(sourceId, amount);
+      } else if (sourceId) {
+        this.applyChannelParsedAmount(sourceId, amount);
+      }
+      this.snack.open(`Cargamos ${this.money(amount)} desde el archivo`, 'OK', { duration: 2800 });
+      return;
+    }
+    this.snack.open(warning || 'Archivo adjunto. Completá el monto a mano.', 'OK', {
+      duration: 3500,
+    });
+  }
+
+  private applyChannelParsedAmount(sourceId: string, amount: number): void {
+    const index = this.sourceAmounts.controls.findIndex(
+      (row) => String(row.get('sourceId')?.value ?? '') === sourceId,
+    );
+    if (index < 0) return;
+    const lines = this.sourceAmounts.at(index)?.get('lines') as FormArray | null;
+    if (!lines) return;
+    this.fillNextMoneyLine(lines, amount, () =>
+      buildSourceLineGroup(this.fb, amount, (v) => this.emptyNum(v)),
+    );
+    ensureTrailingSourceLines(this.fb, lines, (v) => this.emptyNum(v));
+  }
+
+  private applyPosnetParsedAmount(posnetId: string, amount: number): void {
+    const row = this.posnetAmounts.controls.find(
+      (c) => String(c.get('posnetId')?.value ?? '') === posnetId,
+    );
+    const ctrl = row?.get('amount');
+    if (!ctrl) return;
+    const current = this.n(ctrl.value);
+    ctrl.setValue(this.emptyNum(current > 0 ? current + amount : amount));
+    this.runSyncDerivedTotals();
+  }
+
+  private applyDniParsedAmount(amount: number): void {
+    if (this.locksDni()) {
+      this.dniTransfers.push(
+        buildDniTransferGroup(this.fb, {
+          id: newId(),
+          label: 'Archivo',
+          amount,
+        }),
+      );
+      this.runSyncDerivedTotals();
+      return;
+    }
+    this.addToMoneyControl('accountDniAmount', amount);
+  }
+
+  private applyCobroParsedAmount(amount: number): void {
+    this.fillNextMoneyLine(this.otherCobros, amount, () =>
+      buildOtherCobroGroup(
+        this.fb,
+        { label: `Cobro ${this.otherCobros.length + 1}`, amount },
+        (v) => this.emptyNum(v),
+      ),
+    );
+    this.ensureTrailingCobro();
+  }
+
+  private fillNextMoneyLine(
+    lines: FormArray,
+    amount: number,
+    build: () => ReturnType<FormBuilder['group']>,
+  ): void {
+    const emptyIdx = lines.controls.findIndex((line) => this.n(line.get('amount')?.value) <= 0);
+    if (emptyIdx >= 0) {
+      lines.at(emptyIdx)?.get('amount')?.setValue(this.emptyNum(amount));
+      return;
+    }
+    lines.push(build());
+  }
+
+  private addToMoneyControl(
+    name: 'posSystemAmount' | 'cardAmount' | 'mercadoPagoAmount' | 'accountDniAmount',
+    amount: number,
+  ): void {
+    const ctrl = this.form.controls[name];
+    const current = this.n(ctrl.value);
+    ctrl.setValue(this.emptyNum(current > 0 ? current + amount : amount));
+  }
+
+  private sourceNameById(sourceId: string | null): string {
+    if (!sourceId) return 'Cuenta de canal';
+    const row = this.sourceAmounts.controls.find(
+      (c) => String(c.get('sourceId')?.value ?? '') === sourceId,
+    );
+    return String(row?.get('name')?.value ?? '').trim() || 'Cuenta de canal';
+  }
+
+  private posnetNameById(posnetId: string | null): string {
+    if (!posnetId) return 'Posnet';
+    const row = this.posnetAmounts.controls.find(
+      (c) => String(c.get('posnetId')?.value ?? '') === posnetId,
+    );
+    const raw = row?.getRawValue() as { name?: string; type?: string } | undefined;
+    return (raw?.name || '').trim() || this.posnetTypeLabels[raw?.type || ''] || 'Posnet';
+  }
+
+  private stepFileLabel(slot: ClosingStepFileSlot, sourceId: string | null): string {
+    if (slot === 'pos_system') return 'Caja sistema';
+    if (slot === 'card') return 'PVS';
+    if (slot === 'mercado_pago') return 'Mercado Pago';
+    if (slot === 'account_dni') return 'Cuenta DNI';
+    if (slot === 'other') return 'Cobros';
+    if (slot === 'posnet') return this.posnetNameById(sourceId);
+    return this.sourceNameById(sourceId);
+  }
+
+  private stepFileKey(slot: ClosingStepFileSlot, sourceId: string | null): string {
+    if (slot === 'channel' || slot === 'posnet') return `${slot}:${sourceId || ''}`;
+    return slot;
+  }
+
+  slotFiles(slot: ClosingStepFileSlot): ClosingStepFileView[] {
+    return this.stepFileViews(slot, null);
+  }
+
+  private sourcedFilesMap(slot: 'channel' | 'posnet'): Record<string, ClosingStepFileView[]> {
+    const map: Record<string, ClosingStepFileView[]> = {};
+    for (const row of this.stepFileViewsAll()) {
+      if (row.slot !== slot || !row.sourceId) continue;
+      (map[row.sourceId] ??= []).push(row.view);
+    }
+    return map;
+  }
+
+  private stepFileViewsAll(): Array<{
+    slot: ClosingStepFileSlot;
+    sourceId: string | null;
+    view: ClosingStepFileView;
+  }> {
+    const saved = this.savedStepFiles().map((f) => ({
+      slot: f.slot,
+      sourceId: f.sourceId,
+      view: { key: f.id, name: f.fileName, savedId: f.id } satisfies ClosingStepFileView,
+    }));
+    const pending = this.pendingStepFiles().map((f) => ({
+      slot: f.slot,
+      sourceId: f.sourceId,
+      view: {
+        key: f.pendingId,
+        name: f.file.name,
+        pendingId: f.pendingId,
+      } satisfies ClosingStepFileView,
+    }));
+    return [...saved, ...pending];
+  }
+
+  private stepFileViews(slot: ClosingStepFileSlot, sourceId: string | null): ClosingStepFileView[] {
+    return this.stepFileViewsAll()
+      .filter((row) => {
+        if (row.slot !== slot) return false;
+        if (slot === 'channel' || slot === 'posnet') return row.sourceId === sourceId;
+        return true;
+      })
+      .map((row) => row.view);
+  }
+
+  private flushPendingFiles(shopId: string, closingId: string) {
+    const pending = this.pendingStepFiles();
+    if (!pending.length) return of(null);
+    return from(pending).pipe(
+      concatMap((p) =>
+        this.api.uploadStepFile(
+          shopId,
+          closingId,
+          p.file,
+          p.slot,
+          p.sourceId,
+          this.stepFileLabel(p.slot, p.sourceId),
+        ),
+      ),
+      toArray(),
+      tap((rows) => {
+        this.savedStepFiles.update((list) => [...list, ...rows.map((r) => r.file)]);
+        this.pendingStepFiles.set([]);
+      }),
+      catchError((err) => {
+        const msg = err?.error?.message ?? 'No se pudieron adjuntar los archivos';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : String(msg), 'OK', { duration: 4000 });
+        return of(null);
+      }),
+    );
+  }
+
   addPosnet(): void {
     this.posnetAmounts.push(
       buildPosnetAmountGroup(this.fb, {
@@ -915,8 +1318,25 @@ export class ClosingsFormPage implements OnInit {
 
   removePosnet(index: number): void {
     if (this.isConfiguredPosnet(index)) return;
+    const row = this.posnetAmounts.at(index)?.getRawValue() as ClosingPosnetAmount | undefined;
+    const posnetId = String(row?.posnetId ?? '');
     this.posnetAmounts.removeAt(index);
+    if (posnetId) this.dropFilesForSource('posnet', posnetId);
     this.runSyncDerivedTotals();
+  }
+
+  private dropFilesForSource(slot: ClosingStepFileSlot, sourceId: string): void {
+    this.pendingStepFiles.update((list) =>
+      list.filter((p) => !(p.slot === slot && p.sourceId === sourceId)),
+    );
+    const saved = this.savedStepFiles().filter((f) => f.slot === slot && f.sourceId === sourceId);
+    for (const file of saved) {
+      this.removeStepFileView(slot, sourceId, {
+        key: file.id,
+        name: file.fileName,
+        savedId: file.id,
+      });
+    }
   }
 
   addDniTransfer(): void {
@@ -1022,6 +1442,7 @@ export class ClosingsFormPage implements OnInit {
     }
     const prepared = this.tryPrepareSaveBody();
     if (!prepared) return;
+    if (this.blockIfMissingRequiredFiles()) return;
     this.persistClosingDraft();
 
     const { shopId, body } = prepared;
@@ -1030,7 +1451,10 @@ export class ClosingsFormPage implements OnInit {
       return;
     }
 
-    this.api.update(shopId, this.closingId!, body).subscribe({
+    this.api
+      .update(shopId, this.closingId!, body)
+      .pipe(switchMap(() => this.flushPendingFiles(shopId, this.closingId!)))
+      .subscribe({
       next: () => {
         this.form.markAsPristine();
         this.cashWithdrawalsInbox.refresh();
@@ -1082,6 +1506,64 @@ export class ClosingsFormPage implements OnInit {
     return { shopId: result.shopId, body: result.body };
   }
 
+  private missingRequiredFiles(): { labels: string[]; step: number } | null {
+    if (!this.requireClosingFiles()) return null;
+    const labels: string[] = [];
+    let step: number = this.stepLabels.length;
+    const bump = (index: number) => {
+      if (index < step) step = index;
+    };
+
+    for (const row of this.posnetAmounts.controls) {
+      const raw = row.getRawValue() as ClosingPosnetAmount;
+      if (this.n(raw?.amount) <= 0) continue;
+      const id = String(raw?.posnetId ?? '');
+      if ((this.posnetFilesMap()[id] ?? []).length) continue;
+      labels.push(
+        (raw?.name || '').trim() || this.posnetTypeLabels[raw?.type || ''] || 'Posnet',
+      );
+      bump(0);
+    }
+    if (!this.locksCard() && this.cardAmount() > 0 && !this.cardFiles().length) {
+      labels.push('PVS');
+      bump(0);
+    }
+    if (!this.locksMp() && this.mpAmount() > 0 && !this.mpFiles().length) {
+      labels.push('Mercado Pago');
+      bump(0);
+    }
+    if (this.dniNeedsFiles() && !this.dniStepFiles().length) {
+      labels.push('Cuenta DNI');
+      bump(2);
+    }
+    if (this.cobrosTotal() > 0 && !this.cobrosStepFiles().length) {
+      labels.push('Cobros');
+      bump(2);
+    }
+    for (const row of this.sourceAmounts.controls) {
+      const sourceId = String(row.get('sourceId')?.value ?? '');
+      if (!sourceId) continue;
+      if (sourceRowTotal(row.getRawValue()) <= 0) continue;
+      if ((this.sourceFilesMap()[sourceId] ?? []).length) continue;
+      labels.push(String(row.get('name')?.value ?? '').trim() || 'Cuenta de canal');
+      bump(2);
+    }
+    if (this.posAmount() > 0 && !this.posSystemFiles().length) {
+      labels.push('Caja sistema');
+      bump(5);
+    }
+    if (!labels.length) return null;
+    return { labels, step };
+  }
+
+  private blockIfMissingRequiredFiles(): boolean {
+    const missing = this.missingRequiredFiles();
+    if (!missing) return false;
+    this.goToStep(missing.step);
+    this.snack.open(`Falta archivo en ${missing.labels.join(', ')}`, 'OK', { duration: 4500 });
+    return true;
+  }
+
   /** Snapshot del formulario como CashClosing para armar el texto de compartir. */
   private shareClosingSnapshot(): CashClosing {
     this.runSyncDerivedTotals();
@@ -1104,6 +1586,7 @@ export class ClosingsFormPage implements OnInit {
     }
     const prepared = this.tryPrepareSaveBody();
     if (!prepared) return;
+    if (this.blockIfMissingRequiredFiles()) return;
     this.persistClosingDraft();
 
     const { shopId, body } = prepared;
@@ -1114,7 +1597,10 @@ export class ClosingsFormPage implements OnInit {
     }
 
     this.saving.set(true);
-    this.api.update(shopId, this.closingId!, body).subscribe({
+    this.api
+      .update(shopId, this.closingId!, body)
+      .pipe(switchMap(() => this.flushPendingFiles(shopId, this.closingId!)))
+      .subscribe({
       next: () => {
         this.saving.set(false);
         this.cashWithdrawalsInbox.refresh();
@@ -1172,7 +1658,12 @@ export class ClosingsFormPage implements OnInit {
               shareTitle: share.title,
               shareText: share.text,
               shareAfterSave: opts?.shareAfterSave === true,
-              save$: () => this.api.create(shopId, body),
+              save$: () =>
+                this.api.create(shopId, body).pipe(
+                  switchMap((closing) =>
+                    this.flushPendingFiles(shopId, closing.id).pipe(map(() => closing)),
+                  ),
+                ),
             },
           }),
           'Confirmar cierre',
@@ -1282,6 +1773,8 @@ export class ClosingsFormPage implements OnInit {
     );
     this.initPaymentLines();
     this.savedSourceAmounts = null;
+    this.savedStepFiles.set([]);
+    this.pendingStepFiles.set([]);
     this.syncSourceAmounts();
     this.syncOtherCobros([]);
   }

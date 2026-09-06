@@ -52,6 +52,7 @@ export interface AdminUserRow {
   isReservationAdmin?: boolean;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
+  requireClosingFiles?: boolean;
   phone?: string | null;
   bankAlias?: string | null;
   cbu?: string | null;
@@ -331,22 +332,27 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         margin: 0 0 0.45rem;
       }
       .module-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 0.65rem 0.85rem;
-        align-items: start;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
         padding: 0.65rem 0.75rem;
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 12px;
         background: #fff;
         margin-bottom: 0.4rem;
       }
+      .module-row__main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.65rem 0.85rem;
+        align-items: start;
+      }
       .module-row--on {
         border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, var(--guy-border));
         background: color-mix(in srgb, var(--guy-accent, #2e7d32) 4%, #fff);
       }
       @media (max-width: 640px) {
-        .module-row {
+        .module-row__main {
           grid-template-columns: 1fr;
         }
       }
@@ -390,6 +396,14 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         white-space: normal;
         overflow: visible;
         text-overflow: unset;
+      }
+      .module-row__check {
+        margin: 0;
+        padding-top: 0.15rem;
+        border-top: 1px dashed color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+      }
+      .module-row__check mat-checkbox {
+        font-size: 0.8rem;
       }
       .level-pills {
         display: flex;
@@ -592,6 +606,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                       class="module-row"
                       [class.module-row--on]="moduleLevel(mod.key) !== 'none'"
                     >
+                      <div class="module-row__main">
                       <div class="module-row__info">
                         <span class="module-row__icon" aria-hidden="true">
                           <mat-icon>{{ mod.icon }}</mat-icon>
@@ -617,6 +632,14 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                           </button>
                         }
                       </div>
+                      </div>
+                      @if (mod.key === 'closings' && moduleLevel('closings') !== 'none') {
+                        <div class="module-row__check">
+                          <mat-checkbox formControlName="requireClosingFiles">
+                            Archivos obligatorios si hay monto
+                          </mat-checkbox>
+                        </div>
+                      }
                     </div>
                   }
                 </div>
@@ -931,6 +954,7 @@ export class AdminUserDialogComponent implements OnInit {
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
     isReservationAdmin: [this.user?.isReservationAdmin ?? false],
+    requireClosingFiles: [false],
     canEditExpenses: [this.user?.canEditExpenses ?? false],
     canEditPayments: [this.user?.canEditPayments ?? false],
   });
@@ -961,6 +985,9 @@ export class AdminUserDialogComponent implements OnInit {
         });
     }
     this.syncActivePreset();
+    if (this.user?.requireClosingFiles === true) {
+      this.form.controls.requireClosingFiles.setValue(true);
+    }
   }
 
   isEmployee(): boolean {
@@ -1073,6 +1100,7 @@ export class AdminUserDialogComponent implements OnInit {
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
           isReservationAdmin: !!raw.isReservationAdmin,
+          requireClosingFiles: !!raw.requireClosingFiles,
           canEditExpenses: !!raw.canEditExpenses,
           canEditPayments: !!raw.canEditPayments,
         })
@@ -1109,6 +1137,7 @@ export class AdminUserDialogComponent implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        requireClosingFiles: !!raw.requireClosingFiles,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
       };
@@ -1152,6 +1181,7 @@ export class AdminUserDialogComponent implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        requireClosingFiles: !!raw.requireClosingFiles,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
       })

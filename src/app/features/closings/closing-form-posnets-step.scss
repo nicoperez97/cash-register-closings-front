@@ -81,6 +81,22 @@
   background: #fff !important;
 }
 
+.closing-form__fields--totals {
+  align-items: start;
+}
+
+.closing-form__total-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.closing-form__posnet-card app-closing-form-step-files,
+.closing-form__total-slot app-closing-form-step-files {
+  margin-top: 0.05rem;
+}
+
 @media (max-width: 720px) {
   .closing-form__posnet-card {
     padding: 0.7rem 0.75rem 0.8rem;

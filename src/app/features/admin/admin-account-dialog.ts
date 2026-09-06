@@ -31,6 +31,7 @@ export interface AdminAccountRow {
   listInIncomes?: boolean;
   listInTransfers?: boolean;
   openingBalance?: number | string | null;
+  commissionPercent?: number | string | null;
 }
 
 export const LINKED_PAYMENT_METHOD_OPTIONS: Array<{ value: string; label: string }> = [
@@ -168,6 +169,17 @@ interface UserOption {
           </mat-form-field>
         }
 
+        @if (form.controls.type.value !== 'SYSTEM') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Comisión %</mat-label>
+            <input matInput type="number" min="0" max="100" step="0.01" formControlName="commissionPercent" />
+            <mat-hint>En Saldos el número grande ya tiene este % descontado. Dejá 0 si no hay comisión.</mat-hint>
+            @if (form.controls.commissionPercent.touched && form.controls.commissionPercent.invalid) {
+              <mat-error>Ingresá un número entre 0 y 100</mat-error>
+            }
+          </mat-form-field>
+        }
+
         @if (form.controls.type.value !== 'SUPPLIER' && form.controls.type.value !== 'SERVICE') {
           <div class="account-lists">
             <p class="account-lists__title">Mostrar esta cuenta en</p>
@@ -274,6 +286,10 @@ export class AdminAccountDialogComponent implements OnInit {
     listInTransfers: [this.account?.listInTransfers !== false],
     listInCashWithdraw: [!(this.account?.hideFromCashWithdraw ?? false)],
     openingBalance: [Number(this.account?.openingBalance ?? 0)],
+    commissionPercent: [
+      Number(this.account?.commissionPercent ?? 0),
+      [Validators.min(0), Validators.max(100)],
+    ],
     active: [this.account?.active ?? true],
   });
 
@@ -309,6 +325,8 @@ export class AdminAccountDialogComponent implements OnInit {
       ...(this.canConfigureOpeningBalances
         ? { openingBalance: Number(raw.openingBalance ?? 0) }
         : {}),
+      commissionPercent:
+        raw.type === 'SYSTEM' ? 0 : Number(raw.commissionPercent ?? 0),
       ...(this.isEdit ? { active: raw.active } : {}),
     };
     this.busy.set(true);

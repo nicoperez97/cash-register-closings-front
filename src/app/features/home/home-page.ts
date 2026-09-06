@@ -13,6 +13,7 @@ import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import {
   BalanceAccountRow,
   BalancesTableComponent,
+  mapBalanceAccount,
 } from '../../shared/components/balances-table';
 import { APP_BRAND } from '../../core/config/app-brand';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -652,10 +653,10 @@ export class HomePageComponent {
     const cash = rows.find(
       (a) => a.type === 'CHANNEL' && /efectivo/i.test(a.name),
     );
-    if (cash) return Number(cash.balance ?? 0);
+    if (cash) return Number(cash.grossBalance ?? cash.balance ?? 0);
     const channels = rows.filter((a) => a.type === 'CHANNEL');
     if (!channels.length) return null;
-    return channels.reduce((sum, a) => sum + Number(a.balance ?? 0), 0);
+    return channels.reduce((sum, a) => sum + Number(a.grossBalance ?? a.balance ?? 0), 0);
   });
 
   readonly kpis = computed((): KpiItem[] => {
@@ -823,14 +824,7 @@ export class HomePageComponent {
       } else {
         this.movementsApi.balances(shopId).subscribe({
           next: (res) =>
-            this.balanceRows.set(
-              (res.accounts ?? []).map((a: any) => ({
-                accountId: a.accountId,
-                name: a.name,
-                balance: Number(a.balance ?? 0),
-                type: a.type,
-              })),
-            ),
+            this.balanceRows.set((res.accounts ?? []).map((a) => mapBalanceAccount(a))),
           error: () => this.balanceRows.set([]),
         });
       }

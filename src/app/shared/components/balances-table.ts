@@ -12,7 +12,35 @@ import { downloadTablePdf } from '../pdf/html-pdf';
 export interface BalanceAccountRow {
   accountId?: string;
   name: string;
+  /** Saldo que se muestra: neto si hay comisión, bruto si no. */
   balance: number;
+  type?: string;
+  grossBalance?: number;
+  commissionPercent?: number;
+  commissionAmount?: number;
+}
+
+export function mapBalanceAccount(a: {
+  accountId?: string;
+  name: string;
+  type?: string;
+  balance?: number;
+  netBalance?: number;
+  commissionPercent?: number;
+  commissionAmount?: number;
+}): BalanceAccountRow {
+  const gross = Number(a.balance ?? 0);
+  const percent = Number(a.commissionPercent ?? 0);
+  const hasCommission = percent > 0;
+  return {
+    accountId: a.accountId,
+    name: a.name,
+    type: a.type,
+    balance: hasCommission ? Number(a.netBalance ?? gross) : gross,
+    grossBalance: gross,
+    commissionPercent: hasCommission ? percent : 0,
+    commissionAmount: hasCommission ? Number(a.commissionAmount ?? 0) : 0,
+  };
 }
 
 function downloadBlobFile(blob: Blob, filename: string): void {
@@ -64,10 +92,11 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       }
 
       <div class="guy-saldos__list" role="list">
-        @for (row of accounts; track row.name; let i = $index) {
+        @for (row of accounts; track row.accountId || row.name; let i = $index) {
           <div
             class="guy-saldos__row"
             [class.guy-saldos__row--click]="canOpen(row)"
+            [class.guy-saldos__row--hint]="hasCommission(row)"
             role="listitem"
             [attr.role]="canOpen(row) ? 'button' : 'listitem'"
             [attr.tabindex]="canOpen(row) ? 0 : null"
@@ -83,7 +112,12 @@ function downloadBlobFile(blob: Blob, filename: string): void {
             >
               {{ initials(row.name) }}
             </span>
-            <span class="guy-saldos__name">{{ row.name }}</span>
+            <div class="guy-saldos__main">
+              <span class="guy-saldos__name">{{ row.name }}</span>
+              @if (hasCommission(row)) {
+                <span class="guy-saldos__hint">{{ commissionHint(row) }}</span>
+              }
+            </div>
             <span
               class="guy-saldos__amount"
               [class.guy-saldos__amount--neg]="row.balance < 0"
@@ -326,6 +360,25 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       background: #c62828;
     }
 
+    .guy-saldos__row--hint {
+      align-items: start;
+    }
+
+    .guy-saldos__row--hint .guy-saldos__avatar {
+      margin-top: 0.12rem;
+    }
+
+    .guy-saldos__row--hint .guy-saldos__amount {
+      margin-top: 0.12rem;
+    }
+
+    .guy-saldos__main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.12rem;
+    }
+
     .guy-saldos__name {
       min-width: 0;
       font-size: 0.9rem;
@@ -335,6 +388,13 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .guy-saldos__hint {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.3;
     }
 
     .guy-saldos__amount {
@@ -479,12 +539,26 @@ export class BalancesTableComponent {
 
   async onExport(format: ExportFormat): Promise<void> {
     if (format === 'pdf') {
+      const withCommission = this.accounts.some((a) => this.hasCommission(a));
       await downloadTablePdf({
         title: this.title,
         subtitle: this.subtitle,
         filename: `saldos-${this.shopFileSlug(this.fileSlug)}.pdf`,
-        headers: ['Cuenta', 'Saldo'],
-        rows: this.accounts.map((a) => [a.name, this.formatMoney(a.balance)]),
+        headers: withCommission
+          ? ['Cuenta', 'Saldo', 'Sin comisión', 'Comisión']
+          : ['Cuenta', 'Saldo'],
+        rows: this.accounts.map((a) =>
+          withCommission
+            ? [
+                a.name,
+                this.formatMoney(a.balance),
+                this.hasCommission(a) ? this.formatMoney(a.grossBalance ?? a.balance) : '',
+                this.hasCommission(a)
+                  ? `${this.formatPercent(a.commissionPercent ?? 0)} %  ${this.formatMoney(a.commissionAmount ?? 0)}`
+                  : '',
+              ]
+            : [a.name, this.formatMoney(a.balance)],
+        ),
       });
       return;
     }
@@ -528,6 +602,23 @@ export class BalancesTableComponent {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  }
+
+  hasCommission(row: BalanceAccountRow): boolean {
+    return Number(row.commissionPercent ?? 0) > 0;
+  }
+
+  commissionHint(row: BalanceAccountRow): string {
+    const gross = Number(row.grossBalance ?? row.balance);
+    const percent = Number(row.commissionPercent ?? 0);
+    const amount = Number(row.commissionAmount ?? 0);
+    return `Sin comisión ${this.formatMoney(gross)} · Comisión ${this.formatPercent(percent)} % ${this.formatMoney(amount)}`;
+  }
+
+  private formatPercent(value: number): string {
+    return Number(value ?? 0).toLocaleString('es-AR', {
+      maximumFractionDigits: 2,
+    });
   }
 
   initials(name: string): string {

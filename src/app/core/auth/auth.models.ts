@@ -923,6 +923,8 @@ export interface ShopSummary {
   isReservationAdmin?: boolean;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
+  /** En el cierre, si hay monto hay que adjuntar foto o archivo. */
+  requireClosingFiles?: boolean;
   active?: boolean;
 }
 
