@@ -220,42 +220,56 @@ function toDateString(value: Date | null): string {
               </span>
               <div class="mov-side__titles">
                 <strong>Destino</strong>
-                <span>{{ isTransfer ? 'A dónde entra' : 'Opcional · a dónde entra' }}</span>
+                <span>{{
+                  isDividendOn()
+                    ? 'Cuenta Dividendos del local'
+                    : isTransfer
+                      ? 'A dónde entra'
+                      : 'Opcional · a dónde entra'
+                }}</span>
               </div>
             </div>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>{{ isTransfer ? 'Cuenta' : 'Cuenta (opcional)' }}</mat-label>
-              <mat-icon matPrefix>account_balance_wallet</mat-icon>
-              <mat-select
-                formControlName="toAccountId"
-                panelClass="guy-select-search-panel"
-                (openedChange)="onSelectSearchOpened($event, toQuery)"
-              >
-                <mat-option disabled class="select-search-opt">
-                  <app-select-search [(query)]="toQuery" placeholder="Buscar cuenta…" />
-                </mat-option>
-                @if (!isTransfer) {
-                  <mat-option value="">Sin cuenta</mat-option>
-                }
-                @if (filteredLocalTo().length) {
-                  <mat-optgroup [label]="isTransfer ? 'Cajas y canales' : 'Local'">
-                    @for (a of filteredLocalTo(); track a.id) {
-                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
-                    }
-                  </mat-optgroup>
-                }
-                @if (filteredOtherTo().length) {
-                  <mat-optgroup [label]="isTransfer ? 'Socios y otras' : 'Otras cuentas'">
-                    @for (a of filteredOtherTo(); track a.id) {
-                      <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
-                    }
-                  </mat-optgroup>
-                }
-                @if (toQuery() && !filteredLocalTo().length && !filteredOtherTo().length) {
-                  <mat-option disabled>Sin resultados</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            @if (isDividendOn()) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Cuenta</mat-label>
+                <mat-icon matPrefix>savings</mat-icon>
+                <input matInput readonly [value]="dividendsAccount()?.name ?? 'Dividendos'" />
+              </mat-form-field>
+            } @else {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ isTransfer ? 'Cuenta' : 'Cuenta (opcional)' }}</mat-label>
+                <mat-icon matPrefix>account_balance_wallet</mat-icon>
+                <mat-select
+                  formControlName="toAccountId"
+                  panelClass="guy-select-search-panel"
+                  (openedChange)="onSelectSearchOpened($event, toQuery)"
+                >
+                  <mat-option disabled class="select-search-opt">
+                    <app-select-search [(query)]="toQuery" placeholder="Buscar cuenta…" />
+                  </mat-option>
+                  @if (!isTransfer) {
+                    <mat-option value="">Sin cuenta</mat-option>
+                  }
+                  @if (filteredLocalTo().length) {
+                    <mat-optgroup [label]="isTransfer ? 'Cajas y canales' : 'Local'">
+                      @for (a of filteredLocalTo(); track a.id) {
+                        <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                      }
+                    </mat-optgroup>
+                  }
+                  @if (filteredOtherTo().length) {
+                    <mat-optgroup [label]="isTransfer ? 'Socios y otras' : 'Otras cuentas'">
+                      @for (a of filteredOtherTo(); track a.id) {
+                        <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                      }
+                    </mat-optgroup>
+                  }
+                  @if (toQuery() && !filteredLocalTo().length && !filteredOtherTo().length) {
+                    <mat-option disabled>Sin resultados</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
           </section>
         </div>
 
@@ -289,6 +303,29 @@ function toDateString(value: Date | null): string {
           <mat-icon matPrefix>notes</mat-icon>
           <input matInput formControlName="description" placeholder="Opcional" />
         </mat-form-field>
+
+        @if (isTransfer) {
+          <mat-checkbox formControlName="isDividend" (change)="onDividendToggle()">
+            Es dividendo (va a Dividendos, no al saldo del otro socio)
+          </mat-checkbox>
+          <p class="mov-dividend-hint">
+            Baja del socio origen y se acumula en Dividendos. Si es para otro socio, elegilo abajo:
+            no le suma saldo (no cuenta para Equilibrar).
+          </p>
+          @if (isDividendOn()) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Para socio (opcional)</mat-label>
+              <mat-icon matPrefix>person</mat-icon>
+              <mat-select formControlName="beneficiaryAccountId">
+                <mat-option value="">Sin beneficiario</mat-option>
+                @for (a of beneficiaryPartnerOptions(); track a.id) {
+                  <mat-option [value]="a.id">{{ accountLabel(a) }}</mat-option>
+                }
+              </mat-select>
+              <mat-hint>Solo anota a quién es; el dinero no entra a su saldo</mat-hint>
+            </mat-form-field>
+          }
+        }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-amount">
           <mat-label>Monto ($)</mat-label>
@@ -616,6 +653,13 @@ function toDateString(value: Date | null): string {
         margin-top: 0.15rem;
       }
 
+      .mov-dividend-hint {
+        margin: -0.35rem 0 0.15rem;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        color: var(--guy-muted, #5f6f76);
+      }
+
       .mov-notify {
         display: flex;
         align-items: flex-start;
@@ -804,6 +848,8 @@ export class MovementDialogComponent implements OnInit {
       this.isTransfer || this.isIncome ? [] : [Validators.required],
     ],
     notifyAdmins: [true],
+    isDividend: [false],
+    beneficiaryAccountId: [''],
   });
 
   receiptRequired(): boolean {
@@ -907,6 +953,9 @@ export class MovementDialogComponent implements OnInit {
             .filter((u) => isUserVisible(u, 'movements') || keepIds.has(u.id)),
         );
         this.listsFailed.set(false);
+        if (this.form.controls.isDividend.value) {
+          this.onDividendToggle();
+        }
       },
       error: () => {
         this.loadingLists.set(false);
@@ -967,15 +1016,34 @@ export class MovementDialogComponent implements OnInit {
     );
   }
 
+  readonly dividendsAccount = computed(() =>
+    this.accounts().find((a) => a.type === 'DIVIDENDS' || a.code === 'DIVIDENDOS') ?? null,
+  );
+
+  private readonly isDividendValue = toSignal(
+    this.form.controls.isDividend.valueChanges.pipe(
+      startWith(this.form.controls.isDividend.value),
+    ),
+    { initialValue: this.form.controls.isDividend.value },
+  );
+
+  readonly isDividendOn = computed(() => this.isTransfer && !!this.isDividendValue());
+
   readonly localAccounts = computed(() =>
     this.selectableAccounts().filter(
-      (a) => this.listedForKind(a) && (a.type === 'CHANNEL' || a.type === 'SYSTEM'),
+      (a) =>
+        (this.listedForKind(a) || a.type === 'DIVIDENDS') &&
+        (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'DIVIDENDS'),
     ),
   );
 
   readonly otherAccounts = computed(() =>
     this.selectableAccounts().filter(
-      (a) => this.listedForKind(a) && a.type !== 'CHANNEL' && a.type !== 'SYSTEM',
+      (a) =>
+        this.listedForKind(a) &&
+        a.type !== 'CHANNEL' &&
+        a.type !== 'SYSTEM' &&
+        a.type !== 'DIVIDENDS',
     ),
   );
 
@@ -990,6 +1058,13 @@ export class MovementDialogComponent implements OnInit {
     ),
     { initialValue: this.form.controls.fromAccountId.value },
   );
+
+  readonly beneficiaryPartnerOptions = computed(() => {
+    const fromId = this.fromAccountIdValue();
+    return this.accounts().filter(
+      (a) => a.type === 'PARTNER' && a.active !== false && a.id !== fromId,
+    );
+  });
 
   readonly fromAccountBalanceLabel = computed(() => {
     const id = this.fromAccountIdValue();
@@ -1068,6 +1143,37 @@ export class MovementDialogComponent implements OnInit {
     return `${base} · ${formatBalance(bal)}`;
   }
 
+  onDividendToggle(): void {
+    if (!this.isTransfer) return;
+    const on = !!this.form.controls.isDividend.value;
+    if (on) {
+      const dest = this.dividendsAccount();
+      if (!dest) {
+        this.form.controls.isDividend.setValue(false, { emitEvent: false });
+        this.form.controls.toAccountId.enable({ emitEvent: false });
+        this.form.controls.toAccountId.setValidators(
+          this.isTransfer ? Validators.required : [],
+        );
+        this.form.controls.toAccountId.updateValueAndValidity({ emitEvent: false });
+        this.snack.open(
+          'Falta la cuenta Dividendos del local. Recargá o pedile a un admin que abra Cuentas.',
+          'OK',
+          { duration: 4500 },
+        );
+        return;
+      }
+      this.form.controls.toAccountId.setValue(dest.id);
+      this.form.controls.toAccountId.clearValidators();
+      this.form.controls.toAccountId.disable({ emitEvent: false });
+      this.form.controls.toAccountId.updateValueAndValidity({ emitEvent: false });
+      return;
+    }
+    this.form.controls.beneficiaryAccountId.setValue('');
+    this.form.controls.toAccountId.enable({ emitEvent: false });
+    this.form.controls.toAccountId.setValidators(this.isTransfer ? Validators.required : []);
+    this.form.controls.toAccountId.updateValueAndValidity({ emitEvent: false });
+  }
+
   save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -1076,7 +1182,16 @@ export class MovementDialogComponent implements OnInit {
     const shopId = this.data.shopId;
     const raw = this.form.getRawValue();
     const fromAccountId = raw.fromAccountId || null;
-    const toAccountId = raw.toAccountId || null;
+    let toAccountId = raw.toAccountId || null;
+    const isDividend = this.isTransfer && !!raw.isDividend;
+    if (isDividend) {
+      const dest = this.accounts().find((a) => a.type === 'DIVIDENDS' || a.code === 'DIVIDENDOS');
+      if (!dest) {
+        this.snack.open('Falta la cuenta Dividendos del local', 'OK', { duration: 3500 });
+        return;
+      }
+      toAccountId = dest.id;
+    }
     if (this.isTransfer) {
       if (!fromAccountId || !toAccountId) {
         this.snack.open('Origen y destino son obligatorios', 'OK', { duration: 3500 });
@@ -1085,6 +1200,31 @@ export class MovementDialogComponent implements OnInit {
       if (fromAccountId === toAccountId) {
         this.snack.open('Origen y destino deben ser distintos', 'OK', { duration: 3500 });
         return;
+      }
+      if (isDividend) {
+        const from = this.accounts().find((a) => a.id === fromAccountId);
+        if (from?.type !== 'PARTNER') {
+          this.snack.open('El dividendo debe salir de una cuenta de socio', 'OK', {
+            duration: 3500,
+          });
+          return;
+        }
+        const beneficiaryId = raw.beneficiaryAccountId || null;
+        if (beneficiaryId) {
+          if (beneficiaryId === fromAccountId) {
+            this.snack.open('El beneficiario tiene que ser otro socio', 'OK', {
+              duration: 3500,
+            });
+            return;
+          }
+          const beneficiary = this.accounts().find((a) => a.id === beneficiaryId);
+          if (beneficiary?.type !== 'PARTNER') {
+            this.snack.open('El beneficiario debe ser una cuenta de socio', 'OK', {
+              duration: 3500,
+            });
+            return;
+          }
+        }
       }
     } else if (!fromAccountId) {
       this.snack.open('Elegí de qué cuenta sale', 'OK', { duration: 3500 });
@@ -1097,16 +1237,22 @@ export class MovementDialogComponent implements OnInit {
       return;
     }
     const kind = this.isTransfer ? 'transfer' : this.isIncome ? 'income' : 'expense';
+    const beneficiaryId =
+      isDividend && raw.beneficiaryAccountId ? raw.beneficiaryAccountId : null;
     const body: Partial<Movement> & {
       notifyAdmins?: boolean;
       notifyUserIds?: string[];
       kind?: 'expense' | 'income' | 'transfer';
+      isDividend?: boolean;
+      beneficiaryAccountId?: string | null;
     } = {
       businessDate: toDateString(raw.businessDate),
       fromAccountId,
       toAccountId,
       fromUserId: this.userIdForAccount(fromAccountId),
-      toUserId: this.userIdForAccount(toAccountId),
+      toUserId: beneficiaryId
+        ? this.userIdForAccount(beneficiaryId)
+        : this.userIdForAccount(toAccountId),
       conceptId: this.isTransfer ? null : raw.conceptId,
       description: raw.description.trim() || null,
       amountUyu: parseLocaleNumber(raw.amountUyu),
@@ -1117,6 +1263,10 @@ export class MovementDialogComponent implements OnInit {
       invoiceNumber: raw.invoiced ? raw.invoiceNumber.trim() || null : null,
       kind,
     };
+    if (isDividend) {
+      body.isDividend = true;
+      if (beneficiaryId) body.beneficiaryAccountId = beneficiaryId;
+    }
     if (!this.isTransfer) {
       body.paymentMethod = (raw.paymentMethod || null) as ExpensePaymentMethod | null;
     }

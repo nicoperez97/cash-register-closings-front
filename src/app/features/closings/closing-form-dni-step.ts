@@ -126,7 +126,7 @@ export class ClosingFormDniStepComponent {
   readonly fileRemove = output<ClosingStepFileView>();
 
   showFiles(): boolean {
-    return showClosingStepFiles(this.requireClosingFiles(), this.hasAmount(), this.files());
+    return showClosingStepFiles(this.hasAmount(), this.files());
   }
 
   filesMissing(): boolean {

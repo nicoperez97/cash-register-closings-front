@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -53,6 +53,7 @@ export interface AdminUserRow {
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   requireClosingFiles?: boolean;
+  partnerAccounts?: Array<{ id: string; name: string; ownershipPercent: number }>;
   phone?: string | null;
   bankAlias?: string | null;
   cbu?: string | null;
@@ -81,6 +82,7 @@ interface AccountOption {
   type: string;
   userIds?: string[];
   userId?: string | null;
+  ownershipPercent?: number | string | null;
 }
 
 function isAdminRole(role?: string): boolean {
@@ -102,6 +104,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
   selector: 'app-admin-user-dialog',
   imports: [
     ReactiveFormsModule,
+    FormsModule,
     MatDialogModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -452,6 +455,11 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         flex-direction: column;
         gap: 0.55rem;
       }
+      .partner-pct {
+        display: grid;
+        gap: 0.45rem;
+        margin: 0.35rem 0 0.75rem;
+      }
       .visibility-row {
         display: flex;
         flex-direction: column;
@@ -633,7 +641,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                         }
                       </div>
                       </div>
-                      @if (mod.key === 'closings' && moduleLevel('closings') !== 'none') {
+                      @if (mod.key === 'closings') {
                         <div class="module-row__check">
                           <mat-checkbox formControlName="requireClosingFiles">
                             Archivos obligatorios si hay monto
@@ -754,6 +762,31 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </mat-select>
             <mat-hint>Opcional · saldos / retiros asociados a este usuario</mat-hint>
           </mat-form-field>
+
+          @if (selectedPartnerAccounts().length) {
+            <div class="partner-pct">
+              <p class="section__title">% de división (cuentas socio)</p>
+              <p class="section__hint">
+                Parte de cada socio al equilibrar en Divisiones. La suma de todos los socios del local
+                debería ser 100.
+              </p>
+              @for (a of selectedPartnerAccounts(); track a.id) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ a.name }} · %</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    [ngModel]="partnerPctOf(a.id)"
+                    (ngModelChange)="setPartnerPct(a.id, $event)"
+                    [ngModelOptions]="{ standalone: true }"
+                  />
+                </mat-form-field>
+              }
+            </div>
+          }
 
           @if (isEdit) {
             <mat-slide-toggle formControlName="active">Usuario activo</mat-slide-toggle>
@@ -880,6 +913,14 @@ export class AdminUserDialogComponent implements OnInit {
       this.form.controls.ledgerAccountIds.value,
     ),
   );
+  readonly selectedPartnerAccounts = computed(() => {
+    this.ledgerTick();
+    const ids = new Set(this.form.controls.ledgerAccountIds.value ?? []);
+    return this.accounts().filter((a) => a.type === 'PARTNER' && ids.has(a.id));
+  });
+  readonly partnerPct = signal<Record<string, number>>({});
+  /** Refresco al cambiar cuentas asociadas. */
+  readonly ledgerTick = signal(0);
   readonly activePreset = signal<string | null>(null);
   /** Fuerza refresco de resumen al cambiar pills. */
   readonly modulesTick = signal(0);
@@ -980,14 +1021,65 @@ export class AdminUserDialogComponent implements OnInit {
       this.http
         .get<AccountOption[]>(`${environment.apiUrl}/shops/${this.data.shopId}/accounts`)
         .subscribe({
-          next: (rows) => this.accounts.set(rows),
+          next: (rows) => {
+            this.accounts.set(rows);
+            this.seedPartnerPct(rows);
+          },
           error: () => this.accounts.set([]),
         });
+      this.form.controls.ledgerAccountIds.valueChanges.subscribe(() => {
+        this.ledgerTick.update((n) => n + 1);
+      });
     }
     this.syncActivePreset();
     if (this.user?.requireClosingFiles === true) {
       this.form.controls.requireClosingFiles.setValue(true);
     }
+    this.syncRequireClosingFilesEnabled();
+  }
+
+  partnerPctOf(accountId: string): number {
+    const edits = this.partnerPct();
+    if (accountId in edits) return edits[accountId];
+    const fromUser = this.user?.partnerAccounts?.find((p) => p.id === accountId);
+    if (fromUser) return Number(fromUser.ownershipPercent ?? 0);
+    const fromAcc = this.accounts().find((a) => a.id === accountId);
+    return Number(fromAcc?.ownershipPercent ?? 0);
+  }
+
+  setPartnerPct(accountId: string, raw: number | string): void {
+    const v = Math.max(0, Math.min(100, Number(raw) || 0));
+    this.partnerPct.update((m) => ({ ...m, [accountId]: Math.round(v * 100) / 100 }));
+  }
+
+  private seedPartnerPct(rows: AccountOption[]): void {
+    const next: Record<string, number> = {};
+    for (const a of rows.filter((r) => r.type === 'PARTNER')) {
+      const fromUser = this.user?.partnerAccounts?.find((p) => p.id === a.id);
+      next[a.id] = Number(fromUser?.ownershipPercent ?? a.ownershipPercent ?? 0);
+    }
+    this.partnerPct.set(next);
+  }
+
+  private savePartnerOwnership(shopId: string, done: (ok: boolean) => void): void {
+    const items = this.selectedPartnerAccounts().map((a) => ({
+      accountId: a.id,
+      ownershipPercent: this.partnerPctOf(a.id),
+    }));
+    if (!items.length) {
+      done(true);
+      return;
+    }
+    this.http
+      .put(`${environment.apiUrl}/shops/${shopId}/partner-splits/ownership`, { items })
+      .subscribe({
+        next: () => done(true),
+        error: (err) => {
+          const msg = err?.error?.message ?? 'No se pudieron guardar los % de división';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+          done(false);
+        },
+      });
   }
 
   isEmployee(): boolean {
@@ -1012,6 +1104,7 @@ export class AdminUserDialogComponent implements OnInit {
     this.form.controls.modules.get(key)?.setValue(value);
     this.modulesTick.update((n) => n + 1);
     this.syncActivePreset();
+    if (key === 'closings') this.syncRequireClosingFilesEnabled();
   }
 
   applyPreset(presetId: string): void {
@@ -1026,6 +1119,16 @@ export class AdminUserDialogComponent implements OnInit {
     this.modulesTick.update((n) => n + 1);
     if (preset.modules.reservations === 'manage') {
       this.form.controls.isReservationAdmin.setValue(true);
+    }
+    this.syncRequireClosingFilesEnabled();
+  }
+
+  private syncRequireClosingFilesEnabled(): void {
+    const ctrl = this.form.controls.requireClosingFiles;
+    if (this.moduleLevel('closings') === 'none') {
+      ctrl.disable({ emitEvent: false });
+    } else {
+      ctrl.enable({ emitEvent: false });
     }
   }
 
@@ -1144,9 +1247,12 @@ export class AdminUserDialogComponent implements OnInit {
       if (raw.password.trim()) body['password'] = raw.password.trim();
       this.http.patch(`${environment.apiUrl}/users/${this.user.id}?shopId=${shopId}`, body).subscribe({
         next: () => {
-          this.busy.set(false);
-          this.snack.open('Usuario actualizado', 'OK', { duration: 2500 });
-          this.ref.close(true);
+          this.savePartnerOwnership(shopId, (ok) => {
+            this.busy.set(false);
+            if (!ok) return;
+            this.snack.open('Usuario actualizado', 'OK', { duration: 2500 });
+            this.ref.close(true);
+          });
         },
         error: (err) => {
           this.busy.set(false);
@@ -1187,9 +1293,12 @@ export class AdminUserDialogComponent implements OnInit {
       })
       .subscribe({
         next: () => {
-          this.busy.set(false);
-          this.snack.open('Usuario creado', 'OK', { duration: 2500 });
-          this.ref.close(true);
+          this.savePartnerOwnership(shopId, (ok) => {
+            this.busy.set(false);
+            if (!ok) return;
+            this.snack.open('Usuario creado', 'OK', { duration: 2500 });
+            this.ref.close(true);
+          });
         },
         error: (err) => {
           this.busy.set(false);

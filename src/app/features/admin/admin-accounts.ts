@@ -14,7 +14,7 @@ import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-di
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
-type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM';
+type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM' | 'DIVIDENDS';
 type AccountStatusFilter = 'all' | 'active' | 'inactive';
 type AccountWithdrawFilter = 'all' | 'visible' | 'hidden';
 
@@ -23,6 +23,7 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
   { id: 'CHANNEL', label: 'Canales' },
   { id: 'PARTNER', label: 'Socios' },
   { id: 'SYSTEM', label: 'Sistema' },
+  { id: 'DIVIDENDS', label: 'Dividendos' },
 ];
 
 @Component({
@@ -171,7 +172,8 @@ export class AdminAccountsPage {
     return cols;
   });
 
-  readonly canRemove = (row: AdminAccountRow) => row.type !== 'SYSTEM';
+  readonly canRemove = (row: AdminAccountRow) =>
+    row.type !== 'SYSTEM' && row.type !== 'DIVIDENDS';
 
   constructor() {
     usePageRefresh(() => this.reload());
@@ -211,6 +213,14 @@ export class AdminAccountsPage {
 
   openCreate(): void {
     const tab = this.typeTab();
+    if (tab === 'DIVIDENDS') {
+      this.snack.open(
+        'La cuenta Dividendos es única por local y se crea sola',
+        'OK',
+        { duration: 3500 },
+      );
+      return;
+    }
     this.openDialog({
       mode: 'create',
       ...(tab === 'all' ? {} : { defaultType: tab }),

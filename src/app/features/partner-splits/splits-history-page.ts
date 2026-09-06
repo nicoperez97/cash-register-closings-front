@@ -4,14 +4,21 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatDialog } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { PartnerSplitRun, PartnerSplitsApiService } from './partner-splits-api.service';
+import {
+  EqualizePreview,
+  PartnerSplitPreview,
+  PartnerSplitRun,
+  PartnerSplitsApiService,
+} from './partner-splits-api.service';
 import { downloadPartnerSplitPdf } from './split-pdf';
 import { SplitRunDetailDialogComponent } from './split-run-detail-dialog';
+import { SplitsEqualizePanelComponent } from './splits-equalize-panel';
 
 @Component({
   selector: 'app-splits-history-page',
@@ -21,8 +28,10 @@ import { SplitRunDetailDialogComponent } from './split-run-detail-dialog';
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
+    MatTabsModule,
     PageHeaderComponent,
     LoadingStateComponent,
+    SplitsEqualizePanelComponent,
   ],
   template: `
     <app-page-header
@@ -30,42 +39,58 @@ import { SplitRunDetailDialogComponent } from './split-run-detail-dialog';
       [subtitle]="shops.selectedShop()?.name ?? ''"
     />
 
-    <p class="hint">
-      Cada vez que aplicás una división de socios queda acá, con pases, montos y quién la hizo.
-      <a routerLink="/partner-splits">Armar una nueva</a>
-    </p>
+    <mat-tab-group animationDuration="0" [(selectedIndex)]="tabIndex">
+      <mat-tab label="Historial">
+        <div class="tab-body">
+          <p class="hint">
+            Cada vez que aplicás una división o un equilibrado queda acá, con pases, montos y quién
+            la hizo.
+            <a routerLink="/partner-splits">Armar una nueva</a>
+          </p>
 
-    @if (loading()) {
-      <app-loading-state label="Cargando divisiones" />
-    } @else if (!rows().length) {
-      <p class="empty">Todavía no hay divisiones aplicadas.</p>
-    } @else {
-      <div class="split-hist">
-        @for (row of rows(); track row.id) {
-          <article class="panel-card split-hist__card">
-            <div>
-              <strong>{{ row.appliedAt | date: 'dd/MM/yyyy HH:mm' }}</strong>
-              <p>
-                {{ row.appliedByName || '—' }} · {{ row.transferCount }} pases ·
-                {{ money(row.distributedAmount) }}
-              </p>
+          @if (loading()) {
+            <app-loading-state label="Cargando divisiones" />
+          } @else if (!rows().length) {
+            <p class="empty">Todavía no hay divisiones aplicadas.</p>
+          } @else {
+            <div class="split-hist">
+              @for (row of rows(); track row.id) {
+                <article class="panel-card split-hist__card">
+                  <div>
+                    <strong>{{ row.appliedAt | date: 'dd/MM/yyyy HH:mm' }}</strong>
+                    <p>
+                      {{ kindLabel(row) }} · {{ row.appliedByName || '—' }} ·
+                      {{ row.transferCount }} pases · {{ money(row.distributedAmount) }}
+                    </p>
+                  </div>
+                  <div class="split-hist__actions">
+                    <button mat-stroked-button type="button" (click)="openDetail(row)">
+                      <mat-icon>info</mat-icon>
+                      Detalle
+                    </button>
+                    <button mat-stroked-button type="button" (click)="exportPdf(row)">
+                      <mat-icon>picture_as_pdf</mat-icon>
+                      PDF
+                    </button>
+                  </div>
+                </article>
+              }
             </div>
-            <div class="split-hist__actions">
-              <button mat-stroked-button type="button" (click)="openDetail(row)">
-                <mat-icon>info</mat-icon>
-                Detalle
-              </button>
-              <button mat-stroked-button type="button" (click)="exportPdf(row)">
-                <mat-icon>picture_as_pdf</mat-icon>
-                PDF
-              </button>
-            </div>
-          </article>
-        }
-      </div>
-    }
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Equilibrar">
+        <div class="tab-body">
+          <app-splits-equalize-panel (applied)="onEqualizeApplied()" />
+        </div>
+      </mat-tab>
+    </mat-tab-group>
   `,
   styles: `
+    .tab-body {
+      padding-top: 0.85rem;
+    }
     .hint {
       margin: 0 0 1rem;
       color: var(--guy-muted, #5f6f76);
@@ -105,6 +130,7 @@ export class SplitsHistoryPage {
 
   readonly rows = signal<PartnerSplitRun[]>([]);
   readonly loading = signal(true);
+  tabIndex = 0;
 
   constructor() {
     effect(() => {
@@ -114,18 +140,14 @@ export class SplitsHistoryPage {
         this.loading.set(false);
         return;
       }
-      this.loading.set(true);
-      this.api.listRuns(shopId).subscribe({
-        next: (rows) => {
-          this.rows.set(rows);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.snack.open('No se pudieron cargar las divisiones', 'OK', { duration: 3500 });
-        },
-      });
+      this.reloadRuns(shopId);
     });
+  }
+
+  kindLabel(row: PartnerSplitRun): string {
+    return row.kind === 'equalize' || row.snapshot?.kind === 'equalize'
+      ? 'Equilibrar'
+      : 'División';
   }
 
   money(value: number): string {
@@ -135,6 +157,12 @@ export class SplitsHistoryPage {
       maximumFractionDigits: 2,
     });
     return n < 0 ? `-$${abs}` : `$${abs}`;
+  }
+
+  onEqualizeApplied(): void {
+    const shopId = this.shops.selectedShopId();
+    if (shopId) this.reloadRuns(shopId);
+    this.tabIndex = 0;
   }
 
   openDetail(row: PartnerSplitRun): void {
@@ -156,7 +184,9 @@ export class SplitsHistoryPage {
               shopName: this.shops.selectedShop()?.name ?? '',
             },
           }),
-          'Detalle de división',
+          full.kind === 'equalize' || full.snapshot?.kind === 'equalize'
+            ? 'Detalle de equilibrado'
+            : 'Detalle de división',
         );
       },
       error: () => this.snack.open('No se pudo abrir la división', 'OK', { duration: 3500 }),
@@ -175,7 +205,7 @@ export class SplitsHistoryPage {
         }
         try {
           await downloadPartnerSplitPdf(
-            snap,
+            snap as PartnerSplitPreview | EqualizePreview,
             this.shops.selectedShop()?.name ?? 'Local',
             `division-${String(row.appliedAt).slice(0, 10)}.pdf`,
             {
@@ -188,6 +218,20 @@ export class SplitsHistoryPage {
         }
       },
       error: () => this.snack.open('No se pudo abrir la división', 'OK', { duration: 3500 }),
+    });
+  }
+
+  private reloadRuns(shopId: string): void {
+    this.loading.set(true);
+    this.api.listRuns(shopId).subscribe({
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('No se pudieron cargar las divisiones', 'OK', { duration: 3500 });
+      },
     });
   }
 }

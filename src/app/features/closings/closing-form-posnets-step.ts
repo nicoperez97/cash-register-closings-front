@@ -247,7 +247,6 @@ export class ClosingFormPosnetsStepComponent {
 
   showPosnetFiles(index: number): boolean {
     return showClosingStepFiles(
-      this.requireClosingFiles(),
       this.posnetHasAmount(index),
       this.posnetFiles()[this.rowPosnetId(index)] ?? [],
     );
@@ -262,7 +261,7 @@ export class ClosingFormPosnetsStepComponent {
   }
 
   showCardFiles(): boolean {
-    return showClosingStepFiles(this.requireClosingFiles(), this.cardHasAmount(), this.cardFiles());
+    return showClosingStepFiles(this.cardHasAmount(), this.cardFiles());
   }
 
   cardFilesMissing(): boolean {
@@ -274,7 +273,7 @@ export class ClosingFormPosnetsStepComponent {
   }
 
   showMpFiles(): boolean {
-    return showClosingStepFiles(this.requireClosingFiles(), this.mpHasAmount(), this.mpFiles());
+    return showClosingStepFiles(this.mpHasAmount(), this.mpFiles());
   }
 
   mpFilesMissing(): boolean {

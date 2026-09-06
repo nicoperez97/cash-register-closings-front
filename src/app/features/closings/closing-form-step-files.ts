@@ -11,11 +11,9 @@ export type ClosingStepFileView = {
 };
 
 export function showClosingStepFiles(
-  requireFiles: boolean,
   hasAmount: boolean,
   files: ClosingStepFileView[],
 ): boolean {
-  if (!requireFiles) return true;
   return hasAmount || files.length > 0;
 }
 

@@ -44,6 +44,7 @@ import {
   MovementEmployeeOption,
   MovementUserOption,
 } from './movement-dialog';
+import { SendToDividendsDialogComponent } from './send-to-dividends-dialog';
 import { QuickExpenseDialogComponent } from './quick-expense-dialog';
 import { MovementsExcelImportDialogComponent } from './movements-excel-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -106,6 +107,12 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
           <button mat-stroked-button type="button" (click)="openExcelImport()">
             <mat-icon>upload_file</mat-icon>
             Importar Excel
+          </button>
+        }
+        @if (canSendDividends()) {
+          <button mat-stroked-button type="button" (click)="openSendToDividends()">
+            <mat-icon>savings</mat-icon>
+            Enviar a dividendos
           </button>
         }
         <app-export-menu
@@ -293,7 +300,7 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
         <div class="panel-card panel-card--flush movements-layout__saldos">
           <app-balances-table
             title="Saldos"
-            subtitle="Acumulados · canales y socios"
+            subtitle="Acumulados · canales, socios y dividendos"
             [accounts]="balanceRows()"
             [shopId]="shopId()"
             [fileSlug]="shops.selectedShop()?.name ?? shops.selectedShop()?.slug ?? 'local'"
@@ -777,6 +784,56 @@ export class MovementsListPage {
           ? 'incomes.manage'
           : 'expenses.manage';
     return hasShopPermission(this.auth.currentUser(), this.shopId(), perm);
+  }
+
+  /** Transferencias: admin con manage, o dueño de cuenta socio (envía su saldo a Dividendos). */
+  canSendDividends(): boolean {
+    if (this.kind() !== 'transfer' || !this.shopId()) return false;
+    if (this.canManage()) return true;
+    const uid = this.auth.currentUser()?.id;
+    if (!uid) return false;
+    return this.accounts().some(
+      (a) => a.type === 'PARTNER' && a.active !== false && (a.userIds ?? []).includes(uid),
+    );
+  }
+
+  openSendToDividends(): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.canSendDividends()) return;
+    const uid = this.auth.currentUser()?.id;
+    const ownPartner = this.accounts().find(
+      (a) =>
+        a.type === 'PARTNER' &&
+        a.active !== false &&
+        uid &&
+        (a.userIds ?? []).includes(uid),
+    );
+    this.dialogTitle
+      .track(
+        this.dialog.open(SendToDividendsDialogComponent, {
+          width: '440px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            accounts: this.canManage()
+              ? this.accounts()
+              : this.accounts().filter(
+                  (a) =>
+                    a.type === 'PARTNER' &&
+                    a.active !== false &&
+                    uid &&
+                    (a.userIds ?? []).includes(uid),
+                ),
+            fromAccountId: this.canManage() ? null : (ownPartner?.id ?? null),
+          },
+        }),
+        'Enviar a dividendos',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.applyFilter();
+      });
   }
 
   onPrimaryAction(): void {
