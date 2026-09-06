@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { ClosingQueryFilters, closingFiltersToParams } from './closing-filters';
 import type { UserVisibility } from '../../shared/user-visibility';
+import { safeUploadFileName } from '../../shared/utils/input-file';
 
 export interface ClosingPosnetAmount {
   posnetId: string;
@@ -55,6 +56,35 @@ export interface CashClosing {
   expensesTotal?: number;
   extraLines?: Array<{ id?: string; type: string; label: string; amount: number; meta?: string }>;
   sourceAmounts?: ClosingSourceAmount[];
+  stepFiles?: ClosingStepFile[];
+}
+
+export type ClosingStepFileSlot =
+  | 'pos_system'
+  | 'channel'
+  | 'posnet'
+  | 'card'
+  | 'mercado_pago'
+  | 'account_dni'
+  | 'other';
+
+export interface ClosingStepFile {
+  id: string;
+  slot: ClosingStepFileSlot;
+  sourceId: string | null;
+  fileName: string;
+  mime: string | null;
+  parsedAmount: number | null;
+}
+
+export interface ClosingStepParseResult {
+  amount: number | null;
+  label: string | null;
+  warning: string | null;
+}
+
+export interface ClosingStepUploadResult extends ClosingStepParseResult {
+  file: ClosingStepFile;
 }
 
 export type ClosingSourceKind = 'OWN_ACCOUNT' | 'SETTLE_CASH' | 'SETTLE_ACCOUNT' | 'RECORD_ONLY';
@@ -150,6 +180,53 @@ export class ClosingsApiService {
 
   get(shopId: string, id: string) {
     return this.http.get<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}`);
+  }
+
+  parseStepFile(
+    shopId: string,
+    file: File,
+    slot: ClosingStepFileSlot,
+    sourceName?: string | null,
+  ) {
+    const body = new FormData();
+    body.append('file', file, safeUploadFileName(file.name));
+    body.append('slot', slot);
+    if (sourceName) body.append('sourceName', sourceName);
+    return this.http.post<ClosingStepParseResult>(
+      `${this.base}/shops/${shopId}/closings/parse-step-file`,
+      body,
+    );
+  }
+
+  uploadStepFile(
+    shopId: string,
+    closingId: string,
+    file: File,
+    slot: ClosingStepFileSlot,
+    sourceId?: string | null,
+    sourceName?: string | null,
+  ) {
+    const body = new FormData();
+    body.append('file', file, safeUploadFileName(file.name));
+    body.append('slot', slot);
+    if (sourceId) body.append('sourceId', sourceId);
+    if (sourceName) body.append('sourceName', sourceName);
+    return this.http.post<ClosingStepUploadResult>(
+      `${this.base}/shops/${shopId}/closings/${closingId}/step-files`,
+      body,
+    );
+  }
+
+  downloadStepFile(shopId: string, closingId: string, fileId: string) {
+    return this.http.get(`${this.base}/shops/${shopId}/closings/${closingId}/step-files/${fileId}`, {
+      responseType: 'blob',
+    });
+  }
+
+  removeStepFile(shopId: string, closingId: string, fileId: string) {
+    return this.http.delete<{ ok: boolean }>(
+      `${this.base}/shops/${shopId}/closings/${closingId}/step-files/${fileId}`,
+    );
   }
 
   create(shopId: string, body: CashClosingInput) {

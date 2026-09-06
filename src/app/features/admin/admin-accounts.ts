@@ -153,6 +153,15 @@ export class AdminAccountsPage {
         },
       },
       {
+        key: 'commissionPercent',
+        label: 'Comisión',
+        format: (r) => {
+          const n = Number(r['commissionPercent'] ?? 0);
+          if (n <= 0) return '—';
+          return `${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`;
+        },
+      },
+      {
         key: 'hideFromCashWithdraw',
         label: 'Retiro',
         format: (r) => (r['hideFromCashWithdraw'] ? 'Oculta' : 'Visible'),

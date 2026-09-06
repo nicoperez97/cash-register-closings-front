@@ -7,6 +7,10 @@
   align-items: start;
 }
 
+.closing-form__block-body > app-closing-form-step-files {
+  margin-top: 0.15rem;
+}
+
 @media (max-width: 720px) {
   .closing-form__dni-row {
     grid-template-columns: 1fr;

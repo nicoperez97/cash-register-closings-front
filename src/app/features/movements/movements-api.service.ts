@@ -308,6 +308,9 @@ export interface AccountBalanceRow {
   income: number;
   expense: number;
   balance: number;
+  commissionPercent?: number;
+  commissionAmount?: number;
+  netBalance?: number;
 }
 
 export interface AccountBalancesResponse {

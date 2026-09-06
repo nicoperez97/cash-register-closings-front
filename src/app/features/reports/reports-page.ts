@@ -14,6 +14,7 @@ import { DataTableComponent, DataTableColumn } from '../../shared/components/dat
 import {
   BalanceAccountRow,
   BalancesTableComponent,
+  mapBalanceAccount,
 } from '../../shared/components/balances-table';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -443,12 +444,8 @@ export class ReportsPage {
         this.days.set(s.days ?? []);
         this.expenseRows.set(s.expensesByConcept ?? []);
         this.balanceRows.set(
-          (s.accountBalances ?? []).map(
-            (a: { accountId?: string; name: string; balance: number }) => ({
-              accountId: a.accountId,
-              name: a.name,
-              balance: Number(a.balance ?? 0),
-            }),
+          (s.accountBalances ?? []).map((a: Parameters<typeof mapBalanceAccount>[0]) =>
+            mapBalanceAccount(a),
           ),
         );
         this.kpis.set([

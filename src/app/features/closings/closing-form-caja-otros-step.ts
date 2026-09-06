@@ -11,6 +11,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 import { ClosingFormDniStepComponent } from './closing-form-dni-step';
+import {
+  ClosingFormStepFilesComponent,
+  closingStepFilesMissing,
+  showClosingStepFiles,
+  type ClosingStepFileView,
+} from './closing-form-step-files';
 import { closingMoney, closingNum } from './closings-form.utils';
 
 @Component({
@@ -23,6 +29,7 @@ import { closingMoney, closingNum } from './closings-form.utils';
     MatInputModule,
     ClosingFormStepNavComponent,
     ClosingFormDniStepComponent,
+    ClosingFormStepFilesComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -31,8 +38,16 @@ import { closingMoney, closingNum } from './closings-form.utils';
       [panelHint]="dniHint()"
       [locksDni]="locksDni()"
       [showNav]="false"
+      [files]="dniFiles()"
+      [filesBusy]="filesBusyKey() === 'account_dni'"
+      [filesDisabled]="filesDisabled()"
+      [requireClosingFiles]="requireClosingFiles()"
+      [hasAmount]="dniHasAmount()"
       (add)="addDni.emit()"
       (remove)="removeDni.emit($event)"
+      (filePicked)="dniFilePicked.emit($event)"
+      (fileView)="fileView.emit($event)"
+      (fileRemove)="dniFileRemove.emit($event)"
     />
     <div class="closing-form__block">
       <div class="closing-form__block-head">
@@ -77,6 +92,17 @@ import { closingMoney, closingNum } from './closings-form.utils';
           <span>Total cobros</span>
           <strong>{{ cobrosTotal() }}</strong>
         </div>
+        @if (showCobrosFiles()) {
+          <app-closing-form-step-files
+            [files]="cobrosFiles()"
+            [busy]="filesBusyKey() === 'other'"
+            [disabled]="filesDisabled()"
+            [requiredMissing]="cobrosFilesMissing()"
+            (picked)="cobrosFilePicked.emit($event)"
+            (view)="fileView.emit($event)"
+            (remove)="cobrosFileRemove.emit($event)"
+          />
+        }
       </div>
     </div>
     @if (sourceCount() > 0) {
@@ -143,6 +169,17 @@ import { closingMoney, closingNum } from './closings-form.utils';
                   <span>{{ filledLineCount(i) > 1 ? 'Suma' : 'Total' }}</span>
                   <strong>{{ money(rowTotal(i)) }}</strong>
                 </div>
+                @if (showSourceFiles(i)) {
+                  <app-closing-form-step-files
+                    [files]="sourceFiles()[rowSourceId(i)] ?? []"
+                    [busy]="filesBusyKey() === 'channel:' + rowSourceId(i)"
+                    [disabled]="filesDisabled()"
+                    [requiredMissing]="sourceFilesMissing(i)"
+                    (picked)="filePicked.emit({ sourceId: rowSourceId(i), files: $event })"
+                    (view)="fileView.emit($event)"
+                    (remove)="fileRemove.emit({ sourceId: rowSourceId(i), file: $event })"
+                  />
+                }
               </div>
             }
           </div>
@@ -162,11 +199,26 @@ export class ClosingFormCajaOtrosStepComponent {
   readonly dniTransfers = input.required<FormArray>();
   readonly dniHint = input('');
   readonly locksDni = input(false);
+  readonly sourceFiles = input<Record<string, ClosingStepFileView[]>>({});
+  readonly dniFiles = input<ClosingStepFileView[]>([]);
+  readonly cobrosFiles = input<ClosingStepFileView[]>([]);
+  readonly filesBusyKey = input<string | null>(null);
+  readonly filesDisabled = input(false);
+  readonly requireClosingFiles = input(false);
+  readonly dniHasAmount = input(false);
+  readonly cobrosHasAmount = input(false);
 
   readonly remove = output<number>();
   readonly removeSourceLine = output<{ sourceIndex: number; lineIndex: number }>();
   readonly addDni = output<void>();
   readonly removeDni = output<number>();
+  readonly filePicked = output<{ sourceId: string; files: File[] }>();
+  readonly fileView = output<ClosingStepFileView>();
+  readonly fileRemove = output<{ sourceId: string; file: ClosingStepFileView }>();
+  readonly dniFilePicked = output<File[]>();
+  readonly dniFileRemove = output<ClosingStepFileView>();
+  readonly cobrosFilePicked = output<File[]>();
+  readonly cobrosFileRemove = output<ClosingStepFileView>();
 
   sourceLines(index: number): FormArray {
     return this.sourceAmounts().at(index)?.get('lines') as FormArray;
@@ -204,6 +256,10 @@ export class ClosingFormCajaOtrosStepComponent {
     return String(row?.get('name')?.value ?? '').trim() || 'Fuente';
   }
 
+  rowSourceId(index: number): string {
+    return String(this.sourceAmounts().at(index)?.get('sourceId')?.value ?? '');
+  }
+
   isDeclared(index: number): boolean {
     return !!this.sourceAmounts().at(index)?.get('includeInDeclared')?.value;
   }
@@ -224,5 +280,37 @@ export class ClosingFormCajaOtrosStepComponent {
     if (kind === 'SETTLE_CASH') return 'Rinde después en efectivo';
     if (kind === 'SETTLE_ACCOUNT') return 'Se deposita después en una cuenta';
     return 'Queda a cuenta aparte';
+  }
+
+  showCobrosFiles(): boolean {
+    return showClosingStepFiles(
+      this.requireClosingFiles(),
+      this.cobrosHasAmount(),
+      this.cobrosFiles(),
+    );
+  }
+
+  cobrosFilesMissing(): boolean {
+    return closingStepFilesMissing(
+      this.requireClosingFiles(),
+      this.cobrosHasAmount(),
+      this.cobrosFiles(),
+    );
+  }
+
+  showSourceFiles(index: number): boolean {
+    return showClosingStepFiles(
+      this.requireClosingFiles(),
+      this.rowTotal(index) > 0,
+      this.sourceFiles()[this.rowSourceId(index)] ?? [],
+    );
+  }
+
+  sourceFilesMissing(index: number): boolean {
+    return closingStepFilesMissing(
+      this.requireClosingFiles(),
+      this.rowTotal(index) > 0,
+      this.sourceFiles()[this.rowSourceId(index)] ?? [],
+    );
   }
 }

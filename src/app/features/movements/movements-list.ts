@@ -14,6 +14,7 @@ import { DataTableComponent, DataTableColumn } from '../../shared/components/dat
 import {
   BalanceAccountRow,
   BalancesTableComponent,
+  mapBalanceAccount,
 } from '../../shared/components/balances-table';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import {
@@ -967,13 +968,7 @@ export class MovementsListPage {
     });
     this.api.balances(shopId).subscribe({
       next: (res) =>
-        this.balanceRows.set(
-          (res.accounts ?? []).map((a) => ({
-            accountId: a.accountId,
-            name: a.name,
-            balance: Number(a.balance ?? 0),
-          })),
-        ),
+        this.balanceRows.set((res.accounts ?? []).map((a) => mapBalanceAccount(a))),
       error: () => this.balanceRows.set([]),
     });
   }

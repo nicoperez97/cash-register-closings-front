@@ -1,8 +1,14 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { ControlContainer, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
+import {
+  ClosingFormStepFilesComponent,
+  closingStepFilesMissing,
+  showClosingStepFiles,
+  type ClosingStepFileView,
+} from './closing-form-step-files';
 
 @Component({
   selector: 'app-closing-form-caja-step',
@@ -11,6 +17,7 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
     MatFormFieldModule,
     MatInputModule,
     ClosingFormStepNavComponent,
+    ClosingFormStepFilesComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -48,6 +55,17 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
             <input matInput type="number" inputmode="decimal" formControlName="posSystemAmount" />
           </mat-form-field>
         </div>
+        @if (showFiles()) {
+          <app-closing-form-step-files
+            [files]="files()"
+            [busy]="filesBusy()"
+            [disabled]="filesDisabled()"
+            [requiredMissing]="filesMissing()"
+            (picked)="filePicked.emit($event)"
+            (view)="fileView.emit($event)"
+            (remove)="fileRemove.emit($event)"
+          />
+        }
         <div
           class="closing-caja__diff"
           [class.closing-caja__diff--pending]="difference() === null"
@@ -72,4 +90,21 @@ export class ClosingFormCajaStepComponent {
   readonly breakdown = input<Array<{ name: string; amount: string }>>([]);
   readonly difference = input<number | null>(null);
   readonly differenceLabel = input('—');
+  readonly files = input<ClosingStepFileView[]>([]);
+  readonly filesBusy = input(false);
+  readonly filesDisabled = input(false);
+  readonly requireClosingFiles = input(false);
+  readonly hasAmount = input(false);
+
+  readonly filePicked = output<File[]>();
+  readonly fileView = output<ClosingStepFileView>();
+  readonly fileRemove = output<ClosingStepFileView>();
+
+  showFiles(): boolean {
+    return showClosingStepFiles(this.requireClosingFiles(), this.hasAmount(), this.files());
+  }
+
+  filesMissing(): boolean {
+    return closingStepFilesMissing(this.requireClosingFiles(), this.hasAmount(), this.files());
+  }
 }

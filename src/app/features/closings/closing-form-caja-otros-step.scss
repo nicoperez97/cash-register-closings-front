@@ -128,6 +128,11 @@
   font-size: 1.05rem;
 }
 
+.closing-form__source-card app-closing-form-step-files,
+.closing-form__block-body > app-closing-form-step-files {
+  margin-top: 0.1rem;
+}
+
 @media (max-width: 720px) {
   .closing-form__cobro-row {
     grid-template-columns: 1fr;

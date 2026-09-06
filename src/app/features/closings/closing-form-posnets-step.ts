@@ -11,6 +11,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
+import {
+  ClosingFormStepFilesComponent,
+  closingStepFilesMissing,
+  showClosingStepFiles,
+  type ClosingStepFileView,
+} from './closing-form-step-files';
+import type { ClosingStepFileSlot } from './closings-api.service';
+import { closingNum } from './closings-form.utils';
 
 type PosnetRow = {
   posnetId?: string;
@@ -28,6 +36,7 @@ type PosnetRow = {
     MatInputModule,
     MatSelectModule,
     ClosingFormStepNavComponent,
+    ClosingFormStepFilesComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -95,44 +104,81 @@ type PosnetRow = {
                   <input matInput type="number" inputmode="decimal" formControlName="amount" />
                 </mat-form-field>
               </div>
+              @if (showPosnetFiles(i)) {
+                <app-closing-form-step-files
+                  [files]="posnetFiles()[rowPosnetId(i)] ?? []"
+                  [busy]="filesBusyKey() === 'posnet:' + rowPosnetId(i)"
+                  [disabled]="filesDisabled()"
+                  [requiredMissing]="posnetFilesMissing(i)"
+                  (picked)="filePicked.emit({ slot: 'posnet', sourceId: rowPosnetId(i), files: $event })"
+                  (view)="fileView.emit($event)"
+                  (remove)="fileRemove.emit({ slot: 'posnet', sourceId: rowPosnetId(i), file: $event })"
+                />
+              }
             </div>
           } @empty {
             <p class="closing-form__hint">Sin terminales. Completá PVS y Mercado Pago abajo.</p>
           }
         </div>
         <div class="closing-form__fields closing-form__fields--totals">
-          <mat-form-field
-            appearance="outline"
-            subscriptSizing="dynamic"
-            floatLabel="always"
-            class="closing-field--money"
-          >
-            <mat-label>PVS{{ locksCard() ? ' (suma)' : '' }}</mat-label>
-            <span matTextPrefix class="closing-field__prefix">$</span>
-            <input
-              matInput
-              type="number"
-              inputmode="decimal"
-              formControlName="cardAmount"
-              [readonly]="locksCard()"
-            />
-          </mat-form-field>
-          <mat-form-field
-            appearance="outline"
-            subscriptSizing="dynamic"
-            floatLabel="always"
-            class="closing-field--money"
-          >
-            <mat-label>Mercado Pago{{ locksMp() ? ' (suma)' : '' }}</mat-label>
-            <span matTextPrefix class="closing-field__prefix">$</span>
-            <input
-              matInput
-              type="number"
-              inputmode="decimal"
-              formControlName="mercadoPagoAmount"
-              [readonly]="locksMp()"
-            />
-          </mat-form-field>
+          <div class="closing-form__total-slot">
+            <mat-form-field
+              appearance="outline"
+              subscriptSizing="dynamic"
+              floatLabel="always"
+              class="closing-field--money"
+            >
+              <mat-label>PVS{{ locksCard() ? ' (suma)' : '' }}</mat-label>
+              <span matTextPrefix class="closing-field__prefix">$</span>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                formControlName="cardAmount"
+                [readonly]="locksCard()"
+              />
+            </mat-form-field>
+            @if (!locksCard() && showCardFiles()) {
+              <app-closing-form-step-files
+                [files]="cardFiles()"
+                [busy]="filesBusyKey() === 'card'"
+                [disabled]="filesDisabled()"
+                [requiredMissing]="cardFilesMissing()"
+                (picked)="filePicked.emit({ slot: 'card', sourceId: null, files: $event })"
+                (view)="fileView.emit($event)"
+                (remove)="fileRemove.emit({ slot: 'card', sourceId: null, file: $event })"
+              />
+            }
+          </div>
+          <div class="closing-form__total-slot">
+            <mat-form-field
+              appearance="outline"
+              subscriptSizing="dynamic"
+              floatLabel="always"
+              class="closing-field--money"
+            >
+              <mat-label>Mercado Pago{{ locksMp() ? ' (suma)' : '' }}</mat-label>
+              <span matTextPrefix class="closing-field__prefix">$</span>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                formControlName="mercadoPagoAmount"
+                [readonly]="locksMp()"
+              />
+            </mat-form-field>
+            @if (!locksMp() && showMpFiles()) {
+              <app-closing-form-step-files
+                [files]="mpFiles()"
+                [busy]="filesBusyKey() === 'mercado_pago'"
+                [disabled]="filesDisabled()"
+                [requiredMissing]="mpFilesMissing()"
+                (picked)="filePicked.emit({ slot: 'mercado_pago', sourceId: null, files: $event })"
+                (view)="fileView.emit($event)"
+                (remove)="fileRemove.emit({ slot: 'mercado_pago', sourceId: null, file: $event })"
+              />
+            }
+          </div>
         </div>
       </div>
     </div>
@@ -148,9 +194,28 @@ export class ClosingFormPosnetsStepComponent {
   readonly configuredIds = input<ReadonlySet<string>>(new Set());
   readonly posnetTypes = input.required<Array<{ value: string; label: string }>>();
   readonly typeLabels = input<Record<string, string>>({});
+  readonly posnetFiles = input<Record<string, ClosingStepFileView[]>>({});
+  readonly cardFiles = input<ClosingStepFileView[]>([]);
+  readonly mpFiles = input<ClosingStepFileView[]>([]);
+  readonly filesBusyKey = input<string | null>(null);
+  readonly filesDisabled = input(false);
+  readonly requireClosingFiles = input(false);
+  readonly cardHasAmount = input(false);
+  readonly mpHasAmount = input(false);
 
   readonly add = output<void>();
   readonly remove = output<number>();
+  readonly filePicked = output<{
+    slot: ClosingStepFileSlot;
+    sourceId: string | null;
+    files: File[];
+  }>();
+  readonly fileView = output<ClosingStepFileView>();
+  readonly fileRemove = output<{
+    slot: ClosingStepFileSlot;
+    sourceId: string | null;
+    file: ClosingStepFileView;
+  }>();
 
   private rowAt(index: number): PosnetRow | undefined {
     return this.posnetAmounts().at(index)?.getRawValue() as PosnetRow | undefined;
@@ -170,5 +235,49 @@ export class ClosingFormPosnetsStepComponent {
     const row = this.rowAt(index);
     const type = row?.type || '';
     return this.typeLabels()[type] || type || '—';
+  }
+
+  rowPosnetId(index: number): string {
+    return String(this.rowAt(index)?.posnetId ?? '');
+  }
+
+  posnetHasAmount(index: number): boolean {
+    return closingNum(this.posnetAmounts().at(index)?.get('amount')?.value) > 0;
+  }
+
+  showPosnetFiles(index: number): boolean {
+    return showClosingStepFiles(
+      this.requireClosingFiles(),
+      this.posnetHasAmount(index),
+      this.posnetFiles()[this.rowPosnetId(index)] ?? [],
+    );
+  }
+
+  posnetFilesMissing(index: number): boolean {
+    return closingStepFilesMissing(
+      this.requireClosingFiles(),
+      this.posnetHasAmount(index),
+      this.posnetFiles()[this.rowPosnetId(index)] ?? [],
+    );
+  }
+
+  showCardFiles(): boolean {
+    return showClosingStepFiles(this.requireClosingFiles(), this.cardHasAmount(), this.cardFiles());
+  }
+
+  cardFilesMissing(): boolean {
+    return closingStepFilesMissing(
+      this.requireClosingFiles(),
+      this.cardHasAmount(),
+      this.cardFiles(),
+    );
+  }
+
+  showMpFiles(): boolean {
+    return showClosingStepFiles(this.requireClosingFiles(), this.mpHasAmount(), this.mpFiles());
+  }
+
+  mpFilesMissing(): boolean {
+    return closingStepFilesMissing(this.requireClosingFiles(), this.mpHasAmount(), this.mpFiles());
   }
 }

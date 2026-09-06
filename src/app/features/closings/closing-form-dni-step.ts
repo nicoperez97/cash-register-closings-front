@@ -10,6 +10,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
+import {
+  ClosingFormStepFilesComponent,
+  closingStepFilesMissing,
+  showClosingStepFiles,
+  type ClosingStepFileView,
+} from './closing-form-step-files';
 
 @Component({
   selector: 'app-closing-form-dni-step',
@@ -20,6 +26,7 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
     MatIconModule,
     MatInputModule,
     ClosingFormStepNavComponent,
+    ClosingFormStepFilesComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -82,6 +89,17 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
             />
           </mat-form-field>
         </div>
+        @if (showFiles()) {
+          <app-closing-form-step-files
+            [files]="files()"
+            [busy]="filesBusy()"
+            [disabled]="filesDisabled()"
+            [requiredMissing]="filesMissing()"
+            (picked)="filePicked.emit($event)"
+            (view)="fileView.emit($event)"
+            (remove)="fileRemove.emit($event)"
+          />
+        }
       </div>
     </div>
     @if (showNav()) {
@@ -95,7 +113,23 @@ export class ClosingFormDniStepComponent {
   readonly panelHint = input('');
   readonly locksDni = input(false);
   readonly showNav = input(true);
+  readonly files = input<ClosingStepFileView[]>([]);
+  readonly filesBusy = input(false);
+  readonly filesDisabled = input(false);
+  readonly requireClosingFiles = input(false);
+  readonly hasAmount = input(false);
 
   readonly add = output<void>();
   readonly remove = output<number>();
+  readonly filePicked = output<File[]>();
+  readonly fileView = output<ClosingStepFileView>();
+  readonly fileRemove = output<ClosingStepFileView>();
+
+  showFiles(): boolean {
+    return showClosingStepFiles(this.requireClosingFiles(), this.hasAmount(), this.files());
+  }
+
+  filesMissing(): boolean {
+    return closingStepFilesMissing(this.requireClosingFiles(), this.hasAmount(), this.files());
+  }
 }
