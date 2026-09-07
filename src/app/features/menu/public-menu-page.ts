@@ -10,6 +10,8 @@ import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url
 import { menuPriceOf, normalizeMenuText, prettySection } from './menu-display';
 import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 import { pdfFileSlug } from '../../shared/pdf/pdf-text';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 type PublicShop = {
   id: string;
@@ -718,7 +720,9 @@ export class PublicMenuPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly analytics = inject(AnalyticsService);
   private shopSlug = '';
+  private viewedTracked = false;
   private menuSlug = '';
   private observer: IntersectionObserver | null = null;
   private jumping = false;
@@ -789,6 +793,7 @@ export class PublicMenuPageComponent implements OnInit {
       this.query.set('');
       this.filter.set('all');
       this.activeSection.set('');
+      this.viewedTracked = false;
       if (!this.shopSlug) {
         this.error.set('Local no encontrado');
         return;
@@ -836,6 +841,18 @@ export class PublicMenuPageComponent implements OnInit {
     this.http.get<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu }>(url).subscribe({
       next: (res) => {
         this.data.set(res);
+        this.analytics.setPublicShopContext({
+          id: res.shop?.id,
+          name: res.shop?.name,
+          slug: res.shop?.slug || this.shopSlug,
+        });
+        if (!this.viewedTracked) {
+          this.viewedTracked = true;
+          this.analytics.event(AnalyticsEvents.menuViewed, {
+            shop_slug: res.shop?.slug || this.shopSlug,
+            menu_slug: res.menu?.slug || this.menuSlug || undefined,
+          });
+        }
         void this.renderQr();
         queueMicrotask(() => this.watchSections());
       },

@@ -41,6 +41,8 @@ import type { UserVisibility } from '../../shared/user-visibility';
 import { isUserVisible } from '../../shared/user-visibility';
 import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber, formatMoney } from '../../shared/utils/money';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
 
@@ -832,6 +834,7 @@ export class MovementDialogComponent implements OnInit {
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly analytics = inject(AnalyticsService);
 
   readonly actorId = this.auth.currentUser()?.id ?? null;
   readonly notifyEnabled = signal(false);
@@ -1400,6 +1403,30 @@ export class MovementDialogComponent implements OnInit {
 
   private finishSave(saved: Movement): void {
     this.busy.set(false);
+    if (!this.isEdit) {
+      const amount = Number(saved.amountUyu ?? 0);
+      if (this.isTransfer && (saved.isDividend || this.form.controls.isDividend.value)) {
+        this.analytics.event(AnalyticsEvents.dividendSent, {
+          amount,
+          movement_id: saved.id,
+        });
+      } else if (this.isTransfer) {
+        this.analytics.event(AnalyticsEvents.transferCreated, {
+          amount,
+          movement_id: saved.id,
+        });
+      } else if (this.isIncome) {
+        this.analytics.event(AnalyticsEvents.incomeCreated, {
+          amount,
+          movement_id: saved.id,
+        });
+      } else {
+        this.analytics.event(AnalyticsEvents.expenseCreated, {
+          amount,
+          movement_id: saved.id,
+        });
+      }
+    }
     if (this.isEdit) {
       this.snack.open(
         this.isTransfer

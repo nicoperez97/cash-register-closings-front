@@ -18,6 +18,8 @@ import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import { newId } from '../../core/utils/id';
 import {
   formatIsoDateDisplay,
@@ -367,6 +369,7 @@ export class ClosingsFormPage implements OnInit {
   private readonly employeesApi = inject(EmployeesApiService);
   private readonly shops = inject(ShopContextService);
   readonly auth = inject(AuthService);
+  private readonly analytics = inject(AnalyticsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
@@ -1673,6 +1676,14 @@ export class ClosingsFormPage implements OnInit {
 
     if (result !== 'saved') return;
     clearClosingDraft();
+
+    this.analytics.event(AnalyticsEvents.closingCreated, {
+      date: this.summaryDate() ?? '',
+      total: this.declaredTotal(),
+    });
+    this.analytics.event(AnalyticsEvents.closingSubmitted, {
+      date: this.summaryDate() ?? '',
+    });
 
     this.cashWithdrawalsInbox.refresh();
     this.settlementsInbox.refresh();

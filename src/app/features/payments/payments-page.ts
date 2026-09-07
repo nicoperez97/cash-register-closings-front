@@ -34,6 +34,8 @@ import { PaymentCardComponent } from './payment-card';
 import { PaymentsFiltersPanelComponent } from './payments-filters-panel';
 import { comparePayments, loadPaymentSort, PAYMENT_SORT_OPTIONS, savePaymentSort, type PaymentSortKey } from './payments-display.util';
 import { formatMoney } from '../../shared/utils/money';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
@@ -289,6 +291,7 @@ export class PaymentsPage {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly auth = inject(AuthService);
+  private readonly analytics = inject(AnalyticsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
@@ -1154,6 +1157,11 @@ export class PaymentsPage {
         this.actionBusyId.set(null);
         this.reload({ preserveScroll: true });
         this.snack.open('Pago validado', 'OK', { duration: 2500 });
+        this.analytics.event(AnalyticsEvents.paymentValidated, {
+          payment_id: p.id,
+          amount: Number(p.amount ?? 0),
+          is_dividend: !!p.isDividend,
+        });
       },
       error: (err) => {
         this.actionBusyId.set(null);
@@ -1200,6 +1208,12 @@ export class PaymentsPage {
       next: (paid) => {
         this.actionBusyId.set(null);
         this.reload({ preserveScroll: true });
+        this.analytics.event(AnalyticsEvents.paymentPaid, {
+          payment_id: paid.id,
+          amount: Number(result.amount ?? paid.amount ?? 0),
+          is_dividend: !!paid.isDividend,
+          payment_method: result.paymentMethod,
+        });
         this.dialogTitle.track(
           this.dialog.open(RecordSavedDialogComponent, {
             width: '440px',
