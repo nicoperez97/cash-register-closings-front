@@ -15,6 +15,7 @@ import { accountTypeLabel } from '../../core/i18n/labels';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { AuthService } from '../../core/auth/auth.service';
 import { canConfigureShopOpeningBalances } from '../../core/auth/auth.models';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 
 export interface AdminAccountRow {
   id: string;
@@ -68,14 +69,22 @@ export type AdminAccountDialogData = {
   | { mode: 'edit'; account: AdminAccountRow }
 );
 
-function suggestAccountCode(name: string): string {
-  return name
+function slugPart(raw: string, max: number): string {
+  return raw
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
     .replace(/^_|_$/g, '')
-    .slice(0, 24);
+    .slice(0, max);
+}
+
+/** Código = LOCAL_NOMBRE (máx. 40). */
+export function suggestAccountCode(name: string, shopSlugOrName: string): string {
+  const shop = slugPart(shopSlugOrName, 12) || 'LOCAL';
+  const namePart = slugPart(name, 24);
+  if (!namePart) return shop;
+  return `${shop}_${namePart}`.slice(0, 40);
 }
 
 interface UserOption {
@@ -125,7 +134,15 @@ interface UserOption {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Código</mat-label>
           <mat-icon matPrefix>tag</mat-icon>
-          <input matInput formControlName="code" />
+          <input
+            matInput
+            formControlName="code"
+            (input)="onCodeTyped()"
+            autocomplete="off"
+          />
+          @if (!isEdit) {
+            <mat-hint>Se arma solo con el local y el nombre. Podés editarlo.</mat-hint>
+          }
           @if (form.controls.code.touched && form.controls.code.hasError('required')) {
             <mat-error>Ingresá un código</mat-error>
           }
@@ -269,11 +286,14 @@ export class AdminAccountDialogComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
+  private readonly shops = inject(ShopContextService);
   readonly canConfigureOpeningBalances = canConfigureShopOpeningBalances(this.auth.currentUser());
 
   readonly paymentOptions = LINKED_PAYMENT_METHOD_OPTIONS;
   readonly isEdit = this.data.mode === 'edit';
   private readonly account = this.data.mode === 'edit' ? this.data.account : null;
+  /** En alta: el código sigue al nombre hasta que el usuario lo edite a mano. */
+  private codeManual = false;
   readonly typeOptions =
     this.account?.type === 'DIVIDENDS'
       ? [
@@ -292,6 +312,18 @@ export class AdminAccountDialogComponent implements OnInit {
     return [];
   }
 
+  private shopCodeSeed(): string {
+    const shop =
+      this.shops.selectedShop() ??
+      this.shops.shops().find((s) => s.id === this.data.shopId) ??
+      null;
+    return (shop?.slug || shop?.name || '').trim();
+  }
+
+  private buildCode(name: string): string {
+    return suggestAccountCode(name, this.shopCodeSeed());
+  }
+
   private initialCreateName(): string {
     if (this.isEdit) return this.account?.name ?? '';
     return String(this.data.suggestedName ?? '').trim();
@@ -299,7 +331,7 @@ export class AdminAccountDialogComponent implements OnInit {
 
   private initialCreateCode(): string {
     if (this.isEdit) return this.account?.code ?? '';
-    return suggestAccountCode(this.initialCreateName());
+    return this.buildCode(this.initialCreateName());
   }
 
   readonly form = this.fb.nonNullable.group({
@@ -337,6 +369,18 @@ export class AdminAccountDialogComponent implements OnInit {
         next: (rows) => this.users.set(rows),
         error: () => this.users.set([]),
       });
+
+    if (!this.isEdit) {
+      this.form.controls.name.valueChanges.subscribe((name) => {
+        if (this.codeManual) return;
+        this.form.controls.code.setValue(this.buildCode(name ?? ''), { emitEvent: false });
+      });
+    }
+  }
+
+  onCodeTyped(): void {
+    if (this.isEdit) return;
+    this.codeManual = true;
   }
 
   save(): void {
