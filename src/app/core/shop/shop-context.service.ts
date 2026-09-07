@@ -3,12 +3,14 @@ import { ShopSummary } from '../auth/auth.models';
 import { APP_BRAND } from '../config/app-brand';
 import { ThemeService } from '../theme/theme.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../utils/drive-url';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 const SHOP_KEY = 'crc_selected_shop';
 
 @Injectable({ providedIn: 'root' })
 export class ShopContextService {
   private readonly theme = inject(ThemeService);
+  private readonly analytics = inject(AnalyticsService);
   private readonly shopsSignal = signal<ShopSummary[]>([]);
   private readonly selectedId = signal<string | null>(localStorage.getItem(SHOP_KEY));
   private readonly favoriteId = signal<string | null>(null);
@@ -135,6 +137,10 @@ export class ShopContextService {
     if (list.length && !list.some((s) => s.id === shopId)) return false;
     this.selectedId.set(shopId);
     localStorage.setItem(SHOP_KEY, shopId);
+    const shop = list.find((s) => s.id === shopId);
+    if (shop) {
+      this.analytics.trackShopSelected({ id: shop.id, name: shop.name, slug: shop.slug });
+    }
     return true;
   }
 

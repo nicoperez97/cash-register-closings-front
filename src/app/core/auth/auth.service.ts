@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { AuthUser, GlobalRole, toUiRole } from './auth.models';
 import { ShopContextService } from '../shop/shop-context.service';
 import { isPublicAppPath } from '../routing/public-paths';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 const TOKEN_KEY = 'crc_token';
 const USER_KEY = 'crc_user';
@@ -13,6 +14,7 @@ const USER_KEY = 'crc_user';
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly shopContext = inject(ShopContextService);
+  private readonly analytics = inject(AnalyticsService);
 
   readonly currentUser = signal<AuthUser | null>(this.readUser());
 
@@ -77,7 +79,7 @@ export class AuthService {
       }>(`${environment.apiUrl}/auth/login`, { email, password }),
     );
 
-    return this.applySession(res.accessToken);
+    return this.applySession(res.accessToken, 'password');
   }
 
   /** Login con ID token de Google (solo si el email ya existe en el sistema). */
@@ -87,10 +89,13 @@ export class AuthService {
         idToken,
       }),
     );
-    return this.applySession(res.accessToken);
+    return this.applySession(res.accessToken, 'google');
   }
 
-  private async applySession(accessToken: string): Promise<boolean> {
+  private async applySession(
+    accessToken: string,
+    method?: 'password' | 'google',
+  ): Promise<boolean> {
     localStorage.setItem(TOKEN_KEY, accessToken);
     const me = await firstValueFrom(
       this.http.get<any>(`${environment.apiUrl}/auth/me`, {
@@ -101,6 +106,7 @@ export class AuthService {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.currentUser.set(user);
     this.shopContext.setShops(user.shops, user.favoriteShopId, true);
+    if (method) this.analytics.trackLoginSuccess(method);
     return true;
   }
 
@@ -161,6 +167,7 @@ export class AuthService {
     }
     this.refreshInFlight = null;
     this.refreshAgain = false;
+    this.analytics.trackLogout();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this.currentUser.set(null);

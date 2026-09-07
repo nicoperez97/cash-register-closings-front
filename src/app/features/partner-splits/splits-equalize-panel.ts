@@ -13,6 +13,8 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { PaymentsInboxService } from '../payments/payments-inbox.service';
 import { EqualizeApplyDialogComponent } from './equalize-apply-dialog';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import {
   EqualizePartnerRow,
   EqualizePreview,
@@ -763,6 +765,7 @@ export class SplitsEqualizePanelComponent {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly paymentsInbox = inject(PaymentsInboxService);
+  private readonly analytics = inject(AnalyticsService);
 
   readonly canManage = () => this.auth.hasPermission('partnerSplits.manage');
 
@@ -986,6 +989,11 @@ export class SplitsEqualizePanelComponent {
                 { duration: 4500 },
               );
               if (pays) this.paymentsInbox.refresh();
+              this.analytics.event(AnalyticsEvents.equalizeApplied, {
+                amount,
+                payments_created: pays,
+                movements_created: movs,
+              });
               this.applied.emit();
             },
             error: (err) => {
@@ -1028,6 +1036,10 @@ export class SplitsEqualizePanelComponent {
             'OK',
             { duration: 3500 },
           );
+          this.analytics.event(AnalyticsEvents.surplusToDividends, {
+            amount,
+            movements_created: res.createdMovementCount ?? res.createdCount ?? 0,
+          });
           this.applied.emit();
         },
         error: (err) => {
@@ -1097,6 +1109,10 @@ export class SplitsEqualizePanelComponent {
             'OK',
             { duration: 4500 },
           );
+          this.analytics.event(AnalyticsEvents.balancedToDividends, {
+            amount: total,
+            movements_created: res.createdMovementCount ?? res.createdCount ?? 0,
+          });
           this.applied.emit();
         },
         error: (err) => {

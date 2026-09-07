@@ -13,6 +13,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { AuthService } from '../../core/auth/auth.service';
 import { canEditShopPayments } from '../../core/auth/auth.models';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import {
@@ -124,6 +126,7 @@ export class PaymentDialogComponent implements OnInit {
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly auth = inject(AuthService);
+  private readonly analytics = inject(AnalyticsService);
 
   readonly actorId = this.auth.currentUser()?.id ?? null;
   readonly canChooseStatus = canEditShopPayments(this.auth.currentUser(), this.data.shopId);
@@ -1174,6 +1177,13 @@ export class PaymentDialogComponent implements OnInit {
                 : 'Pago creado'
               : `${n} pagos creados`;
           this.snack.open(msg, 'OK', { duration: invoiceFail ? 5500 : 2500 });
+          if (n > 0) {
+            this.analytics.event(AnalyticsEvents.paymentCreated, {
+              count: n,
+              kind: this.data.kind,
+              duplicate: this.isDuplicate,
+            });
+          }
           this.ref.close(true);
         },
       });

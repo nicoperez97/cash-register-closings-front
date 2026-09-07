@@ -25,6 +25,8 @@ import {
   playReservationBoardSound,
   unlockReservationAlertSound,
 } from './reservation-alert-sound';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 @Component({
   selector: 'app-public-reservations-board',
@@ -372,8 +374,10 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   private readonly api = inject(ReservationsApiService);
   private readonly boardPwa = inject(BoardPwaService);
   private readonly live = inject(ShopLiveClient);
+  private readonly analytics = inject(AnalyticsService);
   private slug = '';
   private pwaApplied = false;
+  private viewedTracked = false;
 
   private readonly refresh$ = new Subject<void>();
   private pollSub: Subscription | null = null;
@@ -664,6 +668,18 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.knownIds = nextIds;
     this.hasLoadedOnce = true;
     this.board.set(b);
+    if (!this.viewedTracked) {
+      this.viewedTracked = true;
+      this.analytics.setPublicShopContext({
+        id: b.shop?.id,
+        name: b.shop?.name,
+        slug: b.shop?.slug || this.slug,
+      });
+      this.analytics.event(AnalyticsEvents.publicBoardViewed, {
+        shop_slug: b.shop?.slug || this.slug,
+        reservation_count: (b.reservations ?? []).length,
+      });
+    }
   }
 
   private scheduleHighlightClear(): void {

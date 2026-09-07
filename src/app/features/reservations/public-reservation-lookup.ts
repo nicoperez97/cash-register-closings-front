@@ -9,6 +9,8 @@ import {
   PublicReservationLookupItem,
   ReservationsApiService,
 } from './reservations-api.service';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 @Component({
   selector: 'app-public-reservation-lookup',
@@ -345,6 +347,7 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ReservationsApiService);
   private readonly title = inject(Title);
+  private readonly analytics = inject(AnalyticsService);
 
   readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
   readonly shopName = signal('');
@@ -359,6 +362,11 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     applyStatusBar('#0e0c0b', 'dark');
     this.title.setTitle('Consultar reserva');
+    const slug = this.slug();
+    if (slug) {
+      this.analytics.setPublicShopContext({ slug });
+      this.analytics.event(AnalyticsEvents.miReservaViewed, { shop_slug: slug });
+    }
   }
 
   ngOnDestroy(): void {
@@ -393,10 +401,27 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
           })),
         );
         this.title.setTitle(`Reservas · ${res.shop?.name ?? slug}`);
+        this.analytics.setPublicShopContext({
+          id: res.shop?.id,
+          name: res.shop?.name,
+          slug: res.shop?.slug || slug,
+        });
+        this.analytics.event(AnalyticsEvents.publicReservationLookup, {
+          guest_email: email,
+          found: list.length > 0,
+          result_count: list.length,
+          shop_slug: res.shop?.slug || slug,
+        });
       },
       error: () => {
         this.loading.set(false);
         this.error.set('No pudimos consultar las reservas de este local.');
+        this.analytics.event(AnalyticsEvents.publicReservationLookup, {
+          guest_email: email,
+          found: false,
+          shop_slug: slug,
+          form_result: 'api_error',
+        });
       },
     });
   }

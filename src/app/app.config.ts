@@ -32,6 +32,7 @@ import { BodyScrollLockService } from './shared/services/body-scroll-lock.servic
 import { AppUpdateDialogComponent } from './shared/components/app-update-dialog';
 import { NotificationsInboxService } from './features/payments/notifications-inbox.service';
 import { PushNotificationsService } from './features/payments/push-notifications.service';
+import { AnalyticsService } from './core/analytics/analytics.service';
 
 registerLocaleData(localeEsAr);
 
@@ -124,6 +125,10 @@ async function refreshSession(): Promise<void> {
   }
 }
 
+function startAnalytics(): void {
+  inject(AnalyticsService).start();
+}
+
 /**
  * Reemplaza BlockScrollStrategy de CDK (deja scrollY en 0 → la página salta al tope)
  * por nuestro body lock, en el enable del overlay (antes del autoFocus).
@@ -167,6 +172,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
+    provideAppInitializer(startAnalytics),
     provideRouter(routes),
     provideHttpClient(
       withInterceptors([

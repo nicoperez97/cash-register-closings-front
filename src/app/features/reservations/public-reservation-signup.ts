@@ -22,6 +22,14 @@ import {
   ReservationsApiService,
 } from './reservations-api.service';
 import { partyFitsArea, partyOutsideHint } from './reservation-party-rules.util';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import {
+  AnalyticsEvents,
+  hourBucket,
+  isWeekendIso,
+  partySizeBucket,
+  weekdayShort,
+} from '../../core/analytics/analytics.events';
 
 const TIME_SLOTS = ['19:30', '20:00', '20:30', '21:00'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -409,6 +417,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private readonly api = inject(ReservationsApiService);
   private readonly title = inject(Title);
   private readonly live = inject(ShopLiveClient);
+  private readonly analytics = inject(AnalyticsService);
   private liveSub: Subscription | null = null;
 
   readonly timeSlots = signal<string[]>([...TIME_SLOTS]);
@@ -533,6 +542,11 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     this.api.publicSignupInfo(slug, this.businessDate).subscribe({
       next: (info) => {
         this.info.set(info);
+        this.analytics.setPublicShopContext({
+          id: info.shop?.id,
+          name: info.shop?.name,
+          slug: info.shop?.slug || slug,
+        });
         this.closedWeekdays.set(
           Array.isArray(info.closedWeekdays) ? info.closedWeekdays : [],
         );
@@ -797,6 +811,11 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     this.missingField.set(missing);
     if (missing) {
       this.formError.set(this.missingMessage(missing));
+      this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+        ...this.formAnalyticsParams(),
+        form_result: 'validation',
+        reason: missing,
+      });
       queueMicrotask(() => this.focusMissing(missing));
       return;
     }
@@ -804,22 +823,42 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
     const email = this.guestEmail.trim();
     if (this.isIsoClosed(this.businessDate)) {
       this.formError.set('El local no abre ese día (franco).');
+      this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+        ...this.formAnalyticsParams(),
+        form_result: 'closed_day',
+      });
       return;
     }
     if (!this.dateSignupOpen()) {
       this.formError.set('No tomamos reservas web para este día.');
+      this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+        ...this.formAnalyticsParams(),
+        form_result: 'signup_closed',
+      });
       return;
     }
     if (this.area === 'INSIDE' && !this.insideAllowedForParty()) {
       this.formError.set(this.partyAreaHint() || 'El sector adentro no está disponible.');
+      this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+        ...this.formAnalyticsParams(),
+        form_result: 'area_unavailable',
+      });
       return;
     }
     if (this.area === 'OUTSIDE' && !this.outsideEnabled()) {
       this.formError.set('El sector afuera no está disponible.');
+      this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+        ...this.formAnalyticsParams(),
+        form_result: 'area_unavailable',
+      });
       return;
     }
     if (this.partySize > this.maxPartySize()) {
       this.formError.set(`Solo quedan ${this.maxPartySize()} lugares en ese sector.`);
+      this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+        ...this.formAnalyticsParams(),
+        form_result: 'capacity',
+      });
       return;
     }
     this.busy.set(true);
@@ -856,14 +895,45 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
             this.partySize === 1 ? '1 persona' : `${this.partySize} personas`,
           );
           this.sentWhen.set(this.formatWhen(this.businessDate, this.reservationTime));
+          this.analytics.event(AnalyticsEvents.publicReservationSubmit, {
+            ...this.formAnalyticsParams(),
+            form_result: 'ok',
+            auto_accepted: !!res?.autoAccepted,
+          });
         },
         error: (err: HttpErrorResponse) => {
           const msg =
             (err.error?.message as string | string[] | undefined) ??
             'No se pudo enviar. Probá de nuevo.';
           this.formError.set(Array.isArray(msg) ? msg[0] : String(msg));
+          this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
+            ...this.formAnalyticsParams(),
+            form_result: 'api_error',
+          });
         },
       });
+  }
+
+  private formAnalyticsParams() {
+    const shop = this.info()?.shop;
+    const date = this.businessDate;
+    const time = this.reservationTime || '';
+    return {
+      form_name: 'public_reservation_signup',
+      guest_name: this.guestName.trim() || undefined,
+      guest_email: this.guestEmail.trim() || undefined,
+      instagram_handle: this.instagram.replace(/^@+/, '').trim() || undefined,
+      party_size: this.partySize,
+      party_size_bucket: partySizeBucket(this.partySize),
+      reservation_date: date || undefined,
+      reservation_time: time || undefined,
+      area: this.area,
+      weekday: date ? weekdayShort(date) : undefined,
+      is_weekend: date ? isWeekendIso(date) : undefined,
+      hour_bucket: time ? hourBucket(time) : undefined,
+      shop_slug: shop?.slug || this.slug(),
+      shop_name: shop?.name || undefined,
+    };
   }
 
   private firstMissing(): MissingField | null {

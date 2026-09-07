@@ -21,6 +21,8 @@ import { DialogTitleService } from '../services/dialog-title.service';
 import { ExportMenuComponent, ExportFormat } from './export-menu';
 import { NavMenuService } from '../../core/layout/nav-menu.service';
 import { navBackTarget } from '../../core/layout/nav-config';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 @Component({
   selector: 'app-page-header',
@@ -88,6 +90,7 @@ export class PageHeaderComponent {
   private readonly auth = inject(AuthService);
   private readonly shops = inject(ShopContextService);
   private readonly navMenu = inject(NavMenuService);
+  private readonly analytics = inject(AnalyticsService);
 
   private readonly currentUrl = toSignal(
     this.router.events.pipe(
@@ -134,6 +137,7 @@ export class PageHeaderComponent {
       }
       return b.anyOf.some((p: Permission) => hasShopPermission(user, shopId, p));
     });
+    this.analytics.event(AnalyticsEvents.helpOpened, { topic: topic.id });
     this.dialogTitle.track(
       this.dialog.open(HelpDialogComponent, {
         width: '640px',

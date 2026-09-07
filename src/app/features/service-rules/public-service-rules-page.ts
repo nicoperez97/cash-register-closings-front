@@ -10,6 +10,8 @@ import {
 } from './service-rules-api.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 @Component({
   selector: 'app-public-service-rules-page',
@@ -374,6 +376,8 @@ import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 export class PublicServiceRulesPageComponent implements OnInit {
   private readonly api = inject(ServiceRulesApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly analytics = inject(AnalyticsService);
+  private viewedTracked = false;
 
   readonly phases = SERVICE_RULE_PHASES;
   readonly bundle = signal<PublicServiceRulesBundle | null>(null);
@@ -401,7 +405,20 @@ export class PublicServiceRulesPageComponent implements OnInit {
     }
     this.error.set('');
     this.api.publicBySlug(slug).subscribe({
-      next: (data) => this.bundle.set(data),
+      next: (data) => {
+        this.bundle.set(data);
+        this.analytics.setPublicShopContext({
+          id: data.shop?.id,
+          name: data.shop?.name,
+          slug: data.shop?.slug || slug,
+        });
+        if (!this.viewedTracked) {
+          this.viewedTracked = true;
+          this.analytics.event(AnalyticsEvents.serviceRulesViewed, {
+            shop_slug: data.shop?.slug || slug,
+          });
+        }
+      },
       error: () => {
         this.bundle.set(null);
         this.error.set('Las normas de este local no están disponibles');

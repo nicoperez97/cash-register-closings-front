@@ -26,6 +26,8 @@ import { MovementsApiService } from '../movements/movements-api.service';
 import { PaymentsApiService, ShopPayment } from './payments-api.service';
 import { PaymentFilePreviewDialogComponent } from './payment-file-preview-dialog';
 import type { PaymentKind, PaymentsDisplayMode } from './payments-page-actions';
+import { AnalyticsService } from '../../core/analytics/analytics.service';
+import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import {
   formatPaymentAmount,
   formatPaymentDate,
@@ -475,6 +477,7 @@ export class PaymentCardComponent {
   private readonly api = inject(PaymentsApiService);
   private readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly analytics = inject(AnalyticsService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
@@ -593,6 +596,11 @@ export class PaymentCardComponent {
       next: () => {
         this.actionBusy.set(false);
         this.snack.open('Pago rechazado', 'OK', { duration: 2500 });
+        this.analytics.event(AnalyticsEvents.paymentRejected, {
+          payment_id: p.id,
+          amount: Number(p.amount ?? 0),
+          is_dividend: !!p.isDividend,
+        });
         this.changed.emit();
       },
       error: (err) => {
