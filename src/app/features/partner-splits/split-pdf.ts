@@ -1,4 +1,5 @@
 import { downloadHtmlPdf, escapePdfHtml } from '../../shared/pdf/html-pdf';
+import { formatMoney } from '../../shared/utils/money';
 import type {
   EqualizePreview,
   PartnerSplitPreview,
@@ -17,12 +18,7 @@ function isEqualize(
 }
 
 function money(value: number): string {
-  const n = Number(value || 0);
-  const abs = Math.abs(n).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return n < 0 ? `-$${abs}` : `$${abs}`;
+  return formatMoney(value);
 }
 
 function moneyAbs(value: number): string {

@@ -14,6 +14,7 @@ import {
   filterActivePaymentAccounts,
 } from './payments-page-actions';
 import { ShopPayment } from './payments-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export type PaymentValidateDialogData = {
   payment: ShopPayment;
@@ -132,7 +133,7 @@ export class PaymentValidateDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly movementsApi = inject(MovementsApiService);
 
-  readonly amountLabel = Number(this.data.payment.amount ?? 0).toLocaleString('es-AR');
+  readonly amountLabel = formatMoney(this.data.payment.amount ?? 0, { currency: false });
   readonly loadingLists = signal(true);
   readonly listsFailed = signal(false);
   readonly accounts = signal<Array<{ id: string; name: string }>>(this.data.accounts ?? []);

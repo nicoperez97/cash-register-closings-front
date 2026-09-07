@@ -18,6 +18,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { hasShopPermission, Permission } from '../../core/auth/auth.models';
 import { topicById } from '../../core/help/module-help';
+import { formatMoney } from '../../shared/utils/money';
 
 export interface ReloadIncomesDialogData {
   shopId: string;
@@ -495,7 +496,7 @@ export class ReloadIncomesDialogComponent {
   }
 
   money(n: number): string {
-    return `$ ${Number(n || 0).toLocaleString('es-AR')}`;
+    return formatMoney(n, { spaced: true });
   }
 
   load(): void {

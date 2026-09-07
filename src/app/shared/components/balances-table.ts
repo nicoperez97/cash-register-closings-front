@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { formatMoney as formatMoneyValue } from '../utils/money';
 import { MovementsApiService } from '../../features/movements/movements-api.service';
 import { AccountMovementsDialogComponent } from '../../features/movements/account-movements-dialog';
 import { DialogTitleService } from '../services/dialog-title.service';
@@ -505,6 +506,8 @@ export class BalancesTableComponent {
   @Input() from: string | null = null;
   @Input() to: string | null = null;
   @Input() fileSlug = 'local';
+  /** panel = solo cuentas marcadas; all = todas las activas del local. */
+  @Input() balancesScope: 'panel' | 'all' = 'panel';
 
   readonly exporting = signal(false);
 
@@ -571,7 +574,7 @@ export class BalancesTableComponent {
     this.exporting.set(true);
     const from = this.from || undefined;
     const to = this.to || undefined;
-    this.api.exportBalancesExcel(shopId, { from, to }).subscribe({
+    this.api.exportBalancesExcel(shopId, { from, to, scope: this.balancesScope }).subscribe({
       next: (blob) => {
         this.exporting.set(false);
         const stamp = new Date().toISOString().slice(0, 10);
@@ -597,11 +600,7 @@ export class BalancesTableComponent {
   }
 
   formatMoney(value: number): string {
-    const n = Number(value ?? 0);
-    return `$${n.toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoneyValue(value);
   }
 
   hasCommission(row: BalanceAccountRow): boolean {

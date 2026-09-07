@@ -23,6 +23,7 @@ import {
 } from '../../shared/components/notify-confirm-dialog';
 import { firstValueFrom } from 'rxjs';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { formatMoney } from '../../shared/utils/money';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canEditShopExpenses, hasShopPermission } from '../../core/auth/auth.models';
@@ -488,7 +489,7 @@ export class MovementsListPage {
       {
         key: 'amountUyu',
         label: 'Monto',
-        format: (r) => `$ ${Number(r['amountUyu']).toLocaleString('es-AR')}`,
+        format: (r) => formatMoney(r['amountUyu'], { spaced: true }),
       },
       { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
       ...(this.kind() === 'expense' || this.kind() === 'all'

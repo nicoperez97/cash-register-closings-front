@@ -22,6 +22,7 @@ import {
 } from './movements-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { takeInputFile } from '../../shared/utils/input-file';
+import { formatMoney } from '../../shared/utils/money';
 
 export type LedgerImportKind = 'expense' | 'income' | 'transfer';
 
@@ -963,7 +964,7 @@ export class MovementsExcelImportDialogComponent {
   }
 
   money(n: number): string {
-    return `$ ${Number(n || 0).toLocaleString('es-AR')}`;
+    return formatMoney(n, { spaced: true });
   }
 
   downloadTemplate(): void {

@@ -17,6 +17,7 @@ import {
   MovementsApiService,
   expensePaymentMethodLabel,
 } from './movements-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export interface AccountMovementsDialogData {
   shopId: string;
@@ -307,11 +308,7 @@ export class AccountMovementsDialogComponent {
   private signedMoney(m: Movement): string {
     const amt = Number(m.amountUyu ?? 0);
     const signed = m.fromAccountId === this.data.accountId ? -amt : amt;
-    const abs = Math.abs(signed).toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return signed < 0 ? `- $${abs}` : `$ ${abs}`;
+    return formatMoney(signed, { spaced: true });
   }
 
   private formatDate(d: Date | null): string | null {

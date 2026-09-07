@@ -24,6 +24,7 @@ import {
 import { ReimbursementsInboxService } from './reimbursements-inbox.service';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { formatMoney } from '../../shared/utils/money';
 
 function isoToday(): string {
   const d = new Date();
@@ -42,10 +43,7 @@ function toDateString(value: Date | null): string | null {
 }
 
 function money(value: number): string {
-  return `$ ${Number(value || 0).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(value, { spaced: true });
 }
 
 function statusLabel(status: ReimbursementStatus): string {

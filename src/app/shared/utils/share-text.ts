@@ -1,3 +1,5 @@
+import { formatMoney } from './money';
+
 /** Comparte texto vía Web Share API o lo copia al portapapeles. */
 export async function shareText(opts: {
   title: string;
@@ -61,7 +63,7 @@ function copyViaTextarea(text: string): boolean {
 }
 
 export function formatMoneyAr(value: number | null | undefined): string {
-  return `$ ${Number(value || 0).toLocaleString('es-AR')}`;
+  return formatMoney(value, { spaced: true });
 }
 
 export function formatDateAr(iso: string | null | undefined): string {

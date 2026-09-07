@@ -34,6 +34,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
+import { formatMoney, formatNumber } from '../../shared/utils/money';
 
 function formatDayLabelEs(isoDate: string): string {
   const p = parseIsoDateParts(String(isoDate ?? ''));
@@ -54,10 +55,7 @@ function formatDelta(pct: number | null | undefined): string {
 }
 
 function money(value: unknown): string {
-  return `$ ${Number(value || 0).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(Number(value || 0), { spaced: true });
 }
 
 function percent(share: unknown): string {
@@ -595,7 +593,7 @@ export class ConceptsReportPage {
           },
           {
             label: 'Movimientos',
-            value: Number(t.movementCount).toLocaleString('es-AR'),
+            value: formatNumber(t.movementCount, { maximumFractionDigits: 0 }),
             hint: cmp ? formatDelta(cmp.countDeltaPct) : `${money(t.avgAmount)} promedio`,
           },
           {
@@ -605,7 +603,7 @@ export class ConceptsReportPage {
           {
             label: 'Sin concepto',
             value: money(t.withoutConceptAmount),
-            hint: `${Number(t.withoutConceptCount).toLocaleString('es-AR')} movimientos`,
+            hint: `${formatNumber(t.withoutConceptCount, { maximumFractionDigits: 0 })} movimientos`,
             tone: t.withoutConceptCount > 0 ? 'warn' : 'muted',
           },
         ]);

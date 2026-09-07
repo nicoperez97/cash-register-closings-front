@@ -9,6 +9,7 @@ import {
   WhatsappImportItem,
 } from './closings-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { formatMoney } from '../../shared/utils/money';
 
 export interface WhatsappImportDialogData {
   shopId: string;
@@ -199,7 +200,7 @@ export class WhatsappImportDialogComponent {
   }
 
   money(n: number): string {
-    return `$ ${Number(n || 0).toLocaleString('es-AR')}`;
+    return formatMoney(n, { spaced: true });
   }
 
   confidenceLabel(c: string): string {

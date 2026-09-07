@@ -485,6 +485,17 @@ export const routes: Routes = [
         title: 'Movimientos entre cuentas',
       },
       {
+        path: 'account-balances',
+        canActivate: [
+          anyPermissionGuard('expenses.read', 'incomes.read', 'accountTransfers.read'),
+        ],
+        loadComponent: () =>
+          import('./features/movements/account-balances-page').then(
+            (m) => m.AccountBalancesPage,
+          ),
+        title: 'Saldos',
+      },
+      {
         path: 'partner-splits',
         canActivate: [permissionGuard('partnerSplits.read')],
         loadComponent: () =>

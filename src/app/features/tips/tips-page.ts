@@ -27,6 +27,7 @@ import {
 } from './tips-editor';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { firstValueFrom } from 'rxjs';
+import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
 
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
@@ -44,11 +45,7 @@ function toDateString(value: Date | null | string | undefined): string {
 }
 
 function formatMoney(value: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatMoneyShared(value);
 }
 
 @Component({

@@ -1,3 +1,5 @@
+import { formatMoney } from '../../shared/utils/money';
+
 export function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
   const d = new Date(`${value}T12:00:00`);
@@ -15,7 +17,7 @@ export function toDateString(value: Date | null | string | undefined): string {
 }
 
 export function closingMoney(value: number): string {
-  return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  return formatMoney(value, { spaced: true });
 }
 
 export function closingNum(v: unknown): number {

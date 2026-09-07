@@ -67,6 +67,8 @@ export interface ShopPayment {
   accountName: string | null;
   toAccountId?: string | null;
   toAccountName?: string | null;
+  /** Al abonar: movimiento a Dividendos; toAccount = socio anotado. */
+  isDividend?: boolean;
   paymentMethod: PaymentMethod | null;
   supplierId: string | null;
   supplierName: string | null;

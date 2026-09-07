@@ -26,6 +26,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import { formatNumber } from '../../shared/utils/money';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
@@ -1313,11 +1314,7 @@ export class StockPage {
     shopName: string,
     products: StockProduct[],
   ): { title: string; text: string } {
-    const fmt = (v: number) =>
-      Number(v).toLocaleString('es-AR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      });
+    const fmt = (v: number) => formatNumber(v);
     const actor = this.auth.currentUser()?.fullName?.trim() || 'Alguien';
     const below = products.filter((p) => p.belowMinimum);
     const kindLabel = this.kindLabel();

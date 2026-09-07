@@ -163,6 +163,7 @@ export class PartnerSplitsApiService {
         generate: 'skip' | 'payment' | 'movement';
       }>;
       sendSurplusToDividends?: boolean;
+      sendBalancedToDividends?: boolean;
     },
   ) {
     return this.http.post<EqualizePreview>(

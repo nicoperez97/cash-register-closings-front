@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClosingsApiService, ExcelImportItem } from './closings-api.service';
 import { ExcelImportShellComponent } from '../../shared/components/excel-import-shell';
+import { formatMoney } from '../../shared/utils/money';
 
 export interface ExcelImportDialogData {
   shopId: string;
@@ -113,7 +114,7 @@ export class ExcelImportDialogComponent {
   }
 
   money(n: number): string {
-    return `$ ${Number(n || 0).toLocaleString('es-AR')}`;
+    return formatMoney(n, { spaced: true });
   }
 
   downloadTemplate(): void {

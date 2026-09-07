@@ -42,6 +42,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'expenses', label: 'Gastos', icon: 'payments', defaultGroup: 'cuentas', route: '/expenses' },
   { id: 'incomes', label: 'Ingresos', icon: 'south_west', defaultGroup: 'cuentas', route: '/incomes' },
   { id: 'accountTransfers', label: 'Movimientos entre cuentas', icon: 'swap_horiz', defaultGroup: 'cuentas', route: '/account-transfers' },
+  { id: 'accountBalances', label: 'Saldos', icon: 'account_balance_wallet', defaultGroup: 'cuentas', route: '/account-balances' },
   { id: 'transactions', label: 'Transacciones', icon: 'receipt_long', defaultGroup: 'cuentas', route: '/transactions' },
   { id: 'partnerSplits', label: 'División de socios', icon: 'groups', defaultGroup: 'cuentas', route: '/partner-splits' },
   { id: 'splits', label: 'Divisiones', icon: 'history', defaultGroup: 'cuentas', route: '/splits' },

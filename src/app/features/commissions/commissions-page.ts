@@ -28,6 +28,7 @@ import {
 import { CommissionRuleDialogComponent } from './commission-rule-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { formatMoney, formatNumber } from '../../shared/utils/money';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 
@@ -236,7 +237,7 @@ export class CommissionsPage {
     {
       key: 'salesAmount',
       label: 'Ventas',
-      format: (r) => `$ ${Number(r['salesAmount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['salesAmount'] ?? 0, { spaced: true }),
     },
     {
       key: 'ratePercent',
@@ -247,7 +248,7 @@ export class CommissionsPage {
     {
       key: 'commissionAmount',
       label: 'Comisión',
-      format: (r) => `$ ${Number(r['commissionAmount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['commissionAmount'] ?? 0, { spaced: true }),
     },
   ];
 
@@ -256,12 +257,12 @@ export class CommissionsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 1 }),
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 1 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
     },
   ];
 
@@ -367,11 +368,11 @@ export class CommissionsPage {
         this.kpis.set([
           {
             label: 'Ventas POS',
-            value: `$ ${Number(res.salesTotal).toLocaleString('es-AR')}`,
+            value: formatMoney(res.salesTotal, { spaced: true }),
           },
           {
             label: 'Total comisiones',
-            value: `$ ${Number(res.grandTotal).toLocaleString('es-AR')}`,
+            value: formatMoney(res.grandTotal, { spaced: true }),
           },
           { label: 'Empleados', value: String(res.employees?.length ?? 0) },
           { label: 'Rubros con venta', value: String(res.salesByCategory?.length ?? 0) },

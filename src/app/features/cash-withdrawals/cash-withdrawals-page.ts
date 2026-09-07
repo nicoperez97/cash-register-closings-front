@@ -37,13 +37,13 @@ import {
   PendingCashWithdrawal,
 } from './cash-withdrawals-api.service';
 import { CashWithdrawalsInboxService } from './cash-withdrawals-inbox.service';
+import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
 
 function formatMoney(value: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
+  return formatMoneyShared(value, {
+    minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value || 0);
+  });
 }
 
 @Component({

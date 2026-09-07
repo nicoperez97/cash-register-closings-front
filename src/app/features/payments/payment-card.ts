@@ -35,6 +35,7 @@ import {
   paymentPriorityDisplay,
   paymentStatusLabel,
 } from './payments-display.util';
+import { formatMoney } from '../../shared/utils/money';
 
 @Component({
   selector: 'app-payment-card',
@@ -91,7 +92,7 @@ import {
             <p class="pay-card__notes-clip">{{ payment().notes || payment().conceptDescription }}</p>
           }
         </div>
-        <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
+        <div class="pay-card__amount">{{ formatAmountDisplay(payment().amount) }}</div>
         <button
           mat-icon-button
           type="button"
@@ -140,7 +141,7 @@ import {
           }
         </p>
       </div>
-      <div class="pay-card__amount">$ {{ (payment().amount || 0).toLocaleString('es-AR') }}</div>
+      <div class="pay-card__amount">{{ formatAmountDisplay(payment().amount) }}</div>
       @if (viewMode() === 'compact') {
         <button
           mat-icon-button
@@ -525,6 +526,8 @@ export class PaymentCardComponent {
   readonly priorityLabel = paymentPriorityDisplay;
   readonly formatDate = formatPaymentDate;
   readonly formatAmount = formatPaymentAmount;
+  readonly formatAmountDisplay = (amount: number | null | undefined) =>
+    formatMoney(amount, { spaced: true });
   readonly hasInvoiceData = paymentHasInvoiceData;
 
   isBusy(): boolean {

@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClosingsApiService, PosSalesImportPreview } from '../closings/closings-api.service';
 import { ExcelImportShellComponent } from '../../shared/components/excel-import-shell';
+import { formatMoney } from '../../shared/utils/money';
 
 export interface PosSalesImportDialogData {
   shopId: string;
@@ -83,10 +84,7 @@ export class PosSalesImportDialogComponent {
   readonly busy = signal(false);
 
   money(n: number): string {
-    return `$${Number(n || 0).toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(n);
   }
 
   onPickedFile(f: File): void {

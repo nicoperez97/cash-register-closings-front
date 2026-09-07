@@ -134,6 +134,13 @@ export function canAccessAppRoute(
   if (path.startsWith('/account-transfers')) {
     return hasShopPermission(user, shopId, 'accountTransfers.read');
   }
+  if (path.startsWith('/account-balances')) {
+    return (
+      hasShopPermission(user, shopId, 'expenses.read') ||
+      hasShopPermission(user, shopId, 'incomes.read') ||
+      hasShopPermission(user, shopId, 'accountTransfers.read')
+    );
+  }
   if (path.startsWith('/transactions')) {
     return (
       hasShopPermission(user, shopId, 'expenses.read') ||
