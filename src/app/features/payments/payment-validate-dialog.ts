@@ -5,9 +5,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { MovementsApiService } from '../movements/movements-api.service';
 import {
   buildPaymentDialogAccounts,
@@ -36,13 +36,13 @@ export type PaymentValidateDialogResult = {
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
-    MatProgressSpinnerModule,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>Validar pago</h2>
     @if (loadingLists()) {
       <mat-dialog-content class="pay-confirm__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

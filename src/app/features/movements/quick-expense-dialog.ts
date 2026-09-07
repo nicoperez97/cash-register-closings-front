@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,11 +7,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, startWith } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { AuthService } from '../../core/auth/auth.service';
+import { hasShopPermission } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import {
   SelectSearchComponent,
   filterBySelectQuery,
@@ -22,6 +25,8 @@ import { movementSavedDialogData } from '../../shared/components/record-share-bu
 import { shareText } from '../../shared/utils/share-text';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
+import { ShopSupplier, SuppliersApiService } from '../suppliers/suppliers-api.service';
+import { ShopService, ServicesApiService } from '../services/services-api.service';
 import {
   Concept,
   EXPENSE_PAYMENT_METHOD_OPTIONS,
@@ -42,8 +47,14 @@ export type QuickExpenseDialogData = {
   kind?: 'expense' | 'income';
 };
 
+type PartyKind = 'supplier' | 'service';
+
 function todayIso(timezone?: string | null): string {
   return resolveShopCalendarDate(new Date(), { timezone: timezone ?? undefined });
+}
+
+function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
+  return (c?.categories ?? []).some((x) => String(x).toUpperCase() === cat);
 }
 
 @Component({
@@ -56,9 +67,9 @@ function todayIso(timezone?: string | null): string {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
     BusyLabelComponent,
+    SpinnerComponent,
     SelectSearchComponent,
   ],
   template: `
@@ -107,7 +118,7 @@ function todayIso(timezone?: string | null): string {
       </mat-dialog-actions>
     } @else if (loadingLists()) {
       <mat-dialog-content class="quick-exp__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando conceptos y cuentas…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {
@@ -158,6 +169,135 @@ function todayIso(timezone?: string | null): string {
               <mat-error>Elegí un concepto</mat-error>
             }
           </mat-form-field>
+
+          @if (!isIncome && showPartySection()) {
+            <div class="quick-exp__party">
+              @if (partyAllowsSupplier() && partyAllowsService()) {
+                <div class="quick-exp__party-tabs" role="group" aria-label="Tipo opcional">
+                  <button
+                    type="button"
+                    class="quick-exp__party-tab"
+                    [class.quick-exp__party-tab--on]="partyKind() === 'supplier'"
+                    (click)="setPartyKind('supplier')"
+                  >
+                    Proveedor
+                  </button>
+                  <button
+                    type="button"
+                    class="quick-exp__party-tab"
+                    [class.quick-exp__party-tab--on]="partyKind() === 'service'"
+                    (click)="setPartyKind('service')"
+                  >
+                    Servicio
+                  </button>
+                </div>
+              }
+
+              @if (partyKind() === 'supplier' && partyAllowsSupplier()) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Proveedor (opcional)</mat-label>
+                  <mat-icon matPrefix>store</mat-icon>
+                  <mat-select
+                    [value]="supplierId()"
+                    panelClass="guy-select-search-panel"
+                    (openedChange)="onSelectSearchOpened($event, supplierQuery)"
+                    (selectionChange)="supplierId.set($event.value)"
+                  >
+                    <mat-option disabled class="select-search-opt">
+                      <app-select-search [(query)]="supplierQuery" placeholder="Buscar proveedor…" />
+                    </mat-option>
+                    <mat-option [value]="null">Sin proveedor · va a Egreso</mat-option>
+                    @for (s of filteredSuppliers(); track s.id) {
+                      <mat-option [value]="s.id">
+                        {{ s.name }}
+                        @if (s.bankAlias) {
+                          · {{ s.bankAlias }}
+                        }
+                      </mat-option>
+                    }
+                    @if (supplierQuery() && !filteredSuppliers().length) {
+                      <mat-option disabled>Sin resultados</mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint>Si lo elegís, el gasto suma en Saldos de ese proveedor.</mat-hint>
+                </mat-form-field>
+
+                @if (canManageSuppliers()) {
+                  <div class="quick-exp__create">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Nuevo proveedor</mat-label>
+                      <input matInput [formControl]="newSupplierName" placeholder="Nombre" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Alias / CBU</mat-label>
+                      <input matInput [formControl]="newSupplierAlias" placeholder="Opcional" />
+                    </mat-form-field>
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      [disabled]="!newSupplierName.value.trim() || creatingSupplier()"
+                      (click)="createSupplier()"
+                    >
+                      <mat-icon>add</mat-icon>
+                      Crear
+                    </button>
+                  </div>
+                }
+              }
+
+              @if (partyKind() === 'service' && partyAllowsService()) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Servicio (opcional)</mat-label>
+                  <mat-icon matPrefix>home_repair_service</mat-icon>
+                  <mat-select
+                    [value]="serviceId()"
+                    panelClass="guy-select-search-panel"
+                    (openedChange)="onSelectSearchOpened($event, serviceQuery)"
+                    (selectionChange)="serviceId.set($event.value)"
+                  >
+                    <mat-option disabled class="select-search-opt">
+                      <app-select-search [(query)]="serviceQuery" placeholder="Buscar servicio…" />
+                    </mat-option>
+                    <mat-option [value]="null">Sin servicio · va a Egreso</mat-option>
+                    @for (s of filteredServices(); track s.id) {
+                      <mat-option [value]="s.id">
+                        {{ s.name }}
+                        @if (s.bankAlias) {
+                          · {{ s.bankAlias }}
+                        }
+                      </mat-option>
+                    }
+                    @if (serviceQuery() && !filteredServices().length) {
+                      <mat-option disabled>Sin resultados</mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint>Si lo elegís, el gasto suma en Saldos de ese servicio.</mat-hint>
+                </mat-form-field>
+
+                @if (canManageServices()) {
+                  <div class="quick-exp__create">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Nuevo servicio</mat-label>
+                      <input matInput [formControl]="newServiceName" placeholder="Nombre" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Alias / CBU</mat-label>
+                      <input matInput [formControl]="newServiceAlias" placeholder="Opcional" />
+                    </mat-form-field>
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      [disabled]="!newServiceName.value.trim() || creatingService()"
+                      (click)="createService()"
+                    >
+                      <mat-icon>add</mat-icon>
+                      Crear
+                    </button>
+                  </div>
+                }
+              }
+            </div>
+          }
 
           @if (!isIncome) {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -342,6 +482,42 @@ function todayIso(timezone?: string | null): string {
     .quick-exp__total dd {
       font-size: 1.05rem;
     }
+    .quick-exp__party {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .quick-exp__party-tabs {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .quick-exp__party-tab {
+      border: 1px solid var(--guy-border, #d7e0d9);
+      background: #fff;
+      color: var(--guy-navy, #003366);
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .quick-exp__party-tab--on {
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 12%, #fff);
+      border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, var(--guy-border, #d7e0d9));
+      color: var(--guy-primary, #1d65a0);
+    }
+    .quick-exp__create {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.55rem;
+      align-items: start;
+    }
+    @media (max-width: 560px) {
+      .quick-exp__create {
+        grid-template-columns: 1fr;
+      }
+    }
     .quick-exp__receipt {
       display: grid;
       gap: 0.45rem;
@@ -371,6 +547,9 @@ export class QuickExpenseDialogComponent implements OnInit {
   readonly ref = inject(MatDialogRef<QuickExpenseDialogComponent, Movement | boolean>);
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(MovementsApiService);
+  private readonly suppliersApi = inject(SuppliersApiService);
+  private readonly servicesApi = inject(ServicesApiService);
+  private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
   private readonly shops = inject(ShopContextService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
@@ -383,7 +562,20 @@ export class QuickExpenseDialogComponent implements OnInit {
   readonly listsFailed = signal(false);
   readonly accounts = signal<LedgerAccount[]>(this.data.accounts ?? []);
   readonly concepts = signal<Concept[]>(this.data.concepts ?? []);
+  readonly suppliers = signal<ShopSupplier[]>([]);
+  readonly services = signal<ShopService[]>([]);
   readonly isIncome = (this.data.kind ?? 'expense') === 'income';
+
+  readonly supplierId = signal<string | null>(null);
+  readonly serviceId = signal<string | null>(null);
+  readonly partyKind = signal<PartyKind>('supplier');
+  readonly creatingSupplier = signal(false);
+  readonly creatingService = signal(false);
+
+  readonly newSupplierName = this.fb.nonNullable.control('');
+  readonly newSupplierAlias = this.fb.nonNullable.control('');
+  readonly newServiceName = this.fb.nonNullable.control('');
+  readonly newServiceAlias = this.fb.nonNullable.control('');
 
   readonly egresoAccountId = computed(() => {
     const hit = this.accounts().find(
@@ -441,6 +633,26 @@ export class QuickExpenseDialogComponent implements OnInit {
     ),
   );
 
+  readonly supplierQuery = signal('');
+  readonly filteredSuppliers = computed(() =>
+    filterBySelectQuery(
+      this.suppliers().filter((s) => s.active !== false),
+      this.supplierQuery(),
+      (s) => `${s.name} ${s.bankAlias ?? ''} ${s.taxId ?? ''}`,
+      this.supplierId(),
+    ),
+  );
+
+  readonly serviceQuery = signal('');
+  readonly filteredServices = computed(() =>
+    filterBySelectQuery(
+      this.services().filter((s) => s.active !== false),
+      this.serviceQuery(),
+      (s) => `${s.name} ${s.bankAlias ?? ''} ${s.taxId ?? ''}`,
+      this.serviceId(),
+    ),
+  );
+
   readonly paymentMethods = EXPENSE_PAYMENT_METHOD_OPTIONS;
 
   readonly form = this.fb.nonNullable.group({
@@ -455,8 +667,66 @@ export class QuickExpenseDialogComponent implements OnInit {
     description: [''],
   });
 
+  private readonly conceptIdValue = toSignal(
+    this.form.controls.conceptId.valueChanges.pipe(startWith(this.form.controls.conceptId.value)),
+    { initialValue: this.form.controls.conceptId.value },
+  );
+
+  readonly selectedConcept = computed(() => {
+    const id = this.conceptIdValue();
+    return this.concepts().find((c) => c.id === id);
+  });
+
+  readonly partyAllowsSupplier = computed(
+    () => !this.isIncome && conceptHasCategory(this.selectedConcept(), 'SUPPLIERS'),
+  );
+  readonly partyAllowsService = computed(
+    () => !this.isIncome && conceptHasCategory(this.selectedConcept(), 'SERVICES'),
+  );
+  readonly showPartySection = computed(
+    () => this.partyAllowsSupplier() || this.partyAllowsService(),
+  );
+
+  readonly canManageSuppliers = computed(() =>
+    hasShopPermission(this.auth.currentUser(), this.data.shopId, 'suppliers.manage'),
+  );
+  readonly canManageServices = computed(() =>
+    hasShopPermission(this.auth.currentUser(), this.data.shopId, 'services.manage'),
+  );
+
   ngOnInit(): void {
     this.reloadLists();
+    this.form.controls.conceptId.valueChanges.subscribe((id) => this.syncPartyKindForConcept(id));
+  }
+
+  setPartyKind(kind: PartyKind): void {
+    this.partyKind.set(kind);
+    if (kind === 'supplier') this.serviceId.set(null);
+    else this.supplierId.set(null);
+  }
+
+  private syncPartyKindForConcept(conceptId?: string | null): void {
+    const id = conceptId ?? this.form.controls.conceptId.value;
+    const concept = this.concepts().find((c) => c.id === id);
+    const allowS = !this.isIncome && conceptHasCategory(concept, 'SUPPLIERS');
+    const allowV = !this.isIncome && conceptHasCategory(concept, 'SERVICES');
+    if (!allowS && !allowV) {
+      this.supplierId.set(null);
+      this.serviceId.set(null);
+      return;
+    }
+    if (allowS && !allowV) {
+      this.partyKind.set('supplier');
+      this.serviceId.set(null);
+      return;
+    }
+    if (!allowS && allowV) {
+      this.partyKind.set('service');
+      this.supplierId.set(null);
+      return;
+    }
+    if (this.partyKind() === 'supplier') this.serviceId.set(null);
+    else this.supplierId.set(null);
   }
 
   reloadLists(): void {
@@ -473,8 +743,14 @@ export class QuickExpenseDialogComponent implements OnInit {
       concepts: this.api
         .concepts(shopId, { kind: this.isIncome ? 'INCOME' : 'EXPENSE' })
         .pipe(catchError(() => of(null))),
+      suppliers: this.isIncome
+        ? of([] as ShopSupplier[])
+        : this.suppliersApi.list(shopId).pipe(catchError(() => of([] as ShopSupplier[]))),
+      services: this.isIncome
+        ? of([] as ShopService[])
+        : this.servicesApi.list(shopId).pipe(catchError(() => of([] as ShopService[]))),
     }).subscribe({
-      next: ({ accounts, concepts }) => {
+      next: ({ accounts, concepts, suppliers, services }) => {
         this.loadingLists.set(false);
         if (!accounts || !concepts) {
           this.listsFailed.set(true);
@@ -484,13 +760,76 @@ export class QuickExpenseDialogComponent implements OnInit {
         }
         this.accounts.set(accounts);
         this.concepts.set(concepts);
+        this.suppliers.set(suppliers ?? []);
+        this.services.set(services ?? []);
         this.listsFailed.set(false);
+        this.syncPartyKindForConcept();
       },
       error: () => {
         this.loadingLists.set(false);
         this.listsFailed.set(true);
       },
     });
+  }
+
+  createSupplier(): void {
+    const name = this.newSupplierName.value.trim();
+    if (!name || this.creatingSupplier() || !this.canManageSuppliers()) return;
+    this.creatingSupplier.set(true);
+    this.suppliersApi
+      .create(this.data.shopId, {
+        name,
+        bankAlias: this.newSupplierAlias.value.trim() || null,
+      })
+      .subscribe({
+        next: (row) => {
+          this.creatingSupplier.set(false);
+          this.suppliers.update((list) =>
+            [...list, row].sort((a, b) => a.name.localeCompare(b.name)),
+          );
+          this.supplierId.set(row.id);
+          this.partyKind.set('supplier');
+          this.serviceId.set(null);
+          this.newSupplierName.setValue('');
+          this.newSupplierAlias.setValue('');
+          this.snack.open('Proveedor creado', 'OK', { duration: 2000 });
+        },
+        error: (err) => {
+          this.creatingSupplier.set(false);
+          const msg = err?.error?.message ?? 'No se pudo crear el proveedor';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+        },
+      });
+  }
+
+  createService(): void {
+    const name = this.newServiceName.value.trim();
+    if (!name || this.creatingService() || !this.canManageServices()) return;
+    this.creatingService.set(true);
+    this.servicesApi
+      .create(this.data.shopId, {
+        name,
+        bankAlias: this.newServiceAlias.value.trim() || null,
+      })
+      .subscribe({
+        next: (row) => {
+          this.creatingService.set(false);
+          this.services.update((list) =>
+            [...list, row].sort((a, b) => a.name.localeCompare(b.name)),
+          );
+          this.serviceId.set(row.id);
+          this.partyKind.set('service');
+          this.supplierId.set(null);
+          this.newServiceName.setValue('');
+          this.newServiceAlias.setValue('');
+          this.snack.open('Servicio creado', 'OK', { duration: 2000 });
+        },
+        error: (err) => {
+          this.creatingService.set(false);
+          const msg = err?.error?.message ?? 'No se pudo crear el servicio';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+        },
+      });
   }
 
   receiptRequired(): boolean {
@@ -526,6 +865,30 @@ export class QuickExpenseDialogComponent implements OnInit {
     if (file) this.receiptFile.set(file);
   }
 
+  private resolveExpenseDestination(): {
+    toAccountId: string | null;
+    partyLabel: string | null;
+  } {
+    const egreso = this.egresoAccountId();
+    if (this.isIncome) return { toAccountId: egreso, partyLabel: null };
+
+    if (this.partyKind() === 'supplier' && this.partyAllowsSupplier()) {
+      const id = this.supplierId();
+      const row = id ? this.suppliers().find((s) => s.id === id) : null;
+      if (row?.accountId) {
+        return { toAccountId: row.accountId, partyLabel: `Proveedor: ${row.name}` };
+      }
+    }
+    if (this.partyKind() === 'service' && this.partyAllowsService()) {
+      const id = this.serviceId();
+      const row = id ? this.services().find((s) => s.id === id) : null;
+      if (row?.accountId) {
+        return { toAccountId: row.accountId, partyLabel: `Servicio: ${row.name}` };
+      }
+    }
+    return { toAccountId: egreso, partyLabel: null };
+  }
+
   save(): void {
     const systemId = this.isIncome ? this.ingresoAccountId() : this.egresoAccountId();
     if (this.form.invalid || !systemId) {
@@ -548,17 +911,25 @@ export class QuickExpenseDialogComponent implements OnInit {
       return;
     }
     const raw = this.form.getRawValue();
+    const dest = this.resolveExpenseDestination();
+    if (!this.isIncome && !dest.toAccountId) {
+      this.snack.open('No hay cuenta de Egreso configurada', 'OK', { duration: 3500 });
+      return;
+    }
     const tz = this.shops.selectedShop()?.timezone;
     const receipt = this.receiptFile();
+    const description = [raw.description.trim() || null, dest.partyLabel]
+      .filter(Boolean)
+      .join(' · ');
     this.busy.set(true);
     this.api
       .create(this.data.shopId, {
         businessDate: todayIso(tz),
         fromAccountId: this.isIncome ? systemId : raw.fromAccountId,
-        toAccountId: this.isIncome ? raw.fromAccountId : systemId,
+        toAccountId: this.isIncome ? raw.fromAccountId : dest.toAccountId!,
         conceptId: raw.conceptId,
         employeeId: null,
-        description: raw.description.trim() || null,
+        description: description || null,
         amountUyu: Number(raw.amountUyu),
         invoiced: false,
         notifyAdmins: true,

@@ -8,10 +8,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SpinnerComponent } from '../../shared/components/spinner';
 
 export interface AdminPosCategoryRow {
   id: string;
@@ -61,8 +61,8 @@ export type AdminPosProductDialogData = {
     MatSelectModule,
     MatSlideToggleModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -77,7 +77,7 @@ export type AdminPosProductDialogData = {
 
     @if (loadingLists()) {
       <mat-dialog-content class="pos-dlg__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando rubros…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

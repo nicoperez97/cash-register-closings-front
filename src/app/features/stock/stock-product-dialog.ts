@@ -7,10 +7,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, of } from 'rxjs';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import {
   StockApiService,
   StockCategory,
@@ -37,9 +37,9 @@ export type StockProductDialogData = {
     MatSelectModule,
     MatSlideToggleModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
     BusyLabelComponent,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -54,7 +54,7 @@ export type StockProductDialogData = {
 
     @if (loadingLists()) {
       <mat-dialog-content class="stock-dlg__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando categorías…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

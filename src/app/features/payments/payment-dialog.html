@@ -11,7 +11,7 @@
 
     @if (loadingLists()) {
       <mat-dialog-content class="pay-dialog__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

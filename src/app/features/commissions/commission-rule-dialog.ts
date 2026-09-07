@@ -7,10 +7,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, forkJoin, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { CommissionRule, CommissionsApiService } from './commissions-api.service';
 
@@ -32,8 +32,8 @@ export type CommissionRuleDialogData = {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -48,7 +48,7 @@ export type CommissionRuleDialogData = {
 
     @if (loadingLists()) {
       <mat-dialog-content class="comm-rule__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando empleados y rubros…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

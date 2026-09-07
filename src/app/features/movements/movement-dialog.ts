@@ -11,11 +11,11 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin, of, startWith } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotifyRecipientsFieldComponent } from '../../shared/components/notify-recipients-field';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { takeInputFile } from '../../shared/utils/input-file';
 import {
   AccountBalancesResponse,
@@ -110,8 +110,8 @@ function toDateString(value: Date | null): string {
     MatIconModule,
     MatSnackBarModule,
     MatCheckboxModule,
-    MatProgressSpinnerModule,
     BusyLabelComponent,
+    SpinnerComponent,
     SelectSearchComponent,
     NotifyRecipientsFieldComponent,
     MoneyInputDirective,
@@ -129,7 +129,7 @@ function toDateString(value: Date | null): string {
 
     @if (loadingLists()) {
       <mat-dialog-content class="mov-loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando cuentas y conceptos…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

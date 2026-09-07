@@ -54,10 +54,12 @@ export type SpinnerSize = 16 | 18 | 20 | 22 | 24 | 28 | 36 | 48;
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        border: 2.5px solid color-mix(in srgb, currentColor 22%, transparent);
-        border-top-color: currentColor;
-        border-right-color: color-mix(in srgb, currentColor 55%, transparent);
-        animation: guy-spinner-rotate 0.65s linear infinite;
+        border-style: solid;
+        border-width: 3px;
+        /* Track visible + arco opaco (sin color-mix: falla en algunos browsers y deja un hilito). */
+        border-color: currentColor transparent transparent currentColor;
+        opacity: 0.92;
+        animation: guy-spinner-rotate 0.7s linear infinite;
       }
 
       @keyframes guy-spinner-rotate {
