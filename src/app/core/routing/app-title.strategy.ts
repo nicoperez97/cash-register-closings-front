@@ -1,4 +1,4 @@
-import { Injectable, effect, inject } from '@angular/core';
+import { Injectable, Injector, effect, inject } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterStateSnapshot, TitleStrategy } from '@angular/router';
 import { ShopContextService } from '../shop/shop-context.service';
@@ -17,14 +17,15 @@ export function formatAppTitle(page: string, brand = APP_TITLE_BRAND): string {
 @Injectable()
 export class AppTitleStrategy extends TitleStrategy {
   private readonly title = inject(Title);
-  private readonly shops = inject(ShopContextService);
+  /** Lazy: evita NG0200 (TitleStrategy ↔ Router ↔ Analytics ↔ ShopContext). */
+  private readonly injector = inject(Injector);
   private lastPage = '';
 
   constructor() {
     super();
     // Si cambia el local, refrescar el sufijo sin esperar otra navegación.
     effect(() => {
-      const shopName = this.shops.selectedShop()?.name?.trim() || '';
+      const shopName = this.shopBrand();
       if (!shopName || !this.lastPage) return;
       this.title.setTitle(formatAppTitle(this.lastPage, shopName));
     });
@@ -32,7 +33,15 @@ export class AppTitleStrategy extends TitleStrategy {
 
   override updateTitle(snapshot: RouterStateSnapshot): void {
     this.lastPage = this.buildTitle(snapshot) ?? '';
-    const brand = this.shops.selectedShop()?.name?.trim() || APP_TITLE_BRAND;
+    const brand = this.shopBrand() || APP_TITLE_BRAND;
     this.title.setTitle(this.lastPage ? formatAppTitle(this.lastPage, brand) : brand);
+  }
+
+  private shopBrand(): string {
+    try {
+      return this.injector.get(ShopContextService).selectedShop()?.name?.trim() || '';
+    } catch {
+      return '';
+    }
   }
 }
