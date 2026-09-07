@@ -350,6 +350,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Listado completo: canales, socios, dividendos, sistema, proveedores y servicios. No filtra por “Mostrar en Saldos”.',
         items: [
           'Filtrá por tipo con las pestañas de arriba.',
+          'En Proveedores y Servicios el saldo es lo abonado a cada uno.',
           'Si hay comisión, el número grande ya la descuenta.',
           'Tocá una cuenta para ver sus movimientos.',
           'Descargá PDF o Excel con Descargar.',
@@ -490,7 +491,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En Proveedor podés buscar por nombre, CUIT o alias.',
           'Validar: elegí la cuenta que paga. Ahí recién se pide, no al crear.',
           'Pagar: indicá cuánto se abona (Usar total carga el monto completo), cuenta y forma de pago. Si pagás menos, se crea el movimiento por ese monto y queda otro pago validado con la deuda.',
-          'En proveedores, servicios o empleados se crea un gasto. En A socios se hace el pase de la cuenta emisora a la receptora.',
+          'En proveedores o servicios el gasto va a la cuenta de ese proveedor/servicio (suma en Saldos). En empleados, a Egreso. En A socios se hace el pase de la cuenta emisora a la receptora.',
           'A socios: pagos de una división. Nacen ya validados, con cuenta que sale y cuenta que entra.',
           'Un abonado no se edita: usá Marcar no pagado (borra el gasto), editá y volvé a abonar.',
           'En un pago pagado, Ver en gastos abre el gasto. Desde el gasto podés editarlo y el pago se actualiza. Antes de editar un pago te pide confirmación.',
