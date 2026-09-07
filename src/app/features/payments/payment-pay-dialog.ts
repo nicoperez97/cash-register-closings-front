@@ -20,7 +20,7 @@ import {
   PaymentMethod,
   ShopPayment,
 } from './payments-api.service';
-import { formatMoney } from '../../shared/utils/money';
+import { formatMoney, parseLocaleNumber } from '../../shared/utils/money';
 
 export type PaymentPayDialogData = {
   payment: ShopPayment;
@@ -35,15 +35,8 @@ export type PaymentPayDialogResult = {
   amount: number;
 };
 
-function parseMoney(raw: unknown): number {
-  if (raw === '' || raw === null || raw === undefined) return NaN;
-  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
-  const n = Number(String(raw).replace(/\s/g, '').replace(',', '.'));
-  return Number.isFinite(n) ? n : NaN;
-}
-
 function moneyLabel(value: number): string {
-  return formatMoney(value, { currency: false });
+  return formatMoney(value, { currency: false, compact: false });
 }
 
 @Component({
@@ -256,13 +249,13 @@ export class PaymentPayDialogComponent implements OnInit {
   }
 
   remainderAmount(): number {
-    const paid = parseMoney(this.form.controls.amount.value);
+    const paid = parseLocaleNumber(this.form.controls.amount.value);
     if (!Number.isFinite(paid)) return 0;
     return Math.round((this.total - paid) * 100) / 100;
   }
 
   amountOk(): boolean {
-    const paid = parseMoney(this.form.controls.amount.value);
+    const paid = parseLocaleNumber(this.form.controls.amount.value);
     return Number.isFinite(paid) && paid > 0.004 && paid <= this.total + 0.004;
   }
 
@@ -274,7 +267,7 @@ export class PaymentPayDialogComponent implements OnInit {
     if (this.form.invalid || !this.amountOk()) return;
     const paymentMethod = this.form.controls.paymentMethod.value;
     const accountId = this.form.controls.accountId.value;
-    const amount = Math.round(parseMoney(this.form.controls.amount.value) * 100) / 100;
+    const amount = Math.round(parseLocaleNumber(this.form.controls.amount.value) * 100) / 100;
     if (!paymentMethod || !accountId) return;
     this.ref.close({ paymentMethod, accountId, amount });
   }

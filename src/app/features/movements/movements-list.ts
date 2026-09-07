@@ -463,7 +463,16 @@ export class MovementsListPage {
       {
         key: 'toAccountName',
         label: 'Destino',
-        format: (r) => String(r['toAccountName'] || r['toUserName'] || '—'),
+        format: (r) => {
+          const dest = String(r['toAccountName'] || r['toUserName'] || '—');
+          if (!r['isDividend']) return dest;
+          const forWho = String(r['toUserName'] || '').trim();
+          if (forWho && forWho !== dest) return `Dividendos · para ${forWho}`;
+          const desc = String(r['description'] || '');
+          const arrow = desc.match(/→\s*(.+?)\s*$/u);
+          if (arrow?.[1]) return `Dividendos · para ${arrow[1].trim()}`;
+          return dest || 'Dividendos';
+        },
       },
     );
     if (this.kind() !== 'transfer') {

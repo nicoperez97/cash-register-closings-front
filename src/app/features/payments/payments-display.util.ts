@@ -156,8 +156,11 @@ export function formatPaymentDate(iso: string | null | undefined): string {
   return formatIsoDateDisplay(iso);
 }
 
-export function formatPaymentAmount(amount: number | null | undefined): string {
-  return formatMoney(amount, { currency: false });
+export function formatPaymentAmount(
+  amount: number | null | undefined,
+  opts?: { compact?: boolean },
+): string {
+  return formatMoney(amount, { currency: false, compact: opts?.compact });
 }
 
 export function paymentHasInvoiceData(p: ShopPayment): boolean {

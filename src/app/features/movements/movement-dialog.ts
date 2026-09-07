@@ -1257,6 +1257,7 @@ export class MovementDialogComponent implements OnInit {
       return;
     }
     this.form.controls.beneficiaryAccountId.setValue('');
+    this.form.controls.toAccountId.setValue('');
     this.form.controls.toAccountId.enable({ emitEvent: false });
     this.form.controls.toAccountId.setValidators(this.isTransfer ? Validators.required : []);
     this.form.controls.toAccountId.updateValueAndValidity({ emitEvent: false });
@@ -1351,9 +1352,12 @@ export class MovementDialogComponent implements OnInit {
       invoiceNumber: raw.invoiced ? raw.invoiceNumber.trim() || null : null,
       kind,
     };
-    if (isDividend) {
-      body.isDividend = true;
-      if (beneficiaryId) body.beneficiaryAccountId = beneficiaryId;
+    if (this.isTransfer) {
+      body.isDividend = !!isDividend;
+      body.beneficiaryAccountId = isDividend ? beneficiaryId : null;
+      if (!isDividend) {
+        body.toUserId = this.userIdForAccount(toAccountId);
+      }
     }
     if (!this.isTransfer) {
       body.paymentMethod = (raw.paymentMethod || null) as ExpensePaymentMethod | null;
