@@ -160,13 +160,15 @@ export class AnalyticsService {
       shop_id: shop.id || undefined,
       shop_name: shop.name || undefined,
       shop_slug: shop.slug || undefined,
-      user_name: this.userCtx.name || undefined,
-      user_email: this.userCtx.email || undefined,
       ...params,
     };
     const out: Record<string, string | number | boolean> = {};
     for (const [k, v] of Object.entries(merged)) {
       if (v === null || v === undefined || v === '') continue;
+      // No mandar PII a GA (email / nombre).
+      if (k === 'user_email' || k === 'user_name' || k === 'guest_email' || k === 'guest_name') {
+        continue;
+      }
       out[k] = v;
     }
     return out;
@@ -186,12 +188,6 @@ export class AnalyticsService {
       send_page_view: false,
       user_id: userId,
     });
-    if (this.userCtx.email || this.userCtx.name) {
-      window.gtag('set', 'user_properties', {
-        user_name: this.userCtx.name || undefined,
-        user_email: this.userCtx.email || undefined,
-      });
-    }
   }
 
   private ensureGtag(): Promise<void> {
@@ -204,8 +200,14 @@ export class AnalyticsService {
     this.scriptLoading = new Promise<void>((resolve) => {
       window.dataLayer = window.dataLayer || [];
       if (typeof window.gtag !== 'function') {
-        window.gtag = function gtag(...args: unknown[]) {
-          window.dataLayer!.push(args);
+        /**
+         * `arguments` es obligatorio: gtag.js distingue comandos de datos
+         * con `[object Arguments]`. Un Array de rest params se ignora y no
+         * llega ningún hit a GA4 (parece que “anda” pero Realtime queda en 0).
+         */
+        window.gtag = function gtag() {
+          // eslint-disable-next-line prefer-rest-params
+          window.dataLayer!.push(arguments);
         };
       }
       window.gtag('js', new Date());
