@@ -9,13 +9,13 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, forkJoin, Observable, of, startWith } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { Employee, EmployeeType, EmployeesApiService, ShopUserOption } from './employees-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { isUserVisible } from '../../shared/user-visibility';
 import {
   formatShiftHoursLabel,
@@ -75,9 +75,9 @@ function toDateString(value: Date | null): string | null {
     MatSlideToggleModule,
     MatCheckboxModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
     BusyLabelComponent,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -92,7 +92,7 @@ function toDateString(value: Date | null): string | null {
 
     @if (loadingLists()) {
       <mat-dialog-content class="emp-dlg__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando usuarios y productores…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

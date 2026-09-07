@@ -1,5 +1,4 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import {
   BalancesTableComponent,
@@ -7,6 +6,7 @@ import {
   mapBalanceAccount,
 } from '../../shared/components/balances-table';
 import { SegmentTabsComponent } from '../../shared/components/filter-bar';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { MovementsApiService } from '../movements/movements-api.service';
@@ -36,10 +36,10 @@ type BalanceRow = BalanceAccountRow & { listInBalances?: boolean };
 @Component({
   selector: 'app-account-balances-page',
   imports: [
-    MatProgressSpinnerModule,
     PageHeaderComponent,
     BalancesTableComponent,
     SegmentTabsComponent,
+    SpinnerComponent,
   ],
   template: `
     <app-page-header
@@ -61,7 +61,7 @@ type BalanceRow = BalanceAccountRow & { listInBalances?: boolean };
 
     @if (loading()) {
       <div class="bal-loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
       </div>
     } @else {
       <div class="panel-card panel-card--flush">

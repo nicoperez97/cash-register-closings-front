@@ -9,7 +9,6 @@ import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angu
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -150,8 +149,8 @@ export class ServiceRuleCategoryDialogComponent {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     BusyLabelComponent,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>
@@ -165,7 +164,7 @@ export class ServiceRuleCategoryDialogComponent {
     </h2>
     @if (loadingLists()) {
       <mat-dialog-content class="rule-dlg__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando categorías…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

@@ -6,10 +6,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { MoneyInputDirective } from '../../shared/directives/money-input';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { MovementsApiService } from '../movements/movements-api.service';
 import {
   buildPaymentDialogAccounts,
@@ -49,14 +49,14 @@ function moneyLabel(value: number): string {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MoneyInputDirective,
+    SpinnerComponent,
   ],
   template: `
     <h2 mat-dialog-title>Marcar como pagado</h2>
     @if (loadingLists()) {
       <mat-dialog-content class="pay-confirm__loading">
-        <mat-spinner diameter="36" />
+        <app-spinner [size]="36" tone="accent" />
         <p>Cargando…</p>
       </mat-dialog-content>
     } @else if (listsFailed()) {

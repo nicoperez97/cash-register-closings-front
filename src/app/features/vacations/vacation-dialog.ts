@@ -9,11 +9,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { HttpClient } from '@angular/common/http';
 import { catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { FormDialogShellComponent } from '../../shared/components/form-dialog-shell';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { environment } from '../../../environments/environment';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import {
@@ -59,9 +59,9 @@ function formatIso(d: Date | null): string | null {
     MatCheckboxModule,
     MatDatepickerModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
     FormDialogShellComponent,
+    SpinnerComponent,
   ],
   template: `
     <app-form-dialog-shell
@@ -78,7 +78,7 @@ function formatIso(d: Date | null): string | null {
     >
       @if (loadingLists()) {
         <div class="vac-loading">
-          <mat-spinner diameter="36" />
+          <app-spinner [size]="36" tone="accent" />
           <p>Cargando {{ personLabel.toLowerCase() }}s…</p>
         </div>
       } @else if (listsFailed()) {

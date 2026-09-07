@@ -3,9 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import { SpinnerComponent } from '../../shared/components/spinner';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -31,9 +31,9 @@ type MessageRow = {
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
     PageHeaderComponent,
+    SpinnerComponent,
   ],
   template: `
     <app-page-header
@@ -47,7 +47,7 @@ type MessageRow = {
 
     @if (loading()) {
       <div class="msg-loading" aria-live="polite">
-        <mat-spinner diameter="36"></mat-spinner>
+        <app-spinner [size]="36" tone="accent" />
       </div>
     } @else {
       <div class="msg-page">

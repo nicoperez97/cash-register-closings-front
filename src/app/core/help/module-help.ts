@@ -269,8 +269,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'payments',
         tone: 'do',
         anyOf: ['expenses.manage'],
-        body: 'Con Gasto rápido elegís concepto, forma de pago (efectivo, transferencia o tarjeta) y de qué cuenta sale. Siempre va a Egreso. Si es transferencia, el comprobante es obligatorio (foto o archivo); con efectivo o tarjeta es opcional. El aviso a administradores se envía siempre.',
-        tip: 'Al abrir Gasto rápido se cargan de nuevo conceptos y cuentas. Si fallan, usá Reintentar sin cerrar la app.',
+        body: 'Con Gasto rápido elegís concepto, forma de pago (efectivo, transferencia o tarjeta) y de qué cuenta sale. Si el concepto es de proveedores o servicios, podés (opcional) elegir o crear ese proveedor/servicio: el gasto suma en su saldo. Si no elegís, va a Egreso. Si es transferencia, el comprobante es obligatorio (foto o archivo); con efectivo o tarjeta es opcional. El aviso a administradores se envía siempre.',
+        tip: 'Al abrir Gasto rápido se cargan de nuevo conceptos, cuentas, proveedores y servicios. Si fallan, usá Reintentar sin cerrar la app.',
       },
       {
         title: 'Editar o borrar',
