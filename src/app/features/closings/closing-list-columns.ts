@@ -1,7 +1,8 @@
 import { DataTableColumn } from '../../shared/components/data-table';
 import { closingStatusLabel } from '../../core/i18n/labels';
+import { formatMoney } from '../../shared/utils/money';
 
-const money = (v: unknown) => `$ ${Number(v ?? 0).toLocaleString('es-AR')}`;
+const money = (v: unknown) => formatMoney(Number(v ?? 0), { spaced: true });
 
 export function closingMoneyColumns(): DataTableColumn[] {
   return [

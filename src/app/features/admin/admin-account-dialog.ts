@@ -30,6 +30,7 @@ export interface AdminAccountRow {
   listInExpenses?: boolean;
   listInIncomes?: boolean;
   listInTransfers?: boolean;
+  listInBalances?: boolean;
   openingBalance?: number | string | null;
   commissionPercent?: number | string | null;
   ownershipPercent?: number | string | null;
@@ -195,10 +196,20 @@ interface UserOption {
         @if (form.controls.type.value !== 'SUPPLIER' && form.controls.type.value !== 'SERVICE') {
           <div class="account-lists">
             <p class="account-lists__title">Mostrar esta cuenta en</p>
-            <p class="account-lists__hint">Si no está tildada, no aparece al cargar ese movimiento.</p>
+            <p class="account-lists__hint">
+              Si no está tildada, no aparece en ese lugar (movimientos o panel de Saldos).
+            </p>
             <mat-checkbox formControlName="listInExpenses">Gastos</mat-checkbox>
             <mat-checkbox formControlName="listInIncomes">Ingresos</mat-checkbox>
             <mat-checkbox formControlName="listInTransfers">Movimientos entre cuentas</mat-checkbox>
+            @if (form.controls.type.value !== 'DIVIDENDS') {
+              <mat-checkbox formControlName="listInBalances">Saldos</mat-checkbox>
+            } @else {
+              <p class="account-lists__hint">
+                Dividendos no se muestra en Saldos: es plata personal del socio, ya no disponible
+                para el local.
+              </p>
+            }
             <mat-checkbox formControlName="listInCashWithdraw">
               Cierres (quién se lo lleva)
             </mat-checkbox>
@@ -303,6 +314,7 @@ export class AdminAccountDialogComponent implements OnInit {
     listInExpenses: [this.account?.listInExpenses !== false],
     listInIncomes: [this.account?.listInIncomes !== false],
     listInTransfers: [this.account?.listInTransfers !== false],
+    listInBalances: [this.account?.listInBalances !== false],
     listInCashWithdraw: [!(this.account?.hideFromCashWithdraw ?? false)],
     openingBalance: [Number(this.account?.openingBalance ?? 0)],
     commissionPercent: [
@@ -345,6 +357,10 @@ export class AdminAccountDialogComponent implements OnInit {
       listInExpenses: raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? false : !!raw.listInExpenses,
       listInIncomes: raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? false : !!raw.listInIncomes,
       listInTransfers: raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? false : !!raw.listInTransfers,
+      listInBalances:
+        raw.type === 'SUPPLIER' || raw.type === 'SERVICE' || raw.type === 'DIVIDENDS'
+          ? false
+          : !!raw.listInBalances,
       ...(this.canConfigureOpeningBalances
         ? { openingBalance: Number(raw.openingBalance ?? 0) }
         : {}),

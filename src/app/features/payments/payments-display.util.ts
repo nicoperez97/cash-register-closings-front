@@ -1,4 +1,5 @@
 import { formatIsoDateDisplay } from '../../core/shop/business-date';
+import { formatMoney } from '../../shared/utils/money';
 import {
   PaymentStatus,
   ShopPayment,
@@ -156,10 +157,7 @@ export function formatPaymentDate(iso: string | null | undefined): string {
 }
 
 export function formatPaymentAmount(amount: number | null | undefined): string {
-  return Number(amount || 0).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatMoney(amount, { currency: false });
 }
 
 export function paymentHasInvoiceData(p: ShopPayment): boolean {

@@ -23,6 +23,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
+import { formatMoney } from '../../shared/utils/money';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 import { downloadTablePdf } from '../../shared/pdf/html-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
@@ -1079,10 +1080,7 @@ export class AttendancePage {
   }
 
   money(value: number): string {
-    return `$ ${Number(value || 0).toLocaleString('es-AR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(value, { spaced: true });
   }
 
   loadOvertimeSummary(): void {

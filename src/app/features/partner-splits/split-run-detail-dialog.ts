@@ -9,6 +9,7 @@ import type {
   PartnerSplitRow,
   PartnerSplitRun,
 } from './partner-splits-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export type SplitRunSnapshot = (PartnerSplitPreview | EqualizePreview) & {
   kind?: 'equalize' | 'split';
@@ -36,12 +37,7 @@ export type SplitRunDetailDialogData = {
 };
 
 function money(value: number): string {
-  const n = Number(value || 0);
-  const abs = Math.abs(n).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return n < 0 ? `-$${abs}` : `$${abs}`;
+  return formatMoney(value);
 }
 
 function moved(row: PartnerSplitRow): boolean {
@@ -84,7 +80,7 @@ function actionLabel(difference: number): string {
               <strong>{{ money(equalizeAmount) }}</strong>
             </div>
             <div>
-              <span>Pagos</span>
+              <span>Dividendos</span>
               <strong>{{ generatedLabel }}</strong>
             </div>
             <div>
@@ -295,6 +291,11 @@ export class SplitRunDetailDialogComponent {
     const s = this.snap;
     const payments = s?.createdPaymentIds?.length ?? 0;
     const movements = s?.createdMovementIds?.length ?? 0;
+    if (this.isEqualize) {
+      const n = movements || payments || (s?.createdIds?.length ?? 0);
+      if (!n) return 'Sin asientos';
+      return `${n} ${n === 1 ? 'dividendo' : 'dividendos'}`;
+    }
     const bits: string[] = [];
     if (movements) bits.push(`${movements} ${movements === 1 ? 'pase' : 'pases'}`);
     if (payments) bits.push(`${payments} ${payments === 1 ? 'pago' : 'pagos'}`);
@@ -305,7 +306,11 @@ export class SplitRunDetailDialogComponent {
     const s = this.snap;
     if (!s) return [];
     if (this.isEqualize) {
-      return (s.transfers ?? []).map((t) => ({ ...t, kind: 'Pago' }));
+      return (s.transfers ?? []).map((t) => ({
+        ...t,
+        kind: 'Dividendo',
+        toName: `Dividendos · para ${t.toName}`,
+      }));
     }
     const partnerIds = new Set((s.partners ?? []).map((p) => p.accountId));
     const transferKey = (from?: string, to?: string) => `${from ?? ''}|${to ?? ''}`;

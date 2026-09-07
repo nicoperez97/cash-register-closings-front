@@ -25,6 +25,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
+import { formatMoney } from '../../shared/utils/money';
 
 const formatHours = (value: unknown) => {
   const n = Number(value ?? 0);
@@ -34,8 +35,8 @@ const formatHours = (value: unknown) => {
 
 const moneyAlways = (value: unknown) => {
   const n = Number(value ?? 0);
-  if (!Number.isFinite(n)) return '$ 0';
-  return `$ ${n.toLocaleString('es-AR')}`;
+  if (!Number.isFinite(n)) return formatMoney(0, { spaced: true });
+  return formatMoney(n, { spaced: true });
 };
 import {
   SalariesApiService,
@@ -368,7 +369,7 @@ const SOURCE_LABEL: Record<string, string> = {
                   <h3 class="guy-list-head__title">Líneas de liquidación</h3>
                   <p class="guy-list-head__meta">
                     {{ periodLabel() }}
-                    · Presentismo: $ {{ attendanceBonusAmount().toLocaleString('es-AR') }}/semana
+                    · Presentismo: {{ moneyAlways(attendanceBonusAmount()) }}/semana
                     @if (splitByShift()) {
                       · Separado por turnos
                     }
@@ -432,6 +433,7 @@ export class SalariesPage {
   private readonly histFiltersUi = createFiltersCollapsed('salaries-history');
   readonly histFiltersCollapsed = this.histFiltersUi.collapsed;
   readonly toggleHistFilters = this.histFiltersUi.toggleFilters;
+  readonly moneyAlways = moneyAlways;
 
   private readonly http = inject(HttpClient);
   private readonly salariesApi = inject(SalariesApiService);
@@ -523,7 +525,7 @@ export class SalariesPage {
         value: moneyAlways(t.presentismo),
         icon: 'event_available',
         tone: t.presentismo > 0 ? 'ok' : 'muted',
-        hint: `$ ${this.attendanceBonusAmount().toLocaleString('es-AR')}/semana`,
+        hint: `${moneyAlways(this.attendanceBonusAmount())}/semana`,
       },
       {
         label: 'Horas extra',
@@ -549,15 +551,15 @@ export class SalariesPage {
     {
       key: 'baseSalary',
       label: '$ / hora',
-      format: (r) => `$ ${Number(r['baseSalary']).toLocaleString('es-AR')}`,
+      format: (r) => moneyAlways(r['baseSalary']),
     },
     {
       key: 'overtimeHourRate',
       label: '$ / hora extra',
       format: (r) => {
         const set = Number(r['overtimeHourRate'] ?? 0);
-        if (set > 0) return `$ ${set.toLocaleString('es-AR')}`;
-        return `Igual ($ ${Number(r['overtimeHourRateEffective'] ?? 0).toLocaleString('es-AR')})`;
+        if (set > 0) return moneyAlways(set);
+        return `Igual (${moneyAlways(r['overtimeHourRateEffective'] ?? 0)})`;
       },
     },
     {
@@ -592,14 +594,14 @@ export class SalariesPage {
       format: (r) => {
         const prev = r['previousBaseSalary'];
         const next = Number(r['baseSalary'] ?? 0);
-        const prevLabel = prev == null ? '—' : `$ ${Number(prev).toLocaleString('es-AR')}`;
-        return `${prevLabel} → $ ${next.toLocaleString('es-AR')}`;
+        const prevLabel = prev == null ? '—' : moneyAlways(prev);
+        return `${prevLabel} → ${moneyAlways(next)}`;
       },
     },
     {
       key: 'overtimeHourRate',
       label: 'Hora extra',
-      format: (r) => `$ ${Number(r['overtimeHourRate'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => moneyAlways(r['overtimeHourRate'] ?? 0),
     },
     {
       key: 'holidayPayMultiplier',
@@ -633,22 +635,22 @@ export class SalariesPage {
       {
         key: 'baseSalarySnapshot',
         label: '$ / hora',
-        format: (r) => `$ ${Number(r['baseSalarySnapshot']).toLocaleString('es-AR')}`,
+        format: (r) => moneyAlways(r['baseSalarySnapshot']),
       },
       {
         key: 'overtimeAmount',
         label: 'Horas extra',
-        format: (r) => `$ ${Number(r['overtimeAmount']).toLocaleString('es-AR')}`,
+        format: (r) => moneyAlways(r['overtimeAmount']),
       },
       {
         key: 'attendanceBonus',
         label: 'Presentismo',
-        format: (r) => `$ ${Number(r['attendanceBonus']).toLocaleString('es-AR')}`,
+        format: (r) => moneyAlways(r['attendanceBonus']),
       },
       {
         key: 'total',
         label: 'Total',
-        format: (r) => `$ ${Number(r['total']).toLocaleString('es-AR')}`,
+        format: (r) => moneyAlways(r['total']),
       },
     );
     return cols;
@@ -660,12 +662,12 @@ export class SalariesPage {
     {
       key: 'bestSalary',
       label: 'Mejor sueldo',
-      format: (r) => `$ ${Number(r['bestSalary']).toLocaleString('es-AR')}`,
+      format: (r) => moneyAlways(r['bestSalary']),
     },
     {
       key: 'sacAmount',
       label: 'Aguinaldo',
-      format: (r) => `$ ${Number(r['sacAmount']).toLocaleString('es-AR')}`,
+      format: (r) => moneyAlways(r['sacAmount']),
     },
   ];
 

@@ -19,6 +19,7 @@ import { Employee } from '../employees/employees-api.service';
 import { TipAllocation, TipAllocationInput } from './tips-api.service';
 import { TipsApiService } from './tips-api.service';
 import { CashBillCounterDialogComponent } from '../closings/cash-bill-counter-dialog';
+import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
 
 export interface TipsEditorState {
   cashAmount: number;
@@ -386,11 +387,7 @@ export class TipsEditorComponent {
   }
 
   formatMoney(value: number): string {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      maximumFractionDigits: 2,
-    }).format(value);
+    return formatMoneyShared(value);
   }
 
   openBillCounter(): void {

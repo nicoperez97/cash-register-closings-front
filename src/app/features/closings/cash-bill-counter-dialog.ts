@@ -4,6 +4,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 
+import { formatMoney } from '../../shared/utils/money';
+
 /** Billetes en circulación (BCRA) — de mayor a menor uso típico en caja. */
 export const ARS_BILL_DENOMS = [20_000, 10_000, 2_000, 1_000, 500, 200, 100, 50, 20, 10] as const;
 
@@ -18,11 +20,11 @@ export type CashBillCounterResult = {
 };
 
 function formatDenom(value: number): string {
-  return `$ ${value.toLocaleString('es-AR')}`;
+  return formatMoney(value, { spaced: true, minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-function formatMoney(value: number): string {
-  return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+function formatMoneyLocal(value: number): string {
+  return formatMoney(value, { spaced: true });
 }
 
 @Component({
@@ -377,7 +379,7 @@ export class CashBillCounterDialogComponent {
   }
 
   money(value: number): string {
-    return formatMoney(value);
+    return formatMoneyLocal(value);
   }
 
   countOf(denom: number): number {

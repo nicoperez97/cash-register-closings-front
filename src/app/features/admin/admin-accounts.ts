@@ -13,6 +13,7 @@ import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { formatMoney } from '../../shared/utils/money';
 
 type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM' | 'DIVIDENDS';
 type AccountStatusFilter = 'all' | 'active' | 'inactive';
@@ -148,10 +149,7 @@ export class AdminAccountsPage {
       {
         key: 'openingBalance',
         label: 'Saldo inicial',
-        format: (r) => {
-          const n = Number(r['openingBalance'] ?? 0);
-          return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        },
+        format: (r) => formatMoney(r['openingBalance'] ?? 0, { currency: false }),
       },
       {
         key: 'commissionPercent',

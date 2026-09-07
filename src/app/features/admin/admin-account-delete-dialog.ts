@@ -17,6 +17,7 @@ import {
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
 import { AdminAccountRow } from './admin-account-dialog';
+import { formatMoney } from '../../shared/utils/money';
 
 export interface AccountDeleteTarget {
   id: string;
@@ -120,10 +121,7 @@ export class AdminAccountDeleteDialogComponent {
   );
 
   money(value: number): string {
-    return `$ ${Number(value).toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(value, { spaced: true });
   }
 
   confirm(): void {

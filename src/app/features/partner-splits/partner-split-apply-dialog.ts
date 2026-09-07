@@ -7,6 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import type { PartnerSplitPreview } from './partner-splits-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export type PartnerGenerateMode = 'skip' | 'payment' | 'movement';
 
@@ -40,10 +41,7 @@ type ApplyRow = {
 };
 
 function money(value: number): string {
-  return `$${Math.abs(Number(value || 0)).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(value);
 }
 
 @Component({

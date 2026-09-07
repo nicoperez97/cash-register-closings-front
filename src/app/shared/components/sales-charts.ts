@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { formatNumber } from '../utils/money';
 
 export interface ChartSlice {
   label: string;
@@ -442,7 +443,7 @@ export class LineChartComponent {
   }
 
   get maxLabel(): string {
-    return this.max.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    return formatNumber(this.max, { maximumFractionDigits: 0 });
   }
 
   get plotted(): Array<{ x: number; y: number; label: string; value: number }> {

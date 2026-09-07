@@ -40,15 +40,12 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { UserVisibility } from '../../shared/user-visibility';
 import { isUserVisible } from '../../shared/user-visibility';
 import { MoneyInputDirective } from '../../shared/directives/money-input';
-import { parseLocaleNumber } from '../../shared/utils/money';
+import { parseLocaleNumber, formatMoney } from '../../shared/utils/money';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
 
 function formatBalance(value: number): string {
-  return `$${Number(value ?? 0).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(value);
 }
 
 export interface MovementEmployeeOption {
@@ -327,14 +324,28 @@ function toDateString(value: Date | null): string {
           }
         }
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-amount">
-          <mat-label>Monto ($)</mat-label>
-          <mat-icon matPrefix>attach_money</mat-icon>
-          <input matInput type="text" inputmode="decimal" appMoney formControlName="amountUyu" />
-          @if (form.controls.amountUyu.touched && form.controls.amountUyu.hasError('required')) {
-            <mat-error>Ingresá un monto</mat-error>
+        <div class="mov-amount-wrap" [class.mov-amount-wrap--max]="isDividendOn()">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="mov-amount">
+            <mat-label>Monto ($)</mat-label>
+            <mat-icon matPrefix>attach_money</mat-icon>
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="amountUyu" />
+            @if (form.controls.amountUyu.touched && form.controls.amountUyu.hasError('required')) {
+              <mat-error>Ingresá un monto</mat-error>
+            }
+          </mat-form-field>
+          @if (isDividendOn()) {
+            <button
+              mat-stroked-button
+              type="button"
+              class="mov-amount-max"
+              [disabled]="!canUseMaxDividend()"
+              (click)="useMaxDividendAmount()"
+            >
+              <mat-icon>vertical_align_top</mat-icon>
+              Usar máximo
+            </button>
           }
-        </mat-form-field>
+        </div>
 
         @if (!isTransfer) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -653,6 +664,46 @@ function toDateString(value: Date | null): string {
         margin-top: 0.15rem;
       }
 
+      .mov-amount-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+
+      .mov-amount-wrap--max {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 0.55rem;
+      }
+
+      .mov-amount-wrap--max .mov-amount {
+        margin-top: 0;
+      }
+
+      .mov-amount-max {
+        margin-top: 0.35rem;
+        white-space: nowrap;
+      }
+
+      .mov-amount-max mat-icon {
+        font-size: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+        margin-right: 0.15rem;
+      }
+
+      @media (max-width: 420px) {
+        .mov-amount-wrap--max {
+          grid-template-columns: 1fr;
+        }
+
+        .mov-amount-max {
+          margin-top: 0;
+          width: 100%;
+        }
+      }
+
       .mov-dividend-hint {
         margin: -0.35rem 0 0.15rem;
         font-size: 0.82rem;
@@ -848,8 +899,13 @@ export class MovementDialogComponent implements OnInit {
       this.isTransfer || this.isIncome ? [] : [Validators.required],
     ],
     notifyAdmins: [true],
-    isDividend: [false],
-    beneficiaryAccountId: [''],
+    isDividend: [
+      !!(
+        this.movement?.isDividend ||
+        this.movement?.toAccountType === 'DIVIDENDS'
+      ),
+    ],
+    beneficiaryAccountId: [this.movement?.beneficiaryAccountId ?? ''],
   });
 
   receiptRequired(): boolean {
@@ -1074,6 +1130,21 @@ export class MovementDialogComponent implements OnInit {
     return formatBalance(bal);
   });
 
+  /** Saldo disponible para «Usar máximo» en dividendos (en edición suma el monto actual). */
+  readonly maxDividendAmount = computed(() => {
+    const id = this.fromAccountIdValue();
+    if (!id || !this.balancesLoaded()) return null;
+    const bal = this.accountBalances()[id];
+    if (bal === undefined) return null;
+    let max = Number(bal) || 0;
+    if (this.movement && this.movement.fromAccountId === id) {
+      max += Number(this.movement.amountUyu) || 0;
+    }
+    return Math.round(max * 100) / 100;
+  });
+
+  readonly canUseMaxDividend = computed(() => (this.maxDividendAmount() ?? 0) > 0.004);
+
   readonly selectedFromAccount = computed(() => {
     const id = this.fromAccountIdValue();
     if (!id) return null;
@@ -1141,6 +1212,23 @@ export class MovementDialogComponent implements OnInit {
     const bal = this.accountBalances()[account.id];
     if (bal === undefined) return base;
     return `${base} · ${formatBalance(bal)}`;
+  }
+
+  useMaxDividendAmount(): void {
+    const max = this.maxDividendAmount();
+    if (max == null || !(max > 0.004)) {
+      this.snack.open(
+        this.fromAccountIdValue()
+          ? 'No hay saldo disponible en la cuenta origen'
+          : 'Elegí la cuenta origen',
+        'OK',
+        { duration: 3000 },
+      );
+      return;
+    }
+    this.form.controls.amountUyu.setValue(max);
+    this.form.controls.amountUyu.markAsDirty();
+    this.form.controls.amountUyu.markAsTouched();
   }
 
   onDividendToggle(): void {

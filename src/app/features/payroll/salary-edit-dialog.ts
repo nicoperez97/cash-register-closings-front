@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { SalariesApiService, SalaryEmployee } from './salaries-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export type SalaryEditDialogData = {
   shopId: string;
@@ -67,8 +68,7 @@ export type SalaryEditDialogData = {
           </mat-form-field>
         } @else {
           <p class="salary-dlg__hint">
-            La hora extra usa el mismo precio hora ($
-            {{ Number(form.controls.baseSalary.value ?? 0).toLocaleString('es-AR') }}).
+            La hora extra usa el mismo precio hora ({{ formatMoney(form.controls.baseSalary.value ?? 0, { currency: false }) }}).
           </p>
         }
 
@@ -130,6 +130,7 @@ export class SalaryEditDialogComponent {
   private readonly snack = inject(MatSnackBar);
   readonly busy = signal(false);
   readonly Number = Number;
+  readonly formatMoney = formatMoney;
 
   readonly form = this.fb.nonNullable.group({
     baseSalary: [this.data.employee.baseSalary, [Validators.required, Validators.min(0)]],

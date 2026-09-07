@@ -35,6 +35,7 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { isUserVisible } from '../../shared/user-visibility';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
+import { formatMoney } from '../../shared/utils/money';
 
 @Component({
   selector: 'app-reports-page',
@@ -337,7 +338,7 @@ export class ReportsPage {
     {
       key: 'cashWithdrawn',
       label: 'Monto retiro',
-      format: (r) => `$ ${Number(r['cashWithdrawn'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['cashWithdrawn'] ?? 0, { spaced: true }),
     },
   ];
 
@@ -346,7 +347,7 @@ export class ReportsPage {
     {
       key: 'total',
       label: 'Total',
-      format: (r) => `$ ${Number(r['total'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['total'] ?? 0, { spaced: true }),
     },
     {
       key: 'share',
@@ -449,11 +450,11 @@ export class ReportsPage {
           ),
         );
         this.kpis.set([
-          { label: 'Total declarado', value: `$ ${Number(s.totals.declared).toLocaleString('es-AR')}` },
-          { label: 'PVS', value: `$ ${Number(s.totals.card).toLocaleString('es-AR')}` },
-          { label: 'Efectivo', value: `$ ${Number(s.totals.cash).toLocaleString('es-AR')}` },
-          { label: 'Retiros', value: `$ ${Number(s.totals.withdrawn).toLocaleString('es-AR')}` },
-          { label: 'Egresos', value: `$ ${Number(s.expensesTotal ?? 0).toLocaleString('es-AR')}` },
+          { label: 'Total declarado', value: formatMoney(s.totals.declared, { spaced: true }) },
+          { label: 'PVS', value: formatMoney(s.totals.card, { spaced: true }) },
+          { label: 'Efectivo', value: formatMoney(s.totals.cash, { spaced: true }) },
+          { label: 'Retiros', value: formatMoney(s.totals.withdrawn, { spaced: true }) },
+          { label: 'Egresos', value: formatMoney(s.expensesTotal ?? 0, { spaced: true }) },
         ]);
         this.loading.set(false);
       },

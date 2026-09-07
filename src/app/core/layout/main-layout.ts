@@ -225,6 +225,14 @@ export class MainLayoutComponent {
         hasShopPermission(user, shopId, 'incomes.read') ||
         hasShopPermission(user, shopId, 'accountTransfers.read'))
     ) {
+      cuentas.push(leaf('accountBalances'));
+    }
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'expenses.read') ||
+        hasShopPermission(user, shopId, 'incomes.read') ||
+        hasShopPermission(user, shopId, 'accountTransfers.read'))
+    ) {
       cuentas.push(leaf('transactions'));
     }
     if (shopId && hasShopPermission(user, shopId, 'partnerSplits.read')) {

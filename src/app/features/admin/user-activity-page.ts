@@ -19,6 +19,7 @@ import {
   UserActivityBreakdown,
   UserActivityRow,
 } from './user-activity-api.service';
+import { formatNumber } from '../../shared/utils/money';
 
 const BREAKDOWN_LABELS: Record<keyof UserActivityBreakdown, string> = {
   closings: 'Cierres',
@@ -380,6 +381,6 @@ export class UserActivityPage {
   }
 
   formatScore(value: number): string {
-    return Number(value || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    return formatNumber(value, { maximumFractionDigits: 0 });
   }
 }

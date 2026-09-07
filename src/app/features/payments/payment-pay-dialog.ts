@@ -20,6 +20,7 @@ import {
   PaymentMethod,
   ShopPayment,
 } from './payments-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export type PaymentPayDialogData = {
   payment: ShopPayment;
@@ -42,10 +43,7 @@ function parseMoney(raw: unknown): number {
 }
 
 function moneyLabel(value: number): string {
-  return Number(value || 0).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatMoney(value, { currency: false });
 }
 
 @Component({

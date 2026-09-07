@@ -1,3 +1,5 @@
+import { formatMoney } from '../../shared/utils/money';
+
 export function normalizeMenuText(raw: string): string {
   return String(raw ?? '')
     .trim()
@@ -77,9 +79,8 @@ export function menuPriceOf(item: { price?: number | null; priceLabel?: string |
   const label = String(item.priceLabel ?? '').trim();
   if (label) return label;
   if (item.price == null || !Number.isFinite(Number(item.price))) return '';
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
+  return formatMoney(Number(item.price), {
+    minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(Number(item.price));
+  });
 }

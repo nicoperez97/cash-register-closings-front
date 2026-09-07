@@ -19,6 +19,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
+import { formatMoney, formatNumber } from '../../shared/utils/money';
 
 function formatDayLabelEs(isoDate: string): string {
   const p = parseIsoDateParts(String(isoDate ?? ''));
@@ -356,12 +357,12 @@ export class StatsPage {
     {
       key: 'amount',
       label: 'Total',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
     },
     {
       key: 'pendingAmount',
       label: 'Pendiente',
-      format: (r) => `$ ${Number(r['pendingAmount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['pendingAmount'] ?? 0, { spaced: true }),
     },
   ];
 
@@ -422,18 +423,18 @@ export class StatsPage {
     {
       key: 'posAmount',
       label: 'POS $',
-      format: (r) => `$ ${Number(r['posAmount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['posAmount'] ?? 0, { spaced: true }),
     },
     { key: 'posTickets', label: 'Tickets' },
     {
       key: 'declaredTotal',
       label: 'Caja $',
-      format: (r) => `$ ${Number(r['declaredTotal'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['declaredTotal'] ?? 0, { spaced: true }),
     },
     {
       key: 'tipsAmount',
       label: 'Propinas $',
-      format: (r) => `$ ${Number(r['tipsAmount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['tipsAmount'] ?? 0, { spaced: true }),
     },
     { key: 'closingStatus', label: 'Estado caja' },
   ];
@@ -484,41 +485,41 @@ export class StatsPage {
         const items: KpiItem[] = [
           {
             label: 'Reservas (grupos)',
-            value: Number(res?.parties ?? 0).toLocaleString('es-AR'),
+            value: formatNumber(res?.parties ?? 0, { maximumFractionDigits: 0 }),
           },
           {
             label: 'Covers reservados',
-            value: Number(res?.guests ?? 0).toLocaleString('es-AR'),
+            value: formatNumber(res?.guests ?? 0, { maximumFractionDigits: 0 }),
           },
           {
             label: 'Ventas POS',
-            value: `$ ${Number(pos?.amount ?? 0).toLocaleString('es-AR')}`,
+            value: formatMoney(pos?.amount ?? 0, { spaced: true }),
             hint: cmp ? formatDelta(cmp.posAmountDeltaPct) : undefined,
           },
           {
             label: 'Tickets POS',
-            value: Number(pos?.ticketCount ?? 0).toLocaleString('es-AR'),
+            value: formatNumber(pos?.ticketCount ?? 0, { maximumFractionDigits: 0 }),
           },
           {
             label: 'Caja declarada',
-            value: `$ ${Number(box?.declared ?? 0).toLocaleString('es-AR')}`,
+            value: formatMoney(box?.declared ?? 0, { spaced: true }),
             hint: cmp ? formatDelta(cmp.boxDeclaredDeltaPct) : undefined,
           },
           {
             label: 'Ticket prom. caja',
             value:
               box?.avgTicket != null
-                ? `$ ${Number(box.avgTicket).toLocaleString('es-AR')}`
+                ? formatMoney(box.avgTicket, { spaced: true })
                 : '—',
           },
           {
             label: 'Comensales caja',
-            value: Number(box?.covers ?? 0).toLocaleString('es-AR'),
+            value: formatNumber(box?.covers ?? 0, { maximumFractionDigits: 0 }),
             hint: cmp ? formatDelta(cmp.coversDeltaPct) : undefined,
           },
           {
             label: 'Días c/ diferencia',
-            value: `${Number(box?.differenceDayCount ?? 0)} · $ ${Number(box?.differenceAbsSum ?? 0).toLocaleString('es-AR')}`,
+            value: `${formatNumber(box?.differenceDayCount ?? 0, { maximumFractionDigits: 0 })} · ${formatMoney(box?.differenceAbsSum ?? 0, { spaced: true })}`,
           },
         ];
         if (data.reservations && !data.reservations.enabled) {
@@ -529,16 +530,16 @@ export class StatsPage {
           items.push(
             {
               label: 'Propinas',
-              value: `$ ${Number(tips?.total ?? 0).toLocaleString('es-AR')}`,
+              value: formatMoney(tips?.total ?? 0, { spaced: true }),
               hint: cmp ? formatDelta(cmp.tipsDeltaPct) : undefined,
             },
             {
               label: 'Tips / empleado',
-              value: `$ ${Number(tips?.avgPerEmployee ?? 0).toLocaleString('es-AR')}`,
+              value: formatMoney(tips?.avgPerEmployee ?? 0, { spaced: true }),
             },
             {
               label: 'Pendientes entrega',
-              value: Number(tips?.pendingCount ?? 0).toLocaleString('es-AR'),
+              value: formatNumber(tips?.pendingCount ?? 0, { maximumFractionDigits: 0 }),
             },
             {
               label: 'Tips/caja · Tips/POS',

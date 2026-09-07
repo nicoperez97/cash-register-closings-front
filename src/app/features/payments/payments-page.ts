@@ -33,6 +33,7 @@ import { PaymentsApiService, PaymentStatus, ShopPayment } from './payments-api.s
 import { PaymentCardComponent } from './payment-card';
 import { PaymentsFiltersPanelComponent } from './payments-filters-panel';
 import { comparePayments, loadPaymentSort, PAYMENT_SORT_OPTIONS, savePaymentSort, type PaymentSortKey } from './payments-display.util';
+import { formatMoney } from '../../shared/utils/money';
 import { PaymentsInboxService } from './payments-inbox.service';
 import { isUserVisible } from '../../shared/user-visibility';
 import type { UserVisibility } from '../../shared/user-visibility';
@@ -1009,7 +1010,7 @@ export class PaymentsPage {
         rows: this.rows().map((p) => [
           p.title,
           p.conceptName ?? '—',
-          `$ ${Number(p.amount).toLocaleString('es-AR')}`,
+          formatMoney(p.amount, { spaced: true }),
           p.dueDate ?? '—',
           p.status,
         ]),

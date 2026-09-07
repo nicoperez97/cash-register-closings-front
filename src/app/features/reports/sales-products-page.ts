@@ -36,6 +36,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
+import { formatMoney, formatNumber } from '../../shared/utils/money';
 
 /** Fecha corta es-AR: mié. 18 mar. */
 function formatDayLabelEs(isoDate: string): string {
@@ -425,12 +426,12 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
     },
     { key: 'ticketCount', label: 'Tickets' },
     {
@@ -443,9 +444,11 @@ export class SalesProductsPage {
       key: 'ticketContribution',
       label: '$/ticket',
       format: (r) =>
-        `$ ${Number(r['ticketContribution'] ?? 0).toLocaleString('es-AR', {
+        formatMoney(r['ticketContribution'] ?? 0, {
+          spaced: true,
           maximumFractionDigits: 0,
-        })}`,
+          minimumFractionDigits: 0,
+        }),
     },
     {
       key: 'trendPct',
@@ -465,12 +468,12 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
     },
     { key: 'ticketCount', label: 'Tickets' },
     {
@@ -488,12 +491,12 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
     },
     { key: 'ticketCount', label: 'Tickets' },
     {
@@ -513,12 +516,12 @@ export class SalesProductsPage {
     {
       key: 'qty',
       label: 'Cantidad',
-      format: (r) => Number(r['qty'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }),
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
     },
     {
       key: 'amount',
       label: 'Importe',
-      format: (r) => `$ ${Number(r['amount'] ?? 0).toLocaleString('es-AR')}`,
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
     },
     { key: 'ticketCount', label: 'Tickets' },
   ];
@@ -648,33 +651,39 @@ export class SalesProductsPage {
         this.kpis.set([
           {
             label: 'Importe total',
-            value: `$ ${Number(t.amount).toLocaleString('es-AR')}`,
+            value: formatMoney(t.amount, { spaced: true }),
             hint: delta,
           },
           {
             label: 'Unidades',
-            value: Number(t.qty).toLocaleString('es-AR', { maximumFractionDigits: 1 }),
+            value: formatNumber(t.qty, { maximumFractionDigits: 1 }),
           },
           { label: 'Tickets', value: String(t.ticketCount) },
           { label: 'Platos', value: String(t.productCount) },
           { label: 'Rubros', value: String(t.categoryCount) },
           {
             label: 'Ticket prom.',
-            value: `$ ${Number(t.avgTicketAmount).toLocaleString('es-AR', {
+            value: formatMoney(t.avgTicketAmount, {
+              spaced: true,
               maximumFractionDigits: 0,
-            })}`,
+              minimumFractionDigits: 0,
+            }),
           },
           {
             label: 'Ticket máx / mín',
-            value: `$ ${Number(t.maxTicketAmount ?? 0).toLocaleString('es-AR', {
+            value: `${formatMoney(t.maxTicketAmount ?? 0, {
+              spaced: true,
               maximumFractionDigits: 0,
-            })} / $ ${Number(t.minTicketAmount ?? 0).toLocaleString('es-AR', {
+              minimumFractionDigits: 0,
+            })} / ${formatMoney(t.minTicketAmount ?? 0, {
+              spaced: true,
               maximumFractionDigits: 0,
+              minimumFractionDigits: 0,
             })}`,
           },
           {
             label: 'Platos / ticket',
-            value: Number(t.dishesPerTicket ?? 0).toLocaleString('es-AR', {
+            value: formatNumber(t.dishesPerTicket ?? 0, {
               maximumFractionDigits: 2,
             }),
           },

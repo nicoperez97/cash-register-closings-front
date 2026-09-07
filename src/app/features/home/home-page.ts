@@ -1,3 +1,4 @@
+import { formatMoney as formatMoneyValue } from '../../shared/utils/money';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
@@ -714,8 +715,7 @@ export class HomePageComponent {
       const declared = this.reportSummary()?.totals?.declared;
       items.push({
         label: 'Total declarado',
-        value:
-          declared != null ? `$ ${Number(declared).toLocaleString('es-AR')}` : '—',
+        value: declared != null ? formatMoneyValue(declared, { spaced: true }) : '—',
         hint: 'Mes en curso',
         icon: 'insights',
         route: '/reports',
@@ -965,10 +965,7 @@ export class HomePageComponent {
   }
 
   formatMoney(value: number): string {
-    return `$ ${Number(value).toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatMoneyValue(value, { spaced: true });
   }
 
   canReadClosings(): boolean {

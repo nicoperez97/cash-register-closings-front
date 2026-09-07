@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import type { EqualizePreview } from './partner-splits-api.service';
+import { formatMoney } from '../../shared/utils/money';
 
 export type EqualizeGenerateMode = 'skip' | 'payment' | 'movement';
 
@@ -31,10 +32,7 @@ type ApplyRow = {
 };
 
 function money(value: number): string {
-  return `$${Math.abs(Number(value || 0)).toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(value);
 }
 
 @Component({
@@ -50,18 +48,20 @@ function money(value: number): string {
   template: `
     <h2 mat-dialog-title>
       <span class="guy-dialog__title-icon" aria-hidden="true">
-        <mat-icon>balance</mat-icon>
+        <mat-icon>savings</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
         <strong>Aplicar equilibrado</strong>
-        <span>Elegí pago o movimiento por cada pase</span>
+        <span>Pago o movimiento · destino Dividendos</span>
       </span>
     </h2>
 
     <mat-dialog-content>
       <p class="hint">
-        Cada fila es un pase entre socios. <strong>Pago</strong> queda en A socios (validado).
-        <strong>Movimiento</strong> se anota en Movimientos entre cuentas.
+        Cada fila es un pase. El dinero baja del que pone y va a <strong>Dividendos</strong> (ya no
+        es del local / personal del socio); el beneficiario queda anotado y
+        <strong>no le suma saldo</strong>. <strong>Pago</strong> queda en A socios (validado).
+        <strong>Movimiento</strong> se anota ya en Movimientos.
       </p>
 
       <div class="bulk">
@@ -75,8 +75,8 @@ function money(value: number): string {
         @for (row of rows; track row.fromAccountId + row.toAccountId) {
           <div class="row">
             <div class="row__info">
-              <strong>{{ row.fromName }} → {{ row.toName }}</strong>
-              <span>{{ money(row.amount) }}</span>
+              <strong>{{ row.fromName }} → Dividendos</strong>
+              <span>para {{ row.toName }} · {{ money(row.amount) }}</span>
             </div>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Generar</mat-label>
@@ -145,6 +145,12 @@ function money(value: number): string {
       font-variant-numeric: tabular-nums;
       font-weight: 650;
       color: var(--guy-navy, #003366);
+      font-size: 0.82rem;
+    }
+    @media (max-width: 640px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
     }
   `,
 })

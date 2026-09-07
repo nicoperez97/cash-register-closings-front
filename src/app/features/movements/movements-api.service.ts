@@ -57,6 +57,11 @@ export interface Movement {
   source?: 'closing' | 'payment' | 'manual' | null;
   paymentId?: string | null;
   paymentPartyType?: 'supplier' | 'service' | 'employee' | null;
+  /** Transferencia a cuenta Dividendos (no suma saldo al socio anotado). */
+  isDividend?: boolean;
+  /** Socio anotado cuando isDividend (no es el destino del dinero). */
+  beneficiaryAccountId?: string | null;
+  toAccountType?: LedgerAccount['type'] | null;
   active: boolean;
 }
 
@@ -134,6 +139,8 @@ export interface MovementFilters {
   employeeId?: string | null;
   hasReceipt?: 'true' | 'false' | null;
   shiftId?: string | null;
+  /** panel (default) | all = todas las cuentas activas. */
+  scope?: 'panel' | 'all';
 }
 
 function filtersToParams(filters: MovementFilters): HttpParams {
@@ -156,6 +163,7 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   set('employeeId', filters.employeeId);
   set('hasReceipt', filters.hasReceipt);
   set('shiftId', filters.shiftId);
+  set('scope', filters.scope === 'all' ? 'all' : undefined);
   return params;
 }
 
@@ -258,13 +266,13 @@ export class MovementsApiService {
     });
   }
 
-  balances(shopId: string, filters: Pick<MovementFilters, 'from' | 'to'> = {}) {
+  balances(shopId: string, filters: Pick<MovementFilters, 'from' | 'to' | 'scope'> = {}) {
     return this.http.get<AccountBalancesResponse>(`${this.base}/shops/${shopId}/movements/balances`, {
       params: filtersToParams(filters),
     });
   }
 
-  exportBalancesExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to'> = {}) {
+  exportBalancesExcel(shopId: string, filters: Pick<MovementFilters, 'from' | 'to' | 'scope'> = {}) {
     return this.http.get(`${this.base}/shops/${shopId}/movements/balances/export.xlsx`, {
       params: filtersToParams(filters),
       responseType: 'blob',
@@ -332,12 +340,15 @@ export interface AccountBalanceRow {
   commissionPercent?: number;
   commissionAmount?: number;
   netBalance?: number;
+  openingBalance?: number;
+  listInBalances?: boolean;
 }
 
 export interface AccountBalancesResponse {
   shopId: string;
   from: string | null;
   to: string | null;
+  scope?: 'panel' | 'all';
   accounts: AccountBalanceRow[];
 }
 
