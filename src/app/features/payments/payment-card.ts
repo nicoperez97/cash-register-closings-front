@@ -190,9 +190,15 @@ import { formatMoney } from '../../shared/utils/money';
           <strong>{{ payment().accountName || '—' }}</strong>
         </div>
         <div>
-          <span class="pay-card__label">Receptora</span>
+          <span class="pay-card__label">{{ payment().isDividend ? 'Para socio' : 'Receptora' }}</span>
           <strong>{{ payment().toAccountName || '—' }}</strong>
         </div>
+        @if (payment().isDividend) {
+          <div>
+            <span class="pay-card__label">Destino</span>
+            <strong>Dividendos · no suma saldo</strong>
+          </div>
+        }
       } @else {
         <div>
           <span class="pay-card__label">Empleado</span>
@@ -756,7 +762,7 @@ export class PaymentCardComponent {
   }
 
   async copyAmount(p: ShopPayment): Promise<void> {
-    const text = formatPaymentAmount(p.amount);
+    const text = formatPaymentAmount(p.amount, { compact: false });
     const ok = await copyText(text);
     this.snack.open(ok ? 'Monto copiado' : 'No se pudo copiar', 'OK', {
       duration: ok ? 2000 : 2500,

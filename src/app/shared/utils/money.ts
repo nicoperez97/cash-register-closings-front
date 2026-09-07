@@ -1,12 +1,13 @@
-/** Parsea montos en formato AR (coma decimal) o EN (punto). */
+/** Parsea montos en formato AR (coma decimal) o EN (punto). Soporta sufijo M (1,5M → 1500000). */
 export function parseLocaleNumber(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const raw = String(value ?? '')
+  let raw = String(value ?? '')
     .trim()
     .replace(/\s/g, '')
-    .replace(/\$/g, '')
-    .replace(/M$/i, '');
+    .replace(/\$/g, '');
   if (!raw) return 0;
+  const millionSuffix = /m$/i.test(raw);
+  if (millionSuffix) raw = raw.replace(/m$/i, '');
   const hasComma = raw.includes(',');
   const hasDot = raw.includes('.');
   let normalized = raw;
@@ -19,8 +20,10 @@ export function parseLocaleNumber(value: unknown): number {
   } else if (hasComma) {
     normalized = raw.replace(',', '.');
   }
-  const num = Number(normalized);
-  return Number.isFinite(num) ? num : 0;
+  let num = Number(normalized);
+  if (!Number.isFinite(num)) return 0;
+  if (millionSuffix) num *= 1_000_000;
+  return num;
 }
 
 const MILLION = 1_000_000;

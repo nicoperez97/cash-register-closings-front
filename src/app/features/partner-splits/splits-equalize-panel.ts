@@ -827,7 +827,7 @@ export class SplitsEqualizePanelComponent {
         this.partners.set([]);
         return;
       }
-      this.queuePreview();
+      this.queuePreview(this.percentDirty());
     });
   }
 
