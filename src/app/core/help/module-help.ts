@@ -1215,6 +1215,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['accounts.manage'],
         body: 'Se usan en gastos, transferencias entre cuentas, pagos y cierres. Sin cuenta, no hay dónde anotar la plata.',
         items: [
+          'Al crear, el código se arma solo con el local y el nombre (ej. TUTTO_PASSA_EFECTIVO). Podés editarlo.',
           'Saldo inicial: se suma al saldo de movimientos. Si la cuenta ya tiene plata y después le ponés un inicial, ese monto se agrega (no reemplaza). Solo lo carga un super admin.',
           'Comisión %: en Saldos el número grande ya la descuenta. Debajo ves el total sin descontar y el monto de la comisión. Dejá 0 si no hay.',
           'En cuentas Socio, % de división: la parte de ese socio al equilibrar en Divisiones. No es lo mismo que la comisión.',
