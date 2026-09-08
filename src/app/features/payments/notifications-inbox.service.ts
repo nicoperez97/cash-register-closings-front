@@ -17,7 +17,8 @@ import { syncAppBadge } from '../../shared/utils/app-badge';
 
 /**
  * Estado compartido de notificaciones (badge toolbar + badge por local + ícono PWA).
- * Se refresca con polling, al cambiar de local y tras cualquier llamada a la API.
+ * El badge cuenta avisos *no vistos* (abrir el panel los marca); los no leídos
+ * (punto azul) son independientes y viven en la lista del toolbar.
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationsInboxService {
@@ -28,7 +29,9 @@ export class NotificationsInboxService {
   private readonly pageRefresh = inject(PageRefreshService);
   private readonly poll = inject(InboxPollService);
 
+  /** Badge campana / “nuevas” del local activo (unseen). */
   readonly unreadCount = signal(0);
+  /** Badges por local en el switcher (unseen). */
   readonly unreadByShop = signal<Record<string, number>>({});
 
   private readonly refresh$ = new Subject<void>();
@@ -51,14 +54,14 @@ export class NotificationsInboxService {
           }
           const shopId = this.shops.selectedShopId();
           return forkJoin({
-            count: this.api.unreadCount(shopId).pipe(
+            count: this.api.unseenCount(shopId).pipe(
               catchError(() => of({ count: 0 })),
             ),
-            byShop: this.api.unreadCountsByShop().pipe(
+            byShop: this.api.unseenCountsByShop().pipe(
               catchError(() => of({ counts: {} as Record<string, number> })),
             ),
             // Total global para el número del ícono en el celular (todos los locales).
-            total: this.api.unreadCount().pipe(
+            total: this.api.unseenCount().pipe(
               catchError(() => of({ count: 0 })),
             ),
           });
@@ -102,6 +105,21 @@ export class NotificationsInboxService {
       return;
     }
     this.refresh$.next();
+  }
+
+  /** Optimista al abrir el panel: oculta el badge del local activo. */
+  clearBadgeLocal(): void {
+    this.lastShopUnread = 0;
+    this.unreadCount.set(0);
+    const shopId = this.shops.selectedShopId();
+    if (shopId) {
+      this.unreadByShop.update((map) => {
+        if (!(shopId in map)) return map;
+        const next = { ...map };
+        delete next[shopId];
+        return next;
+      });
+    }
   }
 
   clear(): void {

@@ -1595,8 +1595,19 @@ button.mat-mdc-mini-fab mat-icon {
 }
 
 .notif-menu-panel.mat-mdc-menu-panel {
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  max-width: min(380px, 94vw) !important;
+  max-height: calc(100dvh - 3.25rem) !important;
+  height: calc(100dvh - 3.25rem) !important;
+  overflow: hidden !important;
+}
+
+.notif-menu-panel .mat-mdc-menu-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+  max-height: none !important;
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .user-popover-panel .mat-mdc-menu-content,
@@ -1612,11 +1623,6 @@ button.mat-mdc-mini-fab mat-icon {
 .user-popover-panel .mat-mdc-menu-item mat-icon {
   margin-right: 0.75rem;
   color: var(--guy-text, #003366);
-}
-
-.notif-menu-panel .mat-mdc-menu-content {
-  padding: 0 !important;
-  overflow-x: hidden !important;
 }
 
 /* —— Docs helpers —— */

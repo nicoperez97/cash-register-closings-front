@@ -1,5 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +11,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
+import { map } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import { openUserAvatarPreview } from '../../shared/components/open-user-avatar-preview';
@@ -29,6 +32,24 @@ import {
 import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
 
+export type ProfileSection = 'perfil' | 'notificaciones' | 'menu' | 'accesos';
+
+function parseProfileSection(raw: string | null | undefined): ProfileSection {
+  switch (String(raw ?? '').trim().toLowerCase()) {
+    case 'notificaciones':
+    case 'notifications':
+      return 'notificaciones';
+    case 'menu':
+    case 'nav':
+      return 'menu';
+    case 'accesos':
+    case 'toolbar':
+    case 'atajos':
+      return 'accesos';
+    default:
+      return 'perfil';
+  }
+}
 @Component({
   selector: 'app-profile-page',
   imports: [
@@ -37,6 +58,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
     ShopNavEditorComponent,
     ShopToolbarEditorComponent,
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
@@ -47,15 +69,60 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
     MatTooltipModule,
   ],
   template: `
-    <app-page-header title="Perfil" [subtitle]="shops.selectedShop()?.name ?? 'Tu cuenta'" />
+    <app-page-header [title]="sectionTitle()" [subtitle]="shops.selectedShop()?.name ?? 'Tu cuenta'" />
+
+    <nav class="profile-sections" aria-label="Secciones de perfil">
+      <a
+        class="profile-sections__link"
+        routerLink="/profile"
+        [queryParams]="{ section: 'perfil' }"
+        [class.profile-sections__link--active]="section() === 'perfil'"
+      >
+        <mat-icon>manage_accounts</mat-icon>
+        <span>Perfil</span>
+      </a>
+      <a
+        class="profile-sections__link"
+        routerLink="/profile"
+        [queryParams]="{ section: 'notificaciones' }"
+        [class.profile-sections__link--active]="section() === 'notificaciones'"
+      >
+        <mat-icon>notifications</mat-icon>
+        <span class="profile-sections__long">Notificaciones</span>
+        <span class="profile-sections__short">Avisos</span>
+      </a>
+      @if (canCustomize()) {
+        <a
+          class="profile-sections__link"
+          routerLink="/profile"
+          [queryParams]="{ section: 'menu' }"
+          [class.profile-sections__link--active]="section() === 'menu'"
+        >
+          <mat-icon>menu</mat-icon>
+          <span class="profile-sections__long">Menú lateral</span>
+          <span class="profile-sections__short">Menú</span>
+        </a>
+        <a
+          class="profile-sections__link"
+          routerLink="/profile"
+          [queryParams]="{ section: 'accesos' }"
+          [class.profile-sections__link--active]="section() === 'accesos'"
+        >
+          <mat-icon>bolt</mat-icon>
+          <span class="profile-sections__long">Accesos rápidos</span>
+          <span class="profile-sections__short">Atajos</span>
+        </a>
+      }
+    </nav>
 
     <div class="profile-grid" [class.profile-grid--busy]="busy()">
       @if (busy()) {
         <mat-progress-bar class="profile-progress" mode="indeterminate" aria-label="Guardando" />
       }
 
+      @if (section() === 'perfil') {
       <section class="panel-card profile-card profile-account" style="--i: 0">
-        <h2 class="section-title">Cuenta</h2>
+        <h2 class="section-title">Perfil</h2>
 
         <div class="account-identity">
           <div class="photo-block__avatar" [class.photo-block__avatar--pulse]="avatarBusy()">
@@ -148,8 +215,10 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
           </div>
         </form>
       </section>
+      }
 
-      <section class="panel-card profile-card profile-notifs" style="--i: 1">
+      @if (section() === 'notificaciones') {
+      <section class="panel-card profile-card profile-notifs" style="--i: 0">
         <div class="section-head">
           <h2 class="section-title">Notificaciones</h2>
           <span class="section-head__hint">Avisos activos</span>
@@ -162,6 +231,46 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
         } @else if (!eligible().length) {
           <p class="text-muted">No tenés notificaciones habilitadas en este local.</p>
         } @else {
+          <div class="notif-bulk" role="group" aria-label="Cambiar todos los canales">
+            <div class="notif-bulk__group">
+              <span class="notif-bulk__label">App</span>
+              <button
+                type="button"
+                class="notif-bulk__btn"
+                [disabled]="busy() || allChannelOn('app')"
+                (click)="setAllChannel('app', false)"
+              >
+                Activar todas
+              </button>
+              <button
+                type="button"
+                class="notif-bulk__btn notif-bulk__btn--mute"
+                [disabled]="busy() || allChannelOff('app')"
+                (click)="setAllChannel('app', true)"
+              >
+                Apagar todas
+              </button>
+            </div>
+            <div class="notif-bulk__group">
+              <span class="notif-bulk__label">Mail</span>
+              <button
+                type="button"
+                class="notif-bulk__btn"
+                [disabled]="busy() || allChannelOn('email')"
+                (click)="setAllChannel('email', false)"
+              >
+                Activar todas
+              </button>
+              <button
+                type="button"
+                class="notif-bulk__btn notif-bulk__btn--mute"
+                [disabled]="busy() || allChannelOff('email')"
+                (click)="setAllChannel('email', true)"
+              >
+                Apagar todas
+              </button>
+            </div>
+          </div>
           <ul class="notif-list">
             @for (n of eligible(); track n.type; let i = $index) {
               <li
@@ -204,9 +313,10 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
           </ul>
         }
       </section>
+      }
 
-      @if (canCustomize()) {
-      <section class="panel-card profile-card profile-menu" style="--i: 2">
+      @if (canCustomize() && section() === 'menu') {
+      <section class="panel-card profile-card profile-menu" style="--i: 0">
         <div class="menu-head">
           <div class="menu-head__copy">
             <div class="menu-head__title-row">
@@ -255,8 +365,10 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
           <app-shop-nav-editor [value]="menuDraft()" (valueChange)="onMenuChange($event)" />
         }
       </section>
+      }
 
-      <section class="panel-card profile-card profile-menu" style="--i: 3">
+      @if (canCustomize() && section() === 'accesos') {
+      <section class="panel-card profile-card profile-menu" style="--i: 0">
         <div class="menu-head">
           <div class="menu-head__copy">
             <div class="menu-head__title-row">
@@ -312,11 +424,85 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
     </div>
   `,
   styles: `
+    .profile-sections {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem;
+      margin: 0 auto 1rem;
+      max-width: 52rem;
+    }
+    .profile-sections__short {
+      display: none;
+    }
+    .profile-sections__link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 650;
+      color: var(--guy-navy, #003366);
+      background: color-mix(in srgb, var(--guy-navy, #003366) 7%, #fff);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .profile-sections__link mat-icon {
+      font-size: 1.05rem;
+      width: 1.05rem;
+      height: 1.05rem;
+    }
+    @media (max-width: 720px) {
+      .profile-sections {
+        flex-wrap: nowrap;
+        justify-content: stretch;
+        gap: 0.25rem;
+        margin-bottom: 0.75rem;
+        width: 100%;
+        max-width: none;
+      }
+      .profile-sections__long {
+        display: none;
+      }
+      .profile-sections__short {
+        display: inline;
+      }
+      .profile-sections__link {
+        flex: 1 1 0;
+        justify-content: center;
+        gap: 0.15rem;
+        min-width: 0;
+        padding: 0.28rem 0.35rem;
+        font-size: 0.68rem;
+      }
+      .profile-sections__link mat-icon {
+        font-size: 0.88rem;
+        width: 0.88rem;
+        height: 0.88rem;
+        flex-shrink: 0;
+      }
+    }
+    .profile-sections__link:hover {
+      background: color-mix(in srgb, var(--guy-navy, #003366) 12%, #fff);
+    }
+    .profile-sections__link--active {
+      color: #fff;
+      background: var(--guy-navy, #003366);
+    }
+    .profile-sections__link--active mat-icon {
+      color: #fff;
+    }
     .profile-grid {
       position: relative;
       display: grid;
       gap: 1rem;
       align-items: start;
+      justify-items: center;
+      width: 100%;
+      max-width: 52rem;
+      margin-inline: auto;
       padding-bottom: max(4.5rem, env(safe-area-inset-bottom, 0px));
     }
     .profile-progress {
@@ -327,31 +513,22 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
       border-radius: 999px;
       overflow: hidden;
     }
-    @media (min-width: 960px) {
-      .profile-grid {
-        grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
-        padding-bottom: 0;
-      }
-      .profile-menu {
-        grid-column: 1 / -1;
-      }
-    }
     .profile-card {
       width: 100%;
+      max-width: 40rem;
       margin-top: 0 !important;
+      margin-inline: auto;
       animation: profile-card-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
       animation-delay: calc(var(--i, 0) * 55ms);
       transition:
         box-shadow 0.22s ease,
         transform 0.22s ease;
     }
+    .profile-menu {
+      max-width: 52rem;
+    }
     .profile-account {
       max-width: 40rem;
-    }
-    @media (min-width: 960px) {
-      .profile-account {
-        max-width: none;
-      }
     }
     @keyframes profile-card-in {
       from {
@@ -520,6 +697,57 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
       list-style: none;
       padding: 0;
       margin: 0;
+    }
+    .notif-bulk {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem 1rem;
+      margin: 0 0 0.55rem;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 90%, transparent);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--guy-navy, #003366) 3%, #fff);
+    }
+    .notif-bulk__group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+    .notif-bulk__label {
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--guy-muted, #5f6f76);
+      margin-right: 0.15rem;
+    }
+    .notif-bulk__btn {
+      border: 1px solid color-mix(in srgb, var(--guy-navy, #003366) 22%, var(--guy-border, #e5e5e5));
+      border-radius: 999px;
+      background: #fff;
+      color: var(--guy-navy, #003366);
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 650;
+      line-height: 1.2;
+      padding: 0.28rem 0.7rem;
+      cursor: pointer;
+    }
+    .notif-bulk__btn:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--guy-navy, #003366) 6%, #fff);
+    }
+    .notif-bulk__btn--mute {
+      border-color: color-mix(in srgb, #c62828 28%, var(--guy-border, #e5e5e5));
+      color: #b71c1c;
+    }
+    .notif-bulk__btn--mute:hover:not(:disabled) {
+      background: color-mix(in srgb, #c62828 7%, #fff);
+    }
+    .notif-bulk__btn:disabled {
+      opacity: 0.45;
+      cursor: default;
     }
     .notif-list__item {
       display: flex;
@@ -710,6 +938,32 @@ export class ProfilePage {
   readonly canCustomize = computed(() =>
     canCustomizeLayout(this.auth.currentUser(), this.shopId()),
   );
+
+  private readonly route = inject(ActivatedRoute);
+  private readonly sectionParam = toSignal(
+    this.route.queryParamMap.pipe(map((q) => q.get('section'))),
+    { initialValue: this.route.snapshot.queryParamMap.get('section') },
+  );
+
+  readonly section = computed((): ProfileSection => {
+    const raw = parseProfileSection(this.sectionParam());
+    if ((raw === 'menu' || raw === 'accesos') && !this.canCustomize()) return 'perfil';
+    return raw;
+  });
+
+  readonly sectionTitle = computed(() => {
+    switch (this.section()) {
+      case 'notificaciones':
+        return 'Notificaciones';
+      case 'menu':
+        return 'Menú lateral';
+      case 'accesos':
+        return 'Accesos rápidos';
+      default:
+        return 'Perfil';
+    }
+  });
+
   readonly eligible = computed(() => this.prefs()?.eligibleNotifications ?? []);
   readonly usingShopMenu = computed(() => {
     const p = this.prefs();
@@ -923,18 +1177,19 @@ export class ProfilePage {
     return n.mutedEmail ?? n.muted;
   }
 
-  toggleChannel(n: EligibleNotification, channel: 'app' | 'email', muted: boolean): void {
+  allChannelOn(channel: 'app' | 'email'): boolean {
+    const rows = this.eligible();
+    return rows.length > 0 && rows.every((n) => !this.channelMuted(n, channel));
+  }
+
+  allChannelOff(channel: 'app' | 'email'): boolean {
+    const rows = this.eligible();
+    return rows.length > 0 && rows.every((n) => this.channelMuted(n, channel));
+  }
+
+  private saveChannelMutes(app: string[], email: string[], okMsg?: string): void {
     const shopId = this.shopId();
-    const prefs = this.prefs();
-    if (!shopId || !prefs) return;
-    const app: string[] = [];
-    const email: string[] = [];
-    for (const row of this.eligible()) {
-      const appMuted = row.type === n.type ? (channel === 'app' ? muted : this.channelMuted(row, 'app')) : this.channelMuted(row, 'app');
-      const emailMuted = row.type === n.type ? (channel === 'email' ? muted : this.channelMuted(row, 'email')) : this.channelMuted(row, 'email');
-      if (appMuted) app.push(row.type);
-      if (emailMuted) email.push(row.type);
-    }
+    if (!shopId) return;
     this.busy.set(true);
     this.api
       .updatePreferences(shopId, {
@@ -947,12 +1202,51 @@ export class ProfilePage {
           this.syncShopFromPrefs(p);
           this.busy.set(false);
           this.auth.scheduleRefreshMe(0);
+          if (okMsg) this.snack.open(okMsg, 'OK', { duration: 2200 });
         },
         error: () => {
           this.busy.set(false);
           this.snack.open('No se pudo actualizar la notificación', 'OK', { duration: 3500 });
         },
       });
+  }
+
+  setAllChannel(channel: 'app' | 'email', muted: boolean): void {
+    if (!this.shopId() || !this.prefs()) return;
+    const app: string[] = [];
+    const email: string[] = [];
+    for (const row of this.eligible()) {
+      const appMuted = channel === 'app' ? muted : this.channelMuted(row, 'app');
+      const emailMuted = channel === 'email' ? muted : this.channelMuted(row, 'email');
+      if (appMuted) app.push(row.type);
+      if (emailMuted) email.push(row.type);
+    }
+    const label = channel === 'app' ? 'App' : 'Mail';
+    const okMsg = muted ? `${label}: todas apagadas` : `${label}: todas activadas`;
+    this.saveChannelMutes(app, email, okMsg);
+  }
+
+  toggleChannel(n: EligibleNotification, channel: 'app' | 'email', muted: boolean): void {
+    if (!this.shopId() || !this.prefs()) return;
+    const app: string[] = [];
+    const email: string[] = [];
+    for (const row of this.eligible()) {
+      const appMuted =
+        row.type === n.type
+          ? channel === 'app'
+            ? muted
+            : this.channelMuted(row, 'app')
+          : this.channelMuted(row, 'app');
+      const emailMuted =
+        row.type === n.type
+          ? channel === 'email'
+            ? muted
+            : this.channelMuted(row, 'email')
+          : this.channelMuted(row, 'email');
+      if (appMuted) app.push(row.type);
+      if (emailMuted) email.push(row.type);
+    }
+    this.saveChannelMutes(app, email);
   }
 
   onMenuChange(cfg: ShopNavConfig | null): void {

@@ -38,10 +38,10 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Hoy: Nuevo cierre, gasto rápido y pagos (si tenés permiso).',
           'Menú: los mismos grupos que la barra lateral. Tocá uno para ver sus módulos.',
           'Exportar cierres del mes: Excel o PDF del mes en curso (si tenés permiso).',
-          'Campana: avisos de pagos, movimientos y más.',
+          'Campana: avisos de pagos, movimientos y más. Al abrirla se apaga el número; los no leídos siguen con el punto azul hasta que los abrís o marcás todas como leídas.',
           'Abajo ves los saldos de canales y socios. Si una cuenta tiene comisión, el número grande ya la descuenta.',
         ],
-        tip: 'Si llega un aviso, la campana y los badges del menú se actualizan solos. No hace falta tirar para actualizar.',
+        tip: 'Si llega un aviso nuevo, el número de la campana y los badges del menú se actualizan solos. Abrir la campana solo limpia el número; no marca los avisos como leídos.',
       },
     ],
   },
@@ -70,10 +70,10 @@ export const HELP_TOPICS: HelpTopic[] = [
     summary: 'Tu cuenta y avisos del local. Solo administradores personalizan menú y atajos.',
     blocks: [
       {
-        title: 'Cuenta',
+        title: 'Perfil',
         icon: 'manage_accounts',
         tone: 'do',
-        body: 'Desde el menú de tu usuario abrís Perfil. En Cuenta subís la foto y editás nombre, teléfono, alias y CBU.',
+        body: 'Desde el menú de tu usuario abrís Perfil, Notificaciones, Menú lateral o Accesos rápidos. En Perfil subís la foto y editás nombre, teléfono, alias y CBU.',
         tip: 'El email solo lo cambia un admin. Tocá la foto o Ver foto para verla en grande.',
         items: [
           'Tocá Guardar datos cuando cambies los campos.',
@@ -85,14 +85,20 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Notificaciones',
         icon: 'notifications',
         tone: 'do',
-        body: 'Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos. Si tocás un aviso (en la campana o en el celular), abre ese local y el módulo. Cuando se puede, también abre el dato: el pago, el gasto, el cierre, el faltante o la reserva.',
+        body: 'Entrá por el menú de usuario → Notificaciones. Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos. Arriba de la lista podés Activar todas o Apagar todas por canal (App o Mail), sin ir una por una. Si tocás un aviso (en la campana o en el celular), abre ese local y el módulo. Cuando se puede, también abre el dato: el pago, el gasto, el cierre, el faltante o la reserva.',
+        items: [
+          'Activar todas / Apagar todas para App o Mail de una.',
+          'Abrí la campana: el número rojo se apaga; los no leídos quedan en Nuevas con punto azul y hora en azul.',
+          'Usá Todas o No leídas. El menú ⋯ tiene Marcar todas como leídas.',
+          'Tocá un aviso para abrirlo, o el tilde para marcarlo leído sin salir de la lista.',
+        ],
         tip: 'Si no te habilitaron un aviso, no lo ves acá.',
       },
       {
         title: 'Menú lateral',
         icon: 'menu',
         tone: 'do',
-        body: 'La barra lateral usa primero Tu menú (si lo guardaste) y, si no, el Menú del local. Solo ves módulos a los que tenés acceso en ese local.',
+        body: 'Entrá por el menú de usuario → Menú lateral. La barra lateral usa primero Tu menú (si lo guardaste) y, si no, el Menú del local. Solo ves módulos a los que tenés acceso en ese local.',
         items: [
           'Guardar menú aplica tu orden de inmediato en la barra lateral.',
           'Usar menú del local borra tu personalización y vuelve al del local.',
@@ -104,7 +110,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Accesos rápidos',
         icon: 'bolt',
         tone: 'do',
-        body: 'Los íconos de la barra superior usan primero Tus atajos (si los guardaste) y, si no, los Atajos del local. Solo ves atajos de módulos a los que tenés acceso.',
+        body: 'Entrá por el menú de usuario → Accesos rápidos. Los íconos de la barra superior usan primero Tus atajos (si los guardaste) y, si no, los Atajos del local. Solo ves atajos de módulos a los que tenés acceso.',
         items: [
           'Guardar atajos aplica tu orden de inmediato en la barra superior.',
           'Usar atajos del local borra tu personalización y vuelve a los del local.',

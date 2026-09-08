@@ -165,58 +165,153 @@
     </button>
 
     <mat-menu #notifMenu="matMenu" class="notif-menu-panel" xPosition="before">
-      <div class="notif-panel" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
-        <div class="notif-panel__head">
-          <strong>Notificaciones</strong>
+      <div
+        class="notif-panel"
+        (click)="closeNotifActions(); $event.stopPropagation()"
+        (keydown)="$event.stopPropagation()"
+      >
+        <div class="notif-panel__chrome">
+          <div class="notif-panel__head">
+            <strong>Notificaciones</strong>
+            <div class="notif-panel__head-actions">
+              <button
+                type="button"
+                class="notif-panel__icon-btn"
+                [attr.aria-expanded]="notifMenuOpen()"
+                aria-label="Opciones de notificaciones"
+                (click)="toggleNotifActions($event)"
+              >
+                <mat-icon>more_horiz</mat-icon>
+              </button>
+              @if (notifMenuOpen()) {
+                <div class="notif-panel__actions-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="notif-panel__actions-item"
+                    [disabled]="!hasUnreadNotifs()"
+                    (click)="markAllRead()"
+                  >
+                    <mat-icon>done_all</mat-icon>
+                    <span>Marcar todas como leídas</span>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+          <div class="notif-panel__tabs-row">
+            <div class="notif-panel__tabs" role="tablist" aria-label="Filtro de notificaciones">
+              <button
+                type="button"
+                role="tab"
+                class="notif-panel__tab"
+                [class.notif-panel__tab--active]="notifFilter() === 'all'"
+                [attr.aria-selected]="notifFilter() === 'all'"
+                (click)="setNotifFilter('all')"
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="notif-panel__tab"
+                [class.notif-panel__tab--active]="notifFilter() === 'unread'"
+                [attr.aria-selected]="notifFilter() === 'unread'"
+                (click)="setNotifFilter('unread')"
+              >
+                No leídas
+              </button>
+            </div>
+            <button
+              type="button"
+              class="notif-panel__push-chip"
+              [class.notif-panel__push-chip--on]="push.subscribed()"
+              [disabled]="push.busy() || push.permission() === 'unsupported'"
+              [attr.aria-pressed]="push.subscribed()"
+              [matTooltip]="
+                push.subscribed()
+                  ? 'Push activo · tocá para desactivar'
+                  : 'Activar notificaciones push'
+              "
+              [attr.aria-label]="
+                push.subscribed()
+                  ? 'Push activo · tocá para desactivar'
+                  : 'Activar notificaciones push'
+              "
+              (click)="togglePush()"
+            >
+              <mat-icon>{{ push.subscribed() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
+              <span>{{ push.subscribed() ? 'Activo' : 'Activar' }}</span>
+            </button>
+          </div>
+          @if (push.iosHomeScreenHint()) {
+            <p class="notif-panel__hint">
+              En iPhone: Compartir → <em>Agregar a pantalla de inicio</em> y abrí la app desde el ícono
+              para activar push.
+            </p>
+          }
         </div>
-        <button
-          type="button"
-          class="notif-panel__push-btn"
-          [class.notif-panel__push-btn--on]="push.subscribed()"
-          [disabled]="push.busy() || push.permission() === 'unsupported'"
-          [attr.aria-pressed]="push.subscribed()"
-          (click)="togglePush()"
-        >
-          <mat-icon>{{ push.subscribed() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
-          <span class="notif-panel__push-label">{{
-            push.subscribed() ? 'Push activo · tocá para desactivar' : 'Activar notificaciones push'
-          }}</span>
-        </button>
-        @if (push.iosHomeScreenHint()) {
-          <p class="notif-panel__hint">
-            En iPhone: Compartir → <em>Agregar a pantalla de inicio</em> y abrí la app desde el ícono
-            para activar push.
-          </p>
-        }
-        @if (loadingNotifs() && !notifications().length) {
-          <p class="notif-panel__empty">Cargando…</p>
-        } @else if (!notifications().length) {
-          <p class="notif-panel__empty">No hay notificaciones</p>
-        } @else {
-          <ul class="notif-panel__list">
-            @for (n of notifications(); track n.id) {
-              <li>
-                <button
-                  type="button"
-                  class="notif-item"
-                  [class.notif-item--unread]="!n.read"
-                  (click)="openNotification(n)"
-                >
-                  <span class="notif-item__icon" [class]="notifTone(n.type)" aria-hidden="true">
-                    <mat-icon>{{ notifIcon(n.type) }}</mat-icon>
-                  </span>
-                  <span class="notif-item__content">
-                    @if (n.shopName) {
-                      <span class="notif-item__shop">{{ n.shopName }}</span>
+        <div class="notif-panel__body">
+          @if (loadingNotifs() && !notifications().length) {
+            <p class="notif-panel__empty">Cargando…</p>
+          } @else if (!notifSections().length) {
+            <p class="notif-panel__empty">{{
+              notifFilter() === 'unread' ? 'No hay notificaciones sin leer' : 'No hay notificaciones'
+            }}</p>
+          } @else {
+            <div class="notif-panel__sections">
+              @for (section of notifSections(); track section.key) {
+                <section class="notif-section">
+                  <div class="notif-section__head">
+                    <h3 class="notif-section__title">{{ section.label }}</h3>
+                  </div>
+                  <ul class="notif-panel__list">
+                    @for (n of section.items; track n.id) {
+                      <li>
+                        <div class="notif-item" [class.notif-item--unread]="!n.read">
+                          <button
+                            type="button"
+                            class="notif-item__main"
+                            (click)="openNotification(n)"
+                          >
+                            <span class="notif-item__icon" [class]="notifTone(n.type)" aria-hidden="true">
+                              <mat-icon>{{ notifIcon(n.type) }}</mat-icon>
+                            </span>
+                            <span class="notif-item__content">
+                              @if (n.shopName) {
+                                <span class="notif-item__shop">{{ n.shopName }}</span>
+                              }
+                              <span class="notif-item__title">{{ n.title }}</span>
+                              <span class="notif-item__body">{{ n.body }}</span>
+                              <span
+                                class="notif-item__time"
+                                [class.notif-item__time--unread]="!n.read"
+                              >{{ notifTime(n) }}</span>
+                            </span>
+                          </button>
+                          <div class="notif-item__trail">
+                            @if (!n.read) {
+                              <button
+                                type="button"
+                                class="notif-item__mark"
+                                matTooltip="Marcar como leída"
+                                aria-label="Marcar como leída"
+                                (click)="markOneRead(n, $event)"
+                              >
+                                <mat-icon>check</mat-icon>
+                              </button>
+                              <span class="notif-item__dot" aria-label="No leída"></span>
+                            }
+                          </div>
+                        </div>
+                      </li>
                     }
-                    <span class="notif-item__title">{{ n.title }}</span>
-                    <span class="notif-item__body">{{ n.body }}</span>
-                  </span>
-                </button>
-              </li>
-            }
-          </ul>
-        }
+                  </ul>
+                </section>
+              }
+            </div>
+          }
+        </div>
       </div>
     </mat-menu>
 
@@ -314,10 +409,48 @@
             <span class="user-popover__role">{{ roleLabel(u) }}</span>
           </div>
         </div>
-        <a mat-menu-item class="user-popover__item" routerLink="/profile" (click)="closeUserMenu()">
+        <a
+          mat-menu-item
+          class="user-popover__item"
+          routerLink="/profile"
+          [queryParams]="{ section: 'perfil' }"
+          (click)="closeUserMenu()"
+        >
           <mat-icon>manage_accounts</mat-icon>
           <span>Perfil</span>
         </a>
+        <a
+          mat-menu-item
+          class="user-popover__item"
+          routerLink="/profile"
+          [queryParams]="{ section: 'notificaciones' }"
+          (click)="closeUserMenu()"
+        >
+          <mat-icon>notifications</mat-icon>
+          <span>Notificaciones</span>
+        </a>
+        @if (canCustomizeProfile()) {
+          <a
+            mat-menu-item
+            class="user-popover__item"
+            routerLink="/profile"
+            [queryParams]="{ section: 'menu' }"
+            (click)="closeUserMenu()"
+          >
+            <mat-icon>menu</mat-icon>
+            <span>Menú lateral</span>
+          </a>
+          <a
+            mat-menu-item
+            class="user-popover__item"
+            routerLink="/profile"
+            [queryParams]="{ section: 'accesos' }"
+            (click)="closeUserMenu()"
+          >
+            <mat-icon>bolt</mat-icon>
+            <span>Accesos rápidos</span>
+          </a>
+        }
         @if (isMobile()) {
           <button mat-menu-item type="button" class="user-popover__item user-popover__logout" (click)="logout.emit()">
             <mat-icon>logout</mat-icon>
