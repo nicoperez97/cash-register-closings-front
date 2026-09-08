@@ -57,6 +57,8 @@ export type Permission =
   | 'shortages.manage'
   | 'orders.read'
   | 'orders.manage'
+  | 'customerOrders.read'
+  | 'customerOrders.manage'
   | 'tips.read'
   | 'tips.create'
   | 'tips.manage'
@@ -122,6 +124,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'shortages.manage',
   'orders.read',
   'orders.manage',
+  'customerOrders.read',
+  'customerOrders.manage',
   'tips.read',
   'tips.create',
   'tips.manage',
@@ -192,6 +196,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'shortages.manage',
     'orders.read',
     'orders.manage',
+    'customerOrders.read',
+    'customerOrders.manage',
     'tips.read',
     'tips.create',
     'tips.manage',
@@ -227,6 +233,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'beverageStock.read',
     'shortages.read',
     'orders.read',
+    'customerOrders.read',
     'tips.read',
     'reimbursements.read',
     'vacations.read',
@@ -273,6 +280,7 @@ export type ModuleKey =
   | 'beverageStock'
   | 'shortages'
   | 'orders'
+  | 'customerOrders'
   | 'tips'
   | 'reimbursements'
   | 'vacations'
@@ -582,6 +590,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'customerOrders',
+    label: 'Pedidos online',
+    icon: 'shopping_bag',
+    group: 'daily',
+    hint: 'Pedidos de clientes por take away o delivery',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'tips',
     label: 'Propinas',
     icon: 'volunteer_activism',
@@ -855,6 +875,30 @@ export interface ShopSummary {
   holidayPayMultiplier?: number;
   /** Carta pública del local. */
   menuEnabled?: boolean;
+  /** Al paso o restaurante. */
+  shopMode?: 'AL_PASO' | 'RESTAURANTE';
+  /** Pedidos online take away / delivery. */
+  onlineOrderingEnabled?: boolean;
+  takeawayEnabled?: boolean;
+  deliveryEnabled?: boolean;
+  orderingHours?: {
+    takeaway?: Record<string, { open: string; close: string } | null> | null;
+    delivery?: Record<string, { open: string; close: string } | null> | null;
+  } | null;
+  orderingPayments?: {
+    methods?: Array<'CASH' | 'TRANSFER'>;
+    transferInstructions?: string | null;
+  } | null;
+  deliveryZones?: Array<{
+    id: string;
+    name: string;
+    fee: number;
+    note?: string | null;
+  }> | null;
+  orderingEta?: {
+    takeaway?: string | null;
+    delivery?: string | null;
+  } | null;
   defaultChangeAmount: number;
   currency: string;
   timezone?: string;
@@ -1085,6 +1129,7 @@ export function expandModulePermissions(
   pair(levels.beverageStock, 'beverageStock.read', 'beverageStock.manage');
   pair(levels.shortages, 'shortages.read', 'shortages.manage');
   pair(levels.orders, 'orders.read', 'orders.manage');
+  pair(levels.customerOrders, 'customerOrders.read', 'customerOrders.manage');
   switch (levels.tips) {
     case 'read':
       addPermission(set, 'tips.read');
@@ -1202,6 +1247,7 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.beverageStock = level('beverageStock.read', 'beverageStock.manage');
   base.shortages = level('shortages.read', 'shortages.manage');
   base.orders = level('orders.read', 'orders.manage');
+  base.customerOrders = level('customerOrders.read', 'customerOrders.manage');
   base.tips = tips();
   base.reimbursements = reimbursements();
   base.vacations = level('vacations.read', 'vacations.manage');

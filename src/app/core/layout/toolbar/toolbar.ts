@@ -578,6 +578,7 @@ export class ToolbarComponent implements OnInit {
       reservationsEnabled: shop?.reservationsEnabled,
       waitingListEnabled: shop?.waitingListEnabled,
       tipsEnabled: shop?.tipsEnabled,
+      onlineOrderingEnabled: shop?.onlineOrderingEnabled,
       settlementsEnabled: shop?.settlementsEnabled,
     };
   }

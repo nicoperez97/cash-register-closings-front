@@ -17,10 +17,12 @@ import { downloadIframePdf } from '../../shared/pdf/html-pdf';
 import { pdfFileSlug } from '../../shared/pdf/pdf-text';
 
 export type ShopMenuItem = {
+  id?: string;
   name: string;
   description?: string | null;
   price?: number | null;
   priceLabel?: string | null;
+  available?: boolean;
 };
 
 export type ShopMenuSection = {

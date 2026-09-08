@@ -17,6 +17,7 @@ export type ShopRouteFeatures = {
   waitingListEnabled?: boolean;
   tipsEnabled?: boolean;
   settlementsEnabled?: boolean;
+  onlineOrderingEnabled?: boolean;
 };
 
 export type RouteAccessOptions = {
@@ -198,6 +199,12 @@ export function canAccessAppRoute(
   }
   if (path.startsWith('/orders')) {
     return hasShopPermission(user, shopId, 'orders.read');
+  }
+  if (path.startsWith('/customer-orders')) {
+    return (
+      hasShopPermission(user, shopId, 'customerOrders.read') &&
+      featureOn(features, 'onlineOrderingEnabled')
+    );
   }
   if (path.startsWith('/salaries') || path.startsWith('/payroll')) {
     return hasShopPermission(user, shopId, 'payroll.read');

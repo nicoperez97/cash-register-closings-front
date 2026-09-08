@@ -1,0 +1,133 @@
+@if (error(); as err) {
+  <div class="page page--error">
+    <p>{{ err }}</p>
+    <button type="button" class="btn" (click)="load()">Reintentar</button>
+  </div>
+} @else if (loading()) {
+  <div class="page page--loading"><p>Cargando menú…</p></div>
+} @else if (config(); as c) {
+  <div class="page" [class.page--cart]="cartCount() > 0">
+    <header class="top">
+      <button type="button" class="back" (click)="back()" aria-label="Volver">‹</button>
+      <div class="top__mid">
+        @if (logoUrl()) {
+          <img class="top__logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
+        }
+        <div class="top__copy">
+          <p class="top__shop">{{ c.shop.name }}</p>
+          <h1>
+            @if (view() === 'categories') {
+              Categorías
+            } @else if (view() === 'items') {
+              {{ section()?.name }}
+            } @else {
+              {{ item()?.name }}
+            }
+          </h1>
+        </div>
+      </div>
+      <a class="top__status" [routerLink]="['/mi-pedido', slug()]">Estado</a>
+    </header>
+
+    @if (!canOrder()) {
+      <p class="banner">Estamos cerrados. Podés mirar el menú; no se pueden agregar ítems ahora.</p>
+    }
+
+    @if (view() === 'categories') {
+      <ul class="list">
+        @for (sec of sections(); track sec.name) {
+          <li>
+            <article class="cat">
+              <div class="cat__body">
+                <strong>{{ sec.name }}</strong>
+                <p>{{ sectionPreview(sec) }}</p>
+              </div>
+              <button type="button" class="cat__ver" (click)="openSection(sec)">Ver</button>
+            </article>
+          </li>
+        } @empty {
+          <li class="empty">No hay ítems disponibles para pedir.</li>
+        }
+      </ul>
+    }
+
+    @if (view() === 'items' && section(); as sec) {
+      <ul class="list">
+        @for (it of sec.items; track it.id) {
+          <li>
+            <article class="item">
+              <div class="item__body">
+                <div class="item__head">
+                  <strong>{{ it.name }}</strong>
+                  <span class="price">{{ priceOf(it) }}</span>
+                </div>
+                @if (it.description) {
+                  <p>{{ it.description }}</p>
+                }
+              </div>
+              <button
+                type="button"
+                class="item__add"
+                [disabled]="!canOrder()"
+                (click)="openItem(it)"
+              >
+                Agregar
+              </button>
+            </article>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (view() === 'detail' && item(); as it) {
+      <section class="detail">
+        <p class="detail__price">{{ priceOf(it) }}</p>
+        @if (it.description) {
+          <p class="detail__desc">{{ it.description }}</p>
+        }
+
+        <label class="field">
+          <span>Cantidad</span>
+          <div class="qty">
+            <button type="button" (click)="bumpQty(-1)" [disabled]="qty() <= 1">−</button>
+            <span>{{ qty() }}</span>
+            <button type="button" (click)="bumpQty(1)" [disabled]="qty() >= 99">+</button>
+          </div>
+        </label>
+
+        <label class="field">
+          <span>Notas (opcional)</span>
+          <textarea
+            rows="3"
+            maxlength="300"
+            [ngModel]="notes()"
+            (ngModelChange)="notes.set($event)"
+            placeholder="Sin cebolla, punto de cocción…"
+            [disabled]="!canOrder()"
+          ></textarea>
+        </label>
+
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="!canOrder()"
+          (click)="addToCart()"
+        >
+          @if (addedFlash()) {
+            Agregado
+          } @else {
+            Agregar · {{ money(it.price * qty()) }}
+          }
+        </button>
+      </section>
+    }
+
+    @if (cartCount() > 0) {
+      <button type="button" class="cart-bar" (click)="goCheckout()">
+        <span class="cart-bar__count">{{ cartCount() }}</span>
+        <span class="cart-bar__label">Ver pedido</span>
+        <span class="cart-bar__total">{{ money(cartSubtotal()) }}</span>
+      </button>
+    }
+  </div>
+}

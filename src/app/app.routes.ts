@@ -66,6 +66,38 @@ export const routes: Routes = [
     title: 'Carta',
   },
   {
+    path: 'pedir/:slug',
+    loadComponent: () =>
+      import('./features/customer-orders/public-ordering-landing').then(
+        (m) => m.PublicOrderingLandingComponent,
+      ),
+    title: 'Pedir',
+  },
+  {
+    path: 'pedir/:slug/menu',
+    loadComponent: () =>
+      import('./features/customer-orders/public-ordering-menu').then(
+        (m) => m.PublicOrderingMenuComponent,
+      ),
+    title: 'Menú',
+  },
+  {
+    path: 'pedir/:slug/checkout',
+    loadComponent: () =>
+      import('./features/customer-orders/public-ordering-checkout').then(
+        (m) => m.PublicOrderingCheckoutComponent,
+      ),
+    title: 'Checkout',
+  },
+  {
+    path: 'mi-pedido/:slug',
+    loadComponent: () =>
+      import('./features/customer-orders/public-order-lookup').then(
+        (m) => m.PublicOrderLookupComponent,
+      ),
+    title: 'Consultar pedido',
+  },
+  {
     path: 'n/:slug',
     loadComponent: () =>
       import('./features/service-rules/public-service-rules-page').then(
@@ -311,6 +343,18 @@ export const routes: Routes = [
         title: 'Pedidos',
       },
       {
+        path: 'customer-orders',
+        canActivate: [
+          permissionGuard('customerOrders.read'),
+          shopFeatureGuard('onlineOrdering'),
+        ],
+        loadComponent: () =>
+          import('./features/customer-orders/customer-orders-page').then(
+            (m) => m.CustomerOrdersPage,
+          ),
+        title: 'Pedidos online',
+      },
+      {
         path: 'admin/shops',
         canActivate: [superAdminGuard],
         loadComponent: () =>
@@ -345,6 +389,14 @@ export const routes: Routes = [
                 (m) => m.AdminShopOperacionPage,
               ),
             title: 'Operación',
+          },
+          {
+            path: 'pedidos',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopPedidosPage,
+              ),
+            title: 'Pedidos',
           },
           {
             path: 'dispositivos',
