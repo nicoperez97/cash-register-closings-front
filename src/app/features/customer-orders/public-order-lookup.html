@@ -1,0 +1,80 @@
+<div class="page">
+  <header class="hero">
+    <p class="brand">Pedidos online</p>
+    <h1>¿Cómo va tu pedido?</h1>
+    <p class="lead">Ingresá el celular y el código que te dimos al confirmar.</p>
+  </header>
+
+  <form class="card" (submit)="search($event)">
+    <label>
+      Celular
+      <input
+        type="tel"
+        [(ngModel)]="phone"
+        name="phone"
+        required
+        autocomplete="tel"
+        inputmode="tel"
+        placeholder="11 2345 6789"
+      />
+    </label>
+    <label>
+      Código
+      <input
+        type="text"
+        [(ngModel)]="code"
+        name="code"
+        required
+        autocomplete="off"
+        maxlength="12"
+        placeholder="Ej: A3K9"
+        class="code"
+      />
+    </label>
+    <button type="submit" [disabled]="loading() || !phone.trim() || !code.trim()">
+      {{ loading() ? 'Buscando…' : 'Consultar' }}
+    </button>
+  </form>
+
+  @if (searched()) {
+    @if (order(); as o) {
+      <section class="card card--result">
+        <div class="row-top">
+          <span class="badge" [attr.data-status]="o.status">{{ statusText(o.status) }}</span>
+          <span class="code-pill">{{ o.code }}</span>
+        </div>
+        <p class="meta">
+          {{ fulfillmentText(o.fulfillment) }}
+          @if (o.deliveryZoneName) {
+            · {{ o.deliveryZoneName }}
+          }
+          · {{ paymentText(o.paymentMethod) }}
+        </p>
+        @if (o.address) {
+          <p class="meta">{{ o.address }}</p>
+        }
+        <ul class="items">
+          @for (it of o.items; track it.menuItemId + '|' + it.qty + '|' + (it.notes || '')) {
+            <li>
+              <span>{{ it.qty }}× {{ it.name }}</span>
+              <span>{{ money(it.unitPrice * it.qty) }}</span>
+            </li>
+          }
+        </ul>
+        <div class="total">
+          <span>Total</span>
+          <strong>{{ money(o.total) }}</strong>
+        </div>
+      </section>
+    } @else {
+      <div class="card card--empty">
+        <p class="empty-title">Sin resultados</p>
+        <p class="empty">{{ error() || 'Revisá el celular y el código.' }}</p>
+      </div>
+    }
+  }
+
+  <p class="back">
+    <a [routerLink]="['/pedir', slug()]">Volver a pedir</a>
+  </p>
+</div>

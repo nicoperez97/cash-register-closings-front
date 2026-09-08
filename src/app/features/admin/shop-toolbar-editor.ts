@@ -222,6 +222,7 @@ export class ShopToolbarEditorComponent {
       reservationsEnabled: shop?.reservationsEnabled,
       waitingListEnabled: shop?.waitingListEnabled,
       tipsEnabled: shop?.tipsEnabled,
+      onlineOrderingEnabled: shop?.onlineOrderingEnabled,
       settlementsEnabled: shop?.settlementsEnabled,
     };
   }

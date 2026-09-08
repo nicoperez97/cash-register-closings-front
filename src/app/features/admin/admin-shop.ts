@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -236,6 +236,18 @@ export class AdminShopPage implements OnInit {
     publicAttendanceEnabled: [false],
     publicServiceRulesEnabled: [false],
     menuEnabled: [false],
+    shopMode: this.fb.nonNullable.control<'AL_PASO' | 'RESTAURANTE'>('RESTAURANTE'),
+    onlineOrderingEnabled: [false],
+    takeawayEnabled: [true],
+    deliveryEnabled: [false],
+    orderingEtaTakeaway: [''],
+    orderingEtaDelivery: [''],
+    transferInstructions: [''],
+    payCash: [true],
+    payTransfer: [true],
+    deliveryZones: this.fb.array([]),
+    takeawayHours: this.fb.array(this.emptyWeekdayHours()),
+    deliveryHours: this.fb.array(this.emptyWeekdayHours()),
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
     paymentConceptCategories: this.fb.nonNullable.group({
@@ -271,6 +283,79 @@ export class AdminShopPage implements OnInit {
 
   get closingSources(): FormArray {
     return this.form.get('closingSources') as FormArray;
+  }
+
+  get deliveryZones(): FormArray {
+    return this.form.get('deliveryZones') as FormArray;
+  }
+
+  get takeawayHours(): FormArray {
+    return this.form.get('takeawayHours') as FormArray;
+  }
+
+  get deliveryHours(): FormArray {
+    return this.form.get('deliveryHours') as FormArray;
+  }
+
+  private emptyWeekdayHours(): FormGroup[] {
+    return [0, 1, 2, 3, 4, 5, 6].map((day) =>
+      this.fb.nonNullable.group({
+        day: [day],
+        enabled: [false],
+        open: ['12:00'],
+        close: ['17:00'],
+      }),
+    );
+  }
+
+  private setHoursFromConfig(
+    arr: FormArray,
+    hours: Record<string, { open: string; close: string } | null> | null | undefined,
+  ): void {
+    arr.clear();
+    for (const g of this.emptyWeekdayHours()) {
+      const day = g.getRawValue().day as number;
+      const win = hours?.[String(day)];
+      if (win && win.open && win.close) {
+        g.patchValue({ enabled: true, open: win.open, close: win.close });
+      }
+      arr.push(g);
+    }
+  }
+
+  private hoursToConfig(arr: FormArray): Record<string, { open: string; close: string } | null> | null {
+    const out: Record<string, { open: string; close: string } | null> = {};
+    let any = false;
+    for (const ctrl of arr.controls) {
+      const v = (ctrl as FormGroup).getRawValue() as {
+        day: number;
+        enabled: boolean;
+        open: string;
+        close: string;
+      };
+      if (v.enabled && v.open && v.close) {
+        out[String(v.day)] = { open: v.open, close: v.close };
+        any = true;
+      } else {
+        out[String(v.day)] = null;
+      }
+    }
+    return any ? out : null;
+  }
+
+  addDeliveryZone(): void {
+    this.deliveryZones.push(
+      this.fb.nonNullable.group({
+        id: [''],
+        name: [''],
+        fee: [0],
+        note: [''],
+      }),
+    );
+  }
+
+  removeDeliveryZone(index: number): void {
+    this.deliveryZones.removeAt(index);
   }
 
   readonly sourceAccountOptions = computed(() =>
@@ -336,13 +421,19 @@ export class AdminShopPage implements OnInit {
   readonly showSaveBar = toSignal(
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      map((e) => /\/admin\/shop\/(identidad|operacion|dispositivos|menu|avanzado)/.test(e.urlAfterRedirects)),
+      map((e) =>
+        /\/admin\/shop\/(identidad|operacion|pedidos|dispositivos|menu|avanzado)/.test(
+          e.urlAfterRedirects,
+        ),
+      ),
       startWith(
-        /\/admin\/shop\/(identidad|operacion|dispositivos|menu|avanzado)/.test(this.router.url),
+        /\/admin\/shop\/(identidad|operacion|pedidos|dispositivos|menu|avanzado)/.test(
+          this.router.url,
+        ),
       ),
     ),
     {
-      initialValue: /\/admin\/shop\/(identidad|operacion|dispositivos|menu|avanzado)/.test(
+      initialValue: /\/admin\/shop\/(identidad|operacion|pedidos|dispositivos|menu|avanzado)/.test(
         this.router.url,
       ),
     },
@@ -474,6 +565,28 @@ export class AdminShopPage implements OnInit {
     serviceAttendanceWithHours?: boolean;
     holidayPayMultiplier?: number | null;
     menuEnabled?: boolean;
+    shopMode?: 'AL_PASO' | 'RESTAURANTE';
+    onlineOrderingEnabled?: boolean;
+    takeawayEnabled?: boolean;
+    deliveryEnabled?: boolean;
+    orderingHours?: {
+      takeaway?: Record<string, { open: string; close: string } | null> | null;
+      delivery?: Record<string, { open: string; close: string } | null> | null;
+    } | null;
+    orderingPayments?: {
+      methods?: Array<'CASH' | 'TRANSFER'>;
+      transferInstructions?: string | null;
+    } | null;
+    deliveryZones?: Array<{
+      id?: string;
+      name: string;
+      fee: number;
+      note?: string | null;
+    }> | null;
+    orderingEta?: {
+      takeaway?: string | null;
+      delivery?: string | null;
+    } | null;
     active?: boolean;
     salesSystemId?: string | null;
   }): void {
@@ -508,9 +621,32 @@ export class AdminShopPage implements OnInit {
       serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
       holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 1) || 1,
       menuEnabled: !!s.menuEnabled,
+      shopMode: s.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
+      onlineOrderingEnabled: !!s.onlineOrderingEnabled,
+      takeawayEnabled: s.takeawayEnabled !== false,
+      deliveryEnabled: !!s.deliveryEnabled,
+      orderingEtaTakeaway: s.orderingEta?.takeaway ?? '',
+      orderingEtaDelivery: s.orderingEta?.delivery ?? '',
+      transferInstructions: s.orderingPayments?.transferInstructions ?? '',
+      payCash: !s.orderingPayments?.methods || s.orderingPayments.methods.includes('CASH'),
+      payTransfer:
+        !s.orderingPayments?.methods || s.orderingPayments.methods.includes('TRANSFER'),
       active: s.active ?? true,
       salesSystemId: s.salesSystemId ?? null,
     });
+    this.setHoursFromConfig(this.takeawayHours, s.orderingHours?.takeaway);
+    this.setHoursFromConfig(this.deliveryHours, s.orderingHours?.delivery);
+    this.deliveryZones.clear();
+    for (const z of s.deliveryZones ?? []) {
+      this.deliveryZones.push(
+        this.fb.nonNullable.group({
+          id: [z.id ?? ''],
+          name: [z.name ?? ''],
+          fee: [Number(z.fee) || 0],
+          note: [z.note ?? ''],
+        }),
+      );
+    }
   }
 
   colorPickerValue(): string {
@@ -928,6 +1064,38 @@ export class AdminShopPage implements OnInit {
       publicAttendanceEnabled: raw.publicAttendanceEnabled,
       publicServiceRulesEnabled: raw.publicServiceRulesEnabled,
       menuEnabled: raw.menuEnabled,
+      shopMode: raw.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
+      onlineOrderingEnabled: raw.onlineOrderingEnabled,
+      takeawayEnabled: raw.takeawayEnabled,
+      deliveryEnabled: raw.deliveryEnabled,
+      orderingHours: {
+        takeaway: this.hoursToConfig(this.takeawayHours),
+        delivery: this.hoursToConfig(this.deliveryHours),
+      },
+      orderingPayments: {
+        methods: [
+          ...(raw.payCash ? (['CASH'] as const) : []),
+          ...(raw.payTransfer ? (['TRANSFER'] as const) : []),
+        ],
+        transferInstructions: String(raw.transferInstructions ?? '').trim() || null,
+      },
+      deliveryZones: (raw.deliveryZones as Array<{
+        id?: string;
+        name: string;
+        fee: number;
+        note?: string;
+      }>)
+        .map((z) => ({
+          id: z.id || undefined,
+          name: String(z.name ?? '').trim(),
+          fee: Number(z.fee) || 0,
+          note: String(z.note ?? '').trim() || null,
+        }))
+        .filter((z) => !!z.name),
+      orderingEta: {
+        takeaway: String(raw.orderingEtaTakeaway ?? '').trim() || null,
+        delivery: String(raw.orderingEtaDelivery ?? '').trim() || null,
+      },
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
       paymentConceptCategories: { ...raw.paymentConceptCategories },

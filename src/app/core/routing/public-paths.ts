@@ -11,11 +11,24 @@ const PUBLIC_PREFIXES = [
   '/n/',
   '/reservar/',
   '/mi-reserva/',
+  '/pedir/',
+  '/mi-pedido/',
   '/legacy/',
   '/ipad/',
 ] as const;
 
-const PUBLIC_EXACT = new Set(['/login', '/r', '/w', '/p', '/m', '/n', '/reservar', '/mi-reserva']);
+const PUBLIC_EXACT = new Set([
+  '/login',
+  '/r',
+  '/w',
+  '/p',
+  '/m',
+  '/n',
+  '/reservar',
+  '/mi-reserva',
+  '/pedir',
+  '/mi-pedido',
+]);
 
 export function normalizeAppPath(url: string): string {
   const raw = String(url || '').split('?')[0].split('#')[0].trim() || '/';

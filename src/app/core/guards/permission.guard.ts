@@ -120,7 +120,7 @@ export const shopUsersGuard: CanActivateFn = () => {
 
 /** Feature flag del local (reservas / lista de espera / propinas / rendiciones). Combinar con permissionGuard. */
 export const shopFeatureGuard = (
-  feature: 'reservations' | 'waitingList' | 'tips' | 'settlements',
+  feature: 'reservations' | 'waitingList' | 'tips' | 'settlements' | 'onlineOrdering',
 ): CanActivateFn => {
   return () => {
     const auth = inject(AuthService);
@@ -138,7 +138,9 @@ export const shopFeatureGuard = (
           ? !!shop?.waitingListEnabled
           : feature === 'settlements'
             ? !!shop?.settlementsEnabled || inject(SettlementsInboxService).enabled()
-            : !!shop?.tipsEnabled;
+            : feature === 'onlineOrdering'
+              ? !!shop?.onlineOrderingEnabled
+              : !!shop?.tipsEnabled;
     if (!shopId || !enabled) {
       return deniedTree(router);
     }

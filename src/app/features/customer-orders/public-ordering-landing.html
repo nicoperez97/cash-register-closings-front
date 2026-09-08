@@ -1,0 +1,123 @@
+@if (error(); as err) {
+  <div class="page page--error">
+    <p>{{ err }}</p>
+    <button type="button" class="btn btn--ghost" (click)="load()">Reintentar</button>
+  </div>
+} @else if (loading()) {
+  <div class="page page--loading">
+    <p>Cargando…</p>
+  </div>
+} @else if (config(); as c) {
+  <div class="page">
+    <div class="sheet">
+    <header class="hero">
+      @if (logoUrl()) {
+        <img class="hero__logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
+      }
+      <p class="hero__eyebrow">Pedidos online</p>
+      <h1>{{ c.shop.name }}</h1>
+
+      @if (closed()) {
+        <div class="closed-banner" role="status">
+          <strong>ESTAMOS CERRADOS</strong>
+          <p>Podés mirar el menú y las zonas. Los pedidos se habilitan en el horario de atención.</p>
+        </div>
+      }
+
+      <div class="eta-row">
+        @if (c.takeawayEnabled && c.eta?.takeaway) {
+          <span class="eta" [class.eta--off]="!c.takeawayOpen">
+            Retiro · {{ c.eta.takeaway }}
+            @if (!c.takeawayOpen) {
+              <em>cerrado</em>
+            }
+          </span>
+        }
+        @if (c.deliveryEnabled && c.eta?.delivery) {
+          <span class="eta" [class.eta--off]="!c.deliveryOpen">
+            Delivery · {{ c.eta.delivery }}
+            @if (!c.deliveryOpen) {
+              <em>cerrado</em>
+            }
+          </span>
+        }
+      </div>
+    </header>
+
+    <nav class="actions">
+      <a class="btn btn--primary" [routerLink]="['/pedir', slug(), 'menu']">
+        Elegí lo que quieras
+      </a>
+
+      @if (c.deliveryEnabled && c.deliveryZones.length) {
+        <button type="button" class="btn btn--ghost" (click)="openZones()">
+          Zonas de entrega
+        </button>
+      }
+
+      <a class="btn btn--link" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
+
+      @if (cartCount() > 0 && c.anyChannelOpen) {
+        <a class="btn btn--soft" [routerLink]="['/pedir', slug(), 'checkout']">
+          Seguir con el pedido ({{ cartCount() }})
+        </a>
+      }
+    </nav>
+
+    @if (closed()) {
+      <section class="hours">
+        @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
+          <div class="hours__block">
+            <h2>Horario retiro</h2>
+            <ul>
+              @for (line of c.takeawayHoursSummary; track line) {
+                <li>{{ line }}</li>
+              }
+            </ul>
+          </div>
+        }
+        @if (c.deliveryEnabled && c.deliveryHoursSummary.length) {
+          <div class="hours__block">
+            <h2>Horario delivery</h2>
+            <ul>
+              @for (line of c.deliveryHoursSummary; track line) {
+                <li>{{ line }}</li>
+              }
+            </ul>
+          </div>
+        }
+      </section>
+    }
+    </div>
+
+    @if (zonesOpen()) {
+      <div class="mask" (click)="closeZones()">
+        <div class="dialog" (click)="$event.stopPropagation()" role="dialog" aria-label="Zonas de entrega">
+          <div class="dialog__head">
+            <h2>Zonas de entrega</h2>
+            <button type="button" class="dialog__close" (click)="closeZones()" aria-label="Cerrar">
+              ×
+            </button>
+          </div>
+          @if (!c.deliveryZones.length) {
+            <p class="muted">Todavía no hay zonas cargadas.</p>
+          } @else {
+            <ul class="zones">
+              @for (z of c.deliveryZones; track z.id) {
+                <li>
+                  <div>
+                    <strong>{{ z.name }}</strong>
+                    @if (z.note) {
+                      <p>{{ z.note }}</p>
+                    }
+                  </div>
+                  <span>{{ zoneFee(z.fee) }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

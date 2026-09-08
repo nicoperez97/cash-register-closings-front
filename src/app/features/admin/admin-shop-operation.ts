@@ -390,7 +390,7 @@ export interface AdminShopConceptCategoryOption {
           <div class="op__row-toggle">
             <div>
               <strong>Carta pública</strong>
-              <span>Se carga en Administración → Carta</span>
+              <span>Se carga en Configuración del local → Carta</span>
             </div>
             <mat-slide-toggle formControlName="menuEnabled" aria-label="Carta pública" />
           </div>

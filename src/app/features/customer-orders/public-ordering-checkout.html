@@ -1,0 +1,206 @@
+@if (error(); as err) {
+  <div class="page page--error">
+    <p>{{ err }}</p>
+    <button type="button" class="btn btn--ghost" (click)="load()">Reintentar</button>
+  </div>
+} @else if (loading()) {
+  <div class="page page--loading"><p>Cargando…</p></div>
+} @else if (success(); as order) {
+  <div class="page">
+    <section class="done" role="status">
+      <div class="done__mark" aria-hidden="true">✓</div>
+      <h1>¡Pedido enviado!</h1>
+      <p class="done__code">Código <strong>{{ order.code }}</strong></p>
+      <p class="muted">
+        Guardalo: lo vas a necesitar con tu celular para consultar el estado.
+      </p>
+      <a class="btn btn--primary" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
+      <a class="btn btn--link" [routerLink]="['/pedir', slug()]">Volver al inicio</a>
+    </section>
+  </div>
+} @else if (config(); as c) {
+  <div class="page">
+    <header class="top">
+      <a class="back" [routerLink]="['/pedir', slug(), 'menu']" aria-label="Volver al menú">‹</a>
+      <div>
+        @if (logoUrl()) {
+          <img class="logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
+        }
+        <h1>Tu pedido</h1>
+        <p class="muted">{{ c.shop.name }}</p>
+      </div>
+    </header>
+
+    @if (!cart.lines().length) {
+      <div class="empty">
+        <p>El carrito está vacío.</p>
+        <a class="btn btn--primary" [routerLink]="['/pedir', slug(), 'menu']">Ir al menú</a>
+      </div>
+    } @else if (!openChannels().length) {
+      <div class="empty">
+        <p>Estamos cerrados. No se pueden enviar pedidos ahora.</p>
+        <a class="btn btn--ghost" [routerLink]="['/pedir', slug()]">Volver</a>
+      </div>
+    } @else {
+      <section class="card">
+        <h2>Resumen</h2>
+        <ul class="lines">
+          @for (line of cart.lines(); track line.menuItemId + '|' + line.notes) {
+            <li>
+              <div class="line__main">
+                <strong>{{ line.qty }}× {{ line.name }}</strong>
+                <span>{{ money(line.unitPrice * line.qty) }}</span>
+              </div>
+              @if (line.notes) {
+                <p class="line__notes">{{ line.notes }}</p>
+              }
+              <div class="line__actions">
+                <button type="button" (click)="bumpLine(line.menuItemId, line.notes, -1)">−</button>
+                <button type="button" (click)="bumpLine(line.menuItemId, line.notes, 1)">+</button>
+                <button type="button" class="danger" (click)="removeLine(line.menuItemId, line.notes)">
+                  Quitar
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+        <div class="totals">
+          <div><span>Subtotal</span><span>{{ money(cart.subtotal()) }}</span></div>
+          @if (fulfillment() === 'DELIVERY') {
+            <div><span>Envío</span><span>{{ money(deliveryFee()) }}</span></div>
+          }
+          <div class="totals__grand"><span>Total</span><span>{{ money(total()) }}</span></div>
+        </div>
+      </section>
+
+      @if (pickingFulfillment() || !fulfillment()) {
+        <section class="card">
+          <h2>Entrega</h2>
+          <div class="choices">
+            @for (ch of openChannels(); track ch) {
+              <button type="button" class="choice" (click)="chooseFulfillment(ch)">
+                {{ channelLabel(ch) }}
+              </button>
+            }
+          </div>
+        </section>
+      } @else {
+        <section class="card">
+          <div class="row-between">
+            <div>
+              <h2>Entrega</h2>
+              <p class="value">{{ channelLabel(fulfillment()) }}</p>
+            </div>
+            @if (openChannels().length > 1) {
+              <button type="button" class="linkish" (click)="changeFulfillment()">
+                Cambiar entrega
+              </button>
+            }
+          </div>
+
+          @if (fulfillment() === 'DELIVERY') {
+            <label class="field">
+              <span>Zona</span>
+              <select
+                [ngModel]="deliveryZoneId()"
+                (ngModelChange)="onZoneChange($event)"
+                name="zone"
+                required
+              >
+                <option value="">Elegí una zona</option>
+                @for (z of c.deliveryZones; track z.id) {
+                  <option [value]="z.id">
+                    {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'Sin cargo' }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label class="field">
+              <span>Dirección</span>
+              <textarea
+                rows="2"
+                maxlength="300"
+                [(ngModel)]="address"
+                name="address"
+                placeholder="Calle, número, piso, aclaraciones…"
+                required
+              ></textarea>
+            </label>
+          }
+        </section>
+      }
+
+      <form class="card" (submit)="submit($event)">
+        <h2>Pago</h2>
+        <div class="choices">
+          @for (m of paymentMethods(); track m) {
+            <button
+              type="button"
+              class="choice"
+              [class.choice--on]="paymentMethod() === m"
+              (click)="setPayment(m)"
+            >
+              {{ payLabel(m) }}
+            </button>
+          }
+        </div>
+
+        @if (paymentMethod() === 'CASH') {
+          <label class="field">
+            <span>¿Con cuánto abonás?</span>
+            <input
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="1"
+              [(ngModel)]="cashAmount"
+              name="cashAmount"
+              [placeholder]="money(total())"
+            />
+          </label>
+        }
+
+        @if (paymentMethod() === 'TRANSFER' && c.payments.transferInstructions) {
+          <p class="hint">{{ c.payments.transferInstructions }}</p>
+        }
+
+        <h2 class="mt">Tus datos</h2>
+        <div class="pair">
+          <label class="field">
+            <span>Apellido</span>
+            <input type="text" maxlength="80" [(ngModel)]="lastName" name="lastName" autocomplete="family-name" required />
+          </label>
+          <label class="field">
+            <span>Nombre</span>
+            <input type="text" maxlength="80" [(ngModel)]="firstName" name="firstName" autocomplete="given-name" required />
+          </label>
+        </div>
+        <label class="field">
+          <span>Celular</span>
+          <input
+            type="tel"
+            maxlength="40"
+            [(ngModel)]="phone"
+            name="phone"
+            autocomplete="tel"
+            inputmode="tel"
+            placeholder="11 2345 6789"
+            required
+          />
+        </label>
+        <label class="field">
+          <span>Notas para el local (opcional)</span>
+          <textarea rows="2" maxlength="500" [(ngModel)]="customerNotes" name="customerNotes"></textarea>
+        </label>
+
+        @if (formError(); as fe) {
+          <p class="form-error">{{ fe }}</p>
+        }
+
+        <button type="submit" class="btn btn--primary" [disabled]="submitting()">
+          {{ submitting() ? 'Enviando…' : 'Finalizar pedido' }}
+        </button>
+      </form>
+    }
+  </div>
+}

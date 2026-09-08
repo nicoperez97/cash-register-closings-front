@@ -6,6 +6,7 @@ import { ShopNavEditorComponent } from './shop-nav-editor';
 import { ShopToolbarEditorComponent } from './shop-toolbar-editor';
 import { AdminShopIdentityComponent } from './admin-shop-identity';
 import { AdminShopOperationComponent } from './admin-shop-operation';
+import { AdminShopOrderingComponent } from './admin-shop-ordering';
 import { AdminShopDevicesComponent } from './admin-shop-devices';
 import { AdminShopAdvancedComponent } from './admin-shop-advanced';
 import { AdminShopSubnavComponent } from './admin-shop-subnav';
@@ -134,6 +135,32 @@ export class AdminShopIdentidadPage {
 export class AdminShopOperacionPage {
   readonly host = inject(ADMIN_SHOP_HOST);
   readonly section = adminShopSectionByPath('operacion')!;
+}
+
+@Component({
+  selector: 'app-admin-shop-pedidos-page',
+  imports: [
+    ReactiveFormsModule,
+    PageHeaderComponent,
+    AdminShopSubnavComponent,
+    AdminShopOrderingComponent,
+  ],
+  template: `
+    <app-page-header [title]="section.label" [subtitle]="section.subtitle" />
+    <app-admin-shop-subnav activeId="pedidos" />
+    <div class="shop-admin__tab-panel" [formGroup]="host.form">
+      <app-admin-shop-ordering
+        [weekdayOptions]="host.weekdayOptions"
+        (addZone)="host.addDeliveryZone()"
+        (removeZone)="host.removeDeliveryZone($event)"
+      />
+    </div>
+  `,
+  styleUrl: './admin-shop.scss',
+})
+export class AdminShopPedidosPage {
+  readonly host = inject(ADMIN_SHOP_HOST);
+  readonly section = adminShopSectionByPath('pedidos')!;
 }
 
 @Component({

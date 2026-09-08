@@ -2,6 +2,7 @@
 export type AdminShopSectionId =
   | 'identidad'
   | 'operacion'
+  | 'pedidos'
   | 'dispositivos'
   | 'menu'
   | 'avanzado';
@@ -34,6 +35,14 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
     blurb: 'Turnos de caja, presentismo, multiplicador de feriado, francos y módulos públicos.',
     subtitle:
       'Día a día del local: caja, horarios del personal, producción y qué módulos están activos.',
+  },
+  {
+    id: 'pedidos',
+    path: 'pedidos',
+    label: 'Pedidos',
+    icon: 'shopping_bag',
+    blurb: 'Take away, delivery, horarios, zonas y pagos de /pedir.',
+    subtitle: 'Página pública de pedidos: canales, horarios, zonas y medios de pago.',
   },
   {
     id: 'dispositivos',
