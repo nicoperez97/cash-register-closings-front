@@ -95,6 +95,8 @@ export interface CreatePublicCustomerOrderBody {
   paymentMethod: CustomerOrderPaymentMethod;
   cashAmount?: number | null;
   customerNotes?: string | null;
+  discountPercent?: number | null;
+  discountFixed?: number | null;
 }
 
 export interface PublicCustomerOrder {
@@ -110,6 +112,8 @@ export interface PublicCustomerOrder {
   }>;
   subtotal: number;
   deliveryFee: number;
+  discountAmount?: number;
+  discountLabel?: string | null;
   total: number;
   firstName: string;
   lastName: string;
@@ -152,6 +156,13 @@ export class CustomerOrdersApiService {
   createPublicOrder(slug: string, body: CreatePublicCustomerOrderBody) {
     return this.http.post<PublicCustomerOrder>(
       `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/customer-orders`,
+      body,
+    );
+  }
+
+  createStaffOrder(shopId: string, body: CreatePublicCustomerOrderBody) {
+    return this.http.post<StaffCustomerOrder>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders`,
       body,
     );
   }

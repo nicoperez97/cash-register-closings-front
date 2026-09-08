@@ -9,8 +9,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 0.75rem;
-  margin: 0 0 0.65rem;
-  padding: 0.15rem 0;
+  margin: 0 0 0.75rem;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid var(--guy-border, #d7e0d9);
+}
+
+.co-shell {
+  padding: 0.9rem 1rem 1rem;
 }
 
 .co-config {
@@ -114,11 +119,21 @@
   cursor: not-allowed;
 }
 
+.co-tool--primary {
+  background: var(--guy-green, #2e7d32);
+  border-color: var(--guy-green, #2e7d32);
+  color: #fff;
+}
+
+.co-tool--on {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--guy-green, #2e7d32) 35%, transparent);
+}
+
 .co-views {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.85rem;
 }
 
 .co-views__btn {
@@ -155,8 +170,28 @@
 .co-board-hint {
   color: var(--guy-muted, #5f6f76);
   font-size: 0.88rem;
-  margin: 0.75rem 0;
+  margin: 0.75rem 0 0;
   text-align: center;
+}
+
+.co-pos-card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem 1rem;
+  /* Toolbar + paddings del layout (py + content): que no se corte abajo */
+  height: calc(100dvh - 8rem);
+  max-height: calc(100dvh - 8rem);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.co-pos-card > app-staff-ordering-pos {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .co-board {
@@ -323,6 +358,13 @@
   color: var(--guy-ink, #1a221c);
 }
 
+.co-card__discount {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #9a6700;
+}
+
 .co-card__items {
   list-style: none;
   margin: 0.35rem 0 0;
@@ -408,6 +450,14 @@
 @media (max-width: 1100px) {
   .co-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .co-pos-card {
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
 }
 

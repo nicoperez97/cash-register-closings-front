@@ -138,6 +138,16 @@ h1 {
   font-size: 0.88rem;
 }
 
+.banner--staff {
+  background: color-mix(in srgb, var(--accent) 10%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  color: var(--ink);
+}
+
+:host.staff-ordering {
+  min-height: auto;
+}
+
 .list {
   list-style: none;
   margin: 0;

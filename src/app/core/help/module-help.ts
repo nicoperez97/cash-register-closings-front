@@ -843,6 +843,18 @@ export const HELP_TOPICS: HelpTopic[] = [
         tip: 'El cliente ve el estado en /mi-pedido/local/CODIGO (se abre solo al confirmar el pedido).',
       },
       {
+        title: 'Pedido de mostrador',
+        icon: 'point_of_sale',
+        tone: 'do',
+        anyOf: ['customerOrders.manage'],
+        body: 'Con Nuevo se abre la caja rápida dentro de la misma card: buscás, tocás ítems, descuento (% o $) y creás el pedido.',
+        items: [
+          'Nombre y celular son opcionales (si faltan usa valores de mostrador).',
+          'Al crear, volvés al tablero con el pedido en Pendientes.',
+        ],
+        tip: 'El descuento solo está en pedidos de mostrador, no en /pedir del cliente.',
+      },
+      {
         title: 'Configurar en la misma pantalla',
         icon: 'tune',
         tone: 'do',
@@ -856,7 +868,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         anyOf: ['users.manage'],
         body: 'En Administración → Usuarios, tipo Empleado, acceso rápido «Pedidos online». Solo ve esta bandeja (inicio en Pedidos online).',
-        tip: 'Con ese acceso también recibe la campana y el mail de pedido nuevo, si el local tiene mails activos.',
+        tip: 'Activá «Administrador de pedidos online» en el usuario para que le lleguen campana, push y mail.',
       },
       {
         title: 'Catálogo (envíos, pagos, ítems)',

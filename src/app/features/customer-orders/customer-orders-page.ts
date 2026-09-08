@@ -23,6 +23,7 @@ import {
 } from './customer-orders-api.service';
 import { CustomerOrdersInboxService } from './customer-orders-inbox.service';
 import { OrderingCatalogPanelComponent } from './ordering-catalog-panel';
+import { StaffOrderingPosComponent } from './staff-ordering-pos';
 
 const STATUS_LABEL: Record<CustomerOrderStatus, string> = {
   PENDING: 'Pendiente',
@@ -57,7 +58,7 @@ const NEXT_ACTIONS: Partial<
 };
 
 type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery';
-type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED' | 'config';
+type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED' | 'config' | 'nuevo';
 
 type BoardColumn = {
   id: BoardColumnId;
@@ -82,6 +83,7 @@ const BOARD_COLUMNS: BoardColumn[] = [
     MatDialogModule,
     MatSnackBarModule,
     OrderingCatalogPanelComponent,
+    StaffOrderingPosComponent,
   ],
   templateUrl: './customer-orders-page.html',
   styleUrl: './customer-orders-page.scss',
@@ -188,7 +190,28 @@ export class CustomerOrdersPage {
 
   setView(mode: ViewMode): void {
     this.view.set(mode);
-    if (mode !== 'config') this.reload();
+    if (mode !== 'config' && mode !== 'nuevo') this.reload();
+  }
+
+  openNuevo(): void {
+    if (!this.canManage()) return;
+    this.setView('nuevo');
+  }
+
+  onPosCreated(order: StaffCustomerOrder): void {
+    this.focusOrderId.set(order.id);
+    this.view.set('board');
+    this.reload();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { order: order.id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  onPosCancelled(): void {
+    this.setView('board');
   }
 
   statusLabel(s: CustomerOrderStatus): string {
@@ -267,7 +290,7 @@ export class CustomerOrdersPage {
       this.skipNewToast = true;
       return;
     }
-    if (!this.canReadOrders() || this.view() === 'config') {
+    if (!this.canReadOrders() || this.view() === 'config' || this.view() === 'nuevo') {
       this.loading.set(false);
       return;
     }
