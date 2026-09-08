@@ -50,6 +50,7 @@ export interface AdminUserRow {
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
+  isCustomerOrdersAdmin?: boolean;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   requireClosingFiles?: boolean;
@@ -707,6 +708,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones y mails de todas las solicitudes de reserva.
           </p>
+          <mat-slide-toggle formControlName="isCustomerOrdersAdmin">
+            Administrador de pedidos online
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
+          </p>
           @if (data.canAssignSuperAdmin) {
             <mat-slide-toggle formControlName="canEditExpenses">
               Puede editar y borrar gastos
@@ -830,6 +837,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones y mails de todas las solicitudes de reserva.
+          </p>
+          <mat-slide-toggle formControlName="isCustomerOrdersAdmin">
+            Administrador de pedidos online
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
           </p>
           @if (data.canAssignSuperAdmin) {
             <mat-slide-toggle formControlName="canEditExpenses">
@@ -995,6 +1008,7 @@ export class AdminUserDialogComponent implements OnInit {
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
     isReservationAdmin: [this.user?.isReservationAdmin ?? false],
+    isCustomerOrdersAdmin: [this.user?.isCustomerOrdersAdmin ?? false],
     requireClosingFiles: [false],
     canEditExpenses: [this.user?.canEditExpenses ?? false],
     canEditPayments: [this.user?.canEditPayments ?? false],
@@ -1120,6 +1134,9 @@ export class AdminUserDialogComponent implements OnInit {
     if (preset.modules.reservations === 'manage') {
       this.form.controls.isReservationAdmin.setValue(true);
     }
+    if (preset.modules.customerOrders === 'manage' || preset.modules.customerOrders === 'read') {
+      this.form.controls.isCustomerOrdersAdmin.setValue(true);
+    }
     this.syncRequireClosingFilesEnabled();
   }
 
@@ -1203,6 +1220,7 @@ export class AdminUserDialogComponent implements OnInit {
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
           isReservationAdmin: !!raw.isReservationAdmin,
+          isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
           requireClosingFiles: !!raw.requireClosingFiles,
           canEditExpenses: !!raw.canEditExpenses,
           canEditPayments: !!raw.canEditPayments,
@@ -1240,6 +1258,7 @@ export class AdminUserDialogComponent implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
         requireClosingFiles: !!raw.requireClosingFiles,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
@@ -1287,6 +1306,7 @@ export class AdminUserDialogComponent implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
         requireClosingFiles: !!raw.requireClosingFiles,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,

@@ -351,6 +351,11 @@ export const routes: Routes = [
         title: 'Pedidos',
       },
       {
+        path: 'customer-orders/nuevo',
+        redirectTo: 'customer-orders',
+        pathMatch: 'full',
+      },
+      {
         path: 'customer-orders',
         canActivate: [
           anyPermissionGuard('customerOrders.read', 'orderingCatalog.manage'),

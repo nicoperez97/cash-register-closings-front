@@ -17,7 +17,7 @@
           <p class="top__shop">{{ c.shop.name }}</p>
           <h1>
             @if (view() === 'categories') {
-              Categorías
+              {{ staffMode() ? 'Pedido mostrador' : 'Categorías' }}
             } @else if (view() === 'items') {
               {{ section()?.name }}
             } @else {
@@ -26,10 +26,16 @@
           </h1>
         </div>
       </div>
-      <a class="top__status" [routerLink]="['/mi-pedido', slug()]">Estado</a>
+      @if (staffMode()) {
+        <a class="top__status" routerLink="/customer-orders">Tablero</a>
+      } @else {
+        <a class="top__status" [routerLink]="['/mi-pedido', slug()]">Estado</a>
+      }
     </header>
 
-    @if (!canOrder()) {
+    @if (staffMode()) {
+      <p class="banner banner--staff">Tomá el pedido del cliente en el local. Funciona aunque el online esté cerrado por horario.</p>
+    } @else if (!canOrder()) {
       <p class="banner">Estamos cerrados. Podés mirar el menú; no se pueden agregar ítems ahora.</p>
     }
 

@@ -1,0 +1,220 @@
+<div class="pos" [class.pos--embedded]="embedded()">
+  <header class="pos__top">
+    <button type="button" class="pos__back" (click)="cancelled.emit()">← Tablero</button>
+    <div>
+      <h2>Pedido mostrador</h2>
+      <p>Tocá ítems, descuento y creá. Nombre y celular son opcionales.</p>
+    </div>
+    <button type="button" class="pos__clear" [disabled]="!lines().length" (click)="clearTicket()">
+      Vaciar
+    </button>
+  </header>
+
+  @if (error(); as err) {
+    <div class="pos__block">
+      <p>{{ err }}</p>
+      <button type="button" class="pos__btn" (click)="load()">Reintentar</button>
+    </div>
+  } @else if (loading()) {
+    <p class="pos__muted">Cargando carta…</p>
+  } @else {
+    <div class="pos__grid">
+      <section class="pos__catalog">
+        <div class="pos__search">
+          <input
+            type="search"
+            [ngModel]="query()"
+            (ngModelChange)="query.set($event)"
+            placeholder="Buscar ítem…"
+            autocomplete="off"
+          />
+        </div>
+        @if (sections().length > 1) {
+          <div class="pos__chips" role="group" aria-label="Categorías">
+            <button
+              type="button"
+              class="pos__chip"
+              [class.pos__chip--on]="!sectionFilter()"
+              (click)="setSection(null)"
+            >
+              Todas
+            </button>
+            @for (sec of sections(); track sec) {
+              <button
+                type="button"
+                class="pos__chip"
+                [class.pos__chip--on]="sectionFilter() === sec"
+                (click)="setSection(sec)"
+              >
+                {{ sec }}
+              </button>
+            }
+          </div>
+        }
+        <ul class="pos__items">
+          @for (it of filteredCatalog(); track it.id) {
+            <li>
+              <button type="button" class="pos__item" (click)="addItem(it)">
+                <span class="pos__item-name">{{ it.name }}</span>
+                <span class="pos__item-price">{{ money(it.price) }}</span>
+                <span class="pos__item-add" aria-hidden="true">+</span>
+              </button>
+              @if (itemExtras(it.id); as exs) {
+                @if (exs.length) {
+                  <div class="pos__extras">
+                    @for (ex of exs; track ex.id) {
+                      <button type="button" class="pos__extra" (click)="addExtra(ex, it.id)">
+                        + {{ ex.name }} · {{ money(ex.price) }}
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </li>
+          } @empty {
+            <li class="pos__muted">No hay ítems con ese filtro.</li>
+          }
+        </ul>
+      </section>
+
+      <aside class="pos__ticket">
+        <h3>Ticket</h3>
+        @if (!lines().length) {
+          <p class="pos__muted">Tocá un ítem a la izquierda para sumarlo.</p>
+        } @else {
+          <ul class="pos__lines">
+            @for (line of lines(); track line.key) {
+              <li>
+                <div class="pos__line-main">
+                  <strong>{{ line.name }}</strong>
+                  <span>{{ money(line.unitPrice * line.qty) }}</span>
+                </div>
+                <div class="pos__qty">
+                  <button type="button" (click)="bump(line, -1)">−</button>
+                  <span>{{ line.qty }}</span>
+                  <button type="button" (click)="bump(line, 1)">+</button>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+
+        <div class="pos__discount">
+          <span class="pos__label">Descuento</span>
+          <div class="pos__chips">
+            <button
+              type="button"
+              class="pos__chip"
+              [class.pos__chip--on]="discountMode() === 'none'"
+              (click)="setDiscountMode('none')"
+            >
+              No
+            </button>
+            <button
+              type="button"
+              class="pos__chip"
+              [class.pos__chip--on]="discountMode() === 'percent'"
+              (click)="setDiscountMode('percent')"
+            >
+              %
+            </button>
+            <button
+              type="button"
+              class="pos__chip"
+              [class.pos__chip--on]="discountMode() === 'fixed'"
+              (click)="setDiscountMode('fixed')"
+            >
+              $
+            </button>
+          </div>
+          @if (discountMode() !== 'none') {
+            <input
+              type="number"
+              min="0"
+              [attr.max]="discountMode() === 'percent' ? 100 : null"
+              step="1"
+              [ngModel]="discountValue()"
+              (ngModelChange)="discountValue.set($event === '' || $event == null ? null : +$event)"
+              [placeholder]="discountMode() === 'percent' ? 'ej. 10' : 'ej. 500'"
+            />
+          }
+        </div>
+
+        <div class="pos__totals">
+          <div><span>Subtotal</span><strong>{{ money(subtotal()) }}</strong></div>
+          @if (discountAmount() > 0) {
+            <div class="pos__disc-row">
+              <span>Descuento</span><strong>−{{ money(discountAmount()) }}</strong>
+            </div>
+          }
+          <div class="pos__total"><span>Total</span><strong>{{ money(total()) }}</strong></div>
+        </div>
+
+        <div class="pos__fields">
+          @if (takeawayOk() && deliveryOk()) {
+            <div class="pos__chips">
+              <button
+                type="button"
+                class="pos__chip"
+                [class.pos__chip--on]="fulfillment() === 'TAKEAWAY'"
+                (click)="fulfillment.set('TAKEAWAY')"
+              >
+                Retiro
+              </button>
+              <button
+                type="button"
+                class="pos__chip"
+                [class.pos__chip--on]="fulfillment() === 'DELIVERY'"
+                (click)="fulfillment.set('DELIVERY')"
+              >
+                Delivery
+              </button>
+            </div>
+          }
+          <label>
+            Nombre (opcional)
+            <input type="text" [(ngModel)]="guestName" placeholder="Cliente Mostrador" autocomplete="name" />
+          </label>
+          <label>
+            Celular (opcional)
+            <input type="tel" [(ngModel)]="phone" inputmode="tel" autocomplete="tel" />
+          </label>
+          <div class="pos__pay">
+            <span class="pos__label">Pago</span>
+            <div class="pos__chips">
+              @for (m of paymentMethods(); track m) {
+                <button
+                  type="button"
+                  class="pos__chip"
+                  [class.pos__chip--on]="paymentMethod() === m"
+                  (click)="setPayment(m)"
+                >
+                  {{ payLabel(m) }}
+                </button>
+              }
+            </div>
+          </div>
+          @if (paymentMethod() === 'CASH') {
+            <label>
+              Con cuánto abona
+              <input type="number" min="0" step="1" [(ngModel)]="cashAmount" />
+            </label>
+          }
+          <label>
+            Nota (opcional)
+            <input type="text" [(ngModel)]="notes" maxlength="200" />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          class="pos__btn pos__btn--primary"
+          [disabled]="submitting() || !lines().length"
+          (click)="submit()"
+        >
+          {{ submitting() ? 'Creando…' : 'Crear pedido' }}
+        </button>
+      </aside>
+    </div>
+  }
+</div>

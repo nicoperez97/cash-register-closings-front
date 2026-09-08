@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
   CreatePublicCustomerOrderBody,
   CustomerOrderFulfillment,
@@ -33,8 +34,26 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   private readonly api = inject(CustomerOrdersApiService);
   readonly cart = inject(OrderingCartService);
   private readonly title = inject(Title);
+  private readonly shops = inject(ShopContextService);
 
-  readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
+  readonly staffMode = computed(
+    () => this.route.snapshot.data['staffOrdering'] === true,
+  );
+
+  readonly slug = computed(() => {
+    if (this.staffMode()) {
+      return String(this.shops.selectedShop()?.slug ?? '').trim();
+    }
+    return String(this.route.snapshot.paramMap.get('slug') ?? '').trim();
+  });
+
+  readonly cartKey = computed(() => {
+    const slug = this.slug();
+    return this.staffMode() ? `staff:${slug}` : slug;
+  });
+
+  readonly shopId = computed(() => String(this.shops.selectedShopId() ?? '').trim());
+
   readonly loading = signal(true);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
@@ -66,16 +85,31 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   get hostOnAccent(): string {
     return this.onAccent();
   }
+
+  @HostBinding('class.staff-ordering')
+  get hostStaff(): boolean {
+    return this.staffMode();
+  }
+
   readonly logoUrl = computed(() => orderingLogoUrl(this.shop()?.logoUrl, this.shop()?.id));
 
   readonly openChannels = computed(() => {
     const c = this.config();
     if (!c) return [] as CustomerOrderFulfillment[];
     const out: CustomerOrderFulfillment[] = [];
+    if (this.staffMode()) {
+      if (c.takeawayEnabled) out.push('TAKEAWAY');
+      if (c.deliveryEnabled) out.push('DELIVERY');
+      return out;
+    }
     if (c.takeawayEnabled && c.takeawayOpen) out.push('TAKEAWAY');
     if (c.deliveryEnabled && c.deliveryOpen) out.push('DELIVERY');
     return out;
   });
+
+  readonly menuLink = computed(() =>
+    this.staffMode() ? ['/customer-orders/nuevo'] : ['/pedir', this.slug(), 'menu'],
+  );
 
   readonly paymentMethods = computed(() => this.config()?.payments?.methods ?? []);
 
@@ -92,8 +126,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
-    const slug = this.slug();
-    this.cart.bindSlug(slug);
+    this.cart.bindSlug(this.cartKey());
     this.load();
   }
 
@@ -105,23 +138,42 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     if (!slug) {
       this.loading.set(false);
-      this.error.set('Local no encontrado');
+      this.error.set(this.staffMode() ? 'Seleccioná un local' : 'Local no encontrado');
       return;
     }
+    this.cart.bindSlug(this.cartKey());
     this.loading.set(true);
     this.error.set(null);
     this.api.getPublicOrdering(slug).subscribe({
       next: (cfg) => {
         this.config.set(cfg);
         this.loading.set(false);
-        this.title.setTitle(`Checkout · ${cfg.shop?.name ?? slug}`);
+        this.title.setTitle(
+          this.staffMode()
+            ? `Confirmar mostrador · ${cfg.shop?.name ?? slug}`
+            : `Checkout · ${cfg.shop?.name ?? slug}`,
+        );
         const channels: CustomerOrderFulfillment[] = [];
-        if (cfg.takeawayEnabled && cfg.takeawayOpen) channels.push('TAKEAWAY');
-        if (cfg.deliveryEnabled && cfg.deliveryOpen) channels.push('DELIVERY');
+        if (this.staffMode()) {
+          if (cfg.takeawayEnabled) channels.push('TAKEAWAY');
+          if (cfg.deliveryEnabled) channels.push('DELIVERY');
+        } else {
+          if (cfg.takeawayEnabled && cfg.takeawayOpen) channels.push('TAKEAWAY');
+          if (cfg.deliveryEnabled && cfg.deliveryOpen) channels.push('DELIVERY');
+        }
         if (channels.length === 1) this.fulfillment.set(channels[0]);
-        else if (channels.length > 1) this.pickingFulfillment.set(true);
+        else if (channels.length > 1) {
+          if (channels.includes('TAKEAWAY')) this.fulfillment.set('TAKEAWAY');
+          else this.pickingFulfillment.set(true);
+        }
         const methods = cfg.payments?.methods ?? [];
         if (methods.length === 1) this.paymentMethod.set(methods[0]);
+        if (this.staffMode() && !this.phone.trim() && cfg.shop?.phone) {
+          this.phone = String(cfg.shop.phone);
+        }
+        if (this.staffMode() && this.cashAmount == null) {
+          this.cashAmount = this.total();
+        }
       },
       error: (err) => {
         this.loading.set(false);
@@ -164,7 +216,17 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     this.deliveryZoneId.set(id);
   }
 
-  bumpLine(line: { menuItemId: string; notes: string; kind?: 'ITEM' | 'EXTRA'; qty: number; extraId?: string; attachedToMenuItemId?: string }, delta: number): void {
+  bumpLine(
+    line: {
+      menuItemId: string;
+      notes: string;
+      kind?: 'ITEM' | 'EXTRA';
+      qty: number;
+      extraId?: string;
+      attachedToMenuItemId?: string;
+    },
+    delta: number,
+  ): void {
     this.cart.updateQty(
       line.menuItemId,
       line.notes,
@@ -175,7 +237,13 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     );
   }
 
-  removeLine(line: { menuItemId: string; notes: string; kind?: 'ITEM' | 'EXTRA'; extraId?: string; attachedToMenuItemId?: string }): void {
+  removeLine(line: {
+    menuItemId: string;
+    notes: string;
+    kind?: 'ITEM' | 'EXTRA';
+    extraId?: string;
+    attachedToMenuItemId?: string;
+  }): void {
     this.cart.remove(
       line.menuItemId,
       line.notes,
@@ -193,11 +261,15 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     const fulfillment = this.fulfillment();
     const paymentMethod = this.paymentMethod();
     if (!slug || !lines.length) {
-      this.formError.set('Tu carrito está vacío.');
+      this.formError.set('El carrito está vacío.');
       return;
     }
     if (!this.openChannels().length) {
-      this.formError.set('Estamos cerrados en este momento.');
+      this.formError.set(
+        this.staffMode()
+          ? 'No hay take away ni delivery habilitados.'
+          : 'Estamos cerrados en este momento.',
+      );
       return;
     }
     if (!fulfillment || !this.openChannels().includes(fulfillment)) {
@@ -266,10 +338,22 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     }
 
     this.submitting.set(true);
-    this.api.createPublicOrder(slug, body).subscribe({
+    const req$ = this.staffMode()
+      ? this.api.createStaffOrder(this.shopId(), body)
+      : this.api.createPublicOrder(slug, body);
+
+    req$.subscribe({
       next: (order) => {
         this.submitting.set(false);
         this.cart.clear();
+        if (this.staffMode()) {
+          const staffOrder = order as { id?: string; code: string };
+          void this.router.navigate(['/customer-orders'], {
+            queryParams: staffOrder.id ? { order: staffOrder.id } : {},
+            replaceUrl: true,
+          });
+          return;
+        }
         rememberOrderPhone(slug, order.code, body.phone);
         void this.router.navigate(['/mi-pedido', slug, order.code], {
           state: { justCreated: true },

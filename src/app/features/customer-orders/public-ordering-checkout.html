@@ -8,12 +8,12 @@
 } @else if (config(); as c) {
   <div class="page">
     <header class="top">
-      <a class="back" [routerLink]="['/pedir', slug(), 'menu']" aria-label="Volver al menú">‹</a>
+      <a class="back" [routerLink]="menuLink()" aria-label="Volver al menú">‹</a>
       <div>
         @if (logoUrl()) {
           <img class="logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
         }
-        <h1>Tu pedido</h1>
+        <h1>{{ staffMode() ? 'Confirmar pedido' : 'Tu pedido' }}</h1>
         <p class="muted">{{ c.shop.name }}</p>
       </div>
     </header>
@@ -21,12 +21,22 @@
     @if (!cart.lines().length) {
       <div class="empty">
         <p>El carrito está vacío.</p>
-        <a class="btn btn--primary" [routerLink]="['/pedir', slug(), 'menu']">Ir al menú</a>
+        <a class="btn btn--primary" [routerLink]="menuLink()">Ir al menú</a>
       </div>
     } @else if (!openChannels().length) {
       <div class="empty">
-        <p>Estamos cerrados. No se pueden enviar pedidos ahora.</p>
-        <a class="btn btn--ghost" [routerLink]="['/pedir', slug()]">Volver</a>
+        <p>
+          {{
+            staffMode()
+              ? 'No hay take away ni delivery habilitados para este local.'
+              : 'Estamos cerrados. No se pueden enviar pedidos ahora.'
+          }}
+        </p>
+        @if (staffMode()) {
+          <a class="btn btn--ghost" routerLink="/customer-orders">Volver</a>
+        } @else {
+          <a class="btn btn--ghost" [routerLink]="['/pedir', slug()]">Volver</a>
+        }
       </div>
     } @else {
       <section class="card">
@@ -188,7 +198,13 @@
         }
 
         <button type="submit" class="btn btn--primary" [disabled]="submitting()">
-          {{ submitting() ? 'Enviando…' : 'Finalizar pedido' }}
+          {{
+            submitting()
+              ? 'Enviando…'
+              : staffMode()
+                ? 'Crear pedido en el tablero'
+                : 'Finalizar pedido'
+          }}
         </button>
       </form>
     }

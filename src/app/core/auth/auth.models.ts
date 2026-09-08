@@ -999,6 +999,7 @@ export interface ShopSummary {
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
+  isCustomerOrdersAdmin?: boolean;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   /** En el cierre, si hay monto hay que adjuntar foto o archivo. */

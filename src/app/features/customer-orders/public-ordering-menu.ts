@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 import { prettySection } from '../menu/menu-display';
 import {
   CustomerOrdersApiService,
@@ -28,8 +29,24 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private readonly api = inject(CustomerOrdersApiService);
   private readonly cart = inject(OrderingCartService);
   private readonly title = inject(Title);
+  private readonly shops = inject(ShopContextService);
 
-  readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
+  readonly staffMode = computed(
+    () => this.route.snapshot.data['staffOrdering'] === true,
+  );
+
+  readonly slug = computed(() => {
+    if (this.staffMode()) {
+      return String(this.shops.selectedShop()?.slug ?? '').trim();
+    }
+    return String(this.route.snapshot.paramMap.get('slug') ?? '').trim();
+  });
+
+  readonly cartKey = computed(() => {
+    const slug = this.slug();
+    return this.staffMode() ? `staff:${slug}` : slug;
+  });
+
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly config = signal<PublicOrderingConfig | null>(null);
@@ -46,7 +63,12 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   readonly accent = computed(() => this.shop()?.accentColor?.trim() || '#2e7d32');
   readonly onAccent = computed(() => onAccentColor(this.accent()));
   readonly logoUrl = computed(() => orderingLogoUrl(this.shop()?.logoUrl, this.shop()?.id));
-  readonly canOrder = computed(() => !!this.config()?.anyChannelOpen);
+  readonly canOrder = computed(() => {
+    const c = this.config();
+    if (!c) return false;
+    if (this.staffMode()) return c.takeawayEnabled || c.deliveryEnabled;
+    return !!c.anyChannelOpen;
+  });
 
   @HostBinding('style.--accent')
   get hostAccent(): string {
@@ -56,6 +78,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   @HostBinding('style.--on-accent')
   get hostOnAccent(): string {
     return this.onAccent();
+  }
+
+  @HostBinding('class.staff-ordering')
+  get hostStaff(): boolean {
+    return this.staffMode();
   }
 
   readonly sections = computed(() => {
@@ -94,8 +121,8 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
-    const slug = this.slug();
-    this.cart.bindSlug(slug);
+    this.cart.bindSlug(this.cartKey());
+    if (this.staffMode()) this.cart.clear();
     this.load();
   }
 
@@ -107,16 +134,21 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     if (!slug) {
       this.loading.set(false);
-      this.error.set('Local no encontrado');
+      this.error.set(this.staffMode() ? 'Seleccioná un local' : 'Local no encontrado');
       return;
     }
+    this.cart.bindSlug(this.cartKey());
     this.loading.set(true);
     this.error.set(null);
     this.api.getPublicOrdering(slug).subscribe({
       next: (cfg) => {
         this.config.set(cfg);
         this.loading.set(false);
-        this.title.setTitle(`Menú · ${cfg.shop?.name ?? slug}`);
+        this.title.setTitle(
+          this.staffMode()
+            ? `Mostrador · ${cfg.shop?.name ?? slug}`
+            : `Menú · ${cfg.shop?.name ?? slug}`,
+        );
       },
       error: (err) => {
         this.loading.set(false);
@@ -178,6 +210,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       this.view.set('categories');
       return;
     }
+    if (this.staffMode()) {
+      this.cart.clear();
+      void this.router.navigate(['/customer-orders']);
+      return;
+    }
     void this.router.navigate(['/pedir', this.slug()]);
   }
 
@@ -220,6 +257,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   goCheckout(): void {
     if (!this.cartCount()) return;
+    if (this.staffMode()) {
+      void this.router.navigate(['/customer-orders/nuevo/checkout']);
+      return;
+    }
     void this.router.navigate(['/pedir', this.slug(), 'checkout']);
   }
 

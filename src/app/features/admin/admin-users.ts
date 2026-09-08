@@ -175,6 +175,11 @@ export class AdminUsersPage implements OnInit {
         label: 'Admin reservas',
         format: (r) => (r['isReservationAdmin'] ? 'Sí' : 'No'),
       });
+      cols.push({
+        key: 'isCustomerOrdersAdmin',
+        label: 'Admin pedidos online',
+        format: (r) => (r['isCustomerOrdersAdmin'] ? 'Sí' : 'No'),
+      });
     }
     cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });
     return cols;
