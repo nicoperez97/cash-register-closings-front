@@ -1,172 +1,173 @@
-<app-page-header
-  title="Pedidos online"
-  [subtitle]="shops.selectedShop()?.name ?? ''"
-/>
-
-<div class="co-toolbar">
-  @if (pendingCount()) {
-    <span class="co-pending-pill">{{ pendingCount() }} pendiente{{ pendingCount() === 1 ? '' : 's' }}</span>
-  }
-  @if (publicOrderingUrl()) {
-    <a class="co-toolbar__btn co-toolbar__btn--primary" [href]="publicOrderingUrl()" target="_blank" rel="noopener">
-      <mat-icon>open_in_new</mat-icon>
-      Página pública
-    </a>
-    <button type="button" class="co-toolbar__btn" (click)="copyPublicOrderingUrl()">
-      <mat-icon>content_copy</mat-icon>
-      Copiar link
+<div class="co-top">
+  <div class="co-top__title">
+    <a class="co-top__back" routerLink="/">←</a>
+    <div>
+      <h1>Pedidos online</h1>
+      <p>{{ shops.selectedShop()?.name || '' }}</p>
+    </div>
+    @if (pendingCount()) {
+      <span class="co-pending-pill">{{ pendingCount() }}</span>
+    }
+    <button type="button" class="co-icon-btn" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
+      <mat-icon>info_outline</mat-icon>
     </button>
-  }
-  <button type="button" class="co-toolbar__btn co-toolbar__btn--ghost" (click)="reload()" [disabled]="loading()">
-    <mat-icon>refresh</mat-icon>
-    Actualizar
-  </button>
+  </div>
+  <div class="co-top__actions">
+    @if (publicOrderingUrl()) {
+      <a class="co-tool" [href]="publicOrderingUrl()" target="_blank" rel="noopener" title="Página pública">
+        <mat-icon>open_in_new</mat-icon>
+        <span>Pública</span>
+      </a>
+      <button type="button" class="co-tool" (click)="copyPublicOrderingUrl()" title="Copiar link">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    }
+    <button type="button" class="co-tool" (click)="reload()" [disabled]="loading()" title="Actualizar">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
 </div>
 
-<div class="co-filters" role="tablist" aria-label="Filtros de pedidos">
-  @for (f of filters; track f.value) {
-    <button
-      type="button"
-      class="guy-chip-btn"
-      role="tab"
-      [class.guy-chip-btn--on]="filter() === f.value"
-      [attr.aria-selected]="filter() === f.value"
-      (click)="setFilter(f.value)"
-    >
-      {{ f.label }}
-      @if (f.value === 'PENDING' && pendingCount()) {
-        <span class="co-filters__count">{{ pendingCount() }}</span>
-      }
-    </button>
-  }
+<div class="co-views" role="tablist" aria-label="Vista de pedidos">
+  <button
+    type="button"
+    class="co-views__btn"
+    [class.co-views__btn--on]="view() === 'board'"
+    (click)="setView('board')"
+  >
+    Tablero
+    @if (view() === 'board' && openTotal()) {
+      <span class="co-views__n">{{ openTotal() }}</span>
+    }
+  </button>
+  <button
+    type="button"
+    class="co-views__btn"
+    [class.co-views__btn--on]="view() === 'COMPLETED'"
+    (click)="setView('COMPLETED')"
+  >
+    Completados
+  </button>
+  <button
+    type="button"
+    class="co-views__btn"
+    [class.co-views__btn--on]="view() === 'CANCELLED'"
+    (click)="setView('CANCELLED')"
+  >
+    Cancelados
+  </button>
 </div>
 
 @if (loading() && !orders().length) {
   <p class="co-empty">Cargando pedidos…</p>
-} @else if (!sortedOrders().length) {
-  <div class="co-empty-card panel-card">
-    <div class="panel-card__body">
-      <mat-icon>shopping_bag</mat-icon>
-      <p class="co-empty-card__title">No hay pedidos en este filtro</p>
-      <p class="co-empty-card__hint">
-        Cuando un cliente confirme en /pedir, aparece acá con sonido y notificación.
-      </p>
-    </div>
+} @else if (view() === 'board') {
+  <div class="co-board">
+    @for (col of boardColumns(); track col.id) {
+      <section class="co-col" [attr.data-col]="col.id">
+        <header class="co-col__head">
+          <h2>{{ col.title }}</h2>
+          <span class="co-col__count" [class.co-col__count--hot]="col.id === 'pending' && col.orders.length">
+            {{ col.orders.length }}
+          </span>
+        </header>
+        <div class="co-col__list">
+          @if (!col.orders.length) {
+            <p class="co-col__empty">—</p>
+          } @else {
+            @for (o of col.orders; track o.id) {
+              <article
+                class="co-card co-card--compact"
+                [class.co-card--pending]="o.status === 'PENDING'"
+                [class.co-card--focus]="focusOrderId() === o.id"
+                [attr.id]="'co-' + o.id"
+              >
+                <header class="co-card__head">
+                  <button type="button" class="co-card__code" (click)="copyCode(o.code)">#{{ o.code }}</button>
+                  <time>{{ o.createdAt | date: 'HH:mm' }}</time>
+                </header>
+                <p class="co-card__guest">
+                  <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
+                  <span>{{ o.fulfillment === 'DELIVERY' ? 'Deliv.' : 'T.away' }}</span>
+                </p>
+                @if (o.status === 'ACCEPTED' || o.status === 'PREPARING') {
+                  <span class="co-card__substatus">{{ statusLabel(o.status) }}</span>
+                }
+                @if (phoneHref(o.phone); as href) {
+                  <a class="co-card__phone" [href]="href">{{ o.phone }}</a>
+                }
+                @if (o.customerNotes) {
+                  <p class="co-card__notes">{{ o.customerNotes }}</p>
+                }
+                <ul class="co-card__items">
+                  @for (it of o.items; track $index) {
+                    <li>{{ it.qty }}× {{ it.name }}</li>
+                  }
+                </ul>
+                <div class="co-card__foot">
+                  <strong>{{ money(o.total) }}</strong>
+                  @if (canManage()) {
+                    <div class="co-card__actions">
+                      @if (cancelAction(o); as cancel) {
+                        <button
+                          type="button"
+                          class="co-card__cancel"
+                          [disabled]="busyId() === o.id"
+                          (click)="setStatus(o, cancel.status)"
+                          aria-label="Cancelar"
+                        >
+                          ✕
+                        </button>
+                      }
+                      @if (primaryAction(o); as primary) {
+                        <button
+                          type="button"
+                          class="co-card__go"
+                          [disabled]="busyId() === o.id"
+                          (click)="setStatus(o, primary.status)"
+                        >
+                          {{ primary.label }}
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              </article>
+            }
+          }
+        </div>
+      </section>
+    }
+  </div>
+  @if (!openTotal() && !loading()) {
+    <p class="co-board-hint">Cuando confirmen en /pedir, aparecen acá por estado.</p>
+  }
+} @else if (!archiveOrders().length) {
+  <div class="co-empty-card">
+    <mat-icon>shopping_bag</mat-icon>
+    <p>No hay pedidos {{ view() === 'COMPLETED' ? 'completados' : 'cancelados' }}.</p>
   </div>
 } @else {
-  <div class="co-list">
-    @for (o of sortedOrders(); track o.id) {
-      <article
-        class="panel-card co-card"
-        [class.co-card--pending]="o.status === 'PENDING'"
-        [class.co-card--focus]="focusOrderId() === o.id"
-        [attr.id]="'co-' + o.id"
-      >
-        <div class="panel-card__body">
-          <header class="co-card__head">
-            <div class="co-card__title">
-              <button
-                type="button"
-                class="co-card__code"
-                (click)="copyCode(o.code)"
-                [attr.aria-label]="'Copiar código ' + o.code"
-              >
-                #{{ o.code }}
-                <mat-icon>content_copy</mat-icon>
-              </button>
-              <span [attr.class]="'guy-chip ' + statusChip(o.status)">{{ statusLabel(o.status) }}</span>
-              <span class="guy-chip guy-chip--muted">
-                {{ o.fulfillment === 'DELIVERY' ? 'Delivery' : 'Take away' }}
-              </span>
-            </div>
-            <time class="co-card__time">{{ o.createdAt | date: 'dd/MM HH:mm' }}</time>
-          </header>
-
-          <div class="co-card__guest">
-            <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
-            @if (phoneHref(o.phone); as href) {
-              <a class="co-card__phone" [href]="href">
-                <mat-icon>call</mat-icon>
-                {{ o.phone }}
-              </a>
-            } @else {
-              <span class="co-card__phone">{{ o.phone }}</span>
-            }
-          </div>
-
-          <p class="co-card__meta">
-            {{ o.paymentMethod === 'CASH' ? 'Efectivo' : 'Transferencia' }}
-            @if (o.paymentMethod === 'CASH' && o.cashAmount != null) {
-              · abona {{ money(o.cashAmount) }}
-            }
-            @if (o.fulfillment === 'DELIVERY' && o.deliveryZoneName) {
-              · {{ o.deliveryZoneName }}
-            }
-          </p>
-          @if (o.address) {
-            <p class="co-card__addr">
-              <mat-icon>place</mat-icon>
-              {{ o.address }}
-            </p>
+  <div class="co-archive">
+    @for (o of archiveOrders(); track o.id) {
+      <article class="co-card" [attr.id]="'co-' + o.id">
+        <header class="co-card__head">
+          <button type="button" class="co-card__code" (click)="copyCode(o.code)">#{{ o.code }}</button>
+          <time>{{ o.createdAt | date: 'dd/MM HH:mm' }}</time>
+        </header>
+        <p class="co-card__guest">
+          <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
+          <span>{{ o.fulfillment === 'DELIVERY' ? 'Delivery' : 'Take away' }}</span>
+        </p>
+        <ul class="co-card__items">
+          @for (it of o.items; track $index) {
+            <li>
+              <span>{{ it.qty }}× {{ it.name }}</span>
+              <span>{{ money(it.unitPrice * it.qty) }}</span>
+            </li>
           }
-          @if (o.customerNotes) {
-            <p class="co-card__notes">
-              <mat-icon>sticky_note_2</mat-icon>
-              {{ o.customerNotes }}
-            </p>
-          }
-
-          <ul class="co-card__items">
-            @for (it of o.items; track $index) {
-              <li>
-                <span class="co-card__qty">{{ it.qty }}×</span>
-                <span class="co-card__item-name">
-                  {{ it.name }}
-                  @if (it.notes) {
-                    <em>{{ it.notes }}</em>
-                  }
-                </span>
-                <span class="co-card__item-price">{{ money(it.unitPrice * it.qty) }}</span>
-              </li>
-            }
-          </ul>
-
-          <div class="co-card__foot">
-            <p class="co-card__total">
-              Total {{ money(o.total) }}
-              @if (o.deliveryFee) {
-                <span>envío {{ money(o.deliveryFee) }}</span>
-              }
-            </p>
-
-            @if (canManage()) {
-              <div class="co-card__actions">
-                @if (cancelAction(o); as cancel) {
-                  <button
-                    mat-button
-                    color="warn"
-                    type="button"
-                    [disabled]="busyId() === o.id"
-                    (click)="setStatus(o, cancel.status)"
-                  >
-                    {{ cancel.label }}
-                  </button>
-                }
-                @if (primaryAction(o); as primary) {
-                  <button
-                    mat-flat-button
-                    color="primary"
-                    type="button"
-                    class="co-card__primary"
-                    [disabled]="busyId() === o.id"
-                    (click)="setStatus(o, primary.status)"
-                  >
-                    {{ primary.label }}
-                  </button>
-                }
-              </div>
-            }
-          </div>
+        </ul>
+        <div class="co-card__foot">
+          <strong>{{ money(o.total) }}</strong>
         </div>
       </article>
     }

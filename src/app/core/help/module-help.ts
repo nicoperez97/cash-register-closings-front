@@ -826,11 +826,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'shopping_bag',
         tone: 'read',
         anyOf: ['customerOrders.read'],
-        body: 'Está en Operación → Pedidos online. Filtrá activos o pendientes. Los nuevos suenan y suman al contador.',
+        body: 'Está en Operación → Pedidos online. El tablero muestra pendientes, cocina, listos y en camino a la vez.',
         items: [
-          'Cada tarjeta muestra código, estado, canal, cliente, pago e ítems.',
+          'Cada columna es un estado. La tarjeta tiene el siguiente paso a un toque.',
+          'Completados y cancelados están en las pestañas de arriba.',
           'Tocá el código para copiarlo. El teléfono abre la llamada.',
-          'Los pendientes van arriba y se destacan.',
         ],
         tip: 'Si no escuchás el sonido, tocá una vez la pantalla: el navegador pide un gesto antes de reproducir audio.',
       },
@@ -839,7 +839,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'checklist',
         tone: 'do',
         anyOf: ['customerOrders.manage'],
-        body: 'El botón grande es el siguiente paso (Aceptar → Preparar → Listo). En delivery podés marcar En camino. Cancelar queda aparte.',
+        body: 'En cada tarjeta, el botón verde es el siguiente paso. Cancelar es la ✕. El pedido salta de columna solo.',
         tip: 'El cliente ve el estado en /mi-pedido/local/CODIGO (se abre solo al confirmar el pedido).',
       },
       {

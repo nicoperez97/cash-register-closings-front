@@ -120,6 +120,11 @@
         var path = location.pathname || '';
         var board = path.match(/^\/(r|w)\/([^/]+)\/?$/);
         var isLogin = path === '/login' || path.indexOf('/login?') === 0;
+        var isPublicOrdering =
+          path.indexOf('/pedir/') === 0 ||
+          path === '/pedir' ||
+          path.indexOf('/mi-pedido/') === 0 ||
+          path === '/mi-pedido';
         var manifestHref = 'manifest.webmanifest';
 
         if (board || isLogin) {
@@ -185,7 +190,7 @@
           window.matchMedia('(display-mode: fullscreen)').matches ||
           window.matchMedia('(display-mode: minimal-ui)').matches ||
           window.navigator.standalone === true;
-        if (!isPwa) return;
+        if (!isPwa && !isPublicOrdering) return;
         var meta = document.getElementById('app-viewport');
         if (meta) {
           meta.setAttribute(
@@ -193,7 +198,8 @@
             'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content',
           );
         }
-        document.documentElement.classList.add('guy-pwa');
+        if (isPwa) document.documentElement.classList.add('guy-pwa');
+        if (isPublicOrdering) document.documentElement.classList.add('guy-public-ordering');
       })();
     </script>
   </head>
