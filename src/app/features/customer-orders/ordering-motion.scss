@@ -1,0 +1,193 @@
+/* Motion compartido del storefront /pedir y /mi-pedido */
+
+@keyframes ord-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ord-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ord-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ord-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ord-soft-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes ord-pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ord-mask-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ord-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ord-cart-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 120%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes ord-flash {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ord-check-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ord-bg-shift {
+  0%,
+  100% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 18%;
+  }
+}
+
+.ord-enter {
+  animation: ord-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ord-enter-delay-1 {
+  animation-delay: 0.06s;
+}
+.ord-enter-delay-2 {
+  animation-delay: 0.12s;
+}
+.ord-enter-delay-3 {
+  animation-delay: 0.18s;
+}
+.ord-enter-delay-4 {
+  animation-delay: 0.24s;
+}
+.ord-enter-delay-5 {
+  animation-delay: 0.3s;
+}
+
+.ord-press {
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    opacity 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ord-press:hover {
+  transform: translateY(-1px);
+}
+
+.ord-press:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ord-enter,
+  .ord-enter-delay-1,
+  .ord-enter-delay-2,
+  .ord-enter-delay-3,
+  .ord-enter-delay-4,
+  .ord-enter-delay-5 {
+    animation: none !important;
+  }
+
+  .ord-press,
+  .ord-press:hover,
+  .ord-press:active {
+    transition: none !important;
+    transform: none !important;
+  }
+}

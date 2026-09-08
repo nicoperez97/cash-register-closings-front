@@ -20,6 +20,7 @@ import {
   hasShopPermission,
   isCashierOnly,
   isClosingsCreateOnly,
+  isCustomerOrdersOnly,
   isProducerOnly,
   canViewClosingsList,
 } from '../auth/auth.models';
@@ -36,6 +37,7 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 import { ReservationsInboxService } from '../../features/reservations/reservations-inbox.service';
 import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
+import { CustomerOrdersInboxService } from '../../features/customer-orders/customer-orders-inbox.service';
 import { applyNavConfig, appShortcutById, effectiveNavConfig, navGroupPagePath, navLeaf } from './nav-config';
 import { NavMenuService } from './nav-menu.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
@@ -103,6 +105,7 @@ export class MainLayoutComponent {
   private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly tipsInbox = inject(TipsInboxService);
   private readonly reimbursementsInbox = inject(ReimbursementsInboxService);
+  private readonly customerOrdersInbox = inject(CustomerOrdersInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
   private readonly navMenu = inject(NavMenuService);
   readonly pageRefresh = inject(PageRefreshService);
@@ -135,6 +138,13 @@ export class MainLayoutComponent {
         items.push(leaf('tips', { badge: this.tipsInbox.pendingCount() || null }));
       }
       return items;
+    }
+    if (isCustomerOrdersOnly(user, shopId)) {
+      return [
+        leaf('customerOrders', {
+          badge: this.customerOrdersInbox.pendingCount() || null,
+        }),
+      ];
     }
     if (isProducerOnly(user, shopId)) {
       const items: NavItem[] = [leaf('myProduction')];
@@ -198,6 +208,18 @@ export class MainLayoutComponent {
     }
     if (shopId && hasShopPermission(user, shopId, 'serviceRules.read')) {
       operacion.push(leaf('serviceRules'));
+    }
+    if (
+      shopId &&
+      hasShopPermission(user, shopId, 'customerOrders.read') &&
+      this.shopFeature('onlineOrdering')
+    ) {
+      operacion.push(
+        leaf('customerOrders', {
+          badge: this.customerOrdersInbox.pendingCount() || null,
+          badgeInGroup: false,
+        }),
+      );
     }
     if (operacion.length) {
       items.push({
@@ -420,13 +442,6 @@ export class MainLayoutComponent {
       local.push(leaf('adminShopOperacion'));
       local.push(leaf('adminOrdering'));
     }
-    if (
-      shopId &&
-      hasShopPermission(user, shopId, 'customerOrders.read') &&
-      this.shopFeature('onlineOrdering')
-    ) {
-      local.push(leaf('customerOrders'));
-    }
     if (shopId && canManageShop(user, shopId)) {
       local.push(leaf('adminShopDispositivos'));
       local.push(leaf('adminShopMenu'));
@@ -539,6 +554,16 @@ export class MainLayoutComponent {
           (path.startsWith('/tips') &&
             hasShopPermission(user, shopId, 'tips.read') &&
             this.shopFeature('tips'));
+        if (!allowed) {
+          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+        }
+        return;
+      }
+      if (isCustomerOrdersOnly(user, shopId)) {
+        const allowed =
+          path.startsWith('/customer-orders') ||
+          path === '/profile' ||
+          path === '/forbidden';
         if (!allowed) {
           void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
         }

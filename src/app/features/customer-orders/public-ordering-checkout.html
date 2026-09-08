@@ -5,19 +5,6 @@
   </div>
 } @else if (loading()) {
   <div class="page page--loading"><p>Cargando…</p></div>
-} @else if (success(); as order) {
-  <div class="page">
-    <section class="done" role="status">
-      <div class="done__mark" aria-hidden="true">✓</div>
-      <h1>¡Pedido enviado!</h1>
-      <p class="done__code">Código <strong>{{ order.code }}</strong></p>
-      <p class="muted">
-        Guardalo: lo vas a necesitar con tu celular para consultar el estado.
-      </p>
-      <a class="btn btn--primary" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
-      <a class="btn btn--link" [routerLink]="['/pedir', slug()]">Volver al inicio</a>
-    </section>
-  </div>
 } @else if (config(); as c) {
   <div class="page">
     <header class="top">

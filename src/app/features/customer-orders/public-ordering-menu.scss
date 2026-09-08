@@ -1,3 +1,4 @@
+@use './ordering-motion.scss' as *;
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
 
 :host {
@@ -53,6 +54,7 @@
   border-radius: 1rem;
   padding: 0.7rem 0.75rem;
   box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
+  animation: ord-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .back,
@@ -153,6 +155,48 @@ h1 {
   background: var(--sheet);
   color: var(--ink);
   box-shadow: 0 6px 18px rgba(28, 40, 30, 0.04);
+  animation: ord-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.list > li:nth-child(1) .cat,
+.list > li:nth-child(1) .item {
+  animation-delay: 0.03s;
+}
+.list > li:nth-child(2) .cat,
+.list > li:nth-child(2) .item {
+  animation-delay: 0.06s;
+}
+.list > li:nth-child(3) .cat,
+.list > li:nth-child(3) .item {
+  animation-delay: 0.09s;
+}
+.list > li:nth-child(4) .cat,
+.list > li:nth-child(4) .item {
+  animation-delay: 0.12s;
+}
+.list > li:nth-child(5) .cat,
+.list > li:nth-child(5) .item {
+  animation-delay: 0.15s;
+}
+.list > li:nth-child(6) .cat,
+.list > li:nth-child(6) .item {
+  animation-delay: 0.18s;
+}
+.list > li:nth-child(7) .cat,
+.list > li:nth-child(7) .item {
+  animation-delay: 0.21s;
+}
+.list > li:nth-child(8) .cat,
+.list > li:nth-child(8) .item {
+  animation-delay: 0.24s;
+}
+
+.cat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(28, 40, 30, 0.08);
 }
 
 .cat__body strong {
@@ -189,6 +233,15 @@ h1 {
   background: var(--sheet);
   color: var(--ink);
   box-shadow: 0 6px 18px rgba(28, 40, 30, 0.04);
+  animation: ord-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(28, 40, 30, 0.08);
 }
 
 .item__head {
@@ -231,6 +284,7 @@ h1 {
 .item__add:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
 }
 
 .empty {
@@ -240,6 +294,7 @@ h1 {
   background: var(--sheet);
   border: 1px solid var(--line);
   border-radius: 14px;
+  animation: ord-fade-up 0.4s ease both;
 }
 
 .detail {
@@ -250,6 +305,7 @@ h1 {
   border-radius: 1.1rem;
   padding: 1.1rem 1rem 1.2rem;
   box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
+  animation: ord-sheet-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .detail__price {
@@ -364,6 +420,19 @@ textarea:focus {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 12px 28px color-mix(in srgb, var(--accent, #2e7d32) 35%, transparent);
+  animation: ord-cart-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.cart-bar:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--accent, #2e7d32) 42%, transparent);
+}
+
+.cart-bar:active {
+  transform: translateX(-50%) translateY(0) scale(0.99);
 }
 
 .cart-bar__count {
@@ -375,4 +444,26 @@ textarea:focus {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.22);
   font-size: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top,
+  .cat,
+  .item,
+  .detail,
+  .empty,
+  .cart-bar {
+    animation: none !important;
+  }
+
+  .cat:hover,
+  .item:hover,
+  .cart-bar:hover,
+  .cart-bar:active {
+    transform: none;
+  }
+
+  .cart-bar {
+    transform: translateX(-50%);
+  }
 }

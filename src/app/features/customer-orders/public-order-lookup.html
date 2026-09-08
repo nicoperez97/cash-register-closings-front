@@ -31,48 +31,13 @@
         class="code"
       />
     </label>
+    @if (error()) {
+      <p class="form-error">{{ error() }}</p>
+    }
     <button type="submit" [disabled]="loading() || !phone.trim() || !code.trim()">
-      {{ loading() ? 'Buscando…' : 'Consultar' }}
+      {{ loading() ? 'Buscando…' : 'Ver pedido' }}
     </button>
   </form>
-
-  @if (searched()) {
-    @if (order(); as o) {
-      <section class="card card--result">
-        <div class="row-top">
-          <span class="badge" [attr.data-status]="o.status">{{ statusText(o.status) }}</span>
-          <span class="code-pill">{{ o.code }}</span>
-        </div>
-        <p class="meta">
-          {{ fulfillmentText(o.fulfillment) }}
-          @if (o.deliveryZoneName) {
-            · {{ o.deliveryZoneName }}
-          }
-          · {{ paymentText(o.paymentMethod) }}
-        </p>
-        @if (o.address) {
-          <p class="meta">{{ o.address }}</p>
-        }
-        <ul class="items">
-          @for (it of o.items; track it.menuItemId + '|' + it.qty + '|' + (it.notes || '')) {
-            <li>
-              <span>{{ it.qty }}× {{ it.name }}</span>
-              <span>{{ money(it.unitPrice * it.qty) }}</span>
-            </li>
-          }
-        </ul>
-        <div class="total">
-          <span>Total</span>
-          <strong>{{ money(o.total) }}</strong>
-        </div>
-      </section>
-    } @else {
-      <div class="card card--empty">
-        <p class="empty-title">Sin resultados</p>
-        <p class="empty">{{ error() || 'Revisá el celular y el código.' }}</p>
-      </div>
-    }
-  }
 
   <p class="back">
     <a [routerLink]="['/pedir', slug()]">Volver a pedir</a>

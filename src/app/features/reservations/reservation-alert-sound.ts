@@ -115,6 +115,14 @@ export function bindReservationAlertSoundUnlock(): void {
   unlockReservationAlertSound();
 }
 
+/** Pedido online pendiente: tres notas cortas (Do–Mi–Sol). */
+function scheduleCustomerOrderChime(audio: AudioContext): void {
+  const t = audio.currentTime;
+  tone(audio, t, 523.25, 0.12, 0.3, 'sine');
+  tone(audio, t + 0.14, 659.25, 0.12, 0.32, 'sine');
+  tone(audio, t + 0.28, 783.99, 0.22, 0.34, 'sine');
+}
+
 /** Admin: llegó una solicitud web pendiente. */
 export function playReservationPendingSound(): void {
   playWith(schedulePendingChime);
@@ -123,4 +131,9 @@ export function playReservationPendingSound(): void {
 /** Tablero /r: apareció una reserva nueva en la lista. */
 export function playReservationBoardSound(): void {
   playWith(scheduleBoardChime);
+}
+
+/** Admin: llegó un pedido online pendiente. */
+export function playCustomerOrderPendingSound(): void {
+  playWith(scheduleCustomerOrderChime);
 }

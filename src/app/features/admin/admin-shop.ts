@@ -72,6 +72,7 @@ const EMAIL_NOTIFICATION_TYPE_OPTIONS = [
   { value: 'SHORTAGE_LEVEL_LOW', label: 'Faltantes · bajó a crítico' },
   { value: 'SHORTAGE_RESOLVED', label: 'Faltantes · resuelto' },
   { value: 'RESERVATION_REQUEST', label: 'Reservas · solicitud nueva' },
+  { value: 'CUSTOMER_ORDER_CREATED', label: 'Pedidos online · pedido nuevo' },
   { value: 'MOVEMENT_CREATED', label: 'Movimientos y gastos rápidos' },
   { value: 'MOVEMENT_UPDATED', label: 'Gastos · editados' },
   { value: 'MOVEMENT_DELETED', label: 'Gastos · eliminados' },
