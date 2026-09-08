@@ -33,7 +33,10 @@ type ToggleRow = {
     <section class="ocp">
       <header class="ocp__head">
         <h2>Configurar pedidos online</h2>
-        <p>Alta/baja de envío, pagos, ítems y extras. Crear o editar ítems/extras y fotos: en Carta.</p>
+        <p>
+          Alta/baja de envío, medios de pago, ítems y extras. CBU/alias y WhatsApp: en Configuración del
+          local → Pedidos. Crear ítems/extras y fotos: en Carta.
+        </p>
       </header>
 
       @if (loading()) {
@@ -75,30 +78,6 @@ type ToggleRow = {
             />
           </div>
         </div>
-
-        @if (payTransfer) {
-          <label class="ocp__field">
-            <span>Datos de transferencia (CBU / alias)</span>
-            <textarea
-              name="transferInstructions"
-              rows="3"
-              [(ngModel)]="transferInstructions"
-              placeholder="Ej. Alias: local.mp · CBU: 0000000000000000000000"
-              autocomplete="off"
-            ></textarea>
-          </label>
-          <label class="ocp__field">
-            <span>WhatsApp para comprobantes</span>
-            <input
-              name="orderingWhatsapp"
-              type="tel"
-              [(ngModel)]="orderingWhatsapp"
-              placeholder="ej. 54911 2345 6789"
-              autocomplete="tel"
-            />
-            <small>Si está vacío, se usa el teléfono del local</small>
-          </label>
-        }
 
         <h3 class="ocp__sub">Ítems de la carta</h3>
         <p class="ocp__hint">Desactivá lo que no quieras vender online.</p>
@@ -209,36 +188,6 @@ type ToggleRow = {
       font-size: 0.8rem;
       color: var(--guy-muted, #5f6f76);
     }
-    .ocp__field {
-      display: grid;
-      gap: 0.3rem;
-      font-size: 0.82rem;
-      font-weight: 650;
-      color: var(--guy-muted, #5f6f76);
-    }
-    .ocp__field textarea,
-    .ocp__field input {
-      width: 100%;
-      box-sizing: border-box;
-      border: 1px solid var(--guy-border, #d7e0d9);
-      border-radius: 10px;
-      padding: 0.65rem 0.75rem;
-      font: inherit;
-      font-weight: 500;
-      color: var(--guy-ink, #1a221c);
-      background: #fff;
-      resize: vertical;
-    }
-    .ocp__field textarea:focus,
-    .ocp__field input:focus {
-      outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 45%, transparent);
-      outline-offset: 1px;
-      border-color: var(--guy-green, #2e7d32);
-    }
-    .ocp__field small {
-      font-weight: 500;
-      font-size: 0.75rem;
-    }
     .ocp__save {
       margin-top: 0.35rem;
     }
@@ -260,8 +209,6 @@ export class OrderingCatalogPanelComponent {
   deliveryEnabled = false;
   payCash = true;
   payTransfer = true;
-  transferInstructions = '';
-  orderingWhatsapp = '';
 
   readonly filteredItems = computed(() =>
     filterBySelectQuery(this.items(), this.itemQuery(), (it) => `${it.name} ${it.detail ?? ''}`),
@@ -302,8 +249,6 @@ export class OrderingCatalogPanelComponent {
         deliveryEnabled?: boolean;
         orderingPayments?: {
           methods?: Array<'CASH' | 'TRANSFER'>;
-          transferInstructions?: string | null;
-          whatsapp?: string | null;
         } | null;
         orderingExtras?: Array<{
           id?: string;
@@ -319,8 +264,6 @@ export class OrderingCatalogPanelComponent {
           const methods = s.orderingPayments?.methods;
           this.payCash = !methods || methods.includes('CASH');
           this.payTransfer = !methods || methods.includes('TRANSFER');
-          this.transferInstructions = String(s.orderingPayments?.transferInstructions ?? '');
-          this.orderingWhatsapp = String(s.orderingPayments?.whatsapp ?? '');
           this.extras.set(
             (s.orderingExtras ?? [])
               .filter((e) => String(e.name ?? '').trim())
@@ -401,8 +344,6 @@ export class OrderingCatalogPanelComponent {
         deliveryEnabled: this.deliveryEnabled,
         orderingPayments: {
           methods,
-          transferInstructions: this.transferInstructions.trim() || null,
-          whatsapp: this.orderingWhatsapp.trim() || null,
         },
         menuItemAvailability: this.items().map((it) => ({
           id: it.id,
