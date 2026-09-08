@@ -39,6 +39,9 @@ export interface AppNotification {
   targetId?: string | null;
   read: boolean;
   readAt: string | null;
+  /** true si ya se abrió el panel (badge limpio); independiente de `read`. */
+  seen?: boolean;
+  seenAt?: string | null;
   createdAt: string;
 }
 
@@ -159,6 +162,19 @@ export class NotificationsApiService {
     );
   }
 
+  /** Badge de la campana (avisos aún no abiertos en el panel). */
+  unseenCount(shopId?: string | null) {
+    const params: Record<string, string> = {};
+    if (shopId) params['shopId'] = shopId;
+    return this.http.get<{ count: number }>(`${this.base}/notifications/unseen-count`, { params });
+  }
+
+  unseenCountsByShop() {
+    return this.http.get<{ counts: Record<string, number> }>(
+      `${this.base}/notifications/unseen-counts-by-shop`,
+    );
+  }
+
   markRead(id: string) {
     return this.http.patch<{ ok: boolean }>(`${this.base}/notifications/${id}/read`, {});
   }
@@ -167,5 +183,12 @@ export class NotificationsApiService {
     const params: Record<string, string> = {};
     if (shopId) params['shopId'] = shopId;
     return this.http.post<{ ok: boolean }>(`${this.base}/notifications/read-all`, {}, { params });
+  }
+
+  /** Abre la campana: limpia el badge sin marcar ítems como leídos. */
+  markSeen(shopId?: string | null) {
+    const params: Record<string, string> = {};
+    if (shopId) params['shopId'] = shopId;
+    return this.http.post<{ ok: boolean }>(`${this.base}/notifications/seen`, {}, { params });
   }
 }

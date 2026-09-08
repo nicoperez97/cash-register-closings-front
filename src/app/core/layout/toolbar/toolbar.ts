@@ -24,7 +24,6 @@ import {
   Subject,
   catchError,
   finalize,
-  map,
   of,
   switchMap,
   timeout,
@@ -38,6 +37,7 @@ import {
   isClosingsCreateOnly,
   isProducerOnly,
   canViewClosingsList,
+  canCustomizeLayout,
   userRoleLabel,
 } from '../../auth/auth.models';
 import { ThemeService, ThemeMode } from '../../theme/theme.service';
@@ -80,10 +80,71 @@ type ToolbarQuickAction =
   | { id: string; kind: 'route'; label: string; icon: string; route: string }
   | { id: string; kind: 'action'; label: string; icon: string };
 
+type NotifSection = {
+  key: 'nuevas' | 'hoy' | 'anteriores';
+  label: string;
+  items: AppNotification[];
+};
+
 const QUICK_BTN = 38;
 const QUICK_GAP = 6;
 /** Espacio mínimo del spacer (no comerse el layout). */
 const MIN_SPACER = 12;
+
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * TypeORM usa timezone:'Z' pero MySQL guarda DATETIME en hora local del server (AR).
+ * El JSON llega como `…Z` aunque los números son de pared local → sin esto marca ~3 h de más.
+ */
+export function parseAppDateTime(raw: string | Date | null | undefined): Date | null {
+  if (raw == null || raw === '') return null;
+  if (raw instanceof Date) {
+    return Number.isNaN(raw.getTime()) ? null : raw;
+  }
+  const s = String(raw).trim();
+  const m = s.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2})(\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/,
+  );
+  if (!m) {
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const ms = m[7] ? Math.round(Number(`0${m[7]}`) * 1000) : 0;
+  const d = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    m[4] != null ? Number(m[4]) : 0,
+    m[5] != null ? Number(m[5]) : 0,
+    m[6] != null ? Number(m[6]) : 0,
+    ms,
+  );
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Tiempo relativo estilo inbox (es-AR). */
+export function notifRelativeTime(iso: string, now = new Date()): string {
+  const then = parseAppDateTime(iso);
+  if (!then) return '';
+  const diffSec = Math.max(0, Math.floor((now.getTime() - then.getTime()) / 1000));
+  if (diffSec < 60) return 'Ahora';
+  const mins = Math.floor(diffSec / 60);
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return '1 día';
+  if (days < 7) return `${days} días`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return weeks === 1 ? '1 sem' : `${weeks} sem`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? '1 mes' : `${months} meses`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? '1 año' : `${years} años`;
+}
 
 @Component({
   selector: 'app-toolbar',
@@ -129,9 +190,56 @@ export class ToolbarComponent implements OnInit {
   readonly unreadCount = this.notifsInbox.unreadCount;
   readonly notifications = signal<AppNotification[]>([]);
   readonly loadingNotifs = signal(false);
+  /** Filtro del panel: todas | solo no leídas. */
+  readonly notifFilter = signal<'all' | 'unread'>('all');
+  readonly notifMenuOpen = signal(false);
+
+  readonly filteredNotifications = computed(() => {
+    const rows = this.notifications();
+    if (this.notifFilter() === 'unread') return rows.filter((n) => !n.read);
+    return rows;
+  });
+
+  readonly hasUnreadNotifs = computed(() => this.notifications().some((n) => !n.read));
+
+  /** Secciones estilo Facebook: Nuevas (no leídas) / Hoy / Anteriores. */
+  readonly notifSections = computed((): NotifSection[] => {
+    const rows = this.filteredNotifications();
+    if (!rows.length) return [];
+
+    if (this.notifFilter() === 'unread') {
+      return [{ key: 'nuevas', label: 'Nuevas', items: rows }];
+    }
+
+    const startOfToday = startOfLocalDay(new Date());
+    const nuevas: AppNotification[] = [];
+    const hoy: AppNotification[] = [];
+    const anteriores: AppNotification[] = [];
+
+    for (const n of rows) {
+      if (!n.read) {
+        nuevas.push(n);
+        continue;
+      }
+      const created = parseAppDateTime(n.createdAt);
+      if (created && created >= startOfToday) {
+        hoy.push(n);
+      } else {
+        anteriores.push(n);
+      }
+    }
+
+    const sections: NotifSection[] = [];
+    if (nuevas.length) sections.push({ key: 'nuevas', label: 'Nuevas', items: nuevas });
+    if (hoy.length) sections.push({ key: 'hoy', label: 'Hoy', items: hoy });
+    if (anteriores.length) {
+      sections.push({ key: 'anteriores', label: 'Anteriores', items: anteriores });
+    }
+    return sections;
+  });
 
   /** Recarga la lista; cancela un pedido anterior (p. ej. colgado al volver de background). */
-  private readonly loadNotifs$ = new Subject<{ markRead: boolean; showSpinner: boolean }>();
+  private readonly loadNotifs$ = new Subject<{ showSpinner: boolean }>();
 
   /** Ancho libre (px) para los accesos rápidos, medido en el DOM. */
   private readonly availableQuickWidth = signal(0);
@@ -309,31 +417,27 @@ export class ToolbarComponent implements OnInit {
 
     this.loadNotifs$
       .pipe(
-        switchMap(({ markRead, showSpinner }) => {
+        switchMap(({ showSpinner }) => {
           if (showSpinner) this.loadingNotifs.set(true);
           const shopId = this.shopContext.selectedShopId();
           return this.notificationsApi.list(shopId).pipe(
             timeout({ first: 12_000 }),
-            map((rows) => ({ rows, markRead })),
-            catchError(() => of({ rows: null as AppNotification[] | null, markRead })),
+            catchError(() => of(null as AppNotification[] | null)),
             finalize(() => this.loadingNotifs.set(false)),
           );
         }),
         takeUntilDestroyed(),
       )
-      .subscribe(({ rows, markRead }) => {
+      .subscribe((rows) => {
         if (!rows) return;
         this.notifications.set(rows);
-        if (markRead && (this.unreadCount() > 0 || rows.some((n) => !n.read))) {
-          this.markAllRead(true);
-        }
       });
 
     if (typeof document !== 'undefined') {
       const onVis = () => {
         if (document.visibilityState !== 'visible' || !this.auth.getToken()) return;
         // Precarga al volver: el panel no arranca en blanco si la red tarda.
-        this.loadNotifs$.next({ markRead: false, showSpinner: false });
+        this.loadNotifs$.next({ showSpinner: false });
       };
       document.addEventListener('visibilitychange', onVis);
       this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVis));
@@ -345,7 +449,7 @@ export class ToolbarComponent implements OnInit {
     this.notifsInbox.refresh();
     void this.push.refreshStatus().then(() => this.push.promptEnableIfNeeded());
     // Lista en caché para que la campana no arranque en “Cargando…”.
-    this.loadNotifs$.next({ markRead: false, showSpinner: false });
+    this.loadNotifs$.next({ showSpinner: false });
   }
 
   private bindQuickSpaceObserver(): void {
@@ -421,6 +525,10 @@ export class ToolbarComponent implements OnInit {
 
   closeUserMenu(): void {
     this.userTrigger()?.closeMenu();
+  }
+
+  canCustomizeProfile(): boolean {
+    return canCustomizeLayout(this.auth.currentUser(), this.shopContext.selectedShopId());
   }
 
   setMode(mode: ThemeMode): void {
@@ -506,10 +614,30 @@ export class ToolbarComponent implements OnInit {
 
   openNotifications(): void {
     void this.push.refreshStatus();
+    // Badge se limpia al abrir; los ítems siguen no leídos hasta click / marcar todas.
+    this.notifsInbox.clearBadgeLocal();
+    this.markPanelSeen();
     this.loadNotifs$.next({
-      markRead: true,
       showSpinner: this.notifications().length === 0,
     });
+  }
+
+  setNotifFilter(filter: 'all' | 'unread'): void {
+    this.notifFilter.set(filter);
+    this.notifMenuOpen.set(false);
+  }
+
+  toggleNotifActions(ev?: Event): void {
+    ev?.stopPropagation();
+    this.notifMenuOpen.update((open) => !open);
+  }
+
+  closeNotifActions(): void {
+    this.notifMenuOpen.set(false);
+  }
+
+  notifTime(n: AppNotification): string {
+    return notifRelativeTime(n.createdAt);
   }
 
   async togglePush(): Promise<void> {
@@ -529,25 +657,58 @@ export class ToolbarComponent implements OnInit {
     }
   }
 
-  markAllRead(silent = false): void {
+  /** Marca vistas (badge) sin tocar leídas. */
+  private markPanelSeen(): void {
+    this.notificationsApi.markSeen(this.shopContext.selectedShopId()).subscribe({
+      next: () => {
+        this.notifications.update((rows) =>
+          rows.map((n) => (n.seen ? n : { ...n, seen: true })),
+        );
+        this.notifsInbox.refresh();
+      },
+    });
+  }
+
+  markAllRead(): void {
+    this.notifMenuOpen.set(false);
     this.notificationsApi.markAllRead(this.shopContext.selectedShopId()).subscribe({
       next: () => {
-        this.notifications.update((rows) => rows.map((n) => ({ ...n, read: true })));
+        this.notifications.update((rows) =>
+          rows.map((n) => ({ ...n, read: true, seen: true })),
+        );
         this.notifsInbox.refresh();
-        if (!silent) {
-          this.snack.open('Notificaciones marcadas como leídas', 'OK', { duration: 2000 });
-        }
+        this.snack.open('Notificaciones marcadas como leídas', 'OK', { duration: 2000 });
+      },
+    });
+  }
+
+  /** Marca leída sin navegar (como el ⋯ de Facebook). */
+  markOneRead(n: AppNotification, ev: Event): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (n.read) return;
+    this.notificationsApi.markRead(n.id).subscribe({
+      next: () => {
+        this.notifications.update((rows) =>
+          rows.map((x) =>
+            x.id === n.id ? { ...x, read: true, seen: true } : x,
+          ),
+        );
+        this.notifsInbox.refresh();
       },
     });
   }
 
   openNotification(n: AppNotification): void {
+    this.notifMenuOpen.set(false);
     this.notifTrigger()?.closeMenu();
     if (!n.read) {
       this.notificationsApi.markRead(n.id).subscribe({
         next: () => {
           this.notifications.update((rows) =>
-            rows.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
+            rows.map((x) =>
+              x.id === n.id ? { ...x, read: true, seen: true } : x,
+            ),
           );
           this.notifsInbox.refresh();
         },
