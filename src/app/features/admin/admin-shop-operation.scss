@@ -275,6 +275,23 @@
   gap: 0.45rem;
 }
 
+.op__hours-dayblock {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+}
+
+.op__hours-dayblock:last-child {
+  border-bottom: 0;
+}
+
+.op__windows {
+  display: grid;
+  gap: 0.45rem;
+  padding-left: 0.15rem;
+}
+
 .op__hours-row {
   display: flex;
   flex-wrap: wrap;

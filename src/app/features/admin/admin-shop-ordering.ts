@@ -143,15 +143,18 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           <div class="op__schedule">
             <div class="op__schedule-head">
               <h3 class="op__subtitle">Horarios take away</h3>
-              <button
-                type="button"
-                class="op__schedule-link"
-                (click)="toggleCustom('takeaway')"
-              >
-                {{ takeawayCustom() ? 'Misma hora todos los días' : 'Horario distinto por día' }}
-              </button>
+              <div class="op__schedule-head-actions">
+                <button type="button" class="op__schedule-link" (click)="useShopShifts('takeaway')">
+                  Usar turnos del local
+                </button>
+                <button type="button" class="op__schedule-link" (click)="toggleCustom('takeaway')">
+                  {{ takeawayCustom() ? 'Misma hora todos los días' : 'Horario distinto por día' }}
+                </button>
+              </div>
             </div>
-            <p class="op__schedule-hint">Tocá los días abiertos y la franja. Guardá abajo.</p>
+            <p class="op__schedule-hint">
+              Se cargan los turnos de caja. Podés sumar más de un turno por día. Guardá abajo.
+            </p>
             <div class="op__days" role="group" aria-label="Días take away">
               @for (d of dayIndexes; track d) {
                 <button
@@ -176,40 +179,83 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
               </button>
             </div>
             @if (!takeawayCustom()) {
-              <div class="op__schedule-range">
-                <label>
-                  Abre
-                  <input
-                    matInput
-                    type="time"
-                    [value]="sharedOpen('takeaway')"
-                    (change)="setSharedTime('takeaway', 'open', $event)"
-                  />
-                </label>
-                <span>a</span>
-                <label>
-                  Cierra
-                  <input
-                    matInput
-                    type="time"
-                    [value]="sharedClose('takeaway')"
-                    (change)="setSharedTime('takeaway', 'close', $event)"
-                  />
-                </label>
+              <div class="op__windows">
+                @for (w of sharedWindowIndexes('takeaway'); track w; let wi = $index) {
+                  <div class="op__schedule-range">
+                    <label>
+                      Abre
+                      <input
+                        matInput
+                        type="time"
+                        [value]="sharedWindowValue('takeaway', wi, 'open')"
+                        (change)="setSharedWindow('takeaway', wi, 'open', $event)"
+                      />
+                    </label>
+                    <span>a</span>
+                    <label>
+                      Cierra
+                      <input
+                        matInput
+                        type="time"
+                        [value]="sharedWindowValue('takeaway', wi, 'close')"
+                        (change)="setSharedWindow('takeaway', wi, 'close', $event)"
+                      />
+                    </label>
+                    @if (sharedWindowIndexes('takeaway').length > 1) {
+                      <button
+                        type="button"
+                        mat-icon-button
+                        (click)="removeSharedWindow('takeaway', wi)"
+                        aria-label="Quitar turno"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                }
+                <button type="button" mat-stroked-button (click)="addSharedWindow('takeaway')">
+                  <mat-icon>add</mat-icon>
+                  Otro turno
+                </button>
               </div>
             } @else {
               <div class="op__hours" formArrayName="takeawayHours">
                 @for (row of takeawayHours.controls; track $index; let i = $index) {
                   <div
-                    class="op__hours-row"
+                    class="op__hours-dayblock"
                     [class.op__hours-row--off]="!isDayOn('takeaway', i)"
                     [formGroupName]="i"
                   >
-                    <span class="op__hours-day">{{ dayLabel(i) }}</span>
-                    <mat-slide-toggle formControlName="enabled" aria-label="Abierto" />
-                    <input matInput type="time" formControlName="open" />
-                    <span>a</span>
-                    <input matInput type="time" formControlName="close" />
+                    <div class="op__hours-row">
+                      <span class="op__hours-day">{{ dayLabel(i) }}</span>
+                      <mat-slide-toggle formControlName="enabled" aria-label="Abierto" />
+                    </div>
+                    <div class="op__windows" formArrayName="windows">
+                      @for (w of windowsOf('takeaway', i).controls; track $index; let wi = $index) {
+                        <div class="op__schedule-range" [formGroupName]="wi">
+                          <input matInput type="time" formControlName="open" />
+                          <span>a</span>
+                          <input matInput type="time" formControlName="close" />
+                          @if (windowsOf('takeaway', i).length > 1) {
+                            <button
+                              type="button"
+                              mat-icon-button
+                              (click)="removeDayWindow('takeaway', i, wi)"
+                              aria-label="Quitar turno"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          }
+                        </div>
+                      }
+                      <button
+                        type="button"
+                        class="op__schedule-link"
+                        (click)="addDayWindow('takeaway', i)"
+                      >
+                        + Turno
+                      </button>
+                    </div>
                   </div>
                 }
               </div>
@@ -222,21 +268,20 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
             <div class="op__schedule-head">
               <h3 class="op__subtitle">Horarios delivery</h3>
               <div class="op__schedule-head-actions">
+                <button type="button" class="op__schedule-link" (click)="useShopShifts('delivery')">
+                  Usar turnos del local
+                </button>
                 @if (takeawayOn()) {
                   <button type="button" class="op__schedule-link" (click)="copyTakeawayToDelivery()">
                     Copiar take away
                   </button>
                 }
-                <button
-                  type="button"
-                  class="op__schedule-link"
-                  (click)="toggleCustom('delivery')"
-                >
+                <button type="button" class="op__schedule-link" (click)="toggleCustom('delivery')">
                   {{ deliveryCustom() ? 'Misma hora todos los días' : 'Horario distinto por día' }}
                 </button>
               </div>
             </div>
-            <p class="op__schedule-hint">Igual que take away: días + franja, o personalizá por día.</p>
+            <p class="op__schedule-hint">Igual que take away: varios turnos por día si hace falta.</p>
             <div class="op__days" role="group" aria-label="Días delivery">
               @for (d of dayIndexes; track d) {
                 <button
@@ -261,40 +306,83 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
               </button>
             </div>
             @if (!deliveryCustom()) {
-              <div class="op__schedule-range">
-                <label>
-                  Abre
-                  <input
-                    matInput
-                    type="time"
-                    [value]="sharedOpen('delivery')"
-                    (change)="setSharedTime('delivery', 'open', $event)"
-                  />
-                </label>
-                <span>a</span>
-                <label>
-                  Cierra
-                  <input
-                    matInput
-                    type="time"
-                    [value]="sharedClose('delivery')"
-                    (change)="setSharedTime('delivery', 'close', $event)"
-                  />
-                </label>
+              <div class="op__windows">
+                @for (w of sharedWindowIndexes('delivery'); track w; let wi = $index) {
+                  <div class="op__schedule-range">
+                    <label>
+                      Abre
+                      <input
+                        matInput
+                        type="time"
+                        [value]="sharedWindowValue('delivery', wi, 'open')"
+                        (change)="setSharedWindow('delivery', wi, 'open', $event)"
+                      />
+                    </label>
+                    <span>a</span>
+                    <label>
+                      Cierra
+                      <input
+                        matInput
+                        type="time"
+                        [value]="sharedWindowValue('delivery', wi, 'close')"
+                        (change)="setSharedWindow('delivery', wi, 'close', $event)"
+                      />
+                    </label>
+                    @if (sharedWindowIndexes('delivery').length > 1) {
+                      <button
+                        type="button"
+                        mat-icon-button
+                        (click)="removeSharedWindow('delivery', wi)"
+                        aria-label="Quitar turno"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                }
+                <button type="button" mat-stroked-button (click)="addSharedWindow('delivery')">
+                  <mat-icon>add</mat-icon>
+                  Otro turno
+                </button>
               </div>
             } @else {
               <div class="op__hours" formArrayName="deliveryHours">
                 @for (row of deliveryHours.controls; track $index; let i = $index) {
                   <div
-                    class="op__hours-row"
+                    class="op__hours-dayblock"
                     [class.op__hours-row--off]="!isDayOn('delivery', i)"
                     [formGroupName]="i"
                   >
-                    <span class="op__hours-day">{{ dayLabel(i) }}</span>
-                    <mat-slide-toggle formControlName="enabled" aria-label="Abierto" />
-                    <input matInput type="time" formControlName="open" />
-                    <span>a</span>
-                    <input matInput type="time" formControlName="close" />
+                    <div class="op__hours-row">
+                      <span class="op__hours-day">{{ dayLabel(i) }}</span>
+                      <mat-slide-toggle formControlName="enabled" aria-label="Abierto" />
+                    </div>
+                    <div class="op__windows" formArrayName="windows">
+                      @for (w of windowsOf('delivery', i).controls; track $index; let wi = $index) {
+                        <div class="op__schedule-range" [formGroupName]="wi">
+                          <input matInput type="time" formControlName="open" />
+                          <span>a</span>
+                          <input matInput type="time" formControlName="close" />
+                          @if (windowsOf('delivery', i).length > 1) {
+                            <button
+                              type="button"
+                              mat-icon-button
+                              (click)="removeDayWindow('delivery', i, wi)"
+                              aria-label="Quitar turno"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          }
+                        </div>
+                      }
+                      <button
+                        type="button"
+                        class="op__schedule-link"
+                        (click)="addDayWindow('delivery', i)"
+                      >
+                        + Turno
+                      </button>
+                    </div>
                   </div>
                 }
               </div>
@@ -387,6 +475,10 @@ export class AdminShopOrderingComponent {
     return channel === 'takeaway' ? this.takeawayHours : this.deliveryHours;
   }
 
+  windowsOf(channel: HoursChannel, dayIndex: number): FormArray {
+    return (this.hoursOf(channel).at(dayIndex) as FormGroup).get('windows') as FormArray;
+  }
+
   isDayOn(channel: HoursChannel, index: number): boolean {
     return !!(this.hoursOf(channel).at(index) as FormGroup | null)?.get('enabled')?.value;
   }
@@ -397,7 +489,7 @@ export class AdminShopOrderingComponent {
     const next = !g.get('enabled')?.value;
     g.patchValue({ enabled: next });
     if (next && !this.isCustom(channel)) {
-      this.applySharedToEnabled(channel);
+      this.applySharedWindowsToAll(channel);
     }
   }
 
@@ -405,47 +497,92 @@ export class AdminShopOrderingComponent {
     if (channel === 'takeaway') {
       const next = !this.takeawayCustom();
       this.takeawayCustom.set(next);
-      if (!next) this.applySharedToEnabled('takeaway');
+      if (!next) this.applySharedWindowsToAll('takeaway');
       return;
     }
     const next = !this.deliveryCustom();
     this.deliveryCustom.set(next);
-    if (!next) this.applySharedToEnabled('delivery');
+    if (!next) this.applySharedWindowsToAll('delivery');
   }
 
   isCustom(channel: HoursChannel): boolean {
     return channel === 'takeaway' ? this.takeawayCustom() : this.deliveryCustom();
   }
 
-  sharedOpen(channel: HoursChannel): string {
-    return this.firstEnabledTimes(channel).open;
+  useShopShifts(channel: HoursChannel): void {
+    this.host.applyOrderingHoursFromShifts(channel);
+    if (this.hasVariedWindows(channel)) {
+      if (channel === 'takeaway') this.takeawayCustom.set(true);
+      else this.deliveryCustom.set(true);
+    }
+    this.snack.open('Horarios tomados de los turnos del local', 'OK', { duration: 2200 });
   }
 
-  sharedClose(channel: HoursChannel): string {
-    return this.firstEnabledTimes(channel).close;
+  sharedWindowIndexes(channel: HoursChannel): number[] {
+    const n = Math.max(1, this.windowsOf(channel, this.firstDayIndex(channel)).length);
+    return Array.from({ length: n }, (_, i) => i);
   }
 
-  setSharedTime(channel: HoursChannel, field: 'open' | 'close', ev: Event): void {
+  sharedWindowValue(channel: HoursChannel, wi: number, field: 'open' | 'close'): string {
+    const w = this.windowsOf(channel, this.firstDayIndex(channel)).at(wi) as FormGroup | null;
+    return String(w?.get(field)?.value || (field === 'open' ? '12:00' : '17:00'));
+  }
+
+  setSharedWindow(channel: HoursChannel, wi: number, field: 'open' | 'close', ev: Event): void {
     const value = String((ev.target as HTMLInputElement | null)?.value ?? '').trim();
     if (!value) return;
     for (const ctrl of this.hoursOf(channel).controls) {
-      (ctrl as FormGroup).patchValue({ [field]: value });
+      const windows = (ctrl as FormGroup).get('windows') as FormArray;
+      while (windows.length <= wi) {
+        windows.push(this.host.buildHourWindow());
+      }
+      (windows.at(wi) as FormGroup).patchValue({ [field]: value });
     }
   }
 
+  addSharedWindow(channel: HoursChannel): void {
+    const times = this.firstWindowTimes(channel);
+    for (const ctrl of this.hoursOf(channel).controls) {
+      const windows = (ctrl as FormGroup).get('windows') as FormArray;
+      windows.push(this.host.buildHourWindow(times.open, times.close));
+    }
+  }
+
+  removeSharedWindow(channel: HoursChannel, wi: number): void {
+    for (const ctrl of this.hoursOf(channel).controls) {
+      const windows = (ctrl as FormGroup).get('windows') as FormArray;
+      if (windows.length > 1 && wi < windows.length) windows.removeAt(wi);
+    }
+  }
+
+  addDayWindow(channel: HoursChannel, dayIndex: number): void {
+    const windows = this.windowsOf(channel, dayIndex);
+    const last = windows.at(windows.length - 1) as FormGroup | null;
+    windows.push(
+      this.host.buildHourWindow(
+        String(last?.get('open')?.value || '12:00'),
+        String(last?.get('close')?.value || '17:00'),
+      ),
+    );
+  }
+
+  removeDayWindow(channel: HoursChannel, dayIndex: number, wi: number): void {
+    const windows = this.windowsOf(channel, dayIndex);
+    if (windows.length > 1) windows.removeAt(wi);
+  }
+
   applyPreset(channel: HoursChannel, preset: 'weekdays' | 'all' | 'none'): void {
-    const times = this.firstEnabledTimes(channel);
+    const template = this.cloneWindows(this.windowsOf(channel, this.firstDayIndex(channel)));
     const weekdays = new Set<number>(WEEKDAYS);
     for (const ctrl of this.hoursOf(channel).controls) {
       const g = ctrl as FormGroup;
       const day = Number(g.get('day')?.value);
       const enabled =
         preset === 'all' ? true : preset === 'none' ? false : weekdays.has(day);
-      g.patchValue({
-        enabled,
-        open: times.open,
-        close: times.close,
-      });
+      g.patchValue({ enabled });
+      const windows = g.get('windows') as FormArray;
+      windows.clear();
+      for (const w of template) windows.push(this.host.buildHourWindow(w.open, w.close));
     }
   }
 
@@ -453,42 +590,67 @@ export class AdminShopOrderingComponent {
     const src = this.takeawayHours;
     const dst = this.deliveryHours;
     for (let i = 0; i < src.length; i++) {
-      const s = (src.at(i) as FormGroup).getRawValue() as {
-        enabled: boolean;
-        open: string;
-        close: string;
-      };
-      (dst.at(i) as FormGroup)?.patchValue({
-        enabled: s.enabled,
-        open: s.open,
-        close: s.close,
-      });
+      const sg = src.at(i) as FormGroup;
+      const dg = dst.at(i) as FormGroup;
+      if (!sg || !dg) continue;
+      dg.patchValue({ enabled: !!sg.get('enabled')?.value });
+      const sw = sg.get('windows') as FormArray;
+      const dw = dg.get('windows') as FormArray;
+      dw.clear();
+      for (const c of sw.controls) {
+        const v = (c as FormGroup).getRawValue() as { open: string; close: string };
+        dw.push(this.host.buildHourWindow(v.open, v.close));
+      }
+      if (!dw.length) dw.push(this.host.buildHourWindow());
     }
     this.deliveryCustom.set(this.takeawayCustom());
     this.snack.open('Horarios de take away copiados a delivery', 'OK', { duration: 2200 });
   }
 
-  private firstEnabledTimes(channel: HoursChannel): { open: string; close: string } {
-    for (const ctrl of this.hoursOf(channel).controls) {
-      const g = ctrl as FormGroup;
-      if (!g.get('enabled')?.value) continue;
-      return {
-        open: String(g.get('open')?.value || '12:00'),
-        close: String(g.get('close')?.value || '17:00'),
-      };
+  private firstDayIndex(channel: HoursChannel): number {
+    const arr = this.hoursOf(channel);
+    for (let i = 0; i < arr.length; i++) {
+      if ((arr.at(i) as FormGroup).get('enabled')?.value) return i;
     }
-    const first = this.hoursOf(channel).at(0) as FormGroup | null;
+    return 0;
+  }
+
+  private firstWindowTimes(channel: HoursChannel): { open: string; close: string } {
+    const w = this.windowsOf(channel, this.firstDayIndex(channel)).at(0) as FormGroup | null;
     return {
-      open: String(first?.get('open')?.value || '12:00'),
-      close: String(first?.get('close')?.value || '17:00'),
+      open: String(w?.get('open')?.value || '12:00'),
+      close: String(w?.get('close')?.value || '17:00'),
     };
   }
 
-  private applySharedToEnabled(channel: HoursChannel): void {
-    const times = this.firstEnabledTimes(channel);
+  private cloneWindows(arr: FormArray): Array<{ open: string; close: string }> {
+    const out = arr.controls.map((c) => {
+      const v = (c as FormGroup).getRawValue() as { open: string; close: string };
+      return { open: String(v.open || '12:00'), close: String(v.close || '17:00') };
+    });
+    return out.length ? out : [{ open: '12:00', close: '17:00' }];
+  }
+
+  private applySharedWindowsToAll(channel: HoursChannel): void {
+    const template = this.cloneWindows(this.windowsOf(channel, this.firstDayIndex(channel)));
     for (const ctrl of this.hoursOf(channel).controls) {
-      const g = ctrl as FormGroup;
-      g.patchValue({ open: times.open, close: times.close }, { emitEvent: false });
+      const windows = (ctrl as FormGroup).get('windows') as FormArray;
+      windows.clear();
+      for (const w of template) windows.push(this.host.buildHourWindow(w.open, w.close));
     }
+  }
+
+  private hasVariedWindows(channel: HoursChannel): boolean {
+    const arr = this.hoursOf(channel);
+    let ref: string | null = null;
+    for (const ctrl of arr.controls) {
+      const g = ctrl as FormGroup;
+      if (!g.get('enabled')?.value) continue;
+      const key = JSON.stringify(this.cloneWindows(g.get('windows') as FormArray));
+      if (ref == null) ref = key;
+      else if (ref !== key) return true;
+      if ((g.get('windows') as FormArray).length > 1) return true;
+    }
+    return false;
   }
 }
