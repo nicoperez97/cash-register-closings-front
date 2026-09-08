@@ -7,11 +7,12 @@ import { prettySection } from '../menu/menu-display';
 import {
   CustomerOrdersApiService,
   PublicOrderingConfig,
+  PublicOrderingExtra,
   PublicOrderingMenuItem,
   PublicOrderingSection,
 } from './customer-orders-api.service';
 import { OrderingCartService } from './ordering-cart.service';
-import { apiErrorMessage, onAccentColor, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
+import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
 
 type View = 'categories' | 'items' | 'detail';
 
@@ -38,6 +39,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   readonly item = signal<PublicOrderingMenuItem | null>(null);
   readonly qty = signal(1);
   readonly notes = signal('');
+  readonly selectedExtraIds = signal<string[]>([]);
   readonly addedFlash = signal(false);
 
   readonly shop = computed(() => this.config()?.shop ?? null);
@@ -75,6 +77,20 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   readonly cartCount = computed(() => this.cart.count());
   readonly cartSubtotal = computed(() => this.cart.subtotal());
+
+  readonly itemExtras = computed((): PublicOrderingExtra[] => {
+    const it = this.item();
+    const extras = this.config()?.extras ?? [];
+    if (!it) return [];
+    return extras.filter((e) => {
+      const ids = e.menuItemIds ?? [];
+      return !ids.length || ids.includes(it.id);
+    });
+  });
+
+  itemPhoto(it: PublicOrderingMenuItem): string | null {
+    return orderingItemImageUrl(this.slug(), it);
+  }
 
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
@@ -135,13 +151,25 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     this.item.set(item);
     this.qty.set(1);
     this.notes.set('');
+    this.selectedExtraIds.set([]);
     this.view.set('detail');
+  }
+
+  toggleExtra(extraId: string): void {
+    this.selectedExtraIds.update((ids) =>
+      ids.includes(extraId) ? ids.filter((x) => x !== extraId) : [...ids, extraId],
+    );
+  }
+
+  isExtraSelected(extraId: string): boolean {
+    return this.selectedExtraIds().includes(extraId);
   }
 
   back(): void {
     const v = this.view();
     if (v === 'detail') {
       this.item.set(null);
+      this.selectedExtraIds.set([]);
       this.view.set('items');
       return;
     }
@@ -161,15 +189,32 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     const it = this.item();
     if (!it || !this.canOrder()) return;
     this.cart.add({
+      kind: 'ITEM',
       menuItemId: it.id,
       name: it.name,
       unitPrice: Number(it.price) || 0,
       qty: this.qty(),
       notes: this.notes().trim(),
     });
+    const extras = this.itemExtras();
+    for (const id of this.selectedExtraIds()) {
+      const ex = extras.find((e) => e.id === id);
+      if (!ex) continue;
+      this.cart.add({
+        kind: 'EXTRA',
+        menuItemId: it.id,
+        name: ex.name,
+        unitPrice: Number(ex.price) || 0,
+        qty: this.qty(),
+        notes: '',
+        extraId: ex.id,
+        attachedToMenuItemId: it.id,
+      });
+    }
     this.addedFlash.set(true);
     setTimeout(() => this.addedFlash.set(false), 900);
     this.item.set(null);
+    this.selectedExtraIds.set([]);
     this.view.set('items');
   }
 

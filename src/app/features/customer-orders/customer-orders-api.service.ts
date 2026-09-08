@@ -32,6 +32,14 @@ export interface PublicOrderingMenuItem {
   description?: string | null;
   price: number;
   priceLabel?: string | null;
+  imageUrl?: string | null;
+}
+
+export interface PublicOrderingExtra {
+  id: string;
+  name: string;
+  price: number;
+  menuItemIds: string[];
 }
 
 export interface PublicOrderingSection {
@@ -67,15 +75,18 @@ export interface PublicOrderingConfig {
   payments: {
     methods: CustomerOrderPaymentMethod[];
     transferInstructions?: string | null;
+    whatsapp?: string | null;
   };
   deliveryZones: PublicDeliveryZone[];
   eta: { takeaway?: string | null; delivery?: string | null } | null;
+  extras: PublicOrderingExtra[];
   menus: PublicOrderingMenu[];
 }
 
 export interface CreatePublicCustomerOrderBody {
   fulfillment: CustomerOrderFulfillment;
   items: Array<{ menuItemId: string; qty: number; notes?: string | null }>;
+  extras?: Array<{ extraId: string; qty: number; attachedToMenuItemId?: string | null }>;
   firstName: string;
   lastName: string;
   phone: string;
@@ -105,6 +116,10 @@ export interface PublicCustomerOrder {
   paymentMethod: CustomerOrderPaymentMethod;
   deliveryZoneName?: string | null;
   address?: string | null;
+  /** WhatsApp (solo dígitos) para enviar comprobante si pagó por transferencia. */
+  receiptWhatsapp?: string | null;
+  /** Datos CBU/alias para transferir (si el pago es transferencia). */
+  transferInstructions?: string | null;
   createdAt?: string;
   acceptedAt?: string | null;
   preparingAt?: string | null;

@@ -16,6 +16,7 @@ import { AuthService } from '../auth/auth.service';
 import {
   canManageShop,
   canManageShopUsers,
+  canManageOrderingCatalog,
   defaultHomeRoute,
   hasShopPermission,
   isCashierOnly,
@@ -211,8 +212,9 @@ export class MainLayoutComponent {
     }
     if (
       shopId &&
-      hasShopPermission(user, shopId, 'customerOrders.read') &&
-      this.shopFeature('onlineOrdering')
+      this.shopFeature('onlineOrdering') &&
+      (hasShopPermission(user, shopId, 'customerOrders.read') ||
+        hasShopPermission(user, shopId, 'orderingCatalog.manage'))
     ) {
       operacion.push(
         leaf('customerOrders', {
@@ -440,12 +442,18 @@ export class MainLayoutComponent {
       local.push(leaf('adminShop'));
       local.push(leaf('adminShopIdentidad'));
       local.push(leaf('adminShopOperacion'));
+    }
+    if (shopId && canManageOrderingCatalog(user, shopId)) {
       local.push(leaf('adminOrdering'));
     }
     if (shopId && canManageShop(user, shopId)) {
       local.push(leaf('adminShopDispositivos'));
       local.push(leaf('adminShopMenu'));
+    }
+    if (shopId && canManageOrderingCatalog(user, shopId)) {
       local.push(leaf('adminMenu'));
+    }
+    if (shopId && canManageShop(user, shopId)) {
       local.push(leaf('adminShopAvanzado'));
     }
     if (local.length) {

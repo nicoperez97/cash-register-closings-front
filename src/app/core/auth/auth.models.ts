@@ -59,6 +59,7 @@ export type Permission =
   | 'orders.manage'
   | 'customerOrders.read'
   | 'customerOrders.manage'
+  | 'orderingCatalog.manage'
   | 'tips.read'
   | 'tips.create'
   | 'tips.manage'
@@ -126,6 +127,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'orders.manage',
   'customerOrders.read',
   'customerOrders.manage',
+  'orderingCatalog.manage',
   'tips.read',
   'tips.create',
   'tips.manage',
@@ -198,6 +200,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'orders.manage',
     'customerOrders.read',
     'customerOrders.manage',
+    'orderingCatalog.manage',
     'tips.read',
     'tips.create',
     'tips.manage',
@@ -281,6 +284,7 @@ export type ModuleKey =
   | 'shortages'
   | 'orders'
   | 'customerOrders'
+  | 'orderingCatalog'
   | 'tips'
   | 'reimbursements'
   | 'vacations'
@@ -602,6 +606,17 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'orderingCatalog',
+    label: 'Catálogo pedidos',
+    icon: 'tune',
+    group: 'config',
+    hint: 'Alta/baja de formas de envío, pagos, ítems, fotos y extras del pedido online',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'tips',
     label: 'Propinas',
     icon: 'volunteer_activism',
@@ -732,6 +747,15 @@ export const MODULE_PRESETS: Array<{
     icon: 'shopping_bag',
     modules: {
       customerOrders: 'manage',
+    },
+  },
+  {
+    id: 'ordering-catalog',
+    label: 'Catálogo pedidos',
+    description: 'Alta/baja de envíos, pagos, ítems, fotos y extras',
+    icon: 'tune',
+    modules: {
+      orderingCatalog: 'manage',
     },
   },
   {
@@ -897,6 +921,7 @@ export interface ShopSummary {
   orderingPayments?: {
     methods?: Array<'CASH' | 'TRANSFER'>;
     transferInstructions?: string | null;
+    whatsapp?: string | null;
   } | null;
   deliveryZones?: Array<{
     id: string;
@@ -1139,6 +1164,7 @@ export function expandModulePermissions(
   pair(levels.shortages, 'shortages.read', 'shortages.manage');
   pair(levels.orders, 'orders.read', 'orders.manage');
   pair(levels.customerOrders, 'customerOrders.read', 'customerOrders.manage');
+  if (levels.orderingCatalog === 'manage') addPermission(set, 'orderingCatalog.manage');
   switch (levels.tips) {
     case 'read':
       addPermission(set, 'tips.read');
@@ -1257,6 +1283,7 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.shortages = level('shortages.read', 'shortages.manage');
   base.orders = level('orders.read', 'orders.manage');
   base.customerOrders = level('customerOrders.read', 'customerOrders.manage');
+  base.orderingCatalog = has('orderingCatalog.manage') ? 'manage' : 'none';
   base.tips = tips();
   base.reimbursements = reimbursements();
   base.vacations = level('vacations.read', 'vacations.manage');
@@ -1305,6 +1332,14 @@ export function hasShopPermission(
 
 export function canManageShop(user: AuthUser | null, shopId: string | null): boolean {
   return hasShopPermission(user, shopId, 'shops.manage');
+}
+
+/** Alta/baja de canales, pagos, ítems y extras del pedido online. */
+export function canManageOrderingCatalog(user: AuthUser | null, shopId: string | null): boolean {
+  return (
+    hasShopPermission(user, shopId, 'shops.manage') ||
+    hasShopPermission(user, shopId, 'orderingCatalog.manage')
+  );
 }
 
 /** Admin/owner del local (o admin global): puede gestionar usuarios de ese local. */

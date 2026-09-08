@@ -1,11 +1,14 @@
 import { Injectable, computed, signal } from '@angular/core';
 
 export type OrderingCartLine = {
+  kind: 'ITEM' | 'EXTRA';
   menuItemId: string;
   name: string;
   unitPrice: number;
   qty: number;
   notes: string;
+  extraId?: string;
+  attachedToMenuItemId?: string;
 };
 
 type CartStore = Record<string, OrderingCartLine[]>;
@@ -26,11 +29,16 @@ function readSlug(slug: string): OrderingCartLine[] {
     return parsed
       .filter((l) => l && l.menuItemId && l.name && Number(l.unitPrice) >= 0)
       .map((l) => ({
+        kind: l.kind === 'EXTRA' ? ('EXTRA' as const) : ('ITEM' as const),
         menuItemId: String(l.menuItemId),
         name: String(l.name),
         unitPrice: Number(l.unitPrice) || 0,
         qty: Math.max(1, Math.min(99, Number(l.qty) || 1)),
         notes: String(l.notes ?? '').trim().slice(0, 300),
+        extraId: l.extraId ? String(l.extraId) : undefined,
+        attachedToMenuItemId: l.attachedToMenuItemId
+          ? String(l.attachedToMenuItemId)
+          : undefined,
       }));
   } catch {
     return [];
@@ -48,6 +56,13 @@ function writeSlug(slug: string, lines: OrderingCartLine[]): void {
   } catch {
     // quota / private mode
   }
+}
+
+function lineKey(l: Pick<OrderingCartLine, 'kind' | 'menuItemId' | 'notes' | 'extraId' | 'attachedToMenuItemId'>): string {
+  if (l.kind === 'EXTRA') {
+    return `e:${l.extraId ?? l.menuItemId}:${l.attachedToMenuItemId ?? ''}`;
+  }
+  return `i:${l.menuItemId}:${l.notes ?? ''}`;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -84,14 +99,25 @@ export class OrderingCartService {
     writeSlug(slug, next);
   }
 
-  add(line: Omit<OrderingCartLine, 'qty'> & { qty?: number }): void {
+  add(line: Omit<OrderingCartLine, 'qty' | 'kind'> & { qty?: number; kind?: 'ITEM' | 'EXTRA' }): void {
     const qty = Math.max(1, Math.min(99, Number(line.qty) || 1));
     const notes = String(line.notes ?? '').trim().slice(0, 300);
-    const menuItemId = String(line.menuItemId);
+    const kind = line.kind === 'EXTRA' ? ('EXTRA' as const) : ('ITEM' as const);
+    const nextLine: OrderingCartLine = {
+      kind,
+      menuItemId: String(line.menuItemId),
+      name: String(line.name),
+      unitPrice: Number(line.unitPrice) || 0,
+      qty,
+      notes,
+      extraId: line.extraId ? String(line.extraId) : undefined,
+      attachedToMenuItemId: line.attachedToMenuItemId
+        ? String(line.attachedToMenuItemId)
+        : undefined,
+    };
     const existing = this.lines();
-    const idx = existing.findIndex(
-      (l) => l.menuItemId === menuItemId && l.notes === notes,
-    );
+    const key = lineKey(nextLine);
+    const idx = existing.findIndex((l) => lineKey(l) === key);
     if (idx >= 0) {
       const copy = existing.map((l, i) =>
         i === idx ? { ...l, qty: Math.min(99, l.qty + qty) } : l,
@@ -99,31 +125,23 @@ export class OrderingCartService {
       this.mutate(copy);
       return;
     }
-    this.mutate([
-      ...existing,
-      {
-        menuItemId,
-        name: String(line.name),
-        unitPrice: Number(line.unitPrice) || 0,
-        qty,
-        notes,
-      },
-    ]);
+    this.mutate([...existing, nextLine]);
   }
 
-  updateQty(menuItemId: string, notes: string, qty: number): void {
-    const id = String(menuItemId);
-    const n = String(notes ?? '').trim();
+  updateQty(menuItemId: string, notes: string, qty: number, kind: 'ITEM' | 'EXTRA' = 'ITEM', extraId?: string, attachedToMenuItemId?: string): void {
+    const key = lineKey({
+      kind,
+      menuItemId,
+      notes,
+      extraId,
+      attachedToMenuItemId,
+    });
     const q = Math.max(0, Math.min(99, Math.floor(Number(qty) || 0)));
     if (q <= 0) {
-      this.remove(id, n);
+      this.mutate(this.lines().filter((l) => lineKey(l) !== key));
       return;
     }
-    this.mutate(
-      this.lines().map((l) =>
-        l.menuItemId === id && l.notes === n ? { ...l, qty: q } : l,
-      ),
-    );
+    this.mutate(this.lines().map((l) => (lineKey(l) === key ? { ...l, qty: q } : l)));
   }
 
   updateNotes(menuItemId: string, oldNotes: string, newNotes: string): void {
@@ -131,10 +149,16 @@ export class OrderingCartService {
     const from = String(oldNotes ?? '').trim();
     const to = String(newNotes ?? '').trim().slice(0, 300);
     const existing = this.lines();
-    const line = existing.find((l) => l.menuItemId === id && l.notes === from);
+    const line = existing.find(
+      (l) => l.kind !== 'EXTRA' && l.menuItemId === id && l.notes === from,
+    );
     if (!line) return;
-    const without = existing.filter((l) => !(l.menuItemId === id && l.notes === from));
-    const mergeIdx = without.findIndex((l) => l.menuItemId === id && l.notes === to);
+    const without = existing.filter(
+      (l) => !(l.kind !== 'EXTRA' && l.menuItemId === id && l.notes === from),
+    );
+    const mergeIdx = without.findIndex(
+      (l) => l.kind !== 'EXTRA' && l.menuItemId === id && l.notes === to,
+    );
     if (mergeIdx >= 0) {
       const copy = without.map((l, i) =>
         i === mergeIdx ? { ...l, qty: Math.min(99, l.qty + line.qty) } : l,
@@ -145,10 +169,15 @@ export class OrderingCartService {
     this.mutate([...without, { ...line, notes: to }]);
   }
 
-  remove(menuItemId: string, notes: string): void {
-    const id = String(menuItemId);
-    const n = String(notes ?? '').trim();
-    this.mutate(this.lines().filter((l) => !(l.menuItemId === id && l.notes === n)));
+  remove(menuItemId: string, notes: string, kind: 'ITEM' | 'EXTRA' = 'ITEM', extraId?: string, attachedToMenuItemId?: string): void {
+    const key = lineKey({
+      kind,
+      menuItemId,
+      notes,
+      extraId,
+      attachedToMenuItemId,
+    });
+    this.mutate(this.lines().filter((l) => lineKey(l) !== key));
   }
 
   clear(): void {

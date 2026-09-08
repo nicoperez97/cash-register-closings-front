@@ -13,6 +13,23 @@
   padding: 0.15rem 0;
 }
 
+.co-config {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 52rem;
+}
+
+.co-config__hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.co-config__hint a {
+  color: var(--guy-green, #2e7d32);
+  font-weight: 650;
+}
+
 .co-top__title {
   display: flex;
   align-items: center;

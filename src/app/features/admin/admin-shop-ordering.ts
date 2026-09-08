@@ -128,6 +128,16 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           <mat-label>Datos de transferencia (CBU / alias)</mat-label>
           <textarea matInput rows="2" formControlName="transferInstructions"></textarea>
         </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__full">
+          <mat-label>WhatsApp para comprobantes</mat-label>
+          <input
+            matInput
+            formControlName="orderingWhatsapp"
+            placeholder="ej. 54911 2345 6789"
+            autocomplete="tel"
+          />
+          <mat-hint>Si está vacío, se usa el teléfono del local</mat-hint>
+        </mat-form-field>
 
         @if (takeawayOn()) {
           <div class="op__schedule">

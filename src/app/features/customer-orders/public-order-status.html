@@ -81,6 +81,25 @@
         <span>Total</span>
         <strong>{{ money(o.total) }}</strong>
       </div>
+
+      @if (o.paymentMethod === 'TRANSFER') {
+        <aside class="receipt-wa">
+          <p class="receipt-wa__title">Transferí el pago</p>
+          @if (o.transferInstructions) {
+            <p class="receipt-wa__data">{{ o.transferInstructions }}</p>
+          } @else {
+            <p class="receipt-wa__text">Pedí al local los datos de la cuenta para transferir.</p>
+          }
+          <p class="receipt-wa__text">
+            Después mandá el comprobante por WhatsApp para que el local lo confirme.
+          </p>
+          @if (receiptWhatsappHref(); as wa) {
+            <a class="receipt-wa__btn" [href]="wa" target="_blank" rel="noopener">
+              Enviar comprobante por WhatsApp
+            </a>
+          }
+        </aside>
+      }
     </section>
 
     <p class="live-hint">Se actualiza solo cuando el local avanza el pedido.</p>

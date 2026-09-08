@@ -5,9 +5,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { canManageOrderingCatalog } from '../../core/auth/auth.models';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile, safeUploadFileName } from '../../shared/utils/input-file';
@@ -15,6 +18,12 @@ import { copyText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { downloadIframePdf } from '../../shared/pdf/html-pdf';
 import { pdfFileSlug } from '../../shared/pdf/pdf-text';
+import { OrderingCatalogPanelComponent } from '../customer-orders/ordering-catalog-panel';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
 
 export type ShopMenuItem = {
   id?: string;
@@ -23,6 +32,7 @@ export type ShopMenuItem = {
   price?: number | null;
   priceLabel?: string | null;
   available?: boolean;
+  imageUrl?: string | null;
 };
 
 export type ShopMenuSection = {
@@ -46,6 +56,18 @@ type MenuAdminResponse = {
   slug: string;
   menus: ShopMenu[];
 };
+
+type OrderingExtraDraft = {
+  id: string;
+  name: string;
+  price: number | null;
+  available: boolean;
+  menuItemIds: string[];
+};
+
+function newExtraId(): string {
+  return `e_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function newMenuId(): string {
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -71,6 +93,10 @@ function uniqueSlug(base: string, menus: ShopMenu[], exceptId?: string): string 
   return slug;
 }
 
+function newItemId(): string {
+  return `i_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function emptySections(): ShopMenuSection[] {
   return [];
 }
@@ -87,10 +113,13 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
     sections: (menu.sections ?? []).map((s) => ({
       name: s.name ?? '',
       items: (s.items ?? []).map((it) => ({
+        id: it.id || newItemId(),
         name: it.name ?? '',
         description: it.description ?? '',
         price: it.price ?? null,
         priceLabel: it.priceLabel ?? '',
+        available: it.available !== false,
+        imageUrl: it.imageUrl ?? null,
       })),
     })),
   };
@@ -110,9 +139,12 @@ function toPrice(value: unknown): number | null {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     MatSnackBarModule,
     PageHeaderComponent,
     LoadingStateComponent,
+    OrderingCatalogPanelComponent,
+    SelectSearchComponent,
   ],
   template: `
     <app-page-header
@@ -151,6 +183,78 @@ function toPrice(value: unknown): number | null {
             <p class="menu-admin__url">{{ hubUrl() }}</p>
           }
         </section>
+
+        @if (showCatalog()) {
+          <app-ordering-catalog-panel />
+
+          <section class="panel-card">
+            <h2>Extras del pedido online</h2>
+            <p class="menu-admin__hint">
+              Creá y editá extras acá. La alta/baja rápida también está en Pedidos online → Configurar.
+            </p>
+            @for (extra of extras(); track extra.id; let ei = $index) {
+              <article class="menu-extra">
+                <div class="menu-extra__row">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Extra</mat-label>
+                    <input matInput [(ngModel)]="extra.name" placeholder="ej. Extra queso" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
+                    <mat-label>Precio</mat-label>
+                    <input matInput type="number" min="0" [(ngModel)]="extra.price" />
+                  </mat-form-field>
+                  <label class="menu-item__avail">
+                    <input type="checkbox" [(ngModel)]="extra.available" />
+                    Disponible
+                  </label>
+                  <button mat-icon-button type="button" aria-label="Quitar extra" (click)="removeExtra(ei)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
+                  <mat-label>Ítems adheridos</mat-label>
+                  <mat-select
+                    multiple
+                    [ngModel]="extra.menuItemIds"
+                    (ngModelChange)="setExtraItems(ei, $event)"
+                    (openedChange)="onSelectSearchOpened($event, extraItemQuery)"
+                  >
+                    <mat-select-trigger>
+                      @if (!extra.menuItemIds.length) {
+                        Toda la carta
+                      } @else {
+                        {{ extraItemLabels(extra.menuItemIds) }}
+                      }
+                    </mat-select-trigger>
+                    <app-select-search [(query)]="extraItemQuery" placeholder="Buscar ítem…" />
+                    @for (it of filteredExtraItems(); track it.id) {
+                      <mat-option [value]="it.id">{{ it.name }}</mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint>Vacío = todos los ítems</mat-hint>
+                </mat-form-field>
+              </article>
+            } @empty {
+              <p class="menu-admin__hint">Todavía no hay extras.</p>
+            }
+            <button mat-stroked-button type="button" (click)="addExtra()">
+              <mat-icon>add</mat-icon>
+              Agregar extra
+            </button>
+            <div class="menu-admin__catalog-save">
+              <button
+                mat-stroked-button
+                color="primary"
+                type="button"
+                [disabled]="savingExtras()"
+                (click)="saveExtras()"
+              >
+                <mat-icon>save</mat-icon>
+                {{ savingExtras() ? 'Guardando…' : 'Guardar extras' }}
+              </button>
+            </div>
+          </section>
+        }
 
         <section class="panel-card">
           <div class="menu-admin__tabs-head">
@@ -329,8 +433,39 @@ function toPrice(value: unknown): number | null {
                     <mat-icon>delete</mat-icon>
                   </button>
                 </div>
-                @for (item of section.items; track $index; let ii = $index) {
+                @for (item of section.items; track item.id || $index; let ii = $index) {
                   <div class="menu-item">
+                    <div class="menu-item__photo">
+                      @if (itemImageSrc(item); as src) {
+                        <img [src]="src" alt="" />
+                      } @else {
+                        <span class="menu-item__photo-ph">Sin foto</span>
+                      }
+                      <input
+                        #itemPhotoInput
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        (change)="onItemPhoto(si, ii, $event)"
+                      />
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="!item.id || uploadingItemPhoto()"
+                        (click)="itemPhotoInput.click()"
+                      >
+                        Foto
+                      </button>
+                      @if (item.imageUrl) {
+                        <button
+                          mat-button
+                          type="button"
+                          (click)="clearItemPhoto(si, ii)"
+                        >
+                          Quitar
+                        </button>
+                      }
+                    </div>
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>Ítem</mat-label>
                       <input matInput [(ngModel)]="item.name" />
@@ -347,6 +482,10 @@ function toPrice(value: unknown): number | null {
                       <mat-label>Precio (texto)</mat-label>
                       <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
                     </mat-form-field>
+                    <label class="menu-item__avail">
+                      <input type="checkbox" [(ngModel)]="item.available" />
+                      Disponible online
+                    </label>
                     <button
                       mat-icon-button
                       type="button"
@@ -515,9 +654,42 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item {
       display: grid;
-      grid-template-columns: 1.4fr 1.4fr 7rem 8rem auto;
+      grid-template-columns: 7.5rem 1.2fr 1.2fr 7rem 8rem auto auto;
       gap: 0.45rem;
       align-items: start;
+    }
+    .menu-item__photo {
+      display: grid;
+      gap: 0.25rem;
+      justify-items: start;
+    }
+    .menu-item__photo img {
+      width: 4.5rem;
+      height: 4.5rem;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--guy-border, #d7e0d9);
+    }
+    .menu-item__photo-ph {
+      display: grid;
+      place-items: center;
+      width: 4.5rem;
+      height: 4.5rem;
+      border-radius: 8px;
+      border: 1px dashed var(--guy-border, #d7e0d9);
+      font-size: 0.7rem;
+      color: var(--guy-muted, #5f6f76);
+      text-align: center;
+      padding: 0.25rem;
+    }
+    .menu-item__avail {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.82rem;
+      color: var(--guy-navy, #003366);
+      white-space: nowrap;
+      padding-top: 0.55rem;
     }
     @media (max-width: 900px) {
       .menu-item {
@@ -530,18 +702,48 @@ function toPrice(value: unknown): number | null {
       position: sticky;
       bottom: 0.75rem;
     }
+    .menu-admin__full {
+      width: 100%;
+    }
+    .menu-admin__catalog-save {
+      margin-top: 0.85rem;
+    }
+    .menu-extra {
+      display: grid;
+      gap: 0.45rem;
+      padding: 0.75rem 0;
+      border-top: 1px solid var(--guy-border, #d7e0d9);
+    }
+    .menu-extra__row {
+      display: grid;
+      grid-template-columns: 1fr 7rem auto auto;
+      gap: 0.45rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .menu-extra__row {
+        grid-template-columns: 1fr;
+      }
+    }
   `,
 })
 export class AdminMenuPage {
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
+  private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
 
+  readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly shopId = computed(() => this.shops.selectedShopId());
+  readonly showCatalog = computed(() =>
+    canManageOrderingCatalog(this.auth.currentUser(), this.shopId()),
+  );
   readonly loading = signal(false);
   readonly saving = signal(false);
+  readonly savingExtras = signal(false);
   readonly parsing = signal(false);
   readonly uploadingSource = signal(false);
+  readonly uploadingItemPhoto = signal(false);
   readonly enabled = signal(false);
   readonly shopSlug = signal('');
   readonly parseNote = signal('');
@@ -549,6 +751,8 @@ export class AdminMenuPage {
   readonly rawText = signal('');
   readonly menus = signal<ShopMenu[]>([]);
   readonly activeId = signal<string | null>(null);
+  readonly extras = signal<OrderingExtraDraft[]>([]);
+  readonly extraItemQuery = signal('');
   private slugTouched = false;
 
   title = '';
@@ -558,6 +762,32 @@ export class AdminMenuPage {
   private sourceFile: string | null = null;
   private sourceMime: string | null = null;
   readonly sections = signal<ShopMenuSection[]>([]);
+
+  readonly catalogItems = computed(() => {
+    const out: Array<{ id: string; name: string }> = [];
+    const seen = new Set<string>();
+    const push = (it: ShopMenuItem) => {
+      const id = String(it.id ?? '').trim();
+      const name = String(it.name ?? '').trim();
+      if (!id || !name || seen.has(id)) return;
+      seen.add(id);
+      out.push({ id, name });
+    };
+    for (const menu of this.menus()) {
+      for (const sec of menu.sections ?? []) {
+        for (const it of sec.items ?? []) push(it);
+      }
+    }
+    for (const sec of this.sections()) {
+      for (const it of sec.items ?? []) push(it);
+    }
+    return out;
+  });
+
+  readonly filteredExtraItems = computed(() => {
+    const keep = this.extras().flatMap((e) => e.menuItemIds);
+    return filterBySelectQuery(this.catalogItems(), this.extraItemQuery(), (it) => it.name, keep);
+  });
 
   constructor() {
     usePageRefresh(() => this.reload());
@@ -632,12 +862,96 @@ export class AdminMenuPage {
       next: (res) => {
         this.loading.set(false);
         this.applyPayload(res);
+        if (this.showCatalog()) this.loadExtras();
       },
       error: () => {
         this.loading.set(false);
         this.snack.open('No se pudieron cargar las cartas', 'OK', { duration: 3000 });
       },
     });
+  }
+
+  private loadExtras(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.http
+      .get<{
+        orderingExtras?: Array<{
+          id?: string;
+          name: string;
+          price: number;
+          available?: boolean;
+          menuItemIds?: string[];
+        }> | null;
+      }>(`${environment.apiUrl}/shops/${shopId}`)
+      .subscribe({
+        next: (s) => {
+          this.extras.set(
+            (s.orderingExtras ?? []).map((e) => ({
+              id: String(e.id ?? '').trim() || newExtraId(),
+              name: String(e.name ?? ''),
+              price: e.price == null ? 0 : Number(e.price),
+              available: e.available !== false,
+              menuItemIds: [...(e.menuItemIds ?? [])],
+            })),
+          );
+        },
+      });
+  }
+
+  addExtra(): void {
+    this.extras.update((list) => [
+      ...list,
+      { id: newExtraId(), name: '', price: 0, available: true, menuItemIds: [] },
+    ]);
+  }
+
+  removeExtra(index: number): void {
+    this.extras.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  setExtraItems(index: number, ids: string[]): void {
+    this.extras.update((list) =>
+      list.map((e, i) => (i === index ? { ...e, menuItemIds: [...(ids ?? [])] } : e)),
+    );
+  }
+
+  extraItemLabels(ids: string[]): string {
+    const map = new Map(this.catalogItems().map((it) => [it.id, it.name]));
+    const names = ids.map((id) => map.get(id) || id).filter(Boolean);
+    if (names.length <= 2) return names.join(', ');
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+  }
+
+  saveExtras(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.savingExtras.set(true);
+    this.http
+      .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
+        orderingExtras: this.extras()
+          .map((e) => ({
+            id: e.id,
+            name: String(e.name ?? '').trim(),
+            price: Number(e.price) || 0,
+            available: e.available !== false,
+            menuItemIds: e.menuItemIds,
+          }))
+          .filter((e) => !!e.name),
+      })
+      .subscribe({
+        next: () => {
+          this.savingExtras.set(false);
+          this.snack.open('Extras guardados', 'OK', { duration: 2500 });
+          this.loadExtras();
+        },
+        error: (err: HttpErrorResponse) => {
+          this.savingExtras.set(false);
+          this.snack.open(err.error?.message ?? 'No se pudieron guardar los extras', 'OK', {
+            duration: 3500,
+          });
+        },
+      });
   }
 
   private applyPayload(res: MenuAdminResponse): void {
@@ -686,10 +1000,13 @@ export class AdminMenuPage {
         name: String(s.name ?? '').trim() || 'Carta',
         items: (s.items ?? [])
           .map((it) => ({
+            id: String(it.id ?? '').trim() || newItemId(),
             name: String(it.name ?? '').trim(),
             description: String(it.description ?? '').trim() || null,
             price: toPrice(it.price),
             priceLabel: String(it.priceLabel ?? '').trim() || null,
+            available: it.available !== false,
+            imageUrl: String(it.imageUrl ?? '').trim() || null,
           }))
           .filter((it) => it.name),
       })),
@@ -752,7 +1069,20 @@ export class AdminMenuPage {
   addSection(): void {
     this.sections.update((list) => [
       ...list,
-      { name: '', items: [{ name: '', description: '', price: null, priceLabel: '' }] },
+      {
+        name: '',
+        items: [
+          {
+            id: newItemId(),
+            name: '',
+            description: '',
+            price: null,
+            priceLabel: '',
+            available: true,
+            imageUrl: null,
+          },
+        ],
+      },
     ]);
   }
 
@@ -764,7 +1094,21 @@ export class AdminMenuPage {
     this.sections.update((list) =>
       list.map((s, i) =>
         i === sectionIndex
-          ? { ...s, items: [...s.items, { name: '', description: '', price: null, priceLabel: '' }] }
+          ? {
+              ...s,
+              items: [
+                ...s.items,
+                {
+                  id: newItemId(),
+                  name: '',
+                  description: '',
+                  price: null,
+                  priceLabel: '',
+                  available: true,
+                  imageUrl: null,
+                },
+              ],
+            }
           : s,
       ),
     );
@@ -776,6 +1120,97 @@ export class AdminMenuPage {
         i === sectionIndex ? { ...s, items: s.items.filter((_, j) => j !== itemIndex) } : s,
       ),
     );
+  }
+
+  itemImageSrc(item: ShopMenuItem): string | null {
+    const slug = this.shopSlug();
+    const id = String(item.id ?? '').trim();
+    if (!id || !item.imageUrl) return null;
+    if (/^https?:\/\//i.test(item.imageUrl)) return item.imageUrl;
+    if (slug) {
+      return `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/image?v=${encodeURIComponent(item.imageUrl)}`;
+    }
+    return null;
+  }
+
+  async onItemPhoto(sectionIndex: number, itemIndex: number, ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const file = await takeInputFile(input);
+    if (!file) return;
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.flushActive();
+    const item = this.sections()[sectionIndex]?.items?.[itemIndex];
+    if (!item) return;
+    if (!item.id) {
+      item.id = newItemId();
+    }
+    // Persist ids before upload so the API finds the item.
+    this.flushActive();
+    await new Promise<void>((resolve, reject) => {
+      this.http
+        .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, { menus: this.menus() })
+        .subscribe({
+          next: (res) => {
+            this.menus.set((res.menus ?? []).map(cloneMenu));
+            const active = this.menus().find((m) => m.id === this.activeId());
+            if (active) this.loadEditor(active);
+            resolve();
+          },
+          error: (err) => reject(err),
+        });
+    }).catch(() => {
+      this.snack.open('Guardá la carta antes de subir la foto', 'OK', { duration: 3500 });
+      return;
+    });
+    const fresh = this.sections()[sectionIndex]?.items?.[itemIndex];
+    const itemId = String(fresh?.id ?? item.id ?? '').trim();
+    if (!itemId) {
+      this.snack.open('Guardá la carta antes de subir la foto', 'OK', { duration: 3500 });
+      return;
+    }
+    this.uploadingItemPhoto.set(true);
+    const fd = new FormData();
+    fd.append('file', file, safeUploadFileName(file.name));
+    this.http
+      .post<MenuAdminResponse>(
+        `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/image`,
+        fd,
+      )
+      .subscribe({
+        next: (res) => {
+          this.uploadingItemPhoto.set(false);
+          this.menus.set((res.menus ?? []).map(cloneMenu));
+          const active = this.menus().find((m) => m.id === this.activeId());
+          if (active) this.loadEditor(active);
+          this.snack.open('Foto del ítem cargada', 'OK', { duration: 2500 });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.uploadingItemPhoto.set(false);
+          this.snack.open(err.error?.message ?? 'No se pudo subir la foto', 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  clearItemPhoto(sectionIndex: number, itemIndex: number): void {
+    const shopId = this.shopId();
+    const item = this.sections()[sectionIndex]?.items?.[itemIndex];
+    const itemId = String(item?.id ?? '').trim();
+    if (!shopId || !itemId) return;
+    this.http
+      .delete<MenuAdminResponse>(
+        `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/image`,
+      )
+      .subscribe({
+        next: (res) => {
+          this.menus.set((res.menus ?? []).map(cloneMenu));
+          const active = this.menus().find((m) => m.id === this.activeId());
+          if (active) this.loadEditor(active);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
+        },
+      });
   }
 
   async onFilePicked(input: HTMLInputElement, mode: 'add' | 'replace'): Promise<void> {

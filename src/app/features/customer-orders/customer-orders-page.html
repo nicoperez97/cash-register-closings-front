@@ -29,36 +29,56 @@
 </div>
 
 <div class="co-views" role="tablist" aria-label="Vista de pedidos">
-  <button
-    type="button"
-    class="co-views__btn"
-    [class.co-views__btn--on]="view() === 'board'"
-    (click)="setView('board')"
-  >
-    Tablero
-    @if (view() === 'board' && openTotal()) {
-      <span class="co-views__n">{{ openTotal() }}</span>
-    }
-  </button>
-  <button
-    type="button"
-    class="co-views__btn"
-    [class.co-views__btn--on]="view() === 'COMPLETED'"
-    (click)="setView('COMPLETED')"
-  >
-    Completados
-  </button>
-  <button
-    type="button"
-    class="co-views__btn"
-    [class.co-views__btn--on]="view() === 'CANCELLED'"
-    (click)="setView('CANCELLED')"
-  >
-    Cancelados
-  </button>
+  @if (canReadOrders()) {
+    <button
+      type="button"
+      class="co-views__btn"
+      [class.co-views__btn--on]="view() === 'board'"
+      (click)="setView('board')"
+    >
+      Tablero
+      @if (view() === 'board' && openTotal()) {
+        <span class="co-views__n">{{ openTotal() }}</span>
+      }
+    </button>
+    <button
+      type="button"
+      class="co-views__btn"
+      [class.co-views__btn--on]="view() === 'COMPLETED'"
+      (click)="setView('COMPLETED')"
+    >
+      Completados
+    </button>
+    <button
+      type="button"
+      class="co-views__btn"
+      [class.co-views__btn--on]="view() === 'CANCELLED'"
+      (click)="setView('CANCELLED')"
+    >
+      Cancelados
+    </button>
+  }
+  @if (canConfigure()) {
+    <button
+      type="button"
+      class="co-views__btn"
+      [class.co-views__btn--on]="view() === 'config'"
+      (click)="setView('config')"
+    >
+      Configurar
+    </button>
+  }
 </div>
 
-@if (loading() && !orders().length) {
+@if (view() === 'config') {
+  <div class="co-config">
+    <app-ordering-catalog-panel />
+    <p class="co-config__hint">
+      Para crear o editar ítems, fotos y extras usá
+      <a routerLink="/admin/menu">Carta</a>.
+    </p>
+  </div>
+} @else if (loading() && !orders().length) {
   <p class="co-empty">Cargando pedidos…</p>
 } @else if (view() === 'board') {
   <div class="co-board">
