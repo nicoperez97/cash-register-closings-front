@@ -915,8 +915,14 @@ export interface ShopSummary {
   takeawayEnabled?: boolean;
   deliveryEnabled?: boolean;
   orderingHours?: {
-    takeaway?: Record<string, { open: string; close: string } | null> | null;
-    delivery?: Record<string, { open: string; close: string } | null> | null;
+    takeaway?: Record<
+      string,
+      { open: string; close: string } | Array<{ open: string; close: string }> | null
+    > | null;
+    delivery?: Record<
+      string,
+      { open: string; close: string } | Array<{ open: string; close: string }> | null
+    > | null;
   } | null;
   orderingPayments?: {
     methods?: Array<'CASH' | 'TRANSFER'>;

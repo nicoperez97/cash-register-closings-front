@@ -304,50 +304,151 @@ export class AdminShopPage implements OnInit {
     return this.form.get('deliveryHours') as FormArray;
   }
 
+  private emptyWindows(open = '12:00', close = '17:00'): FormArray {
+    return this.fb.array([this.buildHourWindow(open, close)]);
+  }
+
+  buildHourWindow(open = '12:00', close = '17:00'): FormGroup {
+    return this.fb.nonNullable.group({
+      open: [open],
+      close: [close],
+    });
+  }
+
   private emptyWeekdayHours(): FormGroup[] {
     return [0, 1, 2, 3, 4, 5, 6].map((day) =>
       this.fb.nonNullable.group({
         day: [day],
         enabled: [false],
-        open: ['12:00'],
-        close: ['17:00'],
+        windows: this.emptyWindows(),
       }),
     );
   }
 
+  private dayWindowsFromRaw(
+    raw: { open: string; close: string } | Array<{ open: string; close: string }> | null | undefined,
+  ): Array<{ open: string; close: string }> {
+    if (!raw) return [];
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list
+      .map((w) => ({
+        open: String(w?.open ?? '').trim(),
+        close: String(w?.close ?? '').trim(),
+      }))
+      .filter((w) => /^\d{2}:\d{2}$/.test(w.open) && /^\d{2}:\d{2}$/.test(w.close));
+  }
+
   private setHoursFromConfig(
     arr: FormArray,
-    hours: Record<string, { open: string; close: string } | null> | null | undefined,
+    hours:
+      | Record<
+          string,
+          { open: string; close: string } | Array<{ open: string; close: string }> | null
+        >
+      | null
+      | undefined,
   ): void {
     arr.clear();
-    for (const g of this.emptyWeekdayHours()) {
-      const day = g.getRawValue().day as number;
-      const win = hours?.[String(day)];
-      if (win && win.open && win.close) {
-        g.patchValue({ enabled: true, open: win.open, close: win.close });
-      }
-      arr.push(g);
+    for (const day of [0, 1, 2, 3, 4, 5, 6]) {
+      const wins = this.dayWindowsFromRaw(hours?.[String(day)]);
+      const windows = this.fb.array(
+        wins.length
+          ? wins.map((w) => this.buildHourWindow(w.open, w.close))
+          : [this.buildHourWindow()],
+      );
+      arr.push(
+        this.fb.nonNullable.group({
+          day: [day],
+          enabled: [wins.length > 0],
+          windows,
+        }),
+      );
     }
   }
 
-  private hoursToConfig(arr: FormArray): Record<string, { open: string; close: string } | null> | null {
-    const out: Record<string, { open: string; close: string } | null> = {};
+  private hoursToConfig(
+    arr: FormArray,
+  ): Record<string, Array<{ open: string; close: string }> | null> | null {
+    const out: Record<string, Array<{ open: string; close: string }> | null> = {};
     let any = false;
     for (const ctrl of arr.controls) {
-      const v = (ctrl as FormGroup).getRawValue() as {
-        day: number;
-        enabled: boolean;
-        open: string;
-        close: string;
-      };
-      if (v.enabled && v.open && v.close) {
-        out[String(v.day)] = { open: v.open, close: v.close };
+      const g = ctrl as FormGroup;
+      const day = Number(g.get('day')?.value);
+      const enabled = !!g.get('enabled')?.value;
+      const windowsArr = g.get('windows') as FormArray | null;
+      const wins = (windowsArr?.controls ?? [])
+        .map((c) => {
+          const w = (c as FormGroup).getRawValue() as { open: string; close: string };
+          return {
+            open: String(w.open ?? '').trim(),
+            close: String(w.close ?? '').trim(),
+          };
+        })
+        .filter((w) => /^\d{2}:\d{2}$/.test(w.open) && /^\d{2}:\d{2}$/.test(w.close));
+      if (enabled && wins.length) {
+        out[String(day)] = wins;
         any = true;
       } else {
-        out[String(v.day)] = null;
+        out[String(day)] = null;
       }
     }
     return any ? out : null;
+  }
+
+  /** Copia turnos de caja → horarios de pedidos (varios turnos/día = varias franjas). */
+  applyOrderingHoursFromShifts(channel: 'takeaway' | 'delivery' | 'both' = 'both'): void {
+    const byDay: Record<number, Array<{ open: string; close: string }>> = {};
+    for (let d = 0; d <= 6; d++) byDay[d] = [];
+    for (const ctrl of this.shifts.controls) {
+      const s = (ctrl as FormGroup).getRawValue() as {
+        opensAt: string;
+        closesAt: string;
+        weekdays: number[];
+      };
+      const open = String(s.opensAt ?? '').trim() || '12:00';
+      const close = String(s.closesAt ?? '').trim() || open;
+      const days =
+        Array.isArray(s.weekdays) && s.weekdays.length ? s.weekdays : [0, 1, 2, 3, 4, 5, 6];
+      for (const d of days) {
+        if (d < 0 || d > 6) continue;
+        if (byDay[d].some((w) => w.open === open && w.close === close)) continue;
+        byDay[d].push({ open, close });
+      }
+    }
+    for (let d = 0; d <= 6; d++) {
+      byDay[d].sort((a, b) => a.open.localeCompare(b.open));
+    }
+    const apply = (arr: FormArray) => {
+      for (const ctrl of arr.controls) {
+        const g = ctrl as FormGroup;
+        const day = Number(g.get('day')?.value);
+        const wins = byDay[day] ?? [];
+        const windows = g.get('windows') as FormArray;
+        windows.clear();
+        if (wins.length) {
+          for (const w of wins) windows.push(this.buildHourWindow(w.open, w.close));
+          g.patchValue({ enabled: true });
+        } else {
+          windows.push(this.buildHourWindow());
+          g.patchValue({ enabled: false });
+        }
+      }
+    };
+    if (channel === 'takeaway' || channel === 'both') apply(this.takeawayHours);
+    if (channel === 'delivery' || channel === 'both') apply(this.deliveryHours);
+  }
+
+  private seedOrderingHoursFromShiftsIfEmpty(
+    orderingHours:
+      | {
+          takeaway?: unknown;
+          delivery?: unknown;
+        }
+      | null
+      | undefined,
+  ): void {
+    if (!orderingHours?.takeaway) this.applyOrderingHoursFromShifts('takeaway');
+    if (!orderingHours?.delivery) this.applyOrderingHoursFromShifts('delivery');
   }
 
   addDeliveryZone(): void {
@@ -535,6 +636,7 @@ export class AdminShopPage implements OnInit {
     this.applyEmailLists(shop.emailNotificationTypes, shop.emailNotificationUserIds);
     this.setPosnets(shop.posnets ?? []);
     this.setShifts(shopShiftsOf(shop));
+    this.seedOrderingHoursFromShiftsIfEmpty(shop.orderingHours);
     this.emailSmtpConfigured.set(!!shop.emailSmtpConfigured);
     this.clearSmtpPasswordOnSave.set(false);
     if (shopId) {
@@ -548,6 +650,7 @@ export class AdminShopPage implements OnInit {
           this.applyEmailLists(s.emailNotificationTypes, s.emailNotificationUserIds);
           this.setPosnets(s.posnets ?? []);
           this.setShifts(shopShiftsOf(s));
+          this.seedOrderingHoursFromShiftsIfEmpty(s.orderingHours);
           this.applyPaymentConceptCategories(s.paymentConceptCategories);
           this.navConfigDraft.set(s.navConfig ?? null);
           this.toolbarConfigDraft.set(s.toolbarConfig ?? null);
@@ -593,8 +696,14 @@ export class AdminShopPage implements OnInit {
     takeawayEnabled?: boolean;
     deliveryEnabled?: boolean;
     orderingHours?: {
-      takeaway?: Record<string, { open: string; close: string } | null> | null;
-      delivery?: Record<string, { open: string; close: string } | null> | null;
+      takeaway?: Record<
+        string,
+        { open: string; close: string } | Array<{ open: string; close: string }> | null
+      > | null;
+      delivery?: Record<
+        string,
+        { open: string; close: string } | Array<{ open: string; close: string }> | null
+      > | null;
     } | null;
     orderingPayments?: {
       methods?: Array<'CASH' | 'TRANSFER'>;

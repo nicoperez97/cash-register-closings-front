@@ -859,8 +859,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'tune',
         tone: 'do',
         anyOf: ['orderingCatalog.manage', 'shops.manage'],
-        body: 'Con permiso de catálogo ves la pestaña Configurar en Pedidos online: take away, delivery, pagos, y alta/baja de ítems y extras (con búsqueda).',
-        tip: 'Crear o editar ítems, fotos y extras: en Carta.',
+        body: 'Con permiso de catálogo ves la pestaña Configurar en Pedidos online: take away, delivery, pagos, CBU/alias, WhatsApp de comprobantes, y alta/baja de ítems y extras.',
+        tip: 'Crear o editar ítems, fotos y extras: en Carta. Guardá con Guardar configuración.',
       },
       {
         title: 'Usuario solo de pedidos',
@@ -894,9 +894,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Tipo de local: al paso (sin mesas) o restaurante (mesas por reservas).',
           'Encendé Pedidos online, take away y/o delivery.',
-          'Horarios: tocá los días, poné abre/cierra una vez (Lun–Vie / Todos). Si hace falta, Horario distinto por día. En delivery podés Copiar take away.',
+          'Horarios: se traen los turnos de caja (podés Usar turnos del local). Cada día puede tener más de un turno; sumá con Otro turno / + Turno. En delivery podés Copiar take away.',
           'Medios de pago: efectivo y/o transferencia. En transferencia podés poner CBU/alias y un WhatsApp para comprobantes (si vacío, usa el teléfono del local).',
-          'En Pedidos online → Configurar (o en Carta): solo alta/baja de take away, delivery, pagos, ítems y extras.',
+          'En Pedidos online → Configurar: take away, delivery, pagos, CBU/alias, WhatsApp de comprobantes, e ítems/extras online.',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
         ],
         tip: 'Si el cliente paga por transferencia, en el estado del pedido aparece el botón para mandar el comprobante por WhatsApp.',
