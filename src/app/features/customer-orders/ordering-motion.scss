@@ -135,6 +135,12 @@
   }
 }
 
+/* Host del storefront: sin zoom por doble toque en iOS. */
+:host {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
 .ord-enter {
   animation: ord-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -164,6 +170,7 @@
     color 0.18s ease,
     opacity 0.18s ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .ord-press:hover {

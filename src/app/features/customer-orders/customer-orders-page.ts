@@ -1,12 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, filter, of, switchMap } from 'rxjs';
-import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
@@ -14,6 +14,8 @@ import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatMoney } from '../../shared/utils/money';
 import { copyText } from '../../shared/utils/share-text';
 import { usePageRefresh } from '../../core/page-refresh.service';
+import { HelpDialogComponent } from '../../shared/components/help-dialog';
+import { topicById } from '../../core/help/module-help';
 import {
   CustomerOrderStatus,
   CustomerOrdersApiService,
@@ -29,16 +31,6 @@ const STATUS_LABEL: Record<CustomerOrderStatus, string> = {
   OUT_FOR_DELIVERY: 'En camino',
   COMPLETED: 'Completado',
   CANCELLED: 'Cancelado',
-};
-
-const STATUS_CHIP: Record<CustomerOrderStatus, string> = {
-  PENDING: 'guy-chip--warning',
-  ACCEPTED: 'guy-chip--primary',
-  PREPARING: 'guy-chip--primary',
-  READY: 'guy-chip--success',
-  OUT_FOR_DELIVERY: 'guy-chip--success',
-  COMPLETED: 'guy-chip--muted',
-  CANCELLED: 'guy-chip--muted',
 };
 
 const NEXT_ACTIONS: Partial<
@@ -63,16 +55,31 @@ const NEXT_ACTIONS: Partial<
   OUT_FOR_DELIVERY: [{ status: 'COMPLETED', label: 'Completar' }],
 };
 
-type FilterValue = 'open' | 'all' | CustomerOrderStatus;
+type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery';
+type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED';
+
+type BoardColumn = {
+  id: BoardColumnId;
+  title: string;
+  statuses: CustomerOrderStatus[];
+};
+
+const BOARD_COLUMNS: BoardColumn[] = [
+  { id: 'pending', title: 'Pendientes', statuses: ['PENDING'] },
+  { id: 'kitchen', title: 'En cocina', statuses: ['ACCEPTED', 'PREPARING'] },
+  { id: 'ready', title: 'Listos', statuses: ['READY'] },
+  { id: 'delivery', title: 'En camino', statuses: ['OUT_FOR_DELIVERY'] },
+];
 
 @Component({
   selector: 'app-customer-orders-page',
   imports: [
     DatePipe,
+    RouterLink,
     MatButtonModule,
     MatIconModule,
+    MatDialogModule,
     MatSnackBarModule,
-    PageHeaderComponent,
   ],
   templateUrl: './customer-orders-page.html',
   styleUrl: './customer-orders-page.scss',
@@ -85,23 +92,16 @@ export class CustomerOrdersPage {
   private readonly inbox = inject(CustomerOrdersInboxService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
   readonly shops = inject(ShopContextService);
 
-  readonly filter = signal<FilterValue>('open');
+  readonly view = signal<ViewMode>('board');
   readonly orders = signal<StaffCustomerOrder[]>([]);
   readonly loading = signal(false);
   readonly busyId = signal<string | null>(null);
   readonly focusOrderId = signal<string | null>(null);
   private lastKnownIds = new Set<string>();
   private skipNewToast = true;
-
-  readonly filters: Array<{ value: FilterValue; label: string }> = [
-    { value: 'open', label: 'Activos' },
-    { value: 'PENDING', label: 'Pendientes' },
-    { value: 'all', label: 'Todos' },
-    { value: 'COMPLETED', label: 'Completados' },
-    { value: 'CANCELLED', label: 'Cancelados' },
-  ];
 
   readonly pendingCount = this.inbox.pendingCount;
 
@@ -113,37 +113,25 @@ export class CustomerOrdersPage {
     ),
   );
 
-  readonly sortedOrders = computed(() => {
-    const rows = [...this.orders()];
-    const rank = (s: CustomerOrderStatus) => {
-      if (s === 'PENDING') return 0;
-      if (s === 'ACCEPTED') return 1;
-      if (s === 'PREPARING') return 2;
-      if (s === 'READY' || s === 'OUT_FOR_DELIVERY') return 3;
-      return 4;
-    };
-    rows.sort((a, b) => {
-      const dr = rank(a.status) - rank(b.status);
-      if (dr) return dr;
-      return String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+  readonly boardColumns = computed(() => {
+    const rows = this.orders();
+    return BOARD_COLUMNS.map((col) => {
+      const list = rows
+        .filter((o) => col.statuses.includes(o.status))
+        .sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')));
+      return { ...col, orders: list };
     });
+  });
+
+  readonly archiveOrders = computed(() => {
+    const rows = [...this.orders()];
+    rows.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
     return rows;
   });
 
-  publicOrderingUrl(): string {
-    const shop = this.shops.selectedShop();
-    if (!shop?.onlineOrderingEnabled || !shop.slug) return '';
-    return `${window.location.origin}/pedir/${encodeURIComponent(shop.slug)}`;
-  }
-
-  async copyPublicOrderingUrl(): Promise<void> {
-    const url = this.publicOrderingUrl();
-    if (!url) return;
-    const ok = await copyText(url);
-    this.snack.open(ok ? 'Link de pedidos online copiado' : 'No se pudo copiar la URL', 'OK', {
-      duration: 2500,
-    });
-  }
+  readonly openTotal = computed(() =>
+    this.boardColumns().reduce((n, c) => n + c.orders.length, 0),
+  );
 
   constructor() {
     usePageRefresh(() => this.reload());
@@ -174,17 +162,13 @@ export class CustomerOrdersPage {
       });
   }
 
-  setFilter(value: FilterValue): void {
-    this.filter.set(value);
+  setView(mode: ViewMode): void {
+    this.view.set(mode);
     this.reload();
   }
 
   statusLabel(s: CustomerOrderStatus): string {
     return STATUS_LABEL[s] ?? s;
-  }
-
-  statusChip(s: CustomerOrderStatus): string {
-    return STATUS_CHIP[s] ?? 'guy-chip--muted';
   }
 
   nextActions(order: StaffCustomerOrder) {
@@ -212,10 +196,42 @@ export class CustomerOrdersPage {
     return digits ? `tel:+${digits}` : '';
   }
 
+  publicOrderingUrl(): string {
+    const shop = this.shops.selectedShop();
+    if (!shop?.onlineOrderingEnabled || !shop.slug) return '';
+    return `${window.location.origin}/pedir/${encodeURIComponent(shop.slug)}`;
+  }
+
+  async copyPublicOrderingUrl(): Promise<void> {
+    const url = this.publicOrderingUrl();
+    if (!url) return;
+    const ok = await copyText(url);
+    this.snack.open(ok ? 'Link de pedidos online copiado' : 'No se pudo copiar la URL', 'OK', {
+      duration: 2500,
+    });
+  }
+
   async copyCode(code: string): Promise<void> {
     const ok = await copyText(code);
     this.snack.open(ok ? `Código ${code} copiado` : 'No se pudo copiar', 'OK', {
       duration: 2000,
+    });
+  }
+
+  openHelp(): void {
+    const topic = topicById('customer-orders');
+    if (!topic) return;
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    const blocks = topic.blocks.filter(
+      (b) =>
+        !b.anyOf?.length ||
+        b.anyOf.some((p) => hasShopPermission(user, shopId, p)),
+    );
+    this.dialog.open(HelpDialogComponent, {
+      data: { topic, blocks },
+      autoFocus: 'dialog',
+      width: 'min(560px, 94vw)',
     });
   }
 
@@ -228,17 +244,17 @@ export class CustomerOrdersPage {
       return;
     }
     this.loading.set(true);
-    const f = this.filter();
+    const v = this.view();
     let statusParam: string | undefined;
-    if (f === 'open') {
+    if (v === 'board') {
       statusParam = 'PENDING,ACCEPTED,PREPARING,READY,OUT_FOR_DELIVERY';
-    } else if (f !== 'all') {
-      statusParam = f;
+    } else {
+      statusParam = v;
     }
     this.api.listStaff(shopId, statusParam).subscribe({
       next: (rows) => {
         const nextIds = new Set(rows.map((r) => r.id));
-        if (!this.skipNewToast && this.lastKnownIds.size) {
+        if (!this.skipNewToast && this.lastKnownIds.size && v === 'board') {
           const fresh = rows.filter((r) => !this.lastKnownIds.has(r.id));
           if (fresh.length === 1) {
             this.snack.open(`Nuevo pedido #${fresh[0].code}`, 'Ver', { duration: 4000 });
@@ -268,8 +284,8 @@ export class CustomerOrdersPage {
     if (!id) return;
     const found = this.orders().some((o) => o.id === id);
     if (!found) {
-      if (this.filter() !== 'all') {
-        this.filter.set('all');
+      if (this.view() !== 'board') {
+        this.view.set('board');
         this.reload();
       }
       return;
@@ -300,8 +316,11 @@ export class CustomerOrdersPage {
           duration: 2200,
         });
         this.inbox.refresh();
-        if (this.filter() === 'open' && (status === 'COMPLETED' || status === 'CANCELLED')) {
-          this.reload();
+        if (
+          this.view() === 'board' &&
+          (status === 'COMPLETED' || status === 'CANCELLED')
+        ) {
+          this.orders.update((list) => list.filter((o) => o.id !== updated.id));
         }
       },
       error: (err) => {

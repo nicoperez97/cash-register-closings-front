@@ -97,11 +97,24 @@
   --mat-slide-toggle-label-text-color: var(--guy-text, #1b2a33);
 }
 
-/* PWA instalada: evitar zoom por gestos */
+/* PWA instalada: panear sin zoom por doble toque (pinch sigue OK). */
 html.guy-pwa,
 html.guy-pwa body {
-  touch-action: pan-x pan-y;
+  touch-action: manipulation;
   overscroll-behavior: none;
+}
+
+/* Safari iPhone: evita zoom por doble toque en toda la app. */
+html,
+body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.guy-public-ordering,
+html.guy-public-ordering body {
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
 }
 
 html[data-theme='dark'] {
