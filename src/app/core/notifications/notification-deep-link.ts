@@ -53,6 +53,10 @@ export function notificationRouterLink(n: NotificationLinkInput): NotificationRo
     if (n.targetId) q['request'] = n.targetId;
     return { commands: ['/reservations'], queryParams: q };
   }
+  if (n.type === 'CUSTOMER_ORDER_CREATED') {
+    if (n.targetId) q['order'] = n.targetId;
+    return { commands: ['/customer-orders'], queryParams: q };
+  }
   if (n.type.startsWith('MOVEMENT_')) {
     if (n.targetId && n.type !== 'MOVEMENT_DELETED') q['movement'] = n.targetId;
     return { commands: ['/expenses'], queryParams: q };

@@ -594,7 +594,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Pedidos online',
     icon: 'shopping_bag',
     group: 'daily',
-    hint: 'Pedidos de clientes por take away o delivery',
+    hint: 'Bandeja de pedidos take away / delivery de clientes',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -723,6 +723,15 @@ export const MODULE_PRESETS: Array<{
     icon: 'table_restaurant',
     modules: {
       reservations: 'manage',
+    },
+  },
+  {
+    id: 'customer-orders-only',
+    label: 'Pedidos online',
+    description: 'Solo administra pedidos take away / delivery',
+    icon: 'shopping_bag',
+    modules: {
+      customerOrders: 'manage',
     },
   },
   {
@@ -1356,9 +1365,22 @@ export function isProducerOnly(user: AuthUser | null, shopId: string | null): bo
   return extra.length === 0;
 }
 
+/** Solo administra pedidos online (take away / delivery). */
+export function isCustomerOrdersOnly(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
+  const perms = permissionsForShop(user, shopId);
+  if (!perms.includes('customerOrders.read') && !perms.includes('customerOrders.manage')) {
+    return false;
+  }
+  const allowed = new Set<Permission>(['customerOrders.read', 'customerOrders.manage']);
+  return perms.every((p) => allowed.has(p));
+}
+
 export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): string {
   if (isCashierOnly(user, shopId)) return '/closings/new';
   if (isProducerOnly(user, shopId)) return '/my-production';
+  if (isCustomerOrdersOnly(user, shopId)) return '/customer-orders';
   return '/';
 }
 

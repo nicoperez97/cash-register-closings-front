@@ -42,7 +42,7 @@
                 <strong>{{ sec.name }}</strong>
                 <p>{{ sectionPreview(sec) }}</p>
               </div>
-              <button type="button" class="cat__ver" (click)="openSection(sec)">Ver</button>
+              <button type="button" class="cat__ver ord-press" (click)="openSection(sec)">Ver</button>
             </article>
           </li>
         } @empty {
@@ -67,7 +67,7 @@
               </div>
               <button
                 type="button"
-                class="item__add"
+                class="item__add ord-press"
                 [disabled]="!canOrder()"
                 (click)="openItem(it)"
               >
@@ -109,7 +109,7 @@
 
         <button
           type="button"
-          class="btn btn--primary"
+          class="btn btn--primary ord-press"
           [disabled]="!canOrder()"
           (click)="addToCart()"
         >
@@ -123,7 +123,7 @@
     }
 
     @if (cartCount() > 0) {
-      <button type="button" class="cart-bar" (click)="goCheckout()">
+      <button type="button" class="cart-bar ord-press" (click)="goCheckout()">
         <span class="cart-bar__count">{{ cartCount() }}</span>
         <span class="cart-bar__label">Ver pedido</span>
         <span class="cart-bar__total">{{ money(cartSubtotal()) }}</span>

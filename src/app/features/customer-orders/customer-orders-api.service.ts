@@ -158,6 +158,12 @@ export class CustomerOrdersApiService {
     );
   }
 
+  pendingCount(shopId: string) {
+    return this.http.get<{ count: number }>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/pending-count`,
+    );
+  }
+
   updateStatus(shopId: string, id: string, status: CustomerOrderStatus) {
     return this.http.patch<StaffCustomerOrder>(
       `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}/status`,

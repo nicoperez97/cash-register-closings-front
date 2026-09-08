@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -18,6 +19,7 @@ import {
   CustomerOrdersApiService,
   StaffCustomerOrder,
 } from './customer-orders-api.service';
+import { CustomerOrdersInboxService } from './customer-orders-inbox.service';
 
 const STATUS_LABEL: Record<CustomerOrderStatus, string> = {
   PENDING: 'Pendiente',
@@ -27,6 +29,16 @@ const STATUS_LABEL: Record<CustomerOrderStatus, string> = {
   OUT_FOR_DELIVERY: 'En camino',
   COMPLETED: 'Completado',
   CANCELLED: 'Cancelado',
+};
+
+const STATUS_CHIP: Record<CustomerOrderStatus, string> = {
+  PENDING: 'guy-chip--warning',
+  ACCEPTED: 'guy-chip--primary',
+  PREPARING: 'guy-chip--primary',
+  READY: 'guy-chip--success',
+  OUT_FOR_DELIVERY: 'guy-chip--success',
+  COMPLETED: 'guy-chip--muted',
+  CANCELLED: 'guy-chip--muted',
 };
 
 const NEXT_ACTIONS: Partial<
@@ -51,6 +63,8 @@ const NEXT_ACTIONS: Partial<
   OUT_FOR_DELIVERY: [{ status: 'COMPLETED', label: 'Completar' }],
 };
 
+type FilterValue = 'open' | 'all' | CustomerOrderStatus;
+
 @Component({
   selector: 'app-customer-orders-page',
   imports: [
@@ -60,241 +74,36 @@ const NEXT_ACTIONS: Partial<
     MatSnackBarModule,
     PageHeaderComponent,
   ],
-  template: `
-    <app-page-header
-      title="Pedidos online"
-      [subtitle]="shops.selectedShop()?.name ?? ''"
-    />
-
-    @if (publicOrderingUrl()) {
-      <div class="co-public">
-        <a class="co-public__btn" [href]="publicOrderingUrl()" target="_blank" rel="noopener">
-          <mat-icon>open_in_new</mat-icon>
-          Página pública
-        </a>
-        <button type="button" class="co-public__btn co-public__btn--ghost" (click)="copyPublicOrderingUrl()">
-          <mat-icon>content_copy</mat-icon>
-          Copiar link
-        </button>
-      </div>
-    }
-
-    <div class="co-filters panel-card">
-      <div class="panel-card__body co-filters__row">
-        @for (f of filters; track f.value) {
-          <button
-            type="button"
-            mat-stroked-button
-            [class.co-filters__on]="filter() === f.value"
-            (click)="filter.set(f.value); reload()"
-          >
-            {{ f.label }}
-          </button>
-        }
-        <button type="button" mat-button (click)="reload()">
-          <mat-icon>refresh</mat-icon>
-          Actualizar
-        </button>
-      </div>
-    </div>
-
-    @if (loading()) {
-      <p class="co-empty">Cargando pedidos…</p>
-    } @else if (!orders().length) {
-      <p class="co-empty">No hay pedidos en este filtro.</p>
-    } @else {
-      <div class="co-list">
-        @for (o of orders(); track o.id) {
-          <article class="panel-card co-card">
-            <div class="panel-card__body">
-              <header class="co-card__head">
-                <div>
-                  <strong class="co-card__code">#{{ o.code }}</strong>
-                  <span class="co-card__status">{{ statusLabel(o.status) }}</span>
-                </div>
-                <time>{{ o.createdAt | date: 'dd/MM HH:mm' }}</time>
-              </header>
-              <p class="co-card__guest">
-                {{ o.lastName }}, {{ o.firstName }} · {{ o.phone }}
-              </p>
-              <p class="co-card__meta">
-                {{ o.fulfillment === 'DELIVERY' ? 'Delivery' : 'Take away' }}
-                ·
-                {{ o.paymentMethod === 'CASH' ? 'Efectivo' : 'Transferencia' }}
-                @if (o.fulfillment === 'DELIVERY' && o.deliveryZoneName) {
-                  · {{ o.deliveryZoneName }}
-                }
-              </p>
-              @if (o.address) {
-                <p class="co-card__addr">{{ o.address }}</p>
-              }
-              <ul class="co-card__items">
-                @for (it of o.items; track $index) {
-                  <li>
-                    {{ it.qty }} × {{ it.name }}
-                    <span>{{ money(it.unitPrice * it.qty) }}</span>
-                    @if (it.notes) {
-                      <em>{{ it.notes }}</em>
-                    }
-                  </li>
-                }
-              </ul>
-              <p class="co-card__total">
-                Total {{ money(o.total) }}
-                @if (o.deliveryFee) {
-                  <span>(envío {{ money(o.deliveryFee) }})</span>
-                }
-              </p>
-              @if (canManage() && nextActions(o).length) {
-                <div class="co-card__actions">
-                  @for (a of nextActions(o); track a.status) {
-                    <button
-                      mat-flat-button
-                      [color]="a.status === 'CANCELLED' ? 'warn' : 'primary'"
-                      type="button"
-                      [disabled]="busyId() === o.id"
-                      (click)="setStatus(o, a.status)"
-                    >
-                      {{ a.label }}
-                    </button>
-                  }
-                </div>
-              }
-            </div>
-          </article>
-        }
-      </div>
-    }
-  `,
-  styles: `
-    .co-public {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin: 0 0 1rem;
-    }
-    .co-public__btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.4rem 0.85rem;
-      border-radius: 999px;
-      border: 1px solid var(--guy-border, #d7e0d9);
-      background: var(--guy-green, #2e7d32);
-      color: #fff;
-      text-decoration: none;
-      font-weight: 650;
-      font-size: 0.86rem;
-      cursor: pointer;
-    }
-    .co-public__btn mat-icon {
-      font-size: 1.05rem;
-      width: 1.05rem;
-      height: 1.05rem;
-    }
-    .co-public__btn--ghost {
-      background: #fff;
-      color: var(--guy-navy, #003366);
-    }
-    .co-filters {
-      margin-bottom: 1rem;
-    }
-    .co-filters__row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: center;
-    }
-    .co-filters__on {
-      background: color-mix(in srgb, var(--guy-primary, #1565c0) 14%, white);
-      border-color: var(--guy-primary, #1565c0);
-    }
-    .co-empty {
-      color: var(--guy-muted, #5f6f76);
-      padding: 1rem;
-    }
-    .co-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-    }
-    .co-card__head {
-      display: flex;
-      justify-content: space-between;
-      gap: 0.75rem;
-      align-items: baseline;
-    }
-    .co-card__code {
-      font-size: 1.1rem;
-      margin-right: 0.5rem;
-    }
-    .co-card__status {
-      font-size: 0.85rem;
-      color: var(--guy-muted, #5f6f76);
-    }
-    .co-card__guest,
-    .co-card__meta,
-    .co-card__addr {
-      margin: 0.35rem 0 0;
-      font-size: 0.92rem;
-    }
-    .co-card__addr {
-      color: var(--guy-muted, #5f6f76);
-    }
-    .co-card__items {
-      list-style: none;
-      padding: 0.6rem 0 0;
-      margin: 0.5rem 0 0;
-      border-top: 1px solid #e8eef2;
-    }
-    .co-card__items li {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 0.25rem 0.75rem;
-      padding: 0.25rem 0;
-      font-size: 0.9rem;
-    }
-    .co-card__items em {
-      grid-column: 1 / -1;
-      font-size: 0.8rem;
-      color: var(--guy-muted, #5f6f76);
-    }
-    .co-card__total {
-      margin: 0.5rem 0 0;
-      font-weight: 700;
-    }
-    .co-card__total span {
-      font-weight: 500;
-      color: var(--guy-muted, #5f6f76);
-      font-size: 0.85rem;
-    }
-    .co-card__actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-    }
-  `,
+  templateUrl: './customer-orders-page.html',
+  styleUrl: './customer-orders-page.scss',
 })
 export class CustomerOrdersPage {
   private readonly api = inject(CustomerOrdersApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly live = inject(ShopLiveClient);
   private readonly auth = inject(AuthService);
+  private readonly inbox = inject(CustomerOrdersInboxService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   readonly shops = inject(ShopContextService);
 
-  readonly filter = signal<'open' | 'all' | CustomerOrderStatus>('open');
+  readonly filter = signal<FilterValue>('open');
   readonly orders = signal<StaffCustomerOrder[]>([]);
   readonly loading = signal(false);
   readonly busyId = signal<string | null>(null);
+  readonly focusOrderId = signal<string | null>(null);
+  private lastKnownIds = new Set<string>();
+  private skipNewToast = true;
 
-  readonly filters = [
-    { value: 'open' as const, label: 'Activos' },
-    { value: 'all' as const, label: 'Todos' },
-    { value: 'PENDING' as const, label: 'Pendientes' },
-    { value: 'COMPLETED' as const, label: 'Completados' },
-    { value: 'CANCELLED' as const, label: 'Cancelados' },
+  readonly filters: Array<{ value: FilterValue; label: string }> = [
+    { value: 'open', label: 'Activos' },
+    { value: 'PENDING', label: 'Pendientes' },
+    { value: 'all', label: 'Todos' },
+    { value: 'COMPLETED', label: 'Completados' },
+    { value: 'CANCELLED', label: 'Cancelados' },
   ];
+
+  readonly pendingCount = this.inbox.pendingCount;
 
   readonly canManage = computed(() =>
     hasShopPermission(
@@ -303,6 +112,23 @@ export class CustomerOrdersPage {
       'customerOrders.manage',
     ),
   );
+
+  readonly sortedOrders = computed(() => {
+    const rows = [...this.orders()];
+    const rank = (s: CustomerOrderStatus) => {
+      if (s === 'PENDING') return 0;
+      if (s === 'ACCEPTED') return 1;
+      if (s === 'PREPARING') return 2;
+      if (s === 'READY' || s === 'OUT_FOR_DELIVERY') return 3;
+      return 4;
+    };
+    rows.sort((a, b) => {
+      const dr = rank(a.status) - rank(b.status);
+      if (dr) return dr;
+      return String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+    });
+    return rows;
+  });
 
   publicOrderingUrl(): string {
     const shop = this.shops.selectedShop();
@@ -324,7 +150,12 @@ export class CustomerOrdersPage {
 
     toObservable(this.shops.selectedShopId)
       .pipe(takeUntilDestroyed())
-      .subscribe(() => this.reload());
+      .subscribe(() => {
+        this.lastKnownIds = new Set();
+        this.skipNewToast = true;
+        this.focusOrderId.set(null);
+        this.reload();
+      });
 
     toObservable(this.shops.selectedShopId)
       .pipe(
@@ -343,8 +174,17 @@ export class CustomerOrdersPage {
       });
   }
 
+  setFilter(value: FilterValue): void {
+    this.filter.set(value);
+    this.reload();
+  }
+
   statusLabel(s: CustomerOrderStatus): string {
     return STATUS_LABEL[s] ?? s;
+  }
+
+  statusChip(s: CustomerOrderStatus): string {
+    return STATUS_CHIP[s] ?? 'guy-chip--muted';
   }
 
   nextActions(order: StaffCustomerOrder) {
@@ -355,14 +195,36 @@ export class CustomerOrdersPage {
     return actions;
   }
 
+  primaryAction(order: StaffCustomerOrder) {
+    return this.nextActions(order).find((a) => a.status !== 'CANCELLED') ?? null;
+  }
+
+  cancelAction(order: StaffCustomerOrder) {
+    return this.nextActions(order).find((a) => a.status === 'CANCELLED') ?? null;
+  }
+
   money(n: number): string {
     return formatMoney(n);
+  }
+
+  phoneHref(phone: string): string {
+    const digits = String(phone ?? '').replace(/\D/g, '');
+    return digits ? `tel:+${digits}` : '';
+  }
+
+  async copyCode(code: string): Promise<void> {
+    const ok = await copyText(code);
+    this.snack.open(ok ? `Código ${code} copiado` : 'No se pudo copiar', 'OK', {
+      duration: 2000,
+    });
   }
 
   reload(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
       this.orders.set([]);
+      this.lastKnownIds = new Set();
+      this.skipNewToast = true;
       return;
     }
     this.loading.set(true);
@@ -375,8 +237,21 @@ export class CustomerOrdersPage {
     }
     this.api.listStaff(shopId, statusParam).subscribe({
       next: (rows) => {
+        const nextIds = new Set(rows.map((r) => r.id));
+        if (!this.skipNewToast && this.lastKnownIds.size) {
+          const fresh = rows.filter((r) => !this.lastKnownIds.has(r.id));
+          if (fresh.length === 1) {
+            this.snack.open(`Nuevo pedido #${fresh[0].code}`, 'Ver', { duration: 4000 });
+          } else if (fresh.length > 1) {
+            this.snack.open(`${fresh.length} pedidos nuevos`, 'OK', { duration: 3500 });
+          }
+        }
+        this.skipNewToast = false;
+        this.lastKnownIds = nextIds;
         this.orders.set(rows);
         this.loading.set(false);
+        this.focusOrderFromQuery();
+        this.inbox.refresh();
       },
       error: (err) => {
         this.loading.set(false);
@@ -385,6 +260,29 @@ export class CustomerOrdersPage {
           duration: 3500,
         });
       },
+    });
+  }
+
+  private focusOrderFromQuery(): void {
+    const id = (this.route.snapshot.queryParamMap.get('order') || '').trim();
+    if (!id) return;
+    const found = this.orders().some((o) => o.id === id);
+    if (!found) {
+      if (this.filter() !== 'all') {
+        this.filter.set('all');
+        this.reload();
+      }
+      return;
+    }
+    this.focusOrderId.set(id);
+    queueMicrotask(() => {
+      document.getElementById(`co-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { order: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 
@@ -401,6 +299,7 @@ export class CustomerOrdersPage {
         this.snack.open(`Pedido #${updated.code}: ${STATUS_LABEL[updated.status]}`, 'OK', {
           duration: 2200,
         });
+        this.inbox.refresh();
         if (this.filter() === 'open' && (status === 'COMPLETED' || status === 'CANCELLED')) {
           this.reload();
         }

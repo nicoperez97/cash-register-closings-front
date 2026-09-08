@@ -1,17 +1,17 @@
 import { Component, HostBinding, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import {
   CreatePublicCustomerOrderBody,
   CustomerOrderFulfillment,
   CustomerOrderPaymentMethod,
   CustomerOrdersApiService,
-  PublicCustomerOrder,
   PublicOrderingConfig,
 } from './customer-orders-api.service';
 import { OrderingCartService } from './ordering-cart.service';
+import { rememberOrderPhone } from './public-order-session';
 import {
   apiErrorMessage,
   fulfillmentLabel,
@@ -29,6 +29,7 @@ import {
 })
 export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly api = inject(CustomerOrdersApiService);
   readonly cart = inject(OrderingCartService);
   private readonly title = inject(Title);
@@ -39,7 +40,6 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly formError = signal<string | null>(null);
   readonly config = signal<PublicOrderingConfig | null>(null);
-  readonly success = signal<PublicCustomerOrder | null>(null);
   readonly pickingFulfillment = signal(false);
 
   readonly fulfillment = signal<CustomerOrderFulfillment | ''>('');
@@ -250,8 +250,11 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       next: (order) => {
         this.submitting.set(false);
         this.cart.clear();
-        this.success.set(order);
-        this.title.setTitle(`Pedido ${order.code}`);
+        rememberOrderPhone(slug, order.code, body.phone);
+        void this.router.navigate(['/mi-pedido', slug, order.code], {
+          state: { justCreated: true },
+          replaceUrl: true,
+        });
       },
       error: (err) => {
         this.submitting.set(false);

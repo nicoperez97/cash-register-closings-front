@@ -90,6 +90,14 @@ export const routes: Routes = [
     title: 'Checkout',
   },
   {
+    path: 'mi-pedido/:slug/:code',
+    loadComponent: () =>
+      import('./features/customer-orders/public-order-status').then(
+        (m) => m.PublicOrderStatusComponent,
+      ),
+    title: 'Tu pedido',
+  },
+  {
     path: 'mi-pedido/:slug',
     loadComponent: () =>
       import('./features/customer-orders/public-order-lookup').then(

@@ -1,0 +1,94 @@
+<div class="page">
+  <header class="hero">
+    <p class="brand">Pedidos online</p>
+    @if (justCreated()) {
+      <h1>¡Pedido enviado!</h1>
+      <p class="lead">Seguí el estado acá. Guardá el código por si volvés más tarde.</p>
+    } @else {
+      <h1>Tu pedido</h1>
+      <p class="lead">Estado en vivo del pedido <strong class="code-inline">{{ code() }}</strong>.</p>
+    }
+  </header>
+
+  @if (needsPhone() && !order()) {
+    <form class="card" (submit)="unlock($event)">
+      <p class="hint">Para ver este pedido, confirmá el celular con el que lo hiciste.</p>
+      <label>
+        Celular
+        <input
+          type="tel"
+          [(ngModel)]="phone"
+          name="phone"
+          required
+          autocomplete="tel"
+          inputmode="tel"
+          placeholder="11 2345 6789"
+        />
+      </label>
+      @if (error()) {
+        <p class="form-error">{{ error() }}</p>
+      }
+      <button type="submit" [disabled]="unlocking() || !phone.trim()">
+        {{ unlocking() ? 'Buscando…' : 'Ver pedido' }}
+      </button>
+    </form>
+  }
+
+  @if (loading() && !order()) {
+    <p class="loading">Cargando pedido…</p>
+  }
+
+  @if (order(); as o) {
+    <section class="card card--result">
+      <div class="row-top">
+        <span class="badge" [attr.data-status]="o.status">{{ statusText(o.status) }}</span>
+        <span class="code-pill">{{ o.code }}</span>
+      </div>
+      <p class="meta">
+        {{ fulfillmentText(o.fulfillment) }}
+        @if (o.deliveryZoneName) {
+          · {{ o.deliveryZoneName }}
+        }
+        · {{ paymentText(o.paymentMethod) }}
+      </p>
+      @if (o.address) {
+        <p class="meta">{{ o.address }}</p>
+      }
+
+      <ol class="timeline" aria-label="Progreso del pedido">
+        @for (step of steps(); track step.status) {
+          <li [attr.data-state]="step.state">
+            <span class="timeline__dot" aria-hidden="true"></span>
+            <div class="timeline__body">
+              <strong>{{ step.label }}</strong>
+              @if (step.at) {
+                <time>{{ step.at | date: 'HH:mm' }}</time>
+              }
+            </div>
+          </li>
+        }
+      </ol>
+
+      <ul class="items">
+        @for (it of o.items; track it.menuItemId + '|' + it.qty + '|' + (it.notes || '')) {
+          <li>
+            <span>{{ it.qty }}× {{ it.name }}</span>
+            <span>{{ money(it.unitPrice * it.qty) }}</span>
+          </li>
+        }
+      </ul>
+      <div class="total">
+        <span>Total</span>
+        <strong>{{ money(o.total) }}</strong>
+      </div>
+    </section>
+
+    <p class="live-hint">Se actualiza solo cuando el local avanza el pedido.</p>
+  }
+
+  <p class="back">
+    <a [routerLink]="['/mi-pedido', slug()]">Consultar otro pedido</a>
+    ·
+    <a [routerLink]="['/pedir', slug()]">Volver a pedir</a>
+  </p>
+</div>

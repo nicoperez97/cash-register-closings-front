@@ -35,6 +35,7 @@ import {
   hasShopPermission,
   isCashierOnly,
   isClosingsCreateOnly,
+  isCustomerOrdersOnly,
   isProducerOnly,
   canViewClosingsList,
   canCustomizeLayout,
@@ -267,6 +268,13 @@ export class ToolbarComponent implements OnInit {
     if (cashierOnly) {
       if (hasShopPermission(user, shopId, 'closings.create')) {
         pushRoute('new-closing', 'Nuevo cierre', 'point_of_sale', '/closings/new');
+      }
+      return applyToolbarConfig(items, cfg);
+    }
+
+    if (isCustomerOrdersOnly(user, shopId)) {
+      if (hasShopPermission(user, shopId, 'customerOrders.read') && shop?.onlineOrderingEnabled) {
+        pushRoute('customer-orders', 'Pedidos online', 'shopping_bag', '/customer-orders');
       }
       return applyToolbarConfig(items, cfg);
     }

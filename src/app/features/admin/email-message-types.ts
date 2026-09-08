@@ -118,6 +118,13 @@ export const EMAIL_MESSAGE_TYPE_OPTIONS: Array<{
     defaultBody: '{body}',
   },
   {
+    value: 'CUSTOMER_ORDER_CREATED',
+    label: 'Pedidos online · pedido nuevo',
+    group: 'staff',
+    defaultSubject: '{title}',
+    defaultBody: '{body}',
+  },
+  {
     value: 'MOVEMENT_CREATED',
     label: 'Movimientos y gastos rápidos',
     group: 'staff',

@@ -1,3 +1,4 @@
+@use './ordering-motion.scss' as *;
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
 
 :host {
@@ -49,6 +50,7 @@
   border-radius: 1rem;
   padding: 0.75rem 0.85rem;
   box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
+  animation: ord-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .back {
@@ -105,6 +107,23 @@ h2 {
   border-radius: 16px;
   padding: 1rem;
   box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
+  animation: ord-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.page > .card:nth-of-type(1) {
+  animation-delay: 0.05s;
+}
+.page > .card:nth-of-type(2) {
+  animation-delay: 0.1s;
+}
+.page > .card:nth-of-type(3) {
+  animation-delay: 0.15s;
+}
+.page > .card:nth-of-type(4) {
+  animation-delay: 0.2s;
+}
+.page > form.card {
+  animation-delay: 0.22s;
 }
 
 .lines {
@@ -212,6 +231,15 @@ h2 {
   font-weight: 700;
   cursor: pointer;
   text-align: left;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.choice:hover {
+  transform: translateY(-1px);
 }
 
 .choice--on {
@@ -316,6 +344,7 @@ textarea:focus {
   border: 1px solid var(--line);
   border-radius: 1.2rem;
   box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
+  animation: ord-sheet-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .done__mark {
@@ -330,6 +359,7 @@ textarea:focus {
   font-size: 1.5rem;
   font-weight: 800;
   border: 1px solid var(--line);
+  animation: ord-check-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
 }
 
 .done__code {
@@ -340,4 +370,17 @@ textarea:focus {
 .done__code strong {
   letter-spacing: 0.12em;
   color: var(--accent, #2e7d32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top,
+  .card,
+  .done,
+  .done__mark {
+    animation: none !important;
+  }
+
+  .choice:hover {
+    transform: none;
+  }
 }

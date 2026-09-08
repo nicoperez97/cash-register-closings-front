@@ -45,20 +45,20 @@
     </header>
 
     <nav class="actions">
-      <a class="btn btn--primary" [routerLink]="['/pedir', slug(), 'menu']">
+      <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
         Elegí lo que quieras
       </a>
 
       @if (c.deliveryEnabled && c.deliveryZones.length) {
-        <button type="button" class="btn btn--ghost" (click)="openZones()">
+        <button type="button" class="btn btn--ghost ord-press" (click)="openZones()">
           Zonas de entrega
         </button>
       }
 
-      <a class="btn btn--link" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
+      <a class="btn btn--link ord-press" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
 
       @if (cartCount() > 0 && c.anyChannelOpen) {
-        <a class="btn btn--soft" [routerLink]="['/pedir', slug(), 'checkout']">
+        <a class="btn btn--soft ord-press" [routerLink]="['/pedir', slug(), 'checkout']">
           Seguir con el pedido ({{ cartCount() }})
         </a>
       }
