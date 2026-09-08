@@ -1,3 +1,4 @@
+import { environment } from '../../../environments/environment';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { formatMoney } from '../../shared/utils/money';
 import {
@@ -11,6 +12,20 @@ export function orderingLogoUrl(
   shopId?: string | null,
 ): string | null {
   return resolveShopLogoSrc(logoUrl, shopId) || normalizeLogoUrl(logoUrl) || logoUrl?.trim() || null;
+}
+
+/** URL de foto de ítem del pedido online. */
+export function orderingItemImageUrl(
+  slug: string,
+  item: { id?: string; imageUrl?: string | null },
+): string | null {
+  const id = String(item?.id ?? '').trim();
+  const raw = String(item?.imageUrl ?? '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('/')) return `${environment.apiUrl}${raw}`;
+  if (!slug || !id) return null;
+  return `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/image`;
 }
 
 /** Hex #RGB / #RRGGBB → luminancia relativa 0–1 (sRGB). */

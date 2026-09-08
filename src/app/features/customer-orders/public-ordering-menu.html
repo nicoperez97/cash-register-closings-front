@@ -55,24 +55,27 @@
       <ul class="list">
         @for (it of sec.items; track it.id) {
           <li>
-            <article class="item">
-              <div class="item__body">
-                <div class="item__head">
-                  <strong>{{ it.name }}</strong>
+            <article class="item" [class.item--photo]="!!itemPhoto(it)">
+              <div class="item__main">
+                <div class="item__body">
+                  <strong class="item__name">{{ it.name }}</strong>
+                  @if (it.description) {
+                    <p class="item__desc">{{ it.description }}</p>
+                  }
                   <span class="price">{{ priceOf(it) }}</span>
                 </div>
-                @if (it.description) {
-                  <p>{{ it.description }}</p>
-                }
+                <button
+                  type="button"
+                  class="item__add ord-press"
+                  [disabled]="!canOrder()"
+                  (click)="openItem(it)"
+                >
+                  Agregar
+                </button>
               </div>
-              <button
-                type="button"
-                class="item__add ord-press"
-                [disabled]="!canOrder()"
-                (click)="openItem(it)"
-              >
-                Agregar
-              </button>
+              @if (itemPhoto(it); as photo) {
+                <img class="item__photo" [src]="photo" alt="" loading="lazy" />
+              }
             </article>
           </li>
         }
@@ -81,9 +84,29 @@
 
     @if (view() === 'detail' && item(); as it) {
       <section class="detail">
+        @if (itemPhoto(it); as photo) {
+          <img class="detail__photo" [src]="photo" [alt]="it.name" />
+        }
         <p class="detail__price">{{ priceOf(it) }}</p>
         @if (it.description) {
           <p class="detail__desc">{{ it.description }}</p>
+        }
+
+        @if (itemExtras().length) {
+          <div class="extras">
+            <p class="extras__title">Extras</p>
+            @for (ex of itemExtras(); track ex.id) {
+              <label class="extras__row">
+                <input
+                  type="checkbox"
+                  [checked]="isExtraSelected(ex.id)"
+                  (change)="toggleExtra(ex.id)"
+                />
+                <span>{{ ex.name }}</span>
+                <span class="price">{{ money(ex.price) }}</span>
+              </label>
+            }
+          </div>
         }
 
         <label class="field">

@@ -208,4 +208,15 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
   money(n: number): string {
     return orderingMoney(n);
   }
+
+  readonly receiptWhatsappHref = computed(() => {
+    const o = this.order();
+    if (!o || o.paymentMethod !== 'TRANSFER') return '';
+    const digits = String(o.receiptWhatsapp ?? '').replace(/\D/g, '');
+    if (digits.length < 8) return '';
+    const text = encodeURIComponent(
+      `Hola! Te envío el comprobante del pedido ${o.code} (total ${orderingMoney(o.total)}).`,
+    );
+    return `https://wa.me/${digits}?text=${text}`;
+  });
 }

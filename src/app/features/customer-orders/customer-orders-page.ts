@@ -9,7 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, filter, of, switchMap } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
+import { hasShopPermission, canManageOrderingCatalog } from '../../core/auth/auth.models';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatMoney } from '../../shared/utils/money';
 import { copyText } from '../../shared/utils/share-text';
@@ -22,6 +22,7 @@ import {
   StaffCustomerOrder,
 } from './customer-orders-api.service';
 import { CustomerOrdersInboxService } from './customer-orders-inbox.service';
+import { OrderingCatalogPanelComponent } from './ordering-catalog-panel';
 
 const STATUS_LABEL: Record<CustomerOrderStatus, string> = {
   PENDING: 'Pendiente',
@@ -56,7 +57,7 @@ const NEXT_ACTIONS: Partial<
 };
 
 type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery';
-type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED';
+type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED' | 'config';
 
 type BoardColumn = {
   id: BoardColumnId;
@@ -80,6 +81,7 @@ const BOARD_COLUMNS: BoardColumn[] = [
     MatIconModule,
     MatDialogModule,
     MatSnackBarModule,
+    OrderingCatalogPanelComponent,
   ],
   templateUrl: './customer-orders-page.html',
   styleUrl: './customer-orders-page.scss',
@@ -113,6 +115,23 @@ export class CustomerOrdersPage {
     ),
   );
 
+  readonly canReadOrders = computed(() =>
+    hasShopPermission(
+      this.auth.currentUser(),
+      this.shops.selectedShopId(),
+      'customerOrders.read',
+    ) ||
+    hasShopPermission(
+      this.auth.currentUser(),
+      this.shops.selectedShopId(),
+      'customerOrders.manage',
+    ),
+  );
+
+  readonly canConfigure = computed(() =>
+    canManageOrderingCatalog(this.auth.currentUser(), this.shops.selectedShopId()),
+  );
+
   readonly boardColumns = computed(() => {
     const rows = this.orders();
     return BOARD_COLUMNS.map((col) => {
@@ -142,6 +161,11 @@ export class CustomerOrdersPage {
         this.lastKnownIds = new Set();
         this.skipNewToast = true;
         this.focusOrderId.set(null);
+        if (this.canConfigure() && !this.canReadOrders()) {
+          this.view.set('config');
+        } else if (this.view() === 'config' && !this.canConfigure()) {
+          this.view.set('board');
+        }
         this.reload();
       });
 
@@ -149,7 +173,7 @@ export class CustomerOrdersPage {
       .pipe(
         switchMap((id) => {
           const shopId = String(id ?? '').trim();
-          if (!shopId) return of(null);
+          if (!shopId || !this.canReadOrders()) return of(null);
           return this.live.connectAuth(shopId).pipe(
             filter((t) => t.domain === 'customer-orders'),
             debounceTime(250),
@@ -164,7 +188,7 @@ export class CustomerOrdersPage {
 
   setView(mode: ViewMode): void {
     this.view.set(mode);
-    this.reload();
+    if (mode !== 'config') this.reload();
   }
 
   statusLabel(s: CustomerOrderStatus): string {
@@ -241,6 +265,10 @@ export class CustomerOrdersPage {
       this.orders.set([]);
       this.lastKnownIds = new Set();
       this.skipNewToast = true;
+      return;
+    }
+    if (!this.canReadOrders() || this.view() === 'config') {
+      this.loading.set(false);
       return;
     }
     this.loading.set(true);

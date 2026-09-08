@@ -293,6 +293,63 @@ li[data-state='todo'] {
   font-size: 1.05rem;
 }
 
+.receipt-wa {
+  margin-top: 0.95rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, #fff);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.receipt-wa__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.receipt-wa__data {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+
+.receipt-wa__text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.receipt-wa__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.15rem;
+  padding: 0.72rem 0.9rem;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  text-align: center;
+}
+
+.receipt-wa__btn:hover {
+  filter: brightness(0.96);
+}
+
 .live-hint {
   margin: 0.85rem 0 0;
   text-align: center;

@@ -22,7 +22,7 @@ import {
 } from '../../shared/components/select-search';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageShop, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
+import { canManageShop, canManageOrderingCatalog, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
 import { defaultShopShift, shopShiftsOf, type ShopShift } from '../../core/shop/shop-shifts';
 import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
@@ -244,9 +244,11 @@ export class AdminShopPage implements OnInit {
     orderingEtaTakeaway: [''],
     orderingEtaDelivery: [''],
     transferInstructions: [''],
+    orderingWhatsapp: [''],
     payCash: [true],
     payTransfer: [true],
     deliveryZones: this.fb.array([]),
+    orderingExtras: this.fb.array([]),
     takeawayHours: this.fb.array(this.emptyWeekdayHours()),
     deliveryHours: this.fb.array(this.emptyWeekdayHours()),
     active: [true],
@@ -288,6 +290,10 @@ export class AdminShopPage implements OnInit {
 
   get deliveryZones(): FormArray {
     return this.form.get('deliveryZones') as FormArray;
+  }
+
+  get orderingExtras(): FormArray {
+    return this.form.get('orderingExtras') as FormArray;
   }
 
   get takeawayHours(): FormArray {
@@ -357,6 +363,22 @@ export class AdminShopPage implements OnInit {
 
   removeDeliveryZone(index: number): void {
     this.deliveryZones.removeAt(index);
+  }
+
+  addOrderingExtra(): void {
+    this.orderingExtras.push(
+      this.fb.nonNullable.group({
+        id: [''],
+        name: [''],
+        price: [0],
+        available: [true],
+        menuItemIdsText: [''],
+      }),
+    );
+  }
+
+  removeOrderingExtra(index: number): void {
+    this.orderingExtras.removeAt(index);
   }
 
   readonly sourceAccountOptions = computed(() =>
@@ -495,7 +517,7 @@ export class AdminShopPage implements OnInit {
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
-    if (!canManageShop(this.auth.currentUser(), shopId)) {
+    if (!canManageOrderingCatalog(this.auth.currentUser(), shopId)) {
       void this.router.navigate(['/']);
       return;
     }
@@ -577,12 +599,20 @@ export class AdminShopPage implements OnInit {
     orderingPayments?: {
       methods?: Array<'CASH' | 'TRANSFER'>;
       transferInstructions?: string | null;
+      whatsapp?: string | null;
     } | null;
     deliveryZones?: Array<{
       id?: string;
       name: string;
       fee: number;
       note?: string | null;
+    }> | null;
+    orderingExtras?: Array<{
+      id?: string;
+      name: string;
+      price: number;
+      available?: boolean;
+      menuItemIds?: string[];
     }> | null;
     orderingEta?: {
       takeaway?: string | null;
@@ -629,6 +659,7 @@ export class AdminShopPage implements OnInit {
       orderingEtaTakeaway: s.orderingEta?.takeaway ?? '',
       orderingEtaDelivery: s.orderingEta?.delivery ?? '',
       transferInstructions: s.orderingPayments?.transferInstructions ?? '',
+      orderingWhatsapp: s.orderingPayments?.whatsapp ?? '',
       payCash: !s.orderingPayments?.methods || s.orderingPayments.methods.includes('CASH'),
       payTransfer:
         !s.orderingPayments?.methods || s.orderingPayments.methods.includes('TRANSFER'),
@@ -645,6 +676,18 @@ export class AdminShopPage implements OnInit {
           name: [z.name ?? ''],
           fee: [Number(z.fee) || 0],
           note: [z.note ?? ''],
+        }),
+      );
+    }
+    this.orderingExtras.clear();
+    for (const e of s.orderingExtras ?? []) {
+      this.orderingExtras.push(
+        this.fb.nonNullable.group({
+          id: [e.id ?? ''],
+          name: [e.name ?? ''],
+          price: [Number(e.price) || 0],
+          available: [e.available !== false],
+          menuItemIdsText: [(e.menuItemIds ?? []).join(', ')],
         }),
       );
     }
@@ -1079,6 +1122,7 @@ export class AdminShopPage implements OnInit {
           ...(raw.payTransfer ? (['TRANSFER'] as const) : []),
         ],
         transferInstructions: String(raw.transferInstructions ?? '').trim() || null,
+        whatsapp: String(raw.orderingWhatsapp ?? '').trim() || null,
       },
       deliveryZones: (raw.deliveryZones as Array<{
         id?: string;
@@ -1116,7 +1160,17 @@ export class AdminShopPage implements OnInit {
     } else if (smtpPass) {
       body['emailSmtpPassword'] = smtpPass;
     }
-    this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, body).subscribe({
+
+    const canFull = canManageShop(this.auth.currentUser(), shopId);
+    const req$ = canFull
+      ? this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, body)
+      : this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
+          takeawayEnabled: body['takeawayEnabled'],
+          deliveryEnabled: body['deliveryEnabled'],
+          orderingPayments: body['orderingPayments'],
+        });
+
+    req$.subscribe({
       next: (shop) => {
         const scrollY = window.scrollY;
         this.saving.set(false);

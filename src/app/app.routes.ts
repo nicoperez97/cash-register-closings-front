@@ -353,7 +353,7 @@ export const routes: Routes = [
       {
         path: 'customer-orders',
         canActivate: [
-          permissionGuard('customerOrders.read'),
+          anyPermissionGuard('customerOrders.read', 'orderingCatalog.manage'),
           shopFeatureGuard('onlineOrdering'),
         ],
         loadComponent: () =>
@@ -371,7 +371,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/shop',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.manage', 'orderingCatalog.manage')],
         loadComponent: () =>
           import('./features/admin/admin-shop').then((m) => m.AdminShopPage),
         title: 'Configuración del local',
@@ -439,7 +439,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/menu',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.manage', 'orderingCatalog.manage')],
         loadComponent: () =>
           import('./features/menu/admin-menu').then((m) => m.AdminMenuPage),
         title: 'Carta',

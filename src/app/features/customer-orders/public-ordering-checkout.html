@@ -32,7 +32,7 @@
       <section class="card">
         <h2>Resumen</h2>
         <ul class="lines">
-          @for (line of cart.lines(); track line.menuItemId + '|' + line.notes) {
+          @for (line of cart.lines(); track line.kind + '|' + (line.extraId || line.menuItemId) + '|' + line.notes + '|' + (line.attachedToMenuItemId || '')) {
             <li>
               <div class="line__main">
                 <strong>{{ line.qty }}× {{ line.name }}</strong>
@@ -42,9 +42,9 @@
                 <p class="line__notes">{{ line.notes }}</p>
               }
               <div class="line__actions">
-                <button type="button" (click)="bumpLine(line.menuItemId, line.notes, -1)">−</button>
-                <button type="button" (click)="bumpLine(line.menuItemId, line.notes, 1)">+</button>
-                <button type="button" class="danger" (click)="removeLine(line.menuItemId, line.notes)">
+                <button type="button" (click)="bumpLine(line, -1)">−</button>
+                <button type="button" (click)="bumpLine(line, 1)">+</button>
+                <button type="button" class="danger" (click)="removeLine(line)">
                   Quitar
                 </button>
               </div>
@@ -149,6 +149,9 @@
 
         @if (paymentMethod() === 'TRANSFER' && c.payments.transferInstructions) {
           <p class="hint">{{ c.payments.transferInstructions }}</p>
+        }
+        @if (paymentMethod() === 'TRANSFER') {
+          <p class="hint">Después de confirmar, te pedimos enviar el comprobante por WhatsApp.</p>
         }
 
         <h2 class="mt">Tus datos</h2>

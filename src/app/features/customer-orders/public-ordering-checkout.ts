@@ -164,14 +164,25 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     this.deliveryZoneId.set(id);
   }
 
-  bumpLine(menuItemId: string, notes: string, delta: number): void {
-    const line = this.cart.lines().find((l) => l.menuItemId === menuItemId && l.notes === notes);
-    if (!line) return;
-    this.cart.updateQty(menuItemId, notes, line.qty + delta);
+  bumpLine(line: { menuItemId: string; notes: string; kind?: 'ITEM' | 'EXTRA'; qty: number; extraId?: string; attachedToMenuItemId?: string }, delta: number): void {
+    this.cart.updateQty(
+      line.menuItemId,
+      line.notes,
+      line.qty + delta,
+      line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
+      line.extraId,
+      line.attachedToMenuItemId,
+    );
   }
 
-  removeLine(menuItemId: string, notes: string): void {
-    this.cart.remove(menuItemId, notes);
+  removeLine(line: { menuItemId: string; notes: string; kind?: 'ITEM' | 'EXTRA'; extraId?: string; attachedToMenuItemId?: string }): void {
+    this.cart.remove(
+      line.menuItemId,
+      line.notes,
+      line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
+      line.extraId,
+      line.attachedToMenuItemId,
+    );
   }
 
   submit(ev: Event): void {
@@ -226,11 +237,20 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
     const body: CreatePublicCustomerOrderBody = {
       fulfillment,
-      items: lines.map((l) => ({
-        menuItemId: l.menuItemId,
-        qty: l.qty,
-        notes: l.notes || null,
-      })),
+      items: lines
+        .filter((l) => l.kind !== 'EXTRA')
+        .map((l) => ({
+          menuItemId: l.menuItemId,
+          qty: l.qty,
+          notes: l.notes || null,
+        })),
+      extras: lines
+        .filter((l) => l.kind === 'EXTRA' && l.extraId)
+        .map((l) => ({
+          extraId: l.extraId!,
+          qty: l.qty,
+          attachedToMenuItemId: l.attachedToMenuItemId || null,
+        })),
       firstName: this.firstName.trim(),
       lastName: this.lastName.trim(),
       phone: this.phone.trim(),
