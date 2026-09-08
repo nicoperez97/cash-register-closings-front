@@ -90,6 +90,8 @@ const ADDABLE_NAV_IDS = [
   'suppliers',
   'services',
   'adminShop',
+  'adminOrdering',
+  'customerOrders',
 ] as const;
 
 /** Módulos del menú que se pueden sumar como atajo custom (desde el catálogo). */

@@ -413,14 +413,42 @@ export class MainLayoutComponent {
       });
     }
 
+    const local: NonNullable<NavItem['children']> = [];
+    if (shopId && canManageShop(user, shopId)) {
+      local.push(leaf('adminShop'));
+      local.push(leaf('adminShopIdentidad'));
+      local.push(leaf('adminShopOperacion'));
+      local.push(leaf('adminOrdering'));
+    }
+    if (
+      shopId &&
+      hasShopPermission(user, shopId, 'customerOrders.read') &&
+      this.shopFeature('onlineOrdering')
+    ) {
+      local.push(leaf('customerOrders'));
+    }
+    if (shopId && canManageShop(user, shopId)) {
+      local.push(leaf('adminShopDispositivos'));
+      local.push(leaf('adminShopMenu'));
+      local.push(leaf('adminMenu'));
+      local.push(leaf('adminShopAvanzado'));
+    }
+    if (local.length) {
+      items.push({
+        label: 'Configuración del local',
+        route: '__group_local',
+        icon: 'storefront',
+        defaultRoute: '/admin/shop',
+        children: local,
+      });
+    }
+
     const admin: NonNullable<NavItem['children']> = [];
     if (this.auth.isSuperAdmin()) {
       admin.push(leaf('adminShops'));
     }
     if (shopId && canManageShop(user, shopId)) {
-      admin.push(leaf('adminShop'));
       admin.push(leaf('adminMessages'));
-      admin.push(leaf('adminMenu'));
       admin.push(leaf('adminQr'));
       admin.push(leaf('adminInstrucciones'));
     }
@@ -439,13 +467,11 @@ export class MainLayoutComponent {
       admin.push(leaf('adminPosProducts'));
     }
     if (admin.length) {
-      const adminDefault =
-        admin.find((c) => c.route === '/admin/shop')?.route ?? admin[0]?.route;
       items.push({
         label: 'Administración',
         route: '__group_admin',
         icon: 'settings',
-        defaultRoute: adminDefault,
+        defaultRoute: admin[0]?.route,
         children: admin,
       });
     }
@@ -598,6 +624,7 @@ export class MainLayoutComponent {
         reservationsEnabled: shop?.reservationsEnabled,
         waitingListEnabled: shop?.waitingListEnabled,
         tipsEnabled: shop?.tipsEnabled,
+        onlineOrderingEnabled: shop?.onlineOrderingEnabled,
         settlementsEnabled:
           this.settlementsInbox.enabled() || !!shop?.settlementsEnabled,
       },
@@ -648,11 +675,14 @@ export class MainLayoutComponent {
     }
   }
 
-  private shopFeature(feature: 'reservations' | 'waitingList' | 'tips'): boolean {
+  private shopFeature(
+    feature: 'reservations' | 'waitingList' | 'tips' | 'onlineOrdering',
+  ): boolean {
     const shop = this.shopContext.selectedShop();
     if (!shop) return false;
     if (feature === 'reservations') return !!shop.reservationsEnabled;
     if (feature === 'waitingList') return !!shop.waitingListEnabled;
+    if (feature === 'onlineOrdering') return !!shop.onlineOrderingEnabled;
     return !!shop.tipsEnabled;
   }
 

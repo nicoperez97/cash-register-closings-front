@@ -13,7 +13,12 @@ import {
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 
-export type ShopLiveDomain = 'reservations' | 'waiting' | 'attendance' | 'inbox';
+export type ShopLiveDomain =
+  | 'reservations'
+  | 'waiting'
+  | 'attendance'
+  | 'inbox'
+  | 'customer-orders';
 
 export type ShopLiveTick = { domain: ShopLiveDomain | 'hello'; at: number };
 

@@ -1,0 +1,226 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
+
+:host {
+  display: block;
+  min-height: 100dvh;
+  --ink: #1a221c;
+  --muted: #5f6f76;
+  --paper: #eef1ee;
+  --sheet: #ffffff;
+  --accent: #2e7d32;
+  --line: color-mix(in srgb, var(--accent) 16%, #d5dcd2);
+  color: var(--ink);
+  color-scheme: light;
+  font-family: Figtree, system-ui, sans-serif;
+  background:
+    radial-gradient(
+      ellipse 80% 45% at 50% -12%,
+      color-mix(in srgb, var(--accent) 14%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, #e8ece8 0%, var(--paper) 40%, #eef1ee 100%);
+}
+
+.page {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1.1rem
+    calc(2.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.hero {
+  margin-bottom: 1.1rem;
+  text-align: center;
+}
+
+.brand {
+  margin: 0 0 0.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.55rem, 5vw, 1.85rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.lead,
+.empty,
+.back,
+.meta {
+  color: var(--muted);
+}
+
+.lead {
+  margin: 0;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.card {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.05rem 1.1rem;
+  box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
+}
+
+.card--empty {
+  margin-top: 0.9rem;
+  text-align: center;
+}
+
+.empty-title {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+}
+
+input {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+input.code {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 1px;
+}
+
+button {
+  margin-top: 0.35rem;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.card--result {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  color: var(--accent);
+  border: 1px solid var(--line);
+}
+
+.badge[data-status='PENDING'] {
+  background: #fff8e8;
+  color: #9a6700;
+  border-color: #f0d78c;
+}
+
+.badge[data-status='CANCELLED'] {
+  background: #fff5f5;
+  color: #b42318;
+  border-color: #f0c4c4;
+}
+
+.badge[data-status='COMPLETED'] {
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+  color: var(--accent);
+}
+
+.code-pill {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.items {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 0.55rem;
+  margin-top: 0.25rem;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.back {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+a {
+  color: var(--accent);
+  font-weight: 600;
+}
