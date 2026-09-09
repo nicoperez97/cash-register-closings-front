@@ -15,7 +15,16 @@ import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { SalonApiService } from './salon-api.service';
 import { formatTableInventory } from './salon-combine.util';
-import { SalonSector, SalonTable } from './salon.models';
+import { SalonMapObject, SalonSector, SalonTable } from './salon.models';
+
+type DraftMapObject = {
+  key: string;
+  id: string | null;
+  kind: string;
+  name: string;
+  mapX: number;
+  mapY: number;
+};
 
 @Component({
   selector: 'app-salon-tables-page',
@@ -42,6 +51,7 @@ export class SalonTablesPage {
   readonly loading = signal(true);
   readonly sectors = signal<SalonSector[]>([]);
   readonly tables = signal<SalonTable[]>([]);
+  readonly mapObjects = signal<SalonMapObject[]>([]);
   readonly addingSectorId = signal<string | null>(null);
   readonly creatingSector = signal(false);
   readonly bulkingSectorId = signal<string | null>(null);
@@ -50,6 +60,26 @@ export class SalonTablesPage {
   readonly nameDrafts = signal<Record<string, string>>({});
   readonly bulkFrom = signal<Record<string, number>>({});
   readonly bulkTo = signal<Record<string, number>>({});
+  readonly viewMode = signal<'list' | 'map'>('list');
+  readonly editingSectorId = signal<string | null>(null);
+  readonly savingMap = signal(false);
+  readonly draggingId = signal<string | null>(null);
+  readonly draftTablePos = signal<Record<string, { x: number; y: number }>>({});
+  readonly draftObjects = signal<DraftMapObject[]>([]);
+  readonly removedObjectIds = signal<string[]>([]);
+  readonly newObjectName = signal('');
+
+  private drag:
+    | {
+        kind: 'table' | 'object';
+        id: string;
+        startX: number;
+        startY: number;
+        origX: number;
+        origY: number;
+      }
+    | null = null;
+  private draftSeq = 0;
 
   private readonly liveSlug = computed(() => this.shops.selectedShop()?.slug ?? null);
 
@@ -75,11 +105,233 @@ export class SalonTablesPage {
     );
   }
 
+  isEditing(sectorId: string): boolean {
+    return this.editingSectorId() === sectorId;
+  }
+
   tablesOf(sectorId: string): SalonTable[] {
     return this.tables()
       .filter((t) => t.forWaiter !== false && t.sectorId === sectorId)
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'es'));
+  }
+
+  objectsOf(sectorId: string): Array<SalonMapObject | DraftMapObject> {
+    if (this.isEditing(sectorId)) return this.draftObjects();
+    return this.mapObjects()
+      .filter((o) => o.sectorId === sectorId)
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'));
+  }
+
+  private onlyWaiterTables(rows: SalonTable[]): SalonTable[] {
+    return (rows ?? []).filter((t) => t.forWaiter !== false);
+  }
+
+  setViewMode(mode: 'list' | 'map'): void {
+    if (this.editingSectorId()) {
+      this.snack.open('Guardá o cancelá el mapa antes de cambiar de vista', 'OK', {
+        duration: 2800,
+      });
+      return;
+    }
+    this.viewMode.set(mode);
+  }
+
+  startEditMap(sectorId: string): void {
+    if (!this.canManage() || this.editingSectorId()) return;
+    this.viewMode.set('map');
+    const drafts: Record<string, { x: number; y: number }> = {};
+    this.tablesOf(sectorId).forEach((table, idx) => {
+      drafts[table.id] = this.fallbackPos(table, idx);
+    });
+    this.draftTablePos.set(drafts);
+    this.draftObjects.set(
+      this.mapObjects()
+        .filter((o) => o.sectorId === sectorId)
+        .map((o) => ({
+          key: o.id,
+          id: o.id,
+          kind: o.kind,
+          name: o.name,
+          mapX: o.mapX,
+          mapY: o.mapY,
+        })),
+    );
+    this.removedObjectIds.set([]);
+    this.newObjectName.set('');
+    this.editingSectorId.set(sectorId);
+  }
+
+  cancelEditMap(): void {
+    this.editingSectorId.set(null);
+    this.draftTablePos.set({});
+    this.draftObjects.set([]);
+    this.removedObjectIds.set([]);
+    this.draggingId.set(null);
+    this.drag = null;
+  }
+
+  saveEditMap(sectorId: string): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.savingMap() || this.editingSectorId() !== sectorId) return;
+    this.savingMap.set(true);
+    const tables = this.tablesOf(sectorId).map((t) => {
+      const pos = this.draftTablePos()[t.id] ?? this.fallbackPos(t, 0);
+      return { id: t.id, mapX: pos.x, mapY: pos.y };
+    });
+    const objects = this.draftObjects().map((o) => ({
+      id: o.id,
+      kind: o.kind,
+      name: o.name,
+      mapX: o.mapX,
+      mapY: o.mapY,
+    }));
+    this.api
+      .saveSectorMap(shopId, sectorId, {
+        tables,
+        objects,
+        removedObjectIds: this.removedObjectIds(),
+      })
+      .subscribe({
+        next: (floor) => {
+          this.tables.set(this.onlyWaiterTables(floor.tables ?? []));
+          this.mapObjects.set(floor.mapObjects ?? []);
+          this.cancelEditMap();
+          this.savingMap.set(false);
+          this.snack.open('Mapa guardado', 'OK', { duration: 2200 });
+        },
+        error: (err) => {
+          this.savingMap.set(false);
+          this.fail(err, 'No se pudo guardar el mapa');
+        },
+      });
+  }
+
+  addMapObject(sectorId: string, kind: string): void {
+    if (!this.isEditing(sectorId)) return;
+    const name =
+      this.newObjectName().trim() ||
+      (kind === 'barra' ? 'Barra' : kind === 'arbol' ? 'Árbol' : 'Objeto');
+    const key = `tmp-${++this.draftSeq}`;
+    const count = this.draftObjects().length;
+    this.draftObjects.update((list) => [
+      ...list,
+      {
+        key,
+        id: null,
+        kind,
+        name,
+        mapX: Math.min(90, 20 + (count % 4) * 18),
+        mapY: Math.min(85, 25 + Math.floor(count / 4) * 16),
+      },
+    ]);
+    this.newObjectName.set('');
+  }
+
+  removeDraftObject(key: string): void {
+    const obj = this.draftObjects().find((o) => o.key === key);
+    if (!obj) return;
+    if (obj.id) {
+      this.removedObjectIds.update((ids) => [...ids, obj.id!]);
+    }
+    this.draftObjects.update((list) => list.filter((o) => o.key !== key));
+  }
+
+  renameDraftObject(key: string, name: string): void {
+    this.draftObjects.update((list) =>
+      list.map((o) => (o.key === key ? { ...o, name: name.slice(0, 60) } : o)),
+    );
+  }
+
+  mapLeft(table: SalonTable): number {
+    const draft = this.draftTablePos()[table.id];
+    if (draft && this.isEditing(table.sectorId ?? '')) return draft.x;
+    return this.fallbackPos(table).x;
+  }
+
+  mapTop(table: SalonTable): number {
+    const draft = this.draftTablePos()[table.id];
+    if (draft && this.isEditing(table.sectorId ?? '')) return draft.y;
+    return this.fallbackPos(table).y;
+  }
+
+  objectLeft(obj: { mapX: number }): number {
+    return Number(obj.mapX);
+  }
+
+  objectTop(obj: { mapY: number }): number {
+    return Number(obj.mapY);
+  }
+
+  objectIcon(kind: string): string {
+    if (kind === 'barra') return 'local_bar';
+    if (kind === 'arbol') return 'park';
+    return 'category';
+  }
+
+  private fallbackPos(table: SalonTable, idxHint?: number): { x: number; y: number } {
+    if (table.mapX != null && table.mapY != null) {
+      return { x: Number(table.mapX), y: Number(table.mapY) };
+    }
+    const peers = this.tablesOf(table.sectorId ?? '');
+    const idx =
+      idxHint ?? Math.max(0, peers.findIndex((t) => t.id === table.id));
+    const cols = 5;
+    return {
+      x: Math.min(92, 8 + (idx % cols) * 18),
+      y: Math.min(88, 10 + Math.floor(idx / cols) * 18),
+    };
+  }
+
+  onMapPointerDown(
+    ev: PointerEvent,
+    target: { kind: 'table' | 'object'; id: string; x: number; y: number },
+  ): void {
+    if (!this.canManage() || !this.editingSectorId() || ev.button !== 0) return;
+    (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+    this.drag = {
+      kind: target.kind,
+      id: target.id,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      origX: target.x,
+      origY: target.y,
+    };
+    this.draggingId.set(target.id);
+    ev.preventDefault();
+  }
+
+  onMapPointerMove(ev: PointerEvent): void {
+    if (!this.drag || !this.editingSectorId()) return;
+    const canvas = (ev.currentTarget as HTMLElement).closest('.salon-map') as HTMLElement | null;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return;
+    const dx = ((ev.clientX - this.drag.startX) / rect.width) * 100;
+    const dy = ((ev.clientY - this.drag.startY) / rect.height) * 100;
+    const mapX = Math.min(92, Math.max(2, this.drag.origX + dx));
+    const mapY = Math.min(88, Math.max(2, this.drag.origY + dy));
+    if (this.drag.kind === 'table') {
+      const id = this.drag.id;
+      this.draftTablePos.update((m) => ({ ...m, [id]: { x: mapX, y: mapY } }));
+    } else {
+      const key = this.drag.id;
+      this.draftObjects.update((list) =>
+        list.map((o) => (o.key === key ? { ...o, mapX, mapY } : o)),
+      );
+    }
+  }
+
+  onMapPointerUp(ev: PointerEvent): void {
+    if (!this.drag) return;
+    this.drag = null;
+    this.draggingId.set(null);
+    try {
+      (ev.currentTarget as HTMLElement).releasePointerCapture(ev.pointerId);
+    } catch {
+      // ignore
+    }
   }
 
   inventoryLabel(sectorId: string): string {
@@ -96,6 +348,7 @@ export class SalonTablesPage {
       this.loading.set(false);
       return;
     }
+    if (this.editingSectorId()) return;
     this.loading.set(true);
     this.api.getFloor(shopId).subscribe({
       next: (floor) => {
@@ -103,7 +356,8 @@ export class SalonTablesPage {
           (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'es'),
         );
         this.sectors.set(sectors);
-        this.tables.set(floor.tables ?? []);
+        this.tables.set(this.onlyWaiterTables(floor.tables ?? []));
+        this.mapObjects.set(floor.mapObjects ?? []);
         this.labelDrafts.set({});
         this.nameDrafts.set({});
         const from: Record<string, number> = {};
@@ -194,7 +448,9 @@ export class SalonTablesPage {
     this.api.removeSector(shopId, sector.id).subscribe({
       next: () => {
         this.tables.update((list) => list.filter((t) => t.sectorId !== sector.id));
+        this.mapObjects.update((list) => list.filter((o) => o.sectorId !== sector.id));
         this.sectors.update((list) => list.filter((s) => s.id !== sector.id));
+        if (this.editingSectorId() === sector.id) this.cancelEditMap();
       },
       error: (err) => this.fail(err, 'No se pudo quitar el sector'),
     });
@@ -238,7 +494,7 @@ export class SalonTablesPage {
       next: (res) => {
         this.bulkingSectorId.set(null);
         if (res.created?.length) {
-          this.tables.update((list) => [...list, ...res.created]);
+          this.tables.update((list) => [...list, ...this.onlyWaiterTables(res.created)]);
         }
         const msg =
           res.skippedCount > 0

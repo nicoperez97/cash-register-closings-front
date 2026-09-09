@@ -32,49 +32,99 @@
     </div>
   </div>
 } @else {
-  <p class="salon-lead text-muted">
-    Acá armás la comanda: sectores y números que ve el mozo. Borrar mesas o sectores acá no
-    toca Diagrama ni Reglas (reservas).
-  </p>
+  <div class="salon-mesas-top">
+    <p class="salon-lead text-muted">
+      @if (viewMode() === 'map') {
+        Plano de comanda por sector. Tocá <strong>Editar</strong>, acomodá mesas u objetos y
+        <strong>Guardá</strong>.
+      } @else {
+        Sectores y números que ve el mozo. No se mezclan con Diagrama ni Reglas.
+      }
+    </p>
 
-  @if (canManage()) {
-    <div class="salon-toolbar">
-      <label class="salon-new-sector">
-        <span class="visually-hidden">Nombre del sector</span>
-        <input
-          type="text"
-          maxlength="60"
-          placeholder="Nombre del sector"
-          [ngModel]="newSectorName()"
-          (ngModelChange)="newSectorName.set($event)"
-          (keydown.enter)="$event.preventDefault(); createSector()"
-        />
-        <button
-          type="button"
-          class="salon-add"
-          [disabled]="creatingSector() || !newSectorName().trim()"
-          (click)="createSector()"
-        >
-          <app-busy-label
-            [busy]="creatingSector()"
-            busyLabel="…"
-            [spinnerSize]="16"
-            spinnerTone="inherit"
+    <div class="salon-toolbar salon-toolbar--split">
+      @if (canManage() && viewMode() === 'list') {
+        <label class="salon-new-sector">
+          <span class="visually-hidden">Nombre del sector</span>
+          <input
+            type="text"
+            maxlength="60"
+            placeholder="Nombre del sector"
+            [ngModel]="newSectorName()"
+            (ngModelChange)="newSectorName.set($event)"
+            (keydown.enter)="$event.preventDefault(); createSector()"
+          />
+          <button
+            type="button"
+            class="salon-add"
+            [disabled]="creatingSector() || !newSectorName().trim()"
+            (click)="createSector()"
+          >
+            <app-busy-label
+              [busy]="creatingSector()"
+              busyLabel="…"
+              [spinnerSize]="16"
+              spinnerTone="inherit"
+            >
+              <mat-icon>add</mat-icon>
+              Sector
+            </app-busy-label>
+          </button>
+        </label>
+      } @else if (canManage() && viewMode() === 'map') {
+        <label class="salon-new-sector salon-new-sector--compact">
+          <input
+            type="text"
+            maxlength="60"
+            placeholder="Nuevo sector"
+            [ngModel]="newSectorName()"
+            (ngModelChange)="newSectorName.set($event)"
+            (keydown.enter)="$event.preventDefault(); createSector()"
+          />
+          <button
+            type="button"
+            class="salon-icon-btn"
+            [disabled]="creatingSector() || !newSectorName().trim()"
+            (click)="createSector()"
+            aria-label="Crear sector"
           >
             <mat-icon>add</mat-icon>
-            Sector
-          </app-busy-label>
+          </button>
+        </label>
+      } @else {
+        <span></span>
+      }
+      <div class="salon-view-toggle" role="group" aria-label="Vista de mesas">
+        <button
+          type="button"
+          [class.salon-view-toggle__on]="viewMode() === 'list'"
+          (click)="setViewMode('list')"
+        >
+          <mat-icon>view_module</mat-icon>
+          Lista
         </button>
-      </label>
+        <button
+          type="button"
+          [class.salon-view-toggle__on]="viewMode() === 'map'"
+          (click)="setViewMode('map')"
+        >
+          <mat-icon>map</mat-icon>
+          Mapa
+        </button>
+      </div>
     </div>
-  }
+  </div>
 
-  <div class="salon-sectors">
+  <div class="salon-sectors" [class.salon-sectors--map]="viewMode() === 'map'">
     @for (sector of sectors(); track sector.id) {
-      <section class="salon-sector panel-card">
+      <section
+        class="salon-sector panel-card"
+        [class.salon-sector--map]="viewMode() === 'map'"
+        [class.salon-sector--editing]="isEditing(sector.id)"
+      >
         <header class="salon-sector__head">
           <span class="salon-sector__icon" aria-hidden="true">
-            <mat-icon>place</mat-icon>
+            <mat-icon>{{ viewMode() === 'map' ? 'map' : 'place' }}</mat-icon>
           </span>
           <div class="salon-sector__title">
             @if (canManage()) {
@@ -89,37 +139,51 @@
             } @else {
               <h2>{{ sector.name }}</h2>
             }
-            <p>{{ inventoryLabel(sector.id) }}</p>
+            <p>
+              {{ inventoryLabel(sector.id) }}
+              @if (viewMode() === 'map' && objectsOf(sector.id).length; as n) {
+                · {{ n }} objeto{{ n === 1 ? '' : 's' }}
+              }
+            </p>
           </div>
           @if (canManage()) {
-            <button
-              type="button"
-              class="salon-add"
-              [disabled]="addingSectorId() === sector.id"
-              (click)="addTable(sector.id)"
-            >
-              <app-busy-label
-                [busy]="addingSectorId() === sector.id"
-                busyLabel="…"
-                [spinnerSize]="16"
-                spinnerTone="inherit"
+            <div class="salon-sector__actions">
+              @if (viewMode() === 'list') {
+                <button
+                  type="button"
+                  class="salon-add"
+                  [disabled]="addingSectorId() === sector.id"
+                  (click)="addTable(sector.id)"
+                >
+                  <app-busy-label
+                    [busy]="addingSectorId() === sector.id"
+                    busyLabel="…"
+                    [spinnerSize]="16"
+                    spinnerTone="inherit"
+                  >
+                    <mat-icon>add</mat-icon>
+                    Mesa
+                  </app-busy-label>
+                </button>
+              } @else if (!isEditing(sector.id)) {
+                <button type="button" class="salon-add" (click)="startEditMap(sector.id)">
+                  <mat-icon>edit</mat-icon>
+                  Editar
+                </button>
+              }
+              <button
+                type="button"
+                class="salon-sector__del"
+                aria-label="Quitar sector"
+                (click)="removeSector(sector)"
               >
-                <mat-icon>add</mat-icon>
-                Mesa
-              </app-busy-label>
-            </button>
-            <button
-              type="button"
-              class="salon-sector__del"
-              aria-label="Quitar sector"
-              (click)="removeSector(sector)"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
           }
         </header>
 
-        @if (canManage()) {
+        @if (canManage() && viewMode() === 'list') {
           <div class="salon-mesas-actions">
             <label class="salon-bulk">
               De
@@ -162,63 +226,211 @@
           </div>
         }
 
-        <div class="salon-grid">
-          @for (table of tablesOf(sector.id); track table.id) {
-            <article class="salon-table" [class.salon-table--two]="table.seats === 2">
-              <div class="salon-table__top">
-                <input
-                  class="salon-table__label"
-                  [ngModel]="labelDrafts()[table.id] ?? table.label"
-                  [disabled]="!canManage()"
-                  (ngModelChange)="onLabelDraft(table.id, $event)"
-                  (blur)="saveLabel(table)"
-                  maxlength="8"
-                  aria-label="Número de mesa"
-                />
+        @if (viewMode() === 'list') {
+          <div class="salon-grid">
+            @for (table of tablesOf(sector.id); track table.id) {
+              <article class="salon-table" [class.salon-table--two]="table.seats === 2">
+                <div class="salon-table__top">
+                  <input
+                    class="salon-table__label"
+                    [ngModel]="labelDrafts()[table.id] ?? table.label"
+                    [disabled]="!canManage()"
+                    (ngModelChange)="onLabelDraft(table.id, $event)"
+                    (blur)="saveLabel(table)"
+                    maxlength="8"
+                    aria-label="Número de mesa"
+                  />
+                  @if (canManage()) {
+                    <button
+                      type="button"
+                      class="salon-table__del"
+                      aria-label="Quitar mesa"
+                      (click)="removeTable(table)"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
+                <div class="salon-table__seats" aria-hidden="true">
+                  @for (dot of seatDots(table.seats); track $index) {
+                    <span class="salon-dot"></span>
+                  }
+                </div>
+                <p class="salon-table__cap">{{ table.seats }} pers.</p>
                 @if (canManage()) {
+                  <div
+                    class="salon-table__toggle"
+                    role="group"
+                    [attr.aria-label]="'Cubiertos mesa ' + table.label"
+                  >
+                    <button
+                      type="button"
+                      [class.salon-table__opt--on]="table.seats === 2"
+                      (click)="setSeats(table, 2)"
+                    >
+                      2
+                    </button>
+                    <button
+                      type="button"
+                      [class.salon-table__opt--on]="table.seats === 3"
+                      (click)="setSeats(table, 3)"
+                    >
+                      3
+                    </button>
+                  </div>
+                }
+              </article>
+            } @empty {
+              <p class="salon-empty">Todavía no hay mesas en este sector.</p>
+            }
+          </div>
+        } @else {
+          @if (isEditing(sector.id)) {
+            <div class="salon-map-dock">
+              <div class="salon-map-dock__group">
+                <span class="salon-map-dock__label">Mesas</span>
+                <button
+                  type="button"
+                  class="salon-chip"
+                  [disabled]="addingSectorId() === sector.id"
+                  (click)="addTable(sector.id)"
+                >
+                  <mat-icon>add</mat-icon>
+                  Mesa
+                </button>
+              </div>
+              <div class="salon-map-dock__group">
+                <span class="salon-map-dock__label">Objetos</span>
+                <input
+                  type="text"
+                  maxlength="60"
+                  placeholder="Nombre"
+                  [ngModel]="newObjectName()"
+                  (ngModelChange)="newObjectName.set($event)"
+                  aria-label="Nombre del objeto"
+                />
+                <button type="button" class="salon-chip" (click)="addMapObject(sector.id, 'barra')">
+                  <mat-icon>local_bar</mat-icon>
+                  Barra
+                </button>
+                <button type="button" class="salon-chip" (click)="addMapObject(sector.id, 'arbol')">
+                  <mat-icon>park</mat-icon>
+                  Árbol
+                </button>
+                <button type="button" class="salon-chip" (click)="addMapObject(sector.id, 'otro')">
+                  <mat-icon>category</mat-icon>
+                  Otro
+                </button>
+              </div>
+              <div class="salon-map-dock__save">
+                <button type="button" class="salon-chip salon-chip--ghost" (click)="cancelEditMap()">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="salon-chip salon-chip--primary"
+                  [disabled]="savingMap()"
+                  (click)="saveEditMap(sector.id)"
+                >
+                  <app-busy-label
+                    [busy]="savingMap()"
+                    busyLabel="Guardando…"
+                    [spinnerSize]="16"
+                    spinnerTone="inherit"
+                  >
+                    <mat-icon>check</mat-icon>
+                    Guardar
+                  </app-busy-label>
+                </button>
+              </div>
+            </div>
+          }
+
+          <div class="salon-map" [class.salon-map--editing]="isEditing(sector.id)">
+            <div class="salon-map__floor" aria-hidden="true"></div>
+            @if (isEditing(sector.id)) {
+              <p class="salon-map__badge">Editando · arrastrá y guardá</p>
+            }
+            @for (table of tablesOf(sector.id); track table.id) {
+              <button
+                type="button"
+                class="salon-map__table"
+                [class.salon-map__table--drag]="draggingId() === table.id"
+                [class.salon-map__table--two]="table.seats === 2"
+                [style.left.%]="mapLeft(table)"
+                [style.top.%]="mapTop(table)"
+                [disabled]="!isEditing(sector.id)"
+                (pointerdown)="
+                  onMapPointerDown($event, {
+                    kind: 'table',
+                    id: table.id,
+                    x: mapLeft(table),
+                    y: mapTop(table),
+                  })
+                "
+                (pointermove)="onMapPointerMove($event)"
+                (pointerup)="onMapPointerUp($event)"
+                (pointercancel)="onMapPointerUp($event)"
+              >
+                <span class="salon-map__table-num">{{ table.label }}</span>
+                <span class="salon-map__table-cap">{{ table.seats }}p</span>
+              </button>
+            }
+            @for (obj of objectsOf(sector.id); track $any(obj).key || $any(obj).id) {
+              <div
+                class="salon-map__object"
+                [class.salon-map__object--drag]="draggingId() === ($any(obj).key || obj.id)"
+                [attr.data-kind]="obj.kind"
+                [style.left.%]="objectLeft(obj)"
+                [style.top.%]="objectTop(obj)"
+              >
+                <button
+                  type="button"
+                  class="salon-map__object-hit"
+                  [disabled]="!isEditing(sector.id)"
+                  (pointerdown)="
+                    onMapPointerDown($event, {
+                      kind: 'object',
+                      id: $any(obj).key || obj.id,
+                      x: objectLeft(obj),
+                      y: objectTop(obj),
+                    })
+                  "
+                  (pointermove)="onMapPointerMove($event)"
+                  (pointerup)="onMapPointerUp($event)"
+                  (pointercancel)="onMapPointerUp($event)"
+                >
+                  <mat-icon>{{ objectIcon(obj.kind) }}</mat-icon>
+                  @if (isEditing(sector.id)) {
+                    <input
+                      class="salon-map__object-name"
+                      [ngModel]="obj.name"
+                      (ngModelChange)="renameDraftObject($any(obj).key || obj.id, $event)"
+                      (pointerdown)="$event.stopPropagation()"
+                      maxlength="60"
+                      aria-label="Nombre del objeto"
+                    />
+                  } @else {
+                    <span>{{ obj.name }}</span>
+                  }
+                </button>
+                @if (isEditing(sector.id)) {
                   <button
                     type="button"
-                    class="salon-table__del"
-                    aria-label="Quitar mesa"
-                    (click)="removeTable(table)"
+                    class="salon-map__object-del"
+                    aria-label="Quitar objeto"
+                    (click)="removeDraftObject($any(obj).key || obj.id)"
                   >
                     <mat-icon>close</mat-icon>
                   </button>
                 }
               </div>
-              <div class="salon-table__seats" aria-hidden="true">
-                @for (dot of seatDots(table.seats); track $index) {
-                  <span class="salon-dot"></span>
-                }
-              </div>
-              <p class="salon-table__cap">{{ table.seats }} pers.</p>
-              @if (canManage()) {
-                <div
-                  class="salon-table__toggle"
-                  role="group"
-                  [attr.aria-label]="'Cubiertos mesa ' + table.label"
-                >
-                  <button
-                    type="button"
-                    [class.salon-table__opt--on]="table.seats === 2"
-                    (click)="setSeats(table, 2)"
-                  >
-                    2
-                  </button>
-                  <button
-                    type="button"
-                    [class.salon-table__opt--on]="table.seats === 3"
-                    (click)="setSeats(table, 3)"
-                  >
-                    3
-                  </button>
-                </div>
-              }
-            </article>
-          } @empty {
-            <p class="salon-empty">Todavía no hay mesas en este sector.</p>
-          }
-        </div>
+            }
+            @if (!tablesOf(sector.id).length && !objectsOf(sector.id).length) {
+              <p class="salon-empty salon-empty--map">Todavía no hay mesas en este sector.</p>
+            }
+          </div>
+        }
       </section>
     } @empty {
       <p class="salon-empty panel-card">

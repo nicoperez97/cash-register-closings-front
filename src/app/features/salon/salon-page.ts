@@ -500,7 +500,7 @@ export class SalonPage {
     rules?: SalonAreaRule[];
   }): void {
     const sectors = floor.sectors ?? [];
-    const tables = floor.tables ?? [];
+    const tables = (floor.tables ?? []).filter((t) => t.forWaiter === false);
     const rules = floor.rules ?? [];
     this.sectors.set(sectors);
     this.tables.set(tables);
