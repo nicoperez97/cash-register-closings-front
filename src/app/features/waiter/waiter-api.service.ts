@@ -22,6 +22,8 @@ export type WaiterTable = {
   label: string;
   seats: number;
   sortOrder: number;
+  mapX?: number | null;
+  mapY?: number | null;
   openSession: {
     id: string;
     waiterEmployeeId: string;

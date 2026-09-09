@@ -17,6 +17,9 @@ export interface SalonTable {
   sortOrder: number;
   /** true = comanda/Mesas; false = inventario Diagrama. */
   forWaiter?: boolean;
+  /** Posición en mapa de comanda (0–100 %). */
+  mapX?: number | null;
+  mapY?: number | null;
 }
 
 export interface SalonAreaRule {
@@ -27,10 +30,22 @@ export interface SalonAreaRule {
   maxCount: number;
 }
 
+export interface SalonMapObject {
+  id: string;
+  shopId: string;
+  sectorId: string;
+  kind: string;
+  name: string;
+  mapX: number;
+  mapY: number;
+  sortOrder: number;
+}
+
 export interface SalonFloor {
   sectors: SalonSector[];
   tables: SalonTable[];
   rules: SalonAreaRule[];
+  mapObjects?: SalonMapObject[];
 }
 
 export interface SalonRuleSlot {

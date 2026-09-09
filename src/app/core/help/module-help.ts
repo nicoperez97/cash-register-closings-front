@@ -700,10 +700,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'En Mesas creás sectores con nombre libre y numerás las mesas de cada uno (comanda mozos).',
         items: [
           'Tocá Sector, poné un nombre (ej. Terraza) y sumá mesas o Generá un rango.',
-          'Podés renombrar el sector, cambiar cubiertos (2/3) o quitar mesas.',
-          'Al quitar un sector se borran todas sus mesas de comanda.',
+          'Mapa: Editar → mové mesas, sumá Barra/Árbol/Objeto con nombre → Guardar.',
+          'Al quitar un sector se borran mesas y objetos de comanda (no toca Diagrama/Reglas).',
         ],
-        tip: 'Borrar mesas o un sector acá no cambia Diagrama ni Reglas. Adentro/Afuera son solo de reservas.',
+        tip: 'En Mapa: Editar → acomodá → Guardar. Generar rangos está en la vista Lista.',
       },
       {
         title: 'El diagrama',

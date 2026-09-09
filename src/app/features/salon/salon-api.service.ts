@@ -5,6 +5,7 @@ import {
   SalonArea,
   SalonAreaRule,
   SalonFloor,
+  SalonMapObject,
   SalonRuleSlot,
   SalonSector,
   SalonTable,
@@ -36,6 +37,27 @@ export class SalonApiService {
     );
   }
 
+  saveSectorMap(
+    shopId: string,
+    sectorId: string,
+    body: {
+      tables: Array<{ id: string; mapX: number; mapY: number }>;
+      objects: Array<{
+        id?: string | null;
+        kind: string;
+        name: string;
+        mapX: number;
+        mapY: number;
+      }>;
+      removedObjectIds: string[];
+    },
+  ) {
+    return this.http.put<SalonFloor>(
+      `${this.base}/shops/${shopId}/salon-floor/sectors/${sectorId}/map`,
+      body,
+    );
+  }
+
   createTable(shopId: string, body: { sectorId: string; seats?: number; label?: string }) {
     return this.http.post<SalonTable>(`${this.base}/shops/${shopId}/salon-floor/tables`, body);
   }
@@ -55,7 +77,13 @@ export class SalonApiService {
   updateTable(
     shopId: string,
     id: string,
-    body: { seats?: number; label?: string; sectorId?: string },
+    body: {
+      seats?: number;
+      label?: string;
+      sectorId?: string;
+      mapX?: number | null;
+      mapY?: number | null;
+    },
   ) {
     return this.http.patch<SalonTable>(
       `${this.base}/shops/${shopId}/salon-floor/tables/${id}`,

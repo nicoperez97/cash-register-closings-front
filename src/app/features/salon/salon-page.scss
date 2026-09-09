@@ -46,8 +46,408 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin: -0.35rem 0 1rem;
+  margin: 0;
   align-items: center;
+}
+
+.salon-mesas-top {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0 0 1.1rem;
+}
+
+.salon-toolbar--split {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.salon-new-sector--compact {
+  input {
+    min-width: 8.5rem;
+  }
+}
+
+.salon-icon-btn {
+  appearance: none;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--guy-green, #2e7d32);
+  color: #fff;
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 1.2rem;
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.salon-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--guy-line, #d5dcd2);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+
+  button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.45rem 0.85rem;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--guy-muted, #5f6f76);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    mat-icon {
+      font-size: 1.05rem;
+      width: 1.05rem;
+      height: 1.05rem;
+    }
+  }
+
+  &__on {
+    background: var(--guy-green, #2e7d32) !important;
+    color: #fff !important;
+  }
+}
+
+.salon-sector__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.salon-sectors--map {
+  grid-template-columns: 1fr;
+
+  @media (min-width: 1100px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.salon-sector--map {
+  padding: 0.85rem 0.9rem 1rem;
+  overflow: hidden;
+}
+
+.salon-sector--editing {
+  outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.salon-map-dock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: flex-end;
+  margin: 0 0 0.7rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 7%, #fff);
+  border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 18%, #d5dcd2);
+}
+
+.salon-map-dock__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+
+  input {
+    width: 7.5rem;
+    padding: 0.38rem 0.55rem;
+    border: 1px solid var(--guy-line, #d5dcd2);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.84rem;
+    background: #fff;
+  }
+}
+
+.salon-map-dock__label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--guy-muted, #5f6f76);
+  margin-right: 0.15rem;
+}
+
+.salon-map-dock__save {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.salon-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--guy-line, #d5dcd2);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--guy-navy, #003366);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  padding: 0.38rem 0.7rem;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &--primary {
+    background: var(--guy-green, #2e7d32);
+    border-color: var(--guy-green, #2e7d32);
+    color: #fff;
+  }
+
+  &--ghost {
+    background: transparent;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.salon-add--ghost {
+  background: #fff !important;
+  color: var(--guy-navy, #003366) !important;
+  border: 1px solid var(--guy-line, #d5dcd2);
+}
+
+.salon-map {
+  position: relative;
+  min-height: 320px;
+  height: min(58vh, 480px);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 22%, #cfd8d0);
+  background: #eef5ef;
+  touch-action: none;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+
+  &--editing {
+    border-color: var(--guy-green, #2e7d32);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.65),
+      0 0 0 3px color-mix(in srgb, var(--guy-green, #2e7d32) 16%, transparent);
+  }
+}
+
+.salon-map__floor {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.55), transparent 55%),
+    linear-gradient(90deg, rgba(46, 125, 50, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(46, 125, 50, 0.06) 1px, transparent 1px),
+    linear-gradient(145deg, #f4faf4 0%, #e7f0e8 48%, #dfe9e1 100%);
+  background-size: auto, 32px 32px, 32px 32px, auto;
+  pointer-events: none;
+}
+
+.salon-map__badge {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  z-index: 5;
+  margin: 0;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(15, 40, 25, 0.78);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.salon-map__table {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 3.35rem;
+  height: 3.35rem;
+  border-radius: 14px;
+  border: 1.5px solid color-mix(in srgb, var(--guy-green, #2e7d32) 40%, #fff);
+  background: linear-gradient(180deg, #ffffff 0%, #f3f7f3 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 18px rgba(20, 50, 30, 0.14);
+  display: grid;
+  place-content: center;
+  gap: 0.05rem;
+  font-weight: 800;
+  color: var(--guy-navy, #003366);
+  cursor: default;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+  padding: 0;
+  line-height: 1.05;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+
+  &--two {
+    border-radius: 999px;
+  }
+
+  &--drag {
+    cursor: grabbing;
+    z-index: 3;
+    transform: translate(-50%, -50%) scale(1.1);
+    box-shadow: 0 12px 28px rgba(20, 50, 30, 0.22);
+  }
+
+  &:not(:disabled) {
+    cursor: grab;
+  }
+
+  &:disabled {
+    opacity: 0.96;
+  }
+}
+
+.salon-map__table-num {
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.salon-map__table-cap {
+  font-size: 0.62rem;
+  font-weight: 750;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.salon-map__object {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  min-width: 4.6rem;
+  max-width: 8rem;
+
+  &--drag {
+    z-index: 4;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+.salon-map__object-hit {
+  appearance: none;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, #8d6e63 28%, #d5dcd2);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fffaf4, #f6ebe0);
+  padding: 0.4rem 0.5rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.12rem;
+  cursor: default;
+  touch-action: none;
+  font: inherit;
+  color: var(--guy-navy, #003366);
+  box-shadow: 0 6px 14px rgba(40, 30, 20, 0.1);
+
+  mat-icon {
+    font-size: 1.2rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    color: #6d4c41;
+  }
+
+  span {
+    font-size: 0.72rem;
+    font-weight: 750;
+    text-align: center;
+    word-break: break-word;
+  }
+
+  &:not(:disabled) {
+    cursor: grab;
+  }
+}
+
+.salon-map__object[data-kind='barra'] .salon-map__object-hit {
+  background: linear-gradient(180deg, #faf5ff, #efe4f7);
+  border-color: color-mix(in srgb, #7b1fa2 26%, #d5dcd2);
+
+  mat-icon {
+    color: #7b1fa2;
+  }
+}
+
+.salon-map__object[data-kind='arbol'] .salon-map__object-hit {
+  background: linear-gradient(180deg, #f1faf2, #e1f0e3);
+  border-color: color-mix(in srgb, #2e7d32 26%, #d5dcd2);
+
+  mat-icon {
+    color: #2e7d32;
+  }
+}
+
+.salon-map__object-name {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 0;
+}
+
+.salon-map__object-del {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #b00020;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+  padding: 0;
+
+  mat-icon {
+    font-size: 0.95rem;
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+}
+
+.salon-empty--map {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  z-index: 1;
 }
 
 .salon-bulk {
