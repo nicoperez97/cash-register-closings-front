@@ -286,6 +286,7 @@ export class MainLayoutComponent {
       salon.push(leaf('waitingList'));
     }
     if (shopId && hasShopPermission(user, shopId, 'reservations.read') && this.shopFeature('reservations')) {
+      salon.push(leaf('salonTables'));
       salon.push(leaf('diagrama'));
       salon.push(leaf('salonRules'));
       salon.push(leaf('salonHours'));

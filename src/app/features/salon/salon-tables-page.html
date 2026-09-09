@@ -1,0 +1,229 @@
+<app-page-header
+  eyebrow="Salón"
+  title="Mesas"
+  [subtitle]="shops.selectedShop()?.name ?? 'Local'"
+/>
+
+<nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
+  <a routerLink="/salon/mesas" class="salon-tabs__link salon-tabs__link--on">
+    <mat-icon>table_restaurant</mat-icon>
+    Mesas
+  </a>
+  <a routerLink="/salon/diagrama" class="salon-tabs__link">
+    <mat-icon>grid_view</mat-icon>
+    Diagrama
+  </a>
+  <a routerLink="/salon/reglas" class="salon-tabs__link">
+    <mat-icon>tune</mat-icon>
+    Reglas
+  </a>
+  <a routerLink="/salon/horarios" class="salon-tabs__link">
+    <mat-icon>schedule</mat-icon>
+    Horarios
+  </a>
+</nav>
+
+@if (loading()) {
+  <div class="panel-card guy-empty guy-empty--loading" role="status" aria-live="polite">
+    <app-spinner [size]="28" tone="accent" />
+    <div>
+      <strong>Cargando mesas</strong>
+      <p class="text-muted small mb-0">Sectores y números para la comanda de mozos</p>
+    </div>
+  </div>
+} @else {
+  <p class="salon-lead text-muted">
+    Acá armás la comanda: sectores y números que ve el mozo. Borrar mesas o sectores acá no
+    toca Diagrama ni Reglas (reservas).
+  </p>
+
+  @if (canManage()) {
+    <div class="salon-toolbar">
+      <label class="salon-new-sector">
+        <span class="visually-hidden">Nombre del sector</span>
+        <input
+          type="text"
+          maxlength="60"
+          placeholder="Nombre del sector"
+          [ngModel]="newSectorName()"
+          (ngModelChange)="newSectorName.set($event)"
+          (keydown.enter)="$event.preventDefault(); createSector()"
+        />
+        <button
+          type="button"
+          class="salon-add"
+          [disabled]="creatingSector() || !newSectorName().trim()"
+          (click)="createSector()"
+        >
+          <app-busy-label
+            [busy]="creatingSector()"
+            busyLabel="…"
+            [spinnerSize]="16"
+            spinnerTone="inherit"
+          >
+            <mat-icon>add</mat-icon>
+            Sector
+          </app-busy-label>
+        </button>
+      </label>
+    </div>
+  }
+
+  <div class="salon-sectors">
+    @for (sector of sectors(); track sector.id) {
+      <section class="salon-sector panel-card">
+        <header class="salon-sector__head">
+          <span class="salon-sector__icon" aria-hidden="true">
+            <mat-icon>place</mat-icon>
+          </span>
+          <div class="salon-sector__title">
+            @if (canManage()) {
+              <input
+                class="salon-sector__name"
+                [ngModel]="nameDrafts()[sector.id] ?? sector.name"
+                (ngModelChange)="onSectorNameDraft(sector.id, $event)"
+                (blur)="saveSectorName(sector)"
+                maxlength="60"
+                aria-label="Nombre del sector"
+              />
+            } @else {
+              <h2>{{ sector.name }}</h2>
+            }
+            <p>{{ inventoryLabel(sector.id) }}</p>
+          </div>
+          @if (canManage()) {
+            <button
+              type="button"
+              class="salon-add"
+              [disabled]="addingSectorId() === sector.id"
+              (click)="addTable(sector.id)"
+            >
+              <app-busy-label
+                [busy]="addingSectorId() === sector.id"
+                busyLabel="…"
+                [spinnerSize]="16"
+                spinnerTone="inherit"
+              >
+                <mat-icon>add</mat-icon>
+                Mesa
+              </app-busy-label>
+            </button>
+            <button
+              type="button"
+              class="salon-sector__del"
+              aria-label="Quitar sector"
+              (click)="removeSector(sector)"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          }
+        </header>
+
+        @if (canManage()) {
+          <div class="salon-mesas-actions">
+            <label class="salon-bulk">
+              De
+              <input
+                type="number"
+                min="1"
+                max="999"
+                inputmode="numeric"
+                [ngModel]="bulkFrom()[sector.id]"
+                (ngModelChange)="setBulkFrom(sector.id, $event)"
+                [attr.aria-label]="'Mesa desde ' + sector.name"
+              />
+              a
+              <input
+                type="number"
+                min="1"
+                max="999"
+                inputmode="numeric"
+                [ngModel]="bulkTo()[sector.id]"
+                (ngModelChange)="setBulkTo(sector.id, $event)"
+                [attr.aria-label]="'Mesa hasta ' + sector.name"
+              />
+              <button
+                type="button"
+                class="salon-add"
+                [disabled]="bulkingSectorId() === sector.id"
+                (click)="generateBulk(sector.id)"
+              >
+                <app-busy-label
+                  [busy]="bulkingSectorId() === sector.id"
+                  busyLabel="Generando…"
+                  [spinnerSize]="16"
+                  spinnerTone="inherit"
+                >
+                  <mat-icon>grid_view</mat-icon>
+                  Generar
+                </app-busy-label>
+              </button>
+            </label>
+          </div>
+        }
+
+        <div class="salon-grid">
+          @for (table of tablesOf(sector.id); track table.id) {
+            <article class="salon-table" [class.salon-table--two]="table.seats === 2">
+              <div class="salon-table__top">
+                <input
+                  class="salon-table__label"
+                  [ngModel]="labelDrafts()[table.id] ?? table.label"
+                  [disabled]="!canManage()"
+                  (ngModelChange)="onLabelDraft(table.id, $event)"
+                  (blur)="saveLabel(table)"
+                  maxlength="8"
+                  aria-label="Número de mesa"
+                />
+                @if (canManage()) {
+                  <button
+                    type="button"
+                    class="salon-table__del"
+                    aria-label="Quitar mesa"
+                    (click)="removeTable(table)"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+              <div class="salon-table__seats" aria-hidden="true">
+                @for (dot of seatDots(table.seats); track $index) {
+                  <span class="salon-dot"></span>
+                }
+              </div>
+              <p class="salon-table__cap">{{ table.seats }} pers.</p>
+              @if (canManage()) {
+                <div
+                  class="salon-table__toggle"
+                  role="group"
+                  [attr.aria-label]="'Cubiertos mesa ' + table.label"
+                >
+                  <button
+                    type="button"
+                    [class.salon-table__opt--on]="table.seats === 2"
+                    (click)="setSeats(table, 2)"
+                  >
+                    2
+                  </button>
+                  <button
+                    type="button"
+                    [class.salon-table__opt--on]="table.seats === 3"
+                    (click)="setSeats(table, 3)"
+                  >
+                    3
+                  </button>
+                </div>
+              }
+            </article>
+          } @empty {
+            <p class="salon-empty">Todavía no hay mesas en este sector.</p>
+          }
+        </div>
+      </section>
+    } @empty {
+      <p class="salon-empty panel-card">
+        Todavía no hay sectores. Creá uno para empezar a numerar mesas.
+      </p>
+    }
+  </div>
+}

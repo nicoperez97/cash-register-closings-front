@@ -25,7 +25,7 @@ import {
   shopRuleHint as formatShopRuleHint,
   suggestedRuleSizes,
 } from './salon-combine.util';
-import { SalonArea, SalonAreaRule, SalonRuleSlot, SalonTable } from './salon.models';
+import { SalonArea, SalonAreaRule, SalonRuleSlot, SalonSector, SalonTable } from './salon.models';
 
 type SalonView = 'diagrama' | 'reglas';
 type RuleRow = { key: string; partySize: number | ''; maxCount: number | '' };
@@ -55,7 +55,11 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
       [subtitle]="shops.selectedShop()?.name ?? 'Local'"
     />
 
-    <nav class="salon-tabs" aria-label="Diagrama, reglas y horarios">
+    <nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
+      <a routerLink="/salon/mesas" class="salon-tabs__link">
+        <mat-icon>table_restaurant</mat-icon>
+        Mesas
+      </a>
       <a
         routerLink="/salon/diagrama"
         class="salon-tabs__link"
@@ -88,9 +92,8 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
       </div>
     } @else if (view() === 'diagrama') {
       <p class="salon-lead text-muted">
-        Mesas físicas por sector. Máximo 3 personas; según el lugar a veces solo entran 2.
-        Si el salón está vacío, se arma solo con el pico de reservas confirmadas; después lo podés
-        cambiar.
+        Inventario Adentro / Afuera para reservas. Independiente de la comanda (Salón → Mesas).
+        Si está vacío, se arma solo con el pico de reservas confirmadas.
       </p>
       @if (canManage()) {
         <div class="salon-toolbar">
@@ -110,6 +113,10 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
               Armar desde reservas
             </app-busy-label>
           </button>
+          <a routerLink="/salon/mesas" class="salon-add">
+            <mat-icon>table_restaurant</mat-icon>
+            Ir a Mesas
+          </a>
         </div>
       }
       <div class="salon-sectors">
@@ -123,49 +130,13 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
                 <h2>{{ sector.label }}</h2>
                 <p>{{ inventoryLabel(sector.id) }}</p>
               </div>
-              @if (canManage()) {
-                <button
-                  type="button"
-                  class="salon-add"
-                  [disabled]="addingArea() === sector.id"
-                  (click)="addTable(sector.id)"
-                >
-                  <app-busy-label
-                    [busy]="addingArea() === sector.id"
-                    busyLabel="…"
-                    [spinnerSize]="16"
-                    spinnerTone="inherit"
-                  >
-                    <mat-icon>add</mat-icon>
-                    Mesa
-                  </app-busy-label>
-                </button>
-              }
             </header>
 
             <div class="salon-grid">
               @for (table of tablesOf(sector.id); track table.id) {
                 <article class="salon-table" [class.salon-table--two]="table.seats === 2">
                   <div class="salon-table__top">
-                    <input
-                      class="salon-table__label"
-                      [ngModel]="labelDrafts()[table.id] ?? table.label"
-                      [disabled]="!canManage()"
-                      (ngModelChange)="onLabelDraft(table.id, $event)"
-                      (blur)="saveLabel(table)"
-                      maxlength="8"
-                      aria-label="Número de mesa"
-                    />
-                    @if (canManage()) {
-                      <button
-                        type="button"
-                        class="salon-table__del"
-                        aria-label="Quitar mesa"
-                        (click)="removeTable(table)"
-                      >
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    }
+                    <span class="salon-table__label salon-table__label--ro">{{ table.label }}</span>
                   </div>
                   <div class="salon-table__seats" aria-hidden="true">
                     @for (dot of seatDots(table.seats); track $index) {
@@ -173,28 +144,14 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
                     }
                   </div>
                   <p class="salon-table__cap">{{ table.seats }} pers.</p>
-                  @if (canManage()) {
-                    <div class="salon-table__toggle" role="group" [attr.aria-label]="'Cubiertos mesa ' + table.label">
-                      <button
-                        type="button"
-                        [class.salon-table__opt--on]="table.seats === 2"
-                        (click)="setSeats(table, 2)"
-                      >
-                        2
-                      </button>
-                      <button
-                        type="button"
-                        [class.salon-table__opt--on]="table.seats === 3"
-                        (click)="setSeats(table, 3)"
-                      >
-                        3
-                      </button>
-                    </div>
-                  }
                 </article>
               } @empty {
                 <p class="salon-empty">
-                  {{ suggesting() ? 'Armando el salón con las reservas…' : 'Todavía no hay mesas en este sector.' }}
+                  {{
+                    suggesting()
+                      ? 'Armando el salón con las reservas…'
+                      : 'Todavía no hay mesas. Cargalas en Mesas o armá desde reservas.'
+                  }}
                 </p>
               }
             </div>
@@ -331,14 +288,13 @@ export class SalonPage {
 
   readonly areas = AREAS;
   readonly loading = signal(true);
+  readonly sectors = signal<SalonSector[]>([]);
   readonly tables = signal<SalonTable[]>([]);
   readonly savedRules = signal<SalonAreaRule[]>([]);
   readonly rulesDraft = signal<RuleDraft>({ INSIDE: [], OUTSIDE: [] });
-  readonly addingArea = signal<SalonArea | null>(null);
   readonly suggesting = signal(false);
   private autoApplied = false;
   readonly savingArea = signal<SalonArea | null>(null);
-  readonly labelDrafts = signal<Record<string, string>>({});
   private rowSeq = 0;
 
   readonly view = toSignal(
@@ -376,7 +332,10 @@ export class SalonPage {
   }
 
   tablesOf(area: SalonArea): SalonTable[] {
-    return this.tables().filter((t) => t.area === area);
+    return this.tables()
+      .filter((t) => t.forWaiter === false && t.area === area)
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, 'es'));
   }
 
   inventoryLabel(area: SalonArea): string {
@@ -447,10 +406,6 @@ export class SalonPage {
     return `Hasta ${formatSlots(slots)}. Si armás 1 de ${joinSize}, quedan ${formatSlots(left)}.`;
   }
 
-  onLabelDraft(id: string, value: string): void {
-    this.labelDrafts.update((m) => ({ ...m, [id]: value }));
-  }
-
   async applyFromReservations(silent = false): Promise<void> {
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.suggesting()) return;
@@ -469,7 +424,7 @@ export class SalonPage {
         this.suggesting.set(false);
         if (floor.applied) {
           this.snack.open(
-            'Diagrama y reglas armados con las reservas. Después podés cambiar mesas y cantidades.',
+            'Diagrama y reglas armados con las reservas. Después podés cambiar mesas y cantidades en Mesas.',
             'OK',
             { duration: 3200 },
           );
@@ -483,76 +438,6 @@ export class SalonPage {
         this.suggesting.set(false);
         if (!silent) this.fail(err, 'No se pudo armar el salón desde las reservas');
       },
-    });
-  }
-
-  addTable(area: SalonArea): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId || this.addingArea()) return;
-    this.addingArea.set(area);
-    this.api.createTable(shopId, { area, seats: 2 }).subscribe({
-      next: (row) => {
-        this.tables.update((list) => [...list, row]);
-        this.addingArea.set(null);
-      },
-      error: (err) => {
-        this.addingArea.set(null);
-        this.fail(err, 'No se pudo agregar la mesa');
-      },
-    });
-  }
-
-  setSeats(table: SalonTable, seats: 2 | 3): void {
-    if (!this.canManage() || table.seats === seats) return;
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    this.tables.update((list) => list.map((t) => (t.id === table.id ? { ...t, seats } : t)));
-    this.api.updateTable(shopId, table.id, { seats }).subscribe({
-      error: (err) => {
-        this.fail(err, 'No se pudieron guardar los cubiertos');
-        void this.load();
-      },
-    });
-  }
-
-  saveLabel(table: SalonTable): void {
-    const shopId = this.shops.selectedShopId();
-    const next = (this.labelDrafts()[table.id] ?? table.label).trim();
-    if (!shopId) return;
-    if (!next) {
-      this.labelDrafts.update((m) => {
-        const copy = { ...m };
-        delete copy[table.id];
-        return copy;
-      });
-      return;
-    }
-    if (next === table.label) return;
-    this.api.updateTable(shopId, table.id, { label: next }).subscribe({
-      next: (row) => {
-        this.tables.update((list) => list.map((t) => (t.id === row.id ? row : t)));
-        this.labelDrafts.update((m) => {
-          const copy = { ...m };
-          delete copy[table.id];
-          return copy;
-        });
-      },
-      error: (err) => this.fail(err, 'No se pudo guardar el número de mesa'),
-    });
-  }
-
-  async removeTable(table: SalonTable): Promise<void> {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    const ok = await this.confirm.confirm(
-      'Quitar mesa',
-      `¿Sacar la mesa ${table.label || ''} de ${table.area === 'OUTSIDE' ? 'afuera' : 'adentro'}?`,
-      { confirmLabel: 'Quitar', icon: 'chair' },
-    );
-    if (!ok) return;
-    this.api.removeTable(shopId, table.id).subscribe({
-      next: () => this.tables.update((list) => list.filter((t) => t.id !== table.id)),
-      error: (err) => this.fail(err, 'No se pudo quitar la mesa'),
     });
   }
 
@@ -605,20 +490,25 @@ export class SalonPage {
   }
 
   private floorIsEmpty(): boolean {
-    if (this.tables().length) return false;
+    if (this.tables().some((t) => t.forWaiter === false)) return false;
     return !this.savedRules().some((r) => r.maxCount > 0);
   }
 
-  private applyFloor(floor: { tables?: SalonTable[]; rules?: SalonAreaRule[] }): void {
+  private applyFloor(floor: {
+    sectors?: SalonSector[];
+    tables?: SalonTable[];
+    rules?: SalonAreaRule[];
+  }): void {
+    const sectors = floor.sectors ?? [];
     const tables = floor.tables ?? [];
     const rules = floor.rules ?? [];
+    this.sectors.set(sectors);
     this.tables.set(tables);
     this.savedRules.set(rules);
     this.rulesDraft.set({
       INSIDE: this.rowsForArea('INSIDE', rules),
       OUTSIDE: this.rowsForArea('OUTSIDE', rules),
     });
-    this.labelDrafts.set({});
   }
 
   private load(): void {

@@ -37,6 +37,10 @@ export interface Employee {
   holidayPayMultiplier?: number | null;
   serviceCheckIn?: string | null;
   serviceCheckOut?: string | null;
+  /** Si tiene PIN de comanda mozo. */
+  hasWaiterPin?: boolean;
+  /** Últimos dígitos del PIN (admin). */
+  waiterPinPrefix?: string | null;
   active: boolean;
 }
 
@@ -59,11 +63,11 @@ export class EmployeesApiService {
     });
   }
 
-  create(shopId: string, body: Partial<Employee>) {
+  create(shopId: string, body: Partial<Employee> & { waiterPin?: string | null }) {
     return this.http.post<Employee>(`${this.base}/shops/${shopId}/employees`, body);
   }
 
-  update(shopId: string, id: string, body: Partial<Employee>) {
+  update(shopId: string, id: string, body: Partial<Employee> & { waiterPin?: string | null }) {
     return this.http.patch<Employee>(`${this.base}/shops/${shopId}/employees/${id}`, body);
   }
 

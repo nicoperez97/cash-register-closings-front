@@ -1,0 +1,393 @@
+@if (toast(); as t) {
+  <div class="toast" role="status">{{ t }}</div>
+}
+
+<div class="page" [class.page--session]="view() === 'session'">
+  @if (view() === 'login') {
+    <header class="hero anim-in">
+      <p class="eyebrow">Comanda mozos</p>
+      <h1>{{ shopName() || slug() }}</h1>
+      <p>Ingresá tu código para ver las mesas.</p>
+    </header>
+
+    @if (error(); as err) {
+      <p class="err anim-in">{{ err }}</p>
+    }
+
+    <form class="login anim-in anim-delay-1" (ngSubmit)="login()">
+      <label>
+        Código mozo
+        <input
+          type="password"
+          inputmode="numeric"
+          maxlength="6"
+          autocomplete="one-time-code"
+          [ngModel]="pin()"
+          (ngModelChange)="pin.set($event)"
+          name="pin"
+          placeholder="••••"
+        />
+      </label>
+      <button type="submit" class="btn btn--lg" [disabled]="busy()">
+        {{ busy() ? 'Entrando…' : 'Entrar' }}
+      </button>
+    </form>
+  } @else if (view() === 'tables') {
+    <header class="bar anim-in">
+      <div>
+        <p class="eyebrow">{{ shopName() }}</p>
+        <h1>Mesas</h1>
+        <p class="muted">{{ waiterName() }}</p>
+      </div>
+      <div class="bar__actions">
+        <button type="button" class="icon-btn" (click)="loadTables()" [disabled]="loading()" aria-label="Actualizar">
+          ↻
+        </button>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="logout()">Salir</button>
+      </div>
+    </header>
+
+    @if (error(); as err) {
+      <p class="err anim-in">{{ err }}</p>
+    }
+
+    @if (loading()) {
+      <p class="muted anim-in">Cargando mesas…</p>
+    } @else {
+      @if (sectorTabs().length > 1) {
+        <nav class="sector-tabs anim-in" aria-label="Sectores">
+          <button
+            type="button"
+            class="sector-tabs__btn"
+            [class.sector-tabs__btn--on]="sectorTab() === null"
+            (click)="setSectorTab(null)"
+          >
+            Todos
+          </button>
+          @for (name of sectorTabs(); track name) {
+            <button
+              type="button"
+              class="sector-tabs__btn"
+              [class.sector-tabs__btn--on]="sectorTab() === name"
+              (click)="setSectorTab(name)"
+            >
+              {{ name }}
+            </button>
+          }
+        </nav>
+      }
+
+      @for (_ of [sectorTab() ?? 'all']; track _) {
+        @if (busyBySector().length) {
+          <section class="section anim-in">
+            <h2 class="section__title">Ocupadas</h2>
+            @for (group of busyBySector(); track group.name) {
+              @if (showSectorLabels()) {
+                <h3 class="section__sub">{{ group.name }}</h3>
+              }
+              <div class="tables">
+                @for (t of group.tables; track t.id; let i = $index) {
+                  <button
+                    type="button"
+                    class="table table--busy anim-pop"
+                    [style.animation-delay.ms]="i * 40"
+                    (click)="tapTable(t)"
+                    [disabled]="busy()"
+                  >
+                    <strong>{{ t.label }}</strong>
+                    <span>{{ t.openSession?.covers ?? '—' }} pers.</span>
+                    <small>
+                      {{ t.openSession?.orderCount || 0 }} envíos
+                      @if (showSectorLabels()) {
+                        · {{ group.name }}
+                      }
+                    </small>
+                  </button>
+                }
+              </div>
+            }
+          </section>
+        }
+
+        <section class="section anim-in anim-delay-1">
+          <h2 class="section__title">Libres</h2>
+          @for (group of freeBySector(); track group.name) {
+            @if (showSectorLabels()) {
+              <h3 class="section__sub">{{ group.name }}</h3>
+            }
+            <div class="tables">
+              @for (t of group.tables; track t.id; let i = $index) {
+                <button
+                  type="button"
+                  class="table anim-pop"
+                  [style.animation-delay.ms]="i * 35"
+                  (click)="tapTable(t)"
+                  [disabled]="busy()"
+                >
+                  <strong>{{ t.label }}</strong>
+                  <span>Libre</span>
+                  @if (showSectorLabels()) {
+                    <small>{{ group.name }}</small>
+                  }
+                </button>
+              }
+            </div>
+          } @empty {
+            <p class="muted">No hay mesas libres.</p>
+          }
+        </section>
+      }
+    }
+  } @else {
+    @let s = session();
+    <header class="bar bar--sticky anim-in">
+      <div>
+        <button type="button" class="link" (click)="backToTables()">← Mesas</button>
+        <h1>Mesa {{ s?.table?.label ?? '—' }}</h1>
+        <p class="muted">
+          {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn btn--danger btn--sm"
+        (click)="askCloseTable()"
+        [disabled]="busy()"
+      >
+        Cerrar
+      </button>
+    </header>
+
+    @if (error(); as err) {
+      <p class="err anim-in">{{ err }}</p>
+    }
+
+    @if (s?.orders?.length) {
+      <section class="sent anim-in">
+        <h2>Envíos</h2>
+        <ul>
+          @for (o of s!.orders; track o.id) {
+            <li>
+              <div class="sent__head">
+                <strong>#{{ o.code }}</strong>
+                <span>{{ money(o.total) }}</span>
+              </div>
+              <p>
+                @for (it of o.items; track $index) {
+                  {{ it.qty }}× {{ it.name }}@if (!$last){, }
+                }
+              </p>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <div class="pos anim-in anim-delay-1">
+      <section class="pos__catalog">
+        <input
+          type="search"
+          class="search"
+          placeholder="Buscar plato…"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+          name="q"
+        />
+        @if (sections().length > 1) {
+          <div class="chips" role="tablist">
+            <button
+              type="button"
+              class="chip"
+              [class.chip--on]="!sectionFilter()"
+              (click)="setSection(null)"
+            >
+              Todas
+            </button>
+            @for (sec of sections(); track sec) {
+              <button
+                type="button"
+                class="chip"
+                [class.chip--on]="sectionFilter() === sec"
+                (click)="setSection(sec)"
+              >
+                {{ sec }}
+              </button>
+            }
+          </div>
+        }
+        <ul class="items">
+          @for (it of filteredCatalog(); track it.id) {
+            <li>
+              <button type="button" class="item" (click)="addItem(it)">
+                <span>{{ it.name }}</span>
+                <span class="item__price">{{ money(it.price) }}</span>
+              </button>
+              @if (itemExtras(it.id); as exs) {
+                @if (exs.length) {
+                  <div class="extras">
+                    @for (ex of exs; track ex.id) {
+                      <button type="button" class="extra" (click)="addExtra(ex, it.id)">
+                        + {{ ex.name }}
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </li>
+          } @empty {
+            <li class="muted">Sin ítems. Revisá la carta del local.</li>
+          }
+        </ul>
+      </section>
+    </div>
+
+    <div class="dock" [class.dock--open]="cartOpen() || lineCount() > 0">
+      @if (!cartOpen() && lineCount() > 0) {
+        <button type="button" class="dock__peek" (click)="cartOpen.set(true)">
+          <span>{{ lineCount() }} ítems</span>
+          <strong>{{ money(subtotal()) }}</strong>
+          <span class="dock__peek-cta">Ver carrito</span>
+        </button>
+      }
+
+      @if (cartOpen()) {
+        <aside class="dock__panel anim-up">
+          <div class="cart-head">
+            <h2>Carrito</h2>
+            <button type="button" class="link" (click)="cartOpen.set(false)">Cerrar</button>
+          </div>
+          @if (!lines().length) {
+            <p class="muted">Tocá platos para armar el envío.</p>
+          } @else {
+            <ul class="lines">
+              @for (line of lines(); track line.key) {
+                <li>
+                  <div class="lines__row">
+                    <strong>{{ line.name }}</strong>
+                    <span>{{ money(line.unitPrice * line.qty) }}</span>
+                  </div>
+                  <div class="qty">
+                    <button type="button" (click)="bump(line, -1)">−</button>
+                    <span>{{ line.qty }}</span>
+                    <button type="button" (click)="bump(line, 1)">+</button>
+                  </div>
+                </li>
+              }
+            </ul>
+            <p class="total">Total {{ money(subtotal()) }}</p>
+          }
+
+          <label class="notes">
+            Nota
+            <textarea
+              rows="2"
+              [ngModel]="notes()"
+              (ngModelChange)="notes.set($event)"
+              name="notes"
+              placeholder="Sin cebolla…"
+            ></textarea>
+          </label>
+
+          <div class="checks">
+            <label class="check">
+              <input
+                type="checkbox"
+                [ngModel]="printKitchen()"
+                (ngModelChange)="printKitchen.set($event)"
+                name="kitchen"
+              />
+              Cocina
+            </label>
+            <label class="check">
+              <input
+                type="checkbox"
+                [ngModel]="printCustomerTicket()"
+                (ngModelChange)="printCustomerTicket.set($event)"
+                name="ticket"
+              />
+              Ticket cliente
+            </label>
+          </div>
+
+          <div class="dock__actions">
+            <button type="button" class="btn btn--ghost" [disabled]="!lines().length" (click)="clearCart()">
+              Vaciar
+            </button>
+            <button
+              type="button"
+              class="btn btn--lg"
+              [disabled]="busy() || !lines().length"
+              (click)="sendOrder()"
+            >
+              {{ busy() ? 'Enviando…' : 'Enviar comanda' }}
+            </button>
+          </div>
+        </aside>
+      }
+    </div>
+  }
+</div>
+
+@if (coversSheet(); as table) {
+  <div class="sheet-backdrop anim-fade" (click)="cancelCovers()"></div>
+  <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="covers-title">
+    <div class="sheet__handle" aria-hidden="true"></div>
+    <h2 id="covers-title">Mesa {{ table.label }}</h2>
+    <p class="muted">¿Cuántos comensales?</p>
+    <div class="covers">
+      <button type="button" class="covers__btn" (click)="bumpCovers(-1)">−</button>
+      <input
+        type="number"
+        min="1"
+        max="30"
+        inputmode="numeric"
+        [ngModel]="coversDraft()"
+        (ngModelChange)="coversDraft.set(+$event || 1)"
+        name="covers"
+      />
+      <button type="button" class="covers__btn" (click)="bumpCovers(1)">+</button>
+    </div>
+    <div class="sheet__actions">
+      <button type="button" class="btn btn--ghost" (click)="cancelCovers()">Cancelar</button>
+      <button type="button" class="btn btn--lg" [disabled]="busy()" (click)="confirmCovers()">
+        Continuar
+      </button>
+    </div>
+  </div>
+}
+
+@if (closeSheet()) {
+  <div class="sheet-backdrop anim-fade" (click)="cancelClose()"></div>
+  <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="close-title">
+    <div class="sheet__handle" aria-hidden="true"></div>
+    <h2 id="close-title">Cerrar mesa {{ session()?.table?.label }}</h2>
+    @if (session()?.customerTicketPrinted) {
+      <p class="muted">¿Confirmás cerrar la mesa?</p>
+      <div class="sheet__actions sheet__actions--col">
+        <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="printTicketOnly()">
+          Solo imprimir ticket
+        </button>
+        <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="confirmClose(false)">
+          Cerrar mesa
+        </button>
+        <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
+      </div>
+    } @else {
+      <p class="muted">
+        Todavía no se imprimió un ticket para el cliente. ¿Querés imprimirlo al cerrar?
+      </p>
+      <div class="sheet__actions sheet__actions--col">
+        <button type="button" class="btn btn--lg" [disabled]="busy()" (click)="confirmClose(true)">
+          Imprimir ticket y cerrar
+        </button>
+        <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="printTicketOnly()">
+          Solo imprimir ticket
+        </button>
+        <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="confirmClose(false)">
+          Cerrar sin ticket
+        </button>
+        <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
+      </div>
+    }
+  </div>
+}

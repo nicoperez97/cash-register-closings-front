@@ -54,7 +54,11 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
       [subtitle]="shops.selectedShop()?.name ?? 'Local'"
     />
 
-    <nav class="salon-tabs" aria-label="Diagrama, reglas y horarios">
+    <nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
+      <a routerLink="/salon/mesas" class="salon-tabs__link">
+        <mat-icon>table_restaurant</mat-icon>
+        Mesas
+      </a>
       <a routerLink="/salon/diagrama" class="salon-tabs__link">
         <mat-icon>grid_view</mat-icon>
         Diagrama

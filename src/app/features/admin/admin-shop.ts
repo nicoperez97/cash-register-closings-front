@@ -244,6 +244,7 @@ export class AdminShopPage implements OnInit {
     menuEnabled: [false],
     shopMode: this.fb.nonNullable.control<'AL_PASO' | 'RESTAURANTE'>('RESTAURANTE'),
     onlineOrderingEnabled: [false],
+    waiterOrderingEnabled: [false],
     takeawayEnabled: [true],
     deliveryEnabled: [false],
     orderingEtaTakeaway: [''],
@@ -727,6 +728,7 @@ export class AdminShopPage implements OnInit {
     menuEnabled?: boolean;
     shopMode?: 'AL_PASO' | 'RESTAURANTE';
     onlineOrderingEnabled?: boolean;
+    waiterOrderingEnabled?: boolean;
     takeawayEnabled?: boolean;
     deliveryEnabled?: boolean;
     orderingHours?: {
@@ -797,6 +799,7 @@ export class AdminShopPage implements OnInit {
       menuEnabled: !!s.menuEnabled,
       shopMode: s.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
       onlineOrderingEnabled: !!s.onlineOrderingEnabled,
+      waiterOrderingEnabled: !!s.waiterOrderingEnabled,
       takeawayEnabled: s.takeawayEnabled !== false,
       deliveryEnabled: !!s.deliveryEnabled,
       orderingEtaTakeaway: s.orderingEta?.takeaway ?? '',
@@ -1334,6 +1337,7 @@ export class AdminShopPage implements OnInit {
       menuEnabled: raw.menuEnabled,
       shopMode: raw.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
       onlineOrderingEnabled: raw.onlineOrderingEnabled,
+      waiterOrderingEnabled: raw.waiterOrderingEnabled,
       takeawayEnabled: raw.takeawayEnabled,
       deliveryEnabled: raw.deliveryEnabled,
       orderingHours: {
@@ -1391,6 +1395,7 @@ export class AdminShopPage implements OnInit {
       : this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
           shopMode: body['shopMode'],
           onlineOrderingEnabled: body['onlineOrderingEnabled'],
+          waiterOrderingEnabled: body['waiterOrderingEnabled'],
           takeawayEnabled: body['takeawayEnabled'],
           deliveryEnabled: body['deliveryEnabled'],
           orderingHours: body['orderingHours'],

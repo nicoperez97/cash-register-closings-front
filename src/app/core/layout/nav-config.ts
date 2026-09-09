@@ -49,6 +49,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'splits', label: 'Divisiones', icon: 'history', defaultGroup: 'cuentas', route: '/splits' },
   { id: 'reservations', label: 'Reservas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/reservations' },
   { id: 'waitingList', label: 'Lista de espera', icon: 'hourglass_top', defaultGroup: 'salon', route: '/waiting-list' },
+  { id: 'salonTables', label: 'Mesas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/salon/mesas' },
   { id: 'diagrama', label: 'Diagrama', icon: 'grid_view', defaultGroup: 'salon', route: '/salon/diagrama' },
   { id: 'salonRules', label: 'Reglas', icon: 'tune', defaultGroup: 'salon', route: '/salon/reglas' },
   { id: 'salonHours', label: 'Horarios', icon: 'schedule', defaultGroup: 'salon', route: '/salon/horarios' },

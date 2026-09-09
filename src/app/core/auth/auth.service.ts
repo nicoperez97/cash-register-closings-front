@@ -243,6 +243,7 @@ export class AuthService {
         menuEnabled: !!s.menuEnabled,
         shopMode: s.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
         onlineOrderingEnabled: !!s.onlineOrderingEnabled,
+        waiterOrderingEnabled: !!s.waiterOrderingEnabled,
         orderingForceClosed: !!s.orderingForceClosed,
         takeawayEnabled: s.takeawayEnabled !== false,
         deliveryEnabled: !!s.deliveryEnabled,

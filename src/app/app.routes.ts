@@ -106,6 +106,12 @@ export const routes: Routes = [
     title: 'Consultar pedido',
   },
   {
+    path: 'mozo/:slug',
+    loadComponent: () =>
+      import('./features/waiter/waiter-page').then((m) => m.WaiterPageComponent),
+    title: 'Comanda mozos',
+  },
+  {
     path: 'n/:slug',
     loadComponent: () =>
       import('./features/service-rules/public-service-rules-page').then(
@@ -232,7 +238,17 @@ export const routes: Routes = [
       {
         path: 'salon',
         pathMatch: 'full',
-        redirectTo: '/salon/diagrama',
+        redirectTo: '/salon/mesas',
+      },
+      {
+        path: 'salon/mesas',
+        canActivate: [
+          permissionGuard('reservations.read'),
+          shopFeatureGuard('reservations'),
+        ],
+        loadComponent: () =>
+          import('./features/salon/salon-tables-page').then((m) => m.SalonTablesPage),
+        title: 'Mesas',
       },
       {
         path: 'salon/diagrama',
