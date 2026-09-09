@@ -47,6 +47,62 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     <section class="panel-card guy-form-section">
+      <h2 class="guy-section-title">Comandas (impresora)</h2>
+      <div class="shop-admin__posnets-head">
+        <p class="text-muted small mb-0">
+          Token para <strong>Cierres-Comandas.exe</strong>. Las comanderas y qué platos salen en cada una
+          se configuran en el exe (Carta).
+        </p>
+        <div class="shop-admin__source-actions">
+          @if (printAgentConfigured()) {
+            <button
+              mat-stroked-button
+              type="button"
+              color="warn"
+              [disabled]="printAgentBusy()"
+              (click)="revokePrintAgentToken.emit()"
+            >
+              <mat-icon>link_off</mat-icon>
+              Revocar
+            </button>
+          }
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="printAgentBusy()"
+            (click)="generatePrintAgentToken.emit()"
+          >
+            <mat-icon>vpn_key</mat-icon>
+            {{ printAgentConfigured() ? 'Regenerar token' : 'Generar token' }}
+          </button>
+        </div>
+      </div>
+      @if (printAgentLoading()) {
+        <p class="text-muted small mb-0">Cargando…</p>
+      } @else if (printAgentConfigured()) {
+        <p class="text-muted small mb-0">
+          Token activo:
+          <code>{{ printAgentTokenPrefix() || 'pa_…' }}</code>
+        </p>
+      } @else {
+        <p class="text-muted small mb-0">Todavía no hay token. Generá uno y pegalo en Cierres-Comandas → Conexión.</p>
+      }
+      @if (printAgentFreshToken()) {
+        <div class="shop-admin__print-token">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__print-token-field">
+            <mat-label>Token (copiá ahora)</mat-label>
+            <input matInput readonly [value]="printAgentFreshToken()" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="copyPrintAgentToken.emit()">
+            <mat-icon>content_copy</mat-icon>
+            Copiar
+          </button>
+        </div>
+        <p class="text-muted small mb-0">No se vuelve a mostrar. Si lo perdés, regenerá.</p>
+      }
+    </section>
+
+    <section class="panel-card guy-form-section">
       <h2 class="guy-section-title">Posnets</h2>
       <div class="shop-admin__posnets-head">
         <p class="text-muted small mb-0">
@@ -208,6 +264,11 @@ export class AdminShopDevicesComponent {
   readonly canManageAccounts = input(false);
   readonly sourcesLoading = input(false);
   readonly sourcesLoadFailed = input(false);
+  readonly printAgentLoading = input(false);
+  readonly printAgentBusy = input(false);
+  readonly printAgentConfigured = input(false);
+  readonly printAgentTokenPrefix = input<string | null>(null);
+  readonly printAgentFreshToken = input<string | null>(null);
   readonly accountSearchQuery = model('');
   readonly sourceNeedsAccount = input<(index: number) => boolean>(() => false);
   readonly filteredSourceAccounts = input<(keepId?: string | null) => AdminShopAccountOption[]>(
@@ -223,6 +284,9 @@ export class AdminShopDevicesComponent {
   readonly reloadClosingSources = output<void>();
   readonly selectOpened = output<boolean>();
   readonly createDestinationAccount = output<number>();
+  readonly generatePrintAgentToken = output<void>();
+  readonly revokePrintAgentToken = output<void>();
+  readonly copyPrintAgentToken = output<void>();
 
   get posnets(): FormArray {
     return this.host.form.get('posnets') as FormArray;

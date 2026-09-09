@@ -96,7 +96,7 @@ export interface CreatePublicCustomerOrderBody {
   extras?: Array<{ extraId: string; qty: number; attachedToMenuItemId?: string | null }>;
   firstName: string;
   lastName: string;
-  phone: string;
+  phone?: string;
   address?: string | null;
   deliveryZoneId?: string | null;
   paymentMethod: CustomerOrderPaymentMethod;
@@ -104,6 +104,8 @@ export interface CreatePublicCustomerOrderBody {
   customerNotes?: string | null;
   discountPercent?: number | null;
   discountFixed?: number | null;
+  /** Solo mostrador: imprimir ticket del cliente (default true). */
+  printCustomerTicket?: boolean;
 }
 
 export interface PublicCustomerOrder {

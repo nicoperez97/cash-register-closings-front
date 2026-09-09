@@ -269,6 +269,21 @@
   color: var(--guy-muted, #5f6f76);
 }
 
+.pos__check {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  grid-template-columns: none;
+  font-weight: 650;
+}
+
+.pos__check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  accent-color: var(--guy-accent, #1b7a4b);
+}
+
 .pos__totals {
   display: grid;
   gap: 0.25rem;

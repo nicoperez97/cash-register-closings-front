@@ -182,6 +182,11 @@ export class AdminShopPedidosPage {
         [canManageAccounts]="host.canManageAccounts()"
         [sourcesLoading]="host.sourcesLoading()"
         [sourcesLoadFailed]="host.sourcesLoadFailed()"
+        [printAgentLoading]="host.printAgentLoading()"
+        [printAgentBusy]="host.printAgentBusy()"
+        [printAgentConfigured]="host.printAgentConfigured()"
+        [printAgentTokenPrefix]="host.printAgentTokenPrefix()"
+        [printAgentFreshToken]="host.printAgentFreshToken()"
         [(accountSearchQuery)]="host.accountSearchQuery"
         [sourceNeedsAccount]="host.sourceNeedsAccountBound"
         [filteredSourceAccounts]="host.filteredSourceAccountsBound"
@@ -194,6 +199,9 @@ export class AdminShopPedidosPage {
         (reloadClosingSources)="host.reloadClosingSources()"
         (createDestinationAccount)="host.openCreateDestinationAccount($event)"
         (selectOpened)="host.onSelectSearchOpened($event, host.accountSearchQuery)"
+        (generatePrintAgentToken)="host.generatePrintAgentToken()"
+        (revokePrintAgentToken)="host.revokePrintAgentToken()"
+        (copyPrintAgentToken)="host.copyPrintAgentToken()"
       />
     </div>
   `,

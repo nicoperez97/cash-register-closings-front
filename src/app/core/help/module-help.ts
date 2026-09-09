@@ -850,7 +850,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['customerOrders.manage'],
         body: 'Con Nuevo se abre la caja rápida dentro de la misma card: buscás, tocás ítems, descuento (% o $) y creás el pedido.',
         items: [
-          'Nombre y celular son opcionales (si faltan usa valores de mostrador).',
+          'Nombre y celular son opcionales (si no hay celular, no se imprime en el ticket).',
+          'Imprimir ticket del cliente viene tildado: sale comanda de cocina + ticket con total. Destildalo si solo querés cocina.',
           'Al crear, el pedido entra en En cocina (no en Pendientes) y se etiqueta Mostrador.',
         ],
         tip: 'El descuento solo está en pedidos de mostrador, no en /pedir del cliente.',
@@ -1268,7 +1269,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Identidad: nombre, mails, logo y colores.',
           'Operación: turnos de caja (también dan la entrada/retirada de presentismo), multiplicador de feriado (liquidación), producción, POS, conceptos en pagos, módulos públicos y francos.',
           'Pedidos: take away/delivery, horarios, zonas y pagos de /pedir. La bandeja está en Operación → Pedidos online.',
-          'Dispositivos: posnets y cuentas aparte (Pedidos Ya, etc.). En Cuenta destino podés elegir una cuenta o crear una nueva sin salir de la pantalla. En la cuenta podés cargar Comisión %: en Saldos el número grande ya la descuenta. Si las fuentes no aparecen, usá Reintentar.',
+          'Dispositivos: Comandas (token para Cierres-Comandas.exe; las comanderas y qué platos salen en cada una se configuran en el exe), posnets y cuentas aparte (Pedidos Ya, etc.). En Cuenta destino podés elegir una cuenta o crear una nueva sin salir de la pantalla. En la cuenta podés cargar Comisión %: en Saldos el número grande ya la descuenta. Si las fuentes no aparecen, usá Reintentar.',
           'Menú: grupos y módulos del menú lateral; abajo, Accesos rápidos de la barra (arrastrar, ocultar y agregar atajos).',
           'Carta: ítems y precios de la página pública.',
           'Avanzado: activar/desactivar el local y dump (super admin).',

@@ -384,7 +384,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
           });
           return;
         }
-        rememberOrderPhone(slug, order.code, body.phone);
+        if (body.phone) rememberOrderPhone(slug, order.code, body.phone);
         void this.router.navigate(['/mi-pedido', slug, order.code], {
           state: { justCreated: true },
           replaceUrl: true,

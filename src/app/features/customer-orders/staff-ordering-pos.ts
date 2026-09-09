@@ -62,6 +62,7 @@ export class StaffOrderingPosComponent implements OnInit {
   phone = '';
   cashAmount: number | null = null;
   notes = '';
+  printCustomerTicket = true;
 
   readonly shopId = computed(() => String(this.shops.selectedShopId() ?? '').trim());
   readonly slug = computed(() => String(this.shops.selectedShop()?.slug ?? '').trim());
@@ -158,7 +159,6 @@ export class StaffOrderingPosComponent implements OnInit {
         const methods = cfg.payments?.methods ?? [];
         if (methods.length === 1) this.paymentMethod.set(methods[0]);
         else if (methods.includes('CASH')) this.paymentMethod.set('CASH');
-        if (cfg.shop?.phone) this.phone = String(cfg.shop.phone);
         this.cashAmount = this.total();
       },
       error: (err) => {
@@ -294,11 +294,11 @@ export class StaffOrderingPosComponent implements OnInit {
     const parts = name.split(/\s+/);
     const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || 'Cliente';
     const lastName = parts.length > 1 ? parts[parts.length - 1] : 'Mostrador';
-    let phone = this.phone.replace(/\D/g, '');
-    if (phone.length < 6) {
-      phone = String(this.config()?.shop?.phone ?? '').replace(/\D/g, '');
+    const phone = this.phone.replace(/\D/g, '');
+    if (phone.length > 0 && phone.length < 6) {
+      this.snack.open('Celular inválido', 'OK', { duration: 2500 });
+      return;
     }
-    if (phone.length < 6) phone = '1111111111';
 
     const body: CreatePublicCustomerOrderBody = {
       fulfillment: 'COUNTER',
@@ -314,9 +314,10 @@ export class StaffOrderingPosComponent implements OnInit {
         })),
       firstName,
       lastName,
-      phone,
+      ...(phone ? { phone } : {}),
       paymentMethod,
       customerNotes: this.notes.trim() || null,
+      printCustomerTicket: this.printCustomerTicket,
     };
     if (paymentMethod === 'CASH') body.cashAmount = Number(this.cashAmount);
     if (this.discountMode() === 'percent' && Number(this.discountValue()) > 0) {
