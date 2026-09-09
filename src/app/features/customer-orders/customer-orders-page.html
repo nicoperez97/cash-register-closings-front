@@ -128,7 +128,13 @@
                     </header>
                     <p class="co-card__guest">
                       <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
-                      <span>{{ o.fulfillment === 'DELIVERY' ? 'Deliv.' : 'T.away' }}</span>
+                      <span>{{
+                        o.fulfillment === 'DELIVERY'
+                          ? 'Deliv.'
+                          : o.fulfillment === 'COUNTER'
+                            ? 'Mostr.'
+                            : 'T.away'
+                      }}</span>
                     </p>
                     @if (o.status === 'ACCEPTED' || o.status === 'PREPARING') {
                       <span class="co-card__substatus">{{ statusLabel(o.status) }}</span>
@@ -141,7 +147,12 @@
                     }
                     <ul class="co-card__items">
                       @for (it of o.items; track $index) {
-                        <li>{{ it.qty }}× {{ it.name }}</li>
+                        <li>
+                          {{ it.qty }}× {{ it.name }}
+                          @if (it.removedIngredients?.length) {
+                            <span class="co-card__removed">Sin {{ it.removedIngredients.join(', ') }}</span>
+                          }
+                        </li>
                       }
                     </ul>
                     @if ((o.discountAmount ?? 0) > 0) {
@@ -202,12 +213,23 @@
             </header>
             <p class="co-card__guest">
               <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
-              <span>{{ o.fulfillment === 'DELIVERY' ? 'Delivery' : 'Take away' }}</span>
+              <span>{{
+                o.fulfillment === 'DELIVERY'
+                  ? 'Delivery'
+                  : o.fulfillment === 'COUNTER'
+                    ? 'Mostrador'
+                    : 'Take away'
+              }}</span>
             </p>
             <ul class="co-card__items">
               @for (it of o.items; track $index) {
                 <li>
-                  <span>{{ it.qty }}× {{ it.name }}</span>
+                  <span>
+                    {{ it.qty }}× {{ it.name }}
+                    @if (it.removedIngredients?.length) {
+                      <span class="co-card__removed">Sin {{ it.removedIngredients.join(', ') }}</span>
+                    }
+                  </span>
                   <span>{{ money(it.unitPrice * it.qty) }}</span>
                 </li>
               }

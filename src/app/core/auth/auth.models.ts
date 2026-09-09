@@ -912,6 +912,8 @@ export interface ShopSummary {
   shopMode?: 'AL_PASO' | 'RESTAURANTE';
   /** Pedidos online take away / delivery. */
   onlineOrderingEnabled?: boolean;
+  /** Cierre manual de /pedir (clientes ven cerrado). */
+  orderingForceClosed?: boolean;
   takeawayEnabled?: boolean;
   deliveryEnabled?: boolean;
   orderingHours?: {

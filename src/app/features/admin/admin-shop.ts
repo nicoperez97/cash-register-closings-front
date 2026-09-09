@@ -310,9 +310,18 @@ export class AdminShopPage implements OnInit {
 
   buildHourWindow(open = '12:00', close = '17:00'): FormGroup {
     return this.fb.nonNullable.group({
-      open: [open],
-      close: [close],
+      open: [this.normalizeHhMm(open) ?? '12:00'],
+      close: [this.normalizeHhMm(close) ?? '17:00'],
     });
+  }
+
+  /** Safari/iOS time inputs a veces mandan HH:mm:ss. */
+  normalizeHhMm(raw: unknown): string | null {
+    const m = String(raw ?? '')
+      .trim()
+      .match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+    if (!m) return null;
+    return `${m[1].padStart(2, '0')}:${m[2]}`;
   }
 
   private emptyWeekdayHours(): FormGroup[] {
@@ -332,10 +341,10 @@ export class AdminShopPage implements OnInit {
     const list = Array.isArray(raw) ? raw : [raw];
     return list
       .map((w) => ({
-        open: String(w?.open ?? '').trim(),
-        close: String(w?.close ?? '').trim(),
+        open: this.normalizeHhMm(w?.open) ?? '',
+        close: this.normalizeHhMm(w?.close) ?? '',
       }))
-      .filter((w) => /^\d{2}:\d{2}$/.test(w.open) && /^\d{2}:\d{2}$/.test(w.close));
+      .filter((w) => !!w.open && !!w.close);
   }
 
   private setHoursFromConfig(
@@ -366,11 +375,14 @@ export class AdminShopPage implements OnInit {
     }
   }
 
+  /**
+   * Siempre persiste los 7 días. Cerrado = null por día.
+   * Evita mandar `null` del canal entero (se reinterpretaba como “sin config” y se re-sembraba).
+   */
   private hoursToConfig(
     arr: FormArray,
-  ): Record<string, Array<{ open: string; close: string }> | null> | null {
+  ): Record<string, Array<{ open: string; close: string }> | null> {
     const out: Record<string, Array<{ open: string; close: string }> | null> = {};
-    let any = false;
     for (const ctrl of arr.controls) {
       const g = ctrl as FormGroup;
       const day = Number(g.get('day')?.value);
@@ -380,19 +392,17 @@ export class AdminShopPage implements OnInit {
         .map((c) => {
           const w = (c as FormGroup).getRawValue() as { open: string; close: string };
           return {
-            open: String(w.open ?? '').trim(),
-            close: String(w.close ?? '').trim(),
+            open: this.normalizeHhMm(w.open) ?? '',
+            close: this.normalizeHhMm(w.close) ?? '',
           };
         })
-        .filter((w) => /^\d{2}:\d{2}$/.test(w.open) && /^\d{2}:\d{2}$/.test(w.close));
-      if (enabled && wins.length) {
-        out[String(day)] = wins;
-        any = true;
-      } else {
-        out[String(day)] = null;
-      }
+        .filter((w) => !!w.open && !!w.close);
+      out[String(day)] = enabled && wins.length ? wins : null;
     }
-    return any ? out : null;
+    for (let d = 0; d <= 6; d++) {
+      if (!(String(d) in out)) out[String(d)] = null;
+    }
+    return out;
   }
 
   /** Copia turnos de caja → horarios de pedidos (varios turnos/día = varias franjas). */
@@ -447,8 +457,22 @@ export class AdminShopPage implements OnInit {
       | null
       | undefined,
   ): void {
-    if (!orderingHours?.takeaway) this.applyOrderingHoursFromShifts('takeaway');
-    if (!orderingHours?.delivery) this.applyOrderingHoursFromShifts('delivery');
+    // Solo sembrar si el canal nunca se configuró (sin keys 0–6).
+    // Un mapa con todos null = cerrado a propósito; no volver a pisar con turnos de caja.
+    if (this.channelHoursNeedSeed(orderingHours?.takeaway)) {
+      this.applyOrderingHoursFromShifts('takeaway');
+    }
+    if (this.channelHoursNeedSeed(orderingHours?.delivery)) {
+      this.applyOrderingHoursFromShifts('delivery');
+    }
+  }
+
+  private channelHoursNeedSeed(raw: unknown): boolean {
+    if (raw == null || typeof raw !== 'object') return true;
+    for (let d = 0; d <= 6; d++) {
+      if (Object.prototype.hasOwnProperty.call(raw, String(d))) return false;
+    }
+    return true;
   }
 
   addDeliveryZone(): void {
@@ -1274,8 +1298,13 @@ export class AdminShopPage implements OnInit {
     const req$ = canFull
       ? this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, body)
       : this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
+          shopMode: body['shopMode'],
+          onlineOrderingEnabled: body['onlineOrderingEnabled'],
           takeawayEnabled: body['takeawayEnabled'],
           deliveryEnabled: body['deliveryEnabled'],
+          orderingHours: body['orderingHours'],
+          orderingEta: body['orderingEta'],
+          deliveryZones: body['deliveryZones'],
           orderingPayments: body['orderingPayments'],
         });
 

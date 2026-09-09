@@ -151,26 +151,6 @@
         </div>
 
         <div class="pos__fields">
-          @if (takeawayOk() && deliveryOk()) {
-            <div class="pos__chips">
-              <button
-                type="button"
-                class="pos__chip"
-                [class.pos__chip--on]="fulfillment() === 'TAKEAWAY'"
-                (click)="fulfillment.set('TAKEAWAY')"
-              >
-                Retiro
-              </button>
-              <button
-                type="button"
-                class="pos__chip"
-                [class.pos__chip--on]="fulfillment() === 'DELIVERY'"
-                (click)="fulfillment.set('DELIVERY')"
-              >
-                Delivery
-              </button>
-            </div>
-          }
           <label>
             Nombre (opcional)
             <input type="text" [(ngModel)]="guestName" placeholder="Cliente Mostrador" autocomplete="name" />

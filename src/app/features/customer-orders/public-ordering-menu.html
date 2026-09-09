@@ -98,6 +98,26 @@
           <p class="detail__desc">{{ it.description }}</p>
         }
 
+        @if (it.removableIngredients?.length) {
+          <div class="extras">
+            <p class="extras__title">Sin…</p>
+            <p class="extras__hint">Tocá lo que querés retirar</p>
+            <div class="remove-chips">
+              @for (ing of it.removableIngredients; track ing) {
+                <button
+                  type="button"
+                  class="remove-chip"
+                  [class.remove-chip--on]="isIngredientRemoved(ing)"
+                  (click)="toggleRemovedIngredient(ing)"
+                  [disabled]="!canOrder()"
+                >
+                  {{ isIngredientRemoved(ing) ? 'Sin' : '' }} {{ ing }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+
         @if (itemExtras().length) {
           <div class="extras">
             <p class="extras__title">Extras</p>
@@ -131,7 +151,7 @@
             maxlength="300"
             [ngModel]="notes()"
             (ngModelChange)="notes.set($event)"
-            placeholder="Sin cebolla, punto de cocción…"
+            placeholder="Otras notas (opcional)"
             [disabled]="!canOrder()"
           ></textarea>
         </label>

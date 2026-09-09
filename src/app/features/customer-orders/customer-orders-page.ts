@@ -220,7 +220,10 @@ export class CustomerOrdersPage {
 
   nextActions(order: StaffCustomerOrder) {
     const actions = [...(NEXT_ACTIONS[order.status] ?? [])];
-    if (order.status === 'READY' && order.fulfillment === 'TAKEAWAY') {
+    if (
+      order.status === 'READY' &&
+      (order.fulfillment === 'TAKEAWAY' || order.fulfillment === 'COUNTER')
+    ) {
       return actions.filter((a) => a.status !== 'OUT_FOR_DELIVERY');
     }
     return actions;

@@ -56,7 +56,7 @@ export class StaffOrderingPosComponent implements OnInit {
   readonly discountMode = signal<'none' | 'percent' | 'fixed'>('none');
   readonly discountValue = signal<number | null>(null);
   readonly paymentMethod = signal<CustomerOrderPaymentMethod | ''>('');
-  readonly fulfillment = signal<CustomerOrderFulfillment>('TAKEAWAY');
+  readonly fulfillment = signal<CustomerOrderFulfillment>('COUNTER');
 
   guestName = '';
   phone = '';
@@ -135,8 +135,6 @@ export class StaffOrderingPosComponent implements OnInit {
   );
 
   readonly paymentMethods = computed(() => this.config()?.payments?.methods ?? []);
-  readonly takeawayOk = computed(() => !!this.config()?.takeawayEnabled);
-  readonly deliveryOk = computed(() => !!this.config()?.deliveryEnabled);
 
   ngOnInit(): void {
     if (!this.embedded()) this.title.setTitle('Pedido mostrador');
@@ -156,8 +154,7 @@ export class StaffOrderingPosComponent implements OnInit {
       next: (cfg) => {
         this.config.set(cfg);
         this.loading.set(false);
-        if (cfg.takeawayEnabled) this.fulfillment.set('TAKEAWAY');
-        else if (cfg.deliveryEnabled) this.fulfillment.set('DELIVERY');
+        this.fulfillment.set('COUNTER');
         const methods = cfg.payments?.methods ?? [];
         if (methods.length === 1) this.paymentMethod.set(methods[0]);
         else if (methods.includes('CASH')) this.paymentMethod.set('CASH');
@@ -285,10 +282,6 @@ export class StaffOrderingPosComponent implements OnInit {
       this.snack.open('Elegí el medio de pago', 'OK', { duration: 2500 });
       return;
     }
-    if (!this.takeawayOk() && !this.deliveryOk()) {
-      this.snack.open('Habilitá take away o delivery en Pedidos', 'OK', { duration: 3000 });
-      return;
-    }
     if (paymentMethod === 'CASH') {
       const cash = Number(this.cashAmount);
       if (!Number.isFinite(cash) || cash < this.total()) {
@@ -308,7 +301,7 @@ export class StaffOrderingPosComponent implements OnInit {
     if (phone.length < 6) phone = '1111111111';
 
     const body: CreatePublicCustomerOrderBody = {
-      fulfillment: this.fulfillment(),
+      fulfillment: 'COUNTER',
       items: lines
         .filter((l) => l.kind !== 'EXTRA')
         .map((l) => ({ menuItemId: l.menuItemId, qty: l.qty })),

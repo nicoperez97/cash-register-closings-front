@@ -377,8 +377,17 @@
 
 .co-card__items li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.35rem;
+}
+
+.co-card__removed {
+  display: block;
+  width: 100%;
+  font-size: 0.72rem;
+  color: #9a6700;
+  font-weight: 650;
 }
 
 .co-card__foot {
