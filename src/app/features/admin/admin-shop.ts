@@ -176,6 +176,11 @@ export class AdminShopPage implements OnInit {
   private readonly sourcesReloadTick = signal(0);
   readonly sourcesLoading = signal(false);
   readonly sourcesLoadFailed = signal(false);
+  readonly printAgentLoading = signal(false);
+  readonly printAgentBusy = signal(false);
+  readonly printAgentConfigured = signal(false);
+  readonly printAgentTokenPrefix = signal<string | null>(null);
+  readonly printAgentFreshToken = signal<string | null>(null);
 
   readonly accountSearchQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
@@ -591,6 +596,7 @@ export class AdminShopPage implements OnInit {
     usePageRefresh(() => {
       this.reloadAccounts();
       this.reloadClosingSources();
+      this.reloadPrintAgentStatus();
     });
 
     toObservable(
@@ -603,6 +609,9 @@ export class AdminShopPage implements OnInit {
         switchMap(({ shopId }) => {
           if (!shopId) {
             this.allLedgerAccounts.set([]);
+            this.printAgentConfigured.set(false);
+            this.printAgentTokenPrefix.set(null);
+            this.printAgentFreshToken.set(null);
             return of({
               shopId: null as string | null,
               rows: null as ShopClosingSource[] | null,
@@ -610,6 +619,7 @@ export class AdminShopPage implements OnInit {
             });
           }
           this.reloadAccounts();
+          this.reloadPrintAgentStatus();
           this.sourcesLoading.set(true);
           this.sourcesLoadFailed.set(false);
           return this.api.listClosingSources(shopId).pipe(
@@ -1174,6 +1184,87 @@ export class AdminShopPage implements OnInit {
       next: (rows) => this.allLedgerAccounts.set(rows),
       error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
     });
+  }
+
+  reloadPrintAgentStatus(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) {
+      this.printAgentConfigured.set(false);
+      this.printAgentTokenPrefix.set(null);
+      return;
+    }
+    this.printAgentLoading.set(true);
+    this.http
+      .get<{ configured: boolean; tokenPrefix: string | null }>(
+        `${environment.apiUrl}/shops/${shopId}/print-agent`,
+      )
+      .subscribe({
+        next: (res) => {
+          this.printAgentLoading.set(false);
+          this.printAgentConfigured.set(!!res.configured);
+          this.printAgentTokenPrefix.set(res.tokenPrefix ?? null);
+        },
+        error: () => {
+          this.printAgentLoading.set(false);
+          this.snack.open('No se pudo cargar el estado de Comandas', 'OK', { duration: 3000 });
+        },
+      });
+  }
+
+  generatePrintAgentToken(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.printAgentBusy()) return;
+    this.printAgentBusy.set(true);
+    this.http
+      .post<{
+        token: string;
+        tokenPrefix: string;
+        configured: boolean;
+        hint?: string;
+      }>(`${environment.apiUrl}/shops/${shopId}/print-agent/token`, {})
+      .subscribe({
+        next: (res) => {
+          this.printAgentBusy.set(false);
+          this.printAgentConfigured.set(true);
+          this.printAgentTokenPrefix.set(res.tokenPrefix ?? null);
+          this.printAgentFreshToken.set(res.token);
+          this.snack.open(res.hint || 'Token generado. Copialo ahora.', 'OK', { duration: 4500 });
+        },
+        error: (err) => {
+          this.printAgentBusy.set(false);
+          const msg = err?.error?.message || 'No se pudo generar el token';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+        },
+      });
+  }
+
+  revokePrintAgentToken(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.printAgentBusy()) return;
+    this.printAgentBusy.set(true);
+    this.http.delete<{ configured: boolean }>(`${environment.apiUrl}/shops/${shopId}/print-agent/token`).subscribe({
+      next: () => {
+        this.printAgentBusy.set(false);
+        this.printAgentConfigured.set(false);
+        this.printAgentTokenPrefix.set(null);
+        this.printAgentFreshToken.set(null);
+        this.snack.open('Token de Comandas revocado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        this.printAgentBusy.set(false);
+        const msg = err?.error?.message || 'No se pudo revocar el token';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  copyPrintAgentToken(): void {
+    const token = this.printAgentFreshToken();
+    if (!token) return;
+    void navigator.clipboard.writeText(token).then(
+      () => this.snack.open('Token copiado', 'OK', { duration: 2000 }),
+      () => this.snack.open('No se pudo copiar. Seleccioná el texto a mano.', 'OK', { duration: 3500 }),
+    );
   }
 
   markClearSmtpPassword(): void {

@@ -157,7 +157,11 @@
           </label>
           <label>
             Celular (opcional)
-            <input type="tel" [(ngModel)]="phone" inputmode="tel" autocomplete="tel" />
+            <input type="tel" [(ngModel)]="phone" inputmode="tel" autocomplete="tel" placeholder="Sin celular" />
+          </label>
+          <label class="pos__check">
+            <input type="checkbox" [(ngModel)]="printCustomerTicket" name="printCustomerTicket" />
+            Imprimir ticket del cliente
           </label>
           <div class="pos__pay">
             <span class="pos__label">Pago</span>
