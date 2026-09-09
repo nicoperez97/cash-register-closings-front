@@ -7,7 +7,7 @@ import {
   LOCALE_ID,
 } from '@angular/core';
 import { provideRouter, TitleStrategy } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideServiceWorker, SwPush, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialog, MatDialogConfig } from '@angular/material/dialog';
@@ -35,6 +35,29 @@ import { PushNotificationsService } from './features/payments/push-notifications
 import { AnalyticsService } from './core/analytics/analytics.service';
 
 registerLocaleData(localeEsAr);
+
+function isUnauthorizedError(err: unknown): boolean {
+  return err instanceof HttpErrorResponse && err.status === 401;
+}
+
+/** Evita que un /auth/me lento bloquee el primer paint de la PWA. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error('timeout'), { code: 'TIMEOUT' }));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 function watchAppUpdates(): void {
   const updates = inject(SwUpdate);
@@ -115,13 +138,34 @@ async function refreshSession(): Promise<void> {
   const notifs = inject(NotificationsInboxService);
   const push = inject(PushNotificationsService);
   if (!auth.isAuthenticated()) return;
-  try {
-    await auth.refreshMe();
+
+  const startInbox = (): void => {
     notifs.ensureStarted();
     notifs.refresh();
     void push.refreshStatus();
-  } catch {
-    auth.logout();
+  };
+
+  try {
+    // PWA / red lenta: no esperar infinito ni desloguear por timeout.
+    await withTimeout(auth.refreshMe(), 4_000);
+    startInbox();
+  } catch (err) {
+    // Solo token inválido → logout. Errores de red/timeout mantienen sesión cacheada.
+    if (isUnauthorizedError(err)) {
+      auth.logout();
+      return;
+    }
+    if (!auth.isAuthenticated()) return;
+    startInbox();
+    void auth
+      .refreshMe()
+      .then(() => {
+        notifs.refresh();
+        void push.refreshStatus();
+      })
+      .catch((retryErr) => {
+        if (isUnauthorizedError(retryErr)) auth.logout();
+      });
   }
 }
 

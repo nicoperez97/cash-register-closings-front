@@ -70,9 +70,14 @@
       </ol>
 
       <ul class="items">
-        @for (it of o.items; track it.menuItemId + '|' + it.qty + '|' + (it.notes || '')) {
+        @for (it of o.items; track it.menuItemId + '|' + it.qty + '|' + (it.notes || '') + '|' + (it.removedIngredients || []).join(',')) {
           <li>
-            <span>{{ it.qty }}× {{ it.name }}</span>
+            <span>
+              {{ it.qty }}× {{ it.name }}
+              @if (it.removedIngredients?.length) {
+                <small> · Sin {{ it.removedIngredients.join(', ') }}</small>
+              }
+            </span>
             <span>{{ money(it.unitPrice * it.qty) }}</span>
           </li>
         }

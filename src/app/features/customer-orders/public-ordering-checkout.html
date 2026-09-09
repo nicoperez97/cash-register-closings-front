@@ -42,12 +42,15 @@
       <section class="card">
         <h2>Resumen</h2>
         <ul class="lines">
-          @for (line of cart.lines(); track line.kind + '|' + (line.extraId || line.menuItemId) + '|' + line.notes + '|' + (line.attachedToMenuItemId || '')) {
+          @for (line of cart.lines(); track line.kind + '|' + (line.extraId || line.menuItemId) + '|' + line.notes + '|' + (line.attachedToMenuItemId || '') + '|' + (line.removedIngredients || []).join(',')) {
             <li>
               <div class="line__main">
                 <strong>{{ line.qty }}× {{ line.name }}</strong>
                 <span>{{ money(line.unitPrice * line.qty) }}</span>
               </div>
+              @if (line.removedIngredients?.length) {
+                <p class="line__notes">Sin {{ line.removedIngredients.join(', ') }}</p>
+              }
               @if (line.notes) {
                 <p class="line__notes">{{ line.notes }}</p>
               }

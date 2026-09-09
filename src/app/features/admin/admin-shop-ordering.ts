@@ -1,4 +1,5 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ControlContainer,
   FormArray,
@@ -13,6 +14,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { debounceTime, merge } from 'rxjs';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
 import { copyText } from '../../shared/utils/share-text';
 import type { AdminShopWeekdayOption } from './admin-shop-operation';
@@ -423,6 +425,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 export class AdminShopOrderingComponent {
   private readonly host = inject(ADMIN_SHOP_HOST);
   private readonly snack = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
   readonly addZone = output<void>();
@@ -437,6 +440,14 @@ export class AdminShopOrderingComponent {
   );
   readonly takeawayOn = computed(() => !!this.host.formValue()?.takeawayEnabled);
   readonly deliveryOn = computed(() => !!this.host.formValue()?.deliveryEnabled);
+
+  constructor() {
+    // Tras cargar el local (o GET), si hay horarios distintos por día activar modo custom.
+    merge(this.takeawayHours.valueChanges, this.deliveryHours.valueChanges)
+      .pipe(debounceTime(0), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncCustomModesFromForm());
+    queueMicrotask(() => this.syncCustomModesFromForm());
+  }
 
   orderingPublicUrl(): string {
     const slug = String(this.host.liveSlug?.() ?? this.host.formValue()?.slug ?? '').trim();
@@ -529,7 +540,8 @@ export class AdminShopOrderingComponent {
   }
 
   setSharedWindow(channel: HoursChannel, wi: number, field: 'open' | 'close', ev: Event): void {
-    const value = String((ev.target as HTMLInputElement | null)?.value ?? '').trim();
+    const raw = String((ev.target as HTMLInputElement | null)?.value ?? '').trim();
+    const value = this.host.normalizeHhMm(raw) ?? raw;
     if (!value) return;
     for (const ctrl of this.hoursOf(channel).controls) {
       const windows = (ctrl as FormGroup).get('windows') as FormArray;
@@ -640,6 +652,11 @@ export class AdminShopOrderingComponent {
     }
   }
 
+  private syncCustomModesFromForm(): void {
+    if (this.hasVariedWindows('takeaway')) this.takeawayCustom.set(true);
+    if (this.hasVariedWindows('delivery')) this.deliveryCustom.set(true);
+  }
+
   private hasVariedWindows(channel: HoursChannel): boolean {
     const arr = this.hoursOf(channel);
     let ref: string | null = null;
@@ -649,7 +666,6 @@ export class AdminShopOrderingComponent {
       const key = JSON.stringify(this.cloneWindows(g.get('windows') as FormArray));
       if (ref == null) ref = key;
       else if (ref !== key) return true;
-      if ((g.get('windows') as FormArray).length > 1) return true;
     }
     return false;
   }

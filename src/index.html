@@ -138,6 +138,7 @@
           if (appleBar) appleBar.setAttribute('content', 'black-translucent');
           document.documentElement.style.backgroundColor = statusColor;
           document.documentElement.style.colorScheme = 'dark';
+          if (document.body) document.body.style.backgroundColor = statusColor;
         }
 
         if (board) {
@@ -204,6 +205,37 @@
     </script>
   </head>
   <body>
+    <style>
+      /* Primer paint PWA: fondo claro + spinner mientras Angular bootea (evita flash negro). */
+      html:not([style*='background']),
+      body:not([style*='background']) {
+        background-color: #f3f6f4;
+      }
+      body {
+        margin: 0;
+      }
+      app-root:empty {
+        display: flex;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+        background: #f3f6f4;
+      }
+      app-root:empty::after {
+        content: '';
+        width: 1.75rem;
+        height: 1.75rem;
+        border: 2px solid #c5d0cc;
+        border-top-color: #0a3d5c;
+        border-radius: 50%;
+        animation: guy-boot-spin 0.7s linear infinite;
+      }
+      @keyframes guy-boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
     <app-root></app-root>
     <noscript>Habilitá JavaScript para continuar usando Cierres de caja.</noscript>
   </body>

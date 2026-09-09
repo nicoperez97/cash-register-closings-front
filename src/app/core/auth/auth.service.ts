@@ -178,8 +178,9 @@ export class AuthService {
     if (this.visibilityHooked || typeof document === 'undefined') return;
     this.visibilityHooked = true;
     document.addEventListener('visibilitychange', () => {
+      // Tras sleep/red inestable: dar tiempo a recuperar red antes de /auth/me.
       if (document.visibilityState === 'visible' && this.getToken()) {
-        this.scheduleRefreshMe(0);
+        this.scheduleRefreshMe(800);
       }
     });
   }
@@ -242,6 +243,7 @@ export class AuthService {
         menuEnabled: !!s.menuEnabled,
         shopMode: s.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
         onlineOrderingEnabled: !!s.onlineOrderingEnabled,
+        orderingForceClosed: !!s.orderingForceClosed,
         takeawayEnabled: s.takeawayEnabled !== false,
         deliveryEnabled: !!s.deliveryEnabled,
         orderingHours: s.orderingHours ?? null,

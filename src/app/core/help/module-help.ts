@@ -850,7 +850,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Con Nuevo se abre la caja rápida dentro de la misma card: buscás, tocás ítems, descuento (% o $) y creás el pedido.',
         items: [
           'Nombre y celular son opcionales (si faltan usa valores de mostrador).',
-          'Al crear, volvés al tablero con el pedido en Pendientes.',
+          'Al crear, el pedido entra en En cocina (no en Pendientes) y se etiqueta Mostrador.',
         ],
         tip: 'El descuento solo está en pedidos de mostrador, no en /pedir del cliente.',
       },
@@ -859,7 +859,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'tune',
         tone: 'do',
         anyOf: ['orderingCatalog.manage', 'shops.manage'],
-        body: 'Con permiso de catálogo ves la pestaña Configurar en Pedidos online: take away, delivery, medios de pago, y alta/baja de ítems y extras.',
+        body: 'Con permiso de catálogo ves la pestaña Configurar en Pedidos online: local abierto/cerrado, take away, delivery, medios de pago, y alta/baja de ítems y extras.',
+        items: [
+          'Local abierto / cerrado: apaga o prende la página pública al instante (sin tocar el horario).',
+          'Generar cierre (si podés crear cierres): arma un cierre con efectivo y transferencias de los pedidos del día y marca el local cerrado.',
+        ],
         tip: 'CBU/alias y WhatsApp de comprobantes: Configuración del local → Pedidos. Ítems y extras: Carta.',
       },
       {
@@ -894,12 +898,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Tipo de local: al paso (sin mesas) o restaurante (mesas por reservas).',
           'Encendé Pedidos online, take away y/o delivery.',
-          'Horarios: se traen los turnos de caja (podés Usar turnos del local). Cada día puede tener más de un turno; sumá con Otro turno / + Turno. En delivery podés Copiar take away.',
+          'Horarios: se traen los turnos de caja (podés Usar turnos del local). Cada día puede tener más de un turno; sumá con Otro turno. Guardá abajo: si no guardás, al volver se pierden. En delivery podés Copiar take away.',
           'Medios de pago: efectivo y/o transferencia. CBU/alias y WhatsApp para comprobantes solo acá (si WhatsApp está vacío, usa el teléfono del local).',
           'En Pedidos online → Configurar: take away, delivery, medios de pago e ítems/extras online (no CBU ni WhatsApp).',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
         ],
-        tip: 'Si el cliente paga por transferencia, en el estado del pedido aparece el botón para mandar el comprobante por WhatsApp.',
+        tip: 'Si tocás Ninguno, el canal queda cerrado esos días (no vuelve solo a los turnos de caja). Horario distinto por día sirve cuando Lun no es igual a Vie.',
       },
     ],
   },
@@ -914,8 +918,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         body: 'Entrá a /pedir/tu-local. Elegí productos, revisá el carrito y finalizá con entrega, pago y tus datos.',
         items: [
-          'Elegí una categoría con Ver. En cada producto tocá Agregar; después podés ajustar cantidad, notas y extras.',
+          'Elegí una categoría con Ver. En cada producto tocá Agregar; después podés ajustar cantidad, quitar ingredientes (si el local los cargó), notas y extras.',
           'Si el local está cerrado ves los horarios de take away y delivery.',
+          'Al abrir el menú o el checkout se actualiza la carta: si algo ya no está disponible, se saca del carrito.',
           'Delivery pide zona y dirección.',
           'Efectivo pide con cuánto abonás. Transferencia muestra los datos del local.',
           'Si pagás por transferencia, en la página del pedido te pedimos enviar el comprobante por WhatsApp.',
@@ -1416,7 +1421,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Podés tener varias cartas (comida, vinos…). La página pública existe si el módulo está activo en Configuración del local → Operación.',
         items: [
           'Cargar carta física: el PDF o la foto que se abre en la web.',
-          'En cada ítem: precio, Disponible online (para /pedir) y Foto.',
+          'En cada ítem: precio, Disponible online (para /pedir), Foto y “Se puede pedir sin” (ingredientes quitables, separados por coma).',
           'Arriba: alta/baja de envío, pagos, ítems y extras. Abajo: crear/editar extras y la carta (ítems, fotos).',
           'PDF para imprimir: misma cara que la web (logo, tipografía, precios), sin buscar, filtros ni botones.',
         ],

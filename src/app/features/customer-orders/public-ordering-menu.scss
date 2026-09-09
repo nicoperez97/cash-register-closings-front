@@ -312,6 +312,41 @@ h1 {
   font-size: 0.95rem;
 }
 
+.extras__hint {
+  margin: -0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #5f6f76);
+}
+
+.remove-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.remove-chip {
+  border: 1px solid var(--line, #d7e0d9);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  color: var(--ink, #1a221c);
+}
+
+.remove-chip--on {
+  background: color-mix(in srgb, var(--accent, #2e7d32) 14%, #fff);
+  border-color: var(--accent, #2e7d32);
+  color: var(--accent, #2e7d32);
+}
+
+.remove-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .extras__row {
   display: grid;
   grid-template-columns: auto 1fr auto;

@@ -2,6 +2,7 @@ import { Component, HostBinding, OnDestroy, OnInit, computed, inject, signal } f
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
@@ -24,7 +25,7 @@ import {
 
 @Component({
   selector: 'app-public-ordering-checkout',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, MatSnackBarModule],
   templateUrl: './public-ordering-checkout.html',
   styleUrl: './public-ordering-checkout.scss',
 })
@@ -35,6 +36,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   readonly cart = inject(OrderingCartService);
   private readonly title = inject(Title);
   private readonly shops = inject(ShopContextService);
+  private readonly snack = inject(MatSnackBar);
 
   readonly staffMode = computed(
     () => this.route.snapshot.data['staffOrdering'] === true,
@@ -144,7 +146,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     this.cart.bindSlug(this.cartKey());
     this.loading.set(true);
     this.error.set(null);
-    this.api.getPublicOrdering(slug).subscribe({
+        this.api.getPublicOrdering(slug).subscribe({
       next: (cfg) => {
         this.config.set(cfg);
         this.loading.set(false);
@@ -153,6 +155,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
             ? `Confirmar mostrador · ${cfg.shop?.name ?? slug}`
             : `Checkout · ${cfg.shop?.name ?? slug}`,
         );
+        this.pruneUnavailableCart(cfg);
         const channels: CustomerOrderFulfillment[] = [];
         if (this.staffMode()) {
           if (cfg.takeawayEnabled) channels.push('TAKEAWAY');
@@ -224,6 +227,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       qty: number;
       extraId?: string;
       attachedToMenuItemId?: string;
+      removedIngredients?: string[];
     },
     delta: number,
   ): void {
@@ -234,6 +238,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
       line.extraId,
       line.attachedToMenuItemId,
+      line.removedIngredients,
     );
   }
 
@@ -243,6 +248,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     kind?: 'ITEM' | 'EXTRA';
     extraId?: string;
     attachedToMenuItemId?: string;
+    removedIngredients?: string[];
   }): void {
     this.cart.remove(
       line.menuItemId,
@@ -250,7 +256,30 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
       line.extraId,
       line.attachedToMenuItemId,
+      line.removedIngredients,
     );
+  }
+
+  private pruneUnavailableCart(cfg: PublicOrderingConfig): void {
+    const itemIds = new Set<string>();
+    for (const m of cfg.menus ?? []) {
+      for (const sec of m.sections ?? []) {
+        for (const it of sec.items ?? []) {
+          if (it?.id) itemIds.add(String(it.id));
+        }
+      }
+    }
+    const extraIds = new Set((cfg.extras ?? []).map((e) => String(e.id)));
+    const removedQty = this.cart.reconcileAvailable({ itemIds, extraIds });
+    if (removedQty > 0) {
+      this.snack.open(
+        removedQty === 1
+          ? 'Sacamos 1 ítem del pedido porque ya no está disponible'
+          : `Sacamos ${removedQty} ítems del pedido porque ya no están disponibles`,
+        'OK',
+        { duration: 4000 },
+      );
+    }
   }
 
   submit(ev: Event): void {
@@ -315,6 +344,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
           menuItemId: l.menuItemId,
           qty: l.qty,
           notes: l.notes || null,
+          removedIngredients: l.removedIngredients?.length ? l.removedIngredients : undefined,
         })),
       extras: lines
         .filter((l) => l.kind === 'EXTRA' && l.extraId)

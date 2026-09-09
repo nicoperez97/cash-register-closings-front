@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
-export type CustomerOrderFulfillment = 'TAKEAWAY' | 'DELIVERY';
+export type CustomerOrderFulfillment = 'TAKEAWAY' | 'DELIVERY' | 'COUNTER';
 export type CustomerOrderPaymentMethod = 'CASH' | 'TRANSFER';
 export type CustomerOrderStatus =
   | 'PENDING'
@@ -33,6 +33,7 @@ export interface PublicOrderingMenuItem {
   price: number;
   priceLabel?: string | null;
   imageUrl?: string | null;
+  removableIngredients?: string[];
 }
 
 export interface PublicOrderingExtra {
@@ -85,7 +86,12 @@ export interface PublicOrderingConfig {
 
 export interface CreatePublicCustomerOrderBody {
   fulfillment: CustomerOrderFulfillment;
-  items: Array<{ menuItemId: string; qty: number; notes?: string | null }>;
+  items: Array<{
+    menuItemId: string;
+    qty: number;
+    notes?: string | null;
+    removedIngredients?: string[];
+  }>;
   extras?: Array<{ extraId: string; qty: number; attachedToMenuItemId?: string | null }>;
   firstName: string;
   lastName: string;
@@ -109,6 +115,8 @@ export interface PublicCustomerOrder {
     unitPrice: number;
     qty: number;
     notes?: string | null;
+    removedIngredients?: string[];
+    kind?: 'ITEM' | 'EXTRA';
   }>;
   subtotal: number;
   deliveryFee: number;

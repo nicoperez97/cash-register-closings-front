@@ -33,6 +33,8 @@ export type ShopMenuItem = {
   priceLabel?: string | null;
   available?: boolean;
   imageUrl?: string | null;
+  /** Texto o lista: ingredientes que el cliente puede quitar. */
+  removableIngredients?: string[] | string | null;
 };
 
 export type ShopMenuSection = {
@@ -120,6 +122,9 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
         priceLabel: it.priceLabel ?? '',
         available: it.available !== false,
         imageUrl: it.imageUrl ?? null,
+        removableIngredients: Array.isArray(it.removableIngredients)
+          ? it.removableIngredients.join(', ')
+          : String(it.removableIngredients ?? ''),
       })),
     })),
   };
@@ -481,6 +486,14 @@ function toPrice(value: unknown): number | null {
                     <mat-form-field appearance="outline" subscriptSizing="dynamic">
                       <mat-label>Precio (texto)</mat-label>
                       <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__ing">
+                      <mat-label>Se puede pedir sin (coma)</mat-label>
+                      <input
+                        matInput
+                        [(ngModel)]="item.removableIngredients"
+                        placeholder="cebolla, tomate, mayo"
+                      />
                     </mat-form-field>
                     <label class="menu-item__avail">
                       <input type="checkbox" [(ngModel)]="item.available" />
@@ -1007,6 +1020,11 @@ export class AdminMenuPage {
             priceLabel: String(it.priceLabel ?? '').trim() || null,
             available: it.available !== false,
             imageUrl: String(it.imageUrl ?? '').trim() || null,
+            removableIngredients: String(it.removableIngredients ?? '')
+              .split(/[,;\n|]/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .slice(0, 24),
           }))
           .filter((it) => it.name),
       })),
@@ -1080,6 +1098,7 @@ export class AdminMenuPage {
             priceLabel: '',
             available: true,
             imageUrl: null,
+            removableIngredients: '',
           },
         ],
       },
@@ -1106,6 +1125,7 @@ export class AdminMenuPage {
                   priceLabel: '',
                   available: true,
                   imageUrl: null,
+                  removableIngredients: '',
                 },
               ],
             }
