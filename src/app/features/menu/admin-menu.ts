@@ -303,7 +303,8 @@ function toPrice(value: unknown): number | null {
             </div>
           </div>
           <p class="menu-admin__hint">
-            <strong>Agregar / Reemplazar</strong> lee el PDF para armar ítems.
+            <strong>Agregar / Reemplazar</strong> lee el PDF para armar ítems e ingredientes quitables (Gemini).
+            <strong>Detectar ingredientes</strong> vuelve a analizar los ítems ya cargados.
             <strong>Cargar carta física</strong> sube el archivo que el cliente ve en la web (sin cambiar los ítems).
             <strong>PDF para imprimir</strong> es la carta pública (mismo estilo), sin buscador, filtros ni botones.
           </p>
@@ -364,6 +365,15 @@ function toPrice(value: unknown): number | null {
                 <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
                   <mat-icon>sync</mat-icon>
                   Reemplazar contenido
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="analyzingIngredients() || parsing() || !sections().length"
+                  (click)="analyzeIngredients()"
+                >
+                  <mat-icon>auto_awesome</mat-icon>
+                  {{ analyzingIngredients() ? 'Detectando…' : 'Detectar ingredientes' }}
                 </button>
                 <button
                   mat-stroked-button
@@ -471,42 +481,49 @@ function toPrice(value: unknown): number | null {
                         </button>
                       }
                     </div>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Ítem</mat-label>
-                      <input matInput [(ngModel)]="item.name" />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Descripción</mat-label>
-                      <input matInput [(ngModel)]="item.description" />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
-                      <mat-label>Precio</mat-label>
-                      <input matInput type="number" min="0" step="1" [(ngModel)]="item.price" />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <mat-label>Precio (texto)</mat-label>
-                      <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__ing">
-                      <mat-label>Se puede pedir sin (coma)</mat-label>
-                      <input
-                        matInput
-                        [(ngModel)]="item.removableIngredients"
-                        placeholder="cebolla, tomate, mayo"
-                      />
-                    </mat-form-field>
-                    <label class="menu-item__avail">
-                      <input type="checkbox" [(ngModel)]="item.available" />
-                      Disponible online
-                    </label>
-                    <button
-                      mat-icon-button
-                      type="button"
-                      aria-label="Quitar ítem"
-                      (click)="removeItem(si, ii)"
-                    >
-                      <mat-icon>close</mat-icon>
-                    </button>
+                    <div class="menu-item__content">
+                      <div class="menu-item__main">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Ítem</mat-label>
+                          <input matInput [(ngModel)]="item.name" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Descripción</mat-label>
+                          <input matInput [(ngModel)]="item.description" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
+                          <mat-label>Precio</mat-label>
+                          <input matInput type="number" min="0" step="1" [(ngModel)]="item.price" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <mat-label>Precio (texto)</mat-label>
+                          <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
+                        </mat-form-field>
+                      </div>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__ing">
+                        <mat-label>Ingredientes de este ítem (se puede pedir sin)</mat-label>
+                        <input
+                          matInput
+                          [(ngModel)]="item.removableIngredients"
+                          placeholder="cebolla, tomate, mayo"
+                        />
+                        <mat-hint>Separa ingredientes con coma.</mat-hint>
+                      </mat-form-field>
+                      <div class="menu-item__actions">
+                        <label class="menu-item__avail">
+                          <input type="checkbox" [(ngModel)]="item.available" />
+                          Disponible online
+                        </label>
+                        <button
+                          mat-icon-button
+                          type="button"
+                          aria-label="Quitar ítem"
+                          (click)="removeItem(si, ii)"
+                        >
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 }
                 <button mat-stroked-button type="button" (click)="addItem(si)">
@@ -667,7 +684,22 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item {
       display: grid;
-      grid-template-columns: 7.5rem 1.2fr 1.2fr 7rem 8rem auto auto;
+      grid-template-columns: 7.5rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      padding: 0.65rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .menu-item__content {
+      display: grid;
+      gap: 0.45rem;
+      min-width: 0;
+    }
+    .menu-item__main {
+      display: grid;
+      grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1.2fr) 7.5rem 8rem;
       gap: 0.45rem;
       align-items: start;
     }
@@ -695,6 +727,13 @@ function toPrice(value: unknown): number | null {
       text-align: center;
       padding: 0.25rem;
     }
+    .menu-item__actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      min-height: 2.2rem;
+    }
     .menu-item__avail {
       display: flex;
       align-items: center;
@@ -702,11 +741,25 @@ function toPrice(value: unknown): number | null {
       font-size: 0.82rem;
       color: var(--guy-navy, #003366);
       white-space: nowrap;
-      padding-top: 0.55rem;
+      padding-top: 0;
+    }
+    .menu-item__ing {
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      .menu-item__main {
+        grid-template-columns: 1fr 1fr;
+      }
     }
     @media (max-width: 900px) {
       .menu-item {
         grid-template-columns: 1fr;
+      }
+      .menu-item__main {
+        grid-template-columns: 1fr;
+      }
+      .menu-item__actions {
+        justify-content: flex-start;
       }
     }
     .menu-admin__save {
@@ -755,6 +808,7 @@ export class AdminMenuPage {
   readonly saving = signal(false);
   readonly savingExtras = signal(false);
   readonly parsing = signal(false);
+  readonly analyzingIngredients = signal(false);
   readonly uploadingSource = signal(false);
   readonly uploadingItemPhoto = signal(false);
   readonly enabled = signal(false);
@@ -1262,6 +1316,7 @@ export class AdminMenuPage {
         fileName?: string;
         engine?: string;
         geminiWarning?: string | null;
+        ingredientsCount?: number;
       }>(`${environment.apiUrl}/shops/${shopId}/menu/parse`, fd)
       .subscribe({
         next: (res) => {
@@ -1288,10 +1343,17 @@ export class AdminMenuPage {
           this.loadEditor(parsed);
           this.rawText.set((res.rawText ?? '').trim());
           const count = parsed.sections.reduce((n, s) => n + s.items.length, 0);
+          const ing = Number(res.ingredientsCount ?? 0);
+          const ingNote =
+            res.engine === 'gemini' && ing > 0
+              ? ` También detectamos ingredientes quitables en ${ing} ítem${ing === 1 ? '' : 's'}.`
+              : res.engine === 'gemini'
+                ? ' Revisá “Se puede pedir sin” o usá Detectar ingredientes.'
+                : '';
           if (res.engine === 'gemini') {
             this.parseNote.set(
               count
-                ? `Leímos ${count} ítem${count === 1 ? '' : 's'} con Gemini de ${res.fileName || 'el archivo'}. Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
+                ? `Leímos ${count} ítem${count === 1 ? '' : 's'} con Gemini de ${res.fileName || 'el archivo'}.${ingNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
                 : 'Gemini no encontró ítems claros.',
             );
             this.geminiWarning.set('');
@@ -1313,6 +1375,78 @@ export class AdminMenuPage {
             (err.error && typeof err.error === 'object' && (err.error.message as string)) ||
             'No se pudo leer el archivo';
           this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
+        },
+      });
+  }
+
+  analyzeIngredients(): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.activeId()) return;
+    this.flushActive();
+    const items = this.sections()
+      .flatMap((s) => s.items ?? [])
+      .map((it) => ({
+        id: String(it.id ?? '').trim(),
+        name: String(it.name ?? '').trim(),
+        description: String(it.description ?? '').trim() || null,
+      }))
+      .filter((it) => it.id && it.name);
+    if (!items.length) {
+      this.snack.open('No hay ítems para analizar', 'OK', { duration: 2500 });
+      return;
+    }
+    const already = this.sections()
+      .flatMap((s) => s.items ?? [])
+      .filter((it) => String(it.removableIngredients ?? '').trim()).length;
+    if (already > 0) {
+      const ok = window.confirm(
+        `Hay ${already} ítem${already === 1 ? '' : 's'} con “Se puede pedir sin”. Gemini los va a reemplazar con su sugerencia. ¿Seguimos?`,
+      );
+      if (!ok) return;
+    }
+    this.analyzingIngredients.set(true);
+    this.http
+      .post<{
+        items: Array<{ id: string; removableIngredients: string[] }>;
+        analyzed: number;
+        withIngredients: number;
+      }>(`${environment.apiUrl}/shops/${shopId}/menu/analyze-ingredients`, { items })
+      .subscribe({
+        next: (res) => {
+          this.analyzingIngredients.set(false);
+          const byId = new Map(
+            (res.items ?? []).map((row) => [
+              row.id,
+              Array.isArray(row.removableIngredients)
+                ? row.removableIngredients.join(', ')
+                : '',
+            ]),
+          );
+          this.sections.update((secs) =>
+            secs.map((sec) => ({
+              ...sec,
+              items: (sec.items ?? []).map((it) => {
+                const id = String(it.id ?? '');
+                if (!byId.has(id)) return it;
+                return { ...it, removableIngredients: byId.get(id) ?? '' };
+              }),
+            })),
+          );
+          this.flushActive();
+          const n = Number(res.withIngredients ?? 0);
+          this.snack.open(
+            n
+              ? `Gemini sugirió ingredientes en ${n} ítem${n === 1 ? '' : 's'}. Revisá y guardá.`
+              : 'Gemini no encontró ingredientes quitables claros.',
+            'OK',
+            { duration: 4000 },
+          );
+        },
+        error: (err: HttpErrorResponse) => {
+          this.analyzingIngredients.set(false);
+          this.snack.open(err.error?.message ?? 'No se pudieron detectar ingredientes', 'OK', {
+            duration: 4000,
+          });
         },
       });
   }

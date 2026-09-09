@@ -167,7 +167,43 @@ export function buildExpenseGroup(
   });
 }
 
-export type OtherCobroRow = { label: string; amount?: number | null };
+export type CobroPaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER';
+
+export const COBRO_PAYMENT_METHOD_OPTIONS: Array<{ value: CobroPaymentMethod; label: string }> = [
+  { value: 'CASH', label: 'Efectivo' },
+  { value: 'TRANSFER', label: 'Transferencia' },
+  { value: 'CARD', label: 'Tarjeta / posnet' },
+  { value: 'OTHER', label: 'Otro' },
+];
+
+export function normalizeCobroPaymentMethod(raw: unknown): CobroPaymentMethod {
+  const v = String(raw ?? '')
+    .trim()
+    .toUpperCase();
+  if (v === 'CASH' || v === 'TRANSFER' || v === 'CARD' || v === 'OTHER') return v;
+  return 'OTHER';
+}
+
+export function cobroPaymentMethodFromMeta(meta?: string | null): CobroPaymentMethod {
+  const raw = String(meta ?? '').trim();
+  if (!raw) return 'OTHER';
+  try {
+    const parsed = JSON.parse(raw) as { paymentMethod?: unknown };
+    return normalizeCobroPaymentMethod(parsed?.paymentMethod);
+  } catch {
+    return normalizeCobroPaymentMethod(raw);
+  }
+}
+
+export function cobroPaymentMethodToMeta(method: CobroPaymentMethod): string {
+  return JSON.stringify({ paymentMethod: method });
+}
+
+export type OtherCobroRow = {
+  label: string;
+  amount?: number | null;
+  paymentMethod?: CobroPaymentMethod | null;
+};
 
 export function buildOtherCobroGroup(
   fb: FormBuilder,
@@ -177,6 +213,7 @@ export function buildOtherCobroGroup(
   return fb.group({
     label: [value.label || ''],
     amount: [emptyNum(value.amount)],
+    paymentMethod: [normalizeCobroPaymentMethod(value.paymentMethod)],
   });
 }
 
@@ -188,17 +225,26 @@ export function cobrosFromClosing(closing: CashClosing): OtherCobroRow[] {
     return extras.map((e, i) => ({
       label: String(e.label ?? '').trim() || `Cobro ${i + 1}`,
       amount: e.amount,
+      paymentMethod: cobroPaymentMethodFromMeta(e.meta),
     }));
   }
   const seeded: OtherCobroRow[] = [];
   if (closingNum(closing.deliveryAppsAmount) > 0) {
-    seeded.push({ label: 'PedidosYa / delivery', amount: closing.deliveryAppsAmount });
+    seeded.push({
+      label: 'PedidosYa / delivery',
+      amount: closing.deliveryAppsAmount,
+      paymentMethod: 'OTHER',
+    });
   }
   if (closingNum(closing.transferAmount) > 0) {
-    seeded.push({ label: 'Transferencia', amount: closing.transferAmount });
+    seeded.push({
+      label: 'Transferencia',
+      amount: closing.transferAmount,
+      paymentMethod: 'TRANSFER',
+    });
   }
   if (closingNum(closing.otherAmount) > 0) {
-    seeded.push({ label: 'Otros', amount: closing.otherAmount });
+    seeded.push({ label: 'Otros', amount: closing.otherAmount, paymentMethod: 'OTHER' });
   }
   return seeded;
 }
@@ -230,7 +276,11 @@ export function ensureTrailingOtherCobro(
     formArray.push(
       buildOtherCobroGroup(
         fb,
-        { label: `Cobro ${formArray.length + 1}`, amount: null },
+        {
+          label: `Cobro ${formArray.length + 1}`,
+          amount: null,
+          paymentMethod: 'OTHER',
+        },
         emptyNum,
       ),
       { emitEvent: false },

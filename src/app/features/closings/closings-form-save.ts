@@ -9,6 +9,10 @@ import type {
 } from './closings-api.service';
 import { closingSourceKindLabel } from './closings-api.service';
 import { sourceLinesFromRaw, sourceRowTotal } from './closings-form-load';
+import {
+  cobroPaymentMethodToMeta,
+  normalizeCobroPaymentMethod,
+} from './closings-form-load';
 import { POSNET_TYPE_LABEL, closingNum, toDateString } from './closings-form.utils';
 import { userIdForWithdrawAccount } from './withdraw-account-options';
 
@@ -60,6 +64,7 @@ export type ClosingFormRawValue = {
   otherCobros: Array<{
     label: string;
     amount: unknown;
+    paymentMethod?: string | null;
   }>;
   [key: string]: unknown;
 };
@@ -156,12 +161,23 @@ export function prepareClosingSaveBody(
   if (tip.invalid) return { ok: false, reason: 'tips_invalid' };
 
   const cobros = ((raw.otherCobros ?? []) as ClosingFormRawValue['otherCobros'])
-    .map((s, i) => ({
-      label: String(s.label ?? '').trim() || `Cobro ${i + 1}`,
-      amount: closingNum(s.amount),
-    }))
+    .map((s, i) => {
+      const paymentMethod = normalizeCobroPaymentMethod(s.paymentMethod);
+      return {
+        label: String(s.label ?? '').trim() || `Cobro ${i + 1}`,
+        amount: closingNum(s.amount),
+        paymentMethod,
+      };
+    })
     .filter((s) => s.amount > 0);
-  const cobrosSum = cobros.reduce((sum, s) => sum + s.amount, 0);
+  // Efectivo en cobros ya va en cashAmount: no lo sumamos otra vez en otherAmount.
+  const cobrosSum = cobros
+    .filter((s) => s.paymentMethod !== 'CASH')
+    .reduce((sum, s) => sum + s.amount, 0);
+  const cashFromCobros = cobros
+    .filter((s) => s.paymentMethod === 'CASH')
+    .reduce((sum, s) => sum + s.amount, 0);
+  const cashAmount = Math.max(closingNum(raw.cashAmount), cashFromCobros);
 
   const body: CashClosingInput & Record<string, unknown> = {
     ...raw,
@@ -169,7 +185,7 @@ export function prepareClosingSaveBody(
     shiftId: String(raw.shiftId ?? '').trim() || null,
     posSystemAmount: closingNum(raw.posSystemAmount),
     cardAmount: closingNum(raw.cardAmount),
-    cashAmount: closingNum(raw.cashAmount),
+    cashAmount,
     cashOpeningAmount: closingNum(raw.cashOpeningAmount),
     mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
     deliveryAppsAmount: 0,
@@ -190,12 +206,17 @@ export function prepareClosingSaveBody(
       : (() => {
           const explicit = closingNum(raw.cashWithdrawn);
           if (explicit > 0) return explicit;
-          return Math.max(
-            0,
-            closingNum(raw.cashAmount) - closingNum(raw.cashLeftInRegister),
-          );
+          return Math.max(0, cashAmount - closingNum(raw.cashLeftInRegister));
         })(),
-    declaredTotal,
+    declaredTotal:
+      closingNum(raw.cardAmount) +
+      cashAmount +
+      closingNum(raw.mercadoPagoAmount) +
+      closingNum(raw.accountDniAmount) +
+      cobrosSum +
+      ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
+        .filter((s) => !!s.includeInDeclared)
+        .reduce((sum, s) => sum + sourceRowTotal(s), 0),
     posnetAmounts: posnetAmounts.length ? posnetAmounts : [],
     expenses: (raw.expenses as ClosingFormExpenseRaw[])
       .filter((e) => (!!e.label || !!e.conceptId) && closingNum(e.amount) > 0)
@@ -210,6 +231,7 @@ export function prepareClosingSaveBody(
       type: 'OTHER',
       label: s.label,
       amount: s.amount,
+      meta: cobroPaymentMethodToMeta(s.paymentMethod),
     })),
     notes: String(raw.notes ?? '').trim() || null,
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
@@ -244,7 +266,6 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
   const raw = input.formRaw;
   const userId = String(raw.cashWithdrawnByUserId ?? '');
   const who = input.users.find((u) => u.id === userId)?.fullName?.trim() || null;
-  const declared = input.declaredTotal;
   const pos = input.posSystemAmount;
 
   const posnetAmounts: ClosingPosnetAmount[] = [
@@ -268,13 +289,33 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     }));
 
   const cobros = ((raw.otherCobros ?? []) as ClosingFormRawValue['otherCobros'])
-    .map((s, i) => ({
-      type: 'OTHER',
-      label: String(s.label ?? '').trim() || `Cobro ${i + 1}`,
-      amount: closingNum(s.amount),
-    }))
+    .map((s, i) => {
+      const paymentMethod = normalizeCobroPaymentMethod(s.paymentMethod);
+      return {
+        type: 'OTHER' as const,
+        label: String(s.label ?? '').trim() || `Cobro ${i + 1}`,
+        amount: closingNum(s.amount),
+        meta: cobroPaymentMethodToMeta(paymentMethod),
+        paymentMethod,
+      };
+    })
     .filter((s) => s.amount > 0);
-  const cobrosSum = cobros.reduce((sum, s) => sum + s.amount, 0);
+  const cobrosSum = cobros
+    .filter((s) => s.paymentMethod !== 'CASH')
+    .reduce((sum, s) => sum + s.amount, 0);
+  const cashFromCobros = cobros
+    .filter((s) => s.paymentMethod === 'CASH')
+    .reduce((sum, s) => sum + s.amount, 0);
+  const cashAmount = Math.max(closingNum(raw.cashAmount), cashFromCobros);
+  const declared =
+    closingNum(raw.cardAmount) +
+    cashAmount +
+    closingNum(raw.mercadoPagoAmount) +
+    closingNum(raw.accountDniAmount) +
+    cobrosSum +
+    ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
+      .filter((s) => !!s.includeInDeclared)
+      .reduce((sum, s) => sum + sourceRowTotal(s), 0);
 
   return {
     id: input.closingId ?? '',
@@ -283,7 +324,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     status: input.status ?? 'OPEN',
     posSystemAmount: pos,
     cardAmount: closingNum(raw.cardAmount),
-    cashAmount: closingNum(raw.cashAmount),
+    cashAmount,
     cashOpeningAmount: closingNum(raw.cashOpeningAmount),
     mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
     deliveryAppsAmount: 0,
@@ -303,7 +344,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,
     expenses,
-    extraLines: cobros,
+    extraLines: cobros.map(({ type, label, amount, meta }) => ({ type, label, amount, meta })),
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
       .filter((s) => !!s.sourceId && sourceRowTotal(s) > 0)
       .map((s): ClosingSourceAmount => {

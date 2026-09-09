@@ -19,8 +19,13 @@
 
       @if (closed()) {
         <div class="closed-banner" role="status">
-          <strong>ESTAMOS CERRADOS</strong>
-          <p>Podés mirar el menú y las zonas. Los pedidos se habilitan en el horario de atención.</p>
+          @if (closedByForce()) {
+            <strong>PEDIDOS CERRADOS POR EL LOCAL</strong>
+            <p>Ahora no están tomando pedidos, aunque haya horario cargado. Podés mirar el menú y las zonas.</p>
+          } @else {
+            <strong>ESTAMOS CERRADOS</strong>
+            <p>Podés mirar el menú y las zonas. Los pedidos se habilitan en el horario de atención.</p>
+          }
         </div>
       }
 
@@ -66,6 +71,11 @@
 
     @if (closed()) {
       <section class="hours">
+        @if (closedByForce()) {
+          <p class="hours__notice">
+            El local está marcado como cerrado manualmente. Estos son los horarios configurados:
+          </p>
+        }
         @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
           <div class="hours__block">
             <h2>Horario retiro</h2>

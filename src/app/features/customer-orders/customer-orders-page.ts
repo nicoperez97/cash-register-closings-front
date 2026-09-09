@@ -243,7 +243,9 @@ export class CustomerOrdersPage {
 
   phoneHref(phone: string): string {
     const digits = String(phone ?? '').replace(/\D/g, '');
-    return digits ? `tel:+${digits}` : '';
+    // Placeholder de pedidos de mostrador sin celular (no tiene sentido llamar).
+    if (!digits || /^1+$/.test(digits) || digits === '0000000000') return '';
+    return `tel:+${digits}`;
   }
 
   publicOrderingUrl(): string {

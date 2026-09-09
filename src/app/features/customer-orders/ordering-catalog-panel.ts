@@ -28,8 +28,20 @@ type ToggleRow = {
   available: boolean;
 };
 
+type FulfillmentBucket = {
+  cashTotal: number;
+  transferTotal: number;
+  total: number;
+  orderCount: number;
+  unitsSold: number;
+};
+
 type ClosingSummary = {
   businessDate: string;
+  shiftId: string;
+  shiftName: string;
+  opensAt: string;
+  closesAt: string;
   orderCount: number;
   openCount: number;
   completedCount: number;
@@ -37,6 +49,12 @@ type ClosingSummary = {
   transferTotal: number;
   total: number;
   unitsSold: number;
+  defaultChangeAmount?: number;
+  byFulfillment?: {
+    TAKEAWAY: FulfillmentBucket;
+    DELIVERY: FulfillmentBucket;
+    COUNTER: FulfillmentBucket;
+  };
 };
 
 @Component({
@@ -132,8 +150,8 @@ type ClosingSummary = {
               {{ generatingClosing() ? 'Preparando…' : 'Generar cierre' }}
             </button>
             <p class="ocp__hint">
-              Arma un cierre nuevo con el efectivo y las transferencias de los pedidos del día. También
-              marca el local como cerrado.
+              Arma un cierre del turno vigente con efectivo, transferencias y unidades de los pedidos
+              de ese turno. También marca el local como cerrado.
             </p>
           </div>
         }
@@ -208,6 +226,9 @@ type ClosingSummary = {
       border-radius: 14px;
       background: var(--guy-card, #fff);
     }
+    .ocp__head {
+      text-align: center;
+    }
     .ocp__head h2 {
       margin: 0 0 0.25rem;
       font-size: 1.05rem;
@@ -218,11 +239,13 @@ type ClosingSummary = {
       margin: 0;
       font-size: 0.88rem;
       color: var(--guy-muted, #5f6f76);
+      text-align: center;
     }
     .ocp__sub {
       margin: 0.65rem 0 0;
       font-size: 0.95rem;
       color: var(--guy-navy, #003366);
+      text-align: center;
     }
     .ocp__search {
       padding: 0.45rem 0.65rem;
@@ -241,6 +264,7 @@ type ClosingSummary = {
       gap: 1rem;
       padding: 0.45rem 0;
       border-bottom: 1px solid var(--guy-border, #d7e0d9);
+      text-align: left;
     }
     .ocp__toggle--focus {
       padding: 0.65rem 0.75rem;
@@ -259,12 +283,16 @@ type ClosingSummary = {
       display: grid;
       gap: 0.45rem;
       padding: 0.75rem 0 0.25rem;
+      justify-items: center;
+      text-align: center;
     }
     .ocp__closing-btn {
-      justify-self: start;
+      justify-self: center;
     }
     .ocp__save {
       margin-top: 0.35rem;
+      display: flex;
+      justify-content: center;
     }
   `,
 })
@@ -351,24 +379,28 @@ export class OrderingCatalogPanelComponent {
   generateClosing(): void {
     const shopId = this.shops.selectedShopId();
     const userId = this.auth.currentUser()?.id;
-    if (!shopId || !userId) return;
+    const shop = this.shops.selectedShop();
+    if (!shopId || !userId || !shop) return;
 
     const existing = readClosingDraft(shopId, userId);
     if (existing) {
       const ok = window.confirm(
-        'Hay un cierre en borrador. ¿Reemplazarlo con los totales de pedidos del día?',
+        'Hay un cierre en borrador. ¿Reemplazarlo con los totales de pedidos del turno?',
       );
       if (!ok) return;
     }
 
     this.generatingClosing.set(true);
+    // Sin shiftId fijo: la API elige el turno con ventas (si Mañana recién abrió, usa el anterior).
     this.http
-      .get<ClosingSummary>(`${environment.apiUrl}/shops/${shopId}/customer-orders/closing-summary`)
+      .get<ClosingSummary>(
+        `${environment.apiUrl}/shops/${shopId}/customer-orders/closing-summary`,
+      )
       .subscribe({
         next: (summary) => {
           if (summary.openCount > 0) {
             const cont = window.confirm(
-              `Hay ${summary.openCount} pedido(s) todavía abiertos del día. ¿Generar el cierre igual?`,
+              `Hay ${summary.openCount} pedido(s) todavía abiertos del turno «${summary.shiftName}». ¿Generar el cierre igual?`,
             );
             if (!cont) {
               this.generatingClosing.set(false);
@@ -385,14 +417,14 @@ export class OrderingCatalogPanelComponent {
               orderingForceClosed: true,
             })
             .subscribe({
-              next: (shop: any) => {
+              next: (updated: any) => {
                 this.localOpen = false;
-                this.shops.upsertShop(shop);
+                this.shops.upsertShop(updated);
                 this.generatingClosing.set(false);
                 this.snack.open(
                   summary.orderCount
-                    ? `Cierre listo: ${summary.orderCount} pedido(s) del ${summary.businessDate}`
-                    : 'Cierre listo (sin pedidos del día)',
+                    ? `Cierre del turno «${summary.shiftName}»: ${summary.orderCount} pedido(s)`
+                    : `Cierre del turno «${summary.shiftName}» (sin pedidos)`,
                   'OK',
                   { duration: 3200 },
                 );
@@ -422,16 +454,45 @@ export class OrderingCatalogPanelComponent {
     summary: ClosingSummary,
   ): ClosingFormDraft {
     const shop = this.shops.selectedShop();
-    const otherCobros =
-      summary.transferTotal > 0
-        ? [{ label: 'Pedidos online (transferencia)', amount: summary.transferTotal }]
-        : [];
+    const opening =
+      summary.defaultChangeAmount != null && summary.defaultChangeAmount > 0
+        ? summary.defaultChangeAmount
+        : (shop?.defaultChangeAmount ?? null);
+
+    const otherCobros: Array<{
+      label: string;
+      amount: number;
+      paymentMethod: 'CASH' | 'TRANSFER';
+    }> = [];
+    const by = summary.byFulfillment;
+    const pushCobro = (
+      label: string,
+      amount: number,
+      paymentMethod: 'CASH' | 'TRANSFER',
+    ) => {
+      if (amount > 0) otherCobros.push({ label, amount, paymentMethod });
+    };
+    if (by) {
+      pushCobro('Pedidos take away (efectivo)', by.TAKEAWAY.cashTotal, 'CASH');
+      pushCobro('Pedidos take away (transf.)', by.TAKEAWAY.transferTotal, 'TRANSFER');
+      pushCobro('Pedidos delivery (efectivo)', by.DELIVERY.cashTotal, 'CASH');
+      pushCobro('Pedidos delivery (transf.)', by.DELIVERY.transferTotal, 'TRANSFER');
+      pushCobro('Pedidos mostrador (efectivo)', by.COUNTER.cashTotal, 'CASH');
+      pushCobro('Pedidos mostrador (transf.)', by.COUNTER.transferTotal, 'TRANSFER');
+    } else {
+      pushCobro('Pedidos online (efectivo)', summary.cashTotal, 'CASH');
+      pushCobro('Pedidos online (transferencia)', summary.transferTotal, 'TRANSFER');
+    }
+
     const notesParts = [
-      `Pedidos online ${summary.businessDate}`,
+      `Pedidos · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
+      summary.businessDate,
       `${summary.orderCount} pedido(s)`,
       summary.completedCount ? `${summary.completedCount} completado(s)` : null,
-      summary.openCount ? `${summary.openCount} aún abierto(s)` : null,
-      `Total ${this.money(summary.total)}`,
+      summary.openCount ? `${summary.openCount} abierto(s)` : null,
+      by?.COUNTER?.orderCount ? `${by.COUNTER.orderCount} mostrador` : null,
+      by?.TAKEAWAY?.orderCount ? `${by.TAKEAWAY.orderCount} take away` : null,
+      by?.DELIVERY?.orderCount ? `${by.DELIVERY.orderCount} delivery` : null,
     ].filter(Boolean);
 
     return {
@@ -442,11 +503,22 @@ export class OrderingCatalogPanelComponent {
       tipDraft: null,
       form: {
         businessDate: summary.businessDate,
-        cashOpeningAmount: shop?.defaultChangeAmount ?? null,
-        cashLeftInRegister: shop?.defaultChangeAmount ?? null,
+        shiftId: summary.shiftId,
+        cashOpeningAmount: opening,
+        cashLeftInRegister: opening,
         cashAmount: summary.cashTotal > 0 ? summary.cashTotal : null,
+        cardAmount: null,
+        mercadoPagoAmount: null,
+        accountDniAmount: null,
+        deliveryAppsAmount: null,
         transferAmount: null,
+        posSystemAmount: null,
         unitsSold: summary.unitsSold > 0 ? summary.unitsSold : null,
+        coversCount: null,
+        cashWithdrawn: null,
+        cashWithdrawnByUserId: '',
+        cashWithdrawnToAccountId: '',
+        tipsAmount: null,
         notes: notesParts.join(' · '),
         otherCobros,
         expenses: [],
