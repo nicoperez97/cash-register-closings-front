@@ -77,6 +77,7 @@ const ADDABLE_NAV_IDS = [
   'attendance',
   'productionAttendance',
   'diagrama',
+  'salonTables',
   'salonHours',
   'serviceRules',
   'employees',

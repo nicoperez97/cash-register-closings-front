@@ -86,6 +86,33 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           </div>
           <div class="op__row-toggle">
             <div>
+              <strong>Comanda mozos</strong>
+              <span>Página pública /mozo/… con PIN</span>
+            </div>
+            <mat-slide-toggle
+              formControlName="waiterOrderingEnabled"
+              aria-label="Comanda mozos"
+            />
+          </div>
+          @if (waiterOn() && waiterPublicUrl()) {
+            <div class="op__public op__public--inline">
+              <a class="op__public-btn" [href]="waiterPublicUrl()" target="_blank" rel="noopener">
+                <mat-icon>open_in_new</mat-icon>
+                Abrir link
+              </a>
+              <button
+                type="button"
+                class="op__public-btn op__public-btn--ghost"
+                (click)="copyWaiterPublicUrl()"
+              >
+                <mat-icon>content_copy</mat-icon>
+                Copiar link
+              </button>
+            </div>
+            <p class="op__public-url">{{ waiterPublicUrl() }}</p>
+          }
+          <div class="op__row-toggle">
+            <div>
               <strong>Take away</strong>
               <span>Retiro en el local</span>
             </div>
@@ -438,6 +465,9 @@ export class AdminShopOrderingComponent {
   readonly orderingOn = computed(
     () => !!this.host.formValue()?.onlineOrderingEnabled,
   );
+  readonly waiterOn = computed(
+    () => !!this.host.formValue()?.waiterOrderingEnabled,
+  );
   readonly takeawayOn = computed(() => !!this.host.formValue()?.takeawayEnabled);
   readonly deliveryOn = computed(() => !!this.host.formValue()?.deliveryEnabled);
 
@@ -455,11 +485,26 @@ export class AdminShopOrderingComponent {
     return `${window.location.origin}/pedir/${encodeURIComponent(slug)}`;
   }
 
+  waiterPublicUrl(): string {
+    const slug = String(this.host.liveSlug?.() ?? this.host.formValue()?.slug ?? '').trim();
+    if (!slug) return '';
+    return `${window.location.origin}/mozo/${encodeURIComponent(slug)}`;
+  }
+
   async copyOrderingPublicUrl(): Promise<void> {
     const url = this.orderingPublicUrl();
     if (!url) return;
     const ok = await copyText(url);
     this.snack.open(ok ? 'Link de pedidos online copiado' : 'No se pudo copiar la URL', 'OK', {
+      duration: 2500,
+    });
+  }
+
+  async copyWaiterPublicUrl(): Promise<void> {
+    const url = this.waiterPublicUrl();
+    if (!url) return;
+    const ok = await copyText(url);
+    this.snack.open(ok ? 'Link de comanda mozos copiado' : 'No se pudo copiar la URL', 'OK', {
       duration: 2500,
     });
   }

@@ -693,14 +693,27 @@ export const HELP_TOPICS: HelpTopic[] = [
     summary: 'El mapa de mesas y cuánta gente entra en cada sector. No son las normas de servicio.',
     blocks: [
       {
+        title: 'Mesas',
+        icon: 'table_restaurant',
+        tone: 'do',
+        anyOf: ['reservations.manage'],
+        body: 'En Mesas creás sectores con nombre libre y numerás las mesas de cada uno (comanda mozos).',
+        items: [
+          'Tocá Sector, poné un nombre (ej. Terraza) y sumá mesas o Generá un rango.',
+          'Podés renombrar el sector, cambiar cubiertos (2/3) o quitar mesas.',
+          'Al quitar un sector se borran todas sus mesas de comanda.',
+        ],
+        tip: 'Borrar mesas o un sector acá no cambia Diagrama ni Reglas. Adentro/Afuera son solo de reservas.',
+      },
+      {
         title: 'El diagrama',
         icon: 'grid_view',
         tone: 'read',
         anyOf: ['reservations.read'],
-        body: 'Mesas físicas por sector. Si otro dispositivo cambia el mapa, esta pantalla se actualiza sola.',
+        body: 'Vista Adentro / Afuera para reservas. Independiente de la comanda de mozos.',
         items: [
-          'Si no hay mesas ni cantidades, al entrar se arma solo con el pico de reservas confirmadas: mesas de 2 y 3, y reglas por tamaño.',
-          'Después podés sumar, quitar o cambiar cada mesa. Armar desde reservas vuelve a calcularlo.',
+          'Si no hay inventario ni cantidades, al entrar se arma solo con el pico de reservas confirmadas.',
+          'Las mesas de comanda se editan en Mesas; no se mezclan con este mapa.',
         ],
       },
       {
@@ -708,7 +721,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'tune',
         tone: 'do',
         anyOf: ['reservations.manage'],
-        body: 'Cuántas mesas armadas de cada tamaño por sector. Si el salón estaba vacío, ya vienen del pico de reservas.',
+        body: 'Cuántas mesas armadas de cada tamaño en Adentro / Afuera. Si el salón estaba vacío, ya vienen del pico de reservas.',
         items: [
           'Cambiá tamaño o cantidad y tocá Guardar. Con + tamaño sumás uno que falte, por ejemplo 1 de 8.',
         ],
@@ -900,12 +913,32 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Tipo de local: al paso (sin mesas) o restaurante (mesas por reservas).',
           'Encendé Pedidos online, take away y/o delivery.',
+          'Comanda mozos: encendé el toggle y copiá el link /mozo/… Asigná un código mozo en Empleados.',
           'Horarios: se traen los turnos de caja (podés Usar turnos del local). Cada día puede tener más de un turno; sumá con Otro turno. Guardá abajo: si no guardás, al volver se pierden. En delivery podés Copiar take away.',
           'Medios de pago: efectivo y/o transferencia. CBU/alias y WhatsApp para comprobantes solo acá (si WhatsApp está vacío, usa el teléfono del local).',
           'En Pedidos online → Configurar: take away, delivery, medios de pago e ítems/extras online (no CBU ni WhatsApp).',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
         ],
         tip: 'Si tocás Ninguno, el canal queda cerrado esos días (no vuelve solo a los turnos de caja). Horario distinto por día sirve cuando Lun no es igual a Vie.',
+      },
+    ],
+  },
+  {
+    id: 'waiter-mozo',
+    title: 'Comanda mozos (público)',
+    summary: 'Página /mozo para abrir mesas, enviar a cocina y ticket cliente.',
+    blocks: [
+      {
+        title: 'Cómo usarla',
+        icon: 'room_service',
+        tone: 'do',
+        body: 'Entrá a /mozo/tu-local con el código mozo. Elegí una mesa libre u ocupada por sector.',
+        items: [
+          'Con varios sectores: tab Todos o uno solo. Mesa libre: indicá comensales y enviá.',
+          'Tras Enviar volvés a la grilla. Retomá mesas ocupadas para más envíos o el ticket cliente.',
+          'Cerrar mesa: podés solo imprimir ticket, imprimir y cerrar, o cerrar sin ticket.',
+        ],
+        tip: 'Los sectores son los de Salón → Mesas. No cobra ni va a caja. Activá Comanda mozos en Pedidos y asigná código mozo en Empleados.',
       },
     ],
   },
@@ -1044,6 +1077,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Si trabaja en un turno, podés cargar entrada y retirada de servicio para ese turno.',
           '“Cuenta para presentismo”: si está apagado, no suma el bonus semanal en liquidación.',
           'Alias/CBU y supervisor si es productor; usuario vinculado para la app.',
+          'Código mozo (PIN 4–6 dígitos) para la comanda pública /mozo. Solo se muestran los últimos dígitos al guardar.',
         ],
         tip: 'Para aumentos o cambios de sueldo, andá a Sueldos → pestaña Sueldos.',
       },
@@ -1529,6 +1563,7 @@ const PATH_HELP: Array<{ test: (path: string) => boolean; id: string }> = [
   { test: (p) => p.startsWith('/customer-orders'), id: 'customer-orders' },
   { test: (p) => p.startsWith('/admin/shop/pedidos'), id: 'admin-ordering' },
   { test: (p) => p.startsWith('/pedir/'), id: 'public-ordering' },
+  { test: (p) => p.startsWith('/mozo/'), id: 'waiter-mozo' },
   { test: (p) => p.startsWith('/mi-pedido/'), id: 'public-order-lookup' },
   { test: (p) => p.startsWith('/my-production'), id: 'my-production' },
   { test: (p) => p.startsWith('/production-attendance'), id: 'production-attendance' },

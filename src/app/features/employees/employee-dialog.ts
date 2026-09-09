@@ -290,6 +290,37 @@ function toDateString(value: Date | null): string | null {
             <textarea matInput rows="2" formControlName="notes"></textarea>
           </mat-form-field>
 
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Código mozo (PIN)</mat-label>
+            <mat-icon matPrefix>pin</mat-icon>
+            <input
+              matInput
+              formControlName="waiterPin"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="off"
+              [placeholder]="
+                hasWaiterPin
+                  ? '••••' + (waiterPinPrefix ?? '')
+                  : '4 a 6 dígitos'
+              "
+            />
+            <mat-hint>
+              @if (hasWaiterPin) {
+                Ya tiene PIN (termina en {{ waiterPinPrefix }}). Dejá vacío para no
+                cambiar; escribí uno nuevo para reemplazar; “borrar” para quitarlo.
+              } @else {
+                Para la comanda pública /mozo. Vacío = sin PIN.
+              }
+            </mat-hint>
+          </mat-form-field>
+
+          @if (hasWaiterPin) {
+            <mat-checkbox formControlName="clearWaiterPin">
+              Quitar código mozo
+            </mat-checkbox>
+          }
+
           @if (isEdit) {
             <mat-slide-toggle formControlName="active">Empleado visible</mat-slide-toggle>
           }
@@ -457,6 +488,8 @@ export class EmployeeDialogComponent implements OnInit {
 
   readonly isEdit = this.data.mode === 'edit';
   private readonly employee = this.data.mode === 'edit' ? this.data.employee : null;
+  readonly hasWaiterPin = !!this.employee?.hasWaiterPin;
+  readonly waiterPinPrefix = this.employee?.waiterPinPrefix ?? null;
   readonly shopShifts = this.data.shopShifts ?? [];
   readonly shiftHoursLabel = shiftHoursLabel;
   readonly busy = signal(false);
@@ -526,6 +559,8 @@ export class EmployeeDialogComponent implements OnInit {
     hireDate: this.fb.control<Date | null>(toDateInput(this.employee?.hireDate)),
     notes: [this.employee?.notes ?? ''],
     bankAlias: [this.employee?.bankAlias ?? ''],
+    waiterPin: [''],
+    clearWaiterPin: [false],
     active: [this.employee?.active ?? true],
   });
 
@@ -650,7 +685,7 @@ export class EmployeeDialogComponent implements OnInit {
       this.snack.open('Elegí al menos un turno donde trabaje', 'OK', { duration: 3000 });
       return;
     }
-    const body: Partial<Employee> = {
+    const body: Partial<Employee> & { waiterPin?: string | null } = {
       fullName: raw.fullName.trim(),
       serviceCheckIn: null,
       serviceCheckOut: null,
@@ -663,6 +698,11 @@ export class EmployeeDialogComponent implements OnInit {
       notes: raw.notes.trim() || null,
       bankAlias: producesFood ? raw.bankAlias.trim() || null : null,
     };
+    if (raw.clearWaiterPin) {
+      body.waiterPin = null;
+    } else if (String(raw.waiterPin ?? '').trim()) {
+      body.waiterPin = String(raw.waiterPin).trim();
+    }
     if (!this.isEdit) {
       body.baseSalary = raw.baseSalary;
       body.overtimeHourRate = raw.differentOvertimeRate ? raw.overtimeHourRate : 0;
