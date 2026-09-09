@@ -45,6 +45,7 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
     const c = this.config();
     return !!c && !c.anyChannelOpen;
   });
+  readonly closedByForce = computed(() => !!this.config()?.orderingForceClosed);
   readonly cartCount = computed(() => this.cart.count());
 
   ngOnInit(): void {

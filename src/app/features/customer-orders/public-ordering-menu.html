@@ -100,19 +100,22 @@
 
         @if (it.removableIngredients?.length) {
           <div class="extras">
-            <p class="extras__title">Sin…</p>
-            <p class="extras__hint">Tocá lo que querés retirar</p>
-            <div class="remove-chips">
+            <p class="extras__title">Retirar ingredientes</p>
+            <p class="extras__hint">Marcá en la lista lo que no querés</p>
+            <div class="remove-list">
               @for (ing of it.removableIngredients; track ing) {
-                <button
-                  type="button"
-                  class="remove-chip"
-                  [class.remove-chip--on]="isIngredientRemoved(ing)"
-                  (click)="toggleRemovedIngredient(ing)"
-                  [disabled]="!canOrder()"
-                >
-                  {{ isIngredientRemoved(ing) ? 'Sin' : '' }} {{ ing }}
-                </button>
+                <label class="remove-row" [class.remove-row--on]="isIngredientRemoved(ing)">
+                  <input
+                    type="checkbox"
+                    [checked]="isIngredientRemoved(ing)"
+                    (change)="toggleRemovedIngredient(ing)"
+                    [disabled]="!canOrder()"
+                  />
+                  <span class="remove-row__name">{{ ing }}</span>
+                  @if (isIngredientRemoved(ing)) {
+                    <span class="remove-row__tag">Sin</span>
+                  }
+                </label>
               }
             </div>
           </div>

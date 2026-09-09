@@ -68,6 +68,7 @@ export interface PublicOrderingConfig {
   shop: PublicOrderingShop;
   takeawayEnabled: boolean;
   deliveryEnabled: boolean;
+  orderingForceClosed?: boolean;
   takeawayOpen: boolean;
   deliveryOpen: boolean;
   anyChannelOpen: boolean;

@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 import { ClosingFormDniStepComponent } from './closing-form-dni-step';
 import {
@@ -17,6 +18,7 @@ import {
   showClosingStepFiles,
   type ClosingStepFileView,
 } from './closing-form-step-files';
+import { COBRO_PAYMENT_METHOD_OPTIONS } from './closings-form-load';
 import { closingMoney, closingNum } from './closings-form.utils';
 
 @Component({
@@ -27,6 +29,7 @@ import { closingMoney, closingNum } from './closings-form.utils';
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     ClosingFormStepNavComponent,
     ClosingFormDniStepComponent,
     ClosingFormStepFilesComponent,
@@ -63,6 +66,14 @@ import { closingMoney, closingNum } from './closings-form.utils';
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Cobro {{ i + 1 }}</mat-label>
                 <input matInput formControlName="label" [placeholder]="'Cobro ' + (i + 1)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Tipo de pago</mat-label>
+                <mat-select formControlName="paymentMethod">
+                  @for (opt of paymentOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
               </mat-form-field>
               <mat-form-field
                 appearance="outline"
@@ -191,6 +202,7 @@ import { closingMoney, closingNum } from './closings-form.utils';
   styleUrl: './closing-form-caja-otros-step.scss',
 })
 export class ClosingFormCajaOtrosStepComponent {
+  readonly paymentOptions = COBRO_PAYMENT_METHOD_OPTIONS;
   readonly sourceAmounts = input.required<FormArray>();
   readonly sourceCount = input(0);
   readonly otherCobros = input.required<FormArray>();

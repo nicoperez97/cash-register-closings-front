@@ -2,7 +2,7 @@ import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import type { TipsEditorState } from '../tips/tips-editor';
 import type { ClosingSourceAmount } from './closings-api.service';
 import { closingNum } from './closings-form.utils';
-import { buildExpenseGroup, populateOtherCobros } from './closings-form-load';
+import { buildExpenseGroup, normalizeCobroPaymentMethod, populateOtherCobros } from './closings-form-load';
 import { buildDniTransferGroup } from './closings-form-payment-lines';
 
 const DRAFT_KEY = 'crc.closing-draft.v1';
@@ -144,6 +144,8 @@ export function applyClosingFormDraft(
   form.patchValue(
     {
       businessDate: dateStr ? toDateInput(dateStr) : form.controls['businessDate'].value,
+      shiftId: raw['shiftId'] != null ? String(raw['shiftId']) : form.controls['shiftId']?.value,
+      cashOpeningAmount: emptyNum(raw['cashOpeningAmount']),
       posSystemAmount: emptyNum(raw['posSystemAmount']),
       cardAmount: emptyNum(raw['cardAmount']),
       cashAmount: emptyNum(raw['cashAmount']),
@@ -212,6 +214,7 @@ export function applyClosingFormDraft(
     ((raw['otherCobros'] as Array<Record<string, unknown>>) ?? []).map((row) => ({
       label: String(row['label'] ?? ''),
       amount: emptyNum(row['amount']),
+      paymentMethod: normalizeCobroPaymentMethod(row['paymentMethod']),
     })),
     emptyNum,
   );

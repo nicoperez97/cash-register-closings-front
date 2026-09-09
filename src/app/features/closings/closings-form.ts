@@ -76,6 +76,7 @@ import {
   ensureTrailingAllSourceLines as syncTrailingSourceLines,
   ensureTrailingOtherCobro,
   ensureTrailingSourceLines,
+  type OtherCobroRow,
   patchClosingFormValues,
   populateOtherCobros,
   populateSourceAmounts,
@@ -242,22 +243,13 @@ import {
               />
             </mat-step>
 
-            <mat-step label="Efectivo">
-              <app-closing-form-efectivo-step
-                [withdrawAccounts]="withdrawAccounts()"
-                [pendingHint]="pendingWithdrawHint()"
-                (countBills)="openBillCounter()"
-                (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
-              />
-            </mat-step>
-
             <mat-step label="Cobros">
               <app-closing-form-caja-otros-step
                 [sourceAmounts]="sourceAmounts"
                 [sourceCount]="sourceCount()"
                 [otherCobros]="otherCobros"
                 [cobrosHint]="cobrosPanelHint()"
-                [cobrosTotal]="money(cobrosTotal())"
+                [cobrosTotal]="money(cobrosStepTotal())"
                 [dniTransfers]="dniTransfers"
                 [dniHint]="dniPanelHint()"
                 [locksDni]="locksDni()"
@@ -268,7 +260,7 @@ import {
                 [filesDisabled]="filesDisabled()"
                 [requireClosingFiles]="requireClosingFiles()"
                 [dniHasAmount]="dniNeedsFiles()"
-                [cobrosHasAmount]="cobrosTotal() > 0"
+                [cobrosHasAmount]="cobrosStepTotal() > 0"
                 (remove)="removeOtherCobro($event)"
                 (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
                 (addDni)="addDniTransfer()"
@@ -303,6 +295,15 @@ import {
                 [tipEmployees]="tipEmployees()"
                 [tipEditorValue]="tipEditorValue()"
                 (tipChange)="onTipEditorChange($event)"
+              />
+            </mat-step>
+
+            <mat-step label="Efectivo">
+              <app-closing-form-efectivo-step
+                [withdrawAccounts]="withdrawAccounts()"
+                [pendingHint]="pendingWithdrawHint()"
+                (countBills)="openBillCounter()"
+                (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
               />
             </mat-step>
 
@@ -416,10 +417,10 @@ export class ClosingsFormPage implements OnInit {
   readonly stepIndex = signal(0);
   readonly stepLabels = [
     'Posnets',
-    'Efectivo',
     'Cobros',
     'Retiro y egresos',
     'Propinas',
+    'Efectivo',
     'Caja',
     'Resumen',
   ] as const;
@@ -543,7 +544,17 @@ export class ClosingsFormPage implements OnInit {
   );
 
   readonly cardAmount = computed(() => this.n(this.formValue().cardAmount));
-  readonly cashAmount = computed(() => this.n(this.formValue().cashAmount));
+  readonly cashAmount = computed(() => {
+    const v = this.formValue();
+    const cobros = (v.otherCobros ?? []) as Array<{
+      amount?: number | null;
+      paymentMethod?: string | null;
+    }>;
+    const cashFromCobros = cobros
+      .filter((s) => String(s.paymentMethod ?? '').toUpperCase() === 'CASH')
+      .reduce((sum, s) => sum + this.n(s.amount), 0);
+    return Math.max(this.n(v.cashAmount), cashFromCobros);
+  });
   readonly mpAmount = computed(() => this.n(this.formValue().mercadoPagoAmount));
   readonly accountDniAmount = computed(() => this.n(this.formValue().accountDniAmount));
   readonly posAmount = computed(() => this.n(this.formValue().posSystemAmount));
@@ -553,6 +564,23 @@ export class ClosingsFormPage implements OnInit {
     const hasTransfer = transfers.some((t) => this.n(t.amount) > 0);
     if (this.hasPosnetType('CUENTA_DNI')) return hasTransfer;
     return this.n(this.formValue().accountDniAmount) > 0 || hasTransfer;
+  });
+
+  /** Cobros que no son efectivo (el efectivo va en el paso Efectivo / cashAmount). */
+  readonly cobrosTotal = computed(() => {
+    const cobros = (this.formValue().otherCobros ?? []) as Array<{
+      amount?: number | null;
+      paymentMethod?: string | null;
+    }>;
+    return cobros
+      .filter((s) => String(s.paymentMethod ?? '').toUpperCase() !== 'CASH')
+      .reduce((sum, s) => sum + this.n(s.amount), 0);
+  });
+
+  /** Suma de filas en el paso Cobros (incluye efectivo tipificado). */
+  readonly cobrosStepTotal = computed(() => {
+    const cobros = (this.formValue().otherCobros ?? []) as Array<{ amount?: number | null }>;
+    return cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
   });
 
   readonly declaredTotal = computed(() => {
@@ -565,21 +593,14 @@ export class ClosingsFormPage implements OnInit {
     const fromSources = sources
       .filter((s) => !!s.includeInDeclared)
       .reduce((sum, s) => sum + sourceRowTotal(s), 0);
-    const cobros = (v.otherCobros ?? []) as Array<{ amount?: number | null }>;
-    const cobrosSum = cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
     return (
       this.n(v.cardAmount) +
-      this.n(v.cashAmount) +
+      this.cashAmount() +
       this.n(v.mercadoPagoAmount) +
       this.n(v.accountDniAmount) +
-      cobrosSum +
+      this.cobrosTotal() +
       fromSources
     );
-  });
-
-  readonly cobrosTotal = computed(() => {
-    const cobros = (this.formValue().otherCobros ?? []) as Array<{ amount?: number | null }>;
-    return cobros.reduce((sum, s) => sum + this.n(s.amount), 0);
   });
 
   readonly cajaBreakdown = computed(() => {
@@ -589,7 +610,7 @@ export class ClosingsFormPage implements OnInit {
       if (value > 0) rows.push({ name, amount: this.money(value) });
     };
     push('PVS', this.n(v.cardAmount));
-    push('Efectivo', this.n(v.cashAmount));
+    push('Efectivo', this.cashAmount());
     push('Mercado Pago', this.n(v.mercadoPagoAmount));
     push('Cuenta DNI', this.n(v.accountDniAmount));
     push('Cobros', this.cobrosTotal());
@@ -674,7 +695,7 @@ export class ClosingsFormPage implements OnInit {
     if (assigned) return 0;
     const explicit = this.n(v.cashWithdrawn);
     if (explicit > 0) return explicit;
-    return Math.max(0, this.n(v.cashAmount) - this.n(v.cashLeftInRegister));
+    return Math.max(0, this.cashAmount() - this.n(v.cashLeftInRegister));
   });
 
   readonly pendingWithdrawHint = computed(() => {
@@ -686,7 +707,7 @@ export class ClosingsFormPage implements OnInit {
     if (amount > 0) {
       return `Quedará en A Retirar (${this.money(amount)}).`;
     }
-    const cash = this.n(v.cashAmount);
+    const cash = this.cashAmount();
     if (cash <= 0) return '';
     // Sin asignar pero no hay monto a retirar (todo queda en caja / egresos).
     return 'El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja.';
@@ -708,7 +729,7 @@ export class ClosingsFormPage implements OnInit {
     const cobros = (this.formValue().otherCobros ?? []) as Array<{ amount?: number | null }>;
     const filled = cobros.filter((s) => this.n(s?.amount) > 0).length;
     if (!filled) return 'Se van sumando';
-    return this.money(this.cobrosTotal());
+    return this.money(this.cobrosStepTotal());
   }
 
   withdrawPanelHint(): string {
@@ -936,7 +957,7 @@ export class ClosingsFormPage implements OnInit {
     this.sourceAmounts.updateValueAndValidity();
   }
 
-  private syncOtherCobros(rows: Array<{ label: string; amount?: number | null }>): void {
+  private syncOtherCobros(rows: OtherCobroRow[]): void {
     populateOtherCobros(this.fb, this.otherCobros, rows, (v) => this.emptyNum(v));
   }
 
@@ -1170,7 +1191,11 @@ export class ClosingsFormPage implements OnInit {
     this.fillNextMoneyLine(this.otherCobros, amount, () =>
       buildOtherCobroGroup(
         this.fb,
-        { label: `Cobro ${this.otherCobros.length + 1}`, amount },
+        {
+          label: `Cobro ${this.otherCobros.length + 1}`,
+          amount,
+          paymentMethod: 'OTHER',
+        },
         (v) => this.emptyNum(v),
       ),
     );
@@ -1478,7 +1503,7 @@ export class ClosingsFormPage implements OnInit {
       this.form.markAllAsTouched();
       return null;
     }
-    const cashTotal = this.n(this.form.controls.cashAmount.value);
+    const cashTotal = this.cashAmount();
     const cashLeave = this.n(this.form.controls.cashLeftInRegister.value);
     const cashTake = this.n(this.form.controls.cashWithdrawn.value);
     if (cashTotal > 0 && Math.abs(cashTotal - (cashTake + cashLeave)) > 0.05) {
@@ -1537,11 +1562,11 @@ export class ClosingsFormPage implements OnInit {
     }
     if (this.dniNeedsFiles() && !this.dniStepFiles().length) {
       labels.push('Cuenta DNI');
-      bump(2);
+      bump(1);
     }
-    if (this.cobrosTotal() > 0 && !this.cobrosStepFiles().length) {
+    if (this.cobrosStepTotal() > 0 && !this.cobrosStepFiles().length) {
       labels.push('Cobros');
-      bump(2);
+      bump(1);
     }
     for (const row of this.sourceAmounts.controls) {
       const sourceId = String(row.get('sourceId')?.value ?? '');
@@ -1549,7 +1574,7 @@ export class ClosingsFormPage implements OnInit {
       if (sourceRowTotal(row.getRawValue()) <= 0) continue;
       if ((this.sourceFilesMap()[sourceId] ?? []).length) continue;
       labels.push(String(row.get('name')?.value ?? '').trim() || 'Cuenta de canal');
-      bump(2);
+      bump(1);
     }
     if (this.posAmount() > 0 && !this.posSystemFiles().length) {
       labels.push('Caja sistema');

@@ -21,13 +21,16 @@
 .co-config {
   display: grid;
   gap: 0.85rem;
-  max-width: 52rem;
+  max-width: 40rem;
+  width: 100%;
+  margin-inline: auto;
 }
 
 .co-config__hint {
   margin: 0;
   font-size: 0.88rem;
   color: var(--guy-muted, #5f6f76);
+  text-align: center;
 }
 
 .co-config__hint a {
@@ -134,6 +137,7 @@
   flex-wrap: wrap;
   gap: 0.35rem;
   margin: 0 0 0.85rem;
+  justify-content: center;
 }
 
 .co-views__btn {
@@ -325,7 +329,7 @@
 }
 
 .co-card__substatus {
-  display: inline-flex;
+  display: block;
   margin-top: 0.2rem;
   font-size: 0.68rem;
   font-weight: 700;
@@ -335,7 +339,7 @@
 }
 
 .co-card__phone {
-  display: inline-block;
+  display: block;
   margin-top: 0.15rem;
   font-size: 0.78rem;
   font-weight: 650;

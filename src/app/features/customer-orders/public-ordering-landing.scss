@@ -233,6 +233,16 @@ h1 {
   animation: ord-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.32s both;
 }
 
+.hours__notice {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid #f0d6a8;
+  background: #fff8eb;
+  color: #8a5a00;
+  font-size: 0.86rem;
+}
+
 .hours__block {
   background: color-mix(in srgb, var(--accent, #2e7d32) 6%, #fff);
   border: 1px solid var(--line);
