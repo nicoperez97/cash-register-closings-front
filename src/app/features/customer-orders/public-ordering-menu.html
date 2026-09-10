@@ -17,7 +17,13 @@
           <p class="top__shop">{{ c.shop.name }}</p>
           <h1>
             @if (view() === 'categories') {
-              {{ staffMode() ? 'Pedido mostrador' : 'Categorías' }}
+              @if (staffMode()) {
+                Pedido mostrador
+              } @else if (dineInMode()) {
+                Mesa {{ dineInTableLabel() }}
+              } @else {
+                Categorías
+              }
             } @else if (view() === 'items') {
               {{ section()?.name }}
             } @else {
@@ -28,6 +34,8 @@
       </div>
       @if (staffMode()) {
         <a class="top__status" routerLink="/customer-orders">Tablero</a>
+      } @else if (dineInMode()) {
+        <a class="top__status" [routerLink]="['/pedir', slug(), 'mesa']">Mesas</a>
       } @else {
         <a class="top__status" [routerLink]="['/mi-pedido', slug()]">Estado</a>
       }
@@ -35,6 +43,14 @@
 
     @if (staffMode()) {
       <p class="banner banner--staff">Tomá el pedido del cliente en el local. Funciona aunque el online esté cerrado por horario.</p>
+    } @else if (dineInMode()) {
+      <p class="banner banner--table">
+        Mesa {{ dineInTableLabel() }}
+        @if (dineInCovers()) {
+          · {{ dineInCovers() }} comensales
+        }
+        · al enviar va a cocina
+      </p>
     } @else if (!canOrder()) {
       <p class="banner">Estamos cerrados. Podés mirar el menú; no se pueden agregar ítems ahora.</p>
     }
@@ -175,9 +191,17 @@
     }
 
     @if (cartCount() > 0) {
-      <button type="button" class="cart-bar ord-press" (click)="goCheckout()">
+      <button type="button" class="cart-bar ord-press" [disabled]="sending()" (click)="goCheckout()">
         <span class="cart-bar__count">{{ cartCount() }}</span>
-        <span class="cart-bar__label">Ver pedido</span>
+        <span class="cart-bar__label">
+          @if (sending()) {
+            Enviando…
+          } @else if (dineInMode()) {
+            Enviar a cocina
+          } @else {
+            Ver pedido
+          }
+        </span>
         <span class="cart-bar__total">{{ money(cartSubtotal()) }}</span>
       </button>
     }

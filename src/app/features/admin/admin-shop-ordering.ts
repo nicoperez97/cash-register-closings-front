@@ -68,9 +68,12 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__full">
           <mat-label>Tipo de local</mat-label>
           <mat-select formControlName="shopMode">
-            <mat-option value="AL_PASO">Al paso (sin mesas)</mat-option>
-            <mat-option value="RESTAURANTE">Restaurante (mesas por reserva)</mat-option>
+            <mat-option value="AL_PASO">Al paso (take away / delivery)</mat-option>
+            <mat-option value="RESTAURANTE">Restaurante (pedido en mesa + reservas)</mat-option>
           </mat-select>
+          <mat-hint>
+            Al paso: /pedir sin mesas. Restaurante: el cliente elige mesa en el mapa de /pedir.
+          </mat-hint>
         </mat-form-field>
 
         <div class="op__toggles">
@@ -84,32 +87,34 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
               aria-label="Pedidos online"
             />
           </div>
-          <div class="op__row-toggle">
-            <div>
-              <strong>Comanda mozos</strong>
-              <span>Página pública /mozo/… con PIN</span>
+          @if (isRestaurant()) {
+            <div class="op__row-toggle">
+              <div>
+                <strong>Comanda mozos</strong>
+                <span>Página pública /mozo/… con PIN (además del pedido en mesa del cliente)</span>
+              </div>
+              <mat-slide-toggle
+                formControlName="waiterOrderingEnabled"
+                aria-label="Comanda mozos"
+              />
             </div>
-            <mat-slide-toggle
-              formControlName="waiterOrderingEnabled"
-              aria-label="Comanda mozos"
-            />
-          </div>
-          @if (waiterOn() && waiterPublicUrl()) {
-            <div class="op__public op__public--inline">
-              <a class="op__public-btn" [href]="waiterPublicUrl()" target="_blank" rel="noopener">
-                <mat-icon>open_in_new</mat-icon>
-                Abrir link
-              </a>
-              <button
-                type="button"
-                class="op__public-btn op__public-btn--ghost"
-                (click)="copyWaiterPublicUrl()"
-              >
-                <mat-icon>content_copy</mat-icon>
-                Copiar link
-              </button>
-            </div>
-            <p class="op__public-url">{{ waiterPublicUrl() }}</p>
+            @if (waiterOn() && waiterPublicUrl()) {
+              <div class="op__public op__public--inline">
+                <a class="op__public-btn" [href]="waiterPublicUrl()" target="_blank" rel="noopener">
+                  <mat-icon>open_in_new</mat-icon>
+                  Abrir link
+                </a>
+                <button
+                  type="button"
+                  class="op__public-btn op__public-btn--ghost"
+                  (click)="copyWaiterPublicUrl()"
+                >
+                  <mat-icon>content_copy</mat-icon>
+                  Copiar link
+                </button>
+              </div>
+              <p class="op__public-url">{{ waiterPublicUrl() }}</p>
+            }
           }
           <div class="op__row-toggle">
             <div>
@@ -464,6 +469,9 @@ export class AdminShopOrderingComponent {
 
   readonly orderingOn = computed(
     () => !!this.host.formValue()?.onlineOrderingEnabled,
+  );
+  readonly isRestaurant = computed(
+    () => this.host.formValue()?.shopMode !== 'AL_PASO',
   );
   readonly waiterOn = computed(
     () => !!this.host.formValue()?.waiterOrderingEnabled,
