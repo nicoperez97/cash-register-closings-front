@@ -274,6 +274,14 @@
   box-shadow: 0 4px 12px rgba(28, 40, 30, 0.04);
 }
 
+.co-card--clickable {
+  cursor: pointer;
+}
+
+.co-card--clickable:hover {
+  border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+}
+
 .co-card--compact {
   padding: 0.45rem 0.5rem;
 }
@@ -369,6 +377,37 @@
   color: #9a6700;
 }
 
+.co-card__pay {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.co-card__pay-ok {
+  color: #1b5e20;
+  font-weight: 700;
+}
+
+.co-card__pay-pending {
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.co-card__totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.co-card__totals .co-card__pay {
+  margin: 0;
+}
+
 .co-card__items {
   list-style: none;
   margin: 0.35rem 0 0;
@@ -397,7 +436,7 @@
 .co-card__foot {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.35rem;
   margin-top: 0.4rem;
   padding-top: 0.35rem;
@@ -410,8 +449,10 @@
 
 .co-card__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .co-card__go {
@@ -420,6 +461,28 @@
   padding: 0.35rem 0.55rem;
   background: var(--guy-green, #2e7d32);
   color: #fff;
+  font-weight: 750;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.co-card__acredit {
+  border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 45%, #fff);
+  background: #fff;
+  color: var(--guy-green, #2e7d32);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-weight: 750;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.co-card__desacredit {
+  border: 1px solid color-mix(in srgb, #9a3412 40%, #fff);
+  background: #fff;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
   font-weight: 750;
   font-size: 0.75rem;
   cursor: pointer;
@@ -437,6 +500,8 @@
 }
 
 .co-card__go:disabled,
+.co-card__acredit:disabled,
+.co-card__desacredit:disabled,
 .co-card__cancel:disabled {
   opacity: 0.55;
   cursor: not-allowed;

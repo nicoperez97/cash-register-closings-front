@@ -75,11 +75,8 @@ export const routes: Routes = [
   },
   {
     path: 'pedir/:slug/mesa',
-    loadComponent: () =>
-      import('./features/customer-orders/public-dine-in-floor').then(
-        (m) => m.PublicDineInFloorComponent,
-      ),
-    title: 'Elegí mesa',
+    redirectTo: ({ params }) => `/pedir/${params['slug']}`,
+    pathMatch: 'full',
   },
   {
     path: 'pedir/:slug/menu',
@@ -390,6 +387,22 @@ export const routes: Routes = [
             (m) => m.CustomerOrdersPage,
           ),
         title: 'Pedidos online',
+      },
+      {
+        path: 'comanda',
+        canActivate: [
+          anyPermissionGuard(
+            'customerOrders.read',
+            'orderingCatalog.manage',
+            'reservations.read',
+            'shops.manage',
+          ),
+          shopFeatureGuard('waiterOrdering'),
+        ],
+        loadComponent: () =>
+          import('./features/waiter/waiter-page').then((m) => m.WaiterPageComponent),
+        data: { staffComanda: true },
+        title: 'Comanda',
       },
       {
         path: 'admin/shops',

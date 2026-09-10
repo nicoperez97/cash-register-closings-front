@@ -131,11 +131,24 @@
 .pay-list--cards app-payment-card .pay-card__actions {
   margin-top: auto;
 }
+.pay-list--cards .pay-card__top,
+.pay-list--cards app-payment-card .pay-card__top {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.35rem 0.75rem;
+}
+.pay-list--cards .pay-card__amount,
+.pay-list--cards app-payment-card .pay-card__amount {
+  margin-left: auto;
+}
 .pay-list--cards .pay-card__grid,
 .pay-list--cards app-payment-card .pay-card__grid {
   grid-template-columns: 1fr;
 }
 @media (max-width: 719px) {
+  .pay-list--cards {
+    grid-template-columns: 1fr;
+  }
   .pay-list--cards .pay-card,
   .pay-list--cards app-payment-card {
     padding: 0.7rem 0.75rem;
@@ -148,7 +161,10 @@
   }
   .pay-list--cards .pay-card__amount,
   .pay-list--cards app-payment-card .pay-card__amount {
-    font-size: 1rem;
+    font-size: 1.05rem;
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
   }
   .pay-list--cards .pay-card__top,
   .pay-list--cards app-payment-card .pay-card__top {

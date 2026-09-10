@@ -223,6 +223,16 @@ export class MainLayoutComponent {
         }),
       );
     }
+    if (
+      shopId &&
+      this.shopFeature('waiterOrdering') &&
+      (hasShopPermission(user, shopId, 'customerOrders.read') ||
+        hasShopPermission(user, shopId, 'orderingCatalog.manage') ||
+        hasShopPermission(user, shopId, 'reservations.read') ||
+        hasShopPermission(user, shopId, 'shops.manage'))
+    ) {
+      operacion.push(leaf('comanda'));
+    }
     if (operacion.length) {
       items.push({
         label: 'Operación',
@@ -659,6 +669,7 @@ export class MainLayoutComponent {
         waitingListEnabled: shop?.waitingListEnabled,
         tipsEnabled: shop?.tipsEnabled,
         onlineOrderingEnabled: shop?.onlineOrderingEnabled,
+        waiterOrderingEnabled: shop?.waiterOrderingEnabled,
         settlementsEnabled:
           this.settlementsInbox.enabled() || !!shop?.settlementsEnabled,
       },
@@ -710,13 +721,14 @@ export class MainLayoutComponent {
   }
 
   private shopFeature(
-    feature: 'reservations' | 'waitingList' | 'tips' | 'onlineOrdering',
+    feature: 'reservations' | 'waitingList' | 'tips' | 'onlineOrdering' | 'waiterOrdering',
   ): boolean {
     const shop = this.shopContext.selectedShop();
     if (!shop) return false;
     if (feature === 'reservations') return !!shop.reservationsEnabled;
     if (feature === 'waitingList') return !!shop.waitingListEnabled;
     if (feature === 'onlineOrdering') return !!shop.onlineOrderingEnabled;
+    if (feature === 'waiterOrdering') return !!shop.waiterOrderingEnabled;
     return !!shop.tipsEnabled;
   }
 

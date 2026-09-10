@@ -21,6 +21,13 @@
   background-attachment: fixed;
 }
 
+:host.staff-embedded {
+  min-height: calc(100dvh - 7rem);
+  border-radius: 12px;
+  overflow: hidden;
+  background-attachment: scroll;
+}
+
 .page {
   max-width: 28rem;
   margin: 0 auto;

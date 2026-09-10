@@ -117,13 +117,14 @@
               } @else {
                 @for (o of col.orders; track o.id) {
                   <article
-                    class="co-card co-card--compact"
+                    class="co-card co-card--compact co-card--clickable"
                     [class.co-card--pending]="o.status === 'PENDING'"
                     [class.co-card--focus]="focusOrderId() === o.id"
                     [attr.id]="'co-' + o.id"
+                    (click)="openOrder(o, $event)"
                   >
                     <header class="co-card__head">
-                      <button type="button" class="co-card__code" (click)="copyCode(o.code)">#{{ o.code }}</button>
+                      <button type="button" class="co-card__code" (click)="$event.stopPropagation(); copyCode(o.code)">#{{ o.code }}</button>
                       <time>{{ o.createdAt | date: 'HH:mm' }}</time>
                     </header>
                     <p class="co-card__guest">
@@ -160,10 +161,38 @@
                         Desc. {{ o.discountLabel || '' }} −{{ money(o.discountAmount ?? 0) }}
                       </p>
                     }
+                    <p class="co-card__pay">
+                      <span>{{ paymentText(o) }}</span>
+                      @if (isAccredited(o)) {
+                        <span class="co-card__pay-ok">Acreditado</span>
+                      } @else {
+                        <span class="co-card__pay-pending">Sin acreditar</span>
+                      }
+                    </p>
                     <div class="co-card__foot">
                       <strong>{{ money(o.total) }}</strong>
                       @if (canManage()) {
-                        <div class="co-card__actions">
+                        <div class="co-card__actions" (click)="$event.stopPropagation()">
+                          @if (canAcredit(o)) {
+                            <button
+                              type="button"
+                              class="co-card__acredit"
+                              [disabled]="busyId() === o.id"
+                              (click)="acredit(o)"
+                            >
+                              Acreditar
+                            </button>
+                          }
+                          @if (canDesacredit(o)) {
+                            <button
+                              type="button"
+                              class="co-card__desacredit"
+                              [disabled]="busyId() === o.id"
+                              (click)="desacredit(o)"
+                            >
+                              Desacreditar
+                            </button>
+                          }
                           @if (cancelAction(o); as cancel) {
                             <button
                               type="button"
@@ -179,7 +208,15 @@
                             <button
                               type="button"
                               class="co-card__go"
-                              [disabled]="busyId() === o.id"
+                              [disabled]="
+                                busyId() === o.id ||
+                                (primary.status === 'COMPLETED' && !canComplete(o))
+                              "
+                              [attr.title]="
+                                primary.status === 'COMPLETED' && !canComplete(o)
+                                  ? 'Acreditá el pago antes de completar'
+                                  : null
+                              "
                               (click)="setStatus(o, primary.status)"
                             >
                               {{ primary.label }}
@@ -206,9 +243,13 @@
     } @else {
       <div class="co-archive">
         @for (o of archiveOrders(); track o.id) {
-          <article class="co-card" [attr.id]="'co-' + o.id">
+          <article
+            class="co-card co-card--clickable"
+            [attr.id]="'co-' + o.id"
+            (click)="openOrder(o, $event)"
+          >
             <header class="co-card__head">
-              <button type="button" class="co-card__code" (click)="copyCode(o.code)">#{{ o.code }}</button>
+              <button type="button" class="co-card__code" (click)="$event.stopPropagation(); copyCode(o.code)">#{{ o.code }}</button>
               <time>{{ o.createdAt | date: 'dd/MM HH:mm' }}</time>
             </header>
             <p class="co-card__guest">
@@ -235,7 +276,37 @@
               }
             </ul>
             <div class="co-card__foot">
-              <strong>{{ money(o.total) }}</strong>
+              <div class="co-card__totals">
+                <strong>{{ money(o.total) }}</strong>
+                <p class="co-card__pay">
+                  <span>{{ paymentText(o) }}</span>
+                  @if (isAccredited(o)) {
+                    <span class="co-card__pay-ok">Acreditado</span>
+                  } @else {
+                    <span class="co-card__pay-pending">Sin acreditar</span>
+                  }
+                </p>
+              </div>
+              @if (canManage() && canAcredit(o)) {
+                <button
+                  type="button"
+                  class="co-card__acredit"
+                  [disabled]="busyId() === o.id"
+                  (click)="$event.stopPropagation(); acredit(o)"
+                >
+                  Acreditar
+                </button>
+              }
+              @if (canManage() && canDesacredit(o)) {
+                <button
+                  type="button"
+                  class="co-card__desacredit"
+                  [disabled]="busyId() === o.id"
+                  (click)="$event.stopPropagation(); desacredit(o)"
+                >
+                  Desacreditar
+                </button>
+              }
             </div>
           </article>
         }

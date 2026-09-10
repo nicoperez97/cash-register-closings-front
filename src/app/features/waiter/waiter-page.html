@@ -5,33 +5,39 @@
 <div class="page" [class.page--session]="view() === 'session'">
   @if (view() === 'login') {
     <header class="hero anim-in">
-      <p class="eyebrow">Comanda mozos</p>
-      <h1>{{ shopName() || slug() }}</h1>
-      <p>Ingresá tu código para ver las mesas.</p>
+      <p class="eyebrow">{{ staffMode ? 'Comanda' : 'Comanda mozos' }}</p>
+      <h1>{{ shopName() || slug() || 'Local' }}</h1>
+      @if (!staffMode) {
+        <p>Ingresá tu código para ver las mesas.</p>
+      } @else if (busy() || loading()) {
+        <p>Abriendo mapa de mesas…</p>
+      }
     </header>
 
     @if (error(); as err) {
       <p class="err anim-in">{{ err }}</p>
     }
 
-    <form class="login anim-in anim-delay-1" (ngSubmit)="login()">
-      <label>
-        Código mozo
-        <input
-          type="password"
-          inputmode="numeric"
-          maxlength="6"
-          autocomplete="one-time-code"
-          [ngModel]="pin()"
-          (ngModelChange)="pin.set($event)"
-          name="pin"
-          placeholder="••••"
-        />
-      </label>
-      <button type="submit" class="btn btn--lg" [disabled]="busy()">
-        {{ busy() ? 'Entrando…' : 'Entrar' }}
-      </button>
-    </form>
+    @if (!staffMode) {
+      <form class="login anim-in anim-delay-1" (ngSubmit)="login()">
+        <label>
+          Código mozo
+          <input
+            type="password"
+            inputmode="numeric"
+            maxlength="6"
+            autocomplete="one-time-code"
+            [ngModel]="pin()"
+            (ngModelChange)="pin.set($event)"
+            name="pin"
+            placeholder="••••"
+          />
+        </label>
+        <button type="submit" class="btn btn--lg" [disabled]="busy()">
+          {{ busy() ? 'Entrando…' : 'Entrar' }}
+        </button>
+      </form>
+    }
   } @else if (view() === 'tables') {
     <header class="bar anim-in">
       <div>
@@ -43,7 +49,9 @@
         <button type="button" class="icon-btn" (click)="loadTables()" [disabled]="loading()" aria-label="Actualizar">
           ↻
         </button>
-        <button type="button" class="btn btn--ghost btn--sm" (click)="logout()">Salir</button>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="logout()">
+          {{ staffMode ? 'Cerrar' : 'Salir' }}
+        </button>
       </div>
     </header>
 

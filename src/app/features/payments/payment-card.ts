@@ -536,7 +536,7 @@ export class PaymentCardComponent {
   readonly formatDate = formatPaymentDate;
   readonly formatAmount = formatPaymentAmount;
   readonly formatAmountDisplay = (amount: number | null | undefined) =>
-    formatMoney(amount, { spaced: true });
+    formatMoney(amount, { spaced: true, compact: false });
   readonly hasInvoiceData = paymentHasInvoiceData;
 
   isBusy(): boolean {
