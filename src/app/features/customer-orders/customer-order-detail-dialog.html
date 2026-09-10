@@ -1,0 +1,187 @@
+<h2 mat-dialog-title class="cod__title">
+  <span>Pedido #{{ order().code }}</span>
+  <span class="cod__status">{{ statusLabel[order().status] }}</span>
+</h2>
+
+<mat-dialog-content class="cod">
+  @if (error(); as err) {
+    <p class="cod__err">{{ err }}</p>
+  }
+
+  <section class="cod__block">
+    <h3>Cliente</h3>
+    <p>
+      <strong>{{ order().lastName }}, {{ order().firstName }}</strong>
+      · {{ fulfillmentText() }}
+    </p>
+    @if (phoneHref(); as href) {
+      <p>
+        <a [href]="href">{{ order().phone }}</a>
+      </p>
+    } @else if (order().phone) {
+      <p class="cod__muted">Sin teléfono válido</p>
+    }
+    @if (order().address) {
+      <p>{{ order().address }}</p>
+    }
+    @if (order().deliveryZoneName) {
+      <p class="cod__muted">Zona: {{ order().deliveryZoneName }}</p>
+    }
+  </section>
+
+  <section class="cod__block">
+    <h3>Ítems</h3>
+    <ul class="cod__items">
+      @for (it of order().items; track $index) {
+        <li>
+          <div class="cod__item-row">
+            <span>
+              {{ it.qty }}× {{ it.name }}
+              @if (it.kind === 'EXTRA') {
+                <em class="cod__tag">extra</em>
+              }
+            </span>
+            <span>{{ money(it.unitPrice * it.qty) }}</span>
+          </div>
+          @if (it.notes) {
+            <p class="cod__item-note">{{ it.notes }}</p>
+          }
+          @if (it.removedIngredients?.length) {
+            <p class="cod__item-note">Sin {{ it.removedIngredients.join(', ') }}</p>
+          }
+        </li>
+      }
+    </ul>
+    <div class="cod__totals">
+      <div><span>Subtotal</span><span>{{ money(order().subtotal) }}</span></div>
+      @if ((order().discountAmount ?? 0) > 0) {
+        <div>
+          <span>Desc. {{ order().discountLabel || '' }}</span>
+          <span>−{{ money(order().discountAmount ?? 0) }}</span>
+        </div>
+      }
+      @if ((order().deliveryFee ?? 0) > 0) {
+        <div><span>Envío</span><span>{{ money(order().deliveryFee) }}</span></div>
+      }
+      <div class="cod__totals-strong">
+        <span>Total</span><span>{{ money(order().total) }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="cod__block">
+    <h3>Pago</h3>
+    <p>
+      {{ paymentText() }}
+      @if (isAccredited()) {
+        <span class="cod__ok">Acreditado</span>
+      } @else {
+        <span class="cod__pending">Sin acreditar</span>
+      }
+    </p>
+    @if (order().paymentAccreditedAt) {
+      <p class="cod__muted">
+        Acreditado {{ order().paymentAccreditedAt | date: 'dd/MM/yyyy HH:mm' }}
+      </p>
+    }
+  </section>
+
+  @if (order().customerNotes) {
+    <section class="cod__block">
+      <h3>Notas</h3>
+      <p>{{ order().customerNotes }}</p>
+    </section>
+  }
+
+  <section class="cod__block">
+    <h3>Tiempos</h3>
+    <ul class="cod__times">
+      @if (order().createdAt) {
+        <li>Creado {{ order().createdAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+      @if (order().acceptedAt) {
+        <li>Aceptado {{ order().acceptedAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+      @if (order().preparingAt) {
+        <li>Cocina {{ order().preparingAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+      @if (order().readyAt) {
+        <li>Listo {{ order().readyAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+      @if (order().outForDeliveryAt) {
+        <li>En camino {{ order().outForDeliveryAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+      @if (order().completedAt) {
+        <li>Completado {{ order().completedAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+      @if (order().cancelledAt) {
+        <li>Cancelado {{ order().cancelledAt | date: 'dd/MM/yyyy HH:mm' }}</li>
+      }
+    </ul>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions class="cod__actions" align="end">
+  <button mat-button type="button" (click)="close()">Cerrar</button>
+
+  @if (canManage) {
+    @if (canAcredit()) {
+      <button
+        mat-stroked-button
+        color="primary"
+        type="button"
+        [disabled]="busy()"
+        (click)="acredit()"
+      >
+        Acreditar
+      </button>
+    }
+    @if (canDesacredit()) {
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="busy()"
+        (click)="desacredit()"
+      >
+        Desacreditar
+      </button>
+    }
+    @if (backAction(); as back) {
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="busy()"
+        (click)="setStatus(back.status)"
+      >
+        {{ back.label }}
+      </button>
+    }
+    @if (order().status !== 'CANCELLED' && order().status !== 'COMPLETED') {
+      <button
+        mat-button
+        color="warn"
+        type="button"
+        [disabled]="busy()"
+        (click)="setStatus('CANCELLED')"
+      >
+        Cancelar
+      </button>
+    }
+    @if (forwardAction(); as fwd) {
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="busy() || !canForward()"
+        [attr.title]="
+          fwd.status === 'COMPLETED' && !canForward()
+            ? 'Acreditá el pago antes de completar'
+            : null
+        "
+        (click)="setStatus(fwd.status)"
+      >
+        {{ fwd.label }}
+      </button>
+    }
+  }
+</mat-dialog-actions>

@@ -69,10 +69,10 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           <mat-label>Tipo de local</mat-label>
           <mat-select formControlName="shopMode">
             <mat-option value="AL_PASO">Al paso (take away / delivery)</mat-option>
-            <mat-option value="RESTAURANTE">Restaurante (pedido en mesa + reservas)</mat-option>
+            <mat-option value="RESTAURANTE">Restaurante (reservas + comanda)</mat-option>
           </mat-select>
           <mat-hint>
-            Al paso: /pedir sin mesas. Restaurante: el cliente elige mesa en el mapa de /pedir.
+            /pedir es siempre take away y delivery. En restaurante podés activar comanda mozos y reservas.
           </mat-hint>
         </mat-form-field>
 
@@ -91,7 +91,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
             <div class="op__row-toggle">
               <div>
                 <strong>Comanda mozos</strong>
-                <span>Página pública /mozo/… con PIN (además del pedido en mesa del cliente)</span>
+                <span>Operación → Comanda y página /mozo/… con PIN</span>
               </div>
               <mat-slide-toggle
                 formControlName="waiterOrderingEnabled"

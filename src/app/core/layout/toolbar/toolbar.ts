@@ -587,6 +587,7 @@ export class ToolbarComponent implements OnInit {
       waitingListEnabled: shop?.waitingListEnabled,
       tipsEnabled: shop?.tipsEnabled,
       onlineOrderingEnabled: shop?.onlineOrderingEnabled,
+      waiterOrderingEnabled: shop?.waiterOrderingEnabled,
       settlementsEnabled: shop?.settlementsEnabled,
     };
   }

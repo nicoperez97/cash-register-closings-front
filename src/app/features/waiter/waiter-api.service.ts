@@ -116,6 +116,13 @@ export class WaiterApiService {
     return { headers: new HttpHeaders({ Authorization: `Bearer ${token}` }) };
   }
 
+  staffEnter(shopId: string) {
+    return this.http.post<WaiterLoginResult>(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/enter`,
+      {},
+    );
+  }
+
   login(slug: string, pin: string) {
     return this.http.post<WaiterLoginResult>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/login`,

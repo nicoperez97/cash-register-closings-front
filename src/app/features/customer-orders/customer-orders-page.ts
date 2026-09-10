@@ -24,38 +24,22 @@ import {
 import { CustomerOrdersInboxService } from './customer-orders-inbox.service';
 import { OrderingCatalogPanelComponent } from './ordering-catalog-panel';
 import { StaffOrderingPosComponent } from './staff-ordering-pos';
-
-const STATUS_LABEL: Record<CustomerOrderStatus, string> = {
-  PENDING: 'Pendiente',
-  ACCEPTED: 'Aceptado',
-  PREPARING: 'En preparación',
-  READY: 'Listo',
-  OUT_FOR_DELIVERY: 'En camino',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-};
-
-const NEXT_ACTIONS: Partial<
-  Record<CustomerOrderStatus, Array<{ status: CustomerOrderStatus; label: string }>>
-> = {
-  PENDING: [
-    { status: 'ACCEPTED', label: 'Aceptar' },
-    { status: 'CANCELLED', label: 'Cancelar' },
-  ],
-  ACCEPTED: [
-    { status: 'PREPARING', label: 'Preparar' },
-    { status: 'CANCELLED', label: 'Cancelar' },
-  ],
-  PREPARING: [
-    { status: 'READY', label: 'Listo' },
-    { status: 'CANCELLED', label: 'Cancelar' },
-  ],
-  READY: [
-    { status: 'OUT_FOR_DELIVERY', label: 'En camino' },
-    { status: 'COMPLETED', label: 'Completar' },
-  ],
-  OUT_FOR_DELIVERY: [{ status: 'COMPLETED', label: 'Completar' }],
-};
+import {
+  CustomerOrderDetailDialogComponent,
+  CustomerOrderDetailDialogResult,
+} from './customer-order-detail-dialog';
+import {
+  canAcreditOrder,
+  canCompleteOrder,
+  canDesacreditOrder,
+  cancelActionFor,
+  isOrderAccredited,
+  nextActionsFor,
+  orderPaymentText,
+  orderPhoneHref,
+  primaryForwardAction,
+  STATUS_LABEL,
+} from './customer-orders-status.util';
 
 type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery';
 type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED' | 'config' | 'nuevo';
@@ -219,22 +203,35 @@ export class CustomerOrdersPage {
   }
 
   nextActions(order: StaffCustomerOrder) {
-    const actions = [...(NEXT_ACTIONS[order.status] ?? [])];
-    if (
-      order.status === 'READY' &&
-      (order.fulfillment === 'TAKEAWAY' || order.fulfillment === 'COUNTER')
-    ) {
-      return actions.filter((a) => a.status !== 'OUT_FOR_DELIVERY');
-    }
-    return actions;
+    return nextActionsFor(order);
   }
 
   primaryAction(order: StaffCustomerOrder) {
-    return this.nextActions(order).find((a) => a.status !== 'CANCELLED') ?? null;
+    return primaryForwardAction(order);
   }
 
   cancelAction(order: StaffCustomerOrder) {
-    return this.nextActions(order).find((a) => a.status === 'CANCELLED') ?? null;
+    return cancelActionFor(order);
+  }
+
+  isAccredited(order: StaffCustomerOrder): boolean {
+    return isOrderAccredited(order);
+  }
+
+  canAcredit(order: StaffCustomerOrder): boolean {
+    return canAcreditOrder(order);
+  }
+
+  canDesacredit(order: StaffCustomerOrder): boolean {
+    return canDesacreditOrder(order);
+  }
+
+  canComplete(order: StaffCustomerOrder): boolean {
+    return canCompleteOrder(order);
+  }
+
+  paymentText(order: StaffCustomerOrder): string {
+    return orderPaymentText(order);
   }
 
   money(n: number): string {
@@ -242,10 +239,7 @@ export class CustomerOrdersPage {
   }
 
   phoneHref(phone: string): string {
-    const digits = String(phone ?? '').replace(/\D/g, '');
-    // Placeholder de pedidos de mostrador sin celular (no tiene sentido llamar).
-    if (!digits || /^1+$/.test(digits) || digits === '0000000000') return '';
-    return `tel:+${digits}`;
+    return orderPhoneHref(phone);
   }
 
   publicOrderingUrl(): string {
@@ -358,30 +352,130 @@ export class CustomerOrdersPage {
     });
   }
 
+  openOrder(order: StaffCustomerOrder, event?: Event): void {
+    const target = event?.target as HTMLElement | null;
+    if (target?.closest('button, a, .co-card__actions')) return;
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const ref = this.dialog.open(CustomerOrderDetailDialogComponent, {
+      data: {
+        order,
+        shopId,
+        canManage: this.canManage(),
+      },
+      autoFocus: 'dialog',
+      width: 'min(440px, 96vw)',
+      maxHeight: '92vh',
+      panelClass: 'guy-dialog',
+    });
+    ref.afterClosed().subscribe((result: CustomerOrderDetailDialogResult) => {
+      if (!result || result.kind !== 'updated') return;
+      this.applyOrderUpdate(result.order);
+      this.snack.open(
+        `Pedido #${result.order.code}: ${STATUS_LABEL[result.order.status]}`,
+        'OK',
+        { duration: 2200 },
+      );
+      this.inbox.refresh();
+    });
+  }
+
+  private applyOrderUpdate(updated: StaffCustomerOrder): void {
+    const view = this.view();
+    if (view === 'board') {
+      if (updated.status === 'COMPLETED' || updated.status === 'CANCELLED') {
+        this.orders.update((list) => list.filter((o) => o.id !== updated.id));
+        return;
+      }
+      const exists = this.orders().some((o) => o.id === updated.id);
+      if (exists) {
+        this.orders.update((list) =>
+          list.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)),
+        );
+      } else {
+        this.reload();
+      }
+      return;
+    }
+    if (view === 'COMPLETED' || view === 'CANCELLED') {
+      if (updated.status !== view) {
+        this.orders.update((list) => list.filter((o) => o.id !== updated.id));
+        return;
+      }
+      this.orders.update((list) =>
+        list.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)),
+      );
+    }
+  }
+
   setStatus(order: StaffCustomerOrder, status: CustomerOrderStatus): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
+    if (status === 'COMPLETED' && !this.isAccredited(order)) {
+      this.snack.open('Acreditá el pago antes de completar', 'OK', { duration: 3000 });
+      return;
+    }
     this.busyId.set(order.id);
     this.api.updateStatus(shopId, order.id, status).subscribe({
+      next: (updated) => {
+        this.busyId.set(null);
+        this.applyOrderUpdate(updated);
+        this.snack.open(`Pedido #${updated.code}: ${STATUS_LABEL[updated.status]}`, 'OK', {
+          duration: 2200,
+        });
+        this.inbox.refresh();
+      },
+      error: (err) => {
+        this.busyId.set(null);
+        const msg = err?.error?.message ?? 'No se pudo actualizar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
+          duration: 3500,
+        });
+      },
+    });
+  }
+
+  acredit(order: StaffCustomerOrder): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canAcredit(order)) return;
+    this.busyId.set(order.id);
+    this.api.acreditPayment(shopId, order.id).subscribe({
       next: (updated) => {
         this.busyId.set(null);
         this.orders.update((list) =>
           list.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)),
         );
-        this.snack.open(`Pedido #${updated.code}: ${STATUS_LABEL[updated.status]}`, 'OK', {
+        this.snack.open(`Pedido #${updated.code}: pago acreditado`, 'OK', {
           duration: 2200,
         });
-        this.inbox.refresh();
-        if (
-          this.view() === 'board' &&
-          (status === 'COMPLETED' || status === 'CANCELLED')
-        ) {
-          this.orders.update((list) => list.filter((o) => o.id !== updated.id));
-        }
       },
       error: (err) => {
         this.busyId.set(null);
-        const msg = err?.error?.message ?? 'No se pudo actualizar';
+        const msg = err?.error?.message ?? 'No se pudo acreditar';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
+          duration: 3500,
+        });
+      },
+    });
+  }
+
+  desacredit(order: StaffCustomerOrder): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canDesacredit(order)) return;
+    this.busyId.set(order.id);
+    this.api.desacreditPayment(shopId, order.id).subscribe({
+      next: (updated) => {
+        this.busyId.set(null);
+        this.orders.update((list) =>
+          list.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)),
+        );
+        this.snack.open(`Pedido #${updated.code}: pago desacreditado`, 'OK', {
+          duration: 2200,
+        });
+      },
+      error: (err) => {
+        this.busyId.set(null);
+        const msg = err?.error?.message ?? 'No se pudo desacreditar';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 3500,
         });

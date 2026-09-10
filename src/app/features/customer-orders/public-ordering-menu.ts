@@ -75,13 +75,13 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     const c = this.config();
     if (!c) return false;
     if (this.staffMode()) return c.takeawayEnabled || c.deliveryEnabled;
-    if (this.dineInMode()) return !!c.tableOrderingOpen || !!c.tableOrderingEnabled;
     return !!(c.takeawayOpen || c.deliveryOpen);
   });
 
-  readonly dineInMode = computed(() => !this.staffMode() && !!this.dineIn.active());
-  readonly dineInTableLabel = computed(() => this.dineIn.tableLabel());
-  readonly dineInCovers = computed(() => this.dineIn.covers());
+  /** Pedido en mesa del cliente deshabilitado: /pedir es solo take away/delivery. */
+  readonly dineInMode = computed(() => false);
+  readonly dineInTableLabel = computed(() => null as string | null);
+  readonly dineInCovers = computed(() => null as number | null);
 
   @HostBinding('style.--accent')
   get hostAccent(): string {
@@ -135,7 +135,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
     this.cart.bindSlug(this.cartKey());
-    if (!this.staffMode()) this.dineIn.bindSlug(this.slug());
+    if (!this.staffMode()) {
+      this.dineIn.bindSlug(this.slug());
+      this.dineIn.clear();
+    }
     if (this.staffMode()) this.cart.clear();
     this.load();
   }

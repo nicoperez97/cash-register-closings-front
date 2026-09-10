@@ -87,6 +87,7 @@ export function statusLabel(status: CustomerOrderStatus): string {
 export function fulfillmentLabel(f: CustomerOrderFulfillment): string {
   if (f === 'DELIVERY') return 'Delivery';
   if (f === 'COUNTER') return 'Mostrador';
+  if (f === 'TABLE') return 'Mesa';
   return 'Retiro';
 }
 

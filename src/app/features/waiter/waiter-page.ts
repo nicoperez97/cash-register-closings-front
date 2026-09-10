@@ -9,8 +9,9 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 import { prettySection } from '../menu/menu-display';
 import { apiErrorMessage, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
 import {
@@ -54,10 +55,18 @@ function tokenKey(slug: string) {
 })
 export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly api = inject(WaiterApiService);
   private readonly title = inject(Title);
+  private readonly shopContext = inject(ShopContextService);
 
-  readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
+  /** Operación → Comanda (JWT, sin PIN). */
+  readonly staffMode = !!this.route.snapshot.data['staffComanda'];
+
+  private readonly slugSignal = signal(
+    String(this.route.snapshot.paramMap.get('slug') ?? '').trim(),
+  );
+  readonly slug = this.slugSignal.asReadonly();
   readonly view = signal<View>('login');
   readonly loading = signal(true);
   readonly busy = signal(false);
@@ -271,8 +280,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return this.view() === 'tables' && this.showMap();
   }
 
+  @HostBinding('class.staff-embedded')
+  get hostStaff(): boolean {
+    return this.staffMode;
+  }
+
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
+    if (this.staffMode) {
+      this.enterAsStaff();
+      return;
+    }
     const slug = this.slug();
     if (!slug) {
       this.loading.set(false);
@@ -304,6 +322,41 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.loading.set(false);
+  }
+
+  private enterAsStaff(): void {
+    const shop = this.shopContext.selectedShop();
+    const shopId = this.shopContext.selectedShopId();
+    if (!shopId || !shop) {
+      this.loading.set(false);
+      this.error.set('Seleccioná un local');
+      return;
+    }
+    this.title.setTitle(`Comanda · ${shop.name}`);
+    this.shopName.set(shop.name);
+    this.accent.set(shop.accentColor?.trim() || '#2e7d32');
+    this.busy.set(true);
+    this.error.set(null);
+    this.api.staffEnter(shopId).subscribe({
+      next: (res) => {
+        this.busy.set(false);
+        this.slugSignal.set(res.shop.slug);
+        localStorage.setItem(tokenKey(res.shop.slug), res.token);
+        this.token.set(res.token);
+        this.waiterName.set(res.waiter.fullName);
+        this.shopName.set(res.shop.name);
+        this.accent.set(res.shop.accentColor?.trim() || '#2e7d32');
+        this.title.setTitle(`Comanda · ${res.shop.name}`);
+        this.view.set('tables');
+        this.loadTables();
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.loading.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudo abrir la comanda'));
+        this.view.set('login');
+      },
+    });
   }
 
   private loadBootstrap(slug: string): void {
@@ -376,6 +429,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.token.set(null);
     this.session.set(null);
     this.lines.set([]);
+    if (this.staffMode) {
+      void this.router.navigate(['/']);
+      return;
+    }
     this.view.set('login');
   }
 

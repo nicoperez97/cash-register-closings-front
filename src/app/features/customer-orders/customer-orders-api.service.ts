@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
-export type CustomerOrderFulfillment = 'TAKEAWAY' | 'DELIVERY' | 'COUNTER';
+export type CustomerOrderFulfillment = 'TAKEAWAY' | 'DELIVERY' | 'COUNTER' | 'TABLE';
 export type CustomerOrderPaymentMethod = 'CASH' | 'TRANSFER';
 export type CustomerOrderStatus =
   | 'PENDING'
@@ -151,6 +151,8 @@ export interface StaffCustomerOrder extends PublicCustomerOrder {
   shopId: string;
   phone: string;
   cashAmount?: number | null;
+  /** ISO datetime cuando se acreditó el cobro. */
+  paymentAccreditedAt?: string | null;
   customerNotes?: string | null;
   deliveryZoneId?: string | null;
   updatedAt?: string | null;
@@ -207,6 +209,20 @@ export class CustomerOrdersApiService {
     return this.http.patch<StaffCustomerOrder>(
       `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}/status`,
       { status },
+    );
+  }
+
+  acreditPayment(shopId: string, id: string) {
+    return this.http.post<StaffCustomerOrder>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}/acredit`,
+      {},
+    );
+  }
+
+  desacreditPayment(shopId: string, id: string) {
+    return this.http.post<StaffCustomerOrder>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}/desacredit`,
+      {},
     );
   }
 }

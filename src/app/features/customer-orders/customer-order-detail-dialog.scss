@@ -1,0 +1,141 @@
+.cod__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.cod__status {
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--guy-green, #2e7d32);
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.cod {
+  display: grid;
+  gap: 0.85rem;
+  min-width: min(28rem, 86vw);
+  max-width: 36rem;
+}
+
+.cod__err {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, #b42318 10%, #fff);
+  color: #b42318;
+  font-size: 0.88rem;
+}
+
+.cod__block {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 70%, #fff);
+  border: 1px solid var(--guy-border, #d7e0d9);
+}
+
+.cod__block h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.cod__block p {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+}
+
+.cod__muted {
+  color: var(--guy-muted, #5f6f76);
+  font-size: 0.85rem !important;
+}
+
+.cod__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cod__item-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.cod__item-note {
+  margin: 0.1rem 0 0 !important;
+  font-size: 0.78rem !important;
+  color: #9a6700;
+}
+
+.cod__tag {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--guy-muted, #5f6f76);
+  margin-left: 0.25rem;
+}
+
+.cod__totals {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--guy-border, #d7e0d9);
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+}
+
+.cod__totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.cod__totals-strong {
+  font-weight: 800;
+  font-size: 1rem;
+  margin-top: 0.15rem;
+}
+
+.cod__ok {
+  margin-left: 0.4rem;
+  color: #1b5e20;
+  font-weight: 750;
+  font-size: 0.82rem;
+}
+
+.cod__pending {
+  margin-left: 0.4rem;
+  color: #9a3412;
+  font-weight: 750;
+  font-size: 0.82rem;
+}
+
+.cod__times {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.cod__actions {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
