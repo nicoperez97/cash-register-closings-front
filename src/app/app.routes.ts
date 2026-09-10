@@ -74,6 +74,14 @@ export const routes: Routes = [
     title: 'Pedir',
   },
   {
+    path: 'pedir/:slug/mesa',
+    loadComponent: () =>
+      import('./features/customer-orders/public-dine-in-floor').then(
+        (m) => m.PublicDineInFloorComponent,
+      ),
+    title: 'Elegí mesa',
+  },
+  {
     path: 'pedir/:slug/menu',
     loadComponent: () =>
       import('./features/customer-orders/public-ordering-menu').then(

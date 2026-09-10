@@ -77,11 +77,103 @@
         </nav>
       }
 
-      @for (_ of [sectorTab() ?? 'all']; track _) {
-        @if (busyBySector().length) {
-          <section class="section anim-in">
-            <h2 class="section__title">Ocupadas</h2>
-            @for (group of busyBySector(); track group.name) {
+      @if (hasMapLayout()) {
+        <div class="floor-mode anim-in" role="group" aria-label="Vista de mesas">
+          <button
+            type="button"
+            class="floor-mode__btn"
+            [class.floor-mode__btn--on]="showMap()"
+            (click)="setFloorMode('map')"
+          >
+            Mapa
+          </button>
+          <button
+            type="button"
+            class="floor-mode__btn"
+            [class.floor-mode__btn--on]="!showMap()"
+            (click)="setFloorMode('list')"
+          >
+            Lista
+          </button>
+        </div>
+      }
+
+      @if (showMap()) {
+        <div class="floor anim-in" aria-label="Mapa de mesas">
+          <div class="floor__bg" aria-hidden="true"></div>
+          @for (obj of mapObjectsVisible(); track obj.id) {
+            <div
+              class="floor__object"
+              [attr.data-kind]="obj.kind"
+              [style.left.%]="objectLeft(obj)"
+              [style.top.%]="objectTop(obj)"
+            >
+              <span class="floor__object-kind">{{ objectLabel(obj) }}</span>
+              <span class="floor__object-name">{{ obj.name }}</span>
+            </div>
+          }
+          @for (t of mapTables(); track t.id) {
+            <button
+              type="button"
+              class="floor__table"
+              [class.floor__table--busy]="!!t.openSession"
+              [class.floor__table--two]="t.seats === 2"
+              [style.left.%]="tableLeft(t)"
+              [style.top.%]="tableTop(t)"
+              [disabled]="busy()"
+              (click)="tapTable(t)"
+            >
+              <span class="floor__table-num">{{ t.label }}</span>
+              <span class="floor__table-cap">
+                @if (t.openSession; as os) {
+                  {{ os.covers ?? '—' }}p · {{ os.orderCount || 0 }}
+                } @else {
+                  Libre
+                }
+              </span>
+            </button>
+          }
+          @if (!mapTables().length) {
+            <p class="floor__empty">No hay mesas en este sector.</p>
+          }
+        </div>
+        <p class="floor-hint muted">Tocá una mesa libre u ocupada. La ocupación aparece tras el primer envío.</p>
+      } @else {
+        @for (_ of [sectorTab() ?? 'all']; track _) {
+          @if (busyBySector().length) {
+            <section class="section anim-in">
+              <h2 class="section__title">Ocupadas</h2>
+              @for (group of busyBySector(); track group.name) {
+                @if (showSectorLabels()) {
+                  <h3 class="section__sub">{{ group.name }}</h3>
+                }
+                <div class="tables">
+                  @for (t of group.tables; track t.id; let i = $index) {
+                    <button
+                      type="button"
+                      class="table table--busy anim-pop"
+                      [style.animation-delay.ms]="i * 40"
+                      (click)="tapTable(t)"
+                      [disabled]="busy()"
+                    >
+                      <strong>{{ t.label }}</strong>
+                      <span>{{ t.openSession?.covers ?? '—' }} pers.</span>
+                      <small>
+                        {{ t.openSession?.orderCount || 0 }} envíos
+                        @if (showSectorLabels()) {
+                          · {{ group.name }}
+                        }
+                      </small>
+                    </button>
+                  }
+                </div>
+              }
+            </section>
+          }
+
+          <section class="section anim-in anim-delay-1">
+            <h2 class="section__title">Libres</h2>
+            @for (group of freeBySector(); track group.name) {
               @if (showSectorLabels()) {
                 <h3 class="section__sub">{{ group.name }}</h3>
               }
@@ -89,53 +181,24 @@
                 @for (t of group.tables; track t.id; let i = $index) {
                   <button
                     type="button"
-                    class="table table--busy anim-pop"
-                    [style.animation-delay.ms]="i * 40"
+                    class="table anim-pop"
+                    [style.animation-delay.ms]="i * 35"
                     (click)="tapTable(t)"
                     [disabled]="busy()"
                   >
                     <strong>{{ t.label }}</strong>
-                    <span>{{ t.openSession?.covers ?? '—' }} pers.</span>
-                    <small>
-                      {{ t.openSession?.orderCount || 0 }} envíos
-                      @if (showSectorLabels()) {
-                        · {{ group.name }}
-                      }
-                    </small>
+                    <span>Libre</span>
+                    @if (showSectorLabels()) {
+                      <small>{{ group.name }}</small>
+                    }
                   </button>
                 }
               </div>
+            } @empty {
+              <p class="muted">No hay mesas libres.</p>
             }
           </section>
         }
-
-        <section class="section anim-in anim-delay-1">
-          <h2 class="section__title">Libres</h2>
-          @for (group of freeBySector(); track group.name) {
-            @if (showSectorLabels()) {
-              <h3 class="section__sub">{{ group.name }}</h3>
-            }
-            <div class="tables">
-              @for (t of group.tables; track t.id; let i = $index) {
-                <button
-                  type="button"
-                  class="table anim-pop"
-                  [style.animation-delay.ms]="i * 35"
-                  (click)="tapTable(t)"
-                  [disabled]="busy()"
-                >
-                  <strong>{{ t.label }}</strong>
-                  <span>Libre</span>
-                  @if (showSectorLabels()) {
-                    <small>{{ group.name }}</small>
-                  }
-                </button>
-              }
-            </div>
-          } @empty {
-            <p class="muted">No hay mesas libres.</p>
-          }
-        </section>
       }
     }
   } @else {

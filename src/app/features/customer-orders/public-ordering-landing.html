@@ -14,7 +14,13 @@
       @if (logoUrl()) {
         <img class="hero__logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
       }
-      <p class="hero__eyebrow">Pedidos online</p>
+      <p class="hero__eyebrow">
+        @if (c.shop.shopMode === 'RESTAURANTE') {
+          Pedidos en el local
+        } @else {
+          Pedidos online
+        }
+      </p>
       <h1>{{ c.shop.name }}</h1>
 
       @if (closed()) {
@@ -30,6 +36,14 @@
       }
 
       <div class="eta-row">
+        @if (c.tableOrderingEnabled) {
+          <span class="eta" [class.eta--off]="!c.tableOrderingOpen">
+            En mesa
+            @if (!c.tableOrderingOpen) {
+              <em>cerrado</em>
+            }
+          </span>
+        }
         @if (c.takeawayEnabled && c.eta?.takeaway) {
           <span class="eta" [class.eta--off]="!c.takeawayOpen">
             Retiro · {{ c.eta.takeaway }}
@@ -50,9 +64,30 @@
     </header>
 
     <nav class="actions">
-      <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
-        Elegí lo que quieras
-      </a>
+      @if (c.tableOrderingOpen) {
+        <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'mesa']">
+          Pedir en mesa
+        </a>
+      }
+
+      @if (c.takeawayOpen || c.deliveryOpen) {
+        <a
+          class="btn ord-press"
+          [class.btn--primary]="!c.tableOrderingOpen"
+          [class.btn--soft]="!!c.tableOrderingOpen"
+          [routerLink]="['/pedir', slug(), 'menu']"
+        >
+          @if (c.tableOrderingOpen) {
+            Para llevar o delivery
+          } @else {
+            Elegí lo que quieras
+          }
+        </a>
+      } @else if (!c.tableOrderingOpen) {
+        <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
+          Ver el menú
+        </a>
+      }
 
       @if (c.deliveryEnabled && c.deliveryZones.length) {
         <button type="button" class="btn btn--ghost ord-press" (click)="openZones()">
@@ -62,7 +97,7 @@
 
       <a class="btn btn--link ord-press" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
 
-      @if (cartCount() > 0 && c.anyChannelOpen) {
+      @if (cartCount() > 0 && (c.takeawayOpen || c.deliveryOpen)) {
         <a class="btn btn--soft ord-press" [routerLink]="['/pedir', slug(), 'checkout']">
           Seguir con el pedido ({{ cartCount() }})
         </a>

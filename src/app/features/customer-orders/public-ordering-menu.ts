@@ -14,6 +14,8 @@ import {
   PublicOrderingSection,
 } from './customer-orders-api.service';
 import { OrderingCartService } from './ordering-cart.service';
+import { DineInApiService } from './dine-in-api.service';
+import { DineInSessionService } from './dine-in-session.service';
 import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
 
 type View = 'categories' | 'items' | 'detail';
@@ -29,6 +31,8 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly api = inject(CustomerOrdersApiService);
   private readonly cart = inject(OrderingCartService);
+  private readonly dineInApi = inject(DineInApiService);
+  private readonly dineIn = inject(DineInSessionService);
   private readonly snack = inject(MatSnackBar);
   private readonly title = inject(Title);
   private readonly shops = inject(ShopContextService);
@@ -50,6 +54,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   });
 
   readonly loading = signal(true);
+  readonly sending = signal(false);
   readonly error = signal<string | null>(null);
   readonly config = signal<PublicOrderingConfig | null>(null);
 
@@ -70,8 +75,13 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     const c = this.config();
     if (!c) return false;
     if (this.staffMode()) return c.takeawayEnabled || c.deliveryEnabled;
-    return !!c.anyChannelOpen;
+    if (this.dineInMode()) return !!c.tableOrderingOpen || !!c.tableOrderingEnabled;
+    return !!(c.takeawayOpen || c.deliveryOpen);
   });
+
+  readonly dineInMode = computed(() => !this.staffMode() && !!this.dineIn.active());
+  readonly dineInTableLabel = computed(() => this.dineIn.tableLabel());
+  readonly dineInCovers = computed(() => this.dineIn.covers());
 
   @HostBinding('style.--accent')
   get hostAccent(): string {
@@ -125,6 +135,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
     this.cart.bindSlug(this.cartKey());
+    if (!this.staffMode()) this.dineIn.bindSlug(this.slug());
     if (this.staffMode()) this.cart.clear();
     this.load();
   }
@@ -261,6 +272,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       void this.router.navigate(['/customer-orders']);
       return;
     }
+    if (this.dineInMode()) {
+      void this.router.navigate(['/pedir', this.slug(), 'mesa']);
+      return;
+    }
     void this.router.navigate(['/pedir', this.slug()]);
   }
 
@@ -320,7 +335,58 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       void this.router.navigate(['/customer-orders/nuevo/checkout']);
       return;
     }
+    if (this.dineInMode()) {
+      this.sendDineInOrder();
+      return;
+    }
     void this.router.navigate(['/pedir', this.slug(), 'checkout']);
+  }
+
+  private sendDineInOrder(): void {
+    const slug = this.slug();
+    const token = this.dineIn.token();
+    if (!slug || !token || this.sending()) return;
+    const lines = this.cart.lines();
+    const items = lines
+      .filter((l) => l.kind !== 'EXTRA')
+      .map((l) => ({
+        menuItemId: l.menuItemId,
+        qty: l.qty,
+        notes: l.notes || null,
+        removedIngredients: l.removedIngredients?.length ? l.removedIngredients : undefined,
+      }));
+    const extras = lines
+      .filter((l) => l.kind === 'EXTRA' && l.extraId)
+      .map((l) => ({
+        extraId: String(l.extraId),
+        qty: l.qty,
+        attachedToMenuItemId: l.attachedToMenuItemId ?? null,
+      }));
+    if (!items.length) {
+      this.snack.open('Agregá al menos un plato', 'OK', { duration: 2500 });
+      return;
+    }
+    this.sending.set(true);
+    this.dineInApi
+      .createOrder(slug, token, {
+        items,
+        extras: extras.length ? extras : undefined,
+        printKitchen: true,
+      })
+      .subscribe({
+        next: () => {
+          this.sending.set(false);
+          this.cart.clear();
+          this.snack.open('Pedido enviado a cocina', 'OK', { duration: 2800 });
+          void this.router.navigate(['/pedir', slug, 'mesa']);
+        },
+        error: (err) => {
+          this.sending.set(false);
+          this.snack.open(apiErrorMessage(err, 'No se pudo enviar el pedido'), 'OK', {
+            duration: 4000,
+          });
+        },
+      });
   }
 
   money(n: number): string {

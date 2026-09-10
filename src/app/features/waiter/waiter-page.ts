@@ -16,6 +16,7 @@ import { apiErrorMessage, onAccentColor, orderingMoney } from '../customer-order
 import {
   WaiterApiService,
   WaiterCatalog,
+  WaiterMapObject,
   WaiterSession,
   WaiterTable,
 } from './waiter-api.service';
@@ -68,6 +69,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly shopName = signal('');
   readonly accent = signal('#2e7d32');
   readonly tables = signal<WaiterTable[]>([]);
+  readonly mapObjects = signal<WaiterMapObject[]>([]);
   readonly session = signal<WaiterSession | null>(null);
   readonly catalog = signal<WaiterCatalog | null>(null);
   readonly lines = signal<PosLine[]>([]);
@@ -87,6 +89,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   /** Tab de sector: null = Todos. */
   readonly sectorTab = signal<string | null>(null);
+
+  /** Lista forzada aunque haya coords (toggle). */
+  readonly forceList = signal(false);
 
   readonly onAccent = computed(() => onAccentColor(this.accent()));
   readonly lineCount = computed(() => this.lines().reduce((s, l) => s + l.qty, 0));
@@ -110,6 +115,31 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   );
 
   readonly showSectorLabels = computed(() => this.sectorTab() === null);
+
+  readonly hasMapLayout = computed(() =>
+    this.tables().some((t) => t.mapX != null && t.mapY != null),
+  );
+
+  readonly showMap = computed(() => this.hasMapLayout() && !this.forceList());
+
+  readonly mapTables = computed(() => {
+    const tab = this.sectorTab();
+    const list = this.tables();
+    if (!tab) return list;
+    return list.filter((t) => this.sectorNameOf(t) === tab);
+  });
+
+  readonly mapObjectsVisible = computed(() => {
+    const objects = this.mapObjects();
+    const tab = this.sectorTab();
+    if (!tab) return objects;
+    const sectorIds = new Set(
+      this.tables()
+        .filter((t) => this.sectorNameOf(t) === tab && t.sectorId)
+        .map((t) => String(t.sectorId)),
+    );
+    return objects.filter((o) => sectorIds.has(String(o.sectorId)));
+  });
 
   private sectorNameOf(t: WaiterTable): string {
     return (t.sectorName ?? '').trim() || (t.area === 'OUTSIDE' ? 'Afuera' : 'Adentro');
@@ -141,6 +171,32 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   setSectorTab(name: string | null): void {
     this.sectorTab.set(name);
+  }
+
+  setFloorMode(mode: 'map' | 'list'): void {
+    this.forceList.set(mode === 'list');
+  }
+
+  tableLeft(t: WaiterTable): number {
+    return t.mapX == null ? 50 : Number(t.mapX);
+  }
+
+  tableTop(t: WaiterTable): number {
+    return t.mapY == null ? 50 : Number(t.mapY);
+  }
+
+  objectLeft(o: WaiterMapObject): number {
+    return Number(o.mapX);
+  }
+
+  objectTop(o: WaiterMapObject): number {
+    return Number(o.mapY);
+  }
+
+  objectLabel(o: WaiterMapObject): string {
+    if (o.kind === 'barra') return 'Bar';
+    if (o.kind === 'arbol') return 'Árb';
+    return 'Obj';
   }
 
   readonly sections = computed(() => {
@@ -210,6 +266,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return this.view() === 'session';
   }
 
+  @HostBinding('class.view-map')
+  get hostMap(): boolean {
+    return this.view() === 'tables' && this.showMap();
+  }
+
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
     const slug = this.slug();
@@ -218,6 +279,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.error.set('Local no encontrado');
       return;
     }
+    this.title.setTitle(`Mozo · ${slug}`);
+    this.loadBootstrap(slug);
+
     const saved = localStorage.getItem(tokenKey(slug));
     if (saved) {
       this.token.set(saved);
@@ -240,7 +304,21 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.loading.set(false);
-    this.title.setTitle(`Mozo · ${slug}`);
+  }
+
+  private loadBootstrap(slug: string): void {
+    this.api.bootstrap(slug).subscribe({
+      next: (res) => {
+        this.shopName.set(res.shop.name);
+        this.accent.set(res.shop.accentColor?.trim() || '#2e7d32');
+        this.title.setTitle(`Mozo · ${res.shop.name}`);
+      },
+      error: (err) => {
+        if (!this.token()) {
+          this.error.set(apiErrorMessage(err, 'Local no encontrado o comanda desactivada'));
+        }
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -308,8 +386,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set(null);
     this.api.tables(slug, token).subscribe({
-      next: (rows) => {
+      next: (floor) => {
+        const rows = floor?.tables ?? [];
         this.tables.set(rows);
+        this.mapObjects.set(floor?.mapObjects ?? []);
         const tab = this.sectorTab();
         if (tab) {
           const names = new Set(

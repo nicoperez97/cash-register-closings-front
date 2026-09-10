@@ -1,0 +1,157 @@
+@if (error(); as err) {
+  <div class="page page--error">
+    <p>{{ err }}</p>
+    <button type="button" class="btn btn--ghost" (click)="load()">Reintentar</button>
+    <a class="btn btn--link" [routerLink]="['/pedir', slug()]">Volver</a>
+  </div>
+} @else if (loading()) {
+  <div class="page page--loading"><p>Cargando mesas…</p></div>
+} @else if (floor(); as f) {
+  <div class="page">
+    <header class="top">
+      <a class="back" [routerLink]="['/pedir', slug()]" aria-label="Volver">‹</a>
+      <div class="top__mid">
+        @if (logoUrl()) {
+          <img class="top__logo" [src]="logoUrl()!" [alt]="f.shop.name" (error)="onLogoError()" />
+        }
+        <div class="top__copy">
+          <p class="top__shop">{{ f.shop.name }}</p>
+          <h1>Elegí tu mesa</h1>
+        </div>
+      </div>
+    </header>
+
+    @if (activeSession(); as s) {
+      <div class="resume">
+        <div>
+          <strong>Mesa {{ s.tableLabel }}</strong>
+          <p>{{ s.covers }} comensales · pedí desde el menú</p>
+        </div>
+        <div class="resume__actions">
+          <button type="button" class="btn btn--primary" (click)="continueSession()">Continuar</button>
+          <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="leaveSession()">
+            Dejar mesa
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (sectors().length > 1) {
+      <div class="tabs" role="tablist">
+        <button
+          type="button"
+          class="tabs__btn"
+          [class.tabs__btn--on]="sectorFilter() === 'ALL'"
+          (click)="sectorFilter.set('ALL')"
+        >
+          Todos
+        </button>
+        @for (sec of sectors(); track sec.id) {
+          <button
+            type="button"
+            class="tabs__btn"
+            [class.tabs__btn--on]="sectorFilter() === sec.id"
+            (click)="sectorFilter.set(sec.id)"
+          >
+            {{ sec.name }}
+          </button>
+        }
+      </div>
+    }
+
+    @if (hasMapLayout()) {
+      <div class="map" aria-label="Mapa de mesas">
+        <div class="map__floor" aria-hidden="true"></div>
+        @for (obj of visibleObjects(); track obj.id) {
+          <div
+            class="map__object"
+            [attr.data-kind]="obj.kind"
+            [style.left.%]="objectLeft(obj)"
+            [style.top.%]="objectTop(obj)"
+          >
+            <span class="map__object-icon">{{ objectIcon(obj.kind) }}</span>
+            <span class="map__object-name">{{ obj.name }}</span>
+          </div>
+        }
+        @for (t of visibleTables(); track t.id) {
+          <button
+            type="button"
+            class="map__table"
+            [class.map__table--busy]="t.occupied"
+            [class.map__table--mine]="activeSession()?.tableId === t.id"
+            [class.map__table--two]="t.seats === 2"
+            [style.left.%]="tableLeft(t)"
+            [style.top.%]="tableTop(t)"
+            [disabled]="busy() || (t.occupied && activeSession()?.tableId !== t.id)"
+            (click)="selectTable(t)"
+          >
+            <span class="map__table-num">{{ t.label }}</span>
+            <span class="map__table-cap">
+              @if (t.occupied) {
+                Ocupada
+              } @else {
+                {{ t.seats }}p
+              }
+            </span>
+          </button>
+        }
+      </div>
+    } @else {
+      <ul class="grid">
+        @for (t of visibleTables(); track t.id) {
+          <li>
+            <button
+              type="button"
+              class="tile"
+              [class.tile--busy]="t.occupied"
+              [class.tile--mine]="activeSession()?.tableId === t.id"
+              [disabled]="busy() || (t.occupied && activeSession()?.tableId !== t.id)"
+              (click)="selectTable(t)"
+            >
+              <strong>{{ t.label }}</strong>
+              <span>
+                @if (t.occupied) {
+                  Ocupada
+                } @else {
+                  {{ t.seats }} personas
+                }
+              </span>
+              @if (t.sectorName) {
+                <em>{{ t.sectorName }}</em>
+              }
+            </button>
+          </li>
+        } @empty {
+          <li class="empty">No hay mesas cargadas para pedir en el salón.</li>
+        }
+      </ul>
+    }
+
+    <p class="hint">Tocá una mesa libre, indicá comensales y armá el pedido. La mesa se ocupa al enviar.</p>
+  </div>
+}
+
+@if (coversSheet(); as table) {
+  <div class="mask" (click)="closeCovers()">
+    <div class="sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <h2>Mesa {{ table.label }}</h2>
+      <p class="muted">¿Cuántos comensales?</p>
+      <div class="covers">
+        <button type="button" class="covers__btn" (click)="bumpCovers(-1)">−</button>
+        <input
+          type="number"
+          min="1"
+          max="30"
+          [ngModel]="coversDraft()"
+          (ngModelChange)="coversDraft.set(+$event || 1)"
+          name="covers"
+        />
+        <button type="button" class="covers__btn" (click)="bumpCovers(1)">+</button>
+      </div>
+      <button type="button" class="btn btn--primary" [disabled]="busy()" (click)="confirmCovers()">
+        Seguir al menú
+      </button>
+      <button type="button" class="btn btn--ghost" (click)="closeCovers()">Cancelar</button>
+    </div>
+  </div>
+}

@@ -26,12 +26,26 @@ export type WaiterTable = {
   mapY?: number | null;
   openSession: {
     id: string;
-    waiterEmployeeId: string;
+    waiterEmployeeId: string | null;
     openedAt: string;
     covers?: number;
     orderCount?: number;
     customerTicketPrinted?: boolean;
   } | null;
+};
+
+export type WaiterMapObject = {
+  id: string;
+  sectorId: string;
+  kind: string;
+  name: string;
+  mapX: number;
+  mapY: number;
+};
+
+export type WaiterFloor = {
+  tables: WaiterTable[];
+  mapObjects: WaiterMapObject[];
 };
 
 export type WaiterSessionOrder = {
@@ -109,6 +123,18 @@ export class WaiterApiService {
     );
   }
 
+  bootstrap(slug: string) {
+    return this.http.get<{
+      shop: {
+        id: string;
+        name: string;
+        slug: string;
+        logoUrl?: string | null;
+        accentColor?: string | null;
+      };
+    }>(`${this.base}/public/shops/${encodeURIComponent(slug)}/waiter`);
+  }
+
   me(slug: string, token: string) {
     return this.http.get<Omit<WaiterLoginResult, 'token'>>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/me`,
@@ -124,7 +150,7 @@ export class WaiterApiService {
   }
 
   tables(slug: string, token: string) {
-    return this.http.get<WaiterTable[]>(
+    return this.http.get<WaiterFloor>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/tables`,
       this.authHeaders(token),
     );

@@ -144,6 +144,12 @@ h1 {
   color: var(--ink);
 }
 
+.banner--table {
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+  color: var(--ink);
+}
+
 :host.staff-ordering {
   min-height: auto;
 }
