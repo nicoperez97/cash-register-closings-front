@@ -225,6 +225,9 @@ export class AccountMovementsDialogComponent {
       key: 'amountUyu',
       label: 'Monto',
       format: (r) => this.signedMoney(r as Movement),
+      totalize: true,
+      totalValue: (r) => this.signedAmount(r as Movement),
+      totalFormat: (sum) => formatMoney(sum, { spaced: true }),
     },
     {
       key: 'source',
@@ -306,9 +309,12 @@ export class AccountMovementsDialogComponent {
   }
 
   private signedMoney(m: Movement): string {
+    return formatMoney(this.signedAmount(m), { spaced: true });
+  }
+
+  private signedAmount(m: Movement): number {
     const amt = Number(m.amountUyu ?? 0);
-    const signed = m.fromAccountId === this.data.accountId ? -amt : amt;
-    return formatMoney(signed, { spaced: true });
+    return m.fromAccountId === this.data.accountId ? -amt : amt;
   }
 
   private formatDate(d: Date | null): string | null {

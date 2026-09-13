@@ -18,6 +18,7 @@ import {
   PAGE_SIZE_OPTIONS,
   paginateClient,
 } from '../utils/pagination';
+import { formatMoney } from '../utils/money';
 
 const MOBILE_VIEW_KEY = 'crc.dataTable.mobileView';
 
@@ -49,6 +50,12 @@ export interface DataTableColumn {
   userIdKey?: string;
   avatarUrlKey?: string;
   hasAvatarKey?: string;
+  /** Suma esta columna sobre las filas filtradas y la muestra en el pie. */
+  totalize?: boolean;
+  /** Valor numérico a sumar (default: `Number(row[key])`). */
+  totalValue?: (row: any) => number;
+  /** Formato del total del pie. */
+  totalFormat?: (sum: number) => string;
 }
 
 @Component({
@@ -173,6 +180,9 @@ export interface DataTableColumn {
                       (change)="toggleRow(row, $event.checked)"
                     />
                   </td>
+                  @if (showTotals()) {
+                    <td mat-footer-cell *matFooterCellDef class="data-table__select-col"></td>
+                  }
                 </ng-container>
               }
               @for (col of columns(); track col.key; let i = $index) {
@@ -220,6 +230,23 @@ export interface DataTableColumn {
                       {{ cellValue(row, col) }}
                     }
                   </td>
+                  @if (showTotals()) {
+                    <td
+                      mat-footer-cell
+                      *matFooterCellDef
+                      class="data-table__footer-cell"
+                      [class.data-table__footer-cell--total]="!!col.totalize"
+                    >
+                      @if (i === 0) {
+                        <span class="data-table__total-label">
+                          Total · {{ filteredRows().length }}
+                        </span>
+                      }
+                      @if (col.totalize) {
+                        {{ formatColumnTotal(col) }}
+                      }
+                    </td>
+                  }
                 </ng-container>
               }
               @if (showActions()) {
@@ -301,6 +328,9 @@ export interface DataTableColumn {
                       </button>
                     }
                   </td>
+                  @if (showTotals()) {
+                    <td mat-footer-cell *matFooterCellDef class="data-table__footer-cell"></td>
+                  }
                 </ng-container>
               }
               <tr mat-header-row *matHeaderRowDef="displayed()"></tr>
@@ -312,6 +342,13 @@ export interface DataTableColumn {
                 [class.data-table__row--selected]="selectable() && isSelected(row)"
                 (click)="onRowClick(row)"
               ></tr>
+              @if (showTotals()) {
+                <tr
+                  mat-footer-row
+                  *matFooterRowDef="displayed(); sticky: true"
+                  class="data-table__footer-row"
+                ></tr>
+              }
             </table>
           </div>
 
@@ -448,6 +485,17 @@ export interface DataTableColumn {
               </article>
             }
           </div>
+          @if (showTotals() && filteredRows().length) {
+            <div class="data-table__mobile-totals" aria-label="Totales">
+              <span class="data-table__total-label">Total · {{ filteredRows().length }}</span>
+              @for (col of totalizeColumns(); track col.key) {
+                <span class="data-table__mobile-total">
+                  <span class="data-table__mobile-total-label">{{ col.label }}</span>
+                  <strong>{{ formatColumnTotal(col) }}</strong>
+                </span>
+              }
+            </div>
+          }
         }
       </div>
 
@@ -952,6 +1000,53 @@ export interface DataTableColumn {
         background: transparent;
       }
 
+      .data-table__footer-row .mat-mdc-footer-cell,
+      .data-table__footer-cell {
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 85%, #fff);
+        border-top: 1px solid var(--guy-border, #d7e0d9);
+        font-weight: 750;
+        color: var(--guy-navy, #003366);
+        white-space: nowrap;
+      }
+
+      .data-table__footer-cell--total {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .data-table__total-label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .data-table__mobile-totals {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.55rem 1rem;
+        margin-top: 0.65rem;
+        padding: 0.7rem 0.85rem;
+        border-radius: 10px;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 85%, #fff);
+      }
+
+      .data-table__mobile-total {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .data-table__mobile-total-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--guy-muted, #5f6f76);
+      }
+
       .mat-sort-header-container {
         justify-content: flex-start;
       }
@@ -1067,6 +1162,21 @@ export class DataTableComponent {
   });
 
   readonly hasStickyColumns = computed(() => this.columns().some((c) => c.sticky));
+
+  readonly showTotals = computed(() => this.columns().some((c) => !!c.totalize));
+
+  readonly totalizeColumns = computed(() => this.columns().filter((c) => !!c.totalize));
+
+  formatColumnTotal(col: DataTableColumn): string {
+    const rows = this.filteredRows();
+    let sum = 0;
+    for (const row of rows) {
+      const raw = col.totalValue ? col.totalValue(row) : Number(row?.[col.key]);
+      if (Number.isFinite(raw)) sum += raw;
+    }
+    if (col.totalFormat) return col.totalFormat(sum);
+    return formatMoney(sum, { spaced: true });
+  }
 
   /** Keep checkbox aligned with sticky data columns while scrolling. */
   readonly stickySelect = computed(() => this.selectable() && this.hasStickyColumns());
