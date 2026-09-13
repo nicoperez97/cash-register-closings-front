@@ -19,6 +19,11 @@
     ),
     linear-gradient(180deg, #e8ece8 0%, var(--paper) 42%, #eef1ee 100%);
   background-attachment: fixed;
+
+  /* Evita el azul de sistema de <button> en iOS/Android; el accent del local manda. */
+  button {
+    color: inherit;
+  }
 }
 
 :host.staff-embedded {
@@ -225,8 +230,9 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--sheet);
+  border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 28%, var(--line));
+  background: color-mix(in srgb, var(--accent, #2e7d32) 10%, var(--sheet));
+  color: var(--accent, #2e7d32);
   font-size: 1.2rem;
   cursor: pointer;
 }
@@ -443,12 +449,18 @@
   font-size: 1.05rem;
   font-weight: 850;
   letter-spacing: -0.02em;
+  color: var(--accent, #2e7d32);
 }
 
 .floor__table-cap {
   font-size: 0.62rem;
   font-weight: 750;
   color: var(--muted);
+}
+
+.floor__table--busy .floor__table-num,
+.floor__table--busy .floor__table-cap {
+  color: var(--ink);
 }
 
 .floor__object {
@@ -526,6 +538,7 @@
   display: grid;
   gap: 0.12rem;
   text-align: center;
+  color: var(--ink);
   cursor: pointer;
   box-shadow: 0 6px 18px color-mix(in srgb, var(--accent, #2e7d32) 7%, transparent);
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
@@ -537,6 +550,7 @@
   strong {
     font-size: 1.45rem;
     letter-spacing: -0.02em;
+    color: var(--accent, #2e7d32);
   }
 
   span {
@@ -553,6 +567,10 @@
   &--busy {
     border-color: color-mix(in srgb, #c2410c 40%, var(--line));
     background: color-mix(in srgb, #c2410c 8%, #fff);
+
+    strong {
+      color: #9a3412;
+    }
 
     span {
       color: #9a3412;

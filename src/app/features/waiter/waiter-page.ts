@@ -12,6 +12,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { ThemeService } from '../../core/theme/theme.service';
 import { prettySection } from '../menu/menu-display';
 import { apiErrorMessage, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
 import {
@@ -59,6 +60,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(WaiterApiService);
   private readonly title = inject(Title);
   private readonly shopContext = inject(ShopContextService);
+  private readonly theme = inject(ThemeService);
 
   /** Operación → Comanda (JWT, sin PIN). */
   readonly staffMode = !!this.route.snapshot.data['staffComanda'];
@@ -76,7 +78,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly token = signal<string | null>(null);
   readonly waiterName = signal('');
   readonly shopName = signal('');
-  readonly accent = signal('#2e7d32');
+  readonly accent = signal(this.theme.accent());
   readonly tables = signal<WaiterTable[]>([]);
   readonly mapObjects = signal<WaiterMapObject[]>([]);
   readonly session = signal<WaiterSession | null>(null);
@@ -307,7 +309,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         next: (me) => {
           this.waiterName.set(me.waiter.fullName);
           this.shopName.set(me.shop.name);
-          this.accent.set(me.shop.accentColor?.trim() || '#2e7d32');
+          this.accent.set(this.resolveAccent(me.shop.accentColor));
           this.title.setTitle(`Mozo · ${me.shop.name}`);
           this.view.set('tables');
           this.loadTables();
@@ -324,6 +326,12 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.loading.set(false);
   }
 
+  private resolveAccent(raw?: string | null): string {
+    const fromShop = raw?.trim();
+    if (fromShop) return fromShop;
+    return this.shopContext.accentColor() || this.theme.accent() || '#2e7d32';
+  }
+
   private enterAsStaff(): void {
     const shop = this.shopContext.selectedShop();
     const shopId = this.shopContext.selectedShopId();
@@ -334,7 +342,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     }
     this.title.setTitle(`Comanda · ${shop.name}`);
     this.shopName.set(shop.name);
-    this.accent.set(shop.accentColor?.trim() || '#2e7d32');
+    this.accent.set(this.resolveAccent(shop.accentColor));
     this.busy.set(true);
     this.error.set(null);
     this.api.staffEnter(shopId).subscribe({
@@ -345,7 +353,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.token.set(res.token);
         this.waiterName.set(res.waiter.fullName);
         this.shopName.set(res.shop.name);
-        this.accent.set(res.shop.accentColor?.trim() || '#2e7d32');
+        this.accent.set(this.resolveAccent(res.shop.accentColor));
         this.title.setTitle(`Comanda · ${res.shop.name}`);
         this.view.set('tables');
         this.loadTables();
@@ -363,7 +371,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.api.bootstrap(slug).subscribe({
       next: (res) => {
         this.shopName.set(res.shop.name);
-        this.accent.set(res.shop.accentColor?.trim() || '#2e7d32');
+        this.accent.set(this.resolveAccent(res.shop.accentColor));
         this.title.setTitle(`Mozo · ${res.shop.name}`);
       },
       error: (err) => {
@@ -410,7 +418,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         localStorage.setItem(tokenKey(slug), res.token);
         this.waiterName.set(res.waiter.fullName);
         this.shopName.set(res.shop.name);
-        this.accent.set(res.shop.accentColor?.trim() || '#2e7d32');
+        this.accent.set(this.resolveAccent(res.shop.accentColor));
         this.title.setTitle(`Mozo · ${res.shop.name}`);
         this.pin.set('');
         this.view.set('tables');

@@ -499,6 +499,9 @@ export class MovementsListPage {
         key: 'amountUyu',
         label: 'Monto',
         format: (r) => formatMoney(r['amountUyu'], { spaced: true }),
+        totalize: true,
+        totalValue: (r) => Number(r['amountUyu'] ?? 0),
+        totalFormat: (sum) => formatMoney(sum, { spaced: true }),
       },
       { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
       ...(this.kind() === 'expense' || this.kind() === 'all'
