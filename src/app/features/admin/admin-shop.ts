@@ -488,12 +488,36 @@ export class AdminShopPage implements OnInit {
         name: [''],
         fee: [0],
         note: [''],
+        polygonText: [''],
+        color: [''],
       }),
     );
   }
 
   removeDeliveryZone(index: number): void {
     this.deliveryZones.removeAt(index);
+  }
+
+  private polygonToText(polygon?: Array<{ lat: number; lng: number }> | null): string {
+    if (!polygon?.length) return '';
+    return polygon.map((p) => `${p.lat},${p.lng}`).join('\n');
+  }
+
+  private textToPolygon(raw: string): Array<{ lat: number; lng: number }> | null {
+    const pts: Array<{ lat: number; lng: number }> = [];
+    for (const line of raw.split(/[\n;]+/)) {
+      const parts = line
+        .trim()
+        .split(/[,|\s]+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      if (parts.length < 2) continue;
+      const lat = Number(parts[0]);
+      const lng = Number(parts[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      pts.push({ lat, lng });
+    }
+    return pts.length >= 3 ? pts : null;
   }
 
   addOrderingExtra(): void {
@@ -751,6 +775,8 @@ export class AdminShopPage implements OnInit {
       name: string;
       fee: number;
       note?: string | null;
+      polygon?: Array<{ lat: number; lng: number }> | null;
+      color?: string | null;
     }> | null;
     orderingExtras?: Array<{
       id?: string;
@@ -822,6 +848,8 @@ export class AdminShopPage implements OnInit {
           name: [z.name ?? ''],
           fee: [Number(z.fee) || 0],
           note: [z.note ?? ''],
+          polygonText: [this.polygonToText(z.polygon)],
+          color: [z.color ?? ''],
         }),
       );
     }
@@ -1357,12 +1385,16 @@ export class AdminShopPage implements OnInit {
         name: string;
         fee: number;
         note?: string;
+        polygonText?: string;
+        color?: string;
       }>)
         .map((z) => ({
           id: z.id || undefined,
           name: String(z.name ?? '').trim(),
           fee: Number(z.fee) || 0,
           note: String(z.note ?? '').trim() || null,
+          polygon: this.textToPolygon(String(z.polygonText ?? '')),
+          color: String(z.color ?? '').trim() || null,
         }))
         .filter((z) => !!z.name),
       orderingEta: {

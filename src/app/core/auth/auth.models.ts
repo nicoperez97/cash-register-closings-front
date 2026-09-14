@@ -938,6 +938,8 @@ export interface ShopSummary {
     name: string;
     fee: number;
     note?: string | null;
+    polygon?: Array<{ lat: number; lng: number }> | null;
+    color?: string | null;
   }> | null;
   orderingEta?: {
     takeaway?: string | null;

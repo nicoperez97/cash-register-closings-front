@@ -15,6 +15,11 @@ import {
 import { OrderingCartService } from './ordering-cart.service';
 import { rememberOrderPhone } from './public-order-session';
 import {
+  DeliveryMapPickerComponent,
+  DeliveryMapSelection,
+} from './delivery-map-picker';
+import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
+import {
   apiErrorMessage,
   fulfillmentLabel,
   onAccentColor,
@@ -25,7 +30,7 @@ import {
 
 @Component({
   selector: 'app-public-ordering-checkout',
-  imports: [FormsModule, RouterLink, MatSnackBarModule],
+  imports: [FormsModule, RouterLink, MatSnackBarModule, DeliveryMapPickerComponent],
   templateUrl: './public-ordering-checkout.html',
   styleUrl: './public-ordering-checkout.scss',
 })
@@ -62,17 +67,30 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   readonly formError = signal<string | null>(null);
   readonly config = signal<PublicOrderingConfig | null>(null);
   readonly pickingFulfillment = signal(false);
+  readonly mapOpen = signal(false);
+  readonly addressSheetOpen = signal(false);
 
   readonly fulfillment = signal<CustomerOrderFulfillment | ''>('');
   readonly deliveryZoneId = signal('');
   readonly paymentMethod = signal<CustomerOrderPaymentMethod | ''>('');
+  readonly mapPoint = signal<LatLng | null>(null);
 
-  address = '';
+  addressStreet = '';
+  addressNumber = '';
+  addressBetween = '';
+  addressDetails = '';
+  addressLabel = '';
   cashAmount: number | null = null;
   firstName = '';
   lastName = '';
   phone = '';
   customerNotes = '';
+
+  /** Borrador del sheet post-mapa. */
+  sheetStreet = '';
+  sheetNumber = '';
+  sheetBetween = '';
+  sheetDetails = '';
 
   readonly shop = computed(() => this.config()?.shop ?? null);
   readonly accent = computed(() => this.shop()?.accentColor?.trim() || '#2e7d32');
@@ -125,6 +143,32 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   );
 
   readonly total = computed(() => this.cart.subtotal() + this.deliveryFee());
+
+  readonly hasMapZones = computed(() =>
+    (this.config()?.deliveryZones ?? []).some((z) => (z.polygon?.length ?? 0) >= 3),
+  );
+
+  deliveryAddressText(): string {
+    return composeDeliveryAddress({
+      street: this.addressStreet,
+      number: this.addressNumber,
+      betweenStreets: this.addressBetween,
+      details: this.addressDetails,
+    });
+  }
+
+  readonly helpWhatsappUrl = computed(() => {
+    const raw =
+      this.config()?.payments?.whatsapp?.trim() ||
+      this.config()?.shop?.phone?.trim() ||
+      '';
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length < 8) return null;
+    const text = encodeURIComponent(
+      `Hola, necesito ayuda para cargar mi domicilio en el pedido de ${this.config()?.shop?.name ?? 'su local'}.`,
+    );
+    return `https://wa.me/${digits}?text=${text}`;
+  });
 
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
@@ -203,7 +247,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     this.pickingFulfillment.set(false);
     if (f !== 'DELIVERY') {
       this.deliveryZoneId.set('');
-      this.address = '';
+      this.clearDeliveryAddress();
     }
   }
 
@@ -217,6 +261,65 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
   onZoneChange(id: string): void {
     this.deliveryZoneId.set(id);
+  }
+
+  openMapPicker(): void {
+    this.addressSheetOpen.set(false);
+    this.mapOpen.set(true);
+    queueMicrotask(() => {
+      document.querySelector('app-delivery-map-picker')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+  }
+
+  closeMapPicker(): void {
+    this.mapOpen.set(false);
+  }
+
+  onMapSelected(sel: DeliveryMapSelection): void {
+    this.mapOpen.set(false);
+    this.mapPoint.set(sel.point);
+    if (sel.zone) this.deliveryZoneId.set(sel.zone.id);
+    this.sheetStreet = sel.street || '';
+    this.sheetNumber = sel.number || '';
+    this.sheetBetween = this.addressBetween;
+    this.sheetDetails = this.addressDetails;
+    this.addressLabel = sel.label;
+    this.addressSheetOpen.set(true);
+  }
+
+  backToMapFromSheet(): void {
+    this.addressSheetOpen.set(false);
+    this.mapOpen.set(true);
+  }
+
+  confirmAddressSheet(): void {
+    const street = this.sheetStreet.trim();
+    const number = this.sheetNumber.trim();
+    if (street.length < 2) {
+      this.snack.open('Completá la calle', 'OK', { duration: 2500 });
+      return;
+    }
+    if (!number) {
+      this.snack.open('Completá el número', 'OK', { duration: 2500 });
+      return;
+    }
+    this.addressStreet = street;
+    this.addressNumber = number;
+    this.addressBetween = this.sheetBetween.trim();
+    this.addressDetails = this.sheetDetails.trim();
+    this.addressSheetOpen.set(false);
+  }
+
+  private clearDeliveryAddress(): void {
+    this.addressStreet = '';
+    this.addressNumber = '';
+    this.addressBetween = '';
+    this.addressDetails = '';
+    this.addressLabel = '';
+    this.mapPoint.set(null);
   }
 
   bumpLine(
@@ -308,11 +411,11 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     }
     if (fulfillment === 'DELIVERY') {
       if (!this.deliveryZoneId()) {
-        this.formError.set('Seleccioná una zona de entrega.');
+        this.formError.set('Seleccioná una zona de entrega (podés hacerlo desde el mapa).');
         return;
       }
-      if (this.address.trim().length < 5) {
-        this.formError.set('Ingresá la dirección de entrega.');
+      if (this.deliveryAddressText().trim().length < 5) {
+        this.formError.set('Completá el domicilio de entrega.');
         return;
       }
     }
@@ -361,7 +464,12 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     };
     if (fulfillment === 'DELIVERY') {
       body.deliveryZoneId = this.deliveryZoneId();
-      body.address = this.address.trim();
+      body.address = composeDeliveryAddress({
+        street: this.addressStreet,
+        number: this.addressNumber,
+        betweenStreets: this.addressBetween,
+        details: this.addressDetails,
+      });
     }
     if (paymentMethod === 'CASH') {
       body.cashAmount = Number(this.cashAmount);
