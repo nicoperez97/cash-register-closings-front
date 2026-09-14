@@ -28,6 +28,9 @@
     calc(2.5rem + env(safe-area-inset-bottom, 0px));
   display: grid;
   gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .page--error,
@@ -108,6 +111,10 @@ h2 {
   padding: 1rem;
   box-shadow: 0 8px 24px rgba(28, 40, 30, 0.05);
   animation: ord-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .page > .card:nth-of-type(1) {
@@ -255,17 +262,27 @@ h2 {
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--muted);
+  min-width: 0;
 }
 
 .pair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.55rem;
+  min-width: 0;
+}
+
+.pair .field {
+  margin-top: 0.75rem;
 }
 
 input,
 select,
 textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0.7rem 0.8rem;
@@ -372,6 +389,101 @@ textarea:focus {
   color: var(--accent, #2e7d32);
 }
 
+.deliv {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+
+.deliv__label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.map-btn {
+  width: 100%;
+  margin-top: 0;
+}
+
+.addr-card__actions .btn {
+  margin-top: 0;
+}
+
+.zone-chip {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 10%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 28%, var(--line));
+  color: var(--accent, #2e7d32);
+  font-weight: 750;
+  font-size: 0.88rem;
+}
+
+.linkish--block {
+  display: inline-block;
+  margin-top: 0.15rem;
+}
+
+.addr-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent, #2e7d32) 4%, #fff);
+}
+
+.addr-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--accent, #2e7d32);
+  }
+}
+
+.addr-card__x {
+  border: 0;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.addr-card__zone {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 10%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 22%, var(--line));
+
+  span {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  strong {
+    color: var(--accent, #2e7d32);
+    font-size: 0.9rem;
+  }
+}
+
+.addr-card__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .top,
   .card,
@@ -384,3 +496,5 @@ textarea:focus {
     transform: none;
   }
 }
+
+

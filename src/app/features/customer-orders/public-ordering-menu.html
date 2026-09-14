@@ -16,16 +16,14 @@
         <div class="top__copy">
           <p class="top__shop">{{ c.shop.name }}</p>
           <h1>
-            @if (view() === 'categories') {
+            @if (view() === 'menu') {
               @if (staffMode()) {
                 Pedido mostrador
               } @else if (dineInMode()) {
                 Mesa {{ dineInTableLabel() }}
               } @else {
-                Categorías
+                Menú
               }
-            } @else if (view() === 'items') {
-              {{ section()?.name }}
             } @else {
               {{ item()?.name }}
             }
@@ -55,53 +53,62 @@
       <p class="banner">Estamos cerrados. Podés mirar el menú; no se pueden agregar ítems ahora.</p>
     }
 
-    @if (view() === 'categories') {
-      <ul class="list">
-        @for (sec of sections(); track sec.name) {
-          <li>
-            <article class="cat">
-              <div class="cat__body">
-                <strong>{{ sec.name }}</strong>
-                <p>{{ sectionPreview(sec) }}</p>
-              </div>
-              <button type="button" class="cat__ver ord-press" (click)="openSection(sec)">Ver</button>
-            </article>
-          </li>
-        } @empty {
-          <li class="empty">No hay ítems disponibles para pedir.</li>
-        }
-      </ul>
-    }
+    @if (view() === 'menu') {
+      @if (sections().length > 1) {
+        <nav class="sec-tabs" aria-label="Categorías">
+          @for (sec of sections(); track sec.name; let i = $index) {
+            <button
+              type="button"
+              class="sec-tabs__btn"
+              [attr.data-sec]="sectionDomId(i)"
+              [class.sec-tabs__btn--on]="activeSectionId() === sectionDomId(i)"
+              (click)="scrollToSection(i)"
+            >
+              {{ sec.name }}
+            </button>
+          }
+        </nav>
+      }
 
-    @if (view() === 'items' && section(); as sec) {
-      <ul class="list">
-        @for (it of sec.items; track it.id) {
-          <li>
-            <article class="item" [class.item--photo]="!!itemPhoto(it)">
-              <div class="item__main">
-                <div class="item__body">
-                  <strong class="item__name">{{ it.name }}</strong>
-                  @if (it.description) {
-                    <p class="item__desc">{{ it.description }}</p>
+      @for (sec of sections(); track sec.name; let i = $index) {
+        <section
+          class="menu-sec"
+          [id]="sectionDomId(i)"
+          [attr.data-sec]="sectionDomId(i)"
+        >
+          <h2 class="menu-sec__title">{{ sec.name }}</h2>
+          <ul class="list">
+            @for (it of sec.items; track it.id) {
+              <li>
+                <article class="item" [class.item--photo]="!!itemPhoto(it)">
+                  <div class="item__main">
+                    <div class="item__body">
+                      <strong class="item__name">{{ it.name }}</strong>
+                      @if (it.description) {
+                        <p class="item__desc">{{ it.description }}</p>
+                      }
+                      <span class="price">{{ priceOf(it) }}</span>
+                    </div>
+                    <button
+                      type="button"
+                      class="item__add ord-press"
+                      [disabled]="!canOrder()"
+                      (click)="openItem(it)"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                  @if (itemPhoto(it); as photo) {
+                    <img class="item__photo" [src]="photo" alt="" loading="lazy" />
                   }
-                  <span class="price">{{ priceOf(it) }}</span>
-                </div>
-                <button
-                  type="button"
-                  class="item__add ord-press"
-                  [disabled]="!canOrder()"
-                  (click)="openItem(it)"
-                >
-                  Agregar
-                </button>
-              </div>
-              @if (itemPhoto(it); as photo) {
-                <img class="item__photo" [src]="photo" alt="" loading="lazy" />
-              }
-            </article>
-          </li>
-        }
-      </ul>
+                </article>
+              </li>
+            }
+          </ul>
+        </section>
+      } @empty {
+        <p class="empty">No hay ítems disponibles para pedir.</p>
+      }
     }
 
     @if (view() === 'detail' && item(); as it) {

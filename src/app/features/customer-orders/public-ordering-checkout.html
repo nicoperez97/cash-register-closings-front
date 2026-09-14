@@ -99,33 +99,143 @@
           </div>
 
           @if (fulfillment() === 'DELIVERY') {
-            <label class="field">
-              <span>Zona</span>
-              <select
-                [ngModel]="deliveryZoneId()"
-                (ngModelChange)="onZoneChange($event)"
-                name="zone"
-                required
-              >
-                <option value="">Elegí una zona</option>
-                @for (z of c.deliveryZones; track z.id) {
-                  <option [value]="z.id">
-                    {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'Sin cargo' }}
-                  </option>
+            <div class="deliv">
+              <div class="row-between">
+                <span class="deliv__label">Domicilio de entrega</span>
+                @if (helpWhatsappUrl(); as wa) {
+                  <a class="linkish" [href]="wa" target="_blank" rel="noopener">Necesito ayuda</a>
                 }
-              </select>
-            </label>
-            <label class="field">
-              <span>Dirección</span>
-              <textarea
-                rows="2"
-                maxlength="300"
-                [(ngModel)]="address"
-                name="address"
-                placeholder="Calle, número, piso, aclaraciones…"
-                required
-              ></textarea>
-            </label>
+              </div>
+
+              @if (mapOpen()) {
+                <app-delivery-map-picker
+                  [zones]="c.deliveryZones"
+                  [accent]="accent()"
+                  [onAccent]="onAccent()"
+                  [initial]="mapPoint()"
+                  (closed)="closeMapPicker()"
+                  (selected)="onMapSelected($event)"
+                />
+              } @else if (addressSheetOpen()) {
+                <div class="addr-card" role="group" aria-label="Completar datos de entrega">
+                  <header class="addr-card__head">
+                    <h3>Completar datos de entrega</h3>
+                    <button type="button" class="addr-card__x" (click)="addressSheetOpen.set(false)" aria-label="Cerrar">
+                      ×
+                    </button>
+                  </header>
+                  <label class="field">
+                    <span>Calle</span>
+                    <input type="text" [(ngModel)]="sheetStreet" name="sheetStreet" maxlength="160" />
+                  </label>
+                  <label class="field">
+                    <span>Número</span>
+                    <input type="text" [(ngModel)]="sheetNumber" name="sheetNumber" maxlength="20" inputmode="numeric" />
+                  </label>
+                  <label class="field">
+                    <span>Entre calles</span>
+                    <input type="text" [(ngModel)]="sheetBetween" name="sheetBetween" maxlength="80" />
+                  </label>
+                  <label class="field">
+                    <span>Piso / Depto / Referencia (opcional)</span>
+                    <input type="text" [(ngModel)]="sheetDetails" name="sheetDetails" maxlength="80" />
+                  </label>
+                  @if (selectedZone(); as z) {
+                    <div class="addr-card__zone">
+                      <span>Zona de entrega</span>
+                      <strong>{{ z.name }} · Monto de entrega: {{ z.fee > 0 ? money(z.fee) : 'sin cargo' }}</strong>
+                    </div>
+                  }
+                  <div class="addr-card__actions">
+                    <button type="button" class="btn btn--ghost" (click)="backToMapFromSheet()">Volver al mapa</button>
+                    <button type="button" class="btn btn--primary" (click)="confirmAddressSheet()">
+                      Confirmar dirección
+                    </button>
+                  </div>
+                </div>
+              } @else {
+                <label class="field">
+                  <span>Dirección</span>
+                  <input
+                    type="text"
+                    maxlength="160"
+                    [(ngModel)]="addressStreet"
+                    name="addressStreet"
+                    placeholder="Ejemplo: Av. 18 de Julio 1234"
+                    autocomplete="street-address"
+                  />
+                </label>
+
+                <button type="button" class="btn btn--primary map-btn" (click)="openMapPicker()">
+                  Buscar en el mapa
+                </button>
+
+                <label class="field">
+                  <span>Número</span>
+                  <input
+                    type="text"
+                    maxlength="20"
+                    [(ngModel)]="addressNumber"
+                    name="addressNumber"
+                    placeholder="1234"
+                    inputmode="numeric"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Entre calles</span>
+                  <input
+                    type="text"
+                    maxlength="80"
+                    [(ngModel)]="addressBetween"
+                    name="addressBetween"
+                    placeholder="Ejemplo: Cuareim y Andes"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Detalles (depto / casa)</span>
+                  <input
+                    type="text"
+                    maxlength="80"
+                    [(ngModel)]="addressDetails"
+                    name="addressDetails"
+                    placeholder="PB B / casa al fondo"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Zona de entrega</span>
+                  <select
+                    [ngModel]="deliveryZoneId()"
+                    (ngModelChange)="onZoneChange($event)"
+                    name="zone"
+                    required
+                  >
+                    <option value="">
+                      {{ hasMapZones() ? 'Se completa con el mapa o elegí acá' : 'Elegí una zona' }}
+                    </option>
+                    @for (z of c.deliveryZones; track z.id) {
+                      <option [value]="z.id">
+                        {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'Sin cargo' }}
+                      </option>
+                    }
+                  </select>
+                </label>
+
+                @if (selectedZone(); as z) {
+                  <p class="zone-chip">
+                    {{ z.name }} · Envío {{ z.fee > 0 ? money(z.fee) : 'sin cargo' }}
+                  </p>
+                }
+
+                @if (helpWhatsappUrl(); as wa) {
+                  <a class="linkish linkish--block" [href]="wa" target="_blank" rel="noopener">
+                    No puedo ingresar mi domicilio
+                  </a>
+                }
+              }
+            </div>
           }
         </section>
       }

@@ -424,10 +424,12 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           </div>
 
           <h3 class="op__subtitle">Zonas de delivery</h3>
-          <p class="op__schedule-hint">Nombre y costo de envío. Si no hay zonas, el cliente no puede pedir delivery.</p>
+          <p class="op__schedule-hint">
+            Nombre, costo y área en el mapa (una coordenada lat,lng por línea). Si cargás el polígono, el cliente elige el punto en el mapa y la zona se completa sola.
+          </p>
           <div class="op__zones" formArrayName="deliveryZones">
             @for (z of deliveryZones.controls; track $index; let i = $index) {
-              <div class="op__zone" [formGroupName]="i">
+              <div class="op__zone op__zone--map" [formGroupName]="i">
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-label>Zona</mat-label>
                   <input matInput formControlName="name" placeholder="ej. Centro" />
@@ -439,6 +441,20 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 <button mat-icon-button type="button" (click)="removeZone.emit(i)" aria-label="Quitar">
                   <mat-icon>delete</mat-icon>
                 </button>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__zone-note">
+                  <mat-label>Nota (opcional)</mat-label>
+                  <input matInput formControlName="note" placeholder="ej. Solo hasta las 22" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__zone-poly">
+                  <mat-label>Polígono (lat,lng por línea)</mat-label>
+                  <textarea
+                    matInput
+                    rows="3"
+                    formControlName="polygonText"
+                    placeholder="-34.9011,-56.1645&#10;-34.9050,-56.1600&#10;-34.8980,-56.1580"
+                  ></textarea>
+                  <mat-hint>Mínimo 3 puntos. Podés copiarlos desde Google Maps / OSM.</mat-hint>
+                </mat-form-field>
               </div>
             } @empty {
               <p class="op__empty">Todavía no hay zonas.</p>

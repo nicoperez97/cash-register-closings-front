@@ -1,4 +1,14 @@
-import { Component, HostBinding, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostBinding,
+  OnDestroy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -18,7 +28,7 @@ import { DineInApiService } from './dine-in-api.service';
 import { DineInSessionService } from './dine-in-session.service';
 import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
 
-type View = 'categories' | 'items' | 'detail';
+type View = 'menu' | 'detail';
 
 @Component({
   selector: 'app-public-ordering-menu',
@@ -36,6 +46,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private readonly snack = inject(MatSnackBar);
   private readonly title = inject(Title);
   private readonly shops = inject(ShopContextService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private observer: IntersectionObserver | null = null;
+  private jumping = false;
 
   readonly staffMode = computed(
     () => this.route.snapshot.data['staffOrdering'] === true,
@@ -58,14 +72,14 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly config = signal<PublicOrderingConfig | null>(null);
 
-  readonly view = signal<View>('categories');
-  readonly section = signal<PublicOrderingSection | null>(null);
+  readonly view = signal<View>('menu');
   readonly item = signal<PublicOrderingMenuItem | null>(null);
   readonly qty = signal(1);
   readonly notes = signal('');
   readonly selectedExtraIds = signal<string[]>([]);
   readonly removedIngredientIds = signal<string[]>([]);
   readonly addedFlash = signal(false);
+  readonly activeSectionId = signal('');
 
   readonly shop = computed(() => this.config()?.shop ?? null);
   readonly accent = computed(() => this.shop()?.accentColor?.trim() || '#2e7d32');
@@ -128,8 +142,25 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     });
   });
 
+  constructor() {
+    effect(() => {
+      const ready = !this.loading() && this.view() === 'menu' && this.sections().length > 0;
+      if (!ready) {
+        this.observer?.disconnect();
+        return;
+      }
+      queueMicrotask(() => this.watchSections());
+    });
+
+    this.destroyRef.onDestroy(() => this.observer?.disconnect());
+  }
+
   itemPhoto(it: PublicOrderingMenuItem): string | null {
     return orderingItemImageUrl(this.slug(), it);
+  }
+
+  sectionDomId(index: number): string {
+    return `ord-sec-${index}`;
   }
 
   ngOnInit(): void {
@@ -197,26 +228,51 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     }
   }
 
+  private watchSections(): void {
+    this.observer?.disconnect();
+    if (this.view() !== 'menu') return;
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-sec]'));
+    if (!nodes.length) return;
+    if (!this.activeSectionId()) {
+      this.activeSectionId.set(nodes[0].dataset['sec'] || this.sectionDomId(0));
+    }
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        if (this.jumping) return;
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const id = (visible[0]?.target as HTMLElement | undefined)?.dataset['sec'];
+        if (id) {
+          this.activeSectionId.set(id);
+          this.scrollActiveTabIntoView(id);
+        }
+      },
+      { rootMargin: '-22% 0px -62% 0px', threshold: [0.05, 0.25, 0.5] },
+    );
+    for (const node of nodes) this.observer.observe(node);
+  }
+
+  private scrollActiveTabIntoView(id: string): void {
+    const btn = document.querySelector<HTMLElement>(`.sec-tabs__btn[data-sec="${id}"]`);
+    btn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+
+  scrollToSection(index: number): void {
+    const id = this.sectionDomId(index);
+    this.jumping = true;
+    this.activeSectionId.set(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.scrollActiveTabIntoView(id);
+    window.setTimeout(() => {
+      this.jumping = false;
+    }, 550);
+  }
+
   priceOf(item: PublicOrderingMenuItem): string {
     const label = String(item.priceLabel ?? '').trim();
     if (label) return label;
     return orderingMoney(item.price);
-  }
-
-  sectionPreview(sec: PublicOrderingSection): string {
-    const names = (sec.items ?? [])
-      .map((it) => String(it?.name ?? '').trim())
-      .filter(Boolean);
-    if (!names.length) return 'Sin platos disponibles';
-    const shown = names.slice(0, 3);
-    const extra = names.length - shown.length;
-    const list = shown.join(', ');
-    return extra > 0 ? `${list} y ${extra} más` : list;
-  }
-
-  openSection(sec: PublicOrderingSection): void {
-    this.section.set(sec);
-    this.view.set('items');
   }
 
   openItem(item: PublicOrderingMenuItem): void {
@@ -262,12 +318,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       this.item.set(null);
       this.selectedExtraIds.set([]);
       this.removedIngredientIds.set([]);
-      this.view.set('items');
-      return;
-    }
-    if (v === 'items') {
-      this.section.set(null);
-      this.view.set('categories');
+      this.view.set('menu');
       return;
     }
     if (this.staffMode()) {
@@ -329,7 +380,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     this.item.set(null);
     this.selectedExtraIds.set([]);
     this.removedIngredientIds.set([]);
-    this.view.set('items');
+    this.view.set('menu');
   }
 
   goCheckout(): void {

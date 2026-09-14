@@ -19,11 +19,6 @@
     ),
     linear-gradient(180deg, #e8ece8 0%, var(--paper) 42%, #eef1ee 100%);
   background-attachment: fixed;
-
-  /* Evita el azul de sistema de <button> en iOS/Android; el accent del local manda. */
-  button {
-    color: inherit;
-  }
 }
 
 :host.staff-embedded {
@@ -318,7 +313,7 @@
     &--on {
       background: var(--accent, #2e7d32);
       border-color: var(--accent, #2e7d32);
-      color: #fff;
+      color: var(--on-accent, #fff);
       box-shadow: 0 6px 16px color-mix(in srgb, var(--accent, #2e7d32) 28%, transparent);
     }
   }

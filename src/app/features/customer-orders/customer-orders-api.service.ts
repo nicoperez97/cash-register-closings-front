@@ -61,6 +61,8 @@ export interface PublicDeliveryZone {
   name: string;
   fee: number;
   note?: string | null;
+  polygon?: Array<{ lat: number; lng: number }> | null;
+  color?: string | null;
 }
 
 export interface PublicOrderingConfig {

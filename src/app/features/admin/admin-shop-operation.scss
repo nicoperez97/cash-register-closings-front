@@ -417,6 +417,15 @@
   align-items: start;
 }
 
+.op__zone--map {
+  grid-template-columns: 1fr 7rem auto;
+}
+
+.op__zone-note,
+.op__zone-poly {
+  grid-column: 1 / -1;
+}
+
 .op__full {
   width: 100%;
 }
