@@ -158,3 +158,31 @@ export function composeDeliveryAddress(parts: {
   if (details) lines.push(`Detalles: ${details}`);
   return lines.filter(Boolean).join('\n').slice(0, 300);
 }
+
+/** Parsea "lat,lng" por línea (también acepta ; o espacios). */
+export function parsePolygonText(raw?: string | null): LatLng[] | null {
+  const pts: LatLng[] = [];
+  for (const line of String(raw ?? '').split(/[\n;]+/)) {
+    const parts = line
+      .trim()
+      .split(/[,|\s]+/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (parts.length < 2) continue;
+    const lat = Number(parts[0]);
+    const lng = Number(parts[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
+    pts.push({ lat, lng });
+  }
+  return pts.length ? pts : null;
+}
+
+export function polygonToText(polygon?: LatLng[] | null): string {
+  if (!polygon?.length) return '';
+  return polygon.map((p) => `${roundCoord(p.lat)},${roundCoord(p.lng)}`).join('\n');
+}
+
+function roundCoord(n: number): string {
+  return (Math.round(n * 1e6) / 1e6).toString();
+}

@@ -55,18 +55,46 @@
 
     @if (view() === 'menu') {
       @if (sections().length > 1) {
-        <nav class="sec-tabs" aria-label="Categorías">
-          @for (sec of sections(); track sec.name; let i = $index) {
-            <button
-              type="button"
-              class="sec-tabs__btn"
-              [attr.data-sec]="sectionDomId(i)"
-              [class.sec-tabs__btn--on]="activeSectionId() === sectionDomId(i)"
-              (click)="scrollToSection(i)"
-            >
-              {{ sec.name }}
-            </button>
-          }
+        <nav
+          class="sec-tabs"
+          [class.sec-tabs--scrollable]="tabsOverflow()"
+          aria-label="Categorías"
+        >
+          <button
+            type="button"
+            class="sec-tabs__arrow"
+            aria-label="Categorías anteriores"
+            [disabled]="!canScrollLeft()"
+            (click)="scrollTabs(-1)"
+          >
+            ‹
+          </button>
+          <div
+            #tabsTrack
+            class="sec-tabs__track"
+            (scroll)="onTabsScroll()"
+          >
+            @for (sec of sections(); track sec.name; let i = $index) {
+              <button
+                type="button"
+                class="sec-tabs__btn"
+                [attr.data-sec]="sectionDomId(i)"
+                [class.sec-tabs__btn--on]="activeSectionId() === sectionDomId(i)"
+                (click)="scrollToSection(i)"
+              >
+                {{ sec.name }}
+              </button>
+            }
+          </div>
+          <button
+            type="button"
+            class="sec-tabs__arrow"
+            aria-label="Más categorías"
+            [disabled]="!canScrollRight()"
+            (click)="scrollTabs(1)"
+          >
+            ›
+          </button>
         </nav>
       }
 

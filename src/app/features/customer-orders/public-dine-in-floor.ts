@@ -59,6 +59,36 @@ export class PublicDineInFloorComponent implements OnInit, OnDestroy {
     return objects.filter((o) => o.sectorId === f);
   });
 
+  /** En Todos: un plano por sector para no superponer coordenadas. */
+  readonly mapSectorPanels = computed(() => {
+    const floor = this.floor();
+    const tables = floor?.tables ?? [];
+    const objects = floor?.mapObjects ?? [];
+    const sectors = floor?.sectors ?? [];
+    const f = this.sectorFilter();
+
+    const panel = (id: string, name: string) => ({
+      id,
+      name,
+      tables: tables.filter((t) => t.sectorId === id),
+      objects: objects.filter((o) => o.sectorId === id),
+    });
+
+    if (f !== 'ALL') {
+      const sec = sectors.find((s) => s.id === f);
+      return [panel(f, sec?.name ?? '')];
+    }
+    if (sectors.length <= 1) {
+      const only = sectors[0];
+      return only
+        ? [panel(only.id, only.name)]
+        : [{ id: 'all', name: '', tables, objects }];
+    }
+    return sectors.map((s) => panel(s.id, s.name));
+  });
+
+  readonly mapShowsMultipleSectors = computed(() => this.mapSectorPanels().length > 1);
+
   readonly hasMapLayout = computed(() =>
     this.visibleTables().some((t) => t.mapX != null && t.mapY != null),
   );

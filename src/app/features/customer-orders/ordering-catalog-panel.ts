@@ -70,16 +70,28 @@ type ClosingSummary = {
   template: `
     <section class="ocp">
       <header class="ocp__head">
-        <h2>Configurar pedidos online</h2>
+        <h2>Configurar canales</h2>
         <p>
           Alta/baja de envío, medios de pago, ítems y extras. CBU/alias y WhatsApp: en Configuración del
-          local → Pedidos. Crear ítems/extras y fotos: en Carta.
+          local → Canales. Crear ítems/extras y fotos: en Carta.
         </p>
       </header>
 
       @if (loading()) {
         <p class="ocp__hint">Cargando…</p>
       } @else {
+        @if (shiftActiveClosed()) {
+          <div class="ocp__alert" role="status">
+            El turno ya empezó y el local sigue cerrado para pedidos. Abrilo cuando quieras recibir
+            pedidos (funciona aunque el horario aún no diga abierto).
+          </div>
+        }
+        @if (justAutoClosed()) {
+          <div class="ocp__alert ocp__alert--info" role="status">
+            El local se cerró solo al finalizar el turno. Volvé a abrirlo cuando arranque el próximo.
+          </div>
+        }
+
         <div class="ocp__toggles">
           <div class="ocp__toggle ocp__toggle--focus">
             <div>
@@ -87,7 +99,7 @@ type ClosingSummary = {
               <span>
                 {{
                   localOpen
-                    ? 'Los clientes pueden pedir según el horario'
+                    ? 'Los clientes pueden pedir ahora (aunque el turno aún no haya empezado)'
                     : 'La página pública no acepta pedidos nuevos'
                 }}
               </span>
@@ -156,51 +168,83 @@ type ClosingSummary = {
           </div>
         }
 
-        <h3 class="ocp__sub">Ítems de la carta</h3>
-        <p class="ocp__hint">Desactivá lo que no quieras vender online.</p>
-        <div class="ocp__search">
-          <app-select-search [(query)]="itemQuery" placeholder="Buscar ítem…" />
-        </div>
-        @for (it of filteredItems(); track it.id) {
-          <div class="ocp__toggle">
-            <div>
-              <strong>{{ it.name }}</strong>
-              @if (it.detail) {
-                <span>{{ it.detail }}</span>
+        <div class="ocp__fold">
+          <button
+            type="button"
+            class="ocp__fold-btn"
+            [attr.aria-expanded]="itemsOpen()"
+            (click)="itemsOpen.set(!itemsOpen())"
+          >
+            <span class="ocp__fold-copy">
+              <strong>Ítems de la carta</strong>
+              <span>Desactivá lo que no quieras vender online</span>
+            </span>
+            <mat-icon>{{ itemsOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </button>
+          @if (itemsOpen()) {
+            <div class="ocp__fold-body">
+              <div class="ocp__search">
+                <app-select-search [(query)]="itemQuery" placeholder="Buscar ítem…" />
+              </div>
+              @for (it of filteredItems(); track it.id) {
+                <div class="ocp__toggle">
+                  <div>
+                    <strong>{{ it.name }}</strong>
+                    @if (it.detail) {
+                      <span>{{ it.detail }}</span>
+                    }
+                  </div>
+                  <mat-slide-toggle
+                    [ngModel]="it.available"
+                    (ngModelChange)="setItemAvailable(it.id, $event)"
+                    [attr.aria-label]="'Disponible ' + it.name"
+                  />
+                </div>
+              } @empty {
+                <p class="ocp__hint">No hay ítems en la carta o no coinciden con la búsqueda.</p>
               }
             </div>
-            <mat-slide-toggle
-              [ngModel]="it.available"
-              (ngModelChange)="setItemAvailable(it.id, $event)"
-              [attr.aria-label]="'Disponible ' + it.name"
-            />
-          </div>
-        } @empty {
-          <p class="ocp__hint">No hay ítems en la carta o no coinciden con la búsqueda.</p>
-        }
+          }
+        </div>
 
-        <h3 class="ocp__sub">Extras</h3>
-        <p class="ocp__hint">Solo alta/baja. Para crear o editar extras, usá Carta.</p>
-        <div class="ocp__search">
-          <app-select-search [(query)]="extraQuery" placeholder="Buscar extra…" />
-        </div>
-        @for (ex of filteredExtras(); track ex.id) {
-          <div class="ocp__toggle">
-            <div>
-              <strong>{{ ex.name }}</strong>
-              @if (ex.detail) {
-                <span>{{ ex.detail }}</span>
+        <div class="ocp__fold">
+          <button
+            type="button"
+            class="ocp__fold-btn"
+            [attr.aria-expanded]="extrasOpen()"
+            (click)="extrasOpen.set(!extrasOpen())"
+          >
+            <span class="ocp__fold-copy">
+              <strong>Extras</strong>
+              <span>Solo alta/baja. Para crear o editar extras, usá Carta</span>
+            </span>
+            <mat-icon>{{ extrasOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </button>
+          @if (extrasOpen()) {
+            <div class="ocp__fold-body">
+              <div class="ocp__search">
+                <app-select-search [(query)]="extraQuery" placeholder="Buscar extra…" />
+              </div>
+              @for (ex of filteredExtras(); track ex.id) {
+                <div class="ocp__toggle">
+                  <div>
+                    <strong>{{ ex.name }}</strong>
+                    @if (ex.detail) {
+                      <span>{{ ex.detail }}</span>
+                    }
+                  </div>
+                  <mat-slide-toggle
+                    [ngModel]="ex.available"
+                    (ngModelChange)="setExtraAvailable(ex.id, $event)"
+                    [attr.aria-label]="'Disponible ' + ex.name"
+                  />
+                </div>
+              } @empty {
+                <p class="ocp__hint">Todavía no hay extras, o no coinciden con la búsqueda.</p>
               }
             </div>
-            <mat-slide-toggle
-              [ngModel]="ex.available"
-              (ngModelChange)="setExtraAvailable(ex.id, $event)"
-              [attr.aria-label]="'Disponible ' + ex.name"
-            />
-          </div>
-        } @empty {
-          <p class="ocp__hint">Todavía no hay extras, o no coinciden con la búsqueda.</p>
-        }
+          }
+        </div>
 
         <div class="ocp__save">
           <button
@@ -211,7 +255,7 @@ type ClosingSummary = {
             (click)="save()"
           >
             <mat-icon>save</mat-icon>
-            {{ saving() ? 'Guardando…' : 'Guardar configuración' }}
+            {{ saving() ? 'Guardando…' : 'Guardar' }}
           </button>
         </div>
       }
@@ -219,6 +263,7 @@ type ClosingSummary = {
   `,
   styles: `
     .ocp {
+      position: relative;
       display: grid;
       gap: 0.85rem;
       padding: 1rem;
@@ -241,11 +286,70 @@ type ClosingSummary = {
       color: var(--guy-muted, #5f6f76);
       text-align: center;
     }
+    .ocp__alert {
+      padding: 0.75rem 0.9rem;
+      border-radius: 12px;
+      border: 1px solid #e2b86a;
+      background: #fff8e8;
+      color: #5c4816;
+      font-size: 0.9rem;
+      text-align: left;
+      line-height: 1.35;
+    }
+    .ocp__alert--info {
+      border-color: #9bb8d4;
+      background: #eef5fb;
+      color: #1e3a55;
+    }
     .ocp__sub {
       margin: 0.65rem 0 0;
       font-size: 0.95rem;
       color: var(--guy-navy, #003366);
       text-align: center;
+    }
+    .ocp__fold {
+      display: grid;
+      gap: 0.55rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 12px;
+      padding: 0.35rem 0.55rem 0.45rem;
+      background: #fafbfa;
+    }
+    .ocp__fold-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      padding: 0.45rem 0.25rem;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+    }
+    .ocp__fold-copy {
+      display: grid;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+    .ocp__fold-copy strong {
+      font-size: 0.95rem;
+      color: var(--guy-navy, #003366);
+    }
+    .ocp__fold-copy span {
+      font-size: 0.8rem;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .ocp__fold-btn mat-icon {
+      color: var(--guy-muted, #5f6f76);
+      flex-shrink: 0;
+    }
+    .ocp__fold-body {
+      display: grid;
+      gap: 0.55rem;
+      padding-bottom: 0.25rem;
     }
     .ocp__search {
       padding: 0.45rem 0.65rem;
@@ -290,9 +394,9 @@ type ClosingSummary = {
       justify-self: center;
     }
     .ocp__save {
-      margin-top: 0.35rem;
       display: flex;
       justify-content: center;
+      margin-top: 0.15rem;
     }
   `,
 })
@@ -311,6 +415,10 @@ export class OrderingCatalogPanelComponent {
   readonly extras = signal<ToggleRow[]>([]);
   readonly itemQuery = signal('');
   readonly extraQuery = signal('');
+  readonly itemsOpen = signal(false);
+  readonly extrasOpen = signal(false);
+  readonly shiftActiveClosed = signal(false);
+  readonly justAutoClosed = signal(false);
 
   localOpen = true;
   takeawayEnabled = true;
@@ -359,6 +467,8 @@ export class OrderingCatalogPanelComponent {
         next: (shop: any) => {
           this.togglingOpen.set(false);
           this.localOpen = !shop?.orderingForceClosed;
+          this.shiftActiveClosed.set(!!shop?.orderingShiftActive && !this.localOpen);
+          this.justAutoClosed.set(false);
           this.shops.upsertShop(shop);
           this.snack.open(
             this.localOpen ? 'Local abierto para pedidos' : 'Local cerrado para pedidos',
@@ -542,6 +652,8 @@ export class OrderingCatalogPanelComponent {
     this.http
       .get<{
         orderingForceClosed?: boolean;
+        orderingShiftActive?: boolean;
+        orderingJustAutoClosed?: boolean;
         takeawayEnabled?: boolean;
         deliveryEnabled?: boolean;
         orderingPayments?: {
@@ -557,6 +669,13 @@ export class OrderingCatalogPanelComponent {
       .subscribe({
         next: (s) => {
           this.localOpen = !s.orderingForceClosed;
+          this.shiftActiveClosed.set(!!s.orderingShiftActive && !this.localOpen);
+          this.justAutoClosed.set(!!s.orderingJustAutoClosed);
+          if (s.orderingJustAutoClosed) {
+            this.snack.open('El local se cerró solo al finalizar el turno', 'OK', {
+              duration: 4200,
+            });
+          }
           this.takeawayEnabled = s.takeawayEnabled !== false;
           this.deliveryEnabled = !!s.deliveryEnabled;
           const methods = s.orderingPayments?.methods;
@@ -657,6 +776,8 @@ export class OrderingCatalogPanelComponent {
         next: (shop: any) => {
           this.saving.set(false);
           this.localOpen = !shop?.orderingForceClosed;
+          this.shiftActiveClosed.set(!!shop?.orderingShiftActive && !this.localOpen);
+          this.justAutoClosed.set(false);
           this.shops.upsertShop(shop);
           this.snack.open('Configuración guardada', 'OK', { duration: 2500 });
           this.reload(shopId);

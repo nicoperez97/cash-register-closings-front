@@ -258,7 +258,7 @@ export class AdminQrPage {
       items.push({ label: 'Carta', url: `${origin}/m/${slug}`, icon: 'restaurant_menu' });
     }
     if (shop.onlineOrderingEnabled) {
-      items.push({ label: 'Pedidos online', url: `${origin}/pedir/${slug}`, icon: 'shopping_bag' });
+      items.push({ label: 'Pedir (/pedir)', url: `${origin}/pedir/${slug}`, icon: 'shopping_bag' });
     }
     if (shop.reservationsEnabled) {
       items.push({ label: 'Reservas', url: `${origin}/r/${slug}`, icon: 'table_restaurant' });

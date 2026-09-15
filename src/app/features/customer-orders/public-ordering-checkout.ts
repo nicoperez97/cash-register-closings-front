@@ -144,6 +144,40 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
   readonly total = computed(() => this.cart.subtotal() + this.deliveryFee());
 
+  /** Grupos del resumen: cada ítem con sus extras (una unidad para +/-). */
+  readonly summaryGroups = computed(() => {
+    const lines = this.cart.lines();
+    const items = lines.filter((l) => l.kind !== 'EXTRA');
+    const extras = lines.filter((l) => l.kind === 'EXTRA');
+    const used = new Set<string>();
+    type Line = (typeof lines)[number];
+    const groups: Array<{
+      item: Line | null;
+      extras: Array<{ line: Line; parentName: string | null; nested: boolean }>;
+    }> = [];
+    for (const item of items) {
+      const groupExtras: Array<{ line: Line; parentName: string | null; nested: boolean }> = [];
+      for (const ex of extras) {
+        if (ex.attachedToMenuItemId !== item.menuItemId) continue;
+        const key = `${ex.extraId}|${ex.attachedToMenuItemId}|${ex.notes}`;
+        if (used.has(key)) continue;
+        used.add(key);
+        groupExtras.push({ line: ex, parentName: item.name, nested: true });
+      }
+      groups.push({ item, extras: groupExtras });
+    }
+    for (const ex of extras) {
+      const key = `${ex.extraId}|${ex.attachedToMenuItemId}|${ex.notes}`;
+      if (used.has(key)) continue;
+      const parent = items.find((i) => i.menuItemId === ex.attachedToMenuItemId);
+      groups.push({
+        item: null,
+        extras: [{ line: ex, parentName: parent?.name ?? null, nested: false }],
+      });
+    }
+    return groups;
+  });
+
   readonly hasMapZones = computed(() =>
     (this.config()?.deliveryZones ?? []).some((z) => (z.polygon?.length ?? 0) >= 3),
   );
@@ -210,8 +244,8 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         }
         if (channels.length === 1) this.fulfillment.set(channels[0]);
         else if (channels.length > 1) {
-          if (channels.includes('TAKEAWAY')) this.fulfillment.set('TAKEAWAY');
-          else this.pickingFulfillment.set(true);
+          this.fulfillment.set('');
+          this.pickingFulfillment.set(true);
         }
         const methods = cfg.payments?.methods ?? [];
         if (methods.length === 1) this.paymentMethod.set(methods[0]);
@@ -334,15 +368,34 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     },
     delta: number,
   ): void {
+    const nextQty = line.qty + delta;
+    if (line.kind !== 'EXTRA' && nextQty <= 0) {
+      this.removeLine(line);
+      return;
+    }
     this.cart.updateQty(
       line.menuItemId,
       line.notes,
-      line.qty + delta,
+      nextQty,
       line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
       line.extraId,
       line.attachedToMenuItemId,
       line.removedIngredients,
     );
+    if (line.kind === 'EXTRA') return;
+    // Ítem + extras van juntos: la cantidad del plato manda.
+    for (const ex of this.cart.lines()) {
+      if (ex.kind !== 'EXTRA' || ex.attachedToMenuItemId !== line.menuItemId) continue;
+      this.cart.updateQty(
+        ex.menuItemId,
+        ex.notes,
+        nextQty,
+        'EXTRA',
+        ex.extraId,
+        ex.attachedToMenuItemId,
+        ex.removedIngredients,
+      );
+    }
   }
 
   removeLine(line: {
@@ -353,6 +406,19 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     attachedToMenuItemId?: string;
     removedIngredients?: string[];
   }): void {
+    if (line.kind !== 'EXTRA') {
+      for (const ex of this.cart.lines()) {
+        if (ex.kind !== 'EXTRA' || ex.attachedToMenuItemId !== line.menuItemId) continue;
+        this.cart.remove(
+          ex.menuItemId,
+          ex.notes,
+          'EXTRA',
+          ex.extraId,
+          ex.attachedToMenuItemId,
+          ex.removedIngredients,
+        );
+      }
+    }
     this.cart.remove(
       line.menuItemId,
       line.notes,

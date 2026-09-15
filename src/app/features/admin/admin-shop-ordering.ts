@@ -10,7 +10,6 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -18,6 +17,14 @@ import { debounceTime, merge } from 'rxjs';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
 import { copyText } from '../../shared/utils/share-text';
 import type { AdminShopWeekdayOption } from './admin-shop-operation';
+import {
+  DeliveryZoneMapEditorComponent,
+} from '../customer-orders/delivery-zone-map-editor';
+import {
+  DeliveryZoneGeo,
+  parsePolygonText,
+  zoneColor,
+} from '../customer-orders/delivery-geo.util';
 
 type HoursChannel = 'takeaway' | 'delivery';
 
@@ -32,18 +39,18 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    MatSelectModule,
     MatSlideToggleModule,
     MatIconModule,
     MatSnackBarModule,
+    DeliveryZoneMapEditorComponent,
   ],
   template: `
     <div class="op">
       <section class="panel-card op__card">
         <header class="op__head">
-          <h2 class="op__title">Pedidos online</h2>
+          <h2 class="op__title">Canales de pedidos</h2>
           <p class="op__lead">
-            Take away y delivery para clientes. Las mesas siguen por reservas (otro sistema).
+            Página pública /pedir, take away, delivery y comanda de mozos. Las mesas del salón siguen por reservas.
           </p>
         </header>
 
@@ -65,56 +72,43 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           <p class="op__public-url">{{ orderingPublicUrl() }}</p>
         }
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__full">
-          <mat-label>Tipo de local</mat-label>
-          <mat-select formControlName="shopMode">
-            <mat-option value="AL_PASO">Al paso (take away / delivery)</mat-option>
-            <mat-option value="RESTAURANTE">Restaurante (reservas + comanda)</mat-option>
-          </mat-select>
-          <mat-hint>
-            /pedir es siempre take away y delivery. En restaurante podés activar comanda mozos y reservas.
-          </mat-hint>
-        </mat-form-field>
-
         <div class="op__toggles">
           <div class="op__row-toggle">
             <div>
-              <strong>Pedidos online</strong>
-              <span>Página pública /pedir/…</span>
+              <strong>Página pública /pedir</strong>
+              <span>Take away y delivery para clientes</span>
             </div>
             <mat-slide-toggle
               formControlName="onlineOrderingEnabled"
-              aria-label="Pedidos online"
+              aria-label="Página pública de pedidos"
             />
           </div>
-          @if (isRestaurant()) {
-            <div class="op__row-toggle">
-              <div>
-                <strong>Comanda mozos</strong>
-                <span>Operación → Comanda y página /mozo/… con PIN</span>
-              </div>
-              <mat-slide-toggle
-                formControlName="waiterOrderingEnabled"
-                aria-label="Comanda mozos"
-              />
+          <div class="op__row-toggle">
+            <div>
+              <strong>Comanda mozos</strong>
+              <span>Operación → Comanda y página /mozo/… con PIN</span>
             </div>
-            @if (waiterOn() && waiterPublicUrl()) {
-              <div class="op__public op__public--inline">
-                <a class="op__public-btn" [href]="waiterPublicUrl()" target="_blank" rel="noopener">
-                  <mat-icon>open_in_new</mat-icon>
-                  Abrir link
-                </a>
-                <button
-                  type="button"
-                  class="op__public-btn op__public-btn--ghost"
-                  (click)="copyWaiterPublicUrl()"
-                >
-                  <mat-icon>content_copy</mat-icon>
-                  Copiar link
-                </button>
-              </div>
-              <p class="op__public-url">{{ waiterPublicUrl() }}</p>
-            }
+            <mat-slide-toggle
+              formControlName="waiterOrderingEnabled"
+              aria-label="Comanda mozos"
+            />
+          </div>
+          @if (waiterOn() && waiterPublicUrl()) {
+            <div class="op__public op__public--inline">
+              <a class="op__public-btn" [href]="waiterPublicUrl()" target="_blank" rel="noopener">
+                <mat-icon>open_in_new</mat-icon>
+                Abrir link
+              </a>
+              <button
+                type="button"
+                class="op__public-btn op__public-btn--ghost"
+                (click)="copyWaiterPublicUrl()"
+              >
+                <mat-icon>content_copy</mat-icon>
+                Copiar link
+              </button>
+            </div>
+            <p class="op__public-url">{{ waiterPublicUrl() }}</p>
           }
           <div class="op__row-toggle">
             <div>
@@ -187,7 +181,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
               </div>
             </div>
             <p class="op__schedule-hint">
-              Se cargan los turnos de caja. Podés sumar más de un turno por día. Guardá abajo.
+              Orientativos para el cliente. El abierto/cerrado real se maneja en Pedidos clientes → Configurar.
             </p>
             <div class="op__days" role="group" aria-label="Días take away">
               @for (d of dayIndexes; track d) {
@@ -425,7 +419,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 
           <h3 class="op__subtitle">Zonas de delivery</h3>
           <p class="op__schedule-hint">
-            Nombre, costo y área en el mapa (una coordenada lat,lng por línea). Si cargás el polígono, el cliente elige el punto en el mapa y la zona se completa sola.
+            Nombre, costo y área. Dibujá el polígono en el mapa (o pegá lat,lng por línea). Si hay área,
+            en /pedir el cliente elige el punto y la zona se completa sola.
           </p>
           <div class="op__zones" formArrayName="deliveryZones">
             @for (z of deliveryZones.controls; track $index; let i = $index) {
@@ -445,6 +440,15 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                   <mat-label>Nota (opcional)</mat-label>
                   <input matInput formControlName="note" placeholder="ej. Solo hasta las 22" />
                 </mat-form-field>
+                <div class="op__zone-map">
+                  <app-delivery-zone-map-editor
+                    [polygonText]="zonePolygonText(i)"
+                    (polygonTextChange)="setZonePolygonText(i, $event)"
+                    [color]="zoneColorAt(i)"
+                    [otherZones]="otherZonesFor(i)"
+                    [accent]="shopAccent()"
+                  />
+                </div>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__zone-poly">
                   <mat-label>Polígono (lat,lng por línea)</mat-label>
                   <textarea
@@ -453,7 +457,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                     formControlName="polygonText"
                     placeholder="-34.9011,-56.1645&#10;-34.9050,-56.1600&#10;-34.8980,-56.1580"
                   ></textarea>
-                  <mat-hint>Mínimo 3 puntos. Podés copiarlos desde Google Maps / OSM.</mat-hint>
+                  <mat-hint>Se actualiza al dibujar. Mínimo 3 puntos.</mat-hint>
                 </mat-form-field>
               </div>
             } @empty {
@@ -486,9 +490,6 @@ export class AdminShopOrderingComponent {
   readonly orderingOn = computed(
     () => !!this.host.formValue()?.onlineOrderingEnabled,
   );
-  readonly isRestaurant = computed(
-    () => this.host.formValue()?.shopMode !== 'AL_PASO',
-  );
   readonly waiterOn = computed(
     () => !!this.host.formValue()?.waiterOrderingEnabled,
   );
@@ -519,7 +520,7 @@ export class AdminShopOrderingComponent {
     const url = this.orderingPublicUrl();
     if (!url) return;
     const ok = await copyText(url);
-    this.snack.open(ok ? 'Link de pedidos online copiado' : 'No se pudo copiar la URL', 'OK', {
+    this.snack.open(ok ? 'Link de /pedir copiado' : 'No se pudo copiar la URL', 'OK', {
       duration: 2500,
     });
   }
@@ -543,6 +544,47 @@ export class AdminShopOrderingComponent {
 
   get deliveryZones(): FormArray {
     return this.host.form.get('deliveryZones') as FormArray;
+  }
+
+  shopAccent(): string {
+    return String(this.host.formValue()?.accentColor ?? '').trim() || '#2e7d32';
+  }
+
+  zonePolygonText(index: number): string {
+    return String(this.deliveryZones.at(index)?.get('polygonText')?.value ?? '');
+  }
+
+  setZonePolygonText(index: number, text: string): void {
+    const ctrl = this.deliveryZones.at(index)?.get('polygonText');
+    if (!ctrl) return;
+    if (String(ctrl.value ?? '') === text) return;
+    ctrl.setValue(text);
+    ctrl.markAsDirty();
+  }
+
+  zoneColorAt(index: number): string {
+    const g = this.deliveryZones.at(index) as FormGroup | null;
+    const name = String(g?.get('name')?.value ?? '').trim() || `Zona ${index + 1}`;
+    const color = String(g?.get('color')?.value ?? '').trim();
+    return zoneColor({ id: String(index), name, fee: 0, color }, index);
+  }
+
+  otherZonesFor(index: number): DeliveryZoneGeo[] {
+    const out: DeliveryZoneGeo[] = [];
+    this.deliveryZones.controls.forEach((ctrl, i) => {
+      if (i === index) return;
+      const g = ctrl as FormGroup;
+      const polygon = parsePolygonText(String(g.get('polygonText')?.value ?? ''));
+      if (!polygon || polygon.length < 3) return;
+      out.push({
+        id: String(g.get('id')?.value || i),
+        name: String(g.get('name')?.value ?? '').trim() || `Zona ${i + 1}`,
+        fee: Number(g.get('fee')?.value) || 0,
+        polygon,
+        color: String(g.get('color')?.value ?? '').trim() || null,
+      });
+    });
+    return out;
   }
 
   dayLabel(index: number): string {

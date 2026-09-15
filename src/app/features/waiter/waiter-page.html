@@ -107,42 +107,55 @@
       }
 
       @if (showMap()) {
-        <div class="floor anim-in" aria-label="Mapa de mesas">
-          <div class="floor__bg" aria-hidden="true"></div>
-          @for (obj of mapObjectsVisible(); track obj.id) {
-            <div
-              class="floor__object"
-              [attr.data-kind]="obj.kind"
-              [style.left.%]="objectLeft(obj)"
-              [style.top.%]="objectTop(obj)"
-            >
-              <span class="floor__object-kind">{{ objectLabel(obj) }}</span>
-              <span class="floor__object-name">{{ obj.name }}</span>
-            </div>
-          }
-          @for (t of mapTables(); track t.id) {
-            <button
-              type="button"
-              class="floor__table"
-              [class.floor__table--busy]="!!t.openSession"
-              [class.floor__table--two]="t.seats === 2"
-              [style.left.%]="tableLeft(t)"
-              [style.top.%]="tableTop(t)"
-              [disabled]="busy()"
-              (click)="tapTable(t)"
-            >
-              <span class="floor__table-num">{{ t.label }}</span>
-              <span class="floor__table-cap">
-                @if (t.openSession; as os) {
-                  {{ os.covers ?? '—' }}p · {{ os.orderCount || 0 }}
-                } @else {
-                  Libre
+        <div
+          class="floor-stack anim-in"
+          [class.floor-stack--multi]="mapShowsMultipleSectors()"
+          aria-label="Mapa de mesas"
+        >
+          @for (panel of mapSectorPanels(); track panel.name || 'all') {
+            <section class="floor-panel">
+              @if (mapShowsMultipleSectors()) {
+                <h2 class="floor-panel__title">{{ panel.name }}</h2>
+              }
+              <div class="floor">
+                <div class="floor__bg" aria-hidden="true"></div>
+                @for (obj of panel.objects; track obj.id) {
+                  <div
+                    class="floor__object"
+                    [attr.data-kind]="obj.kind"
+                    [style.left.%]="objectLeft(obj)"
+                    [style.top.%]="objectTop(obj)"
+                  >
+                    <span class="floor__object-kind">{{ objectLabel(obj) }}</span>
+                    <span class="floor__object-name">{{ obj.name }}</span>
+                  </div>
                 }
-              </span>
-            </button>
-          }
-          @if (!mapTables().length) {
-            <p class="floor__empty">No hay mesas en este sector.</p>
+                @for (t of panel.tables; track t.id) {
+                  <button
+                    type="button"
+                    class="floor__table"
+                    [class.floor__table--busy]="!!t.openSession"
+                    [class.floor__table--two]="t.seats === 2"
+                    [style.left.%]="tableLeft(t)"
+                    [style.top.%]="tableTop(t)"
+                    [disabled]="busy()"
+                    (click)="tapTable(t)"
+                  >
+                    <span class="floor__table-num">{{ t.label }}</span>
+                    <span class="floor__table-cap">
+                      @if (t.openSession; as os) {
+                        {{ os.covers ?? '—' }}p · {{ os.orderCount || 0 }}
+                      } @else {
+                        Libre
+                      }
+                    </span>
+                  </button>
+                }
+                @if (!panel.tables.length) {
+                  <p class="floor__empty">No hay mesas en este sector.</p>
+                }
+              </div>
+            </section>
           }
         </div>
         <p class="floor-hint muted">Tocá una mesa libre u ocupada. La ocupación aparece tras el primer envío.</p>

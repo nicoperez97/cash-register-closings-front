@@ -1,6 +1,7 @@
 import {
   Component,
   DestroyRef,
+  ElementRef,
   HostBinding,
   OnDestroy,
   OnInit,
@@ -8,6 +9,7 @@ import {
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
@@ -50,6 +52,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   private observer: IntersectionObserver | null = null;
   private jumping = false;
+  private readonly tabsTrack = viewChild<ElementRef<HTMLDivElement>>('tabsTrack');
+
+  readonly canScrollLeft = signal(false);
+  readonly canScrollRight = signal(false);
+  readonly tabsOverflow = computed(() => this.canScrollLeft() || this.canScrollRight());
 
   readonly staffMode = computed(
     () => this.route.snapshot.data['staffOrdering'] === true,
@@ -152,7 +159,19 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       queueMicrotask(() => this.watchSections());
     });
 
-    this.destroyRef.onDestroy(() => this.observer?.disconnect());
+    effect(() => {
+      this.sections();
+      this.view();
+      this.loading();
+      queueMicrotask(() => this.syncTabsOverflow());
+    });
+
+    const onResize = () => this.syncTabsOverflow();
+    window.addEventListener('resize', onResize);
+    this.destroyRef.onDestroy(() => {
+      this.observer?.disconnect();
+      window.removeEventListener('resize', onResize);
+    });
   }
 
   itemPhoto(it: PublicOrderingMenuItem): string | null {
@@ -256,6 +275,32 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private scrollActiveTabIntoView(id: string): void {
     const btn = document.querySelector<HTMLElement>(`.sec-tabs__btn[data-sec="${id}"]`);
     btn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    window.setTimeout(() => this.syncTabsOverflow(), 320);
+  }
+
+  onTabsScroll(): void {
+    this.syncTabsOverflow();
+  }
+
+  scrollTabs(dir: -1 | 1): void {
+    const el = this.tabsTrack()?.nativeElement;
+    if (!el) return;
+    const step = Math.max(160, Math.round(el.clientWidth * 0.65));
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+    window.setTimeout(() => this.syncTabsOverflow(), 280);
+  }
+
+  private syncTabsOverflow(): void {
+    const el = this.tabsTrack()?.nativeElement;
+    if (!el) {
+      this.canScrollLeft.set(false);
+      this.canScrollRight.set(false);
+      return;
+    }
+    const max = el.scrollWidth - el.clientWidth;
+    const overflow = max > 4;
+    this.canScrollLeft.set(overflow && el.scrollLeft > 2);
+    this.canScrollRight.set(overflow && el.scrollLeft < max - 2);
   }
 
   scrollToSection(index: number): void {

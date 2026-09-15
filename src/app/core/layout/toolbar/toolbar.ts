@@ -274,7 +274,7 @@ export class ToolbarComponent implements OnInit {
 
     if (isCustomerOrdersOnly(user, shopId)) {
       if (hasShopPermission(user, shopId, 'customerOrders.read') && shop?.onlineOrderingEnabled) {
-        pushRoute('customer-orders', 'Pedidos online', 'shopping_bag', '/customer-orders');
+        pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/customer-orders');
       }
       return applyToolbarConfig(items, cfg);
     }
