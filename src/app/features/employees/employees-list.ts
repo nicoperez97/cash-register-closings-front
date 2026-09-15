@@ -13,7 +13,12 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
-import { Employee, EmployeesApiService } from './employees-api.service';
+import {
+  Employee,
+  EMPLOYEE_JOB_ROLE_LABELS,
+  EmployeeJobRole,
+  EmployeesApiService,
+} from './employees-api.service';
 import { EmployeeDialogComponent } from './employee-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
@@ -111,14 +116,24 @@ export class EmployeesListPage {
       format: (r) => this.formatShiftAssignments(r),
     },
     {
+      key: 'jobRoles',
+      label: 'Roles',
+      format: (r) => {
+        const roles = (r['jobRoles'] as EmployeeJobRole[] | undefined) ?? [];
+        const list =
+          roles.length > 0
+            ? roles
+            : r['producesFood']
+              ? (['PRODUCER'] as EmployeeJobRole[])
+              : [];
+        if (!list.length) return '—';
+        return list.map((role) => EMPLOYEE_JOB_ROLE_LABELS[role] ?? role).join(', ');
+      },
+    },
+    {
       key: 'countsForAttendanceBonus',
       label: 'Presentismo',
       format: (r) => (r['countsForAttendanceBonus'] === false ? 'No' : 'Sí'),
-    },
-    {
-      key: 'producesFood',
-      label: 'Produce',
-      format: (r) => (r['producesFood'] ? 'Sí' : 'No'),
     },
     {
       key: 'supervisorEmployeeId',

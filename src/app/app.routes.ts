@@ -449,6 +449,14 @@ export const routes: Routes = [
             title: 'Pedidos',
           },
           {
+            path: 'comanda',
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopComandaPage,
+              ),
+            title: 'Comandas',
+          },
+          {
             path: 'dispositivos',
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(

@@ -454,8 +454,12 @@ export class MainLayoutComponent {
       local.push(leaf('adminShopIdentidad'));
       local.push(leaf('adminShopOperacion'));
     }
-    if (shopId && canManageOrderingCatalog(user, shopId)) {
+    if (
+      shopId &&
+      (canManageOrderingCatalog(user, shopId) || canManageShop(user, shopId))
+    ) {
       local.push(leaf('adminOrdering'));
+      local.push(leaf('adminComanda'));
     }
     if (shopId && canManageShop(user, shopId)) {
       local.push(leaf('adminShopDispositivos'));

@@ -46,6 +46,9 @@
         <p class="muted">{{ waiterName() }}</p>
       </div>
       <div class="bar__actions">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="openHistory()" [disabled]="loading() || !capabilities().allowHistory">
+          Historial
+        </button>
         <button type="button" class="icon-btn" (click)="loadTables()" [disabled]="loading()" aria-label="Actualizar">
           ↻
         </button>
@@ -119,41 +122,43 @@
               }
               <div class="floor">
                 <div class="floor__bg" aria-hidden="true"></div>
-                @for (obj of panel.objects; track obj.id) {
-                  <div
-                    class="floor__object"
-                    [attr.data-kind]="obj.kind"
-                    [style.left.%]="objectLeft(obj)"
-                    [style.top.%]="objectTop(obj)"
-                  >
-                    <span class="floor__object-kind">{{ objectLabel(obj) }}</span>
-                    <span class="floor__object-name">{{ obj.name }}</span>
-                  </div>
-                }
-                @for (t of panel.tables; track t.id) {
-                  <button
-                    type="button"
-                    class="floor__table"
-                    [class.floor__table--busy]="!!t.openSession"
-                    [class.floor__table--two]="t.seats === 2"
-                    [style.left.%]="tableLeft(t)"
-                    [style.top.%]="tableTop(t)"
-                    [disabled]="busy()"
-                    (click)="tapTable(t)"
-                  >
-                    <span class="floor__table-num">{{ t.label }}</span>
-                    <span class="floor__table-cap">
-                      @if (t.openSession; as os) {
-                        {{ os.covers ?? '—' }}p · {{ os.orderCount || 0 }}
-                      } @else {
-                        Libre
-                      }
-                    </span>
-                  </button>
-                }
-                @if (!panel.tables.length) {
-                  <p class="floor__empty">No hay mesas en este sector.</p>
-                }
+                <div class="floor__stage">
+                  @for (obj of panel.objects; track obj.id) {
+                    <div
+                      class="floor__object"
+                      [attr.data-kind]="obj.kind"
+                      [style.left.%]="objectLeft(obj)"
+                      [style.top.%]="objectTop(obj)"
+                    >
+                      <span class="floor__object-kind">{{ objectLabel(obj) }}</span>
+                      <span class="floor__object-name">{{ obj.name }}</span>
+                    </div>
+                  }
+                  @for (t of panel.tables; track t.id) {
+                    <button
+                      type="button"
+                      class="floor__table"
+                      [class.floor__table--busy]="!!t.openSession"
+                      [class.floor__table--two]="t.seats === 2"
+                      [style.left.%]="tableLeft(t)"
+                      [style.top.%]="tableTop(t)"
+                      [disabled]="busy()"
+                      (click)="tapTable(t)"
+                    >
+                      <span class="floor__table-num">{{ t.label }}</span>
+                      <span class="floor__table-cap">
+                        @if (t.openSession; as os) {
+                          {{ os.covers ?? '—' }}p · {{ os.orderCount || 0 }}
+                        } @else {
+                          Libre
+                        }
+                      </span>
+                    </button>
+                  }
+                  @if (!panel.tables.length) {
+                    <p class="floor__empty">No hay mesas en este sector.</p>
+                  }
+                </div>
               </div>
             </section>
           }
@@ -222,6 +227,26 @@
         }
       }
     }
+
+    @if (tipsSummary(); as tips) {
+      @if (capabilities().allowHistory) {
+      <section class="tips-card anim-in">
+        <button type="button" class="tips-card__head" (click)="openHistory()">
+          <div>
+            <p class="tips-card__label">Historial · {{ tips.shift.name }}</p>
+            <strong>{{ tips.closedTables }} mesa{{ tips.closedTables === 1 ? '' : 's' }}</strong>
+          </div>
+          <span class="muted">{{ money(tips.ticketTotal ?? 0) }}</span>
+        </button>
+        <div class="tips-card__meta">
+          <span>Propinas {{ money(tips.tipTotal) }}</span>
+          @if (tips.coversTotal) {
+            <span>{{ tips.coversTotal }} comensales</span>
+          }
+        </div>
+      </section>
+      }
+    }
   } @else {
     @let s = session();
     <header class="bar bar--sticky anim-in">
@@ -230,25 +255,32 @@
         <h1>Mesa {{ s?.table?.label ?? '—' }}</h1>
         <p class="muted">
           {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos
+          @if (s?.waiter?.fullName) {
+            · {{ s.waiter.fullName }}
+          }
         </p>
       </div>
       <div class="bar__actions">
-        <button
-          type="button"
-          class="btn btn--ghost btn--sm"
-          (click)="openTicketSheet()"
-          [disabled]="busy() || !(s?.orderCount || s?.orders?.length)"
-        >
-          Ticket
-        </button>
-        <button
-          type="button"
-          class="btn btn--danger btn--sm"
-          (click)="askCloseTable()"
-          [disabled]="busy()"
-        >
-          Cerrar
-        </button>
+        @if (capabilities().allowPrintCustomerTicket) {
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            (click)="openTicketSheet()"
+            [disabled]="busy() || !(s?.orderCount || s?.orders?.length)"
+          >
+            Ticket
+          </button>
+        }
+        @if (capabilities().allowCloseTable) {
+          <button
+            type="button"
+            class="btn btn--danger btn--sm"
+            (click)="askCloseTable()"
+            [disabled]="busy()"
+          >
+            Cerrar
+          </button>
+        }
       </div>
     </header>
 
@@ -286,7 +318,7 @@
                   <button
                     type="button"
                     class="ticket-sum__remove"
-                    [disabled]="busy()"
+                    [disabled]="busy() || !capabilities().allowRemoveTicketLines"
                     (click)="removeTicketLine(row.orderId, row.lineIndex)"
                   >
                     Quitar
@@ -298,7 +330,7 @@
                   <div class="ticket-sum__qty">
                     <button
                       type="button"
-                      [disabled]="busy()"
+                      [disabled]="busy() || !capabilities().allowEditTicket"
                       (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, -1)"
                     >
                       −
@@ -306,7 +338,7 @@
                     <span>{{ row.qty }}</span>
                     <button
                       type="button"
-                      [disabled]="busy()"
+                      [disabled]="busy() || !capabilities().allowEditTicket"
                       (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, 1)"
                     >
                       +
@@ -321,7 +353,7 @@
                   min="0"
                   step="100"
                   [ngModel]="row.unitPrice"
-                  [disabled]="busy()"
+                  [disabled]="busy() || !capabilities().allowEditTicket"
                   (change)="setTicketLinePrice(row.orderId, row.lineIndex, +$any($event.target).value, row.unitPrice)"
                   [attr.name]="'sp-' + row.orderId + '-' + row.lineIndex"
                 />
@@ -439,24 +471,30 @@
           </label>
 
           <div class="checks">
-            <label class="check">
-              <input
-                type="checkbox"
-                [ngModel]="printKitchen()"
-                (ngModelChange)="printKitchen.set($event)"
-                name="kitchen"
-              />
-              Cocina
-            </label>
-            <label class="check">
-              <input
-                type="checkbox"
-                [ngModel]="printCustomerTicket()"
-                (ngModelChange)="printCustomerTicket.set($event)"
-                name="ticket"
-              />
-              Ticket cliente
-            </label>
+            @if (capabilities().allowPrintKitchen) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [ngModel]="printKitchen()"
+                  (ngModelChange)="printKitchen.set($event)"
+                  name="kitchen"
+                  [disabled]="capabilities().lockPrintKitchen"
+                />
+                Cocina
+              </label>
+            }
+            @if (capabilities().allowPrintCustomerTicket) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [ngModel]="printCustomerTicket()"
+                  (ngModelChange)="printCustomerTicket.set($event)"
+                  name="ticket"
+                  [disabled]="capabilities().lockPrintCustomerTicket"
+                />
+                Ticket cliente
+              </label>
+            }
           </div>
 
           <div class="dock__actions">
@@ -466,7 +504,7 @@
             <button
               type="button"
               class="btn btn--lg"
-              [disabled]="busy() || !lines().length"
+              [disabled]="busy() || !lines().length || !capabilities().allowSendOrder"
               (click)="sendOrder()"
             >
               {{ busy() ? 'Enviando…' : 'Enviar comanda' }}
@@ -497,9 +535,51 @@
       />
       <button type="button" class="covers__btn" (click)="bumpCovers(1)">+</button>
     </div>
+    @if (staffMode && capabilities().requireWaiterOnOpen) {
+      <mat-form-field class="covers-waiter" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Mozo a cargo</mat-label>
+        <mat-select
+          [ngModel]="coversWaiterId()"
+          (ngModelChange)="coversWaiterId.set($event || null)"
+          name="waiter"
+        >
+          <mat-option [value]="null">Elegí un mozo…</mat-option>
+          @for (w of staffWaiters(); track w.id) {
+            <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      @if (!staffWaiters().length) {
+        <p class="muted covers-waiter__hint">
+          No hay mozos cargados. Marcá el rol Mozo o un PIN en Empleados.
+        </p>
+      }
+    } @else if (staffMode) {
+      <mat-form-field class="covers-waiter" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Mozo a cargo (opcional)</mat-label>
+        <mat-select
+          [ngModel]="coversWaiterId()"
+          (ngModelChange)="coversWaiterId.set($event || null)"
+          name="waiter"
+        >
+          <mat-option [value]="null">Sin asignar</mat-option>
+          @for (w of staffWaiters(); track w.id) {
+            <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
     <div class="sheet__actions">
       <button type="button" class="btn btn--ghost" (click)="cancelCovers()">Cancelar</button>
-      <button type="button" class="btn btn--lg" [disabled]="busy()" (click)="confirmCovers()">
+      <button
+        type="button"
+        class="btn btn--lg"
+        [disabled]="
+          busy() ||
+          (staffMode && capabilities().requireWaiterOnOpen && !coversWaiterId())
+        "
+        (click)="confirmCovers()"
+      >
         Continuar
       </button>
     </div>
@@ -522,7 +602,7 @@
                 <button
                   type="button"
                   class="ticket-sum__remove"
-                  [disabled]="busy()"
+                  [disabled]="busy() || !capabilities().allowRemoveTicketLines"
                   (click)="removeTicketLine(row.orderId, row.lineIndex)"
                 >
                   Quitar
@@ -534,7 +614,7 @@
                 <div class="ticket-sum__qty">
                   <button
                     type="button"
-                    [disabled]="busy()"
+                    [disabled]="busy() || !capabilities().allowEditTicket"
                     (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, -1)"
                   >
                     −
@@ -542,7 +622,7 @@
                   <span>{{ row.qty }}</span>
                   <button
                     type="button"
-                    [disabled]="busy()"
+                    [disabled]="busy() || !capabilities().allowEditTicket"
                     (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, 1)"
                   >
                     +
@@ -557,7 +637,7 @@
                 min="0"
                 step="100"
                 [ngModel]="row.unitPrice"
-                [disabled]="busy()"
+                [disabled]="busy() || !capabilities().allowEditTicket"
                 (change)="setTicketLinePrice(row.orderId, row.lineIndex, +$any($event.target).value, row.unitPrice)"
                 [attr.name]="'tp-' + row.orderId + '-' + row.lineIndex"
               />
@@ -569,48 +649,50 @@
       </ul>
       <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
     </div>
-    <div class="sheet__field">
-      <span class="sheet__label">Descuento</span>
-      <div class="choices choices--row">
-        <button
-          type="button"
-          class="choice"
-          [class.choice--on]="ticketDiscountMode() === 'none'"
-          (click)="ticketDiscountMode.set('none'); ticketDiscountValue.set(null)"
-        >
-          No
-        </button>
-        <button
-          type="button"
-          class="choice"
-          [class.choice--on]="ticketDiscountMode() === 'percent'"
-          (click)="ticketDiscountMode.set('percent')"
-        >
-          %
-        </button>
-        <button
-          type="button"
-          class="choice"
-          [class.choice--on]="ticketDiscountMode() === 'fixed'"
-          (click)="ticketDiscountMode.set('fixed')"
-        >
-          $
-        </button>
+    @if (capabilities().allowTicketDiscount) {
+      <div class="sheet__field">
+        <span class="sheet__label">Descuento</span>
+        <div class="choices choices--row">
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="ticketDiscountMode() === 'none'"
+            (click)="ticketDiscountMode.set('none'); ticketDiscountValue.set(null)"
+          >
+            No
+          </button>
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="ticketDiscountMode() === 'percent'"
+            (click)="ticketDiscountMode.set('percent')"
+          >
+            %
+          </button>
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="ticketDiscountMode() === 'fixed'"
+            (click)="ticketDiscountMode.set('fixed')"
+          >
+            $
+          </button>
+        </div>
       </div>
-    </div>
-    @if (ticketDiscountMode() !== 'none') {
-      <label class="sheet__field">
-        <span class="sheet__label">{{ ticketDiscountMode() === 'percent' ? 'Porcentaje' : 'Monto' }}</span>
-        <input
-          type="number"
-          min="0"
-          [attr.max]="ticketDiscountMode() === 'percent' ? 100 : null"
-          step="1"
-          [ngModel]="ticketDiscountValue()"
-          (ngModelChange)="ticketDiscountValue.set($event === '' || $event == null ? null : +$event)"
-          name="ticketDiscount"
-        />
-      </label>
+      @if (ticketDiscountMode() !== 'none') {
+        <label class="sheet__field">
+          <span class="sheet__label">{{ ticketDiscountMode() === 'percent' ? 'Porcentaje' : 'Monto' }}</span>
+          <input
+            type="number"
+            min="0"
+            [attr.max]="ticketDiscountMode() === 'percent' ? 100 : null"
+            step="1"
+            [ngModel]="ticketDiscountValue()"
+            (ngModelChange)="ticketDiscountValue.set($event === '' || $event == null ? null : +$event)"
+            name="ticketDiscount"
+          />
+        </label>
+      }
     }
     <p class="sheet__total"><span>Total</span><strong>{{ money(ticketPreviewTotal()) }}</strong></p>
     <div class="sheet__actions sheet__actions--col">
@@ -627,31 +709,201 @@
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="close-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     <h2 id="close-title">Cerrar mesa {{ session()?.table?.label }}</h2>
-    <p class="muted">Elegí cómo pagó el cliente.</p>
-    <div class="choices choices--col">
-      @for (m of paymentMethodsForClose(); track m.id) {
-        <button
-          type="button"
-          class="choice"
-          [class.choice--on]="closePaymentMethodId() === m.id"
-          (click)="closePaymentMethodId.set(m.id)"
-        >
-          {{ m.name }}
-        </button>
-      } @empty {
-        <p class="muted">Configurá medios de pago en Canales → Comanda.</p>
+    <p class="sheet__total sheet__total--sm">
+      <span>Ticket</span><strong>{{ money(closeDueAmount()) }}</strong>
+    </p>
+
+    @if (capabilities().allowTipOnClose) {
+      <div class="sheet__field">
+        <span class="sheet__label">Propina</span>
+        <div class="choices choices--row">
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="closeTipMode() === 'none'"
+            (click)="onCloseTipMode('none')"
+          >
+            No
+          </button>
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="closeTipMode() === 'percent'"
+            (click)="onCloseTipMode('percent')"
+          >
+            %
+          </button>
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="closeTipMode() === 'fixed'"
+            (click)="onCloseTipMode('fixed')"
+          >
+            $
+          </button>
+        </div>
+      </div>
+      @if (closeTipMode() !== 'none') {
+        <label class="sheet__field">
+          <span class="sheet__label">{{ closeTipMode() === 'percent' ? 'Porcentaje' : 'Monto' }}</span>
+          <input
+            type="number"
+            min="0"
+            [attr.max]="closeTipMode() === 'percent' ? 100 : null"
+            step="1"
+            [ngModel]="closeTipValue()"
+            (ngModelChange)="onCloseTipValue($event)"
+            name="closeTip"
+          />
+        </label>
+        <p class="muted close-tip-line">Propina {{ money(closeTipAmount()) }}</p>
       }
+    }
+
+    <p class="sheet__total">
+      <span>A cobrar</span><strong>{{ money(closeToCollect()) }}</strong>
+    </p>
+
+    <div class="sheet__field">
+      <span class="sheet__label">Formas de pago</span>
+      <p class="muted close-pay-hint">Podés repartir el total en más de un medio.</p>
+      <div class="close-pays">
+        @for (m of paymentMethodsForClose(); track m.id) {
+          <div class="close-pay">
+            <span class="close-pay__name">{{ m.name }}</span>
+            <button type="button" class="link close-pay__fill" (click)="fillClosePayHalf(m.id)">
+              50%
+            </button>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              placeholder="0"
+              [ngModel]="closePayAmounts()[m.id]"
+              (ngModelChange)="setClosePayAmount(m.id, $event)"
+              [attr.name]="'pay-' + m.id"
+            />
+            <button type="button" class="link close-pay__fill" (click)="fillClosePayAll(m.id)">
+              Todo
+            </button>
+          </div>
+        } @empty {
+          <p class="muted">Configurá medios de pago en Configuración del local → Comandas.</p>
+        }
+      </div>
+      <p class="close-pay-sum" [class.close-pay-sum--ok]="canConfirmClose()">
+        <span>Pagado {{ money(closePaidTotal()) }}</span>
+        <span>Restan {{ money(closeRemaining()) }}</span>
+      </p>
     </div>
+
     <div class="sheet__actions sheet__actions--col">
       <button
         type="button"
         class="btn btn--danger"
-        [disabled]="busy() || !closePaymentMethodId()"
+        [disabled]="busy() || !canConfirmClose()"
         (click)="confirmClose()"
       >
         Cerrar mesa
       </button>
       <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
     </div>
+  </div>
+}
+
+@if (historyOpen()) {
+  <div class="sheet-backdrop anim-fade" (click)="closeHistory()"></div>
+  <div class="sheet anim-up sheet--tall" role="dialog" aria-modal="true" aria-labelledby="history-title">
+    <div class="sheet__handle" aria-hidden="true"></div>
+    @if (historyDetail(); as detail) {
+      <button type="button" class="link" (click)="historyDetailId.set(null); historyOrderItems.set([])">← Volver</button>
+      <h2 id="history-title">Mesa {{ detail.tableLabel }}</h2>
+      <p class="muted">
+        @if (detail.closedAt) {
+          Cerrada {{ orderTime(detail.closedAt) }}
+        }
+        @if (detail.covers) {
+          · {{ detail.covers }} comensales
+        }
+      </p>
+      <p class="sheet__total"><span>Ticket</span><strong>{{ money(detail.ticketTotal) }}</strong></p>
+      @if (detail.tipAmount > 0) {
+        <p class="sheet__total sheet__total--sm">
+          <span>Propina@if (detail.tipLabel) { ({{ detail.tipLabel }}) }</span>
+          <strong>{{ money(detail.tipAmount) }}</strong>
+        </p>
+      }
+      <div class="sheet__field">
+        <span class="sheet__label">Pedido</span>
+        @if (historyOrderLoading()) {
+          <p class="muted">Cargando…</p>
+        } @else {
+          <ul class="history-pays history-order">
+            @for (line of historyOrderItems(); track $index) {
+              <li [class.history-order__extra]="line.extra">
+                <span>{{ line.extra ? '+ ' : line.qty + '× ' }}{{ line.name }}</span>
+                <strong>{{ money(line.unitPrice * line.qty) }}</strong>
+              </li>
+            } @empty {
+              <li class="muted">Sin ítems</li>
+            }
+          </ul>
+        }
+      </div>
+      <div class="sheet__field">
+        <span class="sheet__label">Pagos</span>
+        <ul class="history-pays">
+          @for (p of detail.payments; track p.paymentMethodId + p.amount) {
+            <li>
+              <span>{{ p.paymentMethodName }}</span>
+              <strong>{{ money(p.amount) }}</strong>
+            </li>
+          } @empty {
+            <li class="muted">Sin detalle de pago</li>
+          }
+        </ul>
+      </div>
+      <div class="sheet__actions sheet__actions--col">
+        <button type="button" class="link" (click)="closeHistory()">Cerrar</button>
+      </div>
+    } @else {
+      <h2 id="history-title">Historial de mesas</h2>
+      @if (tipsSummary(); as tips) {
+        <p class="muted">
+          {{ tips.shift.name }} · {{ tips.closedTables }} cerrada{{ tips.closedTables === 1 ? '' : 's' }}
+          · {{ money(tips.ticketTotal ?? 0) }}
+        </p>
+      }
+      <ul class="history-list">
+        @for (row of historySessions(); track row.sessionId) {
+          <li>
+            <button type="button" class="history-list__btn" (click)="openHistoryDetail(row.sessionId)">
+              <div class="history-list__main">
+                <strong>Mesa {{ row.tableLabel }}</strong>
+                <span class="muted">
+                  @if (row.closedAt) {
+                    {{ orderTime(row.closedAt) }}
+                  }
+                  @if (row.paymentLabel) {
+                    · {{ row.paymentLabel }}
+                  }
+                </span>
+              </div>
+              <div class="history-list__amounts">
+                <strong>{{ money(row.ticketTotal) }}</strong>
+                @if (row.tipAmount > 0) {
+                  <span class="muted">+{{ money(row.tipAmount) }}</span>
+                }
+              </div>
+            </button>
+          </li>
+        } @empty {
+          <li class="muted">Todavía no hay mesas cerradas en este turno.</li>
+        }
+      </ul>
+      <div class="sheet__actions sheet__actions--col">
+        <button type="button" class="link" (click)="closeHistory()">Cerrar</button>
+      </div>
+    }
   </div>
 }

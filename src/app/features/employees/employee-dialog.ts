@@ -13,7 +13,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, forkJoin, Observable, of, startWith } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { Employee, EmployeeType, EmployeesApiService, ShopUserOption } from './employees-api.service';
+import {
+  Employee,
+  EmployeeJobRole,
+  EmployeeType,
+  EMPLOYEE_JOB_ROLE_OPTIONS,
+  EmployeesApiService,
+  ShopUserOption,
+} from './employees-api.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { isUserVisible } from '../../shared/user-visibility';
@@ -226,11 +233,18 @@ function toDateString(value: Date | null): string | null {
             Cuenta para presentismo (liquidación)
           </mat-slide-toggle>
 
-          <mat-slide-toggle formControlName="producesFood">
-            Produce comida (asistencia en producción)
-          </mat-slide-toggle>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Tipo / rol</mat-label>
+            <mat-icon matPrefix>badge</mat-icon>
+            <mat-select formControlName="jobRoles" multiple>
+              @for (opt of jobRoleOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Podés elegir más de uno (Cajero, Barman, Cocinero, Mozo, Productor)</mat-hint>
+          </mat-form-field>
 
-          @if (form.controls.producesFood.value) {
+          @if (hasProducerRole()) {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Su supervisor</mat-label>
               <mat-icon matPrefix>supervisor_account</mat-icon>
@@ -492,6 +506,7 @@ export class EmployeeDialogComponent implements OnInit {
   readonly waiterPinPrefix = this.employee?.waiterPinPrefix ?? null;
   readonly shopShifts = this.data.shopShifts ?? [];
   readonly shiftHoursLabel = shiftHoursLabel;
+  readonly jobRoleOptions = EMPLOYEE_JOB_ROLE_OPTIONS;
   readonly busy = signal(false);
   readonly loadingLists = signal(true);
   readonly listsFailed = signal(false);
@@ -503,6 +518,12 @@ export class EmployeeDialogComponent implements OnInit {
         .filter((p) => p.supervisorEmployeeId === this.employee!.id)
         .map((p) => p.id)
     : [];
+
+  private initialJobRoles(): EmployeeJobRole[] {
+    const fromApi = this.employee?.jobRoles ?? [];
+    if (fromApi.length) return [...fromApi];
+    return this.employee?.producesFood ? ['PRODUCER'] : [];
+  }
 
   private initialShiftRole(shiftId: string): ShiftRoleForm {
     const assignments = this.employee?.shiftAssignments ?? [];
@@ -550,7 +571,7 @@ export class EmployeeDialogComponent implements OnInit {
     countsForAttendanceBonus: [
       this.employee?.countsForAttendanceBonus !== false,
     ],
-    producesFood: [this.employee?.producesFood ?? false],
+    jobRoles: this.fb.nonNullable.control<EmployeeJobRole[]>(this.initialJobRoles()),
     supervisorEmployeeId: this.fb.control<string | null>(
       this.employee?.supervisorEmployeeId ?? null,
     ),
@@ -645,9 +666,18 @@ export class EmployeeDialogComponent implements OnInit {
     return this.producers().filter((p) => p.id !== selfId);
   }
 
+  hasProducerRole(): boolean {
+    const roles = (this.shiftForm()?.jobRoles ?? this.form.controls.jobRoles.value ?? []) as EmployeeJobRole[];
+    return roles.includes('PRODUCER');
+  }
+
   private applyProducers(employees: Employee[]): void {
     const producers = employees
-      .filter((e) => !!e.producesFood && e.active)
+      .filter(
+        (e) =>
+          e.active &&
+          (!!e.producesFood || (e.jobRoles ?? []).includes('PRODUCER')),
+      )
       .map((e) => ({
         id: e.id,
         fullName: e.fullName,
@@ -671,7 +701,8 @@ export class EmployeeDialogComponent implements OnInit {
     }
     const shopId = this.data.shopId;
     const raw = this.form.getRawValue();
-    const producesFood = !!raw.producesFood;
+    const jobRoles = [...(raw.jobRoles ?? [])] as EmployeeJobRole[];
+    const producesFood = jobRoles.includes('PRODUCER');
     const shiftRoles = (raw.shiftRoles ?? {}) as Record<string, ShiftRoleForm>;
     const shiftAssignments = Object.entries(shiftRoles)
       .filter(([, role]) => role.type === 'FIXED' || role.type === 'ROTATING')
@@ -691,6 +722,7 @@ export class EmployeeDialogComponent implements OnInit {
       serviceCheckOut: null,
       shiftAssignments,
       countsForAttendanceBonus: !!raw.countsForAttendanceBonus,
+      jobRoles,
       producesFood,
       supervisorEmployeeId: producesFood ? raw.supervisorEmployeeId || null : null,
       userId: raw.userId || null,

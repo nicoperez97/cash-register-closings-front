@@ -55,6 +55,21 @@ type ClosingSummary = {
     DELIVERY: FulfillmentBucket;
     COUNTER: FulfillmentBucket;
   };
+  tables?: {
+    closedCount: number;
+    coversTotal: number;
+    ticketTotal: number;
+    tipTotal: number;
+    cashTotal: number;
+    transferTotal: number;
+    cardTotal: number;
+    paymentsByMethod: Array<{
+      paymentMethodId: string;
+      paymentMethodName: string;
+      amount: number;
+      kind: 'CASH' | 'TRANSFER' | 'CARD' | string;
+    }>;
+  };
 };
 
 @Component({
@@ -73,7 +88,7 @@ type ClosingSummary = {
         <h2>Configurar canales</h2>
         <p>
           Alta/baja de envío, medios de pago, ítems y extras. CBU/alias y WhatsApp: en Configuración del
-          local → Canales. Crear ítems/extras y fotos: en Carta.
+          local → Pedidos. Crear ítems/extras y fotos: en Carta.
         </p>
       </header>
 
@@ -495,7 +510,7 @@ export class OrderingCatalogPanelComponent {
     const existing = readClosingDraft(shopId, userId);
     if (existing) {
       const ok = window.confirm(
-        'Hay un cierre en borrador. ¿Reemplazarlo con los totales de pedidos del turno?',
+        'Hay un cierre en borrador. ¿Reemplazarlo con los totales de pedidos y mesas del turno?',
       );
       if (!ok) return;
     }
@@ -531,10 +546,14 @@ export class OrderingCatalogPanelComponent {
                 this.localOpen = false;
                 this.shops.upsertShop(updated);
                 this.generatingClosing.set(false);
+                const mesas = summary.tables?.closedCount ?? 0;
+                const bits = [
+                  `Cierre del turno «${summary.shiftName}»`,
+                  summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
+                  mesas ? `${mesas} mesa(s)` : null,
+                ].filter(Boolean);
                 this.snack.open(
-                  summary.orderCount
-                    ? `Cierre del turno «${summary.shiftName}»: ${summary.orderCount} pedido(s)`
-                    : `Cierre del turno «${summary.shiftName}» (sin pedidos)`,
+                  bits.length > 1 ? bits.join(': ') : `${bits[0]} (sin movimientos)`,
                   'OK',
                   { duration: 3200 },
                 );
@@ -594,15 +613,31 @@ export class OrderingCatalogPanelComponent {
       pushCobro('Pedidos online (transferencia)', summary.transferTotal, 'TRANSFER');
     }
 
+    const tables = summary.tables;
+    if (tables) {
+      for (const m of tables.paymentsByMethod ?? []) {
+        if (!(m.amount > 0)) continue;
+        const kind = String(m.kind || '').toUpperCase();
+        if (kind === 'CARD') continue; // va a cardAmount / PVS
+        pushCobro(
+          `Mesas · ${m.paymentMethodName}`,
+          m.amount,
+          kind === 'TRANSFER' ? 'TRANSFER' : 'CASH',
+        );
+      }
+    }
+
     const notesParts = [
-      `Pedidos · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
+      `Turno · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
       summary.businessDate,
-      `${summary.orderCount} pedido(s)`,
+      summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
       summary.completedCount ? `${summary.completedCount} completado(s)` : null,
       summary.openCount ? `${summary.openCount} abierto(s)` : null,
       by?.COUNTER?.orderCount ? `${by.COUNTER.orderCount} mostrador` : null,
       by?.TAKEAWAY?.orderCount ? `${by.TAKEAWAY.orderCount} take away` : null,
       by?.DELIVERY?.orderCount ? `${by.DELIVERY.orderCount} delivery` : null,
+      tables?.closedCount ? `${tables.closedCount} mesa(s) cerrada(s)` : null,
+      tables?.tipTotal ? `propinas mesas ${this.money(tables.tipTotal)}` : null,
     ].filter(Boolean);
 
     return {
@@ -617,18 +652,18 @@ export class OrderingCatalogPanelComponent {
         cashOpeningAmount: opening,
         cashLeftInRegister: opening,
         cashAmount: summary.cashTotal > 0 ? summary.cashTotal : null,
-        cardAmount: null,
+        cardAmount: tables?.cardTotal && tables.cardTotal > 0 ? tables.cardTotal : null,
         mercadoPagoAmount: null,
         accountDniAmount: null,
         deliveryAppsAmount: null,
         transferAmount: null,
         posSystemAmount: null,
         unitsSold: summary.unitsSold > 0 ? summary.unitsSold : null,
-        coversCount: null,
+        coversCount: tables?.coversTotal && tables.coversTotal > 0 ? tables.coversTotal : null,
         cashWithdrawn: null,
         cashWithdrawnByUserId: '',
         cashWithdrawnToAccountId: '',
-        tipsAmount: null,
+        tipsAmount: tables?.tipTotal && tables.tipTotal > 0 ? tables.tipTotal : null,
         notes: notesParts.join(' · '),
         otherCobros,
         expenses: [],

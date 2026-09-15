@@ -3,6 +3,7 @@ export type AdminShopSectionId =
   | 'identidad'
   | 'operacion'
   | 'pedidos'
+  | 'comanda'
   | 'dispositivos'
   | 'menu'
   | 'avanzado';
@@ -39,10 +40,19 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
   {
     id: 'pedidos',
     path: 'pedidos',
-    label: 'Canales',
+    label: 'Pedidos',
     icon: 'shopping_bag',
-    blurb: 'Página /pedir, take away, delivery, comanda, horarios, zonas y pagos.',
-    subtitle: 'Canales de pedidos: página pública, comanda, horarios, zonas y medios de pago.',
+    blurb: 'Página /pedir, take away, delivery, horarios, zonas y pagos online.',
+    subtitle: 'Pedidos online: página pública, horarios, zonas y medios de pago.',
+  },
+  {
+    id: 'comanda',
+    path: 'comanda',
+    label: 'Comandas',
+    icon: 'room_service',
+    blurb: 'Comanda mozos: link /mozo, pagos de mesa y permisos.',
+    subtitle:
+      'Operación → Comanda y /mozo: activación, medios de pago al cerrar y qué puede hacer cada canal.',
   },
   {
     id: 'dispositivos',

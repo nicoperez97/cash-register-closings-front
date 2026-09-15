@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import type { WaiterCapProfile } from '../admin/waiter-capabilities';
 
 export type WaiterLoginResult = {
   token: string;
@@ -12,6 +13,7 @@ export type WaiterLoginResult = {
     logoUrl?: string | null;
     accentColor?: string | null;
   };
+  capabilities?: WaiterCapProfile;
 };
 
 export type WaiterTable = {
@@ -86,6 +88,14 @@ export type WaiterSession = {
   ticketTotal?: number | null;
   paymentMethodId?: string | null;
   paymentMethodName?: string | null;
+  payments?: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    paymentAccountId?: string | null;
+    amount: number;
+  }>;
+  tipAmount?: number;
+  tipLabel?: string | null;
   paymentMethods?: TablePaymentMethod[];
   sessionSubtotal?: number;
   orderCount: number;
@@ -94,6 +104,41 @@ export type WaiterSession = {
   table: { id: string; label: string; area: string; seats: number } | null;
   waiter: { id: string; fullName: string };
   orders: WaiterSessionOrder[];
+};
+
+export type WaiterShiftTipsSummary = {
+  businessDate: string;
+  shift: { id: string; name: string };
+  from: string;
+  to: string;
+  tipTotal: number;
+  ticketTotal?: number;
+  coversTotal?: number;
+  tippedTables: number;
+  closedTables: number;
+  recent: Array<{
+    sessionId: string;
+    tableLabel: string;
+    tipAmount: number;
+    tipLabel?: string | null;
+    closedAt?: string | null;
+  }>;
+  sessions?: Array<{
+    sessionId: string;
+    tableLabel: string;
+    covers: number;
+    openedAt?: string | null;
+    closedAt?: string | null;
+    ticketTotal: number;
+    tipAmount: number;
+    tipLabel?: string | null;
+    payments: Array<{
+      paymentMethodId: string;
+      paymentMethodName: string;
+      amount: number;
+    }>;
+    paymentLabel?: string;
+  }>;
 };
 
 export type WaiterCatalog = {
@@ -113,6 +158,7 @@ export type WaiterCatalog = {
     menuItemIds?: string[];
   }>;
   tablePaymentMethods?: TablePaymentMethod[];
+  capabilities?: WaiterCapProfile;
   menus: Array<{
     id: string;
     slug: string;
@@ -145,6 +191,12 @@ export class WaiterApiService {
     return this.http.post<WaiterLoginResult>(
       `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/enter`,
       {},
+    );
+  }
+
+  staffWaiters(shopId: string) {
+    return this.http.get<Array<{ id: string; fullName: string }>>(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/waiters`,
     );
   }
 
@@ -188,10 +240,20 @@ export class WaiterApiService {
     );
   }
 
-  openSession(slug: string, token: string, salonTableId: string, covers: number) {
+  openSession(
+    slug: string,
+    token: string,
+    salonTableId: string,
+    covers: number,
+    waiterEmployeeId?: string | null,
+  ) {
     return this.http.post<WaiterSession>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions`,
-      { salonTableId, covers },
+      {
+        salonTableId,
+        covers,
+        ...(waiterEmployeeId ? { waiterEmployeeId } : {}),
+      },
       this.authHeaders(token),
     );
   }
@@ -243,11 +305,23 @@ export class WaiterApiService {
     slug: string,
     token: string,
     sessionId: string,
-    body: { paymentMethodId: string },
+    body: {
+      paymentMethodId?: string;
+      payments?: Array<{ paymentMethodId: string; amount: number }>;
+      tipMode?: string;
+      tipValue?: number | null;
+    },
   ) {
     return this.http.post<WaiterSession>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/close`,
       body,
+      this.authHeaders(token),
+    );
+  }
+
+  shiftTipsSummary(slug: string, token: string) {
+    return this.http.get<WaiterShiftTipsSummary>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/tips-summary`,
       this.authHeaders(token),
     );
   }

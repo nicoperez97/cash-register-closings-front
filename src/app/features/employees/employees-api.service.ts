@@ -5,6 +5,29 @@ import type { UserVisibility } from '../../shared/user-visibility';
 
 export type EmployeeType = 'FIXED' | 'ROTATING';
 
+export type EmployeeJobRole =
+  | 'CASHIER'
+  | 'BARTENDER'
+  | 'COOK'
+  | 'WAITER'
+  | 'PRODUCER';
+
+export const EMPLOYEE_JOB_ROLE_OPTIONS: Array<{ value: EmployeeJobRole; label: string }> = [
+  { value: 'CASHIER', label: 'Cajero' },
+  { value: 'BARTENDER', label: 'Barman' },
+  { value: 'COOK', label: 'Cocinero' },
+  { value: 'WAITER', label: 'Mozo' },
+  { value: 'PRODUCER', label: 'Productor' },
+];
+
+export const EMPLOYEE_JOB_ROLE_LABELS: Record<EmployeeJobRole, string> = {
+  CASHIER: 'Cajero',
+  BARTENDER: 'Barman',
+  COOK: 'Cocinero',
+  WAITER: 'Mozo',
+  PRODUCER: 'Productor',
+};
+
 export type EmployeeShiftAssignment = {
   shiftId: string;
   type: EmployeeType;
@@ -24,11 +47,12 @@ export interface Employee {
   type: EmployeeType;
   /** Tipo por turno de caja. Vacío = aplica `type` a todos. */
   shiftAssignments?: EmployeeShiftAssignment[];
+  /** Roles operativos (multi). */
+  jobRoles?: EmployeeJobRole[];
   /** Si cuenta para el presentismo semanal en liquidación. */
   countsForAttendanceBonus?: boolean;
   /** Si produce comida → aparece en asistencia de producción. */
-  producesFood?: boolean;
-  /** Productor supervisor a cargo. */
+  producesFood?: boolean;  /** Productor supervisor a cargo. */
   supervisorEmployeeId?: string | null;
   /** Alias o CBU para reintegros. */
   bankAlias?: string | null;
