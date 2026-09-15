@@ -914,6 +914,11 @@ export interface ShopSummary {
   onlineOrderingEnabled?: boolean;
   /** Comanda de mozos (/mozo/:slug). */
   waiterOrderingEnabled?: boolean;
+  /** Capacidades de comanda (public / staff). */
+  waiterCapabilities?: {
+    public?: Record<string, boolean>;
+    staff?: Record<string, boolean>;
+  } | null;
   /** Cierre manual de /pedir (clientes ven cerrado). */
   orderingForceClosed?: boolean;
   /** ISO: cuándo se abrió a mano (para auto-cerrar al fin del turno). */

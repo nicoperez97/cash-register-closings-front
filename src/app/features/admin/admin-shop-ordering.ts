@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ControlContainer,
   FormArray,
-  FormBuilder,
   FormGroup,
   FormGroupDirective,
   ReactiveFormsModule,
@@ -13,8 +12,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 import { debounceTime, merge } from 'rxjs';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
 import { copyText } from '../../shared/utils/share-text';
@@ -38,12 +37,12 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
     MatSlideToggleModule,
     MatIconModule,
-    MatSelectModule,
     MatSnackBarModule,
     DeliveryZoneMapEditorComponent,
   ],
@@ -51,9 +50,9 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     <div class="op">
       <section class="panel-card op__card">
         <header class="op__head">
-          <h2 class="op__title">Canales de pedidos</h2>
+          <h2 class="op__title">Pedidos</h2>
           <p class="op__lead">
-            Página pública /pedir, take away, delivery y comanda de mozos. Las mesas del salón siguen por reservas.
+            Página pública /pedir, take away y delivery. La comanda de mesas está en Comandas.
           </p>
         </header>
 
@@ -88,72 +87,6 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           </div>
           <div class="op__row-toggle">
             <div>
-              <strong>Comanda mozos</strong>
-              <span>Operación → Comanda y página /mozo/… con PIN</span>
-            </div>
-            <mat-slide-toggle
-              formControlName="waiterOrderingEnabled"
-              aria-label="Comanda mozos"
-            />
-          </div>
-          @if (waiterOn() && waiterPublicUrl()) {
-            <div class="op__public op__public--inline">
-              <a class="op__public-btn" [href]="waiterPublicUrl()" target="_blank" rel="noopener">
-                <mat-icon>open_in_new</mat-icon>
-                Abrir link
-              </a>
-              <button
-                type="button"
-                class="op__public-btn op__public-btn--ghost"
-                (click)="copyWaiterPublicUrl()"
-              >
-                <mat-icon>content_copy</mat-icon>
-                Copiar link
-              </button>
-            </div>
-            <p class="op__public-url">{{ waiterPublicUrl() }}</p>
-          }
-          @if (waiterOn()) {
-            <h3 class="op__subtitle">Medios de pago de mesa</h3>
-            <p class="op__schedule-hint">
-              Al cerrar una mesa el mozo elige uno. Podés vincular cada medio a una cuenta del local.
-            </p>
-            <div class="op__pays" formArrayName="tablePaymentMethods">
-              @for (m of tablePays.controls; track $index; let i = $index) {
-                <div class="op__pay" [formGroupName]="i">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
-                    <mat-label>Nombre</mat-label>
-                    <input matInput formControlName="name" placeholder="ej. Efectivo" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-account">
-                    <mat-label>Cuenta</mat-label>
-                    <mat-select formControlName="accountId">
-                      <mat-option [value]="null">Sin vincular</mat-option>
-                      @for (a of ledgerAccounts(); track a.id) {
-                        <mat-option [value]="a.id">{{ a.name }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <button
-                    mat-icon-button
-                    type="button"
-                    class="op__pay-del"
-                    (click)="removeTablePay(i)"
-                    aria-label="Quitar"
-                    [disabled]="tablePays.length <= 1"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              }
-            </div>
-            <button mat-stroked-button type="button" class="op__pay-add" (click)="addTablePay()">
-              <mat-icon>add</mat-icon>
-              Agregar medio
-            </button>
-          }
-          <div class="op__row-toggle">
-            <div>
               <strong>Take away</strong>
               <span>Retiro en el local</span>
             </div>
@@ -167,6 +100,11 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
             <mat-slide-toggle formControlName="deliveryEnabled" aria-label="Delivery" />
           </div>
         </div>
+
+        <p class="op__schedule-hint" style="margin-top: 0.75rem">
+          Comanda de mesas (/mozo y Operación → Comanda) se configura en
+          <a routerLink="/admin/shop/comanda">Comandas</a>.
+        </p>
 
         <div class="guy-form-grid guy-form-grid--2" style="margin-top: 1rem">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -519,7 +457,6 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 export class AdminShopOrderingComponent {
   private readonly host = inject(ADMIN_SHOP_HOST);
   private readonly snack = inject(MatSnackBar);
-  private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
@@ -533,12 +470,8 @@ export class AdminShopOrderingComponent {
   readonly orderingOn = computed(
     () => !!this.host.formValue()?.onlineOrderingEnabled,
   );
-  readonly waiterOn = computed(
-    () => !!this.host.formValue()?.waiterOrderingEnabled,
-  );
   readonly takeawayOn = computed(() => !!this.host.formValue()?.takeawayEnabled);
   readonly deliveryOn = computed(() => !!this.host.formValue()?.deliveryEnabled);
-  readonly ledgerAccounts = computed(() => this.host.allLedgerAccounts());
 
   constructor() {
     // Tras cargar el local (o GET), si hay horarios distintos por día activar modo custom.
@@ -554,26 +487,11 @@ export class AdminShopOrderingComponent {
     return `${window.location.origin}/pedir/${encodeURIComponent(slug)}`;
   }
 
-  waiterPublicUrl(): string {
-    const slug = String(this.host.liveSlug?.() ?? this.host.formValue()?.slug ?? '').trim();
-    if (!slug) return '';
-    return `${window.location.origin}/mozo/${encodeURIComponent(slug)}`;
-  }
-
   async copyOrderingPublicUrl(): Promise<void> {
     const url = this.orderingPublicUrl();
     if (!url) return;
     const ok = await copyText(url);
     this.snack.open(ok ? 'Link de /pedir copiado' : 'No se pudo copiar la URL', 'OK', {
-      duration: 2500,
-    });
-  }
-
-  async copyWaiterPublicUrl(): Promise<void> {
-    const url = this.waiterPublicUrl();
-    if (!url) return;
-    const ok = await copyText(url);
-    this.snack.open(ok ? 'Link de comanda mozos copiado' : 'No se pudo copiar la URL', 'OK', {
       duration: 2500,
     });
   }
@@ -588,26 +506,6 @@ export class AdminShopOrderingComponent {
 
   get deliveryZones(): FormArray {
     return this.host.form.get('deliveryZones') as FormArray;
-  }
-
-  get tablePays(): FormArray {
-    return this.host.form.get('tablePaymentMethods') as FormArray;
-  }
-
-  addTablePay(): void {
-    this.tablePays.push(
-      this.fb.nonNullable.group({
-        id: [''],
-        name: [''],
-        accountId: this.fb.control<string | null>(null),
-        active: [true],
-      }),
-    );
-  }
-
-  removeTablePay(index: number): void {
-    if (this.tablePays.length <= 1) return;
-    this.tablePays.removeAt(index);
   }
 
   shopAccent(): string {

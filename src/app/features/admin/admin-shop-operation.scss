@@ -124,6 +124,12 @@
   color: var(--guy-muted, #5f6f76);
 }
 
+.op__caps {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+}
+
 .op__after-toggle {
   margin-top: 0.15rem;
 }

@@ -7,6 +7,7 @@ import { ShopToolbarEditorComponent } from './shop-toolbar-editor';
 import { AdminShopIdentityComponent } from './admin-shop-identity';
 import { AdminShopOperationComponent } from './admin-shop-operation';
 import { AdminShopOrderingComponent } from './admin-shop-ordering';
+import { AdminShopComandaComponent } from './admin-shop-comanda';
 import { AdminShopDevicesComponent } from './admin-shop-devices';
 import { AdminShopAdvancedComponent } from './admin-shop-advanced';
 import { AdminShopSubnavComponent } from './admin-shop-subnav';
@@ -161,6 +162,28 @@ export class AdminShopOperacionPage {
 export class AdminShopPedidosPage {
   readonly host = inject(ADMIN_SHOP_HOST);
   readonly section = adminShopSectionByPath('pedidos')!;
+}
+
+@Component({
+  selector: 'app-admin-shop-comanda-page',
+  imports: [
+    ReactiveFormsModule,
+    PageHeaderComponent,
+    AdminShopSubnavComponent,
+    AdminShopComandaComponent,
+  ],
+  template: `
+    <app-page-header [title]="section.label" [subtitle]="section.subtitle" />
+    <app-admin-shop-subnav activeId="comanda" />
+    <div class="shop-admin__tab-panel" [formGroup]="host.form">
+      <app-admin-shop-comanda />
+    </div>
+  `,
+  styleUrl: './admin-shop.scss',
+})
+export class AdminShopComandaPage {
+  readonly host = inject(ADMIN_SHOP_HOST);
+  readonly section = adminShopSectionByPath('comanda')!;
 }
 
 @Component({

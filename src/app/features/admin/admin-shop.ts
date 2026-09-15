@@ -35,6 +35,12 @@ import {
   ShopClosingSource,
 } from '../closings/closings-api.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
+import {
+  DEFAULT_WAITER_CAP_PUBLIC,
+  DEFAULT_WAITER_CAP_STAFF,
+  normalizeWaiterCapabilities,
+  type WaiterCapProfile,
+} from './waiter-capabilities';
 import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
@@ -256,6 +262,10 @@ export class AdminShopPage implements OnInit {
     deliveryZones: this.fb.array([]),
     orderingExtras: this.fb.array([]),
     tablePaymentMethods: this.fb.array([]),
+    waiterCapabilities: this.fb.nonNullable.group({
+      public: this.waiterCapGroup(DEFAULT_WAITER_CAP_PUBLIC),
+      staff: this.waiterCapGroup(DEFAULT_WAITER_CAP_STAFF),
+    }),
     takeawayHours: this.fb.array(this.emptyWeekdayHours()),
     deliveryHours: this.fb.array(this.emptyWeekdayHours()),
     active: [true],
@@ -305,6 +315,36 @@ export class AdminShopPage implements OnInit {
 
   get tablePaymentMethods(): FormArray {
     return this.form.get('tablePaymentMethods') as FormArray;
+  }
+
+  get waiterCapabilities(): FormGroup {
+    return this.form.get('waiterCapabilities') as FormGroup;
+  }
+
+  private waiterCapGroup(seed: WaiterCapProfile): FormGroup {
+    return this.fb.nonNullable.group({
+      allowSendOrder: [seed.allowSendOrder],
+      allowPrintKitchen: [seed.allowPrintKitchen],
+      defaultPrintKitchen: [seed.defaultPrintKitchen],
+      lockPrintKitchen: [seed.lockPrintKitchen],
+      allowPrintCustomerTicket: [seed.allowPrintCustomerTicket],
+      defaultPrintCustomerTicket: [seed.defaultPrintCustomerTicket],
+      lockPrintCustomerTicket: [seed.lockPrintCustomerTicket],
+      allowEditTicket: [seed.allowEditTicket],
+      allowRemoveTicketLines: [seed.allowRemoveTicketLines],
+      allowTicketDiscount: [seed.allowTicketDiscount],
+      allowCloseTable: [seed.allowCloseTable],
+      requireTicketBeforeClose: [seed.requireTicketBeforeClose],
+      allowTipOnClose: [seed.allowTipOnClose],
+      allowDiscardEmptySession: [seed.allowDiscardEmptySession],
+      allowHistory: [seed.allowHistory],
+      requireWaiterOnOpen: [seed.requireWaiterOnOpen],
+    });
+  }
+
+  private patchWaiterCapabilities(raw: unknown): void {
+    const caps = normalizeWaiterCapabilities(raw);
+    this.waiterCapabilities.patchValue(caps);
   }
 
   get takeawayHours(): FormArray {
@@ -605,18 +645,18 @@ export class AdminShopPage implements OnInit {
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       map((e) =>
-        /\/admin\/shop\/(identidad|operacion|pedidos|dispositivos|menu|avanzado)/.test(
+        /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/.test(
           e.urlAfterRedirects,
         ),
       ),
       startWith(
-        /\/admin\/shop\/(identidad|operacion|pedidos|dispositivos|menu|avanzado)/.test(
+        /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/.test(
           this.router.url,
         ),
       ),
     ),
     {
-      initialValue: /\/admin\/shop\/(identidad|operacion|pedidos|dispositivos|menu|avanzado)/.test(
+      initialValue: /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/.test(
         this.router.url,
       ),
     },
@@ -891,6 +931,9 @@ export class AdminShopPage implements OnInit {
         }),
       );
     }
+    this.patchWaiterCapabilities(
+      (s as { waiterCapabilities?: unknown }).waiterCapabilities,
+    );
   }
 
   colorPickerValue(): string {
@@ -1421,6 +1464,7 @@ export class AdminShopPage implements OnInit {
           active: m.active !== false,
         }))
         .filter((m) => !!m.name),
+      waiterCapabilities: normalizeWaiterCapabilities(raw.waiterCapabilities),
       deliveryZones: (raw.deliveryZones as Array<{
         id?: string;
         name: string;
@@ -1476,6 +1520,7 @@ export class AdminShopPage implements OnInit {
           deliveryZones: body['deliveryZones'],
           orderingPayments: body['orderingPayments'],
           tablePaymentMethods: body['tablePaymentMethods'],
+          waiterCapabilities: body['waiterCapabilities'],
         });
 
     req$.subscribe({

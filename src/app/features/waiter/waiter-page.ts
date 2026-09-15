@@ -8,20 +8,29 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { prettySection } from '../menu/menu-display';
-import { apiErrorMessage, formatOrderLinesInline, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
+import { apiErrorMessage, formatOrderLinesInline, groupOrderLines, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
 import {
   WaiterApiService,
   WaiterCatalog,
   WaiterMapObject,
   WaiterSession,
+  WaiterShiftTipsSummary,
   WaiterTable,
 } from './waiter-api.service';
+import {
+  DEFAULT_WAITER_CAP_PUBLIC,
+  DEFAULT_WAITER_CAP_STAFF,
+  normalizeWaiterCapProfile,
+  type WaiterCapProfile,
+} from '../admin/waiter-capabilities';
 
 type PosLine = {
   key: string;
@@ -50,7 +59,7 @@ function tokenKey(slug: string) {
 
 @Component({
   selector: 'app-waiter-page',
-  imports: [FormsModule],
+  imports: [FormsModule, MatFormFieldModule, MatSelectModule],
   templateUrl: './waiter-page.html',
   styleUrl: './waiter-page.scss',
 })
@@ -91,13 +100,28 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly printCustomerTicket = signal(false);
   readonly cartOpen = signal(false);
 
-  /** Sheet: pedir comensales antes de abrir. */
+  /** Sheet: pedir comensales (y mozo en admin) antes de abrir. */
   readonly coversSheet = signal<WaiterTable | null>(null);
   readonly coversDraft = signal(2);
+  readonly staffWaiters = signal<Array<{ id: string; fullName: string }>>([]);
+  readonly coversWaiterId = signal<string | null>(null);
 
-  /** Sheet: cerrar mesa (requiere ticket + forma de pago). */
+  /** Sheet: cerrar mesa (ticket + pagos mixtos + propina). */
   readonly closeSheet = signal(false);
-  readonly closePaymentMethodId = signal<string | null>(null);
+  readonly closeTipMode = signal<'none' | 'percent' | 'fixed'>('none');
+  readonly closeTipValue = signal<number | null>(null);
+  /** Montos por medio de pago (id → monto). */
+  readonly closePayAmounts = signal<Record<string, number | null>>({});
+  /** Medio que absorbe el resto / último «Todo». */
+  readonly closePayPrimaryId = signal<string | null>(null);
+
+  /** Resumen de propinas del turno (vista mesas). */
+  readonly tipsSummary = signal<WaiterShiftTipsSummary | null>(null);
+  readonly capabilities = signal<WaiterCapProfile>(
+    this.staffMode ? DEFAULT_WAITER_CAP_STAFF : DEFAULT_WAITER_CAP_PUBLIC,
+  );
+  readonly historyOpen = signal(false);
+  readonly historyDetailId = signal<string | null>(null);
 
   /** Sheet: imprimir ticket con descuento. */
   readonly ticketSheet = signal(false);
@@ -348,6 +372,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.waiterName.set(me.waiter.fullName);
           this.shopName.set(me.shop.name);
           this.accent.set(this.resolveAccent(me.shop.accentColor));
+          this.applyCapabilities((me as { capabilities?: WaiterCapProfile }).capabilities);
           this.title.setTitle(`Mozo · ${me.shop.name}`);
           this.view.set('tables');
           this.loadTables();
@@ -362,6 +387,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.loading.set(false);
+  }
+
+  private applyCapabilities(raw?: WaiterCapProfile | null): void {
+    const fallback = this.staffMode ? DEFAULT_WAITER_CAP_STAFF : DEFAULT_WAITER_CAP_PUBLIC;
+    this.capabilities.set(normalizeWaiterCapProfile(raw, fallback));
   }
 
   private resolveAccent(raw?: string | null): string {
@@ -392,9 +422,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.waiterName.set(res.waiter.fullName);
         this.shopName.set(res.shop.name);
         this.accent.set(this.resolveAccent(res.shop.accentColor));
+        this.applyCapabilities(res.capabilities);
         this.title.setTitle(`Comanda · ${res.shop.name}`);
         this.view.set('tables');
         this.loadTables();
+        this.loadStaffWaiters(shopId);
       },
       error: (err) => {
         this.busy.set(false);
@@ -402,6 +434,18 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.error.set(apiErrorMessage(err, 'No se pudo abrir la comanda'));
         this.view.set('login');
       },
+    });
+  }
+
+  private loadStaffWaiters(shopId: string): void {
+    this.api.staffWaiters(shopId).subscribe({
+      next: (rows) => {
+        this.staffWaiters.set(rows);
+        const linked = rows.find((w) => w.fullName === this.waiterName())?.id;
+        if (linked) this.coversWaiterId.set(linked);
+        else if (rows.length === 1) this.coversWaiterId.set(rows[0].id);
+      },
+      error: () => this.staffWaiters.set([]),
     });
   }
 
@@ -546,16 +590,19 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   bumpTicketItem(orderId: string, lineIndex: number, qty: number, delta: number): void {
+    if (!this.capabilities().allowEditTicket) return;
     this.patchTicketLine({ orderId, lineIndex, qty: Math.max(0, qty + delta) });
   }
 
   setTicketLinePrice(orderId: string, lineIndex: number, unitPrice: number, current: number): void {
+    if (!this.capabilities().allowEditTicket) return;
     const next = Math.max(0, Math.round((Number(unitPrice) || 0) * 100) / 100);
     if (next === current) return;
     this.patchTicketLine({ orderId, lineIndex, unitPrice: next });
   }
 
   removeTicketLine(orderId: string, lineIndex: number): void {
+    if (!this.capabilities().allowRemoveTicketLines) return;
     this.patchTicketLine({ orderId, lineIndex, remove: true });
   }
 
@@ -584,6 +631,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.waiterName.set(res.waiter.fullName);
         this.shopName.set(res.shop.name);
         this.accent.set(this.resolveAccent(res.shop.accentColor));
+        this.applyCapabilities(res.capabilities);
         this.title.setTitle(`Mozo · ${res.shop.name}`);
         this.pin.set('');
         this.view.set('tables');
@@ -631,11 +679,100 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           if (!names.has(tab)) this.sectorTab.set(null);
         }
         this.loading.set(false);
+        this.loadTipsSummary();
       },
       error: (err) => {
         this.loading.set(false);
         this.error.set(apiErrorMessage(err, 'No se pudieron cargar las mesas'));
         if (err?.status === 401) this.logout();
+      },
+    });
+  }
+
+  loadTipsSummary(): void {
+    if (!this.capabilities().allowHistory) {
+      this.tipsSummary.set(null);
+      return;
+    }
+    const slug = this.slug();
+    const token = this.token();
+    if (!slug || !token) return;
+    this.api.shiftTipsSummary(slug, token).subscribe({
+      next: (sum) => this.tipsSummary.set(sum),
+      error: () => this.tipsSummary.set(null),
+    });
+  }
+
+  historySessions(): NonNullable<WaiterShiftTipsSummary['sessions']> {
+    return this.tipsSummary()?.sessions ?? [];
+  }
+
+  historyDetail(): NonNullable<WaiterShiftTipsSummary['sessions']>[number] | null {
+    const id = this.historyDetailId();
+    if (!id) return null;
+    return this.historySessions().find((s) => s.sessionId === id) ?? null;
+  }
+
+  readonly historyOrderItems = signal<
+    Array<{ name: string; qty: number; unitPrice: number; extra?: boolean }>
+  >([]);
+  readonly historyOrderLoading = signal(false);
+
+  openHistory(): void {
+    if (!this.capabilities().allowHistory) return;
+    this.historyDetailId.set(null);
+    this.historyOrderItems.set([]);
+    this.historyOpen.set(true);
+    this.loadTipsSummary();
+  }
+
+  closeHistory(): void {
+    this.historyOpen.set(false);
+    this.historyDetailId.set(null);
+    this.historyOrderItems.set([]);
+  }
+
+  openHistoryDetail(sessionId: string): void {
+    this.historyDetailId.set(sessionId);
+    this.historyOpen.set(true);
+    this.loadHistoryOrder(sessionId);
+  }
+
+  private loadHistoryOrder(sessionId: string): void {
+    const slug = this.slug();
+    const token = this.token();
+    if (!slug || !token) return;
+    this.historyOrderLoading.set(true);
+    this.historyOrderItems.set([]);
+    this.api.getSession(slug, token, sessionId).subscribe({
+      next: (session) => {
+        const rows: Array<{ name: string; qty: number; unitPrice: number; extra?: boolean }> =
+          [];
+        for (const o of session.orders ?? []) {
+          for (const g of groupOrderLines(o.items ?? [])) {
+            if (g.item) {
+              rows.push({
+                name: g.item.name,
+                qty: g.item.qty,
+                unitPrice: g.item.unitPrice,
+              });
+            }
+            for (const ex of g.extras) {
+              rows.push({
+                name: ex.name,
+                qty: ex.qty,
+                unitPrice: ex.unitPrice,
+                extra: true,
+              });
+            }
+          }
+        }
+        this.historyOrderItems.set(rows);
+        this.historyOrderLoading.set(false);
+      },
+      error: () => {
+        this.historyOrderItems.set([]);
+        this.historyOrderLoading.set(false);
       },
     });
   }
@@ -647,6 +784,13 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.coversDraft.set(Math.max(1, Math.min(30, table.seats || 2)));
+    if (this.staffMode) {
+      const waiters = this.staffWaiters();
+      const current = this.coversWaiterId();
+      if (!current || !waiters.some((w) => w.id === current)) {
+        this.coversWaiterId.set(waiters.length === 1 ? waiters[0].id : null);
+      }
+    }
     this.coversSheet.set(table);
   }
 
@@ -662,8 +806,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.error.set('Indicá entre 1 y 30 comensales');
       return;
     }
+    const waiterEmployeeId = this.staffMode ? this.coversWaiterId() : null;
+    if (
+      this.staffMode &&
+      this.capabilities().requireWaiterOnOpen &&
+      !waiterEmployeeId
+    ) {
+      this.error.set('Elegí el mozo a cargo');
+      return;
+    }
     this.coversSheet.set(null);
-    this.openFresh(table, covers);
+    this.openFresh(table, covers, waiterEmployeeId);
   }
 
   private resumeTable(table: WaiterTable): void {
@@ -682,13 +835,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  private openFresh(table: WaiterTable, covers: number): void {
+  private openFresh(
+    table: WaiterTable,
+    covers: number,
+    waiterEmployeeId?: string | null,
+  ): void {
     const slug = this.slug();
     const token = this.token();
     if (!slug || !token) return;
     this.busy.set(true);
     this.error.set(null);
-    this.api.openSession(slug, token, table.id, covers).subscribe({
+    this.api.openSession(slug, token, table.id, covers, waiterEmployeeId).subscribe({
       next: (session) => this.enterSession(session),
       error: (err) => {
         this.busy.set(false);
@@ -702,8 +859,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.session.set(session);
     this.lines.set([]);
     this.notes.set('');
-    this.printKitchen.set(true);
-    this.printCustomerTicket.set(false);
+    const caps = this.capabilities();
+    this.printKitchen.set(caps.allowPrintKitchen && caps.defaultPrintKitchen);
+    this.printCustomerTicket.set(
+      caps.allowPrintCustomerTicket && caps.defaultPrintCustomerTicket,
+    );
     this.cartOpen.set(false);
     this.view.set('session');
     this.ensureCatalog();
@@ -725,6 +885,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     };
 
     if (session && !hadOrders && slug && token) {
+      if (!this.capabilities().allowDiscardEmptySession) {
+        go();
+        return;
+      }
       this.api.discardSession(slug, token, session.id).subscribe({
         next: () => go(),
         error: () => go(),
@@ -740,7 +904,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const token = this.token();
     if (!slug || !token) return;
     this.api.catalog(slug, token).subscribe({
-      next: (cfg) => this.catalog.set(cfg),
+      next: (cfg) => {
+        this.catalog.set(cfg);
+        if (cfg.capabilities) this.applyCapabilities(cfg.capabilities);
+      },
       error: (err) =>
         this.error.set(apiErrorMessage(err, 'No se pudo cargar la carta')),
     });
@@ -867,7 +1034,18 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.error.set('Agregá al menos un ítem');
       return;
     }
-    if (!this.printKitchen() && !this.printCustomerTicket()) {
+    const caps = this.capabilities();
+    if (!caps.allowSendOrder) {
+      this.error.set('No está permitido enviar comandas');
+      return;
+    }
+    let printKitchen = this.printKitchen();
+    let printCustomerTicket = this.printCustomerTicket();
+    if (!caps.allowPrintKitchen) printKitchen = false;
+    if (!caps.allowPrintCustomerTicket) printCustomerTicket = false;
+    if (caps.lockPrintKitchen) printKitchen = !!caps.defaultPrintKitchen;
+    if (caps.lockPrintCustomerTicket) printCustomerTicket = !!caps.defaultPrintCustomerTicket;
+    if (!printKitchen && !printCustomerTicket) {
       this.error.set('Elegí cocina y/o ticket cliente');
       return;
     }
@@ -888,8 +1066,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         items,
         extras,
         customerNotes: this.notes().trim() || null,
-        printKitchen: this.printKitchen(),
-        printCustomerTicket: this.printCustomerTicket(),
+        printKitchen,
+        printCustomerTicket,
       })
       .subscribe({
         next: () => {
@@ -912,31 +1090,215 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   askCloseTable(): void {
     const session = this.session();
     if (!session || this.busy()) return;
+    const caps = this.capabilities();
+    if (!caps.allowCloseTable) {
+      this.error.set('No está permitido cerrar mesas');
+      return;
+    }
     const orders = session.orderCount ?? session.orders?.length ?? 0;
     if (!orders) {
       this.backToTables();
       return;
     }
-    if (!session.customerTicketPrinted) {
+    if (caps.requireTicketBeforeClose && !session.customerTicketPrinted) {
       this.error.set('Primero imprimí el ticket del cliente');
       this.openTicketSheet();
       return;
     }
-    const methods = session.paymentMethods?.length
-      ? session.paymentMethods
-      : this.catalog()?.tablePaymentMethods ?? [];
-    this.closePaymentMethodId.set(methods[0]?.id ?? null);
+    const methods = this.paymentMethodsForClose();
+    const due = this.closeDueAmount();
+    const amounts: Record<string, number | null> = {};
+    for (const m of methods) amounts[m.id] = null;
+    if (methods[0]) {
+      amounts[methods[0].id] = due;
+      this.closePayPrimaryId.set(methods[0].id);
+    } else {
+      this.closePayPrimaryId.set(null);
+    }
+    this.closeTipMode.set('none');
+    this.closeTipValue.set(null);
+    this.closePayAmounts.set(amounts);
     this.closeSheet.set(true);
   }
 
   cancelClose(): void {
     this.closeSheet.set(false);
-    this.closePaymentMethodId.set(null);
+    this.closePayAmounts.set({});
+    this.closePayPrimaryId.set(null);
+    this.closeTipMode.set('none');
+    this.closeTipValue.set(null);
+  }
+
+  closeDueAmount(): number {
+    const s = this.session();
+    if (!s) return 0;
+    if (s.ticketTotal != null) return Number(s.ticketTotal) || 0;
+    return this.sessionSubtotal();
+  }
+
+  closeTipAmount(): number {
+    const due = this.closeDueAmount();
+    const mode = this.closeTipMode();
+    const v = Math.max(0, Number(this.closeTipValue()) || 0);
+    if (mode === 'percent' && v > 0) {
+      return Math.round(((due * Math.min(100, v)) / 100) * 100) / 100;
+    }
+    if (mode === 'fixed' && v > 0) {
+      return Math.round(v * 100) / 100;
+    }
+    return 0;
+  }
+
+  closeToCollect(): number {
+    return Math.round((this.closeDueAmount() + this.closeTipAmount()) * 100) / 100;
+  }
+
+  closePaidTotal(): number {
+    let sum = 0;
+    for (const v of Object.values(this.closePayAmounts())) {
+      sum += Number(v) || 0;
+    }
+    return Math.round(sum * 100) / 100;
+  }
+
+  closeRemaining(): number {
+    return Math.round((this.closeToCollect() - this.closePaidTotal()) * 100) / 100;
+  }
+
+  setClosePayAmount(methodId: string, raw: number | string | null): void {
+    const next =
+      raw === '' || raw == null || Number.isNaN(Number(raw))
+        ? null
+        : Math.max(0, Math.round(Number(raw) * 100) / 100);
+    const amounts = { ...this.closePayAmounts() };
+    const prev = Number(amounts[methodId]) || 0;
+    const value = next ?? 0;
+    amounts[methodId] = next != null && next > 0 ? next : null;
+    const delta = value - prev;
+
+    if (delta > 0) {
+      let need = delta;
+      const donors = Object.entries(amounts)
+        .filter(([id]) => id !== methodId)
+        .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0));
+      // Preferir descontar del medio primario si tiene saldo.
+      const primary = this.closePayPrimaryId();
+      if (primary && primary !== methodId) {
+        donors.sort((a, b) => {
+          if (a[0] === primary) return -1;
+          if (b[0] === primary) return 1;
+          return (Number(b[1]) || 0) - (Number(a[1]) || 0);
+        });
+      }
+      for (const [id, v] of donors) {
+        if (need <= 0) break;
+        const cur = Number(v) || 0;
+        if (cur <= 0) continue;
+        const take = Math.min(cur, need);
+        const left = Math.round((cur - take) * 100) / 100;
+        amounts[id] = left > 0 ? left : null;
+        need = Math.round((need - take) * 100) / 100;
+      }
+    } else if (delta < 0) {
+      const free = -delta;
+      let target =
+        this.closePayPrimaryId() && this.closePayPrimaryId() !== methodId
+          ? this.closePayPrimaryId()!
+          : Object.keys(amounts).find(
+              (id) => id !== methodId && (Number(amounts[id]) || 0) > 0,
+            ) ?? null;
+      if (!target) {
+        target =
+          this.paymentMethodsForClose().find((m) => m.id !== methodId)?.id ?? null;
+      }
+      if (target) {
+        const cur = Number(amounts[target]) || 0;
+        amounts[target] = Math.round((cur + free) * 100) / 100;
+      }
+    }
+
+    if (value > 0) this.closePayPrimaryId.set(methodId);
+    this.closePayAmounts.set(amounts);
+  }
+
+  /** Asigna todo el total a este medio (limpia los demás). */
+  fillClosePayAll(methodId: string): void {
+    const total = this.closeToCollect();
+    const amounts: Record<string, number | null> = {};
+    for (const m of this.paymentMethodsForClose()) {
+      amounts[m.id] = m.id === methodId && total > 0 ? total : null;
+    }
+    this.closePayPrimaryId.set(methodId);
+    this.closePayAmounts.set(amounts);
+  }
+
+  /** Deja 50% en este medio y el resto en el otro principal. */
+  fillClosePayHalf(methodId: string): void {
+    const total = this.closeToCollect();
+    if (total <= 0) return;
+    const half = Math.round((total / 2) * 100) / 100;
+    const rest = Math.round((total - half) * 100) / 100;
+    const methods = this.paymentMethodsForClose();
+    const other =
+      methods.find(
+        (m) => m.id !== methodId && (Number(this.closePayAmounts()[m.id]) || 0) > 0,
+      ) ??
+      methods.find((m) => m.id !== methodId && m.id === this.closePayPrimaryId()) ??
+      methods.find((m) => m.id !== methodId) ??
+      null;
+
+    const amounts: Record<string, number | null> = {};
+    for (const m of methods) amounts[m.id] = null;
+    amounts[methodId] = half;
+    if (other && rest > 0) {
+      amounts[other.id] = rest;
+      this.closePayPrimaryId.set(other.id);
+    } else {
+      amounts[methodId] = total;
+      this.closePayPrimaryId.set(methodId);
+    }
+    this.closePayAmounts.set(amounts);
+  }
+
+  onCloseTipMode(mode: 'none' | 'percent' | 'fixed'): void {
+    this.closeTipMode.set(mode);
+    if (mode === 'none') this.closeTipValue.set(null);
+    this.redistributeClosePays();
+  }
+
+  onCloseTipValue(raw: number | string | null): void {
+    this.closeTipValue.set(raw === '' || raw == null ? null : +raw);
+    this.redistributeClosePays();
+  }
+
+  redistributeClosePays(): void {
+    const methods = this.paymentMethodsForClose();
+    if (!methods.length) return;
+    const primary =
+      this.closePayPrimaryId() && methods.some((m) => m.id === this.closePayPrimaryId())
+        ? this.closePayPrimaryId()!
+        : methods[0].id;
+    const amounts: Record<string, number | null> = {};
+    for (const m of methods) amounts[m.id] = null;
+    amounts[primary] = this.closeToCollect();
+    this.closePayPrimaryId.set(primary);
+    this.closePayAmounts.set(amounts);
+  }
+
+  canConfirmClose(): boolean {
+    if (!this.paymentMethodsForClose().length) return false;
+    const paid = this.closePaidTotal();
+    const due = this.closeToCollect();
+    return paid > 0 && Math.abs(paid - due) <= 0.02;
   }
 
   openTicketSheet(): void {
     const session = this.session();
     if (!session || this.busy()) return;
+    if (!this.capabilities().allowPrintCustomerTicket) {
+      this.error.set('No está permitido imprimir ticket cliente');
+      return;
+    }
     const orders = session.orderCount ?? session.orders?.length ?? 0;
     if (!orders) {
       this.error.set('No hay envíos para imprimir');
@@ -1008,31 +1370,43 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     const token = this.token();
     const session = this.session();
-    const paymentMethodId = this.closePaymentMethodId();
     if (!slug || !token || !session || this.busy()) return;
     if (!session.customerTicketPrinted) {
       this.error.set('Primero imprimí el ticket del cliente');
       return;
     }
-    if (!paymentMethodId) {
-      this.error.set('Elegí la forma de pago');
+    if (!this.canConfirmClose()) {
+      this.error.set('La suma de pagos debe coincidir con el total a cobrar');
       return;
     }
+    const payments = Object.entries(this.closePayAmounts())
+      .map(([paymentMethodId, amount]) => ({
+        paymentMethodId,
+        amount: Number(amount) || 0,
+      }))
+      .filter((p) => p.amount > 0);
     this.closeSheet.set(false);
     this.busy.set(true);
-    this.api.closeSession(slug, token, session.id, { paymentMethodId }).subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.showToast('Mesa cerrada');
-        this.session.set(null);
-        this.lines.set([]);
-        this.view.set('tables');
-        this.loadTables();
-      },
-      error: (err) => {
-        this.busy.set(false);
-        this.error.set(apiErrorMessage(err, 'No se pudo cerrar la mesa'));
-      },
-    });
+    this.api
+      .closeSession(slug, token, session.id, {
+        payments,
+        tipMode: this.closeTipMode(),
+        tipValue: this.closeTipValue(),
+      })
+      .subscribe({
+        next: () => {
+          this.busy.set(false);
+          this.showToast('Mesa cerrada');
+          this.session.set(null);
+          this.lines.set([]);
+          this.view.set('tables');
+          this.loadTables();
+        },
+        error: (err) => {
+          this.busy.set(false);
+          this.closeSheet.set(true);
+          this.error.set(apiErrorMessage(err, 'No se pudo cerrar la mesa'));
+        },
+      });
   }
 }

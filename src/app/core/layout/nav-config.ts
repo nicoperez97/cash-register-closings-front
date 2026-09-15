@@ -83,6 +83,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'adminShopIdentidad', label: 'Identidad', icon: 'badge', defaultGroup: 'local', route: '/admin/shop/identidad' },
   { id: 'adminShopOperacion', label: 'Operación', icon: 'schedule', defaultGroup: 'local', route: '/admin/shop/operacion' },
   { id: 'adminOrdering', label: 'Pedidos', icon: 'shopping_bag', defaultGroup: 'local', route: '/admin/shop/pedidos' },
+  { id: 'adminComanda', label: 'Comandas', icon: 'room_service', defaultGroup: 'local', route: '/admin/shop/comanda' },
   { id: 'adminShopDispositivos', label: 'Dispositivos', icon: 'point_of_sale', defaultGroup: 'local', route: '/admin/shop/dispositivos' },
   { id: 'adminShopMenu', label: 'Menú', icon: 'menu', defaultGroup: 'local', route: '/admin/shop/menu' },
   { id: 'adminShopAvanzado', label: 'Avanzado', icon: 'tune', defaultGroup: 'local', route: '/admin/shop/avanzado' },
