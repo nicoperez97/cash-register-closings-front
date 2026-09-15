@@ -124,6 +124,8 @@ export interface PublicCustomerOrder {
     notes?: string | null;
     removedIngredients?: string[];
     kind?: 'ITEM' | 'EXTRA';
+    extraId?: string | null;
+    attachedToMenuItemId?: string | null;
   }>;
   subtotal: number;
   deliveryFee: number;

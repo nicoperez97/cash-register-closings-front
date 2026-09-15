@@ -95,6 +95,80 @@ export function paymentLabel(p: CustomerOrderPaymentMethod): string {
   return p === 'TRANSFER' ? 'Transferencia' : 'Efectivo';
 }
 
+/** Línea de pedido (ítem o extra) para agrupar en UI / texto. */
+export type OrderLineLike = {
+  menuItemId?: string | null;
+  name: string;
+  qty: number;
+  unitPrice: number;
+  notes?: string | null;
+  removedIngredients?: string[];
+  kind?: string | null;
+  extraId?: string | null;
+  attachedToMenuItemId?: string | null;
+};
+
+export type OrderLineGroup = {
+  item: OrderLineLike | null;
+  extras: OrderLineLike[];
+};
+
+/** Agrupa extras debajo del ítem al que están adheridos. */
+export function groupOrderLines(
+  items: Array<Partial<OrderLineLike> & Pick<OrderLineLike, 'name' | 'qty'>> | null | undefined,
+): OrderLineGroup[] {
+  const lines: OrderLineLike[] = (items ?? []).map((l) => ({
+    menuItemId: l.menuItemId ?? null,
+    name: String(l.name ?? ''),
+    qty: Number(l.qty) || 0,
+    unitPrice: Number(l.unitPrice) || 0,
+    notes: l.notes ?? null,
+    removedIngredients: l.removedIngredients,
+    kind: l.kind ?? null,
+    extraId: l.extraId ?? null,
+    attachedToMenuItemId: l.attachedToMenuItemId ?? null,
+  }));
+  const mains = lines.filter((l) => String(l.kind || 'ITEM').toUpperCase() !== 'EXTRA');
+  const extras = lines.filter((l) => String(l.kind || '').toUpperCase() === 'EXTRA');
+  const used = new Set<number>();
+  const groups: OrderLineGroup[] = [];
+  for (const item of mains) {
+    const groupExtras: OrderLineLike[] = [];
+    extras.forEach((ex, i) => {
+      if (used.has(i)) return;
+      const parent = String(ex.attachedToMenuItemId || '').trim();
+      const id = String(item.menuItemId || '').trim();
+      if (!parent || !id || parent !== id) return;
+      used.add(i);
+      groupExtras.push(ex);
+    });
+    groups.push({ item, extras: groupExtras });
+  }
+  extras.forEach((ex, i) => {
+    if (used.has(i)) return;
+    groups.push({ item: null, extras: [ex] });
+  });
+  return groups;
+}
+
+/** Texto compacto: `1× Plato (+ chips), 1× Otro`. */
+export function formatOrderLinesInline(
+  items: Array<Partial<OrderLineLike> & Pick<OrderLineLike, 'name' | 'qty'>> | null | undefined,
+): string {
+  return groupOrderLines(items)
+    .map((g) => {
+      if (!g.item) {
+        return g.extras.map((e) => `${e.qty}× ${e.name}`).join(', ');
+      }
+      const base = `${g.item.qty}× ${g.item.name}`;
+      if (!g.extras.length) return base;
+      const ex = g.extras.map((e) => `+ ${e.name}`).join(', ');
+      return `${base} (${ex})`;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
 export function apiErrorMessage(err: unknown, fallback: string): string {
   const e = err as { error?: { message?: string | string[] }; message?: string };
   const msg = e?.error?.message ?? e?.message;

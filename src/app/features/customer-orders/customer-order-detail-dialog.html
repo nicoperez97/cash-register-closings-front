@@ -32,24 +32,32 @@
   <section class="cod__block">
     <h3>Ítems</h3>
     <ul class="cod__items">
-      @for (it of order().items; track $index) {
-        <li>
-          <div class="cod__item-row">
-            <span>
-              {{ it.qty }}× {{ it.name }}
-              @if (it.kind === 'EXTRA') {
-                <em class="cod__tag">extra</em>
-              }
-            </span>
-            <span>{{ money(it.unitPrice * it.qty) }}</span>
-          </div>
-          @if (it.notes) {
-            <p class="cod__item-note">{{ it.notes }}</p>
-          }
-          @if (it.removedIngredients?.length) {
-            <p class="cod__item-note">Sin {{ it.removedIngredients.join(', ') }}</p>
-          }
-        </li>
+      @for (g of itemGroups(); track $index) {
+        @if (g.item; as it) {
+          <li>
+            <div class="cod__item-row">
+              <span>{{ it.qty }}× {{ it.name }}</span>
+              <span>{{ money(lineAmount(it)) }}</span>
+            </div>
+            @if (it.notes) {
+              <p class="cod__item-note">{{ it.notes }}</p>
+            }
+            @if (it.removedIngredients?.length) {
+              <p class="cod__item-note">Sin {{ it.removedIngredients.join(', ') }}</p>
+            }
+          </li>
+        }
+        @for (ex of g.extras; track $index) {
+          <li class="cod__extra">
+            <div class="cod__item-row">
+              <span>+ {{ ex.name }}</span>
+              <span>{{ money(lineAmount(ex)) }}</span>
+            </div>
+            @if (ex.notes) {
+              <p class="cod__item-note">{{ ex.notes }}</p>
+            }
+          </li>
+        }
       }
     </ul>
     <div class="cod__totals">

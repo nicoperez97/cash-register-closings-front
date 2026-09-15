@@ -21,6 +21,7 @@ import {
   primaryForwardAction,
   STATUS_LABEL,
 } from './customer-orders-status.util';
+import { groupOrderLines, OrderLineGroup } from './ordering-ui.util';
 
 export type CustomerOrderDetailDialogData = {
   order: StaffCustomerOrder;
@@ -53,6 +54,14 @@ export class CustomerOrderDetailDialogComponent {
 
   money(n: number): string {
     return formatMoney(n);
+  }
+
+  itemGroups(): OrderLineGroup[] {
+    return groupOrderLines(this.order().items);
+  }
+
+  lineAmount(line: { unitPrice?: number; qty?: number }): number {
+    return (Number(line.unitPrice) || 0) * (Number(line.qty) || 0);
   }
 
   fulfillmentText(): string {

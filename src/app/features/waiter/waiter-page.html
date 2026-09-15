@@ -232,14 +232,24 @@
           {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos
         </p>
       </div>
-      <button
-        type="button"
-        class="btn btn--danger btn--sm"
-        (click)="askCloseTable()"
-        [disabled]="busy()"
-      >
-        Cerrar
-      </button>
+      <div class="bar__actions">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="openTicketSheet()"
+          [disabled]="busy() || !(s?.orderCount || s?.orders?.length)"
+        >
+          Ticket
+        </button>
+        <button
+          type="button"
+          class="btn btn--danger btn--sm"
+          (click)="askCloseTable()"
+          [disabled]="busy()"
+        >
+          Cerrar
+        </button>
+      </div>
     </header>
 
     @if (error(); as err) {
@@ -253,17 +263,73 @@
           @for (o of s!.orders; track o.id) {
             <li>
               <div class="sent__head">
-                <strong>#{{ o.code }}</strong>
+                <div class="sent__meta">
+                  <strong>#{{ o.code }}</strong>
+                  <time class="sent__time">{{ orderTime(o.createdAt) }}</time>
+                </div>
                 <span>{{ money(o.total) }}</span>
               </div>
-              <p>
-                @for (it of o.items; track $index) {
-                  {{ it.qty }}× {{ it.name }}@if (!$last){, }
-                }
-              </p>
+              <p>{{ itemsPreview(o.items) }}</p>
             </li>
           }
         </ul>
+      </section>
+
+      <section class="ticket-sum ticket-sum--session anim-in">
+        <p class="ticket-sum__label">Resumen</p>
+        <ul class="ticket-sum__list">
+          @for (row of ticketEditableRows(); track row.orderId + ':' + row.lineIndex) {
+            <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
+              @if (row.extra) {
+                <div class="ticket-sum__info">
+                  <span class="ticket-sum__name">+ {{ row.name }}</span>
+                  <button
+                    type="button"
+                    class="ticket-sum__remove"
+                    [disabled]="busy()"
+                    (click)="removeTicketLine(row.orderId, row.lineIndex)"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              } @else {
+                <div class="ticket-sum__info">
+                  <span class="ticket-sum__name">{{ row.name }}</span>
+                  <div class="ticket-sum__qty">
+                    <button
+                      type="button"
+                      [disabled]="busy()"
+                      (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, -1)"
+                    >
+                      −
+                    </button>
+                    <span>{{ row.qty }}</span>
+                    <button
+                      type="button"
+                      [disabled]="busy()"
+                      (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, 1)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              }
+              <label class="ticket-sum__price">
+                <span class="sr-only">Precio</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  [ngModel]="row.unitPrice"
+                  [disabled]="busy()"
+                  (change)="setTicketLinePrice(row.orderId, row.lineIndex, +$any($event.target).value, row.unitPrice)"
+                  [attr.name]="'sp-' + row.orderId + '-' + row.lineIndex"
+                />
+              </label>
+            </li>
+          }
+        </ul>
+        <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
       </section>
     }
 
@@ -440,38 +506,152 @@
   </div>
 }
 
+@if (ticketSheet()) {
+  <div class="sheet-backdrop anim-fade" (click)="cancelTicketSheet()"></div>
+  <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="ticket-title">
+    <div class="sheet__handle" aria-hidden="true"></div>
+    <h2 id="ticket-title">Ticket mesa {{ session()?.table?.label }}</h2>
+    <div class="ticket-sum">
+      <p class="ticket-sum__label">Resumen</p>
+      <ul class="ticket-sum__list">
+        @for (row of ticketEditableRows(); track row.orderId + ':' + row.lineIndex) {
+          <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
+            @if (row.extra) {
+              <div class="ticket-sum__info">
+                <span class="ticket-sum__name">+ {{ row.name }}</span>
+                <button
+                  type="button"
+                  class="ticket-sum__remove"
+                  [disabled]="busy()"
+                  (click)="removeTicketLine(row.orderId, row.lineIndex)"
+                >
+                  Quitar
+                </button>
+              </div>
+            } @else {
+              <div class="ticket-sum__info">
+                <span class="ticket-sum__name">{{ row.name }}</span>
+                <div class="ticket-sum__qty">
+                  <button
+                    type="button"
+                    [disabled]="busy()"
+                    (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, -1)"
+                  >
+                    −
+                  </button>
+                  <span>{{ row.qty }}</span>
+                  <button
+                    type="button"
+                    [disabled]="busy()"
+                    (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, 1)"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            }
+            <label class="ticket-sum__price">
+              <span class="sr-only">Precio</span>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                [ngModel]="row.unitPrice"
+                [disabled]="busy()"
+                (change)="setTicketLinePrice(row.orderId, row.lineIndex, +$any($event.target).value, row.unitPrice)"
+                [attr.name]="'tp-' + row.orderId + '-' + row.lineIndex"
+              />
+            </label>
+          </li>
+        } @empty {
+          <li class="muted">Sin ítems</li>
+        }
+      </ul>
+      <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
+    </div>
+    <div class="sheet__field">
+      <span class="sheet__label">Descuento</span>
+      <div class="choices choices--row">
+        <button
+          type="button"
+          class="choice"
+          [class.choice--on]="ticketDiscountMode() === 'none'"
+          (click)="ticketDiscountMode.set('none'); ticketDiscountValue.set(null)"
+        >
+          No
+        </button>
+        <button
+          type="button"
+          class="choice"
+          [class.choice--on]="ticketDiscountMode() === 'percent'"
+          (click)="ticketDiscountMode.set('percent')"
+        >
+          %
+        </button>
+        <button
+          type="button"
+          class="choice"
+          [class.choice--on]="ticketDiscountMode() === 'fixed'"
+          (click)="ticketDiscountMode.set('fixed')"
+        >
+          $
+        </button>
+      </div>
+    </div>
+    @if (ticketDiscountMode() !== 'none') {
+      <label class="sheet__field">
+        <span class="sheet__label">{{ ticketDiscountMode() === 'percent' ? 'Porcentaje' : 'Monto' }}</span>
+        <input
+          type="number"
+          min="0"
+          [attr.max]="ticketDiscountMode() === 'percent' ? 100 : null"
+          step="1"
+          [ngModel]="ticketDiscountValue()"
+          (ngModelChange)="ticketDiscountValue.set($event === '' || $event == null ? null : +$event)"
+          name="ticketDiscount"
+        />
+      </label>
+    }
+    <p class="sheet__total"><span>Total</span><strong>{{ money(ticketPreviewTotal()) }}</strong></p>
+    <div class="sheet__actions sheet__actions--col">
+      <button type="button" class="btn btn--lg" [disabled]="busy() || !ticketEditableRows().length" (click)="confirmPrintTicket()">
+        Imprimir ticket
+      </button>
+      <button type="button" class="link" (click)="cancelTicketSheet()">Cancelar</button>
+    </div>
+  </div>
+}
+
 @if (closeSheet()) {
   <div class="sheet-backdrop anim-fade" (click)="cancelClose()"></div>
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="close-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     <h2 id="close-title">Cerrar mesa {{ session()?.table?.label }}</h2>
-    @if (session()?.customerTicketPrinted) {
-      <p class="muted">¿Confirmás cerrar la mesa?</p>
-      <div class="sheet__actions sheet__actions--col">
-        <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="printTicketOnly()">
-          Solo imprimir ticket
+    <p class="muted">Elegí cómo pagó el cliente.</p>
+    <div class="choices choices--col">
+      @for (m of paymentMethodsForClose(); track m.id) {
+        <button
+          type="button"
+          class="choice"
+          [class.choice--on]="closePaymentMethodId() === m.id"
+          (click)="closePaymentMethodId.set(m.id)"
+        >
+          {{ m.name }}
         </button>
-        <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="confirmClose(false)">
-          Cerrar mesa
-        </button>
-        <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
-      </div>
-    } @else {
-      <p class="muted">
-        Todavía no se imprimió un ticket para el cliente. ¿Querés imprimirlo al cerrar?
-      </p>
-      <div class="sheet__actions sheet__actions--col">
-        <button type="button" class="btn btn--lg" [disabled]="busy()" (click)="confirmClose(true)">
-          Imprimir ticket y cerrar
-        </button>
-        <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="printTicketOnly()">
-          Solo imprimir ticket
-        </button>
-        <button type="button" class="btn btn--ghost" [disabled]="busy()" (click)="confirmClose(false)">
-          Cerrar sin ticket
-        </button>
-        <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
-      </div>
-    }
+      } @empty {
+        <p class="muted">Configurá medios de pago en Canales → Comanda.</p>
+      }
+    </div>
+    <div class="sheet__actions sheet__actions--col">
+      <button
+        type="button"
+        class="btn btn--danger"
+        [disabled]="busy() || !closePaymentMethodId()"
+        (click)="confirmClose()"
+      >
+        Cerrar mesa
+      </button>
+      <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
+    </div>
   </div>
 }

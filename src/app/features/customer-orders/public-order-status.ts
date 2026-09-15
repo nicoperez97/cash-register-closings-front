@@ -24,6 +24,8 @@ import { recallOrderPhone, rememberOrderPhone } from './public-order-session';
 import {
   apiErrorMessage,
   fulfillmentLabel,
+  groupOrderLines,
+  OrderLineGroup,
   orderingMoney,
   paymentLabel,
   statusLabel,
@@ -207,6 +209,14 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
 
   money(n: number): string {
     return orderingMoney(n);
+  }
+
+  itemGroups(o: PublicCustomerOrder): OrderLineGroup[] {
+    return groupOrderLines(o.items);
+  }
+
+  lineAmount(line: { unitPrice?: number; qty?: number }): number {
+    return (Number(line.unitPrice) || 0) * (Number(line.qty) || 0);
   }
 
   readonly receiptWhatsappHref = computed(() => {
