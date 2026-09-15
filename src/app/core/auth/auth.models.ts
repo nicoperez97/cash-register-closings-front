@@ -60,6 +60,8 @@ export type Permission =
   | 'customerOrders.read'
   | 'customerOrders.manage'
   | 'orderingCatalog.manage'
+  | 'integrations.read'
+  | 'integrations.manage'
   | 'tips.read'
   | 'tips.create'
   | 'tips.manage'
@@ -128,6 +130,8 @@ const ALL_PERMISSIONS: Permission[] = [
   'customerOrders.read',
   'customerOrders.manage',
   'orderingCatalog.manage',
+  'integrations.read',
+  'integrations.manage',
   'tips.read',
   'tips.create',
   'tips.manage',
@@ -201,6 +205,8 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'customerOrders.read',
     'customerOrders.manage',
     'orderingCatalog.manage',
+    'integrations.read',
+    'integrations.manage',
     'tips.read',
     'tips.create',
     'tips.manage',
@@ -237,6 +243,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'shortages.read',
     'orders.read',
     'customerOrders.read',
+    'integrations.read',
     'tips.read',
     'reimbursements.read',
     'vacations.read',
@@ -285,6 +292,7 @@ export type ModuleKey =
   | 'orders'
   | 'customerOrders'
   | 'orderingCatalog'
+  | 'integrations'
   | 'tips'
   | 'reimbursements'
   | 'vacations'
@@ -613,6 +621,18 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Alta/baja de formas de envío, pagos, ítems, fotos y extras del pedido online',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'integrations',
+    label: 'Integraciones',
+    icon: 'hub',
+    group: 'config',
+    hint: 'Conexión con Deliverate y otros servicios externos',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
       { value: 'manage', label: 'Gestionar', short: 'Todo' },
     ],
   },
@@ -1189,6 +1209,7 @@ export function expandModulePermissions(
   pair(levels.orders, 'orders.read', 'orders.manage');
   pair(levels.customerOrders, 'customerOrders.read', 'customerOrders.manage');
   if (levels.orderingCatalog === 'manage') addPermission(set, 'orderingCatalog.manage');
+  pair(levels.integrations, 'integrations.read', 'integrations.manage');
   switch (levels.tips) {
     case 'read':
       addPermission(set, 'tips.read');
@@ -1308,6 +1329,7 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.orders = level('orders.read', 'orders.manage');
   base.customerOrders = level('customerOrders.read', 'customerOrders.manage');
   base.orderingCatalog = has('orderingCatalog.manage') ? 'manage' : 'none';
+  base.integrations = level('integrations.read', 'integrations.manage');
   base.tips = tips();
   base.reimbursements = reimbursements();
   base.vacations = level('vacations.read', 'vacations.manage');

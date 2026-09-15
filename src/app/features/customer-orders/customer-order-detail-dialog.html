@@ -101,6 +101,26 @@
     </section>
   }
 
+  @if (order().fulfillment === 'DELIVERY') {
+    <section class="cod__block">
+      <h3>Deliverate</h3>
+      @if (deliverateStateLabel(); as st) {
+        <p>{{ st }}</p>
+        @if (order().externalId) {
+          <p class="cod__muted">ID: {{ order().externalId }}</p>
+        }
+      } @else if (canRequestDeliverate()) {
+        <p class="cod__muted">Todavía no se solicitó repartidor.</p>
+      } @else if (order().deliveryLat == null || order().deliveryLng == null) {
+        <p class="cod__muted">
+          Sin coordenadas de entrega: el cliente tiene que marcar el punto en el mapa al pedir.
+        </p>
+      } @else if (!deliverateEnabled()) {
+        <p class="cod__muted">Deliverate no está activo en Integraciones.</p>
+      }
+    </section>
+  }
+
   <section class="cod__block">
     <h3>Tiempos</h3>
     <ul class="cod__times">
@@ -127,69 +147,89 @@
       }
     </ul>
   </section>
+
+  @if (canManage && (canAcredit() || canDesacredit() || backAction() || forwardAction())) {
+    <section class="cod__flow" aria-label="Cambiar estado">
+      <div class="cod__flow-pay">
+        @if (canAcredit()) {
+          <button
+            type="button"
+            class="cod__chip cod__chip--ok"
+            [disabled]="busy()"
+            (click)="acredit()"
+          >
+            Acreditar
+          </button>
+        }
+        @if (canDesacredit()) {
+          <button
+            type="button"
+            class="cod__chip cod__chip--warn"
+            [disabled]="busy()"
+            (click)="desacredit()"
+          >
+            Desacreditar
+          </button>
+        }
+      </div>
+      <div class="cod__flow-steps">
+        @if (backAction(); as back) {
+          <button
+            type="button"
+            class="cod__chip"
+            [disabled]="busy()"
+            (click)="setStatus(back.status)"
+          >
+            <mat-icon>arrow_back</mat-icon>
+            {{ back.label }}
+          </button>
+        }
+        @if (forwardAction(); as fwd) {
+          <button
+            type="button"
+            class="cod__chip cod__chip--go"
+            [disabled]="busy() || !canForward()"
+            [attr.title]="
+              fwd.status === 'COMPLETED' && !canForward()
+                ? 'Acreditá el pago antes de completar'
+                : null
+            "
+            (click)="setStatus(fwd.status)"
+          >
+            {{ fwd.label }}
+            <mat-icon>arrow_forward</mat-icon>
+          </button>
+        }
+      </div>
+    </section>
+  }
 </mat-dialog-content>
 
-<mat-dialog-actions class="cod__actions" align="end">
-  <button mat-button type="button" (click)="close()">Cerrar</button>
+<mat-dialog-actions class="cod__actions">
+  @if (canManage && order().status !== 'CANCELLED' && order().status !== 'COMPLETED') {
+    <button
+      type="button"
+      class="cod__link cod__link--danger"
+      [disabled]="busy()"
+      (click)="setStatus('CANCELLED')"
+    >
+      Cancelar pedido
+    </button>
+  }
 
-  @if (canManage) {
-    @if (canAcredit()) {
-      <button
-        mat-stroked-button
-        color="primary"
-        type="button"
-        [disabled]="busy()"
-        (click)="acredit()"
-      >
-        Acreditar
-      </button>
-    }
-    @if (canDesacredit()) {
-      <button
-        mat-stroked-button
-        type="button"
-        [disabled]="busy()"
-        (click)="desacredit()"
-      >
-        Desacreditar
-      </button>
-    }
-    @if (backAction(); as back) {
-      <button
-        mat-stroked-button
-        type="button"
-        [disabled]="busy()"
-        (click)="setStatus(back.status)"
-      >
-        {{ back.label }}
-      </button>
-    }
-    @if (order().status !== 'CANCELLED' && order().status !== 'COMPLETED') {
-      <button
-        mat-button
-        color="warn"
-        type="button"
-        [disabled]="busy()"
-        (click)="setStatus('CANCELLED')"
-      >
-        Cancelar
-      </button>
-    }
-    @if (forwardAction(); as fwd) {
-      <button
-        mat-flat-button
-        color="primary"
-        type="button"
-        [disabled]="busy() || !canForward()"
-        [attr.title]="
-          fwd.status === 'COMPLETED' && !canForward()
-            ? 'Acreditá el pago antes de completar'
-            : null
-        "
-        (click)="setStatus(fwd.status)"
-      >
-        {{ fwd.label }}
-      </button>
-    }
+  <span class="cod__actions-spacer"></span>
+
+  <button type="button" class="cod__link" (click)="close()">Cerrar</button>
+
+  @if (canRequestDeliverate()) {
+    <button
+      type="button"
+      class="cod__chip cod__chip--deliverate"
+      [disabled]="busy()"
+      (click)="requestDeliverate()"
+    >
+      <mat-icon>local_shipping</mat-icon>
+      Solicitar Deliverate
+    </button>
   }
 </mat-dialog-actions>

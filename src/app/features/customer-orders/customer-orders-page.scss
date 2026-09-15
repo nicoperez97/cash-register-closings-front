@@ -474,6 +474,17 @@
   cursor: pointer;
 }
 
+.co-card__open {
+  border: 1px solid #d0d7d4;
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-weight: 750;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
 .co-card__acredit {
   border: 1px solid color-mix(in srgb, var(--guy-green, #2e7d32) 45%, #fff);
   background: #fff;

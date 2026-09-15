@@ -1,9 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { formatMoney } from '../../shared/utils/money';
+import { AuthService } from '../../core/auth/auth.service';
+import { hasShopPermission } from '../../core/auth/auth.models';
+import { IntegrationsApiService } from '../integrations/integrations-api.service';
 import {
   CustomerOrderStatus,
   CustomerOrdersApiService,
@@ -33,24 +36,48 @@ export type CustomerOrderDetailDialogResult =
   | { kind: 'updated'; order: StaffCustomerOrder }
   | null;
 
+const DELIVERATE_STATE_LABEL: Record<number, string> = {
+  0: 'Solicitado',
+  1: 'Repartidor asignado',
+  2: 'Retirado',
+  3: 'Entregado',
+  4: 'Cancelado (cliente)',
+  5: 'Cancelado (Deliverate)',
+  6: 'Cancelado (comercio)',
+  7: 'Espera comercio',
+  8: 'Espera consumidor',
+};
+
 @Component({
   selector: 'app-customer-order-detail-dialog',
   imports: [DatePipe, MatDialogModule, MatButtonModule, MatIconModule],
   templateUrl: './customer-order-detail-dialog.html',
   styleUrl: './customer-order-detail-dialog.scss',
 })
-export class CustomerOrderDetailDialogComponent {
+export class CustomerOrderDetailDialogComponent implements OnInit {
   private readonly api = inject(CustomerOrdersApiService);
-  readonly ref = inject(MatDialogRef<CustomerOrderDetailDialogComponent, CustomerOrderDetailDialogResult>);
+  private readonly integrationsApi = inject(IntegrationsApiService);
+  private readonly auth = inject(AuthService);
+  readonly ref = inject(
+    MatDialogRef<CustomerOrderDetailDialogComponent, CustomerOrderDetailDialogResult>,
+  );
   readonly data = inject<CustomerOrderDetailDialogData>(MAT_DIALOG_DATA);
 
   readonly order = signal<StaffCustomerOrder>(this.data.order);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
+  readonly deliverateEnabled = signal(false);
   private dirty = false;
 
   readonly statusLabel = STATUS_LABEL;
   readonly canManage = this.data.canManage;
+
+  ngOnInit(): void {
+    this.integrationsApi.getDeliverate(this.data.shopId).subscribe({
+      next: (cfg) => this.deliverateEnabled.set(!!cfg.enabled && !!cfg.connected),
+      error: () => this.deliverateEnabled.set(false),
+    });
+  }
 
   money(n: number): string {
     return formatMoney(n);
@@ -101,6 +128,59 @@ export class CustomerOrderDetailDialogComponent {
     if (!a) return false;
     if (a.status === 'COMPLETED') return canCompleteOrder(this.order());
     return true;
+  }
+
+  canRequestDeliverate(): boolean {
+    const o = this.order();
+    if (!this.deliverateEnabled()) return false;
+    if (o.fulfillment !== 'DELIVERY') return false;
+    if (o.status === 'CANCELLED' || o.status === 'COMPLETED') return false;
+    if (o.externalSource === 'deliverate' && o.externalId) return false;
+    if (o.deliveryLat == null || o.deliveryLng == null) return false;
+    const shopId = this.data.shopId;
+    const user = this.auth.currentUser();
+    return (
+      this.canManage ||
+      hasShopPermission(user, shopId, 'integrations.manage') ||
+      hasShopPermission(user, shopId, 'customerOrders.manage')
+    );
+  }
+
+  deliverateStateLabel(): string | null {
+    const o = this.order();
+    if (o.externalSource !== 'deliverate' || !o.externalId) return null;
+    const state = Number(o.externalMeta?.['state']);
+    const base = Number.isFinite(state)
+      ? (DELIVERATE_STATE_LABEL[state] ?? `Estado ${state}`)
+      : 'Solicitado';
+    const dboy = o.externalMeta?.['dboy_id'];
+    return dboy != null ? `${base} · repartidor #${dboy}` : base;
+  }
+
+  requestDeliverate(): void {
+    if (!this.canRequestDeliverate() || this.busy()) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.integrationsApi.requestDeliverate(this.data.shopId, this.order().id).subscribe({
+      next: (res) => {
+        this.busy.set(false);
+        this.dirty = true;
+        this.order.set({
+          ...this.order(),
+          status: res.status as CustomerOrderStatus,
+          externalSource: res.externalSource,
+          externalId: res.externalId,
+          externalMeta: res.externalMeta,
+          deliveryLat: res.deliveryLat,
+          deliveryLng: res.deliveryLng,
+          deliveryStreetNumber: res.deliveryStreetNumber,
+        });
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(this.errMsg(err, 'No se pudo solicitar Deliverate'));
+      },
+    });
   }
 
   close(): void {

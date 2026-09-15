@@ -59,6 +59,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'orders', label: 'Pedidos', icon: 'local_shipping', defaultGroup: 'stock', route: '/orders' },
   { id: 'customerOrders', label: 'Pedidos clientes', icon: 'shopping_bag', defaultGroup: 'operacion', route: '/customer-orders' },
   { id: 'comanda', label: 'Comanda', icon: 'room_service', defaultGroup: 'operacion', route: '/comanda' },
+  { id: 'integrations', label: 'Integraciones', icon: 'hub', defaultGroup: 'local', route: '/integrations' },
   { id: 'attendance', label: 'Presentismo de salón', icon: 'storefront', defaultGroup: 'asistencia', route: '/attendance' },
   { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/production-attendance' },
   { id: 'myProduction', label: 'Mis horas', icon: 'restaurant', defaultGroup: null, route: '/my-production' },

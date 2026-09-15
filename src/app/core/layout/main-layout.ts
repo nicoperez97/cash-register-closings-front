@@ -468,6 +468,13 @@ export class MainLayoutComponent {
     if (shopId && canManageOrderingCatalog(user, shopId)) {
       local.push(leaf('adminMenu'));
     }
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'integrations.read') ||
+        hasShopPermission(user, shopId, 'integrations.manage'))
+    ) {
+      local.push(leaf('integrations'));
+    }
     if (shopId && canManageShop(user, shopId)) {
       local.push(leaf('adminShopAvanzado'));
     }
