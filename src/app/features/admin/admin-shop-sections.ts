@@ -39,10 +39,10 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
   {
     id: 'pedidos',
     path: 'pedidos',
-    label: 'Pedidos',
+    label: 'Canales',
     icon: 'shopping_bag',
-    blurb: 'Take away, delivery, horarios, zonas y pagos de /pedir.',
-    subtitle: 'Página pública de pedidos: canales, horarios, zonas y medios de pago.',
+    blurb: 'Página /pedir, take away, delivery, comanda, horarios, zonas y pagos.',
+    subtitle: 'Canales de pedidos: página pública, comanda, horarios, zonas y medios de pago.',
   },
   {
     id: 'dispositivos',

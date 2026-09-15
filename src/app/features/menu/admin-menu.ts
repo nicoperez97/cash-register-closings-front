@@ -195,7 +195,7 @@ function toPrice(value: unknown): number | null {
           <section class="panel-card">
             <h2>Extras del pedido online</h2>
             <p class="menu-admin__hint">
-              Creá y editá extras acá. La alta/baja rápida también está en Pedidos online → Configurar.
+              Creá y editá extras acá. La alta/baja rápida también está en Pedidos clientes → Configurar.
             </p>
             @for (extra of extras(); track extra.id; let ei = $index) {
               <article class="menu-extra">

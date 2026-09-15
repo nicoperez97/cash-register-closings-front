@@ -386,7 +386,7 @@ export const routes: Routes = [
           import('./features/customer-orders/customer-orders-page').then(
             (m) => m.CustomerOrdersPage,
           ),
-        title: 'Pedidos online',
+        title: 'Pedidos clientes',
       },
       {
         path: 'comanda',

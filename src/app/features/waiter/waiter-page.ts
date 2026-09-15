@@ -152,6 +152,38 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return objects.filter((o) => sectorIds.has(String(o.sectorId)));
   });
 
+  /**
+   * En «Todos» cada sector tiene su propio plano (no se superponen coords).
+   * En un sector solo, un único panel.
+   */
+  readonly mapSectorPanels = computed(() => {
+    const tab = this.sectorTab();
+    const sectors = this.sectorTabs();
+    if (tab) return [this.panelForSector(tab)];
+    if (sectors.length <= 1) {
+      const only = sectors[0];
+      return only
+        ? [this.panelForSector(only)]
+        : [{ name: '', tables: this.tables(), objects: this.mapObjects() }];
+    }
+    return sectors.map((name) => this.panelForSector(name));
+  });
+
+  readonly mapShowsMultipleSectors = computed(() => this.mapSectorPanels().length > 1);
+
+  private panelForSector(name: string): {
+    name: string;
+    tables: WaiterTable[];
+    objects: WaiterMapObject[];
+  } {
+    const tables = this.tables().filter((t) => this.sectorNameOf(t) === name);
+    const sectorIds = new Set(
+      tables.filter((t) => t.sectorId).map((t) => String(t.sectorId)),
+    );
+    const objects = this.mapObjects().filter((o) => sectorIds.has(String(o.sectorId)));
+    return { name, tables, objects };
+  }
+
   private sectorNameOf(t: WaiterTable): string {
     return (t.sectorName ?? '').trim() || (t.area === 'OUTSIDE' ? 'Afuera' : 'Adentro');
   }

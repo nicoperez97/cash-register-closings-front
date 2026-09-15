@@ -130,6 +130,27 @@
   }
 }
 
+.map-stack {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.map-stack--multi {
+  @media (min-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.map-panel__title {
+  margin: 0 0 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5f6f76;
+}
+
 .map {
   position: relative;
   min-height: min(62dvh, 28rem);
@@ -138,6 +159,10 @@
   border: 1px solid #d5dcd2;
   background: #f7faf6;
   box-shadow: 0 10px 28px rgba(20, 40, 30, 0.08);
+}
+
+.map-stack--multi .map {
+  min-height: min(48dvh, 22rem);
 }
 
 .map__floor {

@@ -595,7 +595,7 @@ export const MODULE_DEFS: ModuleDef[] = [
   },
   {
     key: 'customerOrders',
-    label: 'Pedidos online',
+    label: 'Pedidos clientes',
     icon: 'shopping_bag',
     group: 'daily',
     hint: 'Bandeja de pedidos take away / delivery de clientes',
@@ -742,7 +742,7 @@ export const MODULE_PRESETS: Array<{
   },
   {
     id: 'customer-orders-only',
-    label: 'Pedidos online',
+    label: 'Pedidos clientes',
     description: 'Solo administra pedidos take away / delivery',
     icon: 'shopping_bag',
     modules: {
@@ -916,6 +916,12 @@ export interface ShopSummary {
   waiterOrderingEnabled?: boolean;
   /** Cierre manual de /pedir (clientes ven cerrado). */
   orderingForceClosed?: boolean;
+  /** ISO: cuándo se abrió a mano (para auto-cerrar al fin del turno). */
+  orderingOpenedAt?: string | null;
+  /** Hay un turno de caja activo ahora. */
+  orderingShiftActive?: boolean;
+  /** La API acaba de auto-cerrar por fin de turno. */
+  orderingJustAutoClosed?: boolean;
   takeawayEnabled?: boolean;
   deliveryEnabled?: boolean;
   orderingHours?: {

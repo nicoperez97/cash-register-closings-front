@@ -42,25 +42,46 @@
       <section class="card">
         <h2>Resumen</h2>
         <ul class="lines">
-          @for (line of cart.lines(); track line.kind + '|' + (line.extraId || line.menuItemId) + '|' + line.notes + '|' + (line.attachedToMenuItemId || '') + '|' + (line.removedIngredients || []).join(',')) {
-            <li>
-              <div class="line__main">
-                <strong>{{ line.qty }}× {{ line.name }}</strong>
-                <span>{{ money(line.unitPrice * line.qty) }}</span>
-              </div>
-              @if (line.removedIngredients?.length) {
-                <p class="line__notes">Sin {{ line.removedIngredients.join(', ') }}</p>
+          @for (group of summaryGroups(); track group.item ? ('i|' + group.item.menuItemId + '|' + group.item.notes + '|' + (group.item.removedIngredients || []).join(',')) : ('o|' + group.extras[0].line.extraId + '|' + (group.extras[0].line.attachedToMenuItemId || ''))) {
+            <li class="bundle" [class.bundle--orphan]="!group.item">
+              @if (group.item; as item) {
+                <div class="line__main">
+                  <strong>{{ item.qty }}× {{ item.name }}</strong>
+                  <span>{{ money(item.unitPrice * item.qty) }}</span>
+                </div>
+                @if (item.removedIngredients?.length) {
+                  <p class="line__notes">Sin {{ item.removedIngredients.join(', ') }}</p>
+                }
+                @if (item.notes) {
+                  <p class="line__notes">{{ item.notes }}</p>
+                }
               }
-              @if (line.notes) {
-                <p class="line__notes">{{ line.notes }}</p>
+              @for (ex of group.extras; track (ex.line.extraId || '') + '|' + (ex.line.attachedToMenuItemId || '') + '|' + ex.line.notes) {
+                <div class="line__extra" [class.line__extra--orphan]="!ex.nested">
+                  <div class="line__extra-text">
+                    <strong>Extra · {{ ex.line.name }}</strong>
+                    @if (!ex.nested && ex.parentName) {
+                      <span class="line__extra-of">Con {{ ex.parentName }}</span>
+                    }
+                  </div>
+                  <span class="line__extra-price">{{ money(ex.line.unitPrice * ex.line.qty) }}</span>
+                  <button type="button" class="danger line__extra-remove" (click)="removeLine(ex.line)">
+                    Quitar
+                  </button>
+                </div>
+                @if (ex.line.notes) {
+                  <p class="line__notes">{{ ex.line.notes }}</p>
+                }
               }
-              <div class="line__actions">
-                <button type="button" (click)="bumpLine(line, -1)">−</button>
-                <button type="button" (click)="bumpLine(line, 1)">+</button>
-                <button type="button" class="danger" (click)="removeLine(line)">
-                  Quitar
-                </button>
-              </div>
+              @if (group.item; as item) {
+                <div class="line__actions">
+                  <button type="button" (click)="bumpLine(item, -1)">−</button>
+                  <button type="button" (click)="bumpLine(item, 1)">+</button>
+                  <button type="button" class="danger" (click)="removeLine(item)">
+                    Quitar
+                  </button>
+                </div>
+              }
             </li>
           }
         </ul>
@@ -76,6 +97,7 @@
       @if (pickingFulfillment() || !fulfillment()) {
         <section class="card">
           <h2>Entrega</h2>
+          <p class="muted choice-hint">Elegí cómo querés el pedido.</p>
           <div class="choices">
             @for (ch of openChannels(); track ch) {
               <button type="button" class="choice" (click)="chooseFulfillment(ch)">

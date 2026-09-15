@@ -177,7 +177,7 @@ export class AdminUsersPage implements OnInit {
       });
       cols.push({
         key: 'isCustomerOrdersAdmin',
-        label: 'Admin pedidos online',
+        label: 'Admin pedidos clientes',
         format: (r) => (r['isCustomerOrdersAdmin'] ? 'Sí' : 'No'),
       });
     }

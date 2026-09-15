@@ -422,8 +422,13 @@
 }
 
 .op__zone-note,
-.op__zone-poly {
+.op__zone-poly,
+.op__zone-map {
   grid-column: 1 / -1;
+}
+
+.op__zone-map {
+  min-width: 0;
 }
 
 .op__full {
