@@ -52,11 +52,28 @@ export type WaiterSessionOrder = {
   id: string;
   code: string;
   status: string;
-  items: Array<{ name: string; qty: number; unitPrice: number; kind?: string }>;
+  items: Array<{
+    menuItemId?: string;
+    name: string;
+    qty: number;
+    unitPrice: number;
+    kind?: string;
+    extraId?: string | null;
+    attachedToMenuItemId?: string | null;
+    notes?: string | null;
+    removedIngredients?: string[];
+  }>;
   subtotal: number;
   total: number;
   customerNotes?: string | null;
   createdAt: string;
+};
+
+export type TablePaymentMethod = {
+  id: string;
+  name: string;
+  accountId?: string | null;
+  active?: boolean;
 };
 
 export type WaiterSession = {
@@ -64,6 +81,13 @@ export type WaiterSession = {
   status: 'OPEN' | 'CLOSED';
   covers: number;
   customerTicketPrinted: boolean;
+  ticketDiscountAmount?: number;
+  ticketDiscountLabel?: string | null;
+  ticketTotal?: number | null;
+  paymentMethodId?: string | null;
+  paymentMethodName?: string | null;
+  paymentMethods?: TablePaymentMethod[];
+  sessionSubtotal?: number;
   orderCount: number;
   openedAt: string;
   closedAt?: string | null;
@@ -88,6 +112,7 @@ export type WaiterCatalog = {
     price: number;
     menuItemIds?: string[];
   }>;
+  tablePaymentMethods?: TablePaymentMethod[];
   menus: Array<{
     id: string;
     slug: string;
@@ -218,19 +243,43 @@ export class WaiterApiService {
     slug: string,
     token: string,
     sessionId: string,
-    body?: { printCustomerTicket?: boolean },
+    body: { paymentMethodId: string },
   ) {
     return this.http.post<WaiterSession>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/close`,
+      body,
+      this.authHeaders(token),
+    );
+  }
+
+  printCustomerTicket(
+    slug: string,
+    token: string,
+    sessionId: string,
+    body?: { discountMode?: string; discountValue?: number | null },
+  ) {
+    return this.http.post<WaiterSession>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/print-customer-ticket`,
       body ?? {},
       this.authHeaders(token),
     );
   }
 
-  printCustomerTicket(slug: string, token: string, sessionId: string) {
-    return this.http.post<WaiterSession>(
-      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/print-customer-ticket`,
-      {},
+  patchSessionLine(
+    slug: string,
+    token: string,
+    sessionId: string,
+    body: {
+      orderId: string;
+      lineIndex: number;
+      qty?: number | null;
+      unitPrice?: number | null;
+      remove?: boolean;
+    },
+  ) {
+    return this.http.patch<WaiterSession>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/lines`,
+      body,
       this.authHeaders(token),
     );
   }

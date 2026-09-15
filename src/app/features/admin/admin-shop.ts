@@ -255,6 +255,7 @@ export class AdminShopPage implements OnInit {
     payTransfer: [true],
     deliveryZones: this.fb.array([]),
     orderingExtras: this.fb.array([]),
+    tablePaymentMethods: this.fb.array([]),
     takeawayHours: this.fb.array(this.emptyWeekdayHours()),
     deliveryHours: this.fb.array(this.emptyWeekdayHours()),
     active: [true],
@@ -300,6 +301,10 @@ export class AdminShopPage implements OnInit {
 
   get orderingExtras(): FormArray {
     return this.form.get('orderingExtras') as FormArray;
+  }
+
+  get tablePaymentMethods(): FormArray {
+    return this.form.get('tablePaymentMethods') as FormArray;
   }
 
   get takeawayHours(): FormArray {
@@ -865,6 +870,27 @@ export class AdminShopPage implements OnInit {
         }),
       );
     }
+    this.tablePaymentMethods.clear();
+    const methods =
+      (s as { tablePaymentMethods?: Array<{ id?: string; name: string; accountId?: string | null; active?: boolean }> })
+        .tablePaymentMethods ?? [];
+    const seed = methods.length
+      ? methods
+      : [
+          { id: 'tp_cash', name: 'Efectivo', accountId: null, active: true },
+          { id: 'tp_card', name: 'Tarjeta', accountId: null, active: true },
+          { id: 'tp_transfer', name: 'Transferencia', accountId: null, active: true },
+        ];
+    for (const m of seed) {
+      this.tablePaymentMethods.push(
+        this.fb.nonNullable.group({
+          id: [m.id ?? ''],
+          name: [m.name ?? ''],
+          accountId: [m.accountId ?? null],
+          active: [m.active !== false],
+        }),
+      );
+    }
   }
 
   colorPickerValue(): string {
@@ -1380,6 +1406,21 @@ export class AdminShopPage implements OnInit {
         transferInstructions: String(raw.transferInstructions ?? '').trim() || null,
         whatsapp: String(raw.orderingWhatsapp ?? '').trim() || null,
       },
+      tablePaymentMethods: (
+        raw.tablePaymentMethods as Array<{
+          id?: string;
+          name: string;
+          accountId?: string | null;
+          active?: boolean;
+        }>
+      )
+        .map((m) => ({
+          id: String(m.id ?? '').trim() || undefined,
+          name: String(m.name ?? '').trim(),
+          accountId: String(m.accountId ?? '').trim() || null,
+          active: m.active !== false,
+        }))
+        .filter((m) => !!m.name),
       deliveryZones: (raw.deliveryZones as Array<{
         id?: string;
         name: string;
@@ -1434,6 +1475,7 @@ export class AdminShopPage implements OnInit {
           orderingEta: body['orderingEta'],
           deliveryZones: body['deliveryZones'],
           orderingPayments: body['orderingPayments'],
+          tablePaymentMethods: body['tablePaymentMethods'],
         });
 
     req$.subscribe({

@@ -59,7 +59,7 @@
               @for (ex of group.extras; track (ex.line.extraId || '') + '|' + (ex.line.attachedToMenuItemId || '') + '|' + ex.line.notes) {
                 <div class="line__extra" [class.line__extra--orphan]="!ex.nested">
                   <div class="line__extra-text">
-                    <strong>Extra · {{ ex.line.name }}</strong>
+                    <strong>+ {{ ex.line.name }}</strong>
                     @if (!ex.nested && ex.parentName) {
                       <span class="line__extra-of">Con {{ ex.parentName }}</span>
                     }

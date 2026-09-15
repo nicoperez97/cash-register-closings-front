@@ -224,27 +224,61 @@ export class StaffOrderingPosComponent implements OnInit {
   }
 
   addExtra(extra: PublicOrderingExtra, itemId: string): void {
-    const key = `e:${extra.id}:${itemId}`;
+    const parent = this.catalog().find((it) => it.id === itemId);
+    if (!parent) return;
+    const itemKey = `i:${itemId}`;
+    const extraKey = `e:${extra.id}:${itemId}`;
     this.lines.update((list) => {
-      const idx = list.findIndex((l) => l.key === key);
-      if (idx >= 0) {
-        return list.map((l, i) =>
-          i === idx ? { ...l, qty: Math.min(99, l.qty + 1) } : l,
-        );
+      let next = [...list];
+      const itemIdx = next.findIndex((l) => l.key === itemKey);
+      const exIdx = next.findIndex((l) => l.key === extraKey);
+
+      if (itemIdx < 0) {
+        next = [
+          ...next,
+          {
+            key: itemKey,
+            kind: 'ITEM',
+            menuItemId: parent.id,
+            name: parent.name,
+            unitPrice: Number(parent.price) || 0,
+            qty: 1,
+          },
+          {
+            key: extraKey,
+            kind: 'EXTRA',
+            menuItemId: itemId,
+            name: extra.name,
+            unitPrice: Number(extra.price) || 0,
+            qty: 1,
+            extraId: extra.id,
+            attachedToMenuItemId: itemId,
+          },
+        ];
+        return next;
       }
-      return [
-        ...list,
-        {
-          key,
+
+      if (exIdx < 0) {
+        const itemQty = next[itemIdx].qty;
+        next.push({
+          key: extraKey,
           kind: 'EXTRA',
           menuItemId: itemId,
           name: extra.name,
           unitPrice: Number(extra.price) || 0,
-          qty: 1,
+          qty: itemQty,
           extraId: extra.id,
           attachedToMenuItemId: itemId,
-        },
-      ];
+        });
+        return next;
+      }
+
+      return next.map((l, i) => {
+        if (i === itemIdx || i === exIdx) {
+          return { ...l, qty: Math.min(99, l.qty + 1) };
+        }
+        return l;
+      });
     });
     if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
   }

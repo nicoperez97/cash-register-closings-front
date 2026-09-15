@@ -14,7 +14,7 @@ import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { prettySection } from '../menu/menu-display';
-import { apiErrorMessage, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
+import { apiErrorMessage, formatOrderLinesInline, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
 import {
   WaiterApiService,
   WaiterCatalog,
@@ -95,8 +95,14 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly coversSheet = signal<WaiterTable | null>(null);
   readonly coversDraft = signal(2);
 
-  /** Sheet: cerrar mesa / ticket. */
+  /** Sheet: cerrar mesa (requiere ticket + forma de pago). */
   readonly closeSheet = signal(false);
+  readonly closePaymentMethodId = signal<string | null>(null);
+
+  /** Sheet: imprimir ticket con descuento. */
+  readonly ticketSheet = signal(false);
+  readonly ticketDiscountMode = signal<'none' | 'percent' | 'fixed'>('none');
+  readonly ticketDiscountValue = signal<number | null>(null);
 
   /** Tab de sector: null = Todos. */
   readonly sectorTab = signal<string | null>(null);
@@ -426,6 +432,133 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return orderingMoney(n);
   }
 
+  itemsPreview(items: Parameters<typeof formatOrderLinesInline>[0]): string {
+    return formatOrderLinesInline(items);
+  }
+
+  orderTime(iso: string | Date | null | undefined): string {
+    if (!iso) return '';
+    const d = iso instanceof Date ? iso : new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  /** Ítems editables de toda la mesa para el sheet de ticket. */
+  ticketEditableRows(): Array<{
+    orderId: string;
+    lineIndex: number;
+    name: string;
+    qty: number;
+    unitPrice: number;
+    amount: number;
+    extra: boolean;
+  }> {
+    const orders = this.session()?.orders ?? [];
+    const rows: Array<{
+      orderId: string;
+      lineIndex: number;
+      name: string;
+      qty: number;
+      unitPrice: number;
+      amount: number;
+      extra: boolean;
+    }> = [];
+    for (const o of orders) {
+      const items = o.items ?? [];
+      const usedExtras = new Set<number>();
+      const mains = items
+        .map((l, i) => ({ l, i }))
+        .filter(({ l }) => String(l.kind || 'ITEM').toUpperCase() !== 'EXTRA');
+      const extras = items
+        .map((l, i) => ({ l, i }))
+        .filter(({ l }) => String(l.kind || '').toUpperCase() === 'EXTRA');
+
+      for (const { l: item, i: itemIdx } of mains) {
+        rows.push({
+          orderId: o.id,
+          lineIndex: itemIdx,
+          name: item.name,
+          qty: Number(item.qty) || 0,
+          unitPrice: Number(item.unitPrice) || 0,
+          amount: (Number(item.unitPrice) || 0) * (Number(item.qty) || 0),
+          extra: false,
+        });
+        const id = String(item.menuItemId || '').trim();
+        for (const { l: ex, i: exIdx } of extras) {
+          if (usedExtras.has(exIdx)) continue;
+          const parent = String(ex.attachedToMenuItemId || '').trim();
+          if (!parent || !id || parent !== id) continue;
+          usedExtras.add(exIdx);
+          rows.push({
+            orderId: o.id,
+            lineIndex: exIdx,
+            name: ex.name,
+            qty: Number(ex.qty) || 0,
+            unitPrice: Number(ex.unitPrice) || 0,
+            amount: (Number(ex.unitPrice) || 0) * (Number(ex.qty) || 0),
+            extra: true,
+          });
+        }
+      }
+      for (const { l: ex, i: exIdx } of extras) {
+        if (usedExtras.has(exIdx)) continue;
+        rows.push({
+          orderId: o.id,
+          lineIndex: exIdx,
+          name: ex.name,
+          qty: Number(ex.qty) || 0,
+          unitPrice: Number(ex.unitPrice) || 0,
+          amount: (Number(ex.unitPrice) || 0) * (Number(ex.qty) || 0),
+          extra: true,
+        });
+      }
+    }
+    return rows;
+  }
+
+  patchTicketLine(body: {
+    orderId: string;
+    lineIndex: number;
+    qty?: number | null;
+    unitPrice?: number | null;
+    remove?: boolean;
+  }): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session || this.busy()) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.api.patchSessionLine(slug, token, session.id, body).subscribe({
+      next: (updated) => {
+        this.busy.set(false);
+        this.session.set(updated);
+        if (!(updated.orderCount ?? updated.orders?.length)) {
+          this.ticketSheet.set(false);
+          this.showToast('Sin ítems en la mesa');
+        }
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudo actualizar el ítem'));
+      },
+    });
+  }
+
+  bumpTicketItem(orderId: string, lineIndex: number, qty: number, delta: number): void {
+    this.patchTicketLine({ orderId, lineIndex, qty: Math.max(0, qty + delta) });
+  }
+
+  setTicketLinePrice(orderId: string, lineIndex: number, unitPrice: number, current: number): void {
+    const next = Math.max(0, Math.round((Number(unitPrice) || 0) * 100) / 100);
+    if (next === current) return;
+    this.patchTicketLine({ orderId, lineIndex, unitPrice: next });
+  }
+
+  removeTicketLine(orderId: string, lineIndex: number): void {
+    this.patchTicketLine({ orderId, lineIndex, remove: true });
+  }
+
   showToast(msg: string): void {
     this.toast.set(msg);
     window.setTimeout(() => {
@@ -649,27 +782,63 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   addExtra(extra: { id: string; name: string; price: number }, itemId: string): void {
-    const key = `e:${extra.id}:${itemId}`;
+    const parent = this.catalogItems().find((it) => it.id === itemId);
+    if (!parent) return;
+    const itemKey = `i:${itemId}`;
+    const extraKey = `e:${extra.id}:${itemId}`;
     this.lines.update((list) => {
-      const idx = list.findIndex((l) => l.key === key);
-      if (idx >= 0) {
-        return list.map((l, i) =>
-          i === idx ? { ...l, qty: Math.min(99, l.qty + 1) } : l,
-        );
+      let next = [...list];
+      const itemIdx = next.findIndex((l) => l.key === itemKey);
+      const exIdx = next.findIndex((l) => l.key === extraKey);
+
+      if (itemIdx < 0) {
+        // Tocó el extra directo: suma plato + extra juntos.
+        next = [
+          ...next,
+          {
+            key: itemKey,
+            kind: 'ITEM',
+            menuItemId: parent.id,
+            name: parent.name,
+            unitPrice: Number(parent.price) || 0,
+            qty: 1,
+          },
+          {
+            key: extraKey,
+            kind: 'EXTRA',
+            menuItemId: itemId,
+            name: extra.name,
+            unitPrice: Number(extra.price) || 0,
+            qty: 1,
+            extraId: extra.id,
+            attachedToMenuItemId: itemId,
+          },
+        ];
+        return next;
       }
-      return [
-        ...list,
-        {
-          key,
+
+      if (exIdx < 0) {
+        const itemQty = next[itemIdx].qty;
+        next.push({
+          key: extraKey,
           kind: 'EXTRA',
           menuItemId: itemId,
           name: extra.name,
           unitPrice: Number(extra.price) || 0,
-          qty: 1,
+          qty: itemQty,
           extraId: extra.id,
           attachedToMenuItemId: itemId,
-        },
-      ];
+        });
+        return next;
+      }
+
+      // Ya había el combo: otra unidad de plato + extra.
+      return next.map((l, i) => {
+        if (i === itemIdx || i === exIdx) {
+          return { ...l, qty: Math.min(99, l.qty + 1) };
+        }
+        return l;
+      });
     });
     this.cartOpen.set(true);
   }
@@ -748,60 +917,122 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.backToTables();
       return;
     }
+    if (!session.customerTicketPrinted) {
+      this.error.set('Primero imprimí el ticket del cliente');
+      this.openTicketSheet();
+      return;
+    }
+    const methods = session.paymentMethods?.length
+      ? session.paymentMethods
+      : this.catalog()?.tablePaymentMethods ?? [];
+    this.closePaymentMethodId.set(methods[0]?.id ?? null);
     this.closeSheet.set(true);
   }
 
   cancelClose(): void {
     this.closeSheet.set(false);
+    this.closePaymentMethodId.set(null);
   }
 
-  printTicketOnly(): void {
+  openTicketSheet(): void {
+    const session = this.session();
+    if (!session || this.busy()) return;
+    const orders = session.orderCount ?? session.orders?.length ?? 0;
+    if (!orders) {
+      this.error.set('No hay envíos para imprimir');
+      return;
+    }
+    this.ticketDiscountMode.set('none');
+    this.ticketDiscountValue.set(null);
+    this.ticketSheet.set(true);
+  }
+
+  cancelTicketSheet(): void {
+    this.ticketSheet.set(false);
+  }
+
+  sessionSubtotal(): number {
+    const s = this.session();
+    if (!s) return 0;
+    if (s.sessionSubtotal != null) return Number(s.sessionSubtotal) || 0;
+    return (s.orders ?? []).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  }
+
+  ticketPreviewTotal(): number {
+    const sub = this.sessionSubtotal();
+    const mode = this.ticketDiscountMode();
+    const v = Math.max(0, Number(this.ticketDiscountValue()) || 0);
+    if (mode === 'percent' && v > 0) {
+      return Math.max(0, Math.round((sub - (sub * Math.min(100, v)) / 100) * 100) / 100);
+    }
+    if (mode === 'fixed' && v > 0) {
+      return Math.max(0, Math.round((sub - Math.min(sub, v)) * 100) / 100);
+    }
+    return sub;
+  }
+
+  paymentMethodsForClose(): Array<{ id: string; name: string }> {
+    const s = this.session();
+    const fromSession = s?.paymentMethods ?? [];
+    if (fromSession.length) return fromSession;
+    return this.catalog()?.tablePaymentMethods ?? [];
+  }
+
+  confirmPrintTicket(): void {
     const slug = this.slug();
     const token = this.token();
     const session = this.session();
     if (!slug || !token || !session || this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
-    this.api.printCustomerTicket(slug, token, session.id).subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.session.set(null);
-        this.lines.set([]);
-        this.cartOpen.set(false);
-        this.closeSheet.set(false);
-        this.view.set('tables');
-        this.loadTables();
-        this.showToast('Ticket enviado a imprimir');
-      },
-      error: (err) => {
-        this.busy.set(false);
-        this.error.set(apiErrorMessage(err, 'No se pudo imprimir el ticket'));
-      },
-    });
-  }
-
-  confirmClose(printTicket: boolean): void {
-    const slug = this.slug();
-    const token = this.token();
-    const session = this.session();
-    if (!slug || !token || !session || this.busy()) return;
-    this.closeSheet.set(false);
-    this.busy.set(true);
     this.api
-      .closeSession(slug, token, session.id, { printCustomerTicket: printTicket })
+      .printCustomerTicket(slug, token, session.id, {
+        discountMode: this.ticketDiscountMode(),
+        discountValue: this.ticketDiscountValue(),
+      })
       .subscribe({
-        next: () => {
+        next: (updated) => {
           this.busy.set(false);
-          this.showToast(printTicket ? 'Mesa cerrada · ticket enviado' : 'Mesa cerrada');
-          this.session.set(null);
-          this.lines.set([]);
-          this.view.set('tables');
-          this.loadTables();
+          this.ticketSheet.set(false);
+          this.session.set(updated);
+          this.showToast('Ticket enviado a imprimir');
         },
         error: (err) => {
           this.busy.set(false);
-          this.error.set(apiErrorMessage(err, 'No se pudo cerrar la mesa'));
+          this.error.set(apiErrorMessage(err, 'No se pudo imprimir el ticket'));
         },
       });
+  }
+
+  confirmClose(): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    const paymentMethodId = this.closePaymentMethodId();
+    if (!slug || !token || !session || this.busy()) return;
+    if (!session.customerTicketPrinted) {
+      this.error.set('Primero imprimí el ticket del cliente');
+      return;
+    }
+    if (!paymentMethodId) {
+      this.error.set('Elegí la forma de pago');
+      return;
+    }
+    this.closeSheet.set(false);
+    this.busy.set(true);
+    this.api.closeSession(slug, token, session.id, { paymentMethodId }).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.showToast('Mesa cerrada');
+        this.session.set(null);
+        this.lines.set([]);
+        this.view.set('tables');
+        this.loadTables();
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudo cerrar la mesa'));
+      },
+    });
   }
 }

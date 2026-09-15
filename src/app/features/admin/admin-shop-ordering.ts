@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ControlContainer,
   FormArray,
+  FormBuilder,
   FormGroup,
   FormGroupDirective,
   ReactiveFormsModule,
@@ -12,6 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, merge } from 'rxjs';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
@@ -41,6 +43,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     MatButtonModule,
     MatSlideToggleModule,
     MatIconModule,
+    MatSelectModule,
     MatSnackBarModule,
     DeliveryZoneMapEditorComponent,
   ],
@@ -109,6 +112,45 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
               </button>
             </div>
             <p class="op__public-url">{{ waiterPublicUrl() }}</p>
+          }
+          @if (waiterOn()) {
+            <h3 class="op__subtitle">Medios de pago de mesa</h3>
+            <p class="op__schedule-hint">
+              Al cerrar una mesa el mozo elige uno. Podés vincular cada medio a una cuenta del local.
+            </p>
+            <div class="op__pays" formArrayName="tablePaymentMethods">
+              @for (m of tablePays.controls; track $index; let i = $index) {
+                <div class="op__pay" [formGroupName]="i">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
+                    <mat-label>Nombre</mat-label>
+                    <input matInput formControlName="name" placeholder="ej. Efectivo" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-account">
+                    <mat-label>Cuenta</mat-label>
+                    <mat-select formControlName="accountId">
+                      <mat-option [value]="null">Sin vincular</mat-option>
+                      @for (a of ledgerAccounts(); track a.id) {
+                        <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="op__pay-del"
+                    (click)="removeTablePay(i)"
+                    aria-label="Quitar"
+                    [disabled]="tablePays.length <= 1"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+            <button mat-stroked-button type="button" class="op__pay-add" (click)="addTablePay()">
+              <mat-icon>add</mat-icon>
+              Agregar medio
+            </button>
           }
           <div class="op__row-toggle">
             <div>
@@ -477,6 +519,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 export class AdminShopOrderingComponent {
   private readonly host = inject(ADMIN_SHOP_HOST);
   private readonly snack = inject(MatSnackBar);
+  private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
@@ -495,6 +538,7 @@ export class AdminShopOrderingComponent {
   );
   readonly takeawayOn = computed(() => !!this.host.formValue()?.takeawayEnabled);
   readonly deliveryOn = computed(() => !!this.host.formValue()?.deliveryEnabled);
+  readonly ledgerAccounts = computed(() => this.host.allLedgerAccounts());
 
   constructor() {
     // Tras cargar el local (o GET), si hay horarios distintos por día activar modo custom.
@@ -544,6 +588,26 @@ export class AdminShopOrderingComponent {
 
   get deliveryZones(): FormArray {
     return this.host.form.get('deliveryZones') as FormArray;
+  }
+
+  get tablePays(): FormArray {
+    return this.host.form.get('tablePaymentMethods') as FormArray;
+  }
+
+  addTablePay(): void {
+    this.tablePays.push(
+      this.fb.nonNullable.group({
+        id: [''],
+        name: [''],
+        accountId: this.fb.control<string | null>(null),
+        active: [true],
+      }),
+    );
+  }
+
+  removeTablePay(index: number): void {
+    if (this.tablePays.length <= 1) return;
+    this.tablePays.removeAt(index);
   }
 
   shopAccent(): string {
