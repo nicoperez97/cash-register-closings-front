@@ -389,6 +389,13 @@ export const routes: Routes = [
         title: 'Pedidos clientes',
       },
       {
+        path: 'integrations',
+        canActivate: [anyPermissionGuard('integrations.read', 'integrations.manage')],
+        loadComponent: () =>
+          import('./features/integrations/integrations-page').then((m) => m.IntegrationsPage),
+        title: 'Integraciones',
+      },
+      {
         path: 'comanda',
         canActivate: [
           anyPermissionGuard(

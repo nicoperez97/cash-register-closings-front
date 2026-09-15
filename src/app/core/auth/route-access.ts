@@ -207,6 +207,12 @@ export function canAccessAppRoute(
       featureOn(features, 'onlineOrderingEnabled')
     );
   }
+  if (path.startsWith('/integrations')) {
+    return (
+      hasShopPermission(user, shopId, 'integrations.read') ||
+      hasShopPermission(user, shopId, 'integrations.manage')
+    );
+  }
   if (path.startsWith('/comanda')) {
     return (
       featureOn(features, 'waiterOrderingEnabled') &&

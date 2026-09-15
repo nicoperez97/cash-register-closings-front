@@ -536,6 +536,12 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         betweenStreets: this.addressBetween,
         details: this.addressDetails,
       });
+      body.deliveryStreetNumber = this.addressNumber.trim() || null;
+      const point = this.mapPoint();
+      if (point) {
+        body.deliveryLat = point.lat;
+        body.deliveryLng = point.lng;
+      }
     }
     if (paymentMethod === 'CASH') {
       body.cashAmount = Number(this.cashAmount);

@@ -102,6 +102,9 @@ export interface CreatePublicCustomerOrderBody {
   lastName: string;
   phone?: string;
   address?: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  deliveryStreetNumber?: string | null;
   deliveryZoneId?: string | null;
   paymentMethod: CustomerOrderPaymentMethod;
   cashAmount?: number | null;
@@ -159,6 +162,12 @@ export interface StaffCustomerOrder extends PublicCustomerOrder {
   paymentAccreditedAt?: string | null;
   customerNotes?: string | null;
   deliveryZoneId?: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  deliveryStreetNumber?: string | null;
+  externalSource?: string | null;
+  externalId?: string | null;
+  externalMeta?: Record<string, unknown> | null;
   updatedAt?: string | null;
 }
 

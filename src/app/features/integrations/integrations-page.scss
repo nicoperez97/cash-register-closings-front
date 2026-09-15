@@ -1,0 +1,71 @@
+.integrations__card {
+  max-width: 920px;
+}
+
+.integrations__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.integrations__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.integrations__badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mat-sys-on-surface, #222) 8%, transparent);
+}
+
+.integrations__badge--ok {
+  background: color-mix(in srgb, #2e7d32 18%, transparent);
+  color: #1b5e20;
+}
+
+.integrations__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.integrations__sub {
+  margin: 1.25rem 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.integrations__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 1rem;
+}
+
+.integrations__span2 {
+  grid-column: 1 / -1;
+}
+
+.integrations__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.integrations__err {
+  color: #b71c1c;
+  margin: 0.5rem 0 1rem;
+}
+
+@media (max-width: 720px) {
+  .integrations__grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,219 @@
+<app-page-header
+  title="Integraciones"
+  [subtitle]="shops.selectedShop()?.name ?? ''"
+/>
+
+@if (loading()) {
+  <p class="text-muted">Cargando…</p>
+} @else if (error(); as err) {
+  <p class="integrations__err">{{ err }}</p>
+} @else {
+  <section class="panel-card integrations__card">
+    <div class="panel-card__body">
+      <div class="integrations__head">
+        <div>
+          <h2 class="guy-list-head__title">Deliverate</h2>
+          <p class="guy-list-head__meta">
+            Pedí repartidores para tus pedidos delivery. El botón «Solicitar Deliverate» está en el
+            detalle de cada pedido.
+          </p>
+        </div>
+        <div class="integrations__badges">
+          @if (config()?.shopCreated) {
+            <span class="integrations__badge integrations__badge--ok">Shop creado</span>
+          } @else if (config()?.connected) {
+            <span class="integrations__badge integrations__badge--ok">Listo para pedidos</span>
+          } @else if (config()?.hasApiToken) {
+            <span class="integrations__badge">Token OK · falta shop</span>
+          } @else {
+            <span class="integrations__badge">Sin conectar</span>
+          }
+          @if (config()?.enabled) {
+            <span class="integrations__badge integrations__badge--ok">Activo</span>
+          }
+        </div>
+      </div>
+
+      @if (config()?.lastError) {
+        <p class="integrations__err">Último error: {{ config()!.lastError }}</p>
+      }
+
+      <div class="integrations__checks">
+        <mat-checkbox [(ngModel)]="enabled" [disabled]="!canManage">Habilitar en este local</mat-checkbox>
+        <mat-checkbox [(ngModel)]="testMode" [disabled]="!canManage">
+          Modo prueba (is_test_order)
+        </mat-checkbox>
+      </div>
+
+      <h3 class="integrations__sub">Webhook de este local</h3>
+      <div class="integrations__grid">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="integrations__span2">
+          <mat-label>URL pública de la API</mat-label>
+          <input
+            matInput
+            [(ngModel)]="webhookBaseUrl"
+            [disabled]="!canManage"
+            placeholder="https://api.tudominio.com"
+          />
+          <mat-hint>
+            Sin barra final. Deliverate pegará a
+            {{ webhookBaseUrl.trim() || '…' }}/api/v1/webhooks/deliverate
+          </mat-hint>
+        </mat-form-field>
+      </div>
+      @if (config()?.webhookUrlHint) {
+        <p class="text-muted small">
+          Webhook registrado:
+          <code>{{ config()!.webhookUrlHint }}</code>
+        </p>
+      }
+
+      <h3 class="integrations__sub">Cuenta de integración</h3>
+      <div class="integrations__grid">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Usuario</mat-label>
+          <input matInput [(ngModel)]="username" [disabled]="!canManage" autocomplete="off" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Contraseña</mat-label>
+          <input
+            matInput
+            type="password"
+            [(ngModel)]="password"
+            [disabled]="!canManage"
+            placeholder="{{ config()?.hasCredentials ? '•••• (sin cambiar)' : '' }}"
+            autocomplete="new-password"
+          />
+        </mat-form-field>
+      </div>
+
+      <h3 class="integrations__sub">Comercio en Deliverate</h3>
+      <p class="text-muted small">
+        El usuario shop tiene que ser <strong>distinto</strong> de la cuenta de integración (ej.
+        <code>alpanino</code>, no <code>alpaninointegracion</code>). Completá CUIT, celular, email,
+        lat/lng y password del shop.
+      </p>
+      <div class="integrations__grid">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Usuario shop (integration_id)</mat-label>
+          <input matInput [(ngModel)]="integrationId" [disabled]="!canManage" />
+          <mat-hint>El que te dio Deliverate (ej. alpanino). Si ya existe, «Crear / vincular» lo asocia.</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Password del shop</mat-label>
+          <input
+            matInput
+            type="password"
+            [(ngModel)]="shopPassword"
+            [disabled]="!canManage"
+            autocomplete="new-password"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Zona</mat-label>
+          <mat-select [(ngModel)]="shopZone" [disabled]="!canManage">
+            <mat-option value="La Plata">La Plata</mat-option>
+            <mat-option value="Gonnet">Gonnet</mat-option>
+            <mat-option value="City Bell">City Bell</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Nombre comercial</mat-label>
+          <input matInput [(ngModel)]="businessName" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>CUIT</mat-label>
+          <input matInput [(ngModel)]="cuit" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Tipo fiscal</mat-label>
+          <mat-select [(ngModel)]="taxType" [disabled]="!canManage">
+            <mat-option value="juridica">Jurídica</mat-option>
+            <mat-option value="fisica">Física</mat-option>
+          </mat-select>
+        </mat-form-field>
+        @if (taxType === 'fisica') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Nacimiento (DD/MM/YYYY)</mat-label>
+            <input matInput [(ngModel)]="birthDate" [disabled]="!canManage" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>IVA</mat-label>
+            <mat-select [(ngModel)]="ivaCondition" [disabled]="!canManage">
+              <mat-option value="RI">Responsable Inscripto (RI)</mat-option>
+              <mat-option value="RM">Responsable Monotributo (RM)</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Género</mat-label>
+            <mat-select [(ngModel)]="gender" [disabled]="!canManage">
+              <mat-option value="m">Masculino</mat-option>
+              <mat-option value="f">Femenino</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Titular</mat-label>
+          <input matInput [(ngModel)]="ownerName" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="integrations__span2">
+          <mat-label>Dirección del local</mat-label>
+          <input
+            matInput
+            [(ngModel)]="textAddress"
+            [disabled]="!canManage"
+            placeholder="Calle y número"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Celular</mat-label>
+          <input matInput [(ngModel)]="cellphone" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Teléfono local</mat-label>
+          <input matInput [(ngModel)]="telephone" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="integrations__span2">
+          <mat-label>Emails (coma)</mat-label>
+          <input matInput [(ngModel)]="emailsText" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Lat local</mat-label>
+          <input matInput type="number" [(ngModel)]="locationLat" [disabled]="!canManage" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Lng local</mat-label>
+          <input matInput type="number" [(ngModel)]="locationLng" [disabled]="!canManage" />
+        </mat-form-field>
+      </div>
+
+      @if (config()?.deliId) {
+        <p class="text-muted small">deli_id: <code>{{ config()!.deliId }}</code></p>
+      }
+      @if (config()?.webhookRegisteredAt) {
+        <p class="text-muted small">Webhook registrado: {{ config()!.webhookRegisteredAt }}</p>
+      }
+
+      @if (canManage) {
+        <div class="integrations__actions">
+          <button mat-stroked-button type="button" [disabled]="saving()" (click)="save()">
+            <mat-icon>save</mat-icon>
+            Guardar
+          </button>
+          <button mat-stroked-button type="button" [disabled]="saving()" (click)="test()">
+            <mat-icon>wifi_tethering</mat-icon>
+            Probar login
+          </button>
+          <button mat-flat-button color="primary" type="button" [disabled]="saving()" (click)="connect()">
+            <mat-icon>link</mat-icon>
+            Conectar + webhook
+          </button>
+          <button mat-stroked-button type="button" [disabled]="saving()" (click)="createShop()">
+            <mat-icon>storefront</mat-icon>
+            Crear / vincular shop
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+}

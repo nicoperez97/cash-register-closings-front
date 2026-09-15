@@ -178,8 +178,11 @@
                     </p>
                     <div class="co-card__foot">
                       <strong>{{ money(o.total) }}</strong>
-                      @if (canManage()) {
-                        <div class="co-card__actions" (click)="$event.stopPropagation()">
+                      <div class="co-card__actions" (click)="$event.stopPropagation()">
+                        <button type="button" class="co-card__open" (click)="openOrder(o)">
+                          Abrir
+                        </button>
+                        @if (canManage()) {
                           @if (canAcredit(o)) {
                             <button
                               type="button"
@@ -229,8 +232,8 @@
                               {{ primary.label }}
                             </button>
                           }
-                        </div>
-                      }
+                        }
+                      </div>
                     </div>
                   </article>
                 }
@@ -302,26 +305,31 @@
                   }
                 </p>
               </div>
-              @if (canManage() && canAcredit(o)) {
-                <button
-                  type="button"
-                  class="co-card__acredit"
-                  [disabled]="busyId() === o.id"
-                  (click)="$event.stopPropagation(); acredit(o)"
-                >
-                  Acreditar
+              <div class="co-card__actions" (click)="$event.stopPropagation()">
+                <button type="button" class="co-card__open" (click)="openOrder(o)">
+                  Abrir
                 </button>
-              }
-              @if (canManage() && canDesacredit(o)) {
-                <button
-                  type="button"
-                  class="co-card__desacredit"
-                  [disabled]="busyId() === o.id"
-                  (click)="$event.stopPropagation(); desacredit(o)"
-                >
-                  Desacreditar
-                </button>
-              }
+                @if (canManage() && canAcredit(o)) {
+                  <button
+                    type="button"
+                    class="co-card__acredit"
+                    [disabled]="busyId() === o.id"
+                    (click)="acredit(o)"
+                  >
+                    Acreditar
+                  </button>
+                }
+                @if (canManage() && canDesacredit(o)) {
+                  <button
+                    type="button"
+                    class="co-card__desacredit"
+                    [disabled]="busyId() === o.id"
+                    (click)="desacredit(o)"
+                  >
+                    Desacreditar
+                  </button>
+                }
+              </div>
             </div>
           </article>
         }
