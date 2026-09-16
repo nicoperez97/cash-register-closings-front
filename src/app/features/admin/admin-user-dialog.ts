@@ -33,10 +33,21 @@ import {
   normalizeUserVisibility,
 } from '../../shared/user-visibility';
 import {
+  ORDERING_CONFIG_LEVELS,
   ORDERING_CONFIG_VISIBILITY_OPTIONS,
+  OrderingConfigLevel,
   OrderingConfigVisibility,
+  OrderingConfigVisibilityKey,
   normalizeOrderingConfigVisibility,
 } from '../../shared/ordering-config-visibility';
+import {
+  SHOP_CONFIG_LEVELS,
+  SHOP_CONFIG_VISIBILITY_OPTIONS,
+  ShopConfigLevel,
+  ShopConfigVisibility,
+  ShopConfigVisibilityKey,
+  normalizeShopConfigVisibility,
+} from '../../shared/shop-config-visibility';
 
 export interface AdminUserRow {
   id: string;
@@ -57,6 +68,7 @@ export interface AdminUserRow {
   isReservationAdmin?: boolean;
   isCustomerOrdersAdmin?: boolean;
   orderingConfigVisibility?: Partial<OrderingConfigVisibility> | null;
+  shopConfigVisibility?: Partial<ShopConfigVisibility> | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   requireClosingFiles?: boolean;
@@ -724,14 +736,90 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             <div class="section" formGroupName="orderingConfigVisibility">
               <p class="section__title">Pestaña Configurar</p>
               <p class="section__hint">
-                En Pedidos clientes → Configurar. Marcado = lo ve · Sin marcar = oculto.
+                En Pedidos clientes → Configurar. Off = oculta · Ver = solo consulta · Todo = editar.
                 Aparece con Pedidos clientes o Catálogo pedidos.
               </p>
-              <div class="visibility-list">
+              <div class="module-group">
                 @for (opt of orderingConfigOptions; track opt.key) {
-                  <div class="visibility-row">
-                    <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
-                    <p class="visibility-row__hint">{{ opt.hint }}</p>
+                  <div
+                    class="module-row"
+                    [class.module-row--on]="orderingConfigLevel(opt.key) !== 'none'"
+                  >
+                    <div class="module-row__main">
+                      <div class="module-row__info">
+                        <span class="module-row__icon" aria-hidden="true">
+                          <mat-icon>{{ opt.icon }}</mat-icon>
+                        </span>
+                        <div class="module-row__text">
+                          <div class="module-row__name">{{ opt.label }}</div>
+                          <div class="module-row__hint">{{ opt.hint }}</div>
+                        </div>
+                      </div>
+                      <div
+                        class="level-pills"
+                        role="group"
+                        [attr.aria-label]="'Nivel de ' + opt.label"
+                      >
+                        @for (lvl of orderingConfigLevels; track lvl.value) {
+                          <button
+                            type="button"
+                            class="level-pill"
+                            [class.level-pill--active]="orderingConfigLevel(opt.key) === lvl.value"
+                            [class.level-pill--off]="lvl.value === 'none'"
+                            [matTooltip]="lvl.label"
+                            (click)="setOrderingConfigLevel(opt.key, lvl.value)"
+                          >
+                            {{ lvl.short }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (showShopConfigVisibility()) {
+            <div class="section" formGroupName="shopConfigVisibility">
+              <p class="section__title">Configuración del local</p>
+              <p class="section__hint">
+                Con Configuración del local en Ver o Todo. Off = oculta · Ver = solo consulta · Todo = editar.
+              </p>
+              <div class="module-group">
+                @for (opt of shopConfigOptions; track opt.key) {
+                  <div
+                    class="module-row"
+                    [class.module-row--on]="shopConfigLevel(opt.key) !== 'none'"
+                  >
+                    <div class="module-row__main">
+                      <div class="module-row__info">
+                        <span class="module-row__icon" aria-hidden="true">
+                          <mat-icon>{{ opt.icon }}</mat-icon>
+                        </span>
+                        <div class="module-row__text">
+                          <div class="module-row__name">{{ opt.label }}</div>
+                          <div class="module-row__hint">{{ opt.hint }}</div>
+                        </div>
+                      </div>
+                      <div
+                        class="level-pills"
+                        role="group"
+                        [attr.aria-label]="'Nivel de ' + opt.label"
+                      >
+                        @for (lvl of shopConfigLevels; track lvl.value) {
+                          <button
+                            type="button"
+                            class="level-pill"
+                            [class.level-pill--active]="shopConfigLevel(opt.key) === lvl.value"
+                            [class.level-pill--off]="lvl.value === 'none'"
+                            [matTooltip]="lvl.label"
+                            (click)="setShopConfigLevel(opt.key, lvl.value)"
+                          >
+                            {{ lvl.short }}
+                          </button>
+                        }
+                      </div>
+                    </div>
                   </div>
                 }
               </div>
@@ -871,14 +959,90 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             <div class="section" formGroupName="orderingConfigVisibility">
               <p class="section__title">Pestaña Configurar</p>
               <p class="section__hint">
-                En Pedidos clientes → Configurar. Marcado = lo ve · Sin marcar = oculto.
+                En Pedidos clientes → Configurar. Off = oculta · Ver = solo consulta · Todo = editar.
                 Aparece con Pedidos clientes o Catálogo pedidos.
               </p>
-              <div class="visibility-list">
+              <div class="module-group">
                 @for (opt of orderingConfigOptions; track opt.key) {
-                  <div class="visibility-row">
-                    <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
-                    <p class="visibility-row__hint">{{ opt.hint }}</p>
+                  <div
+                    class="module-row"
+                    [class.module-row--on]="orderingConfigLevel(opt.key) !== 'none'"
+                  >
+                    <div class="module-row__main">
+                      <div class="module-row__info">
+                        <span class="module-row__icon" aria-hidden="true">
+                          <mat-icon>{{ opt.icon }}</mat-icon>
+                        </span>
+                        <div class="module-row__text">
+                          <div class="module-row__name">{{ opt.label }}</div>
+                          <div class="module-row__hint">{{ opt.hint }}</div>
+                        </div>
+                      </div>
+                      <div
+                        class="level-pills"
+                        role="group"
+                        [attr.aria-label]="'Nivel de ' + opt.label"
+                      >
+                        @for (lvl of orderingConfigLevels; track lvl.value) {
+                          <button
+                            type="button"
+                            class="level-pill"
+                            [class.level-pill--active]="orderingConfigLevel(opt.key) === lvl.value"
+                            [class.level-pill--off]="lvl.value === 'none'"
+                            [matTooltip]="lvl.label"
+                            (click)="setOrderingConfigLevel(opt.key, lvl.value)"
+                          >
+                            {{ lvl.short }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (showShopConfigVisibility()) {
+            <div class="section" formGroupName="shopConfigVisibility">
+              <p class="section__title">Configuración del local</p>
+              <p class="section__hint">
+                Con Configuración del local en Ver o Todo. Off = oculta · Ver = solo consulta · Todo = editar.
+              </p>
+              <div class="module-group">
+                @for (opt of shopConfigOptions; track opt.key) {
+                  <div
+                    class="module-row"
+                    [class.module-row--on]="shopConfigLevel(opt.key) !== 'none'"
+                  >
+                    <div class="module-row__main">
+                      <div class="module-row__info">
+                        <span class="module-row__icon" aria-hidden="true">
+                          <mat-icon>{{ opt.icon }}</mat-icon>
+                        </span>
+                        <div class="module-row__text">
+                          <div class="module-row__name">{{ opt.label }}</div>
+                          <div class="module-row__hint">{{ opt.hint }}</div>
+                        </div>
+                      </div>
+                      <div
+                        class="level-pills"
+                        role="group"
+                        [attr.aria-label]="'Nivel de ' + opt.label"
+                      >
+                        @for (lvl of shopConfigLevels; track lvl.value) {
+                          <button
+                            type="button"
+                            class="level-pill"
+                            [class.level-pill--active]="shopConfigLevel(opt.key) === lvl.value"
+                            [class.level-pill--off]="lvl.value === 'none'"
+                            [matTooltip]="lvl.label"
+                            (click)="setShopConfigLevel(opt.key, lvl.value)"
+                          >
+                            {{ lvl.short }}
+                          </button>
+                        }
+                      </div>
+                    </div>
                   </div>
                 }
               </div>
@@ -1001,11 +1165,17 @@ export class AdminUserDialogComponent implements OnInit {
   private initialModules = levelsFromUser(this.user);
   readonly visibilityOptions = USER_VISIBILITY_OPTIONS;
   readonly orderingConfigOptions = ORDERING_CONFIG_VISIBILITY_OPTIONS;
+  readonly orderingConfigLevels = ORDERING_CONFIG_LEVELS;
+  readonly shopConfigOptions = SHOP_CONFIG_VISIBILITY_OPTIONS;
+  readonly shopConfigLevels = SHOP_CONFIG_LEVELS;
   private readonly initialVisibility = normalizeUserVisibility(this.user?.visibility, {
     hideFromCashWithdraw: !!this.user?.hideFromCashWithdraw,
   });
   private readonly initialOrderingConfig = normalizeOrderingConfigVisibility(
     this.user?.orderingConfigVisibility,
+  );
+  private readonly initialShopConfig = normalizeShopConfigVisibility(
+    this.user?.shopConfigVisibility,
   );
 
   readonly form = this.fb.nonNullable.group({
@@ -1049,11 +1219,28 @@ export class AdminUserDialogComponent implements OnInit {
       usersList: [this.initialVisibility.usersList],
     }),
     orderingConfigVisibility: this.fb.nonNullable.group({
-      caja: [this.initialOrderingConfig.caja],
-      channels: [this.initialOrderingConfig.channels],
-      payments: [this.initialOrderingConfig.payments],
-      items: [this.initialOrderingConfig.items],
-      extras: [this.initialOrderingConfig.extras],
+      caja: this.fb.nonNullable.control<OrderingConfigLevel>(this.initialOrderingConfig.caja),
+      channels: this.fb.nonNullable.control<OrderingConfigLevel>(
+        this.initialOrderingConfig.channels,
+      ),
+      payments: this.fb.nonNullable.control<OrderingConfigLevel>(
+        this.initialOrderingConfig.payments,
+      ),
+      items: this.fb.nonNullable.control<OrderingConfigLevel>(this.initialOrderingConfig.items),
+      extras: this.fb.nonNullable.control<OrderingConfigLevel>(this.initialOrderingConfig.extras),
+    }),
+    shopConfigVisibility: this.fb.nonNullable.group({
+      resumen: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.resumen),
+      identidad: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.identidad),
+      operacion: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.operacion),
+      pedidos: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.pedidos),
+      comanda: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.comanda),
+      dispositivos: this.fb.nonNullable.control<ShopConfigLevel>(
+        this.initialShopConfig.dispositivos,
+      ),
+      menu: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.menu),
+      carta: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.carta),
+      avanzado: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.avanzado),
     }),
     isStockAdmin: [this.user?.isStockAdmin ?? false],
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
@@ -1089,6 +1276,15 @@ export class AdminUserDialogComponent implements OnInit {
     const customerOrders = raw['customerOrders'] ?? 'none';
     const orderingCatalog = raw['orderingCatalog'] ?? 'none';
     return customerOrders !== 'none' || orderingCatalog === 'manage';
+  });
+
+  /** Secciones de Configuración del local: con módulo Configuración del local en Ver/Todo. */
+  readonly showShopConfigVisibility = computed(() => {
+    this.modulesTick();
+    if (this.form.controls.accountType.value !== 'EMPLOYEE') return false;
+    const raw = this.form.controls.modules.getRawValue() as Record<string, string>;
+    const level = raw['shopConfig'] ?? 'none';
+    return level === 'read' || level === 'manage';
   });
 
   ngOnInit(): void {
@@ -1183,6 +1379,28 @@ export class AdminUserDialogComponent implements OnInit {
     if (key === 'closings') this.syncRequireClosingFilesEnabled();
   }
 
+  shopConfigLevel(key: ShopConfigVisibilityKey): ShopConfigLevel {
+    this.modulesTick();
+    const v = this.form.controls.shopConfigVisibility.get(key)?.value;
+    return (v as ShopConfigLevel) || 'manage';
+  }
+
+  setShopConfigLevel(key: ShopConfigVisibilityKey, value: ShopConfigLevel): void {
+    this.form.controls.shopConfigVisibility.get(key)?.setValue(value);
+    this.modulesTick.update((n) => n + 1);
+  }
+
+  orderingConfigLevel(key: OrderingConfigVisibilityKey): OrderingConfigLevel {
+    this.modulesTick();
+    const v = this.form.controls.orderingConfigVisibility.get(key)?.value;
+    return (v as OrderingConfigLevel) || 'manage';
+  }
+
+  setOrderingConfigLevel(key: OrderingConfigVisibilityKey, value: OrderingConfigLevel): void {
+    this.form.controls.orderingConfigVisibility.get(key)?.setValue(value);
+    this.modulesTick.update((n) => n + 1);
+  }
+
   applyPreset(presetId: string): void {
     const preset = MODULE_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
@@ -1247,7 +1465,7 @@ export class AdminUserDialogComponent implements OnInit {
       const out: Record<string, string> = {};
       for (const d of this.visibleModules) {
         const v = raw[d.key] ?? 'none';
-        if (d.key === 'orders') {
+        if (d.key === 'orders' || d.key === 'shopConfig') {
           out[d.key] = v;
           continue;
         }
@@ -1279,6 +1497,7 @@ export class AdminUserDialogComponent implements OnInit {
           modulePermissions,
           visibility: raw.visibility,
           orderingConfigVisibility: raw.orderingConfigVisibility,
+          shopConfigVisibility: raw.shopConfigVisibility,
           isStockAdmin: !!raw.isStockAdmin,
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
@@ -1318,6 +1537,7 @@ export class AdminUserDialogComponent implements OnInit {
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         visibility: raw.visibility,
         orderingConfigVisibility: raw.orderingConfigVisibility,
+        shopConfigVisibility: raw.shopConfigVisibility,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
@@ -1367,6 +1587,7 @@ export class AdminUserDialogComponent implements OnInit {
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         visibility: raw.visibility,
         orderingConfigVisibility: raw.orderingConfigVisibility,
+        shopConfigVisibility: raw.shopConfigVisibility,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,

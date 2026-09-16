@@ -5,6 +5,7 @@ import {
   anyPermissionGuard,
   closingsListGuard,
   shopFeatureGuard,
+  shopConfigSectionGuard,
   shopUsersGuard,
   superAdminGuard,
 } from './core/guards/permission.guard';
@@ -415,7 +416,14 @@ export const routes: Routes = [
       },
       {
         path: 'admin/shop',
-        canActivate: [anyPermissionGuard('shops.manage', 'orderingCatalog.manage')],
+        canActivate: [
+          anyPermissionGuard(
+            'shopConfig.read',
+            'shopConfig.manage',
+            'shops.manage',
+            'orderingCatalog.manage',
+          ),
+        ],
         loadComponent: () =>
           import('./features/admin/admin-shop').then((m) => m.AdminShopPage),
         title: 'Configuración del local',
@@ -428,6 +436,7 @@ export const routes: Routes = [
           },
           {
             path: 'identidad',
+            canActivate: [shopConfigSectionGuard('identidad')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopIdentidadPage,
@@ -436,6 +445,7 @@ export const routes: Routes = [
           },
           {
             path: 'operacion',
+            canActivate: [shopConfigSectionGuard('operacion')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopOperacionPage,
@@ -444,6 +454,7 @@ export const routes: Routes = [
           },
           {
             path: 'pedidos',
+            canActivate: [shopConfigSectionGuard('pedidos')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopPedidosPage,
@@ -452,6 +463,7 @@ export const routes: Routes = [
           },
           {
             path: 'comanda',
+            canActivate: [shopConfigSectionGuard('comanda')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopComandaPage,
@@ -460,6 +472,7 @@ export const routes: Routes = [
           },
           {
             path: 'dispositivos',
+            canActivate: [shopConfigSectionGuard('dispositivos')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopDispositivosPage,
@@ -468,12 +481,14 @@ export const routes: Routes = [
           },
           {
             path: 'menu',
+            canActivate: [shopConfigSectionGuard('menu')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then((m) => m.AdminShopMenuPage),
             title: 'Menú',
           },
           {
             path: 'avanzado',
+            canActivate: [shopConfigSectionGuard('avanzado')],
             loadComponent: () =>
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopAvanzadoPage,
@@ -484,28 +499,36 @@ export const routes: Routes = [
       },
       {
         path: 'admin/messages',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-messages').then((m) => m.AdminMessagesPage),
         title: 'Mensajes',
       },
       {
         path: 'admin/menu',
-        canActivate: [anyPermissionGuard('shops.manage', 'orderingCatalog.manage')],
+        canActivate: [
+          anyPermissionGuard(
+            'shopConfig.read',
+            'shopConfig.manage',
+            'shops.manage',
+            'orderingCatalog.manage',
+          ),
+          shopConfigSectionGuard('carta'),
+        ],
         loadComponent: () =>
           import('./features/menu/admin-menu').then((m) => m.AdminMenuPage),
         title: 'Carta',
       },
       {
         path: 'admin/qr',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-qr').then((m) => m.AdminQrPage),
         title: 'QR',
       },
       {
         path: 'admin/instrucciones',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-help-page').then((m) => m.AdminHelpPage),
         title: 'Instrucciones',
@@ -516,6 +539,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/admin-users').then((m) => m.AdminUsersPage),
         title: 'Usuarios',
+      },
+      {
+        path: 'admin/users/:userId/permisos',
+        canActivate: [shopUsersGuard],
+        loadComponent: () =>
+          import('./features/admin/admin-user-permissions').then(
+            (m) => m.AdminUserPermissionsPage,
+          ),
+        title: 'Permisos de usuario',
       },
       {
         path: 'admin/user-activity',
@@ -540,14 +572,14 @@ export const routes: Routes = [
       },
       {
         path: 'admin/sales-systems',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-sales-systems').then((m) => m.AdminSalesSystemsPage),
         title: 'Sistemas de ventas',
       },
       {
         path: 'admin/pos-products',
-        canActivate: [permissionGuard('shops.manage')],
+        canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-pos-products').then((m) => m.AdminPosProductsPage),
         title: 'Platos POS',

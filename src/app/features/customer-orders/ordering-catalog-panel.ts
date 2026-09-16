@@ -10,6 +10,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission, canManageShop } from '../../core/auth/auth.models';
 import {
+  canEditOrderingConfig,
   canSeeOrderingConfig,
   normalizeOrderingConfigVisibility,
   type OrderingConfigVisibilityKey,
@@ -136,7 +137,7 @@ type ClosingSummary = {
                   {{ money(caja.cashOpeningAmount ?? 0) }} · pedidos online habilitados
                 </span>
               </div>
-              @if (canCreateClosing()) {
+              @if (canCreateClosing() && canEditCaja()) {
                 <button
                   mat-flat-button
                   color="primary"
@@ -153,7 +154,7 @@ type ClosingSummary = {
               Generar cierre arma el formulario con los pedidos de esta caja y cierra pedidos online.
               Al guardar el cierre se confirma.
             </p>
-          } @else if (canOpenCaja()) {
+          } @else if (canOpenCaja() && canEditCaja()) {
             <div class="ocp__caja-closed">
               <div>
                 <strong>Sin caja abierta</strong>
@@ -184,7 +185,13 @@ type ClosingSummary = {
               </div>
             </div>
           } @else {
-            <p class="ocp__hint">No hay caja abierta. Pedí a quien gestione cierres que la abra.</p>
+            <p class="ocp__hint">
+              @if (openClosing()) {
+                Caja abierta en solo lectura.
+              } @else {
+                No hay caja abierta. Pedí a quien gestione cierres que la abra.
+              }
+            </p>
           }
         </div>
         }
@@ -201,6 +208,7 @@ type ClosingSummary = {
               [(ngModel)]="takeawayEnabled"
               name="takeawayEnabled"
               aria-label="Take away"
+              [disabled]="!canEditChannels()"
             />
           </div>
           <div class="ocp__toggle">
@@ -212,13 +220,19 @@ type ClosingSummary = {
               [(ngModel)]="deliveryEnabled"
               name="deliveryEnabled"
               aria-label="Delivery"
+              [disabled]="!canEditChannels()"
             />
           </div>
           }
           @if (showPayments()) {
           <div class="ocp__toggle">
             <div><strong>Efectivo</strong></div>
-            <mat-slide-toggle [(ngModel)]="payCash" name="payCash" aria-label="Efectivo" />
+            <mat-slide-toggle
+              [(ngModel)]="payCash"
+              name="payCash"
+              aria-label="Efectivo"
+              [disabled]="!canEditPayments()"
+            />
           </div>
           <div class="ocp__toggle">
             <div><strong>Transferencia</strong></div>
@@ -226,6 +240,7 @@ type ClosingSummary = {
               [(ngModel)]="payTransfer"
               name="payTransfer"
               aria-label="Transferencia"
+              [disabled]="!canEditPayments()"
             />
           </div>
           }
@@ -262,6 +277,7 @@ type ClosingSummary = {
                   <mat-slide-toggle
                     [ngModel]="it.available"
                     (ngModelChange)="setItemAvailable(it.id, $event)"
+                    [disabled]="!canEditItems()"
                     [attr.aria-label]="'Disponible ' + it.name"
                   />
                 </div>
@@ -303,6 +319,7 @@ type ClosingSummary = {
                   <mat-slide-toggle
                     [ngModel]="ex.available"
                     (ngModelChange)="setExtraAvailable(ex.id, $event)"
+                    [disabled]="!canEditExtras()"
                     [attr.aria-label]="'Disponible ' + ex.name"
                   />
                 </div>
@@ -574,14 +591,26 @@ export class OrderingCatalogPanelComponent {
     return canSeeOrderingConfig(this.orderingConfigVis(), key);
   }
 
+  private canEdit(key: OrderingConfigVisibilityKey): boolean {
+    return canEditOrderingConfig(this.orderingConfigVis(), key);
+  }
+
   readonly showCaja = computed(() => this.sees('caja'));
   readonly showChannels = computed(() => this.sees('channels'));
   readonly showPayments = computed(() => this.sees('payments'));
   readonly showItems = computed(() => this.sees('items'));
   readonly showExtras = computed(() => this.sees('extras'));
+  readonly canEditCaja = computed(() => this.canEdit('caja'));
+  readonly canEditChannels = computed(() => this.canEdit('channels'));
+  readonly canEditPayments = computed(() => this.canEdit('payments'));
+  readonly canEditItems = computed(() => this.canEdit('items'));
+  readonly canEditExtras = computed(() => this.canEdit('extras'));
   readonly showCatalogSave = computed(
     () =>
-      this.showChannels() || this.showPayments() || this.showItems() || this.showExtras(),
+      this.canEditChannels() ||
+      this.canEditPayments() ||
+      this.canEditItems() ||
+      this.canEditExtras(),
   );
 
   constructor() {
@@ -963,24 +992,24 @@ export class OrderingCatalogPanelComponent {
     if (!shopId || !this.showCatalogSave()) return;
     this.saving.set(true);
     const body: Record<string, unknown> = {};
-    if (this.showChannels()) {
+    if (this.canEditChannels()) {
       body['takeawayEnabled'] = this.takeawayEnabled;
       body['deliveryEnabled'] = this.deliveryEnabled;
     }
-    if (this.showPayments()) {
+    if (this.canEditPayments()) {
       const methods: Array<'CASH' | 'TRANSFER'> = [
         ...(this.payCash ? (['CASH'] as const) : []),
         ...(this.payTransfer ? (['TRANSFER'] as const) : []),
       ];
       body['orderingPayments'] = { methods };
     }
-    if (this.showItems()) {
+    if (this.canEditItems()) {
       body['menuItemAvailability'] = this.items().map((it) => ({
         id: it.id,
         available: it.available,
       }));
     }
-    if (this.showExtras()) {
+    if (this.canEditExtras()) {
       body['orderingExtraAvailability'] = this.extras().map((ex) => ({
         id: ex.id,
         available: ex.available,

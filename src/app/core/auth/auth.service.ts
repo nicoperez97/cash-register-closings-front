@@ -218,6 +218,7 @@ export class AuthService {
         requireClosingFiles: !!s.requireClosingFiles,
         isCustomerOrdersAdmin: !!s.isCustomerOrdersAdmin,
         orderingConfigVisibility: s.orderingConfigVisibility ?? null,
+        shopConfigVisibility: s.shopConfigVisibility ?? null,
         accentColor: s.accentColor ?? null,
         accentSecondary: s.accentSecondary ?? null,
         email: s.email ?? null,

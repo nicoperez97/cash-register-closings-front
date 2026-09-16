@@ -54,51 +54,96 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
           se configuran en el exe (Carta).
         </p>
         <div class="shop-admin__source-actions">
-          @if (printAgentConfigured()) {
+          @if (canEdit()) {
+            @if (printAgentConfigured()) {
+              <button
+                mat-stroked-button
+                type="button"
+                color="warn"
+                [disabled]="printAgentBusy()"
+                (click)="revokePrintAgentToken.emit()"
+              >
+                <mat-icon>link_off</mat-icon>
+                Revocar
+              </button>
+            }
             <button
               mat-stroked-button
               type="button"
-              color="warn"
               [disabled]="printAgentBusy()"
-              (click)="revokePrintAgentToken.emit()"
+              (click)="generatePrintAgentToken.emit()"
             >
-              <mat-icon>link_off</mat-icon>
-              Revocar
+              <mat-icon>vpn_key</mat-icon>
+              {{ printAgentConfigured() ? 'Regenerar token' : 'Generar token' }}
             </button>
           }
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="printAgentBusy()"
-            (click)="generatePrintAgentToken.emit()"
-          >
-            <mat-icon>vpn_key</mat-icon>
-            {{ printAgentConfigured() ? 'Regenerar token' : 'Generar token' }}
-          </button>
         </div>
       </div>
       @if (printAgentLoading()) {
         <p class="text-muted small mb-0">Cargando…</p>
       } @else if (printAgentConfigured()) {
-        <p class="text-muted small mb-0">
-          Token activo:
-          <code>{{ printAgentTokenPrefix() || 'pa_…' }}</code>
-        </p>
-      } @else {
-        <p class="text-muted small mb-0">Todavía no hay token. Generá uno y pegalo en Cierres-Comandas → Conexión.</p>
-      }
-      @if (printAgentFreshToken()) {
-        <div class="shop-admin__print-token">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__print-token-field">
-            <mat-label>Token (copiá ahora)</mat-label>
-            <input matInput readonly [value]="printAgentFreshToken()" />
-          </mat-form-field>
-          <button mat-stroked-button type="button" (click)="copyPrintAgentToken.emit()">
-            <mat-icon>content_copy</mat-icon>
-            Copiar
-          </button>
+        <div class="shop-admin__token-active">
+          <p class="text-muted small mb-0">
+            Token activo:
+            <code>{{ printAgentTokenPrefix() || 'pa_…' }}</code>
+          </p>
         </div>
-        <p class="text-muted small mb-0">No se vuelve a mostrar. Si lo perdés, regenerá.</p>
+        @if (printAgentFreshToken()) {
+          <div class="shop-admin__print-token">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__print-token-field">
+              <mat-label>Token</mat-label>
+              <input matInput readonly [value]="printAgentFreshToken()" />
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="button" (click)="copyPrintAgentToken.emit()">
+              <mat-icon>content_copy</mat-icon>
+              Copiar
+            </button>
+          </div>
+        } @else {
+          <div class="shop-admin__token-legacy">
+            @if (canEdit()) {
+              <p class="text-muted small mb-0">
+                Este token es anterior y no se puede copiar así. Regeneralo una vez (el agent pide el token nuevo) o dejá Cierres-Comandas conectado y recargá.
+              </p>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="printAgentLoading()"
+                (click)="reloadPrintAgentStatus.emit()"
+              >
+                <mat-icon>refresh</mat-icon>
+                Recargar
+              </button>
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="printAgentBusy()"
+                (click)="generatePrintAgentToken.emit()"
+              >
+                <mat-icon>vpn_key</mat-icon>
+                Regenerar para poder copiar
+              </button>
+            } @else {
+              <p class="text-muted small mb-0">
+                Este token es anterior. Abrí Cierres-Comandas con este token, esperá que conecte y recargá esta página para poder copiarlo. Si no, pedile a quien administre el local que lo regenere una vez.
+              </p>
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="printAgentLoading()"
+                (click)="reloadPrintAgentStatus.emit()"
+              >
+                <mat-icon>refresh</mat-icon>
+                Recargar
+              </button>
+            }
+          </div>
+        }
+      } @else if (canEdit()) {
+        <p class="text-muted small mb-0">Todavía no hay token. Generá uno y pegalo en Cierres-Comandas → Conexión.</p>
+      } @else {
+        <p class="text-muted small mb-0">Todavía no hay token de Comandas.</p>
       }
       <div class="shop-admin__installer-block">
         <p class="text-muted small mb-0">Instaladores publicados</p>
@@ -110,9 +155,13 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
               <div class="shop-admin__installer-row">
                 <p class="text-muted small mb-0">
                   <strong>{{ osLabel(item.os) }}</strong>
-                  · v{{ item.version }} · {{ item.fileName }}
-                  @if (sizeLabel(item.size); as sz) {
-                    · {{ sz }}
+                  · v{{ item.version }}
+                  · {{ item.source === 'url' ? 'Link' : 'Archivo' }}
+                  · {{ item.fileName }}
+                  @if (item.source !== 'url') {
+                    @if (sizeLabel(item.size); as sz) {
+                      · {{ sz }}
+                    }
                   }
                 </p>
                 <button
@@ -143,10 +192,12 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
           Pedidos Ya u otra fuente aparte, usá <strong>Cuentas aparte</strong> más abajo, no un
           posnet.
         </p>
-        <button mat-stroked-button type="button" (click)="addPosnet.emit()">
-          <mat-icon>add</mat-icon>
-          Agregar posnet
-        </button>
+        @if (canEdit()) {
+          <button mat-stroked-button type="button" (click)="addPosnet.emit()">
+            <mat-icon>add</mat-icon>
+            Agregar posnet
+          </button>
+        }
       </div>
       <div class="shop-admin__posnets" formArrayName="posnets">
         @for (row of posnets.controls; track row; let i = $index) {
@@ -163,15 +214,17 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
                 }
               </mat-select>
             </mat-form-field>
-            <button
-              mat-icon-button
-              type="button"
-              class="shop-admin__posnet-remove"
-              aria-label="Quitar posnet"
-              (click)="removePosnet.emit(i)"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
+            @if (canEdit()) {
+              <button
+                mat-icon-button
+                type="button"
+                class="shop-admin__posnet-remove"
+                aria-label="Quitar posnet"
+                (click)="removePosnet.emit(i)"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
           </div>
         } @empty {
           <p class="text-muted small mb-0">
@@ -191,19 +244,21 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
           selector). Guardá con el botón de esta sección (es aparte del Guardar cambios del pie).
         </p>
         <div class="shop-admin__source-actions">
-          <button mat-stroked-button type="button" (click)="addClosingSource.emit()">
-            <mat-icon>add</mat-icon>
-            Agregar fuente
-          </button>
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="sourceSaving()"
-            (click)="saveClosingSources.emit()"
-          >
-            <mat-icon>save</mat-icon>
-            {{ sourceSaving() ? 'Guardando…' : 'Guardar fuentes' }}
-          </button>
+          @if (canEdit()) {
+            <button mat-stroked-button type="button" (click)="addClosingSource.emit()">
+              <mat-icon>add</mat-icon>
+              Agregar fuente
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="sourceSaving()"
+              (click)="saveClosingSources.emit()"
+            >
+              <mat-icon>save</mat-icon>
+              {{ sourceSaving() ? 'Guardando…' : 'Guardar fuentes' }}
+            </button>
+          }
         </div>
       </div>
       <div class="shop-admin__sources" formArrayName="closingSources">
@@ -236,7 +291,7 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
                   <mat-option disabled class="select-search-opt">
                     <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
                   </mat-option>
-                  @if (canManageAccounts()) {
+                  @if (canEdit() && canManageAccounts()) {
                     <mat-option [value]="createAccountValue">+ Nueva cuenta…</mat-option>
                   }
                   <mat-option [value]="null">Elegí una cuenta</mat-option>
@@ -255,15 +310,17 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
               <span class="shop-admin__source-spacer" aria-hidden="true"></span>
             }
             <mat-checkbox formControlName="includeInDeclared">Suma al declarado</mat-checkbox>
-            <button
-              mat-icon-button
-              type="button"
-              class="shop-admin__posnet-remove"
-              aria-label="Quitar fuente"
-              (click)="removeClosingSource.emit(i)"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
+            @if (canEdit()) {
+              <button
+                mat-icon-button
+                type="button"
+                class="shop-admin__posnet-remove"
+                aria-label="Quitar fuente"
+                (click)="removeClosingSource.emit(i)"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
           </div>
         } @empty {
           @if (sourcesLoading()) {
@@ -291,6 +348,7 @@ export class AdminShopDevicesComponent {
   private readonly host = inject(ADMIN_SHOP_HOST);
 
   readonly createAccountValue = CREATE_DESTINATION_ACCOUNT_VALUE;
+  readonly canEdit = input(true);
   readonly posnetTypes = input<readonly AdminShopPosnetTypeOption[]>([]);
   readonly closingSourceKinds = input<readonly AdminShopClosingSourceKindOption[]>([]);
   readonly sourceSaving = input(false);
@@ -305,7 +363,15 @@ export class AdminShopDevicesComponent {
   readonly installerLoading = input(false);
   readonly installerBusy = input(false);
   readonly installerItems = input<
-    readonly { os: string; version: string; fileName: string; size: number; uploadedAt: string }[]
+    readonly {
+      os: string;
+      version: string;
+      source?: 'file' | 'url';
+      fileName: string;
+      size: number;
+      uploadedAt: string;
+      downloadUrl?: string;
+    }[]
   >([]);
   readonly accountSearchQuery = model('');
   readonly sourceNeedsAccount = input<(index: number) => boolean>(() => false);
@@ -325,6 +391,7 @@ export class AdminShopDevicesComponent {
   readonly generatePrintAgentToken = output<void>();
   readonly revokePrintAgentToken = output<void>();
   readonly copyPrintAgentToken = output<void>();
+  readonly reloadPrintAgentStatus = output<void>();
   readonly downloadInstaller = output<string>();
 
   osLabel(os: string): string {

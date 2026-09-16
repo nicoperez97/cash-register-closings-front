@@ -388,6 +388,20 @@
         flex-wrap: wrap;
         margin-bottom: 0.85rem;
       }
+      .shop-admin__token-active {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem;
+        margin-top: 0.35rem;
+      }
+      .shop-admin__token-legacy {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.65rem;
+      }
       .shop-admin__print-token {
         display: flex;
         align-items: flex-start;

@@ -1,8 +1,11 @@
 import {
   AuthUser,
+  canAccessShopAdmin,
+  canAccessShopConfig,
   canConfigureShopOpeningBalances,
-  canManageShop,
+  canManageOrderingCatalog,
   canManageShopUsers,
+  canSeeShopConfigSection,
   canViewClosingsList,
   hasShopPermission,
   isClosingsCreateOnly,
@@ -91,20 +94,48 @@ export function canAccessAppRoute(
   if (path.startsWith('/admin/shops')) {
     return isSuperAdminUser(user);
   }
+  if (path.startsWith('/admin/shop/')) {
+    const section = path.split('/')[3]?.split('?')[0] ?? '';
+    if (
+      section === 'identidad' ||
+      section === 'operacion' ||
+      section === 'pedidos' ||
+      section === 'comanda' ||
+      section === 'dispositivos' ||
+      section === 'menu' ||
+      section === 'avanzado'
+    ) {
+      return canSeeShopConfigSection(user, shopId, section);
+    }
+  }
   if (path.startsWith('/admin/shop')) {
-    return canManageShop(user, shopId);
+    return (
+      canSeeShopConfigSection(user, shopId, 'resumen') ||
+      canSeeShopConfigSection(user, shopId, 'identidad') ||
+      canSeeShopConfigSection(user, shopId, 'operacion') ||
+      canSeeShopConfigSection(user, shopId, 'pedidos') ||
+      canSeeShopConfigSection(user, shopId, 'comanda') ||
+      canSeeShopConfigSection(user, shopId, 'dispositivos') ||
+      canSeeShopConfigSection(user, shopId, 'menu') ||
+      canSeeShopConfigSection(user, shopId, 'carta') ||
+      canSeeShopConfigSection(user, shopId, 'avanzado') ||
+      canManageOrderingCatalog(user, shopId)
+    );
   }
   if (path.startsWith('/admin/messages')) {
-    return canManageShop(user, shopId);
+    return canAccessShopAdmin(user, shopId);
   }
   if (path.startsWith('/admin/menu')) {
-    return canManageShop(user, shopId);
+    return (
+      canSeeShopConfigSection(user, shopId, 'carta') &&
+      (canAccessShopConfig(user, shopId) || canManageOrderingCatalog(user, shopId))
+    );
   }
   if (path.startsWith('/admin/qr')) {
-    return canManageShop(user, shopId);
+    return canAccessShopAdmin(user, shopId);
   }
   if (path.startsWith('/admin/instrucciones')) {
-    return canManageShop(user, shopId);
+    return canAccessShopAdmin(user, shopId);
   }
   if (path.startsWith('/admin/users') || path.startsWith('/admin/user-activity')) {
     return canManageShopUsers(user, shopId);
@@ -116,7 +147,7 @@ export function canAccessAppRoute(
     return hasShopPermission(user, shopId, 'concepts.manage');
   }
   if (path.startsWith('/admin/sales-systems') || path.startsWith('/admin/pos-products')) {
-    return canManageShop(user, shopId);
+    return canAccessShopAdmin(user, shopId);
   }
   if (path.startsWith('/employees')) {
     return hasShopPermission(user, shopId, 'employees.read');
