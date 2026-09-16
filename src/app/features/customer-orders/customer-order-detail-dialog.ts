@@ -1,11 +1,14 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { debounceTime, filter } from 'rxjs';
 import { formatMoney } from '../../shared/utils/money';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { IntegrationsApiService } from '../integrations/integrations-api.service';
 import {
   CustomerOrderStatus,
@@ -61,6 +64,8 @@ export class CustomerOrderDetailDialogComponent implements OnInit {
   private readonly api = inject(CustomerOrdersApiService);
   private readonly integrationsApi = inject(IntegrationsApiService);
   private readonly auth = inject(AuthService);
+  private readonly live = inject(ShopLiveClient);
+  private readonly destroyRef = inject(DestroyRef);
   readonly ref = inject(
     MatDialogRef<CustomerOrderDetailDialogComponent, CustomerOrderDetailDialogResult>,
   );
@@ -80,6 +85,35 @@ export class CustomerOrderDetailDialogComponent implements OnInit {
     this.integrationsApi.getDeliverate(this.data.shopId).subscribe({
       next: (cfg) => this.deliverateEnabled.set(!!cfg.enabled && !!cfg.connected),
       error: () => this.deliverateEnabled.set(false),
+    });
+
+    // Deliverate (y otros) actualizan vía webhook → SSE customer-orders.
+    this.live
+      .connectAuth(this.data.shopId)
+      .pipe(
+        filter((t) => t.domain === 'customer-orders'),
+        debounceTime(280),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.refreshFromServer());
+  }
+
+  private refreshFromServer(): void {
+    if (this.busy()) return;
+    this.api.getStaffOrder(this.data.shopId, this.order().id).subscribe({
+      next: (fresh) => {
+        const prev = this.order();
+        if (
+          fresh.status !== prev.status ||
+          fresh.externalId !== prev.externalId ||
+          JSON.stringify(fresh.externalMeta ?? null) !== JSON.stringify(prev.externalMeta ?? null) ||
+          fresh.paymentAccreditedAt !== prev.paymentAccreditedAt
+        ) {
+          this.dirty = true;
+        }
+        this.order.set(fresh);
+      },
+      error: () => undefined,
     });
   }
 
@@ -180,8 +214,10 @@ export class CustomerOrderDetailDialogComponent implements OnInit {
       push('Repartidor', `#${dboy}`);
     }
     const kitchen = m['is_kitchen_ready'];
-    if (kitchen === true) push('Cocina', 'Lista');
-    else if (kitchen === false) push('Cocina', 'Pendiente');
+    if (kitchen === true) push('Cocina', 'Lista (Deliverate)');
+    else if (m['kitchenReadyPending'] === true) {
+      push('Cocina', 'Pendiente en Deliverate (pasá a Listo / esperá su demora)');
+    } else if (kitchen === false) push('Cocina', 'Pendiente');
 
     const delayStart = this.asFiniteNumber(m['delay_start_time'] ?? m['withdrawn_delay']);
     const delayEnd = this.asFiniteNumber(m['delay_end_time'] ?? m['confirmed_delay']);
