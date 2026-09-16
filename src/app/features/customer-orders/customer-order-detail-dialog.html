@@ -106,11 +106,62 @@
       <h3>Deliverate</h3>
       @if (deliverateStateLabel(); as st) {
         <p>{{ st }}</p>
-        @if (order().externalId) {
-          <p class="cod__muted">ID: {{ order().externalId }}</p>
+        <ul class="cod__meta">
+          @for (row of deliverateRows(); track row.label) {
+            <li>
+              <span class="cod__meta-k">{{ row.label }}</span>
+              <span class="cod__meta-v">{{ row.value }}</span>
+            </li>
+          }
+        </ul>
+        @if (dboyLocation(); as loc) {
+          <p class="cod__muted">
+            Última ubicación repartidor: {{ loc.lat | number: '1.5-5' }},
+            {{ loc.lng | number: '1.5-5' }}
+            @if (loc.at) {
+              · {{ loc.at | date: 'dd/MM HH:mm' }}
+            }
+          </p>
+          <p>
+            <button type="button" class="cod__link" (click)="openDboyOnMaps()">
+              Ver en Maps
+            </button>
+          </p>
         }
+        <p class="cod__deliverate-actions">
+          <a
+            class="cod__link"
+            href="https://app.deliverate.io/"
+            target="_blank"
+            rel="noopener noreferrer"
+            (click)="openDeliverateApp(); $event.preventDefault()"
+          >
+            Abrir Deliverate
+          </a>
+          @if (hasDeliverateDboy()) {
+            <button
+              type="button"
+              class="cod__link"
+              [disabled]="busy()"
+              (click)="loadDboyLocation()"
+            >
+              Ubicación repartidor
+            </button>
+          }
+        </p>
       } @else if (canRequestDeliverate()) {
         <p class="cod__muted">Todavía no se solicitó repartidor.</p>
+        <p>
+          <a
+            class="cod__link"
+            href="https://app.deliverate.io/"
+            target="_blank"
+            rel="noopener noreferrer"
+            (click)="openDeliverateApp(); $event.preventDefault()"
+          >
+            Abrir app Deliverate
+          </a>
+        </p>
       } @else if (order().deliveryLat == null || order().deliveryLng == null) {
         <p class="cod__muted">
           Sin coordenadas de entrega: el cliente tiene que marcar el punto en el mapa al pedir.

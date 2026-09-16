@@ -312,6 +312,39 @@
   font-size: 0.88rem;
 }
 
+.pos__delivery {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px dashed color-mix(in srgb, var(--guy-green, #2e7d32) 35%, #d7e0d9);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 5%, #fff);
+}
+
+.pos__delivery select {
+  width: 100%;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  background: #fff;
+}
+
+.pos__map-btn {
+  border: 1px solid var(--guy-green, #2e7d32);
+  background: #fff;
+  color: var(--guy-green, #2e7d32);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  justify-self: start;
+}
+
+.pos__map-btn:hover {
+  background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, #fff);
+}
+
 .pos__btn {
   border: 1px solid var(--guy-border, #d7e0d9);
   background: #fff;

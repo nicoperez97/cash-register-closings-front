@@ -3,7 +3,7 @@
     <button type="button" class="pos__back" (click)="cancelled.emit()">← Tablero</button>
     <div>
       <h2>Pedido mostrador</h2>
-      <p>Tocá ítems, descuento y creá. Nombre y celular son opcionales.</p>
+      <p>Tocá ítems, elegí mostrador o delivery, descuento y creá.</p>
     </div>
     <button type="button" class="pos__clear" [disabled]="!lines().length" (click)="clearTicket()">
       Vaciar
@@ -147,18 +147,117 @@
               <span>Descuento</span><strong>−{{ money(discountAmount()) }}</strong>
             </div>
           }
+          @if (deliveryFee() > 0) {
+            <div>
+              <span>Envío</span><strong>{{ money(deliveryFee()) }}</strong>
+            </div>
+          }
           <div class="pos__total"><span>Total</span><strong>{{ money(total()) }}</strong></div>
         </div>
 
         <div class="pos__fields">
+          @if (deliveryEnabled()) {
+            <div class="pos__pay">
+              <span class="pos__label">Entrega</span>
+              <div class="pos__chips">
+                <button
+                  type="button"
+                  class="pos__chip"
+                  [class.pos__chip--on]="fulfillment() === 'COUNTER'"
+                  (click)="setFulfillment('COUNTER')"
+                >
+                  Mostrador
+                </button>
+                <button
+                  type="button"
+                  class="pos__chip"
+                  [class.pos__chip--on]="fulfillment() === 'DELIVERY'"
+                  (click)="setFulfillment('DELIVERY')"
+                >
+                  Delivery
+                </button>
+              </div>
+            </div>
+          }
+
           <label>
-            Nombre (opcional)
-            <input type="text" [(ngModel)]="guestName" placeholder="Cliente Mostrador" autocomplete="name" />
+            Nombre {{ fulfillment() === 'DELIVERY' ? '' : '(opcional)' }}
+            <input
+              type="text"
+              [(ngModel)]="guestName"
+              [placeholder]="fulfillment() === 'DELIVERY' ? 'Nombre del cliente' : 'Cliente Mostrador'"
+              autocomplete="name"
+            />
           </label>
           <label>
-            Celular (opcional)
-            <input type="tel" [(ngModel)]="phone" inputmode="tel" autocomplete="tel" placeholder="Sin celular" />
+            Celular {{ fulfillment() === 'DELIVERY' ? '' : '(opcional)' }}
+            <input
+              type="tel"
+              [(ngModel)]="phone"
+              inputmode="tel"
+              autocomplete="tel"
+              [placeholder]="fulfillment() === 'DELIVERY' ? 'Celular del cliente' : 'Sin celular'"
+            />
           </label>
+
+          @if (fulfillment() === 'DELIVERY') {
+            <div class="pos__delivery">
+              <label>
+                Zona
+                <select
+                  [ngModel]="deliveryZoneId()"
+                  (ngModelChange)="setDeliveryZone($event || null)"
+                >
+                  <option [ngValue]="null">Elegí zona…</option>
+                  @for (z of deliveryZones(); track z.id) {
+                    <option [ngValue]="z.id">
+                      {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'sin cargo' }}
+                    </option>
+                  }
+                </select>
+              </label>
+              <label>
+                Calle
+                <input type="text" [(ngModel)]="addressStreet" maxlength="160" placeholder="Calle" />
+              </label>
+              <label>
+                Número
+                <input
+                  type="text"
+                  [(ngModel)]="addressNumber"
+                  maxlength="20"
+                  inputmode="numeric"
+                  placeholder="Altura"
+                />
+              </label>
+              <label>
+                Entre calles (opcional)
+                <input type="text" [(ngModel)]="addressBetween" maxlength="80" />
+              </label>
+              <label>
+                Piso / depto / ref. (opcional)
+                <input type="text" [(ngModel)]="addressDetails" maxlength="80" />
+              </label>
+              <button type="button" class="pos__map-btn" (click)="openMapPicker()">
+                Buscar en el mapa
+              </button>
+              @if (mapPoint(); as p) {
+                <p class="pos__muted">
+                  Punto: {{ p.lat | number: '1.5-5' }}, {{ p.lng | number: '1.5-5' }}
+                </p>
+              }
+              @if (mapOpen()) {
+                <app-delivery-map-picker
+                  [zones]="deliveryZones()"
+                  [accent]="accent()"
+                  [initial]="mapPoint()"
+                  (closed)="closeMapPicker()"
+                  (selected)="onMapSelected($event)"
+                />
+              }
+            </div>
+          }
+
           <label class="pos__check">
             <input type="checkbox" [(ngModel)]="printCustomerTicket" name="printCustomerTicket" />
             Imprimir ticket del cliente
@@ -196,7 +295,13 @@
           [disabled]="submitting() || !lines().length"
           (click)="submit()"
         >
-          {{ submitting() ? 'Creando…' : 'Crear pedido' }}
+          {{
+            submitting()
+              ? 'Creando…'
+              : fulfillment() === 'DELIVERY'
+                ? 'Crear delivery'
+                : 'Crear pedido'
+          }}
         </button>
       </aside>
     </div>

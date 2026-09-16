@@ -61,6 +61,39 @@
   font-size: 0.85rem !important;
 }
 
+.cod__meta {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.cod__meta li {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  align-items: baseline;
+}
+
+.cod__meta-k {
+  color: var(--guy-muted, #5f6f76);
+  font-weight: 600;
+}
+
+.cod__meta-v {
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.cod__deliverate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.35rem;
+  margin-top: 0.35rem !important;
+}
+
 .cod__items {
   list-style: none;
   margin: 0;

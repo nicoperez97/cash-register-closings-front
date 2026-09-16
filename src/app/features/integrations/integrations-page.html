@@ -68,6 +68,45 @@
         </p>
       }
 
+      <h3 class="integrations__sub">Cierre de caja</h3>
+      <p class="text-muted small">
+        Definí a qué cuenta del local va Deliverate y cómo se registra en el cierre (igual que las
+        cuentas aparte / Pedidos Ya). Al guardar se crea o actualiza la fuente «Deliverate».
+      </p>
+      <div class="integrations__grid">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Qué hacer con el monto</mat-label>
+          <mat-select
+            [(ngModel)]="closingKind"
+            [disabled]="!canManage"
+            (selectionChange)="onClosingKindChange()"
+          >
+            @for (opt of closingKindOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        @if (needsClosingAccount()) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Cuenta del local</mat-label>
+            <mat-select [(ngModel)]="closingAccountId" [disabled]="!canManage">
+              <mat-option [value]="null">Elegí una cuenta</mat-option>
+              @for (a of accounts(); track a.id) {
+                <mat-option [value]="a.id">{{ a.name }}</mat-option>
+              }
+            </mat-select>
+            @if (config()?.closingAccountName && closingAccountId === config()?.closingAccountId) {
+              <mat-hint>{{ config()!.closingAccountName }}</mat-hint>
+            }
+          </mat-form-field>
+        }
+      </div>
+      <div class="integrations__checks">
+        <mat-checkbox [(ngModel)]="closingIncludeInDeclared" [disabled]="!canManage">
+          Suma al total declarado del cierre
+        </mat-checkbox>
+      </div>
+
       <h3 class="integrations__sub">Cuenta de integración</h3>
       <div class="integrations__grid">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">

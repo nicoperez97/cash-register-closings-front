@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
@@ -14,6 +15,11 @@ import {
   PublicOrderingMenuItem,
   StaffCustomerOrder,
 } from './customer-orders-api.service';
+import {
+  DeliveryMapPickerComponent,
+  DeliveryMapSelection,
+} from './delivery-map-picker';
+import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
 import { apiErrorMessage, orderingMoney, paymentLabel } from './ordering-ui.util';
 
 type PosLine = {
@@ -31,7 +37,7 @@ type CatalogItem = PublicOrderingMenuItem & { section: string };
 
 @Component({
   selector: 'app-staff-ordering-pos',
-  imports: [FormsModule, MatSnackBarModule],
+  imports: [FormsModule, MatSnackBarModule, DeliveryMapPickerComponent, DecimalPipe],
   templateUrl: './staff-ordering-pos.html',
   styleUrl: './staff-ordering-pos.scss',
 })
@@ -57,15 +63,35 @@ export class StaffOrderingPosComponent implements OnInit {
   readonly discountValue = signal<number | null>(null);
   readonly paymentMethod = signal<CustomerOrderPaymentMethod | ''>('');
   readonly fulfillment = signal<CustomerOrderFulfillment>('COUNTER');
+  readonly deliveryZoneId = signal<string | null>(null);
+  readonly mapPoint = signal<LatLng | null>(null);
+  readonly mapOpen = signal(false);
 
   guestName = '';
   phone = '';
   cashAmount: number | null = null;
   notes = '';
   printCustomerTicket = true;
+  addressStreet = '';
+  addressNumber = '';
+  addressBetween = '';
+  addressDetails = '';
 
   readonly shopId = computed(() => String(this.shops.selectedShopId() ?? '').trim());
   readonly slug = computed(() => String(this.shops.selectedShop()?.slug ?? '').trim());
+
+  readonly deliveryEnabled = computed(() => !!this.config()?.deliveryEnabled);
+  readonly deliveryZones = computed(() => this.config()?.deliveryZones ?? []);
+
+  readonly selectedZone = computed(() => {
+    const id = this.deliveryZoneId();
+    if (!id) return null;
+    return this.deliveryZones().find((z) => z.id === id) ?? null;
+  });
+
+  readonly deliveryFee = computed(() =>
+    this.fulfillment() === 'DELIVERY' ? Number(this.selectedZone()?.fee ?? 0) : 0,
+  );
 
   readonly sections = computed(() => {
     const menus = this.config()?.menus ?? [];
@@ -132,10 +158,15 @@ export class StaffOrderingPosComponent implements OnInit {
   });
 
   readonly total = computed(() =>
-    Math.max(0, Math.round((this.subtotal() - this.discountAmount()) * 100) / 100),
+    Math.max(
+      0,
+      Math.round((this.subtotal() - this.discountAmount() + this.deliveryFee()) * 100) / 100,
+    ),
   );
 
   readonly paymentMethods = computed(() => this.config()?.payments?.methods ?? []);
+
+  readonly accent = computed(() => this.config()?.shop?.accentColor ?? '#2e7d32');
 
   ngOnInit(): void {
     if (!this.embedded()) this.title.setTitle('Pedido mostrador');
@@ -176,6 +207,42 @@ export class StaffOrderingPosComponent implements OnInit {
     return paymentLabel(p);
   }
 
+  setFulfillment(f: CustomerOrderFulfillment): void {
+    this.fulfillment.set(f);
+    if (f !== 'DELIVERY') {
+      this.deliveryZoneId.set(null);
+      this.mapPoint.set(null);
+      this.mapOpen.set(false);
+      this.addressStreet = '';
+      this.addressNumber = '';
+      this.addressBetween = '';
+      this.addressDetails = '';
+    }
+    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+  }
+
+  setDeliveryZone(id: string | null): void {
+    this.deliveryZoneId.set(id);
+    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+  }
+
+  openMapPicker(): void {
+    this.mapOpen.set(true);
+  }
+
+  closeMapPicker(): void {
+    this.mapOpen.set(false);
+  }
+
+  onMapSelected(sel: DeliveryMapSelection): void {
+    this.mapPoint.set(sel.point);
+    if (sel.zone?.id) this.deliveryZoneId.set(sel.zone.id);
+    if (sel.street) this.addressStreet = sel.street;
+    if (sel.number) this.addressNumber = sel.number;
+    this.mapOpen.set(false);
+    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+  }
+
   setSection(sec: string | null): void {
     this.sectionFilter.set(this.sectionFilter() === sec ? null : sec);
   }
@@ -183,6 +250,7 @@ export class StaffOrderingPosComponent implements OnInit {
   setDiscountMode(mode: 'none' | 'percent' | 'fixed'): void {
     this.discountMode.set(mode);
     if (mode === 'none') this.discountValue.set(null);
+    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
   }
 
   setPayment(m: CustomerOrderPaymentMethod): void {
@@ -304,6 +372,7 @@ export class StaffOrderingPosComponent implements OnInit {
     const shopId = this.shopId();
     const lines = this.lines();
     const paymentMethod = this.paymentMethod();
+    const fulfillment = this.fulfillment();
     if (!shopId) {
       this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
       return;
@@ -316,6 +385,30 @@ export class StaffOrderingPosComponent implements OnInit {
       this.snack.open('Elegí el medio de pago', 'OK', { duration: 2500 });
       return;
     }
+    if (fulfillment === 'DELIVERY') {
+      if (!this.deliveryEnabled()) {
+        this.snack.open('Delivery no está habilitado en este local', 'OK', { duration: 3000 });
+        return;
+      }
+      if (!this.deliveryZoneId()) {
+        this.snack.open('Elegí la zona de entrega', 'OK', { duration: 3000 });
+        return;
+      }
+      const addr = composeDeliveryAddress({
+        street: this.addressStreet,
+        number: this.addressNumber,
+        betweenStreets: this.addressBetween,
+        details: this.addressDetails,
+      });
+      if (addr.trim().length < 5) {
+        this.snack.open('Completá el domicilio de entrega', 'OK', { duration: 3000 });
+        return;
+      }
+      if (this.phone.replace(/\D/g, '').length < 6) {
+        this.snack.open('Para delivery necesitás un celular válido', 'OK', { duration: 3000 });
+        return;
+      }
+    }
     if (paymentMethod === 'CASH') {
       const cash = Number(this.cashAmount);
       if (!Number.isFinite(cash) || cash < this.total()) {
@@ -324,10 +417,15 @@ export class StaffOrderingPosComponent implements OnInit {
       }
     }
 
-    const name = this.guestName.trim() || 'Cliente Mostrador';
+    const name = this.guestName.trim() || (fulfillment === 'DELIVERY' ? 'Cliente Delivery' : 'Cliente Mostrador');
     const parts = name.split(/\s+/);
     const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || 'Cliente';
-    const lastName = parts.length > 1 ? parts[parts.length - 1] : 'Mostrador';
+    const lastName =
+      parts.length > 1
+        ? parts[parts.length - 1]
+        : fulfillment === 'DELIVERY'
+          ? 'Delivery'
+          : 'Mostrador';
     const phone = this.phone.replace(/\D/g, '');
     if (phone.length > 0 && phone.length < 6) {
       this.snack.open('Celular inválido', 'OK', { duration: 2500 });
@@ -335,7 +433,7 @@ export class StaffOrderingPosComponent implements OnInit {
     }
 
     const body: CreatePublicCustomerOrderBody = {
-      fulfillment: 'COUNTER',
+      fulfillment,
       items: lines
         .filter((l) => l.kind !== 'EXTRA')
         .map((l) => ({ menuItemId: l.menuItemId, qty: l.qty })),
@@ -353,6 +451,22 @@ export class StaffOrderingPosComponent implements OnInit {
       customerNotes: this.notes.trim() || null,
       printCustomerTicket: this.printCustomerTicket,
     };
+    if (fulfillment === 'DELIVERY') {
+      body.phone = phone;
+      body.deliveryZoneId = this.deliveryZoneId();
+      body.address = composeDeliveryAddress({
+        street: this.addressStreet,
+        number: this.addressNumber,
+        betweenStreets: this.addressBetween,
+        details: this.addressDetails,
+      });
+      body.deliveryStreetNumber = this.addressNumber.trim() || null;
+      const point = this.mapPoint();
+      if (point) {
+        body.deliveryLat = point.lat;
+        body.deliveryLng = point.lng;
+      }
+    }
     if (paymentMethod === 'CASH') body.cashAmount = Number(this.cashAmount);
     if (this.discountMode() === 'percent' && Number(this.discountValue()) > 0) {
       body.discountPercent = Number(this.discountValue());

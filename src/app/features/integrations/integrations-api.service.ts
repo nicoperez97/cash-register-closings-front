@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { ClosingSourceKind } from '../closings/closings-api.service';
 
 export type DeliverateWorkingDay = {
   day: number;
@@ -37,6 +38,11 @@ export type DeliverateConfig = {
   webhookRegisteredAt: string | null;
   lastError: string | null;
   webhookUrlHint: string | null;
+  closingAccountId: string | null;
+  closingAccountName: string | null;
+  closingKind: ClosingSourceKind;
+  closingIncludeInDeclared: boolean;
+  closingSourceId: string | null;
 };
 
 export type UpsertDeliverateConfigBody = {
@@ -64,6 +70,9 @@ export type UpsertDeliverateConfigBody = {
   webhookBaseUrl?: string | null;
   connect?: boolean;
   createShop?: boolean;
+  closingAccountId?: string | null;
+  closingKind?: ClosingSourceKind;
+  closingIncludeInDeclared?: boolean;
 };
 
 export type DeliverateRequestResult = {
