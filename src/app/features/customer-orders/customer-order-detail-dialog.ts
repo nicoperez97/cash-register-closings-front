@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -36,6 +36,9 @@ export type CustomerOrderDetailDialogResult =
   | { kind: 'updated'; order: StaffCustomerOrder }
   | null;
 
+/** App del comercio Deliverate (panel para ver / gestionar envíos). */
+export const DELIVERATE_APP_URL = 'https://app.deliverate.io/';
+
 const DELIVERATE_STATE_LABEL: Record<number, string> = {
   0: 'Solicitado',
   1: 'Repartidor asignado',
@@ -50,7 +53,7 @@ const DELIVERATE_STATE_LABEL: Record<number, string> = {
 
 @Component({
   selector: 'app-customer-order-detail-dialog',
-  imports: [DatePipe, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [DatePipe, DecimalPipe, MatDialogModule, MatButtonModule, MatIconModule],
   templateUrl: './customer-order-detail-dialog.html',
   styleUrl: './customer-order-detail-dialog.scss',
 })
@@ -67,6 +70,7 @@ export class CustomerOrderDetailDialogComponent implements OnInit {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly deliverateEnabled = signal(false);
+  readonly dboyLocation = signal<{ lat: number; lng: number; at: string | null } | null>(null);
   private dirty = false;
 
   readonly statusLabel = STATUS_LABEL;
@@ -150,11 +154,104 @@ export class CustomerOrderDetailDialogComponent implements OnInit {
     const o = this.order();
     if (o.externalSource !== 'deliverate' || !o.externalId) return null;
     const state = Number(o.externalMeta?.['state']);
-    const base = Number.isFinite(state)
+    return Number.isFinite(state)
       ? (DELIVERATE_STATE_LABEL[state] ?? `Estado ${state}`)
       : 'Solicitado';
-    const dboy = o.externalMeta?.['dboy_id'];
-    return dboy != null ? `${base} · repartidor #${dboy}` : base;
+  }
+
+  /** Filas legibles con lo que Deliverate manda en externalMeta. */
+  deliverateRows(): { label: string; value: string }[] {
+    const o = this.order();
+    if (o.externalSource !== 'deliverate' || !o.externalId) return [];
+    const m = o.externalMeta ?? {};
+    const rows: { label: string; value: string }[] = [];
+    const push = (label: string, value: string | null | undefined) => {
+      const v = String(value ?? '').trim();
+      if (v) rows.push({ label, value: v });
+    };
+
+    push('ID envío', o.externalId);
+    const orderNum = m['order_number'];
+    if (orderNum != null && String(orderNum).trim()) {
+      push('Nº Deliverate', String(orderNum));
+    }
+    const dboy = m['dboy_id'];
+    if (dboy != null && String(dboy).trim() !== '') {
+      push('Repartidor', `#${dboy}`);
+    }
+    const kitchen = m['is_kitchen_ready'];
+    if (kitchen === true) push('Cocina', 'Lista');
+    else if (kitchen === false) push('Cocina', 'Pendiente');
+
+    const delayStart = this.asFiniteNumber(m['delay_start_time'] ?? m['withdrawn_delay']);
+    const delayEnd = this.asFiniteNumber(m['delay_end_time'] ?? m['confirmed_delay']);
+    if (delayStart != null) push('Retiro est.', `${Math.round(delayStart)} min`);
+    if (delayEnd != null) push('Entrega est.', `${Math.round(delayEnd)} min`);
+
+    const distance = this.asFiniteNumber(m['distance']);
+    if (distance != null) push('Distancia', `${distance.toFixed(1)} km`);
+    const distancePrice = this.asFiniteNumber(m['distance_price']);
+    if (distancePrice != null) push('Costo envío', this.money(distancePrice));
+
+    if (m['is_payed_online'] === true) push('Cobro', 'Online (sin efectivo)');
+    else if (m['is_payed_online'] === false) push('Cobro', 'Efectivo al entregar');
+
+    const flags: string[] = [];
+    if (m['is_high_demand'] === true) flags.push('Alta demanda');
+    if (m['is_exclusive_order'] === true) flags.push('Exclusivo');
+    if (m['is_getting_help'] === true) flags.push('Ayuda en curso');
+    if (m['is_return_order'] === true) flags.push('Retorno al local');
+    if (flags.length) push('Avisos', flags.join(' · '));
+
+    return rows;
+  }
+
+  hasDeliverateDboy(): boolean {
+    const dboy = this.order().externalMeta?.['dboy_id'];
+    return dboy != null && String(dboy).trim() !== '';
+  }
+
+  openDeliverateApp(): void {
+    window.open(DELIVERATE_APP_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  loadDboyLocation(): void {
+    if (!this.hasDeliverateDboy() || this.busy()) return;
+    this.busy.set(true);
+    this.dboyLocation.set(null);
+    this.error.set(null);
+    this.integrationsApi.dboyLocation(this.data.shopId, this.order().id).subscribe({
+      next: (loc) => {
+        this.busy.set(false);
+        const coords = loc.location?.coordinates;
+        if (!Array.isArray(coords) || coords.length < 2) {
+          this.error.set('Deliverate no devolvió coordenadas del repartidor');
+          return;
+        }
+        const [lat, lng] = coords;
+        this.dboyLocation.set({
+          lat: Number(lat),
+          lng: Number(lng),
+          at: loc.created_date ?? null,
+        });
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(this.errMsg(err, 'No hay ubicación del repartidor todavía'));
+      },
+    });
+  }
+
+  openDboyOnMaps(): void {
+    const loc = this.dboyLocation();
+    if (!loc) return;
+    const url = `https://www.google.com/maps?q=${encodeURIComponent(`${loc.lat},${loc.lng}`)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  private asFiniteNumber(v: unknown): number | null {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
   }
 
   requestDeliverate(): void {
@@ -175,6 +272,7 @@ export class CustomerOrderDetailDialogComponent implements OnInit {
           deliveryLng: res.deliveryLng,
           deliveryStreetNumber: res.deliveryStreetNumber,
         });
+        this.openDeliverateApp();
       },
       error: (err) => {
         this.busy.set(false);

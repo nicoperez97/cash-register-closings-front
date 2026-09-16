@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -7,16 +8,24 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { environment } from '../../../environments/environment';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { apiErrorMessage } from '../customer-orders/ordering-ui.util';
 import {
+  CLOSING_SOURCE_KIND_OPTIONS,
+  ClosingSourceKind,
+  closingSourceKindNeedsAccount,
+} from '../closings/closings-api.service';
+import {
   DeliverateConfig,
   IntegrationsApiService,
   UpsertDeliverateConfigBody,
 } from './integrations-api.service';
+
+type AccountOption = { id: string; name: string };
 
 @Component({
   selector: 'app-integrations-page',
@@ -36,6 +45,7 @@ import {
 })
 export class IntegrationsPage implements OnInit {
   private readonly api = inject(IntegrationsApiService);
+  private readonly http = inject(HttpClient);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
@@ -44,6 +54,9 @@ export class IntegrationsPage implements OnInit {
   readonly saving = signal(false);
   readonly config = signal<DeliverateConfig | null>(null);
   readonly error = signal<string | null>(null);
+  readonly accounts = signal<AccountOption[]>([]);
+
+  readonly closingKindOptions = CLOSING_SOURCE_KIND_OPTIONS;
 
   enabled = false;
   testMode = true;
@@ -66,10 +79,17 @@ export class IntegrationsPage implements OnInit {
   locationLat: number | null = null;
   locationLng: number | null = null;
   webhookBaseUrl = '';
+  closingAccountId: string | null = null;
+  closingKind: ClosingSourceKind = 'RECORD_ONLY';
+  closingIncludeInDeclared = false;
 
   get canManage(): boolean {
     const shopId = this.shops.selectedShopId();
     return hasShopPermission(this.auth.currentUser(), shopId, 'integrations.manage');
+  }
+
+  needsClosingAccount(): boolean {
+    return closingSourceKindNeedsAccount(this.closingKind);
   }
 
   ngOnInit(): void {
@@ -85,6 +105,7 @@ export class IntegrationsPage implements OnInit {
     }
     this.loading.set(true);
     this.error.set(null);
+    this.loadAccounts(shopId);
     this.api.getDeliverate(shopId).subscribe({
       next: (cfg) => {
         this.applyConfig(cfg);
@@ -94,6 +115,18 @@ export class IntegrationsPage implements OnInit {
         this.loading.set(false);
         this.error.set(apiErrorMessage(err, 'No pudimos cargar Deliverate'));
       },
+    });
+  }
+
+  private loadAccounts(shopId: string): void {
+    this.http.get<AccountOption[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
+      next: (rows) =>
+        this.accounts.set(
+          (rows ?? [])
+            .map((r) => ({ id: r.id, name: r.name }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+        ),
+      error: () => this.accounts.set([]),
     });
   }
 
@@ -120,6 +153,15 @@ export class IntegrationsPage implements OnInit {
     this.locationLat = cfg.locationLat;
     this.locationLng = cfg.locationLng;
     this.webhookBaseUrl = cfg.webhookBaseUrl ?? '';
+    this.closingAccountId = cfg.closingAccountId;
+    this.closingKind = cfg.closingKind ?? 'RECORD_ONLY';
+    this.closingIncludeInDeclared = !!cfg.closingIncludeInDeclared;
+  }
+
+  onClosingKindChange(): void {
+    if (!this.needsClosingAccount()) {
+      this.closingAccountId = null;
+    }
   }
 
   private body(extra?: Partial<UpsertDeliverateConfigBody>): UpsertDeliverateConfigBody {
@@ -148,6 +190,9 @@ export class IntegrationsPage implements OnInit {
       locationLat: this.locationLat,
       locationLng: this.locationLng,
       webhookBaseUrl: this.webhookBaseUrl.trim() || null,
+      closingKind: this.closingKind,
+      closingIncludeInDeclared: this.closingIncludeInDeclared,
+      closingAccountId: this.needsClosingAccount() ? this.closingAccountId : null,
       ...extra,
     };
     if (this.password.trim()) body.password = this.password.trim();
