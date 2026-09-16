@@ -70,8 +70,9 @@
 
       <h3 class="integrations__sub">Cierre de caja</h3>
       <p class="text-muted small">
-        Definí a qué cuenta del local va Deliverate y cómo se registra en el cierre (igual que las
-        cuentas aparte / Pedidos Ya). Al guardar se crea o actualiza la fuente «Deliverate».
+        Definí a qué cuenta del local va Deliverate, con qué medio de pago del pedido (ej. delivery +
+        efectivo) y cómo se registra en el cierre (igual que las cuentas aparte / Pedidos Ya). Al
+        guardar se crea o actualiza la fuente «Deliverate».
       </p>
       <div class="integrations__grid">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -85,6 +86,15 @@
               <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
             }
           </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Medio de pago del pedido</mat-label>
+          <mat-select [(ngModel)]="closingPaymentMethod" [disabled]="!canManage">
+            @for (opt of closingPaymentOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Ej.: Deliverate + efectivo → esta fuente</mat-hint>
         </mat-form-field>
         @if (needsClosingAccount()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">

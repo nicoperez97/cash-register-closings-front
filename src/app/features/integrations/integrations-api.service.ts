@@ -42,6 +42,7 @@ export type DeliverateConfig = {
   closingAccountName: string | null;
   closingKind: ClosingSourceKind;
   closingIncludeInDeclared: boolean;
+  closingPaymentMethod: 'CASH' | 'TRANSFER';
   closingSourceId: string | null;
 };
 
@@ -73,6 +74,7 @@ export type UpsertDeliverateConfigBody = {
   closingAccountId?: string | null;
   closingKind?: ClosingSourceKind;
   closingIncludeInDeclared?: boolean;
+  closingPaymentMethod?: 'CASH' | 'TRANSFER';
 };
 
 export type DeliverateRequestResult = {

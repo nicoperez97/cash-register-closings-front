@@ -1,9 +1,9 @@
 import {
   Component,
-  HostBinding,
   OnDestroy,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -62,6 +62,13 @@ function tokenKey(slug: string) {
   imports: [FormsModule, MatFormFieldModule, MatSelectModule],
   templateUrl: './waiter-page.html',
   styleUrl: './waiter-page.scss',
+  host: {
+    '[style.--accent]': 'hostAccentVar()',
+    '[style.--on-accent]': 'hostOnAccentVar()',
+    '[class.view-session]': 'view() === "session"',
+    '[class.view-map]': 'view() === "tables" && showMap()',
+    '[class.staff-embedded]': 'staffMode',
+  },
 })
 export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
@@ -135,10 +142,23 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly forceList = signal(false);
 
   readonly onAccent = computed(() => onAccentColor(this.accent()));
+  /** En Comanda embebida no fijamos --accent inline: usa --guy-green del tema del local. */
+  readonly hostAccentVar = computed(() => (this.staffMode ? null : this.accent()));
+  readonly hostOnAccentVar = computed(() => (this.staffMode ? null : this.onAccent()));
   readonly lineCount = computed(() => this.lines().reduce((s, l) => s + l.qty, 0));
 
   readonly freeTables = computed(() => this.tables().filter((t) => !t.openSession));
   readonly busyTables = computed(() => this.tables().filter((t) => !!t.openSession));
+
+  constructor() {
+    // En Comanda embebida, seguir el color del local activo (a veces el host quedaba en el verde default).
+    effect(() => {
+      if (!this.staffMode) return;
+      const fromShop = this.shopContext.accentColor();
+      const next = this.resolveAccent(fromShop);
+      if (next !== this.accent()) this.accent.set(next);
+    });
+  }
 
   readonly sectorTabs = computed(() => {
     const names = new Set<string>();
@@ -323,31 +343,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly subtotal = computed(() =>
     this.lines().reduce((s, l) => s + l.unitPrice * l.qty, 0),
   );
-
-  @HostBinding('style.--accent')
-  get hostAccent(): string {
-    return this.accent();
-  }
-
-  @HostBinding('style.--on-accent')
-  get hostOnAccent(): string {
-    return this.onAccent();
-  }
-
-  @HostBinding('class.view-session')
-  get hostSession(): boolean {
-    return this.view() === 'session';
-  }
-
-  @HostBinding('class.view-map')
-  get hostMap(): boolean {
-    return this.view() === 'tables' && this.showMap();
-  }
-
-  @HostBinding('class.staff-embedded')
-  get hostStaff(): boolean {
-    return this.staffMode;
-  }
 
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
