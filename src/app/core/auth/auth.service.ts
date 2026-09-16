@@ -216,6 +216,8 @@ export class AuthService {
         canEditExpenses: !!s.canEditExpenses,
         canEditPayments: !!s.canEditPayments,
         requireClosingFiles: !!s.requireClosingFiles,
+        isCustomerOrdersAdmin: !!s.isCustomerOrdersAdmin,
+        orderingConfigVisibility: s.orderingConfigVisibility ?? null,
         accentColor: s.accentColor ?? null,
         accentSecondary: s.accentSecondary ?? null,
         email: s.email ?? null,

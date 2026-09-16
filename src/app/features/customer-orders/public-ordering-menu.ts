@@ -227,15 +227,33 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   private syncCartWithCatalog(cfg: PublicOrderingConfig): void {
     const itemIds = new Set<string>();
+    const itemPrices: Record<string, { unitPrice: number; name?: string }> = {};
     for (const m of cfg.menus ?? []) {
       for (const sec of m.sections ?? []) {
         for (const it of sec.items ?? []) {
-          if (it?.id) itemIds.add(String(it.id));
+          if (it?.id) {
+            itemIds.add(String(it.id));
+            itemPrices[String(it.id)] = {
+              unitPrice: Number(it.price) || 0,
+              name: it.name,
+            };
+          }
         }
       }
     }
     const extraIds = new Set((cfg.extras ?? []).map((e) => String(e.id)));
-    const removedQty = this.cart.reconcileAvailable({ itemIds, extraIds });
+    const extraPrices: Record<string, { unitPrice: number; name?: string }> = {};
+    for (const e of cfg.extras ?? []) {
+      if (e?.id) {
+        extraPrices[String(e.id)] = { unitPrice: Number(e.price) || 0, name: e.name };
+      }
+    }
+    const { removedQty, priceChanged } = this.cart.reconcileAvailable({
+      itemIds,
+      extraIds,
+      itemPrices,
+      extraPrices,
+    });
     if (removedQty > 0) {
       this.snack.open(
         removedQty === 1
@@ -244,6 +262,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
         'OK',
         { duration: 4000 },
       );
+    } else if (priceChanged) {
+      this.snack.open('Actualizamos los precios del pedido con la carta vigente', 'OK', {
+        duration: 3500,
+      });
     }
   }
 

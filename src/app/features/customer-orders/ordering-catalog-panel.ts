@@ -8,7 +8,12 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
+import { hasShopPermission, canManageShop } from '../../core/auth/auth.models';
+import {
+  canSeeOrderingConfig,
+  normalizeOrderingConfigVisibility,
+  type OrderingConfigVisibilityKey,
+} from '../../shared/ordering-config-visibility';
 import { environment } from '../../../environments/environment';
 import {
   clearClosingDraft,
@@ -108,18 +113,19 @@ type ClosingSummary = {
       @if (loading()) {
         <p class="ocp__hint">Cargando…</p>
       } @else {
-        @if (shiftActiveClosed() && !openClosing()) {
+        @if (shiftActiveClosed() && !openClosing() && showCaja()) {
           <div class="ocp__alert" role="status">
             El turno ya empezó y no hay caja abierta. Abrí la caja para recibir pedidos online.
           </div>
         }
-        @if (justAutoClosed()) {
+        @if (justAutoClosed() && showCaja()) {
           <div class="ocp__alert ocp__alert--info" role="status">
             El local se cerró solo al finalizar el turno. Abrí la caja del próximo turno para volver a
             recibir.
           </div>
         }
 
+        @if (showCaja()) {
         <div class="ocp__caja">
           @if (openClosing(); as caja) {
             <div class="ocp__caja-open">
@@ -181,8 +187,11 @@ type ClosingSummary = {
             <p class="ocp__hint">No hay caja abierta. Pedí a quien gestione cierres que la abra.</p>
           }
         </div>
+        }
 
+        @if (showChannels() || showPayments()) {
         <div class="ocp__toggles">
+          @if (showChannels()) {
           <div class="ocp__toggle">
             <div>
               <strong>Take away</strong>
@@ -205,6 +214,8 @@ type ClosingSummary = {
               aria-label="Delivery"
             />
           </div>
+          }
+          @if (showPayments()) {
           <div class="ocp__toggle">
             <div><strong>Efectivo</strong></div>
             <mat-slide-toggle [(ngModel)]="payCash" name="payCash" aria-label="Efectivo" />
@@ -217,8 +228,11 @@ type ClosingSummary = {
               aria-label="Transferencia"
             />
           </div>
+          }
         </div>
+        }
 
+        @if (showItems()) {
         <div class="ocp__fold">
           <button
             type="button"
@@ -257,7 +271,9 @@ type ClosingSummary = {
             </div>
           }
         </div>
+        }
 
+        @if (showExtras()) {
         <div class="ocp__fold">
           <button
             type="button"
@@ -296,7 +312,9 @@ type ClosingSummary = {
             </div>
           }
         </div>
+        }
 
+        @if (showCatalogSave()) {
         <div class="ocp__save">
           <button
             mat-flat-button
@@ -309,6 +327,7 @@ type ClosingSummary = {
             {{ saving() ? 'Guardando…' : 'Guardar' }}
           </button>
         </div>
+        }
       }
     </section>
   `,
@@ -543,6 +562,28 @@ export class OrderingCatalogPanelComponent {
     );
   });
 
+  private readonly orderingConfigVis = computed(() => {
+    const shopId = this.shops.selectedShopId();
+    const user = this.auth.currentUser();
+    if (canManageShop(user, shopId)) return normalizeOrderingConfigVisibility(null);
+    const shop = this.shops.selectedShop();
+    return normalizeOrderingConfigVisibility(shop?.orderingConfigVisibility ?? null);
+  });
+
+  private sees(key: OrderingConfigVisibilityKey): boolean {
+    return canSeeOrderingConfig(this.orderingConfigVis(), key);
+  }
+
+  readonly showCaja = computed(() => this.sees('caja'));
+  readonly showChannels = computed(() => this.sees('channels'));
+  readonly showPayments = computed(() => this.sees('payments'));
+  readonly showItems = computed(() => this.sees('items'));
+  readonly showExtras = computed(() => this.sees('extras'));
+  readonly showCatalogSave = computed(
+    () =>
+      this.showChannels() || this.showPayments() || this.showItems() || this.showExtras(),
+  );
+
   constructor() {
     effect(() => {
       const shopId = this.shops.selectedShopId();
@@ -668,11 +709,13 @@ export class OrderingCatalogPanelComponent {
                 void this.router.navigate(['/closings/new']);
               },
               error: () => {
+                clearClosingDraft();
                 this.generatingClosing.set(false);
-                this.snack.open('Borrador armado; no se pudo cerrar pedidos online', 'OK', {
-                  duration: 3500,
-                });
-                void this.router.navigate(['/closings/new']);
+                this.snack.open(
+                  'No se pudo cerrar pedidos online. El borrador no se abrió para evitar pedidos nuevos durante el cierre.',
+                  'OK',
+                  { duration: 5000 },
+                );
               },
             });
         },
@@ -917,28 +960,34 @@ export class OrderingCatalogPanelComponent {
 
   save(): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId || !this.showCatalogSave()) return;
     this.saving.set(true);
-    const methods: Array<'CASH' | 'TRANSFER'> = [
-      ...(this.payCash ? (['CASH'] as const) : []),
-      ...(this.payTransfer ? (['TRANSFER'] as const) : []),
-    ];
+    const body: Record<string, unknown> = {};
+    if (this.showChannels()) {
+      body['takeawayEnabled'] = this.takeawayEnabled;
+      body['deliveryEnabled'] = this.deliveryEnabled;
+    }
+    if (this.showPayments()) {
+      const methods: Array<'CASH' | 'TRANSFER'> = [
+        ...(this.payCash ? (['CASH'] as const) : []),
+        ...(this.payTransfer ? (['TRANSFER'] as const) : []),
+      ];
+      body['orderingPayments'] = { methods };
+    }
+    if (this.showItems()) {
+      body['menuItemAvailability'] = this.items().map((it) => ({
+        id: it.id,
+        available: it.available,
+      }));
+    }
+    if (this.showExtras()) {
+      body['orderingExtraAvailability'] = this.extras().map((ex) => ({
+        id: ex.id,
+        available: ex.available,
+      }));
+    }
     this.http
-      .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
-        takeawayEnabled: this.takeawayEnabled,
-        deliveryEnabled: this.deliveryEnabled,
-        orderingPayments: {
-          methods,
-        },
-        menuItemAvailability: this.items().map((it) => ({
-          id: it.id,
-          available: it.available,
-        })),
-        orderingExtraAvailability: this.extras().map((ex) => ({
-          id: ex.id,
-          available: ex.available,
-        })),
-      })
+      .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, body)
       .subscribe({
         next: (shop: any) => {
           this.saving.set(false);

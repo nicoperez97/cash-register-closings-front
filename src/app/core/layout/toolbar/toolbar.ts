@@ -36,6 +36,7 @@ import {
   isCashierOnly,
   isClosingsCreateOnly,
   isCustomerOrdersOnly,
+  isComandaOnly,
   isProducerOnly,
   canViewClosingsList,
   canCustomizeLayout,
@@ -275,6 +276,13 @@ export class ToolbarComponent implements OnInit {
     if (isCustomerOrdersOnly(user, shopId)) {
       if (hasShopPermission(user, shopId, 'customerOrders.read') && shop?.onlineOrderingEnabled) {
         pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/customer-orders');
+      }
+      return applyToolbarConfig(items, cfg);
+    }
+
+    if (isComandaOnly(user, shopId)) {
+      if (hasShopPermission(user, shopId, 'comanda.manage') && shop?.waiterOrderingEnabled) {
+        pushRoute('comanda', 'Comanda', 'room_service', '/comanda');
       }
       return applyToolbarConfig(items, cfg);
     }

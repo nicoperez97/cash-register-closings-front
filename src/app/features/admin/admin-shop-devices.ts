@@ -100,6 +100,39 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
         </div>
         <p class="text-muted small mb-0">No se vuelve a mostrar. Si lo perdés, regenerá.</p>
       }
+      <div class="shop-admin__installer-block">
+        <p class="text-muted small mb-0">Instaladores publicados</p>
+        @if (installerLoading()) {
+          <p class="text-muted small mb-0">Buscando instaladores…</p>
+        } @else if (installerItems().length) {
+          <div class="shop-admin__installer-list">
+            @for (item of installerItems(); track item.os) {
+              <div class="shop-admin__installer-row">
+                <p class="text-muted small mb-0">
+                  <strong>{{ osLabel(item.os) }}</strong>
+                  · v{{ item.version }} · {{ item.fileName }}
+                  @if (sizeLabel(item.size); as sz) {
+                    · {{ sz }}
+                  }
+                </p>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="installerBusy()"
+                  (click)="downloadInstaller.emit(item.os)"
+                >
+                  <mat-icon>download</mat-icon>
+                  Descargar
+                </button>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="text-muted small mb-0">
+            Todavía no hay instalador publicado. Pedile a un super admin que lo cargue en Locales.
+          </p>
+        }
+      </div>
     </section>
 
     <section class="panel-card guy-form-section">
@@ -269,6 +302,11 @@ export class AdminShopDevicesComponent {
   readonly printAgentConfigured = input(false);
   readonly printAgentTokenPrefix = input<string | null>(null);
   readonly printAgentFreshToken = input<string | null>(null);
+  readonly installerLoading = input(false);
+  readonly installerBusy = input(false);
+  readonly installerItems = input<
+    readonly { os: string; version: string; fileName: string; size: number; uploadedAt: string }[]
+  >([]);
   readonly accountSearchQuery = model('');
   readonly sourceNeedsAccount = input<(index: number) => boolean>(() => false);
   readonly filteredSourceAccounts = input<(keepId?: string | null) => AdminShopAccountOption[]>(
@@ -287,6 +325,21 @@ export class AdminShopDevicesComponent {
   readonly generatePrintAgentToken = output<void>();
   readonly revokePrintAgentToken = output<void>();
   readonly copyPrintAgentToken = output<void>();
+  readonly downloadInstaller = output<string>();
+
+  osLabel(os: string): string {
+    if (os === 'windows') return 'Windows';
+    if (os === 'macos') return 'macOS';
+    if (os === 'linux') return 'Linux';
+    return os;
+  }
+
+  sizeLabel(n: number | null | undefined): string | null {
+    if (n == null || !Number.isFinite(n) || n < 0) return null;
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   get posnets(): FormArray {
     return this.host.form.get('posnets') as FormArray;

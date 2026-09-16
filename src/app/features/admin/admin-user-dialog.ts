@@ -32,6 +32,11 @@ import {
   UserVisibility,
   normalizeUserVisibility,
 } from '../../shared/user-visibility';
+import {
+  ORDERING_CONFIG_VISIBILITY_OPTIONS,
+  OrderingConfigVisibility,
+  normalizeOrderingConfigVisibility,
+} from '../../shared/ordering-config-visibility';
 
 export interface AdminUserRow {
   id: string;
@@ -51,6 +56,7 @@ export interface AdminUserRow {
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
   isCustomerOrdersAdmin?: boolean;
+  orderingConfigVisibility?: Partial<OrderingConfigVisibility> | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   requireClosingFiles?: boolean;
@@ -714,6 +720,23 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
           </p>
+          @if (showOrderingConfigVisibility()) {
+            <div class="section" formGroupName="orderingConfigVisibility">
+              <p class="section__title">Pestaña Configurar</p>
+              <p class="section__hint">
+                En Pedidos clientes → Configurar. Marcado = lo ve · Sin marcar = oculto.
+                Aparece con Pedidos clientes o Catálogo pedidos.
+              </p>
+              <div class="visibility-list">
+                @for (opt of orderingConfigOptions; track opt.key) {
+                  <div class="visibility-row">
+                    <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
+                    <p class="visibility-row__hint">{{ opt.hint }}</p>
+                  </div>
+                }
+              </div>
+            </div>
+          }
           @if (data.canAssignSuperAdmin) {
             <mat-slide-toggle formControlName="canEditExpenses">
               Puede editar y borrar gastos
@@ -844,6 +867,23 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
           </p>
+          @if (showOrderingConfigVisibility()) {
+            <div class="section" formGroupName="orderingConfigVisibility">
+              <p class="section__title">Pestaña Configurar</p>
+              <p class="section__hint">
+                En Pedidos clientes → Configurar. Marcado = lo ve · Sin marcar = oculto.
+                Aparece con Pedidos clientes o Catálogo pedidos.
+              </p>
+              <div class="visibility-list">
+                @for (opt of orderingConfigOptions; track opt.key) {
+                  <div class="visibility-row">
+                    <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
+                    <p class="visibility-row__hint">{{ opt.hint }}</p>
+                  </div>
+                }
+              </div>
+            </div>
+          }
           @if (data.canAssignSuperAdmin) {
             <mat-slide-toggle formControlName="canEditExpenses">
               Puede editar y borrar gastos
@@ -960,9 +1000,13 @@ export class AdminUserDialogComponent implements OnInit {
 
   private initialModules = levelsFromUser(this.user);
   readonly visibilityOptions = USER_VISIBILITY_OPTIONS;
+  readonly orderingConfigOptions = ORDERING_CONFIG_VISIBILITY_OPTIONS;
   private readonly initialVisibility = normalizeUserVisibility(this.user?.visibility, {
     hideFromCashWithdraw: !!this.user?.hideFromCashWithdraw,
   });
+  private readonly initialOrderingConfig = normalizeOrderingConfigVisibility(
+    this.user?.orderingConfigVisibility,
+  );
 
   readonly form = this.fb.nonNullable.group({
     fullName: [
@@ -1004,6 +1048,13 @@ export class AdminUserDialogComponent implements OnInit {
       employeeLink: [this.initialVisibility.employeeLink],
       usersList: [this.initialVisibility.usersList],
     }),
+    orderingConfigVisibility: this.fb.nonNullable.group({
+      caja: [this.initialOrderingConfig.caja],
+      channels: [this.initialOrderingConfig.channels],
+      payments: [this.initialOrderingConfig.payments],
+      items: [this.initialOrderingConfig.items],
+      extras: [this.initialOrderingConfig.extras],
+    }),
     isStockAdmin: [this.user?.isStockAdmin ?? false],
     isBeverageStockAdmin: [this.user?.isBeverageStockAdmin ?? false],
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
@@ -1028,6 +1079,16 @@ export class AdminUserDialogComponent implements OnInit {
           level: lvl?.short || lvl?.label || raw[m.key],
         };
       });
+  });
+
+  /** Checkboxes de la pestaña Configurar: con Pedidos clientes o Catálogo pedidos. */
+  readonly showOrderingConfigVisibility = computed(() => {
+    this.modulesTick();
+    if (this.form.controls.accountType.value !== 'EMPLOYEE') return false;
+    const raw = this.form.controls.modules.getRawValue() as Record<string, string>;
+    const customerOrders = raw['customerOrders'] ?? 'none';
+    const orderingCatalog = raw['orderingCatalog'] ?? 'none';
+    return customerOrders !== 'none' || orderingCatalog === 'manage';
   });
 
   ngOnInit(): void {
@@ -1112,6 +1173,7 @@ export class AdminUserDialogComponent implements OnInit {
   setAccountType(value: string): void {
     this.form.controls.accountType.setValue(value);
     if (value !== 'EMPLOYEE') this.activePreset.set(null);
+    this.modulesTick.update((n) => n + 1);
   }
 
   setModuleLevel(key: ModuleKey, value: string): void {
@@ -1216,6 +1278,7 @@ export class AdminUserDialogComponent implements OnInit {
           shopRole: globalRole,
           modulePermissions,
           visibility: raw.visibility,
+          orderingConfigVisibility: raw.orderingConfigVisibility,
           isStockAdmin: !!raw.isStockAdmin,
           isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
           isShortageAdmin: !!raw.isShortageAdmin,
@@ -1254,6 +1317,7 @@ export class AdminUserDialogComponent implements OnInit {
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         visibility: raw.visibility,
+        orderingConfigVisibility: raw.orderingConfigVisibility,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
@@ -1302,6 +1366,7 @@ export class AdminUserDialogComponent implements OnInit {
         modulePermissions,
         ledgerAccountIds: raw.ledgerAccountIds ?? [],
         visibility: raw.visibility,
+        orderingConfigVisibility: raw.orderingConfigVisibility,
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,

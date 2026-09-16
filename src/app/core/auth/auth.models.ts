@@ -60,6 +60,7 @@ export type Permission =
   | 'customerOrders.read'
   | 'customerOrders.manage'
   | 'orderingCatalog.manage'
+  | 'comanda.manage'
   | 'integrations.read'
   | 'integrations.manage'
   | 'tips.read'
@@ -130,6 +131,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'customerOrders.read',
   'customerOrders.manage',
   'orderingCatalog.manage',
+  'comanda.manage',
   'integrations.read',
   'integrations.manage',
   'tips.read',
@@ -205,6 +207,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'customerOrders.read',
     'customerOrders.manage',
     'orderingCatalog.manage',
+    'comanda.manage',
     'integrations.read',
     'integrations.manage',
     'tips.read',
@@ -292,6 +295,7 @@ export type ModuleKey =
   | 'orders'
   | 'customerOrders'
   | 'orderingCatalog'
+  | 'comanda'
   | 'integrations'
   | 'tips'
   | 'reimbursements'
@@ -625,6 +629,17 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'comanda',
+    label: 'Comanda',
+    icon: 'room_service',
+    group: 'daily',
+    hint: 'Mapa de mesas en Operación → Comanda (independiente de Pedidos clientes)',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
     key: 'integrations',
     label: 'Integraciones',
     icon: 'hub',
@@ -767,6 +782,15 @@ export const MODULE_PRESETS: Array<{
     icon: 'shopping_bag',
     modules: {
       customerOrders: 'manage',
+    },
+  },
+  {
+    id: 'comanda-only',
+    label: 'Comanda',
+    description: 'Solo mapa de mesas y comandas de salón',
+    icon: 'room_service',
+    modules: {
+      comanda: 'manage',
     },
   },
   {
@@ -1043,6 +1067,14 @@ export interface ShopSummary {
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
   isCustomerOrdersAdmin?: boolean;
+  /** Qué bloques ve en Pedidos → Configurar (true = visible). */
+  orderingConfigVisibility?: {
+    caja?: boolean;
+    channels?: boolean;
+    payments?: boolean;
+    items?: boolean;
+    extras?: boolean;
+  } | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   /** En el cierre, si hay monto hay que adjuntar foto o archivo. */
@@ -1209,6 +1241,7 @@ export function expandModulePermissions(
   pair(levels.orders, 'orders.read', 'orders.manage');
   pair(levels.customerOrders, 'customerOrders.read', 'customerOrders.manage');
   if (levels.orderingCatalog === 'manage') addPermission(set, 'orderingCatalog.manage');
+  if (levels.comanda === 'manage') addPermission(set, 'comanda.manage');
   pair(levels.integrations, 'integrations.read', 'integrations.manage');
   switch (levels.tips) {
     case 'read':
@@ -1329,6 +1362,7 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.orders = level('orders.read', 'orders.manage');
   base.customerOrders = level('customerOrders.read', 'customerOrders.manage');
   base.orderingCatalog = has('orderingCatalog.manage') ? 'manage' : 'none';
+  base.comanda = has('comanda.manage') ? 'manage' : 'none';
   base.integrations = level('integrations.read', 'integrations.manage');
   base.tips = tips();
   base.reimbursements = reimbursements();
@@ -1458,10 +1492,21 @@ export function isCustomerOrdersOnly(user: AuthUser | null, shopId: string | nul
   return perms.every((p) => allowed.has(p));
 }
 
+/** Solo opera la comanda de mesas (Operación → Comanda). */
+export function isComandaOnly(user: AuthUser | null, shopId: string | null): boolean {
+  if (!user || !shopId) return false;
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
+  const perms = permissionsForShop(user, shopId);
+  if (!perms.includes('comanda.manage')) return false;
+  const allowed = new Set<Permission>(['comanda.manage']);
+  return perms.every((p) => allowed.has(p));
+}
+
 export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): string {
   if (isCashierOnly(user, shopId)) return '/closings/new';
   if (isProducerOnly(user, shopId)) return '/my-production';
   if (isCustomerOrdersOnly(user, shopId)) return '/customer-orders';
+  if (isComandaOnly(user, shopId)) return '/comanda';
   return '/';
 }
 

@@ -22,6 +22,7 @@ import {
   isCashierOnly,
   isClosingsCreateOnly,
   isCustomerOrdersOnly,
+  isComandaOnly,
   isProducerOnly,
   canViewClosingsList,
 } from '../auth/auth.models';
@@ -147,6 +148,9 @@ export class MainLayoutComponent {
         }),
       ];
     }
+    if (isComandaOnly(user, shopId)) {
+      return this.shopFeature('waiterOrdering') ? [leaf('comanda')] : [];
+    }
     if (isProducerOnly(user, shopId)) {
       const items: NavItem[] = [leaf('myProduction')];
       if (shopId && hasShopPermission(user, shopId, 'reimbursements.self')) {
@@ -226,9 +230,7 @@ export class MainLayoutComponent {
     if (
       shopId &&
       this.shopFeature('waiterOrdering') &&
-      (hasShopPermission(user, shopId, 'customerOrders.read') ||
-        hasShopPermission(user, shopId, 'orderingCatalog.manage') ||
-        hasShopPermission(user, shopId, 'reservations.read') ||
+      (hasShopPermission(user, shopId, 'comanda.manage') ||
         hasShopPermission(user, shopId, 'shops.manage'))
     ) {
       operacion.push(leaf('comanda'));
@@ -592,6 +594,16 @@ export class MainLayoutComponent {
       if (isCustomerOrdersOnly(user, shopId)) {
         const allowed =
           path.startsWith('/customer-orders') ||
+          path === '/profile' ||
+          path === '/forbidden';
+        if (!allowed) {
+          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+        }
+        return;
+      }
+      if (isComandaOnly(user, shopId)) {
+        const allowed =
+          path.startsWith('/comanda') ||
           path === '/profile' ||
           path === '/forbidden';
         if (!allowed) {

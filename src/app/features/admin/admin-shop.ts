@@ -187,6 +187,11 @@ export class AdminShopPage implements OnInit {
   readonly printAgentConfigured = signal(false);
   readonly printAgentTokenPrefix = signal<string | null>(null);
   readonly printAgentFreshToken = signal<string | null>(null);
+  readonly installerLoading = signal(false);
+  readonly installerBusy = signal(false);
+  readonly installerItems = signal<
+    { os: string; version: string; fileName: string; size: number; uploadedAt: string }[]
+  >([]);
 
   readonly accountSearchQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
@@ -682,6 +687,7 @@ export class AdminShopPage implements OnInit {
             this.printAgentConfigured.set(false);
             this.printAgentTokenPrefix.set(null);
             this.printAgentFreshToken.set(null);
+            this.installerItems.set([]);
             return of({
               shopId: null as string | null,
               rows: null as ShopClosingSource[] | null,
@@ -1291,6 +1297,7 @@ export class AdminShopPage implements OnInit {
     if (!shopId) {
       this.printAgentConfigured.set(false);
       this.printAgentTokenPrefix.set(null);
+      this.installerItems.set([]);
       return;
     }
     this.printAgentLoading.set(true);
@@ -1307,6 +1314,56 @@ export class AdminShopPage implements OnInit {
         error: () => {
           this.printAgentLoading.set(false);
           this.snack.open('No se pudo cargar el estado de Comandas', 'OK', { duration: 3000 });
+        },
+      });
+    this.reloadInstallerMeta(shopId);
+  }
+
+  reloadInstallerMeta(shopId?: string | null): void {
+    const id = shopId ?? this.shops.selectedShopId();
+    if (!id) {
+      this.installerItems.set([]);
+      return;
+    }
+    this.installerLoading.set(true);
+    this.http
+      .get<{
+        items: { os: string; version: string; fileName: string; size: number; uploadedAt: string }[];
+      }>(`${environment.apiUrl}/shops/${id}/print-agent/installer/meta`)
+      .subscribe({
+        next: (res) => {
+          this.installerLoading.set(false);
+          this.installerItems.set(Array.isArray(res.items) ? res.items : []);
+        },
+        error: () => {
+          this.installerLoading.set(false);
+          this.installerItems.set([]);
+        },
+      });
+  }
+
+  downloadPrintAgentInstaller(os: string): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !os || this.installerBusy()) return;
+    const item = this.installerItems().find((x) => x.os === os);
+    this.installerBusy.set(true);
+    this.http
+      .get(`${environment.apiUrl}/shops/${shopId}/print-agent/installer/${os}`, {
+        responseType: 'blob',
+      })
+      .subscribe({
+        next: (blob) => {
+          this.installerBusy.set(false);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = item?.fileName || `Cierres-Comandas-${os}`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => {
+          this.installerBusy.set(false);
+          this.snack.open('No se pudo descargar el instalador', 'OK', { duration: 3500 });
         },
       });
   }
