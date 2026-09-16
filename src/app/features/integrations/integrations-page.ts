@@ -82,6 +82,12 @@ export class IntegrationsPage implements OnInit {
   closingAccountId: string | null = null;
   closingKind: ClosingSourceKind = 'RECORD_ONLY';
   closingIncludeInDeclared = false;
+  closingPaymentMethod: 'CASH' | 'TRANSFER' = 'CASH';
+
+  readonly closingPaymentOptions: Array<{ value: 'CASH' | 'TRANSFER'; label: string }> = [
+    { value: 'CASH', label: 'Efectivo' },
+    { value: 'TRANSFER', label: 'Transferencia' },
+  ];
 
   get canManage(): boolean {
     const shopId = this.shops.selectedShopId();
@@ -156,6 +162,7 @@ export class IntegrationsPage implements OnInit {
     this.closingAccountId = cfg.closingAccountId;
     this.closingKind = cfg.closingKind ?? 'RECORD_ONLY';
     this.closingIncludeInDeclared = !!cfg.closingIncludeInDeclared;
+    this.closingPaymentMethod = cfg.closingPaymentMethod === 'TRANSFER' ? 'TRANSFER' : 'CASH';
   }
 
   onClosingKindChange(): void {
@@ -192,6 +199,7 @@ export class IntegrationsPage implements OnInit {
       webhookBaseUrl: this.webhookBaseUrl.trim() || null,
       closingKind: this.closingKind,
       closingIncludeInDeclared: this.closingIncludeInDeclared,
+      closingPaymentMethod: this.closingPaymentMethod,
       closingAccountId: this.needsClosingAccount() ? this.closingAccountId : null,
       ...extra,
     };

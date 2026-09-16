@@ -102,6 +102,31 @@
     } @else if (loading() && !orders().length) {
       <p class="co-empty">Cargando pedidos…</p>
     } @else if (view() === 'board') {
+      @if (!openCaja() && canOpenCaja()) {
+        <div class="co-caja-banner" role="status">
+          <div>
+            <strong>Sin caja abierta</strong>
+            <span>Abrí la caja del turno para recibir pedidos online.</span>
+          </div>
+          <button type="button" class="co-tool co-tool--primary" (click)="setView('config')">
+            <mat-icon>lock_open</mat-icon>
+            <span>Abrir caja</span>
+          </button>
+        </div>
+      } @else if (openCaja(); as caja) {
+        <div class="co-caja-banner co-caja-banner--open" role="status">
+          <div>
+            <strong>Caja abierta · {{ caja.shiftName || 'turno' }}</strong>
+            <span>Cambio {{ money(caja.cashOpeningAmount ?? 0) }} · pedidos online habilitados</span>
+          </div>
+          @if (canCreateClosing()) {
+            <button type="button" class="co-tool" (click)="setView('config')">
+              <mat-icon>point_of_sale</mat-icon>
+              <span>Generar cierre</span>
+            </button>
+          }
+        </div>
+      }
       <div class="co-board">
         @for (col of boardColumns(); track col.id) {
           <section class="co-col" [attr.data-col]="col.id">

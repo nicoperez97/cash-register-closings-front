@@ -38,6 +38,43 @@
   font-weight: 650;
 }
 
+.co-caja-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 12px;
+  background: #fff8e8;
+}
+
+.co-caja-banner--open {
+  background: #eef7f0;
+}
+
+.co-caja-banner strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.co-caja-banner > div span {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.co-caja-banner .co-tool--primary {
+  color: #fff;
+}
+
+.co-caja-banner .co-tool--primary mat-icon,
+.co-caja-banner .co-tool--primary span {
+  color: #fff;
+}
+
 .co-top__title {
   display: flex;
   align-items: center;

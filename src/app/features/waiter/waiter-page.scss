@@ -14,7 +14,10 @@
   background: var(--paper);
 }
 
+/* En Operación → Comanda el color del local ya está en --guy-green; no depender solo del host. */
 :host.staff-embedded {
+  --accent: var(--guy-green, #2e7d32);
+  --on-accent: #fff;
   min-height: calc(100dvh - 7rem);
   border-radius: 12px;
   overflow: hidden;

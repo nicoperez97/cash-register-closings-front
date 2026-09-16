@@ -233,6 +233,14 @@ export class ClosingsApiService {
     return this.http.post<CashClosing>(`${this.base}/shops/${shopId}/closings`, body);
   }
 
+  getOpen(shopId: string) {
+    return this.http.get<CashClosing | null>(`${this.base}/shops/${shopId}/closings/open`);
+  }
+
+  openRegister(shopId: string, body: { cashOpeningAmount: number; shiftId?: string | null }) {
+    return this.http.post<CashClosing>(`${this.base}/shops/${shopId}/closings/open`, body);
+  }
+
   update(shopId: string, id: string, body: CashClosingInput) {
     return this.http.patch<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}`, body);
   }

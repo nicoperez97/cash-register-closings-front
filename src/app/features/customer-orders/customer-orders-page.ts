@@ -24,6 +24,7 @@ import {
 import { CustomerOrdersInboxService } from './customer-orders-inbox.service';
 import { OrderingCatalogPanelComponent } from './ordering-catalog-panel';
 import { StaffOrderingPosComponent } from './staff-ordering-pos';
+import { ClosingsApiService, type CashClosing } from '../closings/closings-api.service';
 import {
   CustomerOrderDetailDialogComponent,
   CustomerOrderDetailDialogResult,
@@ -82,6 +83,7 @@ export class CustomerOrdersPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
+  private readonly closingsApi = inject(ClosingsApiService);
   readonly shops = inject(ShopContextService);
 
   readonly view = signal<ViewMode>('board');
@@ -89,6 +91,7 @@ export class CustomerOrdersPage {
   readonly loading = signal(false);
   readonly busyId = signal<string | null>(null);
   readonly focusOrderId = signal<string | null>(null);
+  readonly openCaja = signal<CashClosing | null>(null);
   private lastKnownIds = new Set<string>();
   private skipNewToast = true;
 
@@ -118,6 +121,20 @@ export class CustomerOrdersPage {
   readonly canConfigure = computed(() =>
     canManageOrderingCatalog(this.auth.currentUser(), this.shops.selectedShopId()),
   );
+
+  readonly canCreateClosing = computed(() =>
+    hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'closings.create'),
+  );
+
+  readonly canOpenCaja = computed(() => {
+    const shopId = this.shops.selectedShopId();
+    const user = this.auth.currentUser();
+    return (
+      hasShopPermission(user, shopId, 'closings.create') ||
+      hasShopPermission(user, shopId, 'orderingCatalog.manage') ||
+      hasShopPermission(user, shopId, 'customerOrders.manage')
+    );
+  });
 
   readonly boardColumns = computed(() => {
     const rows = this.orders();
@@ -294,10 +311,15 @@ export class CustomerOrdersPage {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
       this.orders.set([]);
+      this.openCaja.set(null);
       this.lastKnownIds = new Set();
       this.skipNewToast = true;
       return;
     }
+    this.closingsApi.getOpen(shopId).subscribe({
+      next: (caja) => this.openCaja.set(caja ?? null),
+      error: () => this.openCaja.set(null),
+    });
     if (!this.canReadOrders() || this.view() === 'config' || this.view() === 'nuevo') {
       this.loading.set(false);
       return;
