@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
-import { Permission, canManageShopUsers, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly } from '../auth/auth.models';
+import { Permission, canManageShopUsers, canSeeShopConfigSection, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly } from '../auth/auth.models';
 import { SettlementsInboxService } from '../../features/settlements/settlements-inbox.service';
 
 /** Permisos que un super admin puede usar sin local seleccionado. */
@@ -144,6 +144,38 @@ export const shopFeatureGuard = (
                 ? !!shop?.waiterOrderingEnabled
                 : !!shop?.tipsEnabled;
     if (!shopId || !enabled) {
+      return deniedTree(router);
+    }
+    return true;
+  };
+};
+
+/** Sección concreta de Configuración del local (identidad, dispositivos, etc.). */
+export const shopConfigSectionGuard = (
+  section:
+    | 'resumen'
+    | 'identidad'
+    | 'operacion'
+    | 'pedidos'
+    | 'comanda'
+    | 'dispositivos'
+    | 'menu'
+    | 'carta'
+    | 'avanzado',
+): CanActivateFn => {
+  return () => {
+    const auth = inject(AuthService);
+    const shops = inject(ShopContextService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) {
+      return router.createUrlTree(['/login']);
+    }
+    const user = auth.currentUser();
+    const shopId = shops.selectedShopId();
+    if (!shopId) {
+      return router.createUrlTree([defaultHomeRoute(user, null)]);
+    }
+    if (!canSeeShopConfigSection(user, shopId, section)) {
       return deniedTree(router);
     }
     return true;

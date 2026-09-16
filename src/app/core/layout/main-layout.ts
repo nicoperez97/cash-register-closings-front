@@ -14,9 +14,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import {
-  canManageShop,
+  canAccessShopAdmin,
+  canAccessShopConfig,
   canManageShopUsers,
   canManageOrderingCatalog,
+  canSeeShopConfigSection,
   defaultHomeRoute,
   hasShopPermission,
   isCashierOnly,
@@ -451,23 +453,36 @@ export class MainLayoutComponent {
     }
 
     const local: NonNullable<NavItem['children']> = [];
-    if (shopId && canManageShop(user, shopId)) {
-      local.push(leaf('adminShop'));
-      local.push(leaf('adminShopIdentidad'));
-      local.push(leaf('adminShopOperacion'));
+    if (shopId && canAccessShopConfig(user, shopId)) {
+      if (canSeeShopConfigSection(user, shopId, 'resumen')) {
+        local.push(leaf('adminShop'));
+      }
+      if (canSeeShopConfigSection(user, shopId, 'identidad')) {
+        local.push(leaf('adminShopIdentidad'));
+      }
+      if (canSeeShopConfigSection(user, shopId, 'operacion')) {
+        local.push(leaf('adminShopOperacion'));
+      }
+    }
+    if (shopId && canSeeShopConfigSection(user, shopId, 'pedidos')) {
+      local.push(leaf('adminOrdering'));
+    }
+    if (shopId && canSeeShopConfigSection(user, shopId, 'comanda')) {
+      local.push(leaf('adminComanda'));
+    }
+    if (shopId && canAccessShopConfig(user, shopId)) {
+      if (canSeeShopConfigSection(user, shopId, 'dispositivos')) {
+        local.push(leaf('adminShopDispositivos'));
+      }
+      if (canSeeShopConfigSection(user, shopId, 'menu')) {
+        local.push(leaf('adminShopMenu'));
+      }
     }
     if (
       shopId &&
-      (canManageOrderingCatalog(user, shopId) || canManageShop(user, shopId))
+      canSeeShopConfigSection(user, shopId, 'carta') &&
+      canManageOrderingCatalog(user, shopId)
     ) {
-      local.push(leaf('adminOrdering'));
-      local.push(leaf('adminComanda'));
-    }
-    if (shopId && canManageShop(user, shopId)) {
-      local.push(leaf('adminShopDispositivos'));
-      local.push(leaf('adminShopMenu'));
-    }
-    if (shopId && canManageOrderingCatalog(user, shopId)) {
       local.push(leaf('adminMenu'));
     }
     if (
@@ -477,7 +492,7 @@ export class MainLayoutComponent {
     ) {
       local.push(leaf('integrations'));
     }
-    if (shopId && canManageShop(user, shopId)) {
+    if (shopId && canSeeShopConfigSection(user, shopId, 'avanzado')) {
       local.push(leaf('adminShopAvanzado'));
     }
     if (local.length) {
@@ -494,7 +509,7 @@ export class MainLayoutComponent {
     if (this.auth.isSuperAdmin()) {
       admin.push(leaf('adminShops'));
     }
-    if (shopId && canManageShop(user, shopId)) {
+    if (shopId && canAccessShopAdmin(user, shopId)) {
       admin.push(leaf('adminMessages'));
       admin.push(leaf('adminQr'));
       admin.push(leaf('adminInstrucciones'));
@@ -509,7 +524,7 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'concepts.manage')) {
       admin.push(leaf('adminConcepts'));
     }
-    if (shopId && canManageShop(user, shopId)) {
+    if (shopId && canAccessShopAdmin(user, shopId)) {
       admin.push(leaf('adminSalesSystems'));
       admin.push(leaf('adminPosProducts'));
     }

@@ -199,6 +199,7 @@ export class AdminShopComandaPage {
     <app-admin-shop-subnav activeId="dispositivos" />
     <div class="shop-admin__tab-panel" [formGroup]="host.form">
       <app-admin-shop-devices
+        [canEdit]="host.canEditCurrentSection()"
         [posnetTypes]="host.posnetTypes"
         [closingSourceKinds]="host.closingSourceKinds"
         [sourceSaving]="host.sourceSaving()"
@@ -228,6 +229,7 @@ export class AdminShopComandaPage {
         (generatePrintAgentToken)="host.generatePrintAgentToken()"
         (revokePrintAgentToken)="host.revokePrintAgentToken()"
         (copyPrintAgentToken)="host.copyPrintAgentToken()"
+        (reloadPrintAgentStatus)="host.reloadPrintAgentStatus()"
         (downloadInstaller)="host.downloadPrintAgentInstaller($event)"
       />
     </div>

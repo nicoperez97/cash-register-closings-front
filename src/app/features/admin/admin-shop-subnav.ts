@@ -1,7 +1,10 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { ADMIN_SHOP_SECTIONS, type AdminShopSectionId } from './admin-shop-sections';
+import { AuthService } from '../../core/auth/auth.service';
+import { canSeeShopConfigSection } from '../../core/auth/auth.models';
+import { ShopContextService } from '../../core/shop/shop-context.service';
 
 @Component({
   selector: 'app-admin-shop-subnav',
@@ -13,7 +16,7 @@ import { ADMIN_SHOP_SECTIONS, type AdminShopSectionId } from './admin-shop-secti
         Resumen
       </a>
       <div class="shop-subnav__chips" role="list">
-        @for (s of sections; track s.id) {
+        @for (s of sections(); track s.id) {
           <a
             role="listitem"
             class="shop-subnav__chip"
@@ -80,6 +83,14 @@ import { ADMIN_SHOP_SECTIONS, type AdminShopSectionId } from './admin-shop-secti
   ],
 })
 export class AdminShopSubnavComponent {
+  private readonly auth = inject(AuthService);
+  private readonly shops = inject(ShopContextService);
+
   readonly activeId = input<AdminShopSectionId | null>(null);
-  readonly sections = ADMIN_SHOP_SECTIONS;
+
+  readonly sections = computed(() => {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return ADMIN_SHOP_SECTIONS.filter((s) => canSeeShopConfigSection(user, shopId, s.id));
+  });
 }

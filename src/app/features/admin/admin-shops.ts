@@ -24,9 +24,11 @@ export type PrintAgentInstallerOs = 'windows' | 'macos' | 'linux';
 export type PrintAgentInstallerItem = {
   os: PrintAgentInstallerOs;
   version: string;
+  source?: 'file' | 'url';
   fileName: string;
   size: number;
   uploadedAt: string;
+  downloadUrl?: string;
 };
 
 const INSTALLER_OS_OPTIONS: { value: PrintAgentInstallerOs; label: string }[] = [
@@ -70,9 +72,28 @@ function formatInstallerSize(n: number | null | undefined): string | null {
       <div class="installer-card__intro">
         <h2>Instalador Cierres-Comandas</h2>
         <p>
-          Cargá un archivo por sistema operativo, con su versión. Los locales lo descargan desde
-          Configuración → Dispositivos.
+          Podés subir el archivo o pegar el link de descarga, por sistema operativo y versión. Los
+          locales lo bajan desde Configuración → Dispositivos.
         </p>
+      </div>
+
+      <div class="installer-card__mode">
+        <button
+          type="button"
+          class="mode-pill"
+          [class.mode-pill--active]="uploadMode === 'file'"
+          (click)="uploadMode = 'file'"
+        >
+          Archivo
+        </button>
+        <button
+          type="button"
+          class="mode-pill"
+          [class.mode-pill--active]="uploadMode === 'url'"
+          (click)="uploadMode = 'url'"
+        >
+          Link
+        </button>
       </div>
 
       <div class="installer-card__upload">
@@ -88,23 +109,40 @@ function formatInstallerSize(n: number | null | undefined): string | null {
           <mat-label>Versión</mat-label>
           <input matInput [(ngModel)]="uploadVersion" placeholder="ej. 1.2.0" />
         </mat-form-field>
-        <input
-          #installerInput
-          type="file"
-          accept=".exe,.msi,.zip,.dmg,.pkg,.AppImage,.deb,.rpm,.tar.gz,application/octet-stream"
-          hidden
-          (change)="onInstallerPicked($event)"
-        />
-        <button
-          mat-flat-button
-          color="primary"
-          type="button"
-          [disabled]="installerBusy()"
-          (click)="installerInput.click()"
-        >
-          <mat-icon>upload_file</mat-icon>
-          {{ itemFor(uploadOs) ? 'Reemplazar' : 'Cargar' }}
-        </button>
+        @if (uploadMode === 'url') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="installer-url-field">
+            <mat-label>Link de descarga</mat-label>
+            <input matInput [(ngModel)]="uploadUrl" placeholder="https://…" />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [disabled]="installerBusy()"
+            (click)="saveInstallerLink()"
+          >
+            <mat-icon>link</mat-icon>
+            {{ itemFor(uploadOs) ? 'Reemplazar link' : 'Guardar link' }}
+          </button>
+        } @else {
+          <input
+            #installerInput
+            type="file"
+            accept=".exe,.msi,.zip,.dmg,.pkg,.AppImage,.deb,.rpm,.tar.gz,application/octet-stream"
+            hidden
+            (change)="onInstallerPicked($event)"
+          />
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [disabled]="installerBusy()"
+            (click)="installerInput.click()"
+          >
+            <mat-icon>upload_file</mat-icon>
+            {{ itemFor(uploadOs) ? 'Reemplazar' : 'Cargar' }}
+          </button>
+        }
       </div>
 
       @if (installerLoading()) {
@@ -117,13 +155,17 @@ function formatInstallerSize(n: number | null | undefined): string | null {
                 <strong>{{ opt.label }}</strong>
                 @if (itemFor(opt.value); as item) {
                   <span>
-                    v{{ item.version }} · {{ item.fileName }}
-                    @if (sizeLabel(item.size); as sz) {
-                      · {{ sz }}
+                    v{{ item.version }} ·
+                    {{ item.source === 'url' ? 'Link' : 'Archivo' }} ·
+                    {{ item.fileName }}
+                    @if (item.source !== 'url') {
+                      @if (sizeLabel(item.size); as sz) {
+                        · {{ sz }}
+                      }
                     }
                   </span>
                 } @else {
-                  <span class="text-muted">Sin archivo</span>
+                  <span class="text-muted">Sin instalador</span>
                 }
               </div>
               <div class="installer-card__row-actions">
@@ -132,7 +174,7 @@ function formatInstallerSize(n: number | null | undefined): string | null {
                     mat-stroked-button
                     type="button"
                     [disabled]="installerBusy()"
-                    (click)="downloadInstaller(opt.value, item.fileName)"
+                    (click)="downloadInstaller(opt.value, item)"
                   >
                     <mat-icon>download</mat-icon>
                     Descargar
@@ -201,6 +243,30 @@ function formatInstallerSize(n: number | null | undefined): string | null {
         align-items: center;
         margin-bottom: 0.85rem;
       }
+      .installer-card__mode {
+        display: inline-flex;
+        gap: 0.35rem;
+        margin-bottom: 0.75rem;
+      }
+      .mode-pill {
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: #fff;
+        border-radius: 999px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 650;
+        cursor: pointer;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .mode-pill--active {
+        background: var(--guy-primary, #5c4033);
+        border-color: var(--guy-primary, #5c4033);
+        color: #fff;
+      }
+      .installer-url-field {
+        min-width: min(100%, 18rem) !important;
+        flex: 1 1 18rem !important;
+      }
       .installer-card__upload mat-form-field {
         min-width: 9.5rem;
         flex: 0 1 11rem;
@@ -257,6 +323,8 @@ export class AdminShopsPage implements OnInit {
 
   uploadOs: PrintAgentInstallerOs = 'windows';
   uploadVersion = '';
+  uploadUrl = '';
+  uploadMode: 'file' | 'url' = 'file';
 
   readonly columns: DataTableColumn[] = [
     { key: 'name', label: 'Nombre' },
@@ -341,8 +409,44 @@ export class AdminShopsPage implements OnInit {
       });
   }
 
-  downloadInstaller(os: PrintAgentInstallerOs, fileName: string): void {
+  saveInstallerLink(): void {
     if (this.installerBusy()) return;
+    const version = this.uploadVersion.trim();
+    const downloadUrl = this.uploadUrl.trim();
+    if (!version) {
+      this.snack.open('Indicá la versión antes de guardar', 'OK', { duration: 3000 });
+      return;
+    }
+    if (!downloadUrl) {
+      this.snack.open('Pegá el link de descarga', 'OK', { duration: 3000 });
+      return;
+    }
+    this.installerBusy.set(true);
+    this.http
+      .post<{ items: PrintAgentInstallerItem[] }>(
+        `${environment.apiUrl}/admin/print-agent-installer/link`,
+        { os: this.uploadOs, version, downloadUrl },
+      )
+      .subscribe({
+        next: (res) => {
+          this.installerBusy.set(false);
+          this.installerItems.set(Array.isArray(res.items) ? res.items : []);
+          this.snack.open('Link de instalador guardado', 'OK', { duration: 2500 });
+        },
+        error: (err) => {
+          this.installerBusy.set(false);
+          const msg = err?.error?.message || 'No se pudo guardar el link';
+          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
+        },
+      });
+  }
+
+  downloadInstaller(os: PrintAgentInstallerOs, item: PrintAgentInstallerItem): void {
+    if (this.installerBusy()) return;
+    if (item.source === 'url' && item.downloadUrl) {
+      window.open(item.downloadUrl, '_blank', 'noopener');
+      return;
+    }
     this.installerBusy.set(true);
     this.http
       .get(`${environment.apiUrl}/admin/print-agent-installer/${os}/download`, {
@@ -354,7 +458,7 @@ export class AdminShopsPage implements OnInit {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = fileName || `Cierres-Comandas-${os}`;
+          a.download = item.fileName || `Cierres-Comandas-${os}`;
           a.click();
           URL.revokeObjectURL(url);
         },

@@ -3,6 +3,7 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   forwardRef,
   inject,
   signal,
@@ -22,7 +23,8 @@ import {
 } from '../../shared/components/select-search';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageShop, canManageOrderingCatalog, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
+import { canManageShop, canManageShopConfig, canAccessShopConfig, canManageOrderingCatalog, canEditShopConfigSection, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
+import type { ShopConfigVisibilityKey } from '../../shared/shop-config-visibility';
 import { defaultShopShift, shopShiftsOf, type ShopShift } from '../../core/shop/shop-shifts';
 import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
@@ -131,14 +133,14 @@ const TIMEZONE_OPTIONS = [
     >
       <router-outlet />
 
-      @if (showSaveBar()) {
+      @if (showSaveBar() && canEditCurrentSection()) {
         <div class="shop-admin__save-spacer guy-form-save-spacer" aria-hidden="true"></div>
         <div class="shop-admin__save-bar guy-form-save-bar" [style.--save-accent]="liveAccent()">
           <button
             mat-flat-button
             type="submit"
             class="shop-admin__save-btn"
-            [disabled]="form.invalid || saving()"
+            [disabled]="form.invalid || saving() || !canEditCurrentSection()"
           >
             <mat-icon>save</mat-icon>
             {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
@@ -190,7 +192,15 @@ export class AdminShopPage implements OnInit {
   readonly installerLoading = signal(false);
   readonly installerBusy = signal(false);
   readonly installerItems = signal<
-    { os: string; version: string; fileName: string; size: number; uploadedAt: string }[]
+    {
+      os: string;
+      version: string;
+      source?: 'file' | 'url';
+      fileName: string;
+      size: number;
+      uploadedAt: string;
+      downloadUrl?: string;
+    }[]
   >([]);
 
   readonly accountSearchQuery = signal('');
@@ -667,11 +677,64 @@ export class AdminShopPage implements OnInit {
     },
   );
 
+  readonly currentShopSection = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => this.sectionFromUrl(e.urlAfterRedirects)),
+      startWith(this.sectionFromUrl(this.router.url)),
+    ),
+    { initialValue: this.sectionFromUrl(this.router.url) },
+  );
+
+  readonly canEditCurrentSection = computed(() => {
+    const section = this.currentShopSection();
+    if (!section) return false;
+    return canEditShopConfigSection(
+      this.auth.currentUser(),
+      this.shops.selectedShopId(),
+      section,
+    );
+  });
+
+  private sectionFromUrl(url: string): ShopConfigVisibilityKey | null {
+    const m = url.match(
+      /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/,
+    );
+    return (m?.[1] as ShopConfigVisibilityKey) ?? null;
+  }
+
+  /** Tras recargar arrays del form, reaplicar disable si la sección es solo Ver. */
+  private syncSectionFormEditable(): void {
+    const section = this.currentShopSection();
+    if (!section) return;
+    const editable = canEditShopConfigSection(
+      this.auth.currentUser(),
+      this.shops.selectedShopId(),
+      section,
+    );
+    if (editable) {
+      if (this.form.disabled) this.form.enable({ emitEvent: false });
+    } else {
+      this.form.disable({ emitEvent: false });
+    }
+  }
+
   constructor() {
     usePageRefresh(() => {
       this.reloadAccounts();
       this.reloadClosingSources();
       this.reloadPrintAgentStatus();
+    });
+
+    effect(() => {
+      const editable = this.canEditCurrentSection();
+      const onSection = !!this.currentShopSection();
+      if (!onSection) return;
+      if (editable) {
+        if (this.form.disabled) this.form.enable({ emitEvent: false });
+      } else {
+        this.form.disable({ emitEvent: false });
+      }
     });
 
     toObservable(
@@ -728,7 +791,11 @@ export class AdminShopPage implements OnInit {
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
-    if (!canManageOrderingCatalog(this.auth.currentUser(), shopId)) {
+    const user = this.auth.currentUser();
+    if (
+      !canAccessShopConfig(user, shopId) &&
+      !canManageOrderingCatalog(user, shopId)
+    ) {
       void this.router.navigate(['/']);
       return;
     }
@@ -1051,6 +1118,10 @@ export class AdminShopPage implements OnInit {
   }
 
   addPosnet(): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     this.posnets.push(
       this.buildPosnetGroup({
         id: newId(),
@@ -1058,19 +1129,33 @@ export class AdminShopPage implements OnInit {
         type: 'PVS',
       }),
     );
+    this.syncSectionFormEditable();
   }
 
   removePosnet(index: number): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     this.posnets.removeAt(index);
   }
 
   addShift(): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     const next = defaultShopShift(this.form.controls.openingTime.value);
     next.name = `Turno ${this.shifts.length + 1}`;
     this.shifts.push(this.buildShiftGroup(next));
+    this.syncSectionFormEditable();
   }
 
   removeShift(index: number): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     if (this.shifts.length < 2) return;
     this.shifts.removeAt(index);
   }
@@ -1083,6 +1168,7 @@ export class AdminShopPage implements OnInit {
     if (!this.shifts.length) {
       this.shifts.push(this.buildShiftGroup(defaultShopShift(this.form.controls.openingTime.value)));
     }
+    this.syncSectionFormEditable();
   }
 
   isShiftWeekday(index: number, day: number): boolean {
@@ -1124,6 +1210,7 @@ export class AdminShopPage implements OnInit {
     for (const row of rows) {
       this.posnets.push(this.buildPosnetGroup(row));
     }
+    this.syncSectionFormEditable();
   }
 
   private buildPosnetGroup(value: ShopPosnet) {
@@ -1139,6 +1226,10 @@ export class AdminShopPage implements OnInit {
   }
 
   addClosingSource(): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     this.closingSources.push(
       this.buildClosingSourceGroup({
         id: '',
@@ -1151,9 +1242,14 @@ export class AdminShopPage implements OnInit {
         active: true,
       }),
     );
+    this.syncSectionFormEditable();
   }
 
   removeClosingSource(index: number): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     const id = String(this.closingSources.at(index)?.get('id')?.value ?? '');
     if (id) this.removedClosingSourceIds.push(id);
     this.closingSources.removeAt(index);
@@ -1205,6 +1301,10 @@ export class AdminShopPage implements OnInit {
   }
 
   async saveClosingSources(): Promise<void> {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     for (let i = 0; i < this.closingSources.length; i++) {
@@ -1270,6 +1370,7 @@ export class AdminShopPage implements OnInit {
     for (const row of rows) {
       this.closingSources.push(this.buildClosingSourceGroup(row));
     }
+    this.syncSectionFormEditable();
   }
 
   private buildClosingSourceGroup(value: ShopClosingSource) {
@@ -1292,24 +1393,86 @@ export class AdminShopPage implements OnInit {
     });
   }
 
+  private printAgentTokenStorageKey(shopId: string): string {
+    return `print-agent-token:${shopId}`;
+  }
+
+  private rememberPrintAgentToken(shopId: string, token: string, prefix: string | null): void {
+    try {
+      sessionStorage.setItem(
+        this.printAgentTokenStorageKey(shopId),
+        JSON.stringify({ token, prefix }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private clearRememberedPrintAgentToken(shopId: string): void {
+    try {
+      sessionStorage.removeItem(this.printAgentTokenStorageKey(shopId));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private restoreRememberedPrintAgentToken(shopId: string, prefix: string | null): void {
+    try {
+      const raw = sessionStorage.getItem(this.printAgentTokenStorageKey(shopId));
+      if (!raw) {
+        this.printAgentFreshToken.set(null);
+        return;
+      }
+      const parsed = JSON.parse(raw) as { token?: string; prefix?: string | null };
+      const token = String(parsed?.token ?? '').trim();
+      if (!token) {
+        this.printAgentFreshToken.set(null);
+        return;
+      }
+      // Si el prefix del server cambió, el token guardado ya no sirve.
+      if (prefix && parsed.prefix && prefix !== parsed.prefix) {
+        this.clearRememberedPrintAgentToken(shopId);
+        this.printAgentFreshToken.set(null);
+        return;
+      }
+      this.printAgentFreshToken.set(token);
+    } catch {
+      this.printAgentFreshToken.set(null);
+    }
+  }
+
   reloadPrintAgentStatus(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
       this.printAgentConfigured.set(false);
       this.printAgentTokenPrefix.set(null);
+      this.printAgentFreshToken.set(null);
       this.installerItems.set([]);
       return;
     }
     this.printAgentLoading.set(true);
     this.http
-      .get<{ configured: boolean; tokenPrefix: string | null }>(
-        `${environment.apiUrl}/shops/${shopId}/print-agent`,
-      )
+      .get<{
+        configured: boolean;
+        tokenPrefix: string | null;
+        token?: string | null;
+        canReveal?: boolean;
+      }>(`${environment.apiUrl}/shops/${shopId}/print-agent`)
       .subscribe({
         next: (res) => {
           this.printAgentLoading.set(false);
           this.printAgentConfigured.set(!!res.configured);
           this.printAgentTokenPrefix.set(res.tokenPrefix ?? null);
+          const stored = String(res.token ?? '').trim();
+          if (stored) {
+            this.printAgentFreshToken.set(stored);
+            this.rememberPrintAgentToken(shopId, stored, res.tokenPrefix ?? null);
+          } else if (res.configured) {
+            this.restoreRememberedPrintAgentToken(shopId, res.tokenPrefix ?? null);
+          } else {
+            this.clearRememberedPrintAgentToken(shopId);
+            this.printAgentFreshToken.set(null);
+          }
         },
         error: () => {
           this.printAgentLoading.set(false);
@@ -1328,7 +1491,15 @@ export class AdminShopPage implements OnInit {
     this.installerLoading.set(true);
     this.http
       .get<{
-        items: { os: string; version: string; fileName: string; size: number; uploadedAt: string }[];
+        items: {
+          os: string;
+          version: string;
+          source?: 'file' | 'url';
+          fileName: string;
+          size: number;
+          uploadedAt: string;
+          downloadUrl?: string;
+        }[];
       }>(`${environment.apiUrl}/shops/${id}/print-agent/installer/meta`)
       .subscribe({
         next: (res) => {
@@ -1346,6 +1517,10 @@ export class AdminShopPage implements OnInit {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !os || this.installerBusy()) return;
     const item = this.installerItems().find((x) => x.os === os);
+    if (item?.source === 'url' && item.downloadUrl) {
+      window.open(item.downloadUrl, '_blank', 'noopener');
+      return;
+    }
     this.installerBusy.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/print-agent/installer/${os}`, {
@@ -1369,6 +1544,10 @@ export class AdminShopPage implements OnInit {
   }
 
   generatePrintAgentToken(): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.printAgentBusy()) return;
     this.printAgentBusy.set(true);
@@ -1385,7 +1564,8 @@ export class AdminShopPage implements OnInit {
           this.printAgentConfigured.set(true);
           this.printAgentTokenPrefix.set(res.tokenPrefix ?? null);
           this.printAgentFreshToken.set(res.token);
-          this.snack.open(res.hint || 'Token generado. Copialo ahora.', 'OK', { duration: 4500 });
+          this.rememberPrintAgentToken(shopId, res.token, res.tokenPrefix ?? null);
+          this.snack.open(res.hint || 'Token generado. Podés copiarlo cuando quieras.', 'OK', { duration: 4500 });
         },
         error: (err) => {
           this.printAgentBusy.set(false);
@@ -1396,6 +1576,10 @@ export class AdminShopPage implements OnInit {
   }
 
   revokePrintAgentToken(): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.printAgentBusy()) return;
     this.printAgentBusy.set(true);
@@ -1405,6 +1589,7 @@ export class AdminShopPage implements OnInit {
         this.printAgentConfigured.set(false);
         this.printAgentTokenPrefix.set(null);
         this.printAgentFreshToken.set(null);
+        this.clearRememberedPrintAgentToken(shopId);
         this.snack.open('Token de Comandas revocado', 'OK', { duration: 2500 });
       },
       error: (err) => {
@@ -1439,6 +1624,10 @@ export class AdminShopPage implements OnInit {
   }
 
   save(): void {
+    if (!this.canEditCurrentSection()) {
+      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
+      return;
+    }
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.form.invalid || this.saving()) return;
     const raw = this.form.getRawValue();
@@ -1563,7 +1752,9 @@ export class AdminShopPage implements OnInit {
       body['emailSmtpPassword'] = smtpPass;
     }
 
-    const canFull = canManageShop(this.auth.currentUser(), shopId);
+    const canFull =
+      canManageShopConfig(this.auth.currentUser(), shopId) ||
+      canManageShop(this.auth.currentUser(), shopId);
     const req$ = canFull
       ? this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, body)
       : this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {

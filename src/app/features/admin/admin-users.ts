@@ -313,7 +313,7 @@ export class AdminUsersPage implements OnInit {
   }
 
   openRoles(row: AdminUserRow): void {
-    this.openDialog({ mode: 'roles', user: row });
+    void this.router.navigate(['/admin/users', row.id, 'permisos']);
   }
 
   private canAssignUsersModule(): boolean {

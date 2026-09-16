@@ -14,7 +14,10 @@ export type Permission =
   | 'settlements.manage'
   | 'reports.view'
   | 'reports.export'
+  | 'shops.read'
   | 'shops.manage'
+  | 'shopConfig.read'
+  | 'shopConfig.manage'
   | 'users.manage'
   | 'employees.manage'
   | 'employees.read'
@@ -85,7 +88,10 @@ const ALL_PERMISSIONS: Permission[] = [
   'settlements.manage',
   'reports.view',
   'reports.export',
+  'shops.read',
   'shops.manage',
+  'shopConfig.read',
+  'shopConfig.manage',
   'users.manage',
   'employees.manage',
   'employees.read',
@@ -161,7 +167,10 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'settlements.manage',
     'reports.view',
     'reports.export',
+    'shops.read',
     'shops.manage',
+    'shopConfig.read',
+    'shopConfig.manage',
     'employees.manage',
     'employees.read',
     'candidates.manage',
@@ -302,6 +311,7 @@ export type ModuleKey =
   | 'vacations'
   | 'serviceRules'
   | 'shop'
+  | 'shopConfig'
   | 'users';
 
 export interface ModuleDef {
@@ -706,9 +716,22 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Local / POS',
     icon: 'storefront',
     group: 'config',
-    hint: 'Config del local, cuentas, platos y sistemas',
+    hint: 'Mensajes, QR, instrucciones, sistemas de ventas y platos POS',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'shopConfig',
+    label: 'Configuración del local',
+    icon: 'tune',
+    group: 'config',
+    hint: 'Hub del local. Con Todo podés poner Off / Ver / Todo por sección (Identidad, Dispositivos…)',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
       { value: 'manage', label: 'Gestionar', short: 'Todo' },
     ],
   },
@@ -874,6 +897,12 @@ export function migrateModuleLevels(
     const fromStock = [out.stock, out.beverageStock, out.shortages];
     if (fromStock.includes('manage')) out.orders = 'manage';
     else if (fromStock.includes('read')) out.orders = 'read';
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(raw, 'shopConfig') &&
+    (out.shop === 'read' || out.shop === 'manage')
+  ) {
+    out.shopConfig = out.shop;
   }
   return out;
 }
@@ -1067,13 +1096,25 @@ export interface ShopSummary {
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
   isCustomerOrdersAdmin?: boolean;
-  /** Qué bloques ve en Pedidos → Configurar (true = visible). */
+  /** Qué bloques ve en Pedidos → Configurar (none | read | manage). */
   orderingConfigVisibility?: {
-    caja?: boolean;
-    channels?: boolean;
-    payments?: boolean;
-    items?: boolean;
-    extras?: boolean;
+    caja?: string;
+    channels?: string;
+    payments?: string;
+    items?: string;
+    extras?: string;
+  } | null;
+  /** Nivel por sección de Configuración del local (none | read | manage). */
+  shopConfigVisibility?: {
+    resumen?: string;
+    identidad?: string;
+    operacion?: string;
+    pedidos?: string;
+    comanda?: string;
+    dispositivos?: string;
+    menu?: string;
+    carta?: string;
+    avanzado?: string;
   } | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
@@ -1291,7 +1332,16 @@ export function expandModulePermissions(
       'movements.read',
     );
   }
-  if (levels.shop === 'manage') addPermission(set, 'shops.manage');
+  if (levels.shop === 'read') addPermission(set, 'shops.read');
+  if (levels.shop === 'manage') addPermission(set, 'shops.read', 'shops.manage');
+  const shopConfigLevel = Object.prototype.hasOwnProperty.call(levels, 'shopConfig')
+    ? levels.shopConfig
+    : levels.shop === 'read' || levels.shop === 'manage'
+      ? levels.shop
+      : undefined;
+  if (shopConfigLevel === 'read') addPermission(set, 'shopConfig.read');
+  if (shopConfigLevel === 'manage')
+    addPermission(set, 'shopConfig.read', 'shopConfig.manage');
   if (levels.users === 'manage') addPermission(set, 'users.manage');
 
   return [...set];
@@ -1370,7 +1420,16 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.serviceRules = level('serviceRules.read', 'serviceRules.manage');
   base.accounts = has('accounts.manage') ? 'manage' : 'none';
   base.concepts = has('concepts.manage') ? 'manage' : 'none';
-  base.shop = has('shops.manage') ? 'manage' : 'none';
+  base.shop = has('shops.manage') ? 'manage' : has('shops.read') ? 'read' : 'none';
+  base.shopConfig = has('shopConfig.manage')
+    ? 'manage'
+    : has('shopConfig.read')
+      ? 'read'
+      : has('shops.manage')
+        ? 'manage'
+        : has('shops.read')
+          ? 'read'
+          : 'none';
   base.users = has('users.manage') ? 'manage' : 'none';
   return base;
 }
@@ -1414,9 +1473,118 @@ export function canManageShop(user: AuthUser | null, shopId: string | null): boo
   return hasShopPermission(user, shopId, 'shops.manage');
 }
 
+/** Ver o gestionar Administración Local / POS (Mensajes, QR, etc.). */
+export function canAccessShopAdmin(user: AuthUser | null, shopId: string | null): boolean {
+  return (
+    hasShopPermission(user, shopId, 'shops.read') ||
+    hasShopPermission(user, shopId, 'shops.manage')
+  );
+}
+
+/** Acceso al hub Configuración del local (Ver o Todo). */
+export function canAccessShopConfig(user: AuthUser | null, shopId: string | null): boolean {
+  return (
+    hasShopPermission(user, shopId, 'shopConfig.read') ||
+    hasShopPermission(user, shopId, 'shopConfig.manage')
+  );
+}
+
+/** Puede editar la config del local (módulo en Todo). */
+export function canManageShopConfig(user: AuthUser | null, shopId: string | null): boolean {
+  return hasShopPermission(user, shopId, 'shopConfig.manage');
+}
+
+/** Sección de Configuración del local visible para este usuario. */
+export function canSeeShopConfigSection(
+  user: AuthUser | null,
+  shopId: string | null,
+  section:
+    | 'resumen'
+    | 'identidad'
+    | 'operacion'
+    | 'pedidos'
+    | 'comanda'
+    | 'dispositivos'
+    | 'menu'
+    | 'carta'
+    | 'avanzado',
+): boolean {
+  return shopConfigSectionLevel(user, shopId, section) !== 'none';
+}
+
+/** Puede editar (Todo) esa sección; Ver solo consulta. */
+export function canEditShopConfigSection(
+  user: AuthUser | null,
+  shopId: string | null,
+  section:
+    | 'resumen'
+    | 'identidad'
+    | 'operacion'
+    | 'pedidos'
+    | 'comanda'
+    | 'dispositivos'
+    | 'menu'
+    | 'carta'
+    | 'avanzado',
+): boolean {
+  return shopConfigSectionLevel(user, shopId, section) === 'manage';
+}
+
+function shopConfigModuleLevel(
+  user: AuthUser | null,
+  shopId: string | null,
+): 'none' | 'read' | 'manage' {
+  if (!user || !shopId) return 'none';
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return 'manage';
+  if (hasShopPermission(user, shopId, 'shopConfig.manage')) return 'manage';
+  if (hasShopPermission(user, shopId, 'shopConfig.read')) return 'read';
+  return 'none';
+}
+
+function shopConfigSectionLevel(
+  user: AuthUser | null,
+  shopId: string | null,
+  section:
+    | 'resumen'
+    | 'identidad'
+    | 'operacion'
+    | 'pedidos'
+    | 'comanda'
+    | 'dispositivos'
+    | 'menu'
+    | 'carta'
+    | 'avanzado',
+): 'none' | 'read' | 'manage' {
+  if (!user || !shopId) return 'none';
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return 'manage';
+  const moduleLevel = shopConfigModuleLevel(user, shopId);
+  if (moduleLevel === 'none') {
+    if (
+      (section === 'pedidos' || section === 'comanda' || section === 'carta') &&
+      hasShopPermission(user, shopId, 'orderingCatalog.manage')
+    ) {
+      return 'manage';
+    }
+    return 'none';
+  }
+  const shop = user.shops?.find((s) => s.id === shopId);
+  const raw = shop?.shopConfigVisibility?.[section] as unknown;
+  let sectionLevel: 'none' | 'read' | 'manage' = 'manage';
+  if (raw === undefined || raw === null) sectionLevel = 'manage';
+  else if (raw === true || raw === 'manage' || raw === 'todo') sectionLevel = 'manage';
+  else if (raw === 'read' || raw === 'ver' || raw === 'view') sectionLevel = 'read';
+  else if (raw === false || raw === 'none' || raw === 'off') sectionLevel = 'none';
+  else sectionLevel = 'manage';
+  if (sectionLevel === 'none') return 'none';
+  // Techo del módulo: Ver no puede elevar secciones a Todo.
+  if (moduleLevel === 'read') return 'read';
+  return sectionLevel;
+}
+
 /** Alta/baja de canales, pagos, ítems y extras del pedido online. */
 export function canManageOrderingCatalog(user: AuthUser | null, shopId: string | null): boolean {
   return (
+    hasShopPermission(user, shopId, 'shopConfig.manage') ||
     hasShopPermission(user, shopId, 'shops.manage') ||
     hasShopPermission(user, shopId, 'orderingCatalog.manage')
   );

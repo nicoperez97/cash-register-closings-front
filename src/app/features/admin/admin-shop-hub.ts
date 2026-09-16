@@ -1,9 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { canSeeShopConfigSection } from '../../core/auth/auth.models';
 import { ADMIN_SHOP_SECTIONS } from './admin-shop-sections';
 
 @Component({
@@ -25,7 +27,7 @@ import { ADMIN_SHOP_SECTIONS } from './admin-shop-sections';
     </p>
 
     <div class="shop-hub__grid">
-      @for (s of sections; track s.id) {
+      @for (s of sections(); track s.id) {
         <a class="shop-hub__card panel-card" [routerLink]="['/admin/shop', s.path]">
           <div class="shop-hub__card-icon" aria-hidden="true">
             <mat-icon>{{ s.icon }}</mat-icon>
@@ -129,5 +131,11 @@ import { ADMIN_SHOP_SECTIONS } from './admin-shop-sections';
 })
 export class AdminShopHubPage {
   readonly shops = inject(ShopContextService);
-  readonly sections = ADMIN_SHOP_SECTIONS;
+  private readonly auth = inject(AuthService);
+
+  readonly sections = computed(() => {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return ADMIN_SHOP_SECTIONS.filter((s) => canSeeShopConfigSection(user, shopId, s.id));
+  });
 }
