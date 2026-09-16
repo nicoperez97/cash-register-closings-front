@@ -184,7 +184,7 @@
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, #d5dcd2);
   background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--accent) 10%, #fff));
-  color: #003366;
+  color: #1b2420;
   font: inherit;
   display: grid;
   place-items: center;
@@ -217,6 +217,7 @@
   font-size: 1.05rem;
   font-weight: 850;
   letter-spacing: -0.02em;
+  color: var(--accent);
 }
 
 .map__table-cap {
@@ -281,6 +282,7 @@
   border: 1px solid color-mix(in srgb, var(--accent) 22%, #d5dcd2);
   background: #fff;
   font: inherit;
+  color: #1b2420;
   display: grid;
   gap: 0.15rem;
   cursor: pointer;
@@ -415,6 +417,7 @@
   background: #f7faf6;
   font-size: 1.3rem;
   font-weight: 700;
+  color: #1b2420;
   cursor: pointer;
 }
 

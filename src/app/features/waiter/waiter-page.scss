@@ -12,6 +12,11 @@
   color: var(--ink);
   font-family: Figtree, system-ui, sans-serif;
   background: var(--paper);
+
+  /* Botones nativos no heredan color del host; sin esto puede filtrarse guy-navy/azul. */
+  button {
+    color: inherit;
+  }
 }
 
 /* En Operación → Comanda el color del local ya está en --guy-green; no depender solo del host. */
@@ -687,6 +692,7 @@
   font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
+  color: var(--ink);
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
@@ -718,6 +724,7 @@
   gap: 0.5rem;
   font: inherit;
   font-weight: 650;
+  color: var(--ink);
   cursor: pointer;
   text-align: left;
   transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
@@ -750,6 +757,7 @@
   padding: 0.3rem 0.5rem;
   font: inherit;
   font-size: 0.75rem;
+  color: var(--ink);
   cursor: pointer;
 }
 
@@ -862,6 +870,7 @@
     background: #fff;
     font: inherit;
     font-size: 1.1rem;
+    color: var(--ink);
     cursor: pointer;
   }
 }
@@ -1005,12 +1014,19 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  /* Evita que estilos globales de button (guy-navy/azul) pisen el color del local. */
+  color: var(--ink);
 
   strong {
     display: block;
     font-size: 1.25rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  .muted {
+    color: var(--muted);
   }
 }
 
@@ -1020,7 +1036,7 @@
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--accent, #2e7d32);
+  color: var(--accent, var(--guy-green, #2e7d32));
 }
 
 .tips-card__meta {
@@ -1137,6 +1153,7 @@
   border-radius: 14px;
   background: #fff;
   font: inherit;
+  color: var(--ink);
   text-align: left;
   cursor: pointer;
 }
@@ -1195,6 +1212,7 @@
   padding: 0.55rem 0.85rem;
   font: inherit;
   font-weight: 650;
+  color: var(--ink);
   cursor: pointer;
   text-align: left;
 
@@ -1385,6 +1403,7 @@
     border: 1px solid var(--line);
     background: color-mix(in srgb, var(--accent, #2e7d32) 8%, #fff);
     font-size: 1.4rem;
+    color: var(--ink);
     cursor: pointer;
   }
 }

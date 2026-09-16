@@ -24,6 +24,15 @@ import {
   filterBySelectQuery,
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { DialogTitleService } from '../../shared/services/dialog-title.service';
+import {
+  applyMenuImportPreview,
+  buildMenuImportPreviewRows,
+  MenuImportPreviewDialogComponent,
+  type MenuImportPreviewDialogData,
+  type MenuImportPreviewRow,
+} from './menu-import-preview-dialog';
 
 export type ShopMenuItem = {
   id?: string;
@@ -141,6 +150,7 @@ function toPrice(value: unknown): number | null {
   imports: [
     FormsModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -303,7 +313,8 @@ function toPrice(value: unknown): number | null {
             </div>
           </div>
           <p class="menu-admin__hint">
-            <strong>Agregar / Reemplazar</strong> lee el PDF para armar ítems e ingredientes quitables (Gemini).
+            <strong>Agregar / Reemplazar</strong> lee el PDF con Gemini y abre una vista previa para elegir qué
+            cargar, reemplazar u omitir.
             <strong>Detectar ingredientes</strong> vuelve a analizar los ítems ya cargados.
             <strong>Cargar carta física</strong> sube el archivo que el cliente ve en la web (sin cambiar los ítems).
             <strong>PDF para imprimir</strong> es la carta pública (mismo estilo), sin buscador, filtros ni botones.
@@ -798,6 +809,8 @@ export class AdminMenuPage {
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
+  private readonly dialog = inject(MatDialog);
+  private readonly dialogTitle = inject(DialogTitleService);
 
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly shopId = computed(() => this.shops.selectedShopId());
@@ -1292,9 +1305,9 @@ export class AdminMenuPage {
     if (!file) return;
     const shopId = this.shopId();
     if (!shopId) return;
-    if (mode === 'replace' && this.sections().some((s) => s.items.some((it) => it.name.trim()))) {
-      const ok = window.confirm('Esto reemplaza el contenido (ítems) de esta carta. El archivo físico no se toca. ¿Seguimos?');
-      if (!ok) return;
+    if (mode === 'replace' && !this.activeId()) {
+      this.snack.open('Seleccioná una carta para reemplazar su contenido', 'OK', { duration: 3000 });
+      return;
     }
     const keepSource =
       mode === 'replace'
@@ -1322,52 +1335,114 @@ export class AdminMenuPage {
         next: (res) => {
           this.parsing.set(false);
           this.flushActive();
-          const parsed = cloneMenu({
-            ...res.menu,
-            id: mode === 'replace' && this.activeId() ? this.activeId()! : newMenuId(),
-            slug: uniqueSlug(
-              res.menu.slug || res.menu.title || 'carta',
-              this.menus(),
-              mode === 'replace' ? this.activeId() ?? undefined : undefined,
-            ),
-            sourceFile: keepSource.sourceFile,
-            sourceFileName: keepSource.sourceFileName,
-            sourceMime: keepSource.sourceMime,
-          });
-          if (mode === 'replace' && this.activeId()) {
-            this.menus.update((list) => list.map((m) => (m.id === this.activeId() ? parsed : m)));
-          } else {
-            this.menus.update((list) => [...list, parsed]);
-            this.activeId.set(parsed.id);
-          }
-          this.loadEditor(parsed);
-          this.rawText.set((res.rawText ?? '').trim());
-          const count = parsed.sections.reduce((n, s) => n + s.items.length, 0);
-          const ing = Number(res.ingredientsCount ?? 0);
-          const ingNote =
-            res.engine === 'gemini' && ing > 0
-              ? ` También detectamos ingredientes quitables en ${ing} ítem${ing === 1 ? '' : 's'}.`
-              : res.engine === 'gemini'
-                ? ' Revisá “Se puede pedir sin” o usá Detectar ingredientes.'
-                : '';
-          if (res.engine === 'gemini') {
+          const existing =
+            mode === 'replace' ? this.menus().find((m) => m.id === this.activeId()) ?? null : null;
+          const rows = buildMenuImportPreviewRows(res.menu.sections ?? [], existing?.sections ?? null);
+          if (!rows.length) {
+            this.rawText.set((res.rawText ?? '').trim());
             this.parseNote.set(
-              count
-                ? `Leímos ${count} ítem${count === 1 ? '' : 's'} con Gemini de ${res.fileName || 'el archivo'}.${ingNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
-                : 'Gemini no encontró ítems claros.',
-            );
-            this.geminiWarning.set('');
-          } else {
-            this.parseNote.set(
-              count
-                ? `Leímos ${count} ítem${count === 1 ? '' : 's'} con parseo local de ${res.fileName || 'el archivo'}. Revisá y guardá. Para la vista pública usá “Cargar carta física”.`
+              res.engine === 'gemini'
+                ? 'Gemini no encontró ítems claros.'
                 : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
             );
             this.geminiWarning.set(
-              res.geminiWarning ||
-                'No se usó Gemini. Se usó el parseo local.',
+              res.engine === 'gemini'
+                ? ''
+                : res.geminiWarning || 'No se usó Gemini. Se usó el parseo local.',
             );
+            return;
           }
+
+          const data: MenuImportPreviewDialogData = {
+            mode,
+            fileName: res.fileName || file.name,
+            shopName: this.shops.selectedShop()?.name ?? '',
+            engine: res.engine === 'gemini' ? 'Gemini' : 'parseo local',
+            parsedTitle:
+              mode === 'replace'
+                ? existing?.title || res.menu.title || this.title
+                : res.menu.title || '',
+            parsedNote:
+              mode === 'replace'
+                ? existing?.note || res.menu.note || this.note
+                : res.menu.note || '',
+            rows,
+          };
+
+          this.dialogTitle
+            .track(
+              this.dialog.open(MenuImportPreviewDialogComponent, {
+                width: '760px',
+                maxWidth: '96vw',
+                maxHeight: '90vh',
+                panelClass: 'guy-dialog',
+                data,
+              }),
+              'Vista previa de la carta',
+            )
+            .afterClosed()
+            .subscribe((result) => {
+              if (!result) return;
+              const sections = applyMenuImportPreview(
+                result.rows,
+                mode === 'replace' ? existing?.sections ?? null : null,
+                mode,
+              ) as ShopMenuSection[];
+              const applied = result.rows.filter((r: MenuImportPreviewRow) => r.action !== 'omit').length;
+              const replaced = result.rows.filter((r: MenuImportPreviewRow) => r.action === 'replace').length;
+              const loaded = result.rows.filter((r: MenuImportPreviewRow) => r.action === 'load').length;
+
+              const parsed = cloneMenu({
+                id: mode === 'replace' && this.activeId() ? this.activeId()! : newMenuId(),
+                slug: uniqueSlug(
+                  result.title || res.menu.slug || res.menu.title || 'carta',
+                  this.menus(),
+                  mode === 'replace' ? this.activeId() ?? undefined : undefined,
+                ),
+                title: result.title || res.menu.title || 'Carta',
+                note: result.note || '',
+                sourceFile: keepSource.sourceFile,
+                sourceFileName: keepSource.sourceFileName,
+                sourceMime: keepSource.sourceMime,
+                sections,
+              });
+
+              if (mode === 'replace' && this.activeId()) {
+                this.menus.update((list) => list.map((m) => (m.id === this.activeId() ? parsed : m)));
+              } else {
+                this.menus.update((list) => [...list, parsed]);
+                this.activeId.set(parsed.id);
+              }
+              this.loadEditor(parsed);
+              this.rawText.set((res.rawText ?? '').trim());
+
+              const ing = Number(res.ingredientsCount ?? 0);
+              const actionNote =
+                replaced && loaded
+                  ? ` Aplicaste ${loaded} altas y ${replaced} reemplazos (${applied} en total).`
+                  : replaced
+                    ? ` Aplicaste ${replaced} reemplazo${replaced === 1 ? '' : 's'}.`
+                    : ` Aplicaste ${loaded} ítem${loaded === 1 ? '' : 's'} nuevo${loaded === 1 ? '' : 's'}.`;
+              const ingNote =
+                res.engine === 'gemini' && ing > 0
+                  ? ` También detectamos ingredientes quitables en ${ing} ítem${ing === 1 ? '' : 's'}.`
+                  : res.engine === 'gemini'
+                    ? ' Revisá “Se puede pedir sin” o usá Detectar ingredientes.'
+                    : '';
+              if (res.engine === 'gemini') {
+                this.parseNote.set(
+                  `Leímos el archivo con Gemini.${actionNote}${ingNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`,
+                );
+                this.geminiWarning.set('');
+              } else {
+                this.parseNote.set(
+                  `Leímos el archivo con parseo local.${actionNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`,
+                );
+                this.geminiWarning.set(
+                  res.geminiWarning || 'No se usó Gemini. Se usó el parseo local.',
+                );
+              }
+            });
         },
         error: (err: HttpErrorResponse) => {
           this.parsing.set(false);
