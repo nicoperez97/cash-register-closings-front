@@ -212,6 +212,12 @@ export class CustomerOrdersApiService {
     );
   }
 
+  getStaffOrder(shopId: string, orderId: string) {
+    return this.http.get<StaffCustomerOrder>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(orderId)}`,
+    );
+  }
+
   pendingCount(shopId: string) {
     return this.http.get<{ count: number }>(
       `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/pending-count`,
