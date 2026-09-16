@@ -398,12 +398,7 @@ export const routes: Routes = [
       {
         path: 'comanda',
         canActivate: [
-          anyPermissionGuard(
-            'customerOrders.read',
-            'orderingCatalog.manage',
-            'reservations.read',
-            'shops.manage',
-          ),
+          anyPermissionGuard('comanda.manage', 'shops.manage'),
           shopFeatureGuard('waiterOrdering'),
         ],
         loadComponent: () =>

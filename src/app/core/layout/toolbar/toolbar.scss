@@ -12,11 +12,9 @@
   flex-shrink: 0;
   min-height: 58px;
   padding: 0.4rem 0.75rem 0.4rem 0.4rem;
-  background: color-mix(in srgb, var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4)) 92%, #fff);
+  background: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
   border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 65%, transparent);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--guy-border, #d7e0d9) 40%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .toolbar-menu {

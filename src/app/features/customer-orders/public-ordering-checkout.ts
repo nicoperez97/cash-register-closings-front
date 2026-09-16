@@ -119,7 +119,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     const out: CustomerOrderFulfillment[] = [];
     if (this.staffMode()) {
       if (c.takeawayEnabled) out.push('TAKEAWAY');
-      if (c.deliveryEnabled) out.push('DELIVERY');
+      if (c.deliveryEnabled && (c.deliveryZones?.length ?? 0) > 0) out.push('DELIVERY');
       return out;
     }
     if (c.takeawayEnabled && c.takeawayOpen) out.push('TAKEAWAY');
@@ -431,15 +431,33 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
   private pruneUnavailableCart(cfg: PublicOrderingConfig): void {
     const itemIds = new Set<string>();
+    const itemPrices: Record<string, { unitPrice: number; name?: string }> = {};
     for (const m of cfg.menus ?? []) {
       for (const sec of m.sections ?? []) {
         for (const it of sec.items ?? []) {
-          if (it?.id) itemIds.add(String(it.id));
+          if (it?.id) {
+            itemIds.add(String(it.id));
+            itemPrices[String(it.id)] = {
+              unitPrice: Number(it.price) || 0,
+              name: it.name,
+            };
+          }
         }
       }
     }
     const extraIds = new Set((cfg.extras ?? []).map((e) => String(e.id)));
-    const removedQty = this.cart.reconcileAvailable({ itemIds, extraIds });
+    const extraPrices: Record<string, { unitPrice: number; name?: string }> = {};
+    for (const e of cfg.extras ?? []) {
+      if (e?.id) {
+        extraPrices[String(e.id)] = { unitPrice: Number(e.price) || 0, name: e.name };
+      }
+    }
+    const { removedQty, priceChanged } = this.cart.reconcileAvailable({
+      itemIds,
+      extraIds,
+      itemPrices,
+      extraPrices,
+    });
     if (removedQty > 0) {
       this.snack.open(
         removedQty === 1
@@ -448,6 +466,10 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         'OK',
         { duration: 4000 },
       );
+    } else if (priceChanged) {
+      this.snack.open('Actualizamos los precios del pedido con la carta vigente', 'OK', {
+        duration: 3500,
+      });
     }
   }
 
@@ -476,8 +498,20 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       return;
     }
     if (fulfillment === 'DELIVERY') {
+      if (this.hasMapZones() && !this.mapPoint()) {
+        this.formError.set('Marcá tu ubicación en el mapa de entrega.');
+        return;
+      }
       if (!this.deliveryZoneId()) {
-        this.formError.set('Seleccioná una zona de entrega (podés hacerlo desde el mapa).');
+        this.formError.set(
+          this.hasMapZones()
+            ? 'La ubicación tiene que caer dentro de una zona de entrega.'
+            : 'Seleccioná una zona de entrega.',
+        );
+        return;
+      }
+      if (!this.addressNumber.trim()) {
+        this.formError.set('Ingresá el número de calle.');
         return;
       }
       if (this.deliveryAddressText().trim().length < 5) {

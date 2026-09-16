@@ -203,8 +203,9 @@ export function canAccessAppRoute(
   }
   if (path.startsWith('/customer-orders')) {
     return (
-      hasShopPermission(user, shopId, 'customerOrders.read') &&
-      featureOn(features, 'onlineOrderingEnabled')
+      featureOn(features, 'onlineOrderingEnabled') &&
+      (hasShopPermission(user, shopId, 'customerOrders.read') ||
+        hasShopPermission(user, shopId, 'orderingCatalog.manage'))
     );
   }
   if (path.startsWith('/integrations')) {
@@ -216,9 +217,7 @@ export function canAccessAppRoute(
   if (path.startsWith('/comanda')) {
     return (
       featureOn(features, 'waiterOrderingEnabled') &&
-      (hasShopPermission(user, shopId, 'customerOrders.read') ||
-        hasShopPermission(user, shopId, 'orderingCatalog.manage') ||
-        hasShopPermission(user, shopId, 'reservations.read') ||
+      (hasShopPermission(user, shopId, 'comanda.manage') ||
         hasShopPermission(user, shopId, 'shops.manage'))
     );
   }

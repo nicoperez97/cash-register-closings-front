@@ -210,6 +210,9 @@ export class AdminShopComandaPage {
         [printAgentConfigured]="host.printAgentConfigured()"
         [printAgentTokenPrefix]="host.printAgentTokenPrefix()"
         [printAgentFreshToken]="host.printAgentFreshToken()"
+        [installerLoading]="host.installerLoading()"
+        [installerBusy]="host.installerBusy()"
+        [installerItems]="host.installerItems()"
         [(accountSearchQuery)]="host.accountSearchQuery"
         [sourceNeedsAccount]="host.sourceNeedsAccountBound"
         [filteredSourceAccounts]="host.filteredSourceAccountsBound"
@@ -225,6 +228,7 @@ export class AdminShopComandaPage {
         (generatePrintAgentToken)="host.generatePrintAgentToken()"
         (revokePrintAgentToken)="host.revokePrintAgentToken()"
         (copyPrintAgentToken)="host.copyPrintAgentToken()"
+        (downloadInstaller)="host.downloadPrintAgentInstaller($event)"
       />
     </div>
   `,

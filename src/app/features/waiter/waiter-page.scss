@@ -13,9 +13,17 @@
   font-family: Figtree, system-ui, sans-serif;
   background: var(--paper);
 
-  /* Botones nativos no heredan color del host; sin esto puede filtrarse guy-navy/azul. */
+  /* Botones nativos no heredan color del host; sin esto puede filtrarse guy-navy. */
   button {
     color: inherit;
+  }
+
+  /* Gana a `button { color: inherit }` (misma base + clase --on / primario). */
+  button.sector-tabs__btn--on,
+  button.floor-mode__btn--on,
+  button.chip--on,
+  button.btn:not(.btn--ghost) {
+    color: #fff;
   }
 }
 
@@ -24,8 +32,7 @@
   --accent: var(--guy-green, #2e7d32);
   --on-accent: #fff;
   min-height: calc(100dvh - 7rem);
-  border-radius: 12px;
-  overflow: hidden;
+  /* Sin radius/overflow: evita borde suave que se lee como difuminado arriba. */
 }
 
 .page {
@@ -41,6 +48,11 @@
   @media (min-width: 900px) {
     max-width: 64rem;
   }
+}
+
+/* Dentro del layout app el toolbar ya cubre el safe-area; no sumar padding de más. */
+:host.staff-embedded .page {
+  padding-top: 0.85rem;
 }
 
 :host.view-map .page {
@@ -186,7 +198,7 @@
   font: inherit;
   font-weight: 800;
   background: var(--accent, #2e7d32);
-  color: var(--on-accent, #fff);
+  color: #fff;
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
 
@@ -244,6 +256,8 @@
     margin: 0.1rem 0;
     font-size: 1.65rem;
     letter-spacing: -0.02em;
+    color: var(--ink);
+    font-weight: 800;
   }
 
   &__actions {
@@ -314,7 +328,7 @@
     &--on {
       background: var(--accent, #2e7d32);
       border-color: var(--accent, #2e7d32);
-      color: var(--on-accent, #fff);
+      color: #fff;
       box-shadow: 0 3px 10px color-mix(in srgb, var(--accent, #2e7d32) 26%, transparent);
     }
   }
@@ -376,7 +390,7 @@
 
     &--on {
       background: var(--accent, #2e7d32);
-      color: var(--on-accent, #fff);
+      color: #fff;
     }
   }
 }
@@ -699,7 +713,7 @@
 
   &--on {
     background: var(--accent, #2e7d32);
-    color: var(--on-accent, #fff);
+    color: #fff;
     border-color: transparent;
   }
 }

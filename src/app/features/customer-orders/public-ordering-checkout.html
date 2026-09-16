@@ -226,24 +226,32 @@
                   />
                 </label>
 
-                <label class="field">
-                  <span>Zona de entrega</span>
-                  <select
-                    [ngModel]="deliveryZoneId()"
-                    (ngModelChange)="onZoneChange($event)"
-                    name="zone"
-                    required
-                  >
-                    <option value="">
-                      {{ hasMapZones() ? 'Se completa con el mapa o elegí acá' : 'Elegí una zona' }}
-                    </option>
-                    @for (z of c.deliveryZones; track z.id) {
-                      <option [value]="z.id">
-                        {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'Sin cargo' }}
-                      </option>
+                @if (hasMapZones()) {
+                  <p class="field">
+                    <span>Zona de entrega</span>
+                    <strong>{{ selectedZone()?.name || 'Marcá el mapa para detectarla' }}</strong>
+                    @if (selectedZone(); as z) {
+                      <span class="muted"> · envío {{ money(z.fee) }}</span>
                     }
-                  </select>
-                </label>
+                  </p>
+                } @else {
+                  <label class="field">
+                    <span>Zona de entrega</span>
+                    <select
+                      [ngModel]="deliveryZoneId()"
+                      (ngModelChange)="onZoneChange($event)"
+                      name="zone"
+                      required
+                    >
+                      <option value="">Elegí una zona</option>
+                      @for (z of config()?.deliveryZones ?? []; track z.id) {
+                        <option [value]="z.id">
+                          {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'Sin cargo' }}
+                        </option>
+                      }
+                    </select>
+                  </label>
+                }
 
                 @if (selectedZone(); as z) {
                   <p class="zone-chip">

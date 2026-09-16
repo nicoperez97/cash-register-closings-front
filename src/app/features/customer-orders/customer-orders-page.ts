@@ -9,7 +9,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, filter, of, switchMap } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission, canManageOrderingCatalog } from '../../core/auth/auth.models';
+import { hasShopPermission, canManageOrderingCatalog, canManageShop } from '../../core/auth/auth.models';
+import {
+  hasAnyOrderingConfigSection,
+} from '../../shared/ordering-config-visibility';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatMoney } from '../../shared/utils/money';
 import { copyText } from '../../shared/utils/share-text';
@@ -118,9 +121,16 @@ export class CustomerOrdersPage {
     ),
   );
 
-  readonly canConfigure = computed(() =>
-    canManageOrderingCatalog(this.auth.currentUser(), this.shops.selectedShopId()),
-  );
+  readonly canConfigure = computed(() => {
+    const shopId = this.shops.selectedShopId();
+    const user = this.auth.currentUser();
+    const canAccess =
+      canManageOrderingCatalog(user, shopId) ||
+      hasShopPermission(user, shopId, 'customerOrders.manage');
+    if (!canAccess) return false;
+    if (canManageShop(user, shopId)) return true;
+    return hasAnyOrderingConfigSection(this.shops.selectedShop()?.orderingConfigVisibility);
+  });
 
   readonly canCreateClosing = computed(() =>
     hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'closings.create'),

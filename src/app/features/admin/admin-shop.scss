@@ -399,6 +399,26 @@
         flex: 1 1 16rem;
         min-width: 12rem;
       }
+      .shop-admin__installer-block {
+        margin-top: 0.85rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0e4) 80%, transparent);
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .shop-admin__installer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+      .shop-admin__installer-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem 1rem;
+        align-items: center;
+        justify-content: space-between;
+      }
       .shop-admin__posnets-head .guy-section-title {
         margin-bottom: 0.25rem;
       }
