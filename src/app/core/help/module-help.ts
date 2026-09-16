@@ -942,6 +942,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Al solicitar (o con Abrir Deliverate) se abre la app en otra pestaña.',
           'Al solicitar Deliverate se crea el envío; «listo de cocina» en Deliverate se manda cuando pasás el pedido a Listo (no antes: Deliverate exige su demora).',
           'Los cambios de Deliverate llegan por webhook: el tablero y el detalle se actualizan solos (repartidor, estados, etc.).',
+          'Si cancelan el envío en Deliverate, el pedido local no se cancela: se libera y podés volver a Solicitar Deliverate.',
           'Con repartidor asignado, Ubicación repartidor consulta la última posición en Deliverate.',
         ],
         tip: 'Si al solicitar no deja crear el envío, reconectá (token largo) y revisá la password del usuario shop.',

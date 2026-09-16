@@ -150,7 +150,13 @@
           }
         </p>
       } @else if (canRequestDeliverate()) {
-        <p class="cod__muted">Todavía no se solicitó repartidor.</p>
+        @if (order().externalMeta?.['lastDeliverateCancelAt']) {
+          <p class="cod__muted">
+            El envío Deliverate se canceló. Podés solicitar uno nuevo.
+          </p>
+        } @else {
+          <p class="cod__muted">Todavía no se solicitó repartidor.</p>
+        }
         <p>
           <a
             class="cod__link"
