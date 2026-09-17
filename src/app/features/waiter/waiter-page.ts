@@ -1297,10 +1297,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     };
 
     if (session && !hadOrders && slug && token) {
-      if (!this.capabilities().allowDiscardEmptySession) {
-        go();
-        return;
-      }
+      // Siempre cerrar sesión vacía al volver al mapa (evita “mesas abiertas” fantasmas).
       this.api.discardSession(slug, token, session.id).subscribe({
         next: () => go(),
         error: () => go(),

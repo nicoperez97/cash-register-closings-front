@@ -163,7 +163,7 @@
             </section>
           }
         </div>
-        <p class="floor-hint muted">Tocá una mesa libre u ocupada. La ocupación aparece tras el primer envío.</p>
+        <p class="floor-hint muted">Tocá una mesa libre u ocupada. Si abrís y volvés sin enviar, la mesa queda libre.</p>
       } @else {
         @for (_ of [sectorTab() ?? 'all']; track _) {
           @if (busyBySector().length) {
