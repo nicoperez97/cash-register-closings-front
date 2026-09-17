@@ -139,7 +139,8 @@ type ClosingSummary = {
               <div>
                 <strong>Caja abierta</strong>
                 <span>
-                  Turno {{ caja.shiftName || '—' }} · cambio
+                  {{ cajaDateLabel(caja.businessDate) }} · turno
+                  {{ caja.shiftName || '—' }} · cambio
                   {{ money(caja.cashOpeningAmount ?? 0) }}
                 </span>
               </div>
@@ -676,6 +677,13 @@ export class OrderingCatalogPanelComponent {
     return formatMoney(n);
   }
 
+  cajaDateLabel(raw: string | null | undefined): string {
+    const s = String(raw ?? '').slice(0, 10);
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) return s || '—';
+    return `${Number(m[3])}/${Number(m[2])}`;
+  }
+
   setItemAvailable(id: string, available: boolean): void {
     this.items.update((list) => list.map((it) => (it.id === id ? { ...it, available } : it)));
   }
@@ -773,26 +781,31 @@ export class OrderingCatalogPanelComponent {
     }
 
     this.generatingClosing.set(true);
+    // getOpen en API mueve la caja del día anterior al día laboral actual.
+    this.closingsApi.getOpen(shopId).subscribe({
+      next: (fresh) => {
+        const cajaNow = fresh ?? caja;
+        this.openClosing.set(cajaNow);
+        this.runClosingSummary(shopId, userId, shop, cajaNow);
+      },
+      error: () => this.runClosingSummary(shopId, userId, shop, caja),
+    });
+  }
+
+  private runClosingSummary(
+    shopId: string,
+    userId: string,
+    shop: NonNullable<ReturnType<ShopContextService['selectedShop']>>,
+    caja: CashClosing,
+  ): void {
     const todayBd = resolveShopBusinessDate(new Date(), {
       timezone: shop.timezone,
       openingTime: shop.openingTime,
     });
     const cajaDate = String(caja.businessDate ?? '').slice(0, 10);
     const params = new URLSearchParams();
-    // Caja vieja: no fijar fecha/turno del día anterior (deja el cierre en $0).
-    if (cajaDate && cajaDate !== todayBd) {
-      const cont = window.confirm(
-        `La caja abierta es del ${cajaDate} y hoy el día laboral es ${todayBd}. ¿Generar el cierre con los pedidos de hoy (${todayBd})?`,
-      );
-      if (!cont) {
-        this.generatingClosing.set(false);
-        return;
-      }
-      params.set('businessDate', todayBd);
-    } else {
-      if (caja.shiftId) params.set('shiftId', caja.shiftId);
-      if (caja.businessDate) params.set('businessDate', cajaDate);
-    }
+    if (caja.shiftId) params.set('shiftId', String(caja.shiftId));
+    params.set('businessDate', cajaDate === todayBd ? cajaDate : todayBd);
     const qs = params.toString();
     this.http
       .get<ClosingSummary>(
@@ -841,7 +854,7 @@ export class OrderingCatalogPanelComponent {
                 this.generatingClosing.set(false);
                 const mesas = summary.tables?.closedCount ?? 0;
                 const bits = [
-                  `Cierre del turno «${summary.shiftName}»`,
+                  `Cierre del turno «${summary.shiftName}» (${summary.businessDate})`,
                   summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
                   mesas ? `${mesas} mesa(s)` : null,
                 ].filter(Boolean);
