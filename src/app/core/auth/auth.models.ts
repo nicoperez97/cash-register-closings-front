@@ -1029,6 +1029,13 @@ export interface ShopSummary {
     takeaway?: string | null;
     delivery?: string | null;
   } | null;
+  /** Atajos de descuento (ticket + caja rápida). null/omitido = default 10%. */
+  discountPresets?: Array<{
+    id: string;
+    label: string;
+    mode: 'percent' | 'fixed';
+    value: number;
+  }> | null;
   defaultChangeAmount: number;
   currency: string;
   timezone?: string;

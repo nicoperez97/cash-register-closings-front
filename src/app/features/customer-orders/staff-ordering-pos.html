@@ -110,10 +110,20 @@
             >
               No
             </button>
+            @for (p of discountPresets(); track p.id) {
+              <button
+                type="button"
+                class="pos__chip"
+                [class.pos__chip--on]="discountPresetId() === p.id"
+                (click)="applyDiscountPreset(p)"
+              >
+                {{ p.label }}
+              </button>
+            }
             <button
               type="button"
               class="pos__chip"
-              [class.pos__chip--on]="discountMode() === 'percent'"
+              [class.pos__chip--on]="discountMode() === 'percent' && !discountPresetId()"
               (click)="setDiscountMode('percent')"
             >
               %
@@ -121,13 +131,13 @@
             <button
               type="button"
               class="pos__chip"
-              [class.pos__chip--on]="discountMode() === 'fixed'"
+              [class.pos__chip--on]="discountMode() === 'fixed' && !discountPresetId()"
               (click)="setDiscountMode('fixed')"
             >
               $
             </button>
           </div>
-          @if (discountMode() !== 'none') {
+          @if (showDiscountInput()) {
             <input
               type="number"
               min="0"

@@ -879,7 +879,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'point_of_sale',
         tone: 'do',
         anyOf: ['customerOrders.manage'],
-        body: 'Con Nuevo se abre la caja rápida dentro de la misma card: buscás, tocás ítems, descuento (% o $) y creás el pedido.',
+        body: 'Con Nuevo se abre la caja rápida dentro de la misma card: buscás, tocás ítems, descuento (atajo 10% u otros del local, o % / $) y creás el pedido.',
         items: [
           'Si el local tiene delivery, elegí Mostrador o Delivery arriba del ticket.',
           'En Delivery: celular, zona, domicilio y (ideal) punto en el mapa. El envío suma al total.',
@@ -964,7 +964,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'admin-ordering',
     title: 'Pedidos',
-    summary: 'Página /pedir, take away, delivery, horarios, zonas y pagos online.',
+    summary: 'Página /pedir, take away, delivery, horarios, zonas, pagos y atajos de descuento.',
     blocks: [
       {
         title: 'Configurar pedidos',
@@ -976,6 +976,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Activá Página pública /pedir, Take away y/o Delivery según el local.',
           'Horarios: orientativos para el cliente; el abierto/cerrado real depende de la caja abierta en Pedidos clientes.',
           'Medios de pago: igual que en Comandas (nombre + cuenta opcional). CBU/alias y WhatsApp para comprobantes solo acá (si WhatsApp está vacío, usa el teléfono del local).',
+          'Atajos de descuento: botones rápidos (por defecto 10%) en la caja rápida de Pedidos clientes y en el ticket de mesa. También quedan No, % y $.',
           'En Pedidos: Configuración del local → Pedidos → Medios de pago (nombre + cuenta). Esos mismos nombres aparecen en el ticket de mostrador y en /pedir.',
           'En Pedidos clientes → Configurar: abrir caja, take away, delivery e ítems/extras (CBU/WhatsApp siguen en Configuración del local → Pedidos).',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
@@ -989,7 +990,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'admin-comanda',
     title: 'Comandas',
-    summary: 'Activar comanda mozos, link /mozo, pagos de mesa y permisos.',
+    summary: 'Activar comanda mozos, link /mozo, pagos, atajos de descuento y permisos.',
     blocks: [
       {
         title: 'Configurar comandas',
@@ -1002,6 +1003,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Usá Abrir link o Copiar link para compartir la página pública con PIN.',
           'Asigná un código mozo en Empleados para el acceso por PIN.',
           'Medios de pago de mesa: nombre + cuenta opcional del local. Se usan al cerrar la mesa.',
+          'Atajos de descuento: botones rápidos (por defecto 10%) en el ticket de mesa y en la caja rápida. Se editan también en Pedidos. También quedan No, % y $.',
           'Permisos página /mozo y Permisos Operación → Comanda: qué puede hacer cada canal (enviar, imprimir, editar ticket, cerrar, historial) y los defaults de cocina/ticket.',
           'Las mesas del mapa se cargan en Salón → Mesas (vista Mapa).',
         ],
@@ -1023,11 +1025,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Si las mesas tienen posición en Salón → Mesas (vista Mapa), ves el plano; podés cambiar a Lista.',
           'Mesa libre: indicá comensales y, si el local lo pide, el mozo a cargo; después enviá.',
+          'Si tocás Extras y un + (ej. chips), suma el plato con ese extra (no solo el extra).',
+          'El carrito se contrae a un badge con cantidad; tocá Detalle para +/- y la nota. Solo la lista hace scroll.',
           'En Envíos ves cada comanda con la hora. Abajo, el Resumen permite cambiar precio, cantidad o quitar extras (si está permitido en la config de Comandas).',
-          'Ticket: descuento en % o $ antes de imprimir (si está habilitado). Sin ticket no se puede cerrar la mesa cuando el local lo exige.',
+          'Ticket: descuento con atajos del local (por defecto 10%) o en % / $ libres antes de imprimir (si está habilitado). Sin ticket no se puede cerrar la mesa cuando el local lo exige.',
           'Al cerrar: podés repartir el total en varios medios y sumar propina si la config lo permite. Abajo del mapa/lista ves el resumen del historial del turno.',
           'Tras Enviar volvés al mapa/lista. Retomá mesas ocupadas para más envíos o el ticket cliente.',
-          'Si tocás + guarnición en la carta, suma el plato con ese extra (no solo la guarnición).',
           'Cerrar mesa: solo después del ticket, con los pagos cuadrados.',
         ],
         tip: 'Activá Comanda mozos en Configuración → Comandas. En Usuarios asigná el módulo Comanda (aparte de Pedidos clientes). El link /mozo sigue con PIN.',
@@ -1047,10 +1050,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Si las mesas tienen posición en Salón → Mesas (vista Mapa), ves el plano; podés cambiar a Lista.',
           'Con varios sectores: en Todos ves un plano por sector (uno debajo del otro o al lado). Mesa libre: indicá comensales y enviá.',
+          'Podés destildar Cocina y Ticket cliente para agregar ítems a la mesa sin imprimir.',
+          'Si tocás Extras y un + (ej. chips), suma el plato con ese extra (no solo el extra).',
+          'El carrito se contrae a un badge con cantidad; tocá Detalle para +/- y la nota. Solo la lista hace scroll.',
           'Tras Enviar volvés al mapa/lista. Retomá mesas ocupadas para más envíos o el ticket cliente.',
           'En Envíos ves la hora de cada comanda; en Resumen podés cambiar precio, cantidad o quitar extras.',
           'Al cerrar: varios medios de pago + propina (% o $). Abajo del mapa/lista está el resumen del Historial; tocándolo ves las mesas cerradas del turno (con el pedido).',
-          'En el ticket también podés ajustar el resumen y poner descuento antes de imprimir.',
+          'En el ticket también podés ajustar el resumen y poner descuento (atajo 10% u otros del local, o % / $) antes de imprimir.',
           'Si tocás + guarnición en la carta, suma el plato con ese extra.',
           'Cerrar mesa: primero imprimí el ticket y después cargá los pagos.',
         ],

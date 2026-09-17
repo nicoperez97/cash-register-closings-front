@@ -157,6 +157,12 @@ export type WaiterCatalog = {
     price: number;
     menuItemIds?: string[];
   }>;
+  discountPresets?: Array<{
+    id: string;
+    label: string;
+    mode: 'percent' | 'fixed';
+    value: number;
+  }>;
   tablePaymentMethods?: TablePaymentMethod[];
   capabilities?: WaiterCapProfile;
   menus: Array<{

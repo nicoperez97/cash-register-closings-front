@@ -26,6 +26,10 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageShop, canManageShopConfig, canAccessShopConfig, canManageOrderingCatalog, canEditShopConfigSection, hasShopPermission, ShopPosnet } from '../../core/auth/auth.models';
 import type { ShopConfigVisibilityKey } from '../../shared/shop-config-visibility';
 import { defaultShopShift, shopShiftsOf, type ShopShift } from '../../core/shop/shop-shifts';
+import {
+  DEFAULT_DISCOUNT_PRESETS,
+  resolveDiscountPresets,
+} from '../../core/shop/discount-presets';
 import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
@@ -274,6 +278,7 @@ export class AdminShopPage implements OnInit {
     orderingWhatsapp: [''],
     deliveryZones: this.fb.array([]),
     orderingExtras: this.fb.array([]),
+    discountPresets: this.fb.array([]),
     orderingPaymentMethods: this.fb.array([]),
     tablePaymentMethods: this.fb.array([]),
     waiterCapabilities: this.fb.nonNullable.group({
@@ -325,6 +330,10 @@ export class AdminShopPage implements OnInit {
 
   get orderingExtras(): FormArray {
     return this.form.get('orderingExtras') as FormArray;
+  }
+
+  get discountPresets(): FormArray {
+    return this.form.get('discountPresets') as FormArray;
   }
 
   get tablePaymentMethods(): FormArray {
@@ -597,6 +606,23 @@ export class AdminShopPage implements OnInit {
 
   removeOrderingExtra(index: number): void {
     this.orderingExtras.removeAt(index);
+  }
+
+  addDiscountPreset(seed?: { label?: string; mode?: 'percent' | 'fixed'; value?: number }): void {
+    const mode = seed?.mode === 'fixed' ? 'fixed' : 'percent';
+    const value = Number(seed?.value);
+    this.discountPresets.push(
+      this.fb.nonNullable.group({
+        id: [''],
+        label: [seed?.label ?? (mode === 'percent' ? '10%' : '')],
+        mode: this.fb.nonNullable.control<'percent' | 'fixed'>(mode),
+        value: [Number.isFinite(value) && value > 0 ? value : mode === 'percent' ? 10 : 0],
+      }),
+    );
+  }
+
+  removeDiscountPreset(index: number): void {
+    this.discountPresets.removeAt(index);
   }
 
   readonly sourceAccountOptions = computed(() =>
@@ -912,6 +938,12 @@ export class AdminShopPage implements OnInit {
       available?: boolean;
       menuItemIds?: string[];
     }> | null;
+    discountPresets?: Array<{
+      id?: string;
+      label?: string;
+      mode: 'percent' | 'fixed';
+      value: number;
+    }> | null;
     orderingEta?: {
       takeaway?: string | null;
       delivery?: string | null;
@@ -986,6 +1018,23 @@ export class AdminShopPage implements OnInit {
           price: [Number(e.price) || 0],
           available: [e.available !== false],
           menuItemIdsText: [(e.menuItemIds ?? []).join(', ')],
+        }),
+      );
+    }
+    this.discountPresets.clear();
+    const presets =
+      s.discountPresets !== undefined && s.discountPresets !== null
+        ? resolveDiscountPresets(s.discountPresets)
+        : DEFAULT_DISCOUNT_PRESETS.map((p) => ({ ...p }));
+    for (const p of presets) {
+      this.discountPresets.push(
+        this.fb.nonNullable.group({
+          id: [p.id ?? ''],
+          label: [p.label ?? ''],
+          mode: this.fb.nonNullable.control<'percent' | 'fixed'>(
+            p.mode === 'fixed' ? 'fixed' : 'percent',
+          ),
+          value: [Number(p.value) || 0],
         }),
       );
     }
@@ -1789,6 +1838,21 @@ export class AdminShopPage implements OnInit {
         takeaway: String(raw.orderingEtaTakeaway ?? '').trim() || null,
         delivery: String(raw.orderingEtaDelivery ?? '').trim() || null,
       },
+      discountPresets: (
+        raw.discountPresets as Array<{
+          id?: string;
+          label?: string;
+          mode: 'percent' | 'fixed';
+          value: number;
+        }>
+      )
+        .map((p) => ({
+          id: String(p.id ?? '').trim() || undefined,
+          label: String(p.label ?? '').trim(),
+          mode: p.mode === 'fixed' ? ('fixed' as const) : ('percent' as const),
+          value: Number(p.value) || 0,
+        }))
+        .filter((p) => p.value > 0),
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
       paymentConceptCategories: { ...raw.paymentConceptCategories },
@@ -1826,6 +1890,7 @@ export class AdminShopPage implements OnInit {
           orderingPayments: body['orderingPayments'],
           tablePaymentMethods: body['tablePaymentMethods'],
           waiterCapabilities: body['waiterCapabilities'],
+          discountPresets: body['discountPresets'],
         });
 
     req$.subscribe({
