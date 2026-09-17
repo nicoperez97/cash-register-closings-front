@@ -902,7 +902,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Al finalizar el turno el local se cierra solo para pedidos; después abrí la caja del próximo turno.',
           'Si ya guardaste el cierre de ese turno y necesitás seguir con pedidos, Abrir caja inicia otra caja (el cierre anterior queda en el historial).',
           'Guardá con el botón Guardar al pie (canales e ítems). Ítems y extras vienen contraídos: tocá para expandir.',
-          'Generar cierre (si podés crear cierres): arma el cierre de esa caja con pedidos y mesas del turno, cierra pedidos online y abre el formulario. Te avisa si hay pedidos o mesas abiertas. Al guardar se confirma el cierre.',
+          'Generar cierre (si podés crear cierres): arma el cierre de esa caja con pedidos y mesas del turno, cierra pedidos online y abre el formulario. Te avisa si hay pedidos o mesas abiertas. Solo entran pedidos completados (acreditado no alcanza). Al guardar se confirma el cierre.',
         ],
         tip: 'En Usuarios podés elegir qué bloques de Configurar ve cada persona (caja, canales, pagos, ítems, extras). CBU/alias y WhatsApp: Configuración del local → Pedidos.',
       },
