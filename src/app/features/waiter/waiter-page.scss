@@ -23,7 +23,7 @@
   button.floor-mode__btn--on,
   button.chip--on,
   button.btn:not(.btn--ghost) {
-    color: #fff;
+    color: var(--on-accent, #fff);
   }
 }
 
@@ -306,10 +306,10 @@
   &__btn {
     appearance: none;
     flex: 0 0 auto;
-    border: 1px solid var(--line);
+    border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 32%, var(--line));
     border-radius: 999px;
     background: var(--sheet);
-    color: var(--text, #1a2b22);
+    color: var(--ink, #1a2b22);
     font: inherit;
     font-size: 0.86rem;
     font-weight: 750;
@@ -328,7 +328,7 @@
     &--on {
       background: var(--accent, #2e7d32);
       border-color: var(--accent, #2e7d32);
-      color: #fff;
+      color: var(--on-accent, #fff);
       box-shadow: 0 3px 10px color-mix(in srgb, var(--accent, #2e7d32) 26%, transparent);
     }
   }
@@ -344,7 +344,7 @@
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--accent, #2e7d32);
   }
 
   &__sub {
@@ -390,7 +390,7 @@
 
     &--on {
       background: var(--accent, #2e7d32);
-      color: #fff;
+      color: var(--on-accent, #fff);
     }
   }
 }
@@ -418,7 +418,7 @@
 
 .floor {
   position: relative;
-  min-height: min(58dvh, 26rem);
+  min-height: min(72dvh, 34rem);
   border-radius: 22px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -427,36 +427,37 @@
 }
 
 .floor-stack--multi .floor {
-  min-height: min(46dvh, 22rem);
+  min-height: min(56dvh, 28rem);
 }
 
 .floor__bg {
   position: absolute;
   inset: 0;
-  background: #f4f6f4;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 5%, #f4f6f4);
 }
 
-/** Área útil del mapa: inset para que las mesas no queden pegadas al borde. */
+/** Área útil del mapa: inset para que las mesas no se pisen entre sí ni con el borde. */
 .floor__stage {
   position: absolute;
-  inset: 0.85rem;
+  inset: 1.1rem;
 }
 
 .floor__table {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 3;
-  min-width: 3.5rem;
-  min-height: 3.5rem;
-  padding: 0.35rem 0.45rem;
-  border-radius: 16px;
+  min-width: 3.15rem;
+  min-height: 3.15rem;
+  max-width: 4.6rem;
+  padding: 0.28rem 0.35rem;
+  border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 28%, var(--line));
   background: #fff;
   color: var(--ink);
   font: inherit;
   display: grid;
   place-items: center;
-  gap: 0.05rem;
+  gap: 0.02rem;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(20, 40, 30, 0.08);
 
@@ -476,21 +477,23 @@
 }
 
 .floor__table-num {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 850;
   letter-spacing: -0.02em;
   color: var(--accent, #2e7d32);
+  line-height: 1.05;
 }
 
 .floor__table-cap {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 750;
   color: var(--muted);
+  line-height: 1.1;
 }
 
 .floor__table--busy .floor__table-num,
 .floor__table--busy .floor__table-cap {
-  color: var(--ink);
+  color: var(--accent, #2e7d32);
 }
 
 .floor__object {
@@ -595,15 +598,15 @@
   }
 
   &--busy {
-    border-color: color-mix(in srgb, #c2410c 40%, var(--line));
-    background: color-mix(in srgb, #c2410c 8%, #fff);
+    border-color: color-mix(in srgb, var(--accent, #2e7d32) 40%, var(--line));
+    background: color-mix(in srgb, var(--accent, #2e7d32) 10%, #fff);
 
     strong {
-      color: #9a3412;
+      color: var(--accent, #2e7d32);
     }
 
     span {
-      color: #9a3412;
+      color: var(--accent, #2e7d32);
     }
   }
 }

@@ -1,5 +1,14 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  HostBinding,
+  OnInit,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -20,7 +29,7 @@ import {
   DeliveryMapSelection,
 } from './delivery-map-picker';
 import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
-import { apiErrorMessage, orderingMoney, paymentLabel } from './ordering-ui.util';
+import { apiErrorMessage, onAccentColor, orderingMoney, paymentLabel } from './ordering-ui.util';
 
 type PosLine = {
   key: string;
@@ -166,7 +175,23 @@ export class StaffOrderingPosComponent implements OnInit {
 
   readonly paymentMethods = computed(() => this.config()?.payments?.methods ?? []);
 
-  readonly accent = computed(() => this.config()?.shop?.accentColor ?? '#2e7d32');
+  readonly accent = computed(
+    () =>
+      this.config()?.shop?.accentColor?.trim() ||
+      this.shops.accentColor() ||
+      '#2e7d32',
+  );
+  readonly onAccent = computed(() => onAccentColor(this.accent()));
+
+  @HostBinding('style.--accent')
+  get hostAccent(): string {
+    return this.accent();
+  }
+
+  @HostBinding('style.--on-accent')
+  get hostOnAccent(): string {
+    return this.onAccent();
+  }
 
   ngOnInit(): void {
     if (!this.embedded()) this.title.setTitle('Pedido mostrador');

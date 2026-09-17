@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ControlContainer,
   FormArray,
+  FormBuilder,
   FormGroup,
   FormGroupDirective,
   ReactiveFormsModule,
@@ -12,6 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { debounceTime, merge } from 'rxjs';
@@ -43,6 +45,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     MatButtonModule,
     MatSlideToggleModule,
     MatIconModule,
+    MatSelectModule,
     MatSnackBarModule,
     DeliveryZoneMapEditorComponent,
   ],
@@ -122,16 +125,46 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
         </div>
 
         <h3 class="op__subtitle">Medios de pago</h3>
-        <div class="op__toggles">
-          <div class="op__row-toggle">
-            <div><strong>Efectivo</strong></div>
-            <mat-slide-toggle formControlName="payCash" aria-label="Efectivo" />
-          </div>
-          <div class="op__row-toggle">
-            <div><strong>Transferencia</strong></div>
-            <mat-slide-toggle formControlName="payTransfer" aria-label="Transferencia" />
-          </div>
+        <p class="op__schedule-hint">
+          Al pedir, el cliente elige uno. Podés vincular cada medio a una cuenta del local.
+        </p>
+        <div class="op__pays" formArrayName="orderingPaymentMethods">
+          @for (m of orderingPays.controls; track $index; let i = $index) {
+            <div class="op__pay" [formGroupName]="i">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
+                <mat-label>Nombre</mat-label>
+                <input matInput formControlName="name" placeholder="ej. Efectivo" />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="op__pay-account"
+              >
+                <mat-label>Cuenta</mat-label>
+                <mat-select formControlName="accountId">
+                  <mat-option [value]="null">Sin vincular</mat-option>
+                  @for (a of ledgerAccounts(); track a.id) {
+                    <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <button
+                mat-icon-button
+                type="button"
+                class="op__pay-del"
+                (click)="removeOrderingPay(i)"
+                aria-label="Quitar"
+                [disabled]="orderingPays.length <= 1"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          }
         </div>
+        <button mat-stroked-button type="button" class="op__pay-add" (click)="addOrderingPay()">
+          <mat-icon>add</mat-icon>
+          Agregar medio
+        </button>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__full">
           <mat-label>Datos de transferencia (CBU / alias)</mat-label>
           <textarea matInput rows="2" formControlName="transferInstructions"></textarea>
@@ -455,9 +488,10 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
   styleUrl: './admin-shop-operation.scss',
 })
 export class AdminShopOrderingComponent {
-  private readonly host = inject(ADMIN_SHOP_HOST);
+  readonly host = inject(ADMIN_SHOP_HOST);
   private readonly snack = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly fb = inject(FormBuilder);
 
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
   readonly addZone = output<void>();
@@ -472,6 +506,7 @@ export class AdminShopOrderingComponent {
   );
   readonly takeawayOn = computed(() => !!this.host.formValue()?.takeawayEnabled);
   readonly deliveryOn = computed(() => !!this.host.formValue()?.deliveryEnabled);
+  readonly ledgerAccounts = computed(() => this.host.allLedgerAccounts());
 
   constructor() {
     // Tras cargar el local (o GET), si hay horarios distintos por día activar modo custom.
@@ -479,6 +514,26 @@ export class AdminShopOrderingComponent {
       .pipe(debounceTime(0), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.syncCustomModesFromForm());
     queueMicrotask(() => this.syncCustomModesFromForm());
+  }
+
+  get orderingPays(): FormArray {
+    return this.host.form.get('orderingPaymentMethods') as FormArray;
+  }
+
+  addOrderingPay(): void {
+    this.orderingPays.push(
+      this.fb.nonNullable.group({
+        id: [''],
+        name: [''],
+        accountId: this.fb.control<string | null>(null),
+        active: [true],
+      }),
+    );
+  }
+
+  removeOrderingPay(index: number): void {
+    if (this.orderingPays.length <= 1) return;
+    this.orderingPays.removeAt(index);
   }
 
   orderingPublicUrl(): string {

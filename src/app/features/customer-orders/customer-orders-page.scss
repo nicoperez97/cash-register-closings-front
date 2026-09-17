@@ -141,7 +141,7 @@
   border-radius: 999px;
   border: 1px solid var(--guy-border, #d7e0d9);
   background: #fff;
-  color: var(--guy-navy, #003366);
+  color: var(--guy-ink, #1a221c);
   font-size: 0.78rem;
   font-weight: 650;
   text-decoration: none;
@@ -160,13 +160,13 @@
 }
 
 .co-tool--primary {
-  background: var(--guy-green, #2e7d32);
-  border-color: var(--guy-green, #2e7d32);
+  background: var(--guy-accent, #2e7d32);
+  border-color: var(--guy-accent, #2e7d32);
   color: #fff;
 }
 
 .co-tool--on {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--guy-green, #2e7d32) 35%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--guy-accent, #2e7d32) 35%, transparent);
 }
 
 .co-views {
@@ -273,7 +273,7 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--guy-navy, #003366);
+  color: var(--guy-ink, #1a221c);
 }
 
 .co-col__count {
@@ -348,7 +348,7 @@
   font-weight: 800;
   font-size: 0.95rem;
   letter-spacing: 0.03em;
-  color: var(--guy-navy, #003366);
+  color: var(--guy-ink, #1a221c);
   cursor: pointer;
 }
 
@@ -380,7 +380,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--guy-primary, #1565c0);
+  color: var(--guy-accent, #2e7d32);
 }
 
 .co-card__phone {
@@ -388,7 +388,7 @@
   margin-top: 0.15rem;
   font-size: 0.78rem;
   font-weight: 650;
-  color: var(--guy-green, #2e7d32);
+  color: var(--guy-accent, #2e7d32);
   text-decoration: none;
 }
 
@@ -403,7 +403,7 @@
 .co-card__notes {
   padding: 0.25rem 0.35rem;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--guy-primary, #1565c0) 7%, #fff);
+  background: color-mix(in srgb, var(--guy-accent, #2e7d32) 7%, #fff);
   color: var(--guy-ink, #1a221c);
 }
 

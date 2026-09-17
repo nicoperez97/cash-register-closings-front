@@ -142,9 +142,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly forceList = signal(false);
 
   readonly onAccent = computed(() => onAccentColor(this.accent()));
-  /** En Comanda embebida no fijamos --accent inline: usa --guy-green del tema del local. */
-  readonly hostAccentVar = computed(() => (this.staffMode ? null : this.accent()));
-  readonly hostOnAccentVar = computed(() => (this.staffMode ? null : this.onAccent()));
+  /** Siempre fijar --accent del local (también en Comanda embebida). */
+  readonly hostAccentVar = computed(() => this.accent());
+  readonly hostOnAccentVar = computed(() => this.onAccent());
   readonly lineCount = computed(() => this.lines().reduce((s, l) => s + l.qty, 0));
 
   readonly freeTables = computed(() => this.tables().filter((t) => !t.openSession));
@@ -209,14 +209,20 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly mapSectorPanels = computed(() => {
     const tab = this.sectorTab();
     const sectors = this.sectorTabs();
-    if (tab) return [this.panelForSector(tab)];
-    if (sectors.length <= 1) {
-      const only = sectors[0];
-      return only
-        ? [this.panelForSector(only)]
-        : [{ name: '', tables: this.tables(), objects: this.mapObjects() }];
-    }
-    return sectors.map((name) => this.panelForSector(name));
+    const raw =
+      tab
+        ? [this.panelForSector(tab)]
+        : sectors.length <= 1
+          ? [
+              (() => {
+                const only = sectors[0];
+                return only
+                  ? this.panelForSector(only)
+                  : { name: '', tables: this.tables(), objects: this.mapObjects() };
+              })(),
+            ]
+          : sectors.map((name) => this.panelForSector(name));
+    return raw.map((panel) => this.withNormalizedFloorPositions(panel));
   });
 
   readonly mapShowsMultipleSectors = computed(() => this.mapSectorPanels().length > 1);
@@ -232,6 +238,61 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     );
     const objects = this.mapObjects().filter((o) => sectorIds.has(String(o.sectorId)));
     return { name, tables, objects };
+  }
+
+  /**
+   * Reescala coords del sector al área útil del panel para que no se amontonen
+   * ni queden todas en una esquina al separar Adentro/Afuera.
+   */
+  private withNormalizedFloorPositions(panel: {
+    name: string;
+    tables: WaiterTable[];
+    objects: WaiterMapObject[];
+  }): {
+    name: string;
+    tables: Array<WaiterTable & { viewX: number; viewY: number }>;
+    objects: Array<WaiterMapObject & { viewX: number; viewY: number }>;
+  } {
+    const pts: Array<{ x: number; y: number }> = [];
+    for (const t of panel.tables) {
+      if (t.mapX == null || t.mapY == null) continue;
+      pts.push({ x: Number(t.mapX), y: Number(t.mapY) });
+    }
+    for (const o of panel.objects) {
+      if (o.mapX == null || o.mapY == null) continue;
+      pts.push({ x: Number(o.mapX), y: Number(o.mapY) });
+    }
+    let minX = pts.length ? Math.min(...pts.map((p) => p.x)) : 0;
+    let maxX = pts.length ? Math.max(...pts.map((p) => p.x)) : 100;
+    let minY = pts.length ? Math.min(...pts.map((p) => p.y)) : 0;
+    let maxY = pts.length ? Math.max(...pts.map((p) => p.y)) : 100;
+    if (maxX - minX < 12) {
+      const mid = (minX + maxX) / 2;
+      minX = mid - 18;
+      maxX = mid + 18;
+    }
+    if (maxY - minY < 14) {
+      const mid = (minY + maxY) / 2;
+      minY = mid - 20;
+      maxY = mid + 20;
+    }
+    const padX = Math.max(10, (maxX - minX) * 0.14);
+    const padY = Math.max(12, (maxY - minY) * 0.16);
+    minX -= padX;
+    maxX += padX;
+    minY -= padY;
+    maxY += padY;
+    const spanX = maxX - minX || 1;
+    const spanY = maxY - minY || 1;
+    const mapPoint = (x: number | null | undefined, y: number | null | undefined) => ({
+      viewX: x == null ? 50 : ((Number(x) - minX) / spanX) * 100,
+      viewY: y == null ? 50 : ((Number(y) - minY) / spanY) * 100,
+    });
+    return {
+      name: panel.name,
+      tables: panel.tables.map((t) => ({ ...t, ...mapPoint(t.mapX, t.mapY) })),
+      objects: panel.objects.map((o) => ({ ...o, ...mapPoint(o.mapX, o.mapY) })),
+    };
   }
 
   private sectorNameOf(t: WaiterTable): string {
@@ -270,19 +331,23 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.forceList.set(mode === 'list');
   }
 
-  tableLeft(t: WaiterTable): number {
+  tableLeft(t: WaiterTable & { viewX?: number }): number {
+    if (t.viewX != null && Number.isFinite(t.viewX)) return Number(t.viewX);
     return t.mapX == null ? 50 : Number(t.mapX);
   }
 
-  tableTop(t: WaiterTable): number {
+  tableTop(t: WaiterTable & { viewY?: number }): number {
+    if (t.viewY != null && Number.isFinite(t.viewY)) return Number(t.viewY);
     return t.mapY == null ? 50 : Number(t.mapY);
   }
 
-  objectLeft(o: WaiterMapObject): number {
+  objectLeft(o: WaiterMapObject & { viewX?: number }): number {
+    if (o.viewX != null && Number.isFinite(o.viewX)) return Number(o.viewX);
     return Number(o.mapX);
   }
 
-  objectTop(o: WaiterMapObject): number {
+  objectTop(o: WaiterMapObject & { viewY?: number }): number {
+    if (o.viewY != null && Number.isFinite(o.viewY)) return Number(o.viewY);
     return Number(o.mapY);
   }
 

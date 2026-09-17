@@ -4,6 +4,27 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  --accent: var(--guy-accent, #2e7d32);
+  --on-accent: #fff;
+  color: var(--guy-ink, #1a221c);
+
+  /* Evita que estilos globales (guy-navy/azul) pisen el color del local. */
+  button {
+    color: inherit;
+  }
+
+  button.pos__chip--on {
+    color: var(--accent, #2e7d32);
+  }
+
+  button.pos__btn--primary {
+    color: var(--on-accent, #fff);
+  }
+
+  button.pos__back,
+  button.pos__map-btn {
+    color: var(--accent, #2e7d32);
+  }
 }
 
 .pos {
@@ -26,7 +47,7 @@
 .pos__back {
   border: 0;
   background: transparent;
-  color: var(--guy-green, #2e7d32);
+  color: var(--accent, #2e7d32);
   font-weight: 700;
   cursor: pointer;
   padding: 0;
@@ -37,6 +58,7 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__top p {
@@ -49,6 +71,7 @@
   margin-left: auto;
   border: 1px solid var(--guy-border, #d7e0d9);
   background: #fff;
+  color: var(--guy-ink, #1a221c);
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
   font-weight: 650;
@@ -90,6 +113,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 800;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__search input,
@@ -102,6 +126,15 @@
   padding: 0.55rem 0.7rem;
   font: inherit;
   background: #fff;
+  color: var(--guy-ink, #1a221c);
+}
+
+.pos__search input:focus,
+.pos__fields input:focus,
+.pos__discount input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent, #2e7d32) 45%, transparent);
+  outline-offset: 1px;
+  border-color: color-mix(in srgb, var(--accent, #2e7d32) 40%, var(--guy-border, #d7e0d9));
 }
 
 .pos__chips {
@@ -122,9 +155,9 @@
 }
 
 .pos__chip--on {
-  background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);
-  border-color: var(--guy-green, #2e7d32);
-  color: var(--guy-green, #2e7d32);
+  background: color-mix(in srgb, var(--accent, #2e7d32) 12%, #fff);
+  border-color: var(--accent, #2e7d32);
+  color: var(--accent, #2e7d32);
 }
 
 .pos__search,
@@ -158,14 +191,16 @@
   padding: 0.65rem 0.75rem;
   cursor: pointer;
   font: inherit;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__item:hover {
-  border-color: var(--guy-green, #2e7d32);
+  border-color: var(--accent, #2e7d32);
 }
 
 .pos__item-name {
   font-weight: 700;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__item-price {
@@ -181,8 +216,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--guy-green, #2e7d32);
-  color: #fff;
+  background: var(--accent, #2e7d32);
+  color: var(--on-accent, #fff);
   font-weight: 800;
 }
 
@@ -194,8 +229,8 @@
 }
 
 .pos__extra {
-  border: 1px dashed color-mix(in srgb, var(--guy-green, #2e7d32) 40%, var(--guy-border, #d7e0d9));
-  background: color-mix(in srgb, var(--guy-green, #2e7d32) 6%, #fff);
+  border: 1px dashed color-mix(in srgb, var(--accent, #2e7d32) 40%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, var(--accent, #2e7d32) 6%, #fff);
   border-radius: 999px;
   padding: 0.2rem 0.55rem;
   font-size: 0.72rem;
@@ -222,6 +257,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   font-size: 0.9rem;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__qty {
@@ -240,6 +276,11 @@
   font-weight: 800;
   color: var(--guy-ink, #1a221c);
   cursor: pointer;
+}
+
+.pos__qty button:hover {
+  border-color: var(--accent, #2e7d32);
+  color: var(--accent, #2e7d32);
 }
 
 .pos__qty span {
@@ -276,13 +317,14 @@
   gap: 0.5rem;
   grid-template-columns: none;
   font-weight: 650;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__check input {
   width: 1.05rem;
   height: 1.05rem;
   margin: 0;
-  accent-color: var(--guy-accent, #1b7a4b);
+  accent-color: var(--accent, #2e7d32);
 }
 
 .pos__totals {
@@ -291,6 +333,7 @@
   padding-top: 0.35rem;
   border-top: 1px solid var(--guy-border, #d7e0d9);
   font-size: 0.9rem;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__totals > div {
@@ -317,9 +360,9 @@
   display: grid;
   gap: 0.45rem;
   padding: 0.55rem 0.6rem;
-  border: 1px dashed color-mix(in srgb, var(--guy-green, #2e7d32) 35%, #d7e0d9);
+  border: 1px dashed color-mix(in srgb, var(--accent, #2e7d32) 35%, #d7e0d9);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--guy-green, #2e7d32) 5%, #fff);
+  background: color-mix(in srgb, var(--accent, #2e7d32) 5%, #fff);
 }
 
 .pos__delivery select {
@@ -329,12 +372,13 @@
   padding: 0.45rem 0.55rem;
   font: inherit;
   background: #fff;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__map-btn {
-  border: 1px solid var(--guy-green, #2e7d32);
+  border: 1px solid var(--accent, #2e7d32);
   background: #fff;
-  color: var(--guy-green, #2e7d32);
+  color: var(--accent, #2e7d32);
   border-radius: 999px;
   padding: 0.4rem 0.75rem;
   font-weight: 700;
@@ -343,7 +387,7 @@
 }
 
 .pos__map-btn:hover {
-  background: color-mix(in srgb, var(--guy-green, #2e7d32) 8%, #fff);
+  background: color-mix(in srgb, var(--accent, #2e7d32) 8%, #fff);
 }
 
 .pos__btn {
@@ -353,13 +397,14 @@
   padding: 0.7rem 0.9rem;
   font-weight: 700;
   cursor: pointer;
+  color: var(--guy-ink, #1a221c);
 }
 
 .pos__btn--primary {
   width: 100%;
-  background: var(--guy-green, #2e7d32);
-  border-color: var(--guy-green, #2e7d32);
-  color: #fff;
+  background: var(--accent, #2e7d32);
+  border-color: var(--accent, #2e7d32);
+  color: var(--on-accent, #fff);
   font-size: 1rem;
 }
 
