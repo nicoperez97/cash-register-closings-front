@@ -37,6 +37,10 @@ import {
   orderingPayToApiMethod,
   type OrderingPayChoice,
 } from './ordering-ui.util';
+import {
+  resolveDiscountPresets,
+  type DiscountPreset,
+} from '../../core/shop/discount-presets';
 
 type PosLine = {
   key: string;
@@ -77,6 +81,7 @@ export class StaffOrderingPosComponent implements OnInit {
   readonly sectionFilter = signal<string | null>(null);
   readonly discountMode = signal<'none' | 'percent' | 'fixed'>('none');
   readonly discountValue = signal<number | null>(null);
+  readonly discountPresetId = signal<string | null>(null);
   readonly paymentChoiceId = signal<string>('');
   readonly fulfillment = signal<CustomerOrderFulfillment>('COUNTER');
   readonly deliveryZoneId = signal<string | null>(null);
@@ -107,6 +112,14 @@ export class StaffOrderingPosComponent implements OnInit {
 
   readonly deliveryFee = computed(() =>
     this.fulfillment() === 'DELIVERY' ? Number(this.selectedZone()?.fee ?? 0) : 0,
+  );
+
+  readonly discountPresets = computed(() =>
+    resolveDiscountPresets(this.config()?.discountPresets),
+  );
+
+  readonly showDiscountInput = computed(
+    () => this.discountMode() !== 'none' && !this.discountPresetId(),
   );
 
   readonly sections = computed(() => {
@@ -293,7 +306,15 @@ export class StaffOrderingPosComponent implements OnInit {
 
   setDiscountMode(mode: 'none' | 'percent' | 'fixed'): void {
     this.discountMode.set(mode);
+    this.discountPresetId.set(null);
     if (mode === 'none') this.discountValue.set(null);
+    this.syncCashIfNeeded();
+  }
+
+  applyDiscountPreset(preset: DiscountPreset): void {
+    this.discountPresetId.set(preset.id);
+    this.discountMode.set(preset.mode);
+    this.discountValue.set(preset.value);
     this.syncCashIfNeeded();
   }
 
@@ -412,6 +433,7 @@ export class StaffOrderingPosComponent implements OnInit {
     this.lines.set([]);
     this.discountMode.set('none');
     this.discountValue.set(null);
+    this.discountPresetId.set(null);
   }
 
   submit(): void {

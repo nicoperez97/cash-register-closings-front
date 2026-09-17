@@ -31,6 +31,10 @@ import {
   normalizeWaiterCapProfile,
   type WaiterCapProfile,
 } from '../admin/waiter-capabilities';
+import {
+  resolveDiscountPresets,
+  type DiscountPreset,
+} from '../../core/shop/discount-presets';
 
 type PosLine = {
   key: string;
@@ -106,6 +110,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly printKitchen = signal(true);
   readonly printCustomerTicket = signal(false);
   readonly cartOpen = signal(false);
+  /** Vista detallada del carrito (qty +/− y nota). Por defecto resumen. */
+  readonly cartDetail = signal(false);
+  /** Ítem de carta con extras desplegados (null = todos contraídos). */
+  readonly extrasOpenFor = signal<string | null>(null);
 
   /** Sheet: pedir comensales (y mozo en admin) antes de abrir. */
   readonly coversSheet = signal<WaiterTable | null>(null);
@@ -134,6 +142,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly ticketSheet = signal(false);
   readonly ticketDiscountMode = signal<'none' | 'percent' | 'fixed'>('none');
   readonly ticketDiscountValue = signal<number | null>(null);
+  readonly ticketDiscountPresetId = signal<string | null>(null);
 
   /** Tab de sector: null = Todos. */
   readonly sectorTab = signal<string | null>(null);
@@ -145,7 +154,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   /** Siempre fijar --accent del local (también en Comanda embebida). */
   readonly hostAccentVar = computed(() => this.accent());
   readonly hostOnAccentVar = computed(() => this.onAccent());
-  readonly lineCount = computed(() => this.lines().reduce((s, l) => s + l.qty, 0));
+  readonly lineCount = computed(() =>
+    this.lines()
+      .filter((l) => l.kind !== 'EXTRA')
+      .reduce((s, l) => s + l.qty, 0),
+  );
 
   readonly freeTables = computed(() => this.tables().filter((t) => !t.openSession));
   readonly busyTables = computed(() => this.tables().filter((t) => !!t.openSession));
@@ -405,9 +418,40 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   });
 
   readonly extras = computed(() => this.catalog()?.extras ?? []);
+
+  readonly discountPresets = computed(() =>
+    resolveDiscountPresets(this.catalog()?.discountPresets),
+  );
+
+  readonly showTicketDiscountInput = computed(
+    () => this.ticketDiscountMode() !== 'none' && !this.ticketDiscountPresetId(),
+  );
+
   readonly subtotal = computed(() =>
     this.lines().reduce((s, l) => s + l.unitPrice * l.qty, 0),
   );
+
+  /** Ítems del carrito con sus extras colgados debajo. */
+  readonly cartGroups = computed(() => {
+    const lines = this.lines();
+    const items = lines.filter((l) => l.kind !== 'EXTRA');
+    const extras = lines.filter((l) => l.kind === 'EXTRA');
+    const used = new Set<string>();
+    const groups = items.map((item) => {
+      const kids = extras.filter((ex) => {
+        const parentId = String(ex.attachedToMenuItemId || ex.menuItemId || '');
+        if (parentId !== String(item.menuItemId)) return false;
+        used.add(ex.key);
+        return true;
+      });
+      return { item, extras: kids };
+    });
+    for (const ex of extras) {
+      if (used.has(ex.key)) continue;
+      groups.push({ item: ex, extras: [] });
+    }
+    return groups;
+  });
 
   ngOnInit(): void {
     applyStatusBar('#eef1ee', 'light');
@@ -1002,17 +1046,31 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   itemExtras(itemId: string) {
+    const id = String(itemId);
     return this.extras().filter((e) => {
-      const ids = e.menuItemIds ?? [];
-      return !ids.length || ids.includes(itemId);
+      const ids = (e.menuItemIds ?? []).map(String);
+      return !ids.length || ids.includes(id);
     });
   }
 
-  addExtra(extra: { id: string; name: string; price: number }, itemId: string): void {
-    const parent = this.catalogItems().find((it) => it.id === itemId);
-    if (!parent) return;
+  toggleItemExtras(itemId: string, ev?: Event): void {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+    const id = String(itemId);
+    this.extrasOpenFor.update((cur) => (cur === id ? null : id));
+  }
+
+  addExtra(
+    extra: { id: string; name: string; price: number },
+    parent: CatalogItem,
+    ev?: Event,
+  ): void {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+    if (!parent?.id) return;
+    const itemId = String(parent.id);
     const itemKey = `i:${itemId}`;
-    const extraKey = `e:${extra.id}:${itemId}`;
+    const extraKey = `e:${String(extra.id)}:${itemId}`;
     this.lines.update((list) => {
       let next = [...list];
       const itemIdx = next.findIndex((l) => l.key === itemKey);
@@ -1020,12 +1078,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
       if (itemIdx < 0) {
         // Tocó el extra directo: suma plato + extra juntos.
-        next = [
-          ...next,
+        next.push(
           {
             key: itemKey,
             kind: 'ITEM',
-            menuItemId: parent.id,
+            menuItemId: itemId,
             name: parent.name,
             unitPrice: Number(parent.price) || 0,
             qty: 1,
@@ -1037,10 +1094,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
             name: extra.name,
             unitPrice: Number(extra.price) || 0,
             qty: 1,
-            extraId: extra.id,
+            extraId: String(extra.id),
             attachedToMenuItemId: itemId,
           },
-        ];
+        );
         return next;
       }
 
@@ -1053,7 +1110,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           name: extra.name,
           unitPrice: Number(extra.price) || 0,
           qty: itemQty,
-          extraId: extra.id,
+          extraId: String(extra.id),
           attachedToMenuItemId: itemId,
         });
         return next;
@@ -1071,17 +1128,32 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   bump(line: PosLine, delta: number): void {
-    this.lines.update((list) =>
-      list
-        .map((l) =>
-          l.key === line.key ? { ...l, qty: Math.max(0, Math.min(99, l.qty + delta)) } : l,
-        )
-        .filter((l) => l.qty > 0),
-    );
+    this.lines.update((list) => {
+      const next = list.map((l) => {
+        if (l.key !== line.key) return l;
+        return { ...l, qty: Math.max(0, Math.min(99, l.qty + delta)) };
+      });
+      const updated = next.find((l) => l.key === line.key);
+      if (!updated) return list;
+      // Si baja/sube el plato, alineá extras colgados; si lo saca, sacá los extras.
+      if (line.kind === 'ITEM') {
+        const parentId = String(line.menuItemId);
+        return next
+          .map((l) => {
+            if (l.kind !== 'EXTRA') return l;
+            const attach = String(l.attachedToMenuItemId || l.menuItemId || '');
+            if (attach !== parentId) return l;
+            return { ...l, qty: updated.qty };
+          })
+          .filter((l) => l.qty > 0);
+      }
+      return next.filter((l) => l.qty > 0);
+    });
   }
 
   clearCart(): void {
     this.lines.set([]);
+    this.cartDetail.set(false);
   }
 
   sendOrder(): void {
@@ -1105,10 +1177,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (!caps.allowPrintCustomerTicket) printCustomerTicket = false;
     if (caps.lockPrintKitchen) printKitchen = !!caps.defaultPrintKitchen;
     if (caps.lockPrintCustomerTicket) printCustomerTicket = !!caps.defaultPrintCustomerTicket;
-    if (!printKitchen && !printCustomerTicket) {
-      this.error.set('Elegí cocina y/o ticket cliente');
-      return;
-    }
     const items = lines
       .filter((l) => l.kind === 'ITEM')
       .map((l) => ({ menuItemId: l.menuItemId, qty: l.qty }));
@@ -1135,7 +1203,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.lines.set([]);
           this.notes.set('');
           this.cartOpen.set(false);
-          this.showToast('Comanda enviada');
+          this.cartDetail.set(false);
+          this.showToast(
+            printKitchen || printCustomerTicket ? 'Comanda enviada' : 'Agregado a la mesa',
+          );
           this.session.set(null);
           this.view.set('tables');
           this.loadTables();
@@ -1366,7 +1437,20 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     }
     this.ticketDiscountMode.set('none');
     this.ticketDiscountValue.set(null);
+    this.ticketDiscountPresetId.set(null);
     this.ticketSheet.set(true);
+  }
+
+  setTicketDiscountMode(mode: 'none' | 'percent' | 'fixed'): void {
+    this.ticketDiscountMode.set(mode);
+    this.ticketDiscountPresetId.set(null);
+    if (mode === 'none') this.ticketDiscountValue.set(null);
+  }
+
+  applyTicketDiscountPreset(preset: DiscountPreset): void {
+    this.ticketDiscountPresetId.set(preset.id);
+    this.ticketDiscountMode.set(preset.mode);
+    this.ticketDiscountValue.set(preset.value);
   }
 
   cancelTicketSheet(): void {

@@ -93,6 +93,13 @@ export interface PublicOrderingConfig {
   deliveryZones: PublicDeliveryZone[];
   eta: { takeaway?: string | null; delivery?: string | null } | null;
   extras: PublicOrderingExtra[];
+  /** Atajos de descuento de la caja rápida. */
+  discountPresets?: Array<{
+    id: string;
+    label: string;
+    mode: 'percent' | 'fixed';
+    value: number;
+  }>;
   menus: PublicOrderingMenu[];
 }
 

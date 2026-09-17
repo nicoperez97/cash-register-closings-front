@@ -399,18 +399,36 @@
         }
         <ul class="items">
           @for (it of filteredCatalog(); track it.id) {
-            <li>
+            <li class="item-wrap">
               <button type="button" class="item" (click)="addItem(it)">
                 <span>{{ it.name }}</span>
                 <span class="item__price">{{ money(it.price) }}</span>
               </button>
               @if (itemExtras(it.id); as exs) {
                 @if (exs.length) {
-                  <div class="extras">
-                    @for (ex of exs; track ex.id) {
-                      <button type="button" class="extra" (click)="addExtra(ex, it.id)">
-                        + {{ ex.name }}
-                      </button>
+                  <div class="extras-bar">
+                    <button
+                      type="button"
+                      class="extras-toggle"
+                      [class.extras-toggle--on]="extrasOpenFor() === it.id"
+                      (click)="toggleItemExtras(it.id, $event)"
+                      [attr.aria-expanded]="extrasOpenFor() === it.id"
+                    >
+                      Extras
+                      <span class="extras-badge">{{ exs.length }}</span>
+                    </button>
+                    @if (extrasOpenFor() === it.id) {
+                      <div class="extras">
+                        @for (ex of exs; track ex.id) {
+                          <button
+                            type="button"
+                            class="extra"
+                            (click)="addExtra(ex, it, $event)"
+                          >
+                            + {{ ex.name }}
+                          </button>
+                        }
+                      </div>
                     }
                   </div>
                 }
@@ -425,90 +443,144 @@
 
     <div class="dock" [class.dock--open]="cartOpen() || lineCount() > 0">
       @if (!cartOpen() && lineCount() > 0) {
-        <button type="button" class="dock__peek" (click)="cartOpen.set(true)">
-          <span>{{ lineCount() }} ítems</span>
-          <strong>{{ money(subtotal()) }}</strong>
-          <span class="dock__peek-cta">Ver carrito</span>
+        <button type="button" class="dock__badge" (click)="cartOpen.set(true)" aria-label="Abrir carrito">
+          <span class="dock__badge-count">{{ lineCount() }}</span>
+          <span class="dock__badge-copy">
+            <strong>{{ money(subtotal()) }}</strong>
+            <span>Ver carrito</span>
+          </span>
         </button>
       }
 
       @if (cartOpen()) {
-        <aside class="dock__panel anim-up">
+        <aside class="dock__panel anim-up" [class.dock__panel--detail]="cartDetail()">
           <div class="cart-head">
             <h2>Carrito</h2>
-            <button type="button" class="link" (click)="cartOpen.set(false)">Cerrar</button>
-          </div>
-          @if (!lines().length) {
-            <p class="muted">Tocá platos para armar el envío.</p>
-          } @else {
-            <ul class="lines">
-              @for (line of lines(); track line.key) {
-                <li>
-                  <div class="lines__row">
-                    <strong>{{ line.name }}</strong>
-                    <span>{{ money(line.unitPrice * line.qty) }}</span>
-                  </div>
-                  <div class="qty">
-                    <button type="button" (click)="bump(line, -1)">−</button>
-                    <span>{{ line.qty }}</span>
-                    <button type="button" (click)="bump(line, 1)">+</button>
-                  </div>
-                </li>
+            <div class="cart-head__actions">
+              @if (lines().length) {
+                <button
+                  type="button"
+                  class="link"
+                  (click)="cartDetail.set(!cartDetail())"
+                >
+                  {{ cartDetail() ? 'Resumen' : 'Detalle' }}
+                </button>
               }
-            </ul>
-            <p class="total">Total {{ money(subtotal()) }}</p>
-          }
-
-          <label class="notes">
-            Nota
-            <textarea
-              rows="2"
-              [ngModel]="notes()"
-              (ngModelChange)="notes.set($event)"
-              name="notes"
-              placeholder="Sin cebolla…"
-            ></textarea>
-          </label>
-
-          <div class="checks">
-            @if (capabilities().allowPrintKitchen) {
-              <label class="check">
-                <input
-                  type="checkbox"
-                  [ngModel]="printKitchen()"
-                  (ngModelChange)="printKitchen.set($event)"
-                  name="kitchen"
-                  [disabled]="capabilities().lockPrintKitchen"
-                />
-                Cocina
-              </label>
-            }
-            @if (capabilities().allowPrintCustomerTicket) {
-              <label class="check">
-                <input
-                  type="checkbox"
-                  [ngModel]="printCustomerTicket()"
-                  (ngModelChange)="printCustomerTicket.set($event)"
-                  name="ticket"
-                  [disabled]="capabilities().lockPrintCustomerTicket"
-                />
-                Ticket cliente
-              </label>
-            }
+              <button type="button" class="link" (click)="cartOpen.set(false)">Contraer</button>
+            </div>
           </div>
 
-          <div class="dock__actions">
-            <button type="button" class="btn btn--ghost" [disabled]="!lines().length" (click)="clearCart()">
-              Vaciar
-            </button>
-            <button
-              type="button"
-              class="btn btn--lg"
-              [disabled]="busy() || !lines().length || !capabilities().allowSendOrder"
-              (click)="sendOrder()"
-            >
-              {{ busy() ? 'Enviando…' : 'Enviar comanda' }}
-            </button>
+          <div class="cart-body">
+            @if (!lines().length) {
+              <p class="muted cart-empty">Tocá platos para armar el envío.</p>
+            } @else {
+              <ul class="lines" [class.lines--simple]="!cartDetail()">
+                @for (group of cartGroups(); track group.item.key) {
+                  <li>
+                    @if (cartDetail()) {
+                      <div class="lines__row">
+                        <strong>{{ group.item.name }}</strong>
+                        <span>{{ money(group.item.unitPrice * group.item.qty) }}</span>
+                      </div>
+                      <div class="qty">
+                        <button type="button" (click)="bump(group.item, -1)">−</button>
+                        <span>{{ group.item.qty }}</span>
+                        <button type="button" (click)="bump(group.item, 1)">+</button>
+                      </div>
+                      @for (ex of group.extras; track ex.key) {
+                        <div class="lines__extra">
+                          <span>+ {{ ex.name }}</span>
+                          <span>{{ money(ex.unitPrice * ex.qty) }}</span>
+                        </div>
+                      }
+                    } @else {
+                      <div class="lines__simple">
+                        <span class="lines__simple-qty">{{ group.item.qty }}×</span>
+                        <strong>{{ group.item.name }}</strong>
+                        <span class="lines__simple-price">{{
+                          money(group.item.unitPrice * group.item.qty)
+                        }}</span>
+                      </div>
+                      @for (ex of group.extras; track ex.key) {
+                        <div class="lines__simple lines__simple--extra">
+                          <span class="lines__simple-qty"></span>
+                          <strong>+ {{ ex.name }}</strong>
+                          <span class="lines__simple-price">{{
+                            money(ex.unitPrice * ex.qty)
+                          }}</span>
+                        </div>
+                      }
+                    }
+                  </li>
+                }
+              </ul>
+            }
+
+            <div class="cart-foot">
+              @if (lines().length) {
+                <p class="total">Total {{ money(subtotal()) }}</p>
+              }
+
+              @if (cartDetail()) {
+                <label class="notes">
+                  Nota
+                  <textarea
+                    rows="2"
+                    [ngModel]="notes()"
+                    (ngModelChange)="notes.set($event)"
+                    name="notes"
+                    placeholder="Sin cebolla…"
+                  ></textarea>
+                </label>
+              }
+
+              <div class="checks">
+                @if (capabilities().allowPrintKitchen) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [ngModel]="printKitchen()"
+                      (ngModelChange)="printKitchen.set($event)"
+                      name="kitchen"
+                      [disabled]="capabilities().lockPrintKitchen"
+                    />
+                    Cocina
+                  </label>
+                }
+                @if (capabilities().allowPrintCustomerTicket) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [ngModel]="printCustomerTicket()"
+                      (ngModelChange)="printCustomerTicket.set($event)"
+                      name="ticket"
+                      [disabled]="capabilities().lockPrintCustomerTicket"
+                    />
+                    Ticket cliente
+                  </label>
+                }
+              </div>
+
+              <div class="dock__actions">
+                <button type="button" class="btn btn--ghost" [disabled]="!lines().length" (click)="clearCart()">
+                  Vaciar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--lg"
+                  [disabled]="busy() || !lines().length || !capabilities().allowSendOrder"
+                  (click)="sendOrder()"
+                >
+                  {{
+                    busy()
+                      ? 'Enviando…'
+                      : printKitchen() || printCustomerTicket()
+                        ? 'Enviar comanda'
+                        : 'Agregar sin imprimir'
+                  }}
+                </button>
+              </div>
+            </div>
           </div>
         </aside>
       }
@@ -657,29 +729,39 @@
             type="button"
             class="choice"
             [class.choice--on]="ticketDiscountMode() === 'none'"
-            (click)="ticketDiscountMode.set('none'); ticketDiscountValue.set(null)"
+            (click)="setTicketDiscountMode('none')"
           >
             No
           </button>
+          @for (p of discountPresets(); track p.id) {
+            <button
+              type="button"
+              class="choice"
+              [class.choice--on]="ticketDiscountPresetId() === p.id"
+              (click)="applyTicketDiscountPreset(p)"
+            >
+              {{ p.label }}
+            </button>
+          }
           <button
             type="button"
             class="choice"
-            [class.choice--on]="ticketDiscountMode() === 'percent'"
-            (click)="ticketDiscountMode.set('percent')"
+            [class.choice--on]="ticketDiscountMode() === 'percent' && !ticketDiscountPresetId()"
+            (click)="setTicketDiscountMode('percent')"
           >
             %
           </button>
           <button
             type="button"
             class="choice"
-            [class.choice--on]="ticketDiscountMode() === 'fixed'"
-            (click)="ticketDiscountMode.set('fixed')"
+            [class.choice--on]="ticketDiscountMode() === 'fixed' && !ticketDiscountPresetId()"
+            (click)="setTicketDiscountMode('fixed')"
           >
             $
           </button>
         </div>
       </div>
-      @if (ticketDiscountMode() !== 'none') {
+      @if (showTicketDiscountInput()) {
         <label class="sheet__field">
           <span class="sheet__label">{{ ticketDiscountMode() === 'percent' ? 'Porcentaje' : 'Monto' }}</span>
           <input

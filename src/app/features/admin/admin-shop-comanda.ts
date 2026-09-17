@@ -73,6 +73,50 @@ import { WAITER_CAP_FIELDS, type WaiterCapProfile } from './waiter-capabilities'
           <p class="op__public-url">{{ waiterPublicUrl() }}</p>
         }
 
+        <h3 class="op__subtitle">Atajos de descuento</h3>
+        <p class="op__schedule-hint">
+          Botones rápidos en el ticket de mesa y en la caja rápida de Pedidos clientes. Por defecto
+          viene «10%». Seguen disponibles No, % y $ para monto libre.
+        </p>
+        <div class="op__pays" formArrayName="discountPresets">
+          @for (p of discountPresets.controls; track $index; let i = $index) {
+            <div class="op__pay" [formGroupName]="i">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
+                <mat-label>Etiqueta</mat-label>
+                <input matInput formControlName="label" placeholder="ej. 10%" />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="op__pay-account"
+              >
+                <mat-label>Tipo</mat-label>
+                <mat-select formControlName="mode">
+                  <mat-option value="percent">Porcentaje</mat-option>
+                  <mat-option value="fixed">Monto fijo</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-account">
+                <mat-label>Valor</mat-label>
+                <input matInput type="number" min="0" step="1" formControlName="value" />
+              </mat-form-field>
+              <button
+                mat-icon-button
+                type="button"
+                class="op__pay-del"
+                (click)="removeDiscountPreset(i)"
+                aria-label="Quitar"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+        <button mat-stroked-button type="button" class="op__pay-add" (click)="addDiscountPreset()">
+          <mat-icon>add</mat-icon>
+          Agregar atajo
+        </button>
+
         @if (waiterOn()) {
           <h3 class="op__subtitle">Medios de pago de mesa</h3>
           <p class="op__schedule-hint">
@@ -206,6 +250,18 @@ export class AdminShopComandaComponent {
 
   get tablePays(): FormArray {
     return this.host.form.get('tablePaymentMethods') as FormArray;
+  }
+
+  get discountPresets(): FormArray {
+    return this.host.form.get('discountPresets') as FormArray;
+  }
+
+  addDiscountPreset(): void {
+    this.host.addDiscountPreset();
+  }
+
+  removeDiscountPreset(index: number): void {
+    this.host.removeDiscountPreset(index);
   }
 
   addTablePay(): void {
