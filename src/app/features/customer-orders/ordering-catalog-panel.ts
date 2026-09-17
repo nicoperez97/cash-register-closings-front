@@ -53,9 +53,14 @@ type ClosingSummary = {
   closesAt: string;
   orderCount: number;
   openCount: number;
+  /** Mesas todavía abiertas (no entran al cierre hasta cobrarlas). */
+  openTablesCount?: number;
   completedCount: number;
   cashTotal: number;
   transferTotal: number;
+  /** Pedidos + mesas en efectivo (listo para el campo Efectivo del cierre). */
+  cashDeclaredTotal?: number;
+  transferDeclaredTotal?: number;
   total: number;
   unitsSold: number;
   defaultChangeAmount?: number;
@@ -702,9 +707,20 @@ export class OrderingCatalogPanelComponent {
       )
       .subscribe({
         next: (summary) => {
+          const warnings: string[] = [];
           if (summary.openCount > 0) {
+            warnings.push(
+              `${summary.openCount} pedido(s) todavía abiertos del turno «${summary.shiftName}»`,
+            );
+          }
+          if ((summary.openTablesCount ?? 0) > 0) {
+            warnings.push(
+              `${summary.openTablesCount} mesa(s) abierta(s) (no se incluyen hasta cobrarlas)`,
+            );
+          }
+          if (warnings.length) {
             const cont = window.confirm(
-              `Hay ${summary.openCount} pedido(s) todavía abiertos del turno «${summary.shiftName}». ¿Generar el cierre igual?`,
+              `${warnings.join('. ')}. ¿Generar el cierre igual?`,
             );
             if (!cont) {
               this.generatingClosing.set(false);
@@ -828,12 +844,23 @@ export class OrderingCatalogPanelComponent {
           ]
         : [];
 
+    // Efectivo del campo = pedidos + mesas (mismo criterio que el save con Math.max + cobros CASH).
+    const cashDeclared =
+      summary.cashDeclaredTotal != null && summary.cashDeclaredTotal >= 0
+        ? summary.cashDeclaredTotal
+        : (Number(summary.cashTotal) || 0) + (Number(tables?.cashTotal) || 0);
+    const cashFromCobros = otherCobros
+      .filter((c) => c.paymentMethod === 'CASH')
+      .reduce((sum, c) => sum + c.amount, 0);
+    const cashAmount = Math.round(Math.max(cashDeclared, cashFromCobros) * 100) / 100;
+
     const notesParts = [
       `Turno · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
       summary.businessDate,
       summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
       summary.completedCount ? `${summary.completedCount} completado(s)` : null,
       summary.openCount ? `${summary.openCount} abierto(s)` : null,
+      summary.openTablesCount ? `${summary.openTablesCount} mesa(s) abierta(s)` : null,
       by?.COUNTER?.orderCount ? `${by.COUNTER.orderCount} mostrador` : null,
       by?.TAKEAWAY?.orderCount ? `${by.TAKEAWAY.orderCount} take away` : null,
       by?.DELIVERY?.orderCount ? `${by.DELIVERY.orderCount} delivery` : null,
@@ -855,7 +882,7 @@ export class OrderingCatalogPanelComponent {
         shiftId: summary.shiftId,
         cashOpeningAmount: opening,
         cashLeftInRegister: opening,
-        cashAmount: summary.cashTotal > 0 ? summary.cashTotal : null,
+        cashAmount: cashAmount > 0 ? cashAmount : null,
         cardAmount: tables?.cardTotal && tables.cardTotal > 0 ? tables.cardTotal : null,
         mercadoPagoAmount: null,
         accountDniAmount: null,

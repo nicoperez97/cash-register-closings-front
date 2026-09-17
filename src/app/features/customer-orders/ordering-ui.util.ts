@@ -95,6 +95,63 @@ export function paymentLabel(p: CustomerOrderPaymentMethod): string {
   return p === 'TRANSFER' ? 'Transferencia' : 'Efectivo';
 }
 
+/** Misma lógica que el API: clasifica un medio por id/nombre. */
+export function classifyOrderingPayKind(
+  id: string,
+  name: string,
+): 'CASH' | 'TRANSFER' | 'CARD' {
+  const key = `${id} ${name}`.toLowerCase();
+  if (/transf|transfer|alias|cbu|cvu|mercado\s*pago|\bmp\b/.test(key)) return 'TRANSFER';
+  if (/tarjeta|card|d[eé]bito|cr[eé]dito|posnet|visa|master|amex|\bpvs\b/.test(key)) {
+    return 'CARD';
+  }
+  if (/efectivo|cash|contado|tp_cash|op_cash/.test(key)) return 'CASH';
+  return 'CASH';
+}
+
+export type OrderingPayChoice = {
+  id: string;
+  name: string;
+  kind: 'CASH' | 'TRANSFER' | 'CARD';
+};
+
+/** Medios activos para elegir en checkout / mostrador. */
+export function orderingPayChoices(
+  payments:
+    | {
+        methods?: CustomerOrderPaymentMethod[] | null;
+        items?: Array<{ id?: string; name?: string; active?: boolean }> | null;
+      }
+    | null
+    | undefined,
+): OrderingPayChoice[] {
+  const items = (payments?.items ?? []).filter((i) => i && i.active !== false && String(i.name ?? '').trim());
+  if (items.length) {
+    return items.map((i) => {
+      const id = String(i.id ?? '').trim() || `op_${String(i.name).trim().toLowerCase()}`;
+      const name = String(i.name ?? '').trim();
+      return { id, name, kind: classifyOrderingPayKind(id, name) };
+    });
+  }
+  const methods = payments?.methods?.length ? payments.methods : (['CASH', 'TRANSFER'] as CustomerOrderPaymentMethod[]);
+  return methods.map((m) => ({
+    id: m === 'TRANSFER' ? 'op_transfer' : 'op_cash',
+    name: paymentLabel(m),
+    kind: m === 'TRANSFER' ? ('TRANSFER' as const) : ('CASH' as const),
+  }));
+}
+
+/** Pedir “con cuánto abona” solo en efectivo real. */
+export function orderingPayNeedsCashTender(choice: OrderingPayChoice | null | undefined): boolean {
+  if (!choice || choice.kind !== 'CASH') return false;
+  return /efectivo|cash|contado|op_cash|tp_cash/.test(`${choice.id} ${choice.name}`.toLowerCase());
+}
+
+/** Enum CASH|TRANSFER que acepta el API al crear el pedido. */
+export function orderingPayToApiMethod(choice: OrderingPayChoice): CustomerOrderPaymentMethod {
+  return choice.kind === 'TRANSFER' ? 'TRANSFER' : 'CASH';
+}
+
 /** Línea de pedido (ítem o extra) para agrupar en UI / texto. */
 export type OrderLineLike = {
   menuItemId?: string | null;

@@ -17,7 +17,6 @@ import { prettySection } from '../menu/menu-display';
 import {
   CreatePublicCustomerOrderBody,
   CustomerOrderFulfillment,
-  CustomerOrderPaymentMethod,
   CustomerOrdersApiService,
   PublicOrderingConfig,
   PublicOrderingExtra,
@@ -29,7 +28,15 @@ import {
   DeliveryMapSelection,
 } from './delivery-map-picker';
 import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
-import { apiErrorMessage, onAccentColor, orderingMoney, paymentLabel } from './ordering-ui.util';
+import {
+  apiErrorMessage,
+  onAccentColor,
+  orderingMoney,
+  orderingPayChoices,
+  orderingPayNeedsCashTender,
+  orderingPayToApiMethod,
+  type OrderingPayChoice,
+} from './ordering-ui.util';
 
 type PosLine = {
   key: string;
@@ -70,7 +77,7 @@ export class StaffOrderingPosComponent implements OnInit {
   readonly sectionFilter = signal<string | null>(null);
   readonly discountMode = signal<'none' | 'percent' | 'fixed'>('none');
   readonly discountValue = signal<number | null>(null);
-  readonly paymentMethod = signal<CustomerOrderPaymentMethod | ''>('');
+  readonly paymentChoiceId = signal<string>('');
   readonly fulfillment = signal<CustomerOrderFulfillment>('COUNTER');
   readonly deliveryZoneId = signal<string | null>(null);
   readonly mapPoint = signal<LatLng | null>(null);
@@ -173,7 +180,16 @@ export class StaffOrderingPosComponent implements OnInit {
     ),
   );
 
-  readonly paymentMethods = computed(() => this.config()?.payments?.methods ?? []);
+  readonly paymentChoices = computed(() => orderingPayChoices(this.config()?.payments));
+  readonly selectedPayment = computed(() => {
+    const id = this.paymentChoiceId();
+    return this.paymentChoices().find((c) => c.id === id) ?? null;
+  });
+  readonly needsCashTender = computed(() => orderingPayNeedsCashTender(this.selectedPayment()));
+  readonly paymentMethod = computed(() => {
+    const choice = this.selectedPayment();
+    return choice ? orderingPayToApiMethod(choice) : ('' as const);
+  });
 
   readonly accent = computed(
     () =>
@@ -212,9 +228,12 @@ export class StaffOrderingPosComponent implements OnInit {
         this.config.set(cfg);
         this.loading.set(false);
         this.fulfillment.set('COUNTER');
-        const methods = cfg.payments?.methods ?? [];
-        if (methods.length === 1) this.paymentMethod.set(methods[0]);
-        else if (methods.includes('CASH')) this.paymentMethod.set('CASH');
+        const choices = orderingPayChoices(cfg.payments);
+        const cashLike =
+          choices.find((c) => orderingPayNeedsCashTender(c)) ??
+          choices.find((c) => c.kind === 'CASH') ??
+          choices[0];
+        if (cashLike) this.paymentChoiceId.set(cashLike.id);
         this.cashAmount = this.total();
       },
       error: (err) => {
@@ -228,8 +247,8 @@ export class StaffOrderingPosComponent implements OnInit {
     return orderingMoney(n);
   }
 
-  payLabel(p: CustomerOrderPaymentMethod): string {
-    return paymentLabel(p);
+  syncCashIfNeeded(): void {
+    if (this.needsCashTender()) this.cashAmount = this.total();
   }
 
   setFulfillment(f: CustomerOrderFulfillment): void {
@@ -243,12 +262,12 @@ export class StaffOrderingPosComponent implements OnInit {
       this.addressBetween = '';
       this.addressDetails = '';
     }
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
   setDeliveryZone(id: string | null): void {
     this.deliveryZoneId.set(id);
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
   openMapPicker(): void {
@@ -265,7 +284,7 @@ export class StaffOrderingPosComponent implements OnInit {
     if (sel.street) this.addressStreet = sel.street;
     if (sel.number) this.addressNumber = sel.number;
     this.mapOpen.set(false);
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
   setSection(sec: string | null): void {
@@ -275,13 +294,15 @@ export class StaffOrderingPosComponent implements OnInit {
   setDiscountMode(mode: 'none' | 'percent' | 'fixed'): void {
     this.discountMode.set(mode);
     if (mode === 'none') this.discountValue.set(null);
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
-  setPayment(m: CustomerOrderPaymentMethod): void {
-    this.paymentMethod.set(m);
-    if (m === 'CASH' && (this.cashAmount == null || this.cashAmount < this.total())) {
-      this.cashAmount = this.total();
+  setPayment(choice: OrderingPayChoice): void {
+    this.paymentChoiceId.set(choice.id);
+    if (orderingPayNeedsCashTender(choice)) {
+      if (this.cashAmount == null || this.cashAmount < this.total()) {
+        this.cashAmount = this.total();
+      }
     }
   }
 
@@ -306,7 +327,7 @@ export class StaffOrderingPosComponent implements OnInit {
         },
       ];
     });
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
   itemExtras(itemId: string): PublicOrderingExtra[] {
@@ -373,7 +394,7 @@ export class StaffOrderingPosComponent implements OnInit {
         return l;
       });
     });
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
   bump(line: PosLine, delta: number): void {
@@ -384,7 +405,7 @@ export class StaffOrderingPosComponent implements OnInit {
         )
         .filter((l) => l.qty > 0),
     );
-    if (this.paymentMethod() === 'CASH') this.cashAmount = this.total();
+    this.syncCashIfNeeded();
   }
 
   clearTicket(): void {
@@ -396,7 +417,6 @@ export class StaffOrderingPosComponent implements OnInit {
   submit(): void {
     const shopId = this.shopId();
     const lines = this.lines();
-    const paymentMethod = this.paymentMethod();
     const fulfillment = this.fulfillment();
     if (!shopId) {
       this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
@@ -406,7 +426,7 @@ export class StaffOrderingPosComponent implements OnInit {
       this.snack.open('Agregá al menos un ítem', 'OK', { duration: 2500 });
       return;
     }
-    if (!paymentMethod) {
+    if (!this.selectedPayment()) {
       this.snack.open('Elegí el medio de pago', 'OK', { duration: 2500 });
       return;
     }
@@ -434,7 +454,7 @@ export class StaffOrderingPosComponent implements OnInit {
         return;
       }
     }
-    if (paymentMethod === 'CASH') {
+    if (this.needsCashTender()) {
       const cash = Number(this.cashAmount);
       if (!Number.isFinite(cash) || cash < this.total()) {
         this.snack.open('El efectivo debe cubrir el total', 'OK', { duration: 3000 });
@@ -457,6 +477,8 @@ export class StaffOrderingPosComponent implements OnInit {
       return;
     }
 
+    const pay = this.selectedPayment()!;
+    const paymentMethod = orderingPayToApiMethod(pay);
     const body: CreatePublicCustomerOrderBody = {
       fulfillment,
       items: lines
@@ -473,6 +495,7 @@ export class StaffOrderingPosComponent implements OnInit {
       lastName,
       ...(phone ? { phone } : {}),
       paymentMethod,
+      paymentMethodId: pay.id,
       customerNotes: this.notes.trim() || null,
       printCustomerTicket: this.printCustomerTicket,
     };
@@ -492,7 +515,11 @@ export class StaffOrderingPosComponent implements OnInit {
         body.deliveryLng = point.lng;
       }
     }
-    if (paymentMethod === 'CASH') body.cashAmount = Number(this.cashAmount);
+    if (paymentMethod === 'CASH') {
+      body.cashAmount = this.needsCashTender()
+        ? Number(this.cashAmount)
+        : this.total();
+    }
     if (this.discountMode() === 'percent' && Number(this.discountValue()) > 0) {
       body.discountPercent = Number(this.discountValue());
     }

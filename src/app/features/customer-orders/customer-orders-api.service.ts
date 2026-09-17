@@ -80,6 +80,13 @@ export interface PublicOrderingConfig {
   deliveryHoursSummary: string[];
   payments: {
     methods: CustomerOrderPaymentMethod[];
+    /** Medios configurados (nombre + cuenta); si hay, el POS/checkout los muestra. */
+    items?: Array<{
+      id: string;
+      name: string;
+      accountId?: string | null;
+      active?: boolean;
+    }>;
     transferInstructions?: string | null;
     whatsapp?: string | null;
   };
@@ -107,6 +114,8 @@ export interface CreatePublicCustomerOrderBody {
   deliveryStreetNumber?: string | null;
   deliveryZoneId?: string | null;
   paymentMethod: CustomerOrderPaymentMethod;
+  /** Id del medio configurado en el local (Pedidos Ya, Efectivo, etc.). */
+  paymentMethodId?: string | null;
   cashAmount?: number | null;
   customerNotes?: string | null;
   discountPercent?: number | null;

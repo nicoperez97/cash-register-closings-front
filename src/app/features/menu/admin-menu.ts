@@ -33,6 +33,13 @@ import {
   type MenuImportPreviewDialogData,
   type MenuImportPreviewRow,
 } from './menu-import-preview-dialog';
+import {
+  applyMenuBulkPrice,
+  MenuBulkPriceDialogComponent,
+  type MenuBulkPriceDialogData,
+  type MenuBulkPriceDialogResult,
+  type MenuBulkPriceItem,
+} from './menu-bulk-price-dialog';
 
 export type ShopMenuItem = {
   id?: string;
@@ -350,9 +357,15 @@ function toPrice(value: unknown): number | null {
         </section>
 
         @if (activeId()) {
-          <section class="panel-card">
+          <section class="panel-card menu-editor">
             <div class="menu-admin__editor-head">
-              <h2>Editar {{ title || 'carta' }}</h2>
+              <div>
+                <h2>Editar {{ title || 'carta' }}</h2>
+                <p class="menu-admin__hint menu-admin__hint--tight">
+                  Filas compactas: expandí un ítem para foto, descripción e ingredientes. Usá
+                  <strong>Ajustar precios</strong> para cambiar varios de una vez.
+                </p>
+              </div>
               <div class="menu-admin__links">
                 @if (activePublicUrl()) {
                   <a class="menu-admin__btn menu-admin__btn--ghost" [href]="activePublicUrl()" target="_blank" rel="noopener">
@@ -371,11 +384,11 @@ function toPrice(value: unknown): number | null {
                   title="PDF generado con el contenido de la carta"
                 >
                   <mat-icon>picture_as_pdf</mat-icon>
-                  Descargar PDF de la carta
+                  PDF
                 </button>
                 <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
                   <mat-icon>sync</mat-icon>
-                  Reemplazar contenido
+                  Reemplazar
                 </button>
                 <button
                   mat-stroked-button
@@ -384,7 +397,7 @@ function toPrice(value: unknown): number | null {
                   (click)="analyzeIngredients()"
                 >
                   <mat-icon>auto_awesome</mat-icon>
-                  {{ analyzingIngredients() ? 'Detectando…' : 'Detectar ingredientes' }}
+                  {{ analyzingIngredients() ? 'Detectando…' : 'Ingredientes' }}
                 </button>
                 <button
                   mat-stroked-button
@@ -392,10 +405,10 @@ function toPrice(value: unknown): number | null {
                   [disabled]="uploadingSource() || parsing()"
                   (click)="sourceInput.click()"
                 >
-                  <mat-icon>picture_as_pdf</mat-icon>
-                  {{ uploadingSource() ? 'Subiendo…' : 'Cargar carta física' }}
+                  <mat-icon>upload_file</mat-icon>
+                  {{ uploadingSource() ? 'Subiendo…' : 'Carta física' }}
                 </button>
-                <button mat-stroked-button type="button" (click)="removeActive()">
+                <button mat-stroked-button type="button" color="warn" (click)="removeActive()">
                   <mat-icon>delete</mat-icon>
                   Quitar
                 </button>
@@ -411,7 +424,7 @@ function toPrice(value: unknown): number | null {
                 <input matInput [(ngModel)]="menuSlug" placeholder="vinos" />
                 <span matPrefix>/m/{{ shopSlug() }}/&nbsp;</span>
               </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__meta-note">
                 <mat-label>Nota al pie</mat-label>
                 <textarea
                   matInput
@@ -439,108 +452,202 @@ function toPrice(value: unknown): number | null {
               </div>
             } @else {
               <p class="menu-admin__hint">
-                Todavía no hay PDF/foto para la vista pública. Usá <strong>Cargar carta física</strong> (no hace falta reemplazar el contenido).
+                Todavía no hay PDF/foto para la vista pública. Usá <strong>Carta física</strong> (no hace falta
+                reemplazar el contenido).
               </p>
             }
 
-            @for (section of sections(); track $index; let si = $index) {
-              <article class="menu-section">
+            <div class="menu-editor__toolbar">
+              <label class="menu-editor__search">
+                <mat-icon>search</mat-icon>
+                <input
+                  type="search"
+                  [ngModel]="itemQuery()"
+                  (ngModelChange)="itemQuery.set($event)"
+                  name="itemQuery"
+                  placeholder="Buscar ítem o sección…"
+                  autocomplete="off"
+                />
+              </label>
+              <div class="menu-editor__toolbar-actions">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  [disabled]="!hasPricedItems()"
+                  (click)="openBulkPriceDialog()"
+                >
+                  <mat-icon>sell</mat-icon>
+                  Ajustar precios
+                </button>
+                <button mat-stroked-button type="button" (click)="setAllSectionsOpen(true)">
+                  Expandir secciones
+                </button>
+                <button mat-stroked-button type="button" (click)="setAllSectionsOpen(false)">
+                  Colapsar
+                </button>
+              </div>
+              @if (selectedItemKeys().size) {
+                <p class="menu-editor__sel">
+                  {{ selectedItemKeys().size }} ítem(s) marcado(s)
+                  <button type="button" class="menu-editor__link" (click)="clearItemSelection()">
+                    Limpiar
+                  </button>
+                </p>
+              }
+            </div>
+
+            @for (section of filteredSections(); track section.key; let si = $index) {
+              <article class="menu-section" [class.menu-section--collapsed]="!isSectionOpen(section.key)">
                 <div class="menu-section__head">
+                  <button
+                    type="button"
+                    class="menu-section__toggle"
+                    (click)="toggleSectionOpen(section.key)"
+                    [attr.aria-expanded]="isSectionOpen(section.key)"
+                  >
+                    <mat-icon>{{ isSectionOpen(section.key) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  </button>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-section__name">
                     <mat-label>Sección</mat-label>
-                    <input matInput [(ngModel)]="section.name" placeholder="Entradas" />
+                    <input matInput [(ngModel)]="section.section.name" placeholder="Entradas" />
                   </mat-form-field>
+                  <span class="menu-section__count">{{ section.section.items.length }}</span>
                   <button
                     mat-icon-button
                     type="button"
                     aria-label="Quitar sección"
-                    (click)="removeSection(si)"
+                    (click)="removeSection(section.index)"
                   >
                     <mat-icon>delete</mat-icon>
                   </button>
                 </div>
-                @for (item of section.items; track item.id || $index; let ii = $index) {
-                  <div class="menu-item">
-                    <div class="menu-item__photo">
-                      @if (itemImageSrc(item); as src) {
-                        <img [src]="src" alt="" />
-                      } @else {
-                        <span class="menu-item__photo-ph">Sin foto</span>
-                      }
-                      <input
-                        #itemPhotoInput
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        (change)="onItemPhoto(si, ii, $event)"
-                      />
-                      <button
-                        mat-stroked-button
-                        type="button"
-                        [disabled]="!item.id || uploadingItemPhoto()"
-                        (click)="itemPhotoInput.click()"
-                      >
-                        Foto
-                      </button>
-                      @if (item.imageUrl) {
-                        <button
-                          mat-button
-                          type="button"
-                          (click)="clearItemPhoto(si, ii)"
-                        >
-                          Quitar
-                        </button>
-                      }
-                    </div>
-                    <div class="menu-item__content">
-                      <div class="menu-item__main">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Ítem</mat-label>
-                          <input matInput [(ngModel)]="item.name" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Descripción</mat-label>
-                          <input matInput [(ngModel)]="item.description" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
-                          <mat-label>Precio</mat-label>
-                          <input matInput type="number" min="0" step="1" [(ngModel)]="item.price" />
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                          <mat-label>Precio (texto)</mat-label>
-                          <input matInput [(ngModel)]="item.priceLabel" placeholder="$ 12.500" />
-                        </mat-form-field>
-                      </div>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__ing">
-                        <mat-label>Ingredientes de este ítem (se puede pedir sin)</mat-label>
-                        <input
-                          matInput
-                          [(ngModel)]="item.removableIngredients"
-                          placeholder="cebolla, tomate, mayo"
-                        />
-                        <mat-hint>Separa ingredientes con coma.</mat-hint>
-                      </mat-form-field>
-                      <div class="menu-item__actions">
-                        <label class="menu-item__avail">
-                          <input type="checkbox" [(ngModel)]="item.available" />
-                          Disponible online
-                        </label>
-                        <button
-                          mat-icon-button
-                          type="button"
-                          aria-label="Quitar ítem"
-                          (click)="removeItem(si, ii)"
-                        >
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </div>
-                    </div>
+                @if (isSectionOpen(section.key) || itemQuery().trim()) {
+                  <div class="menu-section__tools">
+                    <button type="button" class="menu-editor__link" (click)="selectSectionItems(section.index, true)">
+                      Marcar sección
+                    </button>
+                    <button type="button" class="menu-editor__link" (click)="selectSectionItems(section.index, false)">
+                      Desmarcar
+                    </button>
                   </div>
+                  @for (item of section.section.items; track item.id || $index; let ii = $index) {
+                    @if (itemMatchesQuery(section.section.name, item)) {
+                      <div
+                        class="menu-item"
+                        [class.menu-item--open]="isItemOpen(section.index, ii)"
+                        [class.menu-item--selected]="isItemSelected(section.index, ii)"
+                      >
+                        <div class="menu-item__bar">
+                          <label class="menu-item__check" title="Incluir en ajuste de precios">
+                            <input
+                              type="checkbox"
+                              [checked]="isItemSelected(section.index, ii)"
+                              (change)="toggleItemSelected(section.index, ii, $any($event.target).checked)"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            class="menu-item__thumb"
+                            (click)="toggleItemOpen(section.index, ii)"
+                            [attr.aria-label]="isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Ver detalle'"
+                          >
+                            @if (itemImageSrc(item); as src) {
+                              <img [src]="src" alt="" />
+                            } @else {
+                              <span>Sin foto</span>
+                            }
+                          </button>
+                          <div class="menu-item__core">
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__name">
+                              <mat-label>Ítem</mat-label>
+                              <input matInput [(ngModel)]="item.name" />
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
+                              <mat-label>Precio</mat-label>
+                              <input
+                                matInput
+                                type="number"
+                                min="0"
+                                step="1"
+                                [(ngModel)]="item.price"
+                                (ngModelChange)="onItemPriceChange(section.index, ii)"
+                              />
+                            </mat-form-field>
+                          </div>
+                          <label class="menu-item__avail menu-item__avail--bar">
+                            <input type="checkbox" [(ngModel)]="item.available" />
+                            Online
+                          </label>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            [attr.aria-label]="isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Más campos'"
+                            (click)="toggleItemOpen(section.index, ii)"
+                          >
+                            <mat-icon>{{ isItemOpen(section.index, ii) ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            aria-label="Quitar ítem"
+                            (click)="removeItem(section.index, ii)"
+                          >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
+                        @if (isItemOpen(section.index, ii)) {
+                          <div class="menu-item__detail">
+                            <div class="menu-item__photo">
+                              <input
+                                #itemPhotoInput
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                (change)="onItemPhoto(section.index, ii, $event)"
+                              />
+                              <button
+                                mat-stroked-button
+                                type="button"
+                                [disabled]="!item.id || uploadingItemPhoto()"
+                                (click)="itemPhotoInput.click()"
+                              >
+                                Foto
+                              </button>
+                              @if (item.imageUrl) {
+                                <button mat-button type="button" (click)="clearItemPhoto(section.index, ii)">
+                                  Quitar foto
+                                </button>
+                              }
+                            </div>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__desc">
+                              <mat-label>Descripción</mat-label>
+                              <textarea matInput rows="2" [(ngModel)]="item.description"></textarea>
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                              <mat-label>Precio (texto, opcional)</mat-label>
+                              <input matInput [(ngModel)]="item.priceLabel" placeholder="ej. $11.000 / combo" />
+                              <mat-hint>Si está vacío, se muestra el precio numérico.</mat-hint>
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__ing">
+                              <mat-label>Ingredientes (se puede pedir sin)</mat-label>
+                              <input
+                                matInput
+                                [(ngModel)]="item.removableIngredients"
+                                placeholder="cebolla, tomate, mayo"
+                              />
+                              <mat-hint>Separá con coma.</mat-hint>
+                            </mat-form-field>
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+                  <button mat-stroked-button type="button" (click)="addItem(section.index)">
+                    <mat-icon>add</mat-icon>
+                    Ítem
+                  </button>
                 }
-                <button mat-stroked-button type="button" (click)="addItem(si)">
-                  <mat-icon>add</mat-icon>
-                  Ítem
-                </button>
               </article>
             }
 
@@ -674,76 +781,178 @@ function toPrice(value: unknown): number | null {
       padding: 0.75rem;
       border-radius: 8px;
     }
+    .menu-admin__hint--tight {
+      margin-bottom: 0.35rem;
+    }
     .menu-admin__meta {
       display: grid;
+      grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr);
       gap: 0.65rem;
       margin-bottom: 1rem;
     }
-    .menu-section {
+    .menu-admin__meta-note {
+      grid-column: 1 / -1;
+    }
+    .menu-editor__toolbar {
       display: grid;
       gap: 0.55rem;
-      padding: 0.85rem 0;
+      margin: 0.25rem 0 0.85rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      background: #f7faf7;
+      position: sticky;
+      top: 0.35rem;
+      z-index: 2;
+    }
+    .menu-editor__search {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 10px;
+      padding: 0.1rem 0.55rem;
+      background: #fff;
+    }
+    .menu-editor__search mat-icon {
+      color: var(--guy-muted, #5f6f76);
+      font-size: 1.1rem;
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+    .menu-editor__search input {
+      flex: 1;
+      border: 0;
+      outline: none;
+      font: inherit;
+      padding: 0.45rem 0;
+      background: transparent;
+    }
+    .menu-editor__toolbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .menu-editor__sel {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--guy-navy, #003366);
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+    }
+    .menu-editor__link {
+      border: 0;
+      background: none;
+      color: var(--guy-green, #2e7d32);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 650;
+      cursor: pointer;
+      padding: 0;
+    }
+    .menu-section {
+      display: grid;
+      gap: 0.45rem;
+      padding: 0.75rem 0;
       border-top: 1px solid var(--guy-border, #d7e0d9);
     }
     .menu-section__head {
       display: flex;
       align-items: flex-start;
-      gap: 0.35rem;
+      gap: 0.25rem;
+    }
+    .menu-section__toggle {
+      border: 0;
+      background: transparent;
+      color: var(--guy-navy, #003366);
+      cursor: pointer;
+      padding: 0.45rem 0.1rem 0;
+      display: grid;
+      place-items: center;
     }
     .menu-section__name {
       flex: 1;
     }
+    .menu-section__count {
+      margin-top: 0.85rem;
+      font-size: 0.8rem;
+      color: var(--guy-muted, #5f6f76);
+      min-width: 1.5rem;
+      text-align: center;
+    }
+    .menu-section__tools {
+      display: flex;
+      gap: 0.85rem;
+      padding-left: 2rem;
+    }
     .menu-item {
       display: grid;
-      grid-template-columns: 7.5rem minmax(0, 1fr);
-      gap: 0.7rem;
-      align-items: start;
-      padding: 0.65rem;
+      gap: 0.45rem;
+      padding: 0.4rem 0.55rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 12px;
       background: #fff;
     }
-    .menu-item__content {
+    .menu-item--selected {
+      border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 45%, #d7e0d9);
+      background: color-mix(in srgb, var(--guy-green, #2e7d32) 5%, #fff);
+    }
+    .menu-item__bar {
       display: grid;
-      gap: 0.45rem;
-      min-width: 0;
+      grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+      gap: 0.4rem;
+      align-items: center;
     }
-    .menu-item__main {
-      display: grid;
-      grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1.2fr) 7.5rem 8rem;
-      gap: 0.45rem;
-      align-items: start;
-    }
-    .menu-item__photo {
-      display: grid;
-      gap: 0.25rem;
-      justify-items: start;
-    }
-    .menu-item__photo img {
-      width: 4.5rem;
-      height: 4.5rem;
-      object-fit: cover;
-      border-radius: 8px;
-      border: 1px solid var(--guy-border, #d7e0d9);
-    }
-    .menu-item__photo-ph {
+    .menu-item__check {
       display: grid;
       place-items: center;
-      width: 4.5rem;
-      height: 4.5rem;
+      padding: 0.2rem;
+    }
+    .menu-item__thumb {
+      width: 2.75rem;
+      height: 2.75rem;
       border-radius: 8px;
       border: 1px dashed var(--guy-border, #d7e0d9);
-      font-size: 0.7rem;
+      background: #f6f8f6;
+      padding: 0;
+      overflow: hidden;
+      cursor: pointer;
       color: var(--guy-muted, #5f6f76);
-      text-align: center;
-      padding: 0.25rem;
+      font-size: 0.62rem;
+      display: grid;
+      place-items: center;
     }
-    .menu-item__actions {
+    .menu-item__thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .menu-item__core {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 7.5rem;
+      gap: 0.4rem;
+      min-width: 0;
+    }
+    .menu-item__avail--bar {
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .menu-item__detail {
+      display: grid;
+      gap: 0.45rem;
+      padding: 0.45rem 0.15rem 0.25rem;
+      border-top: 1px dashed var(--guy-border, #d7e0d9);
+    }
+    .menu-item__photo {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-wrap: wrap;
       gap: 0.35rem;
-      min-height: 2.2rem;
+      align-items: center;
+    }
+    .menu-item__desc,
+    .menu-item__ing {
+      width: 100%;
     }
     .menu-item__avail {
       display: flex;
@@ -752,25 +961,22 @@ function toPrice(value: unknown): number | null {
       font-size: 0.82rem;
       color: var(--guy-navy, #003366);
       white-space: nowrap;
-      padding-top: 0;
-    }
-    .menu-item__ing {
-      width: 100%;
-    }
-    @media (max-width: 1200px) {
-      .menu-item__main {
-        grid-template-columns: 1fr 1fr;
-      }
     }
     @media (max-width: 900px) {
-      .menu-item {
+      .menu-admin__meta {
         grid-template-columns: 1fr;
       }
-      .menu-item__main {
+      .menu-item__bar {
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+      }
+      .menu-item__avail--bar {
+        display: none;
+      }
+      .menu-item__core {
         grid-template-columns: 1fr;
       }
-      .menu-item__actions {
-        justify-content: flex-start;
+      .menu-item__detail {
+        padding-left: 0.15rem;
       }
     }
     .menu-admin__save {
@@ -842,6 +1048,25 @@ export class AdminMenuPage {
   private sourceFile: string | null = null;
   private sourceMime: string | null = null;
   readonly sections = signal<ShopMenuSection[]>([]);
+  readonly itemQuery = signal('');
+  readonly selectedItemKeys = signal<Set<string>>(new Set());
+  private readonly openSectionKeys = signal<Set<string>>(new Set());
+  private readonly openItemKeys = signal<Set<string>>(new Set());
+
+  readonly filteredSections = computed(() => {
+    const q = this.itemQuery().trim().toLowerCase();
+    return this.sections().map((section, index) => ({
+      key: `sec-${index}`,
+      index,
+      section,
+      visible:
+        !q ||
+        String(section.name ?? '')
+          .toLowerCase()
+          .includes(q) ||
+        (section.items ?? []).some((it) => this.itemMatchesQuery(section.name, it, q)),
+    })).filter((row) => row.visible);
+  });
 
   readonly catalogItems = computed(() => {
     const out: Array<{ id: string; name: string }> = [];
@@ -1054,6 +1279,12 @@ export class AdminMenuPage {
     this.sourceMime = menu.sourceMime ?? null;
     this.sections.set(menu.sections.length ? menu.sections : emptySections());
     this.slugTouched = !!menu.slug;
+    this.itemQuery.set('');
+    this.selectedItemKeys.set(new Set());
+    this.openItemKeys.set(new Set());
+    this.openSectionKeys.set(
+      new Set(menu.sections.map((_, i) => `sec-${i}`)),
+    );
   }
 
   private clearEditor(): void {
@@ -1065,6 +1296,10 @@ export class AdminMenuPage {
     this.sourceMime = null;
     this.sections.set([]);
     this.slugTouched = false;
+    this.itemQuery.set('');
+    this.selectedItemKeys.set(new Set());
+    this.openItemKeys.set(new Set());
+    this.openSectionKeys.set(new Set());
   }
 
   private editorMenu(id: string): ShopMenu {
@@ -1170,6 +1405,8 @@ export class AdminMenuPage {
         ],
       },
     ]);
+    const i = this.sections().length - 1;
+    this.openSectionKeys.update((set) => new Set(set).add(`sec-${i}`));
   }
 
   removeSection(index: number): void {
@@ -1207,6 +1444,173 @@ export class AdminMenuPage {
         i === sectionIndex ? { ...s, items: s.items.filter((_, j) => j !== itemIndex) } : s,
       ),
     );
+    this.selectedItemKeys.update((set) => {
+      const next = new Set(set);
+      next.delete(this.itemKey(sectionIndex, itemIndex));
+      return next;
+    });
+  }
+
+  itemKey(sectionIndex: number, itemIndex: number): string {
+    const item = this.sections()[sectionIndex]?.items?.[itemIndex];
+    const id = String(item?.id ?? '').trim();
+    return id ? `id:${id}` : `pos:${sectionIndex}:${itemIndex}`;
+  }
+
+  itemMatchesQuery(sectionName: string, item: ShopMenuItem, q = this.itemQuery().trim().toLowerCase()): boolean {
+    if (!q) return true;
+    const hay = `${sectionName} ${item.name ?? ''} ${item.description ?? ''}`.toLowerCase();
+    return hay.includes(q);
+  }
+
+  isSectionOpen(key: string): boolean {
+    return this.openSectionKeys().has(key);
+  }
+
+  toggleSectionOpen(key: string): void {
+    this.openSectionKeys.update((set) => {
+      const next = new Set(set);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  setAllSectionsOpen(open: boolean): void {
+    if (!open) {
+      this.openSectionKeys.set(new Set());
+      return;
+    }
+    this.openSectionKeys.set(new Set(this.sections().map((_, i) => `sec-${i}`)));
+  }
+
+  isItemOpen(sectionIndex: number, itemIndex: number): boolean {
+    return this.openItemKeys().has(this.itemKey(sectionIndex, itemIndex));
+  }
+
+  toggleItemOpen(sectionIndex: number, itemIndex: number): void {
+    const key = this.itemKey(sectionIndex, itemIndex);
+    this.openItemKeys.update((set) => {
+      const next = new Set(set);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  isItemSelected(sectionIndex: number, itemIndex: number): boolean {
+    return this.selectedItemKeys().has(this.itemKey(sectionIndex, itemIndex));
+  }
+
+  toggleItemSelected(sectionIndex: number, itemIndex: number, on: boolean): void {
+    const key = this.itemKey(sectionIndex, itemIndex);
+    this.selectedItemKeys.update((set) => {
+      const next = new Set(set);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  selectSectionItems(sectionIndex: number, on: boolean): void {
+    const section = this.sections()[sectionIndex];
+    if (!section) return;
+    this.selectedItemKeys.update((set) => {
+      const next = new Set(set);
+      (section.items ?? []).forEach((_, ii) => {
+        const key = this.itemKey(sectionIndex, ii);
+        if (on) next.add(key);
+        else next.delete(key);
+      });
+      return next;
+    });
+  }
+
+  clearItemSelection(): void {
+    this.selectedItemKeys.set(new Set());
+  }
+
+  hasPricedItems(): boolean {
+    return this.sections().some((s) => (s.items ?? []).some((it) => String(it.name ?? '').trim()));
+  }
+
+  onItemPriceChange(sectionIndex: number, itemIndex: number): void {
+    const item = this.sections()[sectionIndex]?.items?.[itemIndex];
+    if (!item) return;
+    const label = String(item.priceLabel ?? '').trim();
+    if (!label || /^\$?\s*[\d.]+$/.test(label)) {
+      item.priceLabel = '';
+    }
+  }
+
+  openBulkPriceDialog(): void {
+    const items: MenuBulkPriceItem[] = [];
+    this.sections().forEach((sec, si) => {
+      (sec.items ?? []).forEach((it, ii) => {
+        const name = String(it.name ?? '').trim();
+        if (!name) return;
+        items.push({
+          key: this.itemKey(si, ii),
+          sectionName: String(sec.name ?? '').trim() || 'Sin sección',
+          name,
+          price: toPrice(it.price),
+        });
+      });
+    });
+    if (!items.length) {
+      this.snack.open('Agregá ítems con nombre antes de ajustar precios', 'OK', { duration: 3000 });
+      return;
+    }
+    const data: MenuBulkPriceDialogData = {
+      items,
+      preselectedKeys: [...this.selectedItemKeys()],
+    };
+    this.dialogTitle
+      .track(
+        this.dialog.open<
+          MenuBulkPriceDialogComponent,
+          MenuBulkPriceDialogData,
+          MenuBulkPriceDialogResult | null
+        >(MenuBulkPriceDialogComponent, {
+          width: '560px',
+          maxWidth: '96vw',
+          maxHeight: '90vh',
+          autoFocus: 'dialog',
+          panelClass: 'guy-dialog',
+          data,
+        }),
+        'Ajustar precios',
+      )
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result?.keys?.length) return;
+        const keySet = new Set<string>(result.keys);
+        let changed = 0;
+        this.sections.update((list) =>
+          list.map((s, si) => ({
+            ...s,
+            items: (s.items ?? []).map((it, ii) => {
+              const key = this.itemKey(si, ii);
+              if (!keySet.has(key)) return it;
+              const nextPrice = applyMenuBulkPrice(it.price, result.mode, result.value);
+              changed += 1;
+              return {
+                ...it,
+                price: nextPrice,
+                priceLabel: '',
+              };
+            }),
+          })),
+        );
+        this.selectedItemKeys.set(keySet);
+        this.snack.open(
+          result.mode === 'fixed'
+            ? `Precio $${Math.round(result.value)} en ${changed} ítem(s)`
+            : `${result.value > 0 ? '+' : ''}${result.value}% en ${changed} ítem(s)`,
+          'OK',
+          { duration: 2800 },
+        );
+      });
   }
 
   itemImageSrc(item: ShopMenuItem): string | null {
