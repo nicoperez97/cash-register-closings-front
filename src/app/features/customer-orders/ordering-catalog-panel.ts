@@ -29,6 +29,7 @@ import {
 } from '../../shared/components/select-search';
 import { formatMoney } from '../../shared/utils/money';
 import { apiErrorMessage } from './ordering-ui.util';
+import { resolveShopBusinessDate } from '../../core/shop/business-date';
 
 type ToggleRow = {
   id: string;
@@ -772,9 +773,27 @@ export class OrderingCatalogPanelComponent {
     }
 
     this.generatingClosing.set(true);
+    const shop = this.shops.selectedShop();
+    const todayBd = resolveShopBusinessDate(new Date(), {
+      timezone: shop?.timezone,
+      openingTime: shop?.openingTime,
+    });
+    const cajaDate = String(caja.businessDate ?? '').slice(0, 10);
     const params = new URLSearchParams();
-    if (caja.shiftId) params.set('shiftId', caja.shiftId);
-    if (caja.businessDate) params.set('businessDate', String(caja.businessDate).slice(0, 10));
+    // Caja vieja: no fijar fecha/turno del día anterior (deja el cierre en $0).
+    if (cajaDate && cajaDate !== todayBd) {
+      const cont = window.confirm(
+        `La caja abierta es del ${cajaDate} y hoy el día laboral es ${todayBd}. ¿Generar el cierre con los pedidos de hoy (${todayBd})?`,
+      );
+      if (!cont) {
+        this.generatingClosing.set(false);
+        return;
+      }
+      params.set('businessDate', todayBd);
+    } else {
+      if (caja.shiftId) params.set('shiftId', caja.shiftId);
+      if (caja.businessDate) params.set('businessDate', cajaDate);
+    }
     const qs = params.toString();
     this.http
       .get<ClosingSummary>(
@@ -785,7 +804,7 @@ export class OrderingCatalogPanelComponent {
           const warnings: string[] = [];
           if (summary.openCount > 0) {
             warnings.push(
-              `${summary.openCount} pedido(s) todavía abiertos del turno «${summary.shiftName}»`,
+              `${summary.openCount} pedido(s) todavía abiertos del turno «${summary.shiftName}» (no entran hasta completarlos)`,
             );
           }
           if ((summary.openTablesCount ?? 0) > 0) {
@@ -793,9 +812,9 @@ export class OrderingCatalogPanelComponent {
               `${summary.openTablesCount} mesa(s) abierta(s) (no se incluyen hasta cobrarlas)`,
             );
           }
-          if (!summary.orderCount && !summary.tables?.closedCount && !warnings.length) {
+          if (!summary.orderCount && !summary.tables?.closedCount) {
             warnings.push(
-              `Sin pedidos completados ni mesas cobradas en «${summary.shiftName}» (${summary.businessDate}). Acreditado ≠ completado: cerrá los pedidos en Pedidos antes de generar`,
+              `Sin pedidos completados ni mesas cobradas en «${summary.shiftName}» (${summary.businessDate}). En Pedidos: Completar (acreditado no alcanza)`,
             );
           }
           if (warnings.length) {
