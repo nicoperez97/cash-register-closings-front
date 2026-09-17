@@ -310,30 +310,42 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </div>
         </div>
 
-        <aside class="preview panel-card">
-          <p class="section__title">Así lo va a ver</p>
-          <p class="section__hint">Menú en tiempo real según lo que elegís a la izquierda.</p>
-          @if (navPreview().length === 0) {
-            <p class="muted">Sin ítems de menú con estos permisos.</p>
-          } @else {
-            <div class="preview-nav">
-              @for (g of navPreview(); track g.id) {
-                <div class="preview-group">
-                  <div class="preview-group__title">
-                    <mat-icon>{{ g.icon }}</mat-icon>
-                    {{ g.label }}
+        <aside class="preview panel-card" [class.preview--open]="previewOpen()">
+          <button
+            type="button"
+            class="preview__toggle"
+            (click)="previewOpen.set(!previewOpen())"
+            [attr.aria-expanded]="previewOpen()"
+          >
+            <span>
+              <strong class="preview__title">Así lo va a ver</strong>
+              <span class="preview__hint">Menú según lo que elegís a la izquierda</span>
+            </span>
+            <mat-icon>{{ previewOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </button>
+          @if (previewOpen()) {
+            @if (navPreview().length === 0) {
+              <p class="muted">Sin ítems de menú con estos permisos.</p>
+            } @else {
+              <div class="preview-nav">
+                @for (g of navPreview(); track g.id) {
+                  <div class="preview-group">
+                    <div class="preview-group__title">
+                      <mat-icon>{{ g.icon }}</mat-icon>
+                      {{ g.label }}
+                    </div>
+                    <ul class="preview-list">
+                      @for (c of g.children; track c.id) {
+                        <li>
+                          <mat-icon>{{ c.icon }}</mat-icon>
+                          <span>{{ c.label }}</span>
+                        </li>
+                      }
+                    </ul>
                   </div>
-                  <ul class="preview-list">
-                    @for (c of g.children; track c.id) {
-                      <li>
-                        <mat-icon>{{ c.icon }}</mat-icon>
-                        <span>{{ c.label }}</span>
-                      </li>
-                    }
-                  </ul>
-                </div>
-              }
-            </div>
+                }
+              </div>
+            }
           }
         </aside>
       </form>
@@ -342,7 +354,7 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
   styles: `
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+      grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.75fr);
       gap: 1rem;
       align-items: start;
     }
@@ -351,7 +363,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         grid-template-columns: 1fr;
       }
       .preview {
-        order: -1;
+        order: 2;
+        position: static;
+        max-height: none;
+      }
+      .editor {
+        order: 1;
       }
     }
     .panel-card {
@@ -406,12 +423,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
     }
     .type-card--active,
     .preset-card--active {
-      border-color: var(--guy-primary, #1d65a0);
-      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 8%, #fff);
+      border-color: var(--guy-accent, #2e7d32);
+      background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, #fff);
     }
     .type-card__icon,
     .preset-card__icon {
-      color: var(--guy-primary, #1d65a0);
+      color: var(--guy-accent, #2e7d32);
     }
     .type-card__title,
     .preset-card__title {
@@ -488,8 +505,8 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       color: var(--guy-muted, #5f6f76);
     }
     .level-pill--active {
-      background: var(--guy-primary, #5c4033);
-      border-color: var(--guy-primary, #5c4033);
+      background: var(--guy-accent, #2e7d32);
+      border-color: var(--guy-accent, #2e7d32);
       color: #fff;
     }
     .level-pill--off.level-pill--active {
@@ -521,8 +538,59 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
     .preview {
       position: sticky;
       top: 0.75rem;
-      max-height: calc(100dvh - 6rem);
+      max-height: calc(100dvh - 5.5rem);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 22%, var(--guy-border, #d7e0d9));
+      background:
+        linear-gradient(
+          165deg,
+          color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, #fff) 0%,
+          #fff 42%
+        );
+    }
+    .preview__toggle {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+    }
+    .preview__toggle mat-icon {
+      color: var(--guy-accent, #2e7d32);
+      flex-shrink: 0;
+    }
+    .preview__title {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--guy-accent, #2e7d32);
+    }
+    .preview__hint {
+      display: block;
+      margin-top: 0.2rem;
+      font-size: 0.78rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.3;
+    }
+    .preview--open {
+      overflow: hidden;
+    }
+    .preview-nav {
+      margin-top: 0.75rem;
       overflow: auto;
+      max-height: min(52dvh, 28rem);
+      padding-right: 0.15rem;
     }
     .preview-group {
       margin-bottom: 0.85rem;
@@ -534,13 +602,13 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       font-weight: 700;
       font-size: 0.8rem;
       margin-bottom: 0.35rem;
-      color: var(--guy-text, #1b2a33);
+      color: var(--guy-accent, #2e7d32);
     }
     .preview-group__title mat-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
-      color: var(--guy-muted, #5f6f76);
+      color: var(--guy-accent, #2e7d32);
     }
     .preview-list {
       list-style: none;
@@ -555,15 +623,17 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       align-items: center;
       gap: 0.4rem;
       font-size: 0.82rem;
-      padding: 0.25rem 0.4rem;
+      padding: 0.35rem 0.5rem;
       border-radius: 8px;
-      background: color-mix(in srgb, var(--guy-border, #d7e0d9) 35%, #fff);
+      background: color-mix(in srgb, var(--guy-accent, #2e7d32) 8%, #fff);
+      border: 1px solid color-mix(in srgb, var(--guy-accent, #2e7d32) 16%, transparent);
+      color: var(--guy-ink, #1a221c);
     }
     .preview-list mat-icon {
       font-size: 16px;
       width: 16px;
       height: 16px;
-      color: var(--guy-muted, #5f6f76);
+      color: var(--guy-accent, #2e7d32);
     }
   `,
 })
@@ -581,6 +651,10 @@ export class AdminUserPermissionsPage implements OnInit {
   readonly busy = signal(false);
   readonly activePreset = signal<string | null>(null);
   readonly modulesTick = signal(0);
+  /** Preview abierto en desktop; en mobile arranca cerrado para no tapar el editor. */
+  readonly previewOpen = signal(
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 961px)').matches,
+  );
 
   readonly shopId = computed(() => this.shops.selectedShopId() ?? '');
   readonly shopName = computed(() => this.shops.selectedShop()?.name ?? 'Local');

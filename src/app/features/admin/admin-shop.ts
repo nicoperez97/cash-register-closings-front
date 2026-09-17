@@ -272,10 +272,9 @@ export class AdminShopPage implements OnInit {
     orderingEtaDelivery: [''],
     transferInstructions: [''],
     orderingWhatsapp: [''],
-    payCash: [true],
-    payTransfer: [true],
     deliveryZones: this.fb.array([]),
     orderingExtras: this.fb.array([]),
+    orderingPaymentMethods: this.fb.array([]),
     tablePaymentMethods: this.fb.array([]),
     waiterCapabilities: this.fb.nonNullable.group({
       public: this.waiterCapGroup(DEFAULT_WAITER_CAP_PUBLIC),
@@ -330,6 +329,10 @@ export class AdminShopPage implements OnInit {
 
   get tablePaymentMethods(): FormArray {
     return this.form.get('tablePaymentMethods') as FormArray;
+  }
+
+  get orderingPaymentMethods(): FormArray {
+    return this.form.get('orderingPaymentMethods') as FormArray;
   }
 
   get waiterCapabilities(): FormGroup {
@@ -885,6 +888,12 @@ export class AdminShopPage implements OnInit {
     } | null;
     orderingPayments?: {
       methods?: Array<'CASH' | 'TRANSFER'>;
+      items?: Array<{
+        id?: string;
+        name: string;
+        accountId?: string | null;
+        active?: boolean;
+      }>;
       transferInstructions?: string | null;
       whatsapp?: string | null;
     } | null;
@@ -950,9 +959,6 @@ export class AdminShopPage implements OnInit {
       orderingEtaDelivery: s.orderingEta?.delivery ?? '',
       transferInstructions: s.orderingPayments?.transferInstructions ?? '',
       orderingWhatsapp: s.orderingPayments?.whatsapp ?? '',
-      payCash: !s.orderingPayments?.methods || s.orderingPayments.methods.includes('CASH'),
-      payTransfer:
-        !s.orderingPayments?.methods || s.orderingPayments.methods.includes('TRANSFER'),
       active: s.active ?? true,
       salesSystemId: s.salesSystemId ?? null,
     });
@@ -980,6 +986,46 @@ export class AdminShopPage implements OnInit {
           price: [Number(e.price) || 0],
           available: [e.available !== false],
           menuItemIdsText: [(e.menuItemIds ?? []).join(', ')],
+        }),
+      );
+    }
+    this.orderingPaymentMethods.clear();
+    const orderingPays =
+      s.orderingPayments?.items?.length
+        ? s.orderingPayments.items
+        : [
+            {
+              id: 'op_cash',
+              name: 'Efectivo',
+              accountId: null as string | null,
+              active: !s.orderingPayments?.methods || s.orderingPayments.methods.includes('CASH'),
+            },
+            {
+              id: 'op_transfer',
+              name: 'Transferencia',
+              accountId: null as string | null,
+              active:
+                !s.orderingPayments?.methods || s.orderingPayments.methods.includes('TRANSFER'),
+            },
+          ];
+    for (const m of orderingPays) {
+      if (m.active === false) continue;
+      this.orderingPaymentMethods.push(
+        this.fb.nonNullable.group({
+          id: [String(m.id ?? '').trim()],
+          name: [String(m.name ?? '').trim()],
+          accountId: this.fb.control<string | null>(String(m.accountId ?? '').trim() || null),
+          active: [true],
+        }),
+      );
+    }
+    if (!this.orderingPaymentMethods.length) {
+      this.orderingPaymentMethods.push(
+        this.fb.nonNullable.group({
+          id: ['op_cash'],
+          name: ['Efectivo'],
+          accountId: this.fb.control<string | null>(null),
+          active: [true],
         }),
       );
     }
@@ -1688,10 +1734,21 @@ export class AdminShopPage implements OnInit {
         delivery: this.hoursToConfig(this.deliveryHours),
       },
       orderingPayments: {
-        methods: [
-          ...(raw.payCash ? (['CASH'] as const) : []),
-          ...(raw.payTransfer ? (['TRANSFER'] as const) : []),
-        ],
+        items: (
+          raw.orderingPaymentMethods as Array<{
+            id?: string;
+            name: string;
+            accountId?: string | null;
+            active?: boolean;
+          }>
+        )
+          .map((m) => ({
+            id: String(m.id ?? '').trim() || undefined,
+            name: String(m.name ?? '').trim(),
+            accountId: String(m.accountId ?? '').trim() || null,
+            active: m.active !== false,
+          }))
+          .filter((m) => !!m.name),
         transferInstructions: String(raw.transferInstructions ?? '').trim() || null,
         whatsapp: String(raw.orderingWhatsapp ?? '').trim() || null,
       },

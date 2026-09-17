@@ -32,6 +32,17 @@ import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingLogoUrl, 
 
 type View = 'menu' | 'detail';
 
+/** Evita chips tipo "Stuzzichini · TUTTO PASSA" cuando el título del menú es el nombre del local. */
+function shortMenuTag(title: string | null | undefined, shopName: string): string {
+  let t = String(title ?? '').trim();
+  if (!t) return '';
+  const shop = shopName.trim();
+  if (shop && t.toLowerCase().startsWith(shop.toLowerCase())) {
+    t = t.slice(shop.length).replace(/^[\s\-–—·|:]+/, '').trim();
+  }
+  return t;
+}
+
 @Component({
   selector: 'app-public-ordering-menu',
   imports: [FormsModule, RouterLink, MatSnackBarModule],
@@ -121,16 +132,18 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   readonly sections = computed(() => {
     const menus = this.config()?.menus ?? [];
+    const shopName = this.shop()?.name?.trim() || '';
     const out: PublicOrderingSection[] = [];
     for (const m of menus) {
       for (const sec of m.sections ?? []) {
         const items = (sec.items ?? []).filter((it) => it?.id && it.name && it.price != null);
         if (!items.length) continue;
-        const name =
-          menus.length > 1 && m.title
-            ? `${prettySection(sec.name)} · ${m.title}`
-            : prettySection(sec.name);
-        out.push({ name, items });
+        const sectionLabel = prettySection(sec.name);
+        const menuTag = menus.length > 1 ? shortMenuTag(m.title, shopName) : '';
+        out.push({
+          name: menuTag ? `${sectionLabel} · ${menuTag}` : sectionLabel,
+          items,
+        });
       }
     }
     return out;

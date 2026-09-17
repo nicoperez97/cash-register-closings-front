@@ -974,8 +974,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Activá Página pública /pedir, Take away y/o Delivery según el local.',
           'Horarios: orientativos para el cliente; el abierto/cerrado real depende de la caja abierta en Pedidos clientes.',
-          'Medios de pago: efectivo y/o transferencia. CBU/alias y WhatsApp para comprobantes solo acá (si WhatsApp está vacío, usa el teléfono del local).',
-          'En Pedidos clientes → Configurar: abrir caja, take away, delivery, medios de pago e ítems/extras (no CBU ni WhatsApp).',
+          'Medios de pago: igual que en Comandas (nombre + cuenta opcional). CBU/alias y WhatsApp para comprobantes solo acá (si WhatsApp está vacío, usa el teléfono del local).',
+          'En Pedidos clientes → Configurar: abrir caja, take away, delivery, activar/desactivar efectivo y transferencia e ítems/extras (no CBU ni WhatsApp).',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
           'En cada zona dibujá el área en el mapa (o pegá lat,lng por línea): así /pedir detecta la zona sola.',
           'Comanda de mesas (/mozo y Operación → Comanda): Configuración del local → Comandas.',

@@ -162,9 +162,10 @@ h1 {
   align-items: center;
   gap: 0.2rem;
   margin: 0 0 0.75rem;
-  padding: 0.45rem 0 0.35rem;
-  /* Sticky sin “cajón”: transparente, los pills van por encima. */
-  background: transparent;
+  padding: 0.45rem 0 0.45rem;
+  background: color-mix(in srgb, var(--paper, #eef1ee) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 
   &__arrow {
     appearance: none;
@@ -424,11 +425,11 @@ h1 {
 
 .item__add {
   justify-self: start;
-  border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 35%, var(--line));
+  border: 1px solid var(--accent, #2e7d32);
   border-radius: 12px;
   padding: 0.45rem 0.95rem;
-  background: color-mix(in srgb, var(--accent, #2e7d32) 10%, #fff);
-  color: var(--accent, #2e7d32);
+  background: var(--accent, #2e7d32);
+  color: var(--on-accent, #fff);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -643,18 +644,17 @@ textarea:focus {
     }
 
     &__track {
-      flex-wrap: wrap;
-      overflow-x: visible;
-      row-gap: 0.45rem;
-      column-gap: 0.5rem;
+      /* Mantener scroll horizontal: el wrap tapaba los ítems con sticky. */
+      flex-wrap: nowrap;
+      overflow-x: auto;
     }
 
     &__btn {
-      max-width: none;
-      overflow: visible;
-      text-overflow: unset;
-      font-size: 0.95rem;
-      padding: 0.58rem 1.1rem;
+      max-width: min(14rem, 38vw);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
     }
   }
 
