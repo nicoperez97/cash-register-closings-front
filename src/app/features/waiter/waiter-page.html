@@ -288,80 +288,207 @@
       <p class="err anim-in">{{ err }}</p>
     }
 
-    @if (s?.orders?.length) {
-      <section class="sent anim-in">
-        <h2>Envíos</h2>
-        <ul>
-          @for (o of s!.orders; track o.id) {
-            <li>
-              <div class="sent__head">
-                <div class="sent__meta">
-                  <strong>#{{ o.code }}</strong>
-                  <time class="sent__time">{{ orderTime(o.createdAt) }}</time>
-                </div>
-                <span>{{ money(o.total) }}</span>
-              </div>
-              <p>{{ itemsPreview(o.items) }}</p>
-            </li>
+    @if (matchablePromos().length) {
+      <section class="session-promo anim-in">
+        <span class="session-promo__label">Promos de mesa</span>
+        <div class="choices choices--row">
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="!sessionPromoIds().length"
+            [disabled]="busy()"
+            (click)="clearSessionPromos()"
+          >
+            Ninguna
+          </button>
+          @for (pr of matchablePromos(); track pr.id) {
+            <button
+              type="button"
+              class="choice"
+              [class.choice--on]="isSessionPromoOn(pr.id)"
+              [class.choice--dim]="pr.inSchedule === false"
+              [disabled]="busy()"
+              [title]="pr.inSchedule === false ? 'Fuera de horario (podés asignarla igual)' : pr.name"
+              (click)="toggleSessionPromo(pr.id)"
+            >
+              {{ pr.name }}
+            </button>
           }
-        </ul>
+        </div>
+        @for (pr of matchablePromos(); track pr.id) {
+          @if (isSessionPromoOn(pr.id)) {
+            <label class="session-promo__cupo">
+              <span>Cupo · {{ pr.name }}</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                placeholder="Ilimitado"
+                [disabled]="busy()"
+                [ngModel]="promoCupoDraft(pr.id)"
+                (ngModelChange)="onPromoCupoDraft(pr.id, $event)"
+                (change)="commitPromoCupo(pr.id)"
+                (blur)="commitPromoCupo(pr.id)"
+                [name]="'promoCupo-' + pr.id"
+              />
+              <em>Vacío = ilimitado</em>
+            </label>
+          }
+        }
+        @if (matchablePromos().some((p) => p.inSchedule === false)) {
+          <p class="session-promo__hint">Las atenuadas están fuera de horario.</p>
+        }
+        @if (session()?.promoBreakdown; as pb) {
+          <p class="session-promo__hint">
+            @if (pb.applied?.length) {
+              @for (a of pb.applied!; track a.promoId) {
+                {{ a.packs }}× {{ a.promoName }} = {{ money(a.packsTotal) }}.
+              }
+            } @else if (pb.packs > 0) {
+              {{ pb.packs }}× {{ pb.promoName }} = {{ money(pb.packsTotal) }}.
+            }
+            Fuera: {{ money(pb.outsideTotal) }}.
+          </p>
+        }
       </section>
+    }
 
-      <section class="ticket-sum ticket-sum--session anim-in">
-        <p class="ticket-sum__label">Resumen</p>
-        <ul class="ticket-sum__list">
-          @for (row of ticketEditableRows(); track row.orderId + ':' + row.lineIndex) {
-            <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
-              @if (row.extra) {
-                <div class="ticket-sum__info">
-                  <span class="ticket-sum__name">+ {{ row.name }}</span>
-                  <button
-                    type="button"
-                    class="ticket-sum__remove"
-                    [disabled]="busy() || !capabilities().allowRemoveTicketLines"
-                    (click)="removeTicketLine(row.orderId, row.lineIndex)"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              } @else {
-                <div class="ticket-sum__info">
-                  <span class="ticket-sum__name">{{ row.name }}</span>
-                  <div class="ticket-sum__qty">
-                    <button
-                      type="button"
-                      [disabled]="busy() || !capabilities().allowEditTicket"
-                      (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, -1)"
-                    >
-                      −
-                    </button>
-                    <span>{{ row.qty }}</span>
-                    <button
-                      type="button"
-                      [disabled]="busy() || !capabilities().allowEditTicket"
-                      (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, 1)"
-                    >
-                      +
-                    </button>
+    @if (s?.orders?.length) {
+      <section class="session-fold anim-in" [class.session-fold--open]="sessionEnviosOpen()">
+        <button
+          type="button"
+          class="session-fold__toggle"
+          (click)="sessionEnviosOpen.update((v) => !v)"
+          [attr.aria-expanded]="sessionEnviosOpen()"
+        >
+          <span>
+            Envíos
+            <em>{{ s!.orders!.length }}</em>
+          </span>
+          <span class="session-fold__chev" aria-hidden="true">{{ sessionEnviosOpen() ? '▾' : '▸' }}</span>
+        </button>
+        @if (sessionEnviosOpen()) {
+          <ul class="sent-list">
+            @for (o of s!.orders; track o.id) {
+              <li class="sent-card">
+                <div class="sent-card__head">
+                  <div class="sent-card__meta">
+                    <strong>#{{ o.code }}</strong>
+                    <time>{{ orderTime(o.createdAt) }}</time>
+                  </div>
+                  <div class="sent-card__actions">
+                    @if (capabilities().allowPrintKitchen) {
+                      <button
+                        type="button"
+                        class="link sent-card__reprint"
+                        [disabled]="busy()"
+                        (click)="reprintKitchen(o.id)"
+                      >
+                        Reimprimir
+                      </button>
+                    }
+                    <span class="sent-card__total">{{ money(o.total) }}</span>
                   </div>
                 </div>
+                <ul class="sent-card__items">
+                  @for (g of orderGroups(o.items); track $index) {
+                    <li>
+                      @if (g.item; as it) {
+                        <span class="sent-card__qty">{{ it.qty }}×</span>
+                        <span class="sent-card__name">{{ it.name }}</span>
+                        @if (g.extras.length) {
+                          <span class="sent-card__extras">
+                            @for (ex of g.extras; track $index; let last = $last) {
+                              + {{ ex.name }}{{ last ? '' : ', ' }}
+                            }
+                          </span>
+                        }
+                      } @else {
+                        @for (ex of g.extras; track $index) {
+                          <span class="sent-card__qty">{{ ex.qty }}×</span>
+                          <span class="sent-card__name">{{ ex.name }}</span>
+                        }
+                      }
+                    </li>
+                  }
+                </ul>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="session-fold anim-in" [class.session-fold--open]="sessionResumenOpen()">
+        <button
+          type="button"
+          class="session-fold__toggle"
+          (click)="sessionResumenOpen.update((v) => !v)"
+          [attr.aria-expanded]="sessionResumenOpen()"
+        >
+          <span>
+            Resumen
+            <em>{{ money(sessionSubtotal()) }}</em>
+          </span>
+          <span class="session-fold__chev" aria-hidden="true">{{ sessionResumenOpen() ? '▾' : '▸' }}</span>
+        </button>
+        @if (sessionResumenOpen()) {
+          <div class="session-fold__body ticket-sum ticket-sum--session">
+            <ul class="ticket-sum__list">
+              @for (row of ticketEditableRows(); track row.key) {
+                <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
+                  @if (row.extra) {
+                    <div class="ticket-sum__info">
+                      <span class="ticket-sum__name">+ {{ row.name }}</span>
+                      <button
+                        type="button"
+                        class="ticket-sum__remove"
+                        [disabled]="busy() || !capabilities().allowRemoveTicketLines"
+                        (click)="removeTicketLine(row)"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="ticket-sum__info">
+                      <span class="ticket-sum__name">{{ row.name }}</span>
+                      <div class="ticket-sum__qty">
+                        <button
+                          type="button"
+                          [disabled]="busy() || !capabilities().allowEditTicket"
+                          (click)="bumpTicketItem(row, -1)"
+                        >
+                          −
+                        </button>
+                        <span>{{ row.qty }}</span>
+                        <button
+                          type="button"
+                          [disabled]="busy() || !capabilities().allowEditTicket"
+                          (click)="bumpTicketItem(row, 1)"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  }
+                  <label class="ticket-sum__price">
+                    <span class="sr-only">Precio</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      [ngModel]="row.unitPrice"
+                      [disabled]="busy() || !capabilities().allowEditTicket"
+                      (change)="setTicketLinePrice(row, +$any($event.target).value)"
+                      [attr.name]="'sp-' + row.key"
+                    />
+                  </label>
+                </li>
               }
-              <label class="ticket-sum__price">
-                <span class="sr-only">Precio</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="100"
-                  [ngModel]="row.unitPrice"
-                  [disabled]="busy() || !capabilities().allowEditTicket"
-                  (change)="setTicketLinePrice(row.orderId, row.lineIndex, +$any($event.target).value, row.unitPrice)"
-                  [attr.name]="'sp-' + row.orderId + '-' + row.lineIndex"
-                />
-              </label>
-            </li>
-          }
-        </ul>
-        <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
+            </ul>
+            <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
+          </div>
+        }
       </section>
     }
 
@@ -375,7 +502,7 @@
           (ngModelChange)="query.set($event)"
           name="q"
         />
-        @if (sections().length > 1) {
+        @if (showCatalogChips()) {
           <div class="chips" role="tablist">
             <button
               type="button"
@@ -395,49 +522,92 @@
                 {{ sec }}
               </button>
             }
+            @if (sellablePromos().length) {
+              <button
+                type="button"
+                class="chip"
+                [class.chip--on]="showingPromosOnly()"
+                (click)="setSection(promosSection)"
+              >
+                Promos
+              </button>
+            }
           </div>
         }
-        <ul class="items">
-          @for (it of filteredCatalog(); track it.id) {
-            <li class="item-wrap">
-              <button type="button" class="item" (click)="addItem(it)">
-                <span>{{ it.name }}</span>
-                <span class="item__price">{{ money(it.price) }}</span>
-              </button>
-              @if (itemExtras(it.id); as exs) {
-                @if (exs.length) {
-                  <div class="extras-bar">
-                    <button
-                      type="button"
-                      class="extras-toggle"
-                      [class.extras-toggle--on]="extrasOpenFor() === it.id"
-                      (click)="toggleItemExtras(it.id, $event)"
-                      [attr.aria-expanded]="extrasOpenFor() === it.id"
-                    >
-                      Extras
-                      <span class="extras-badge">{{ exs.length }}</span>
-                    </button>
-                    @if (extrasOpenFor() === it.id) {
-                      <div class="extras">
-                        @for (ex of exs; track ex.id) {
-                          <button
-                            type="button"
-                            class="extra"
-                            (click)="addExtra(ex, it, $event)"
-                          >
-                            + {{ ex.name }}
-                          </button>
-                        }
-                      </div>
-                    }
-                  </div>
+        @if (!showingPromosOnly()) {
+          <ul class="items">
+            @for (it of filteredCatalog(); track it.id) {
+              <li class="item-wrap">
+                <button type="button" class="item" (click)="addItem(it)">
+                  <span>{{ it.name }}</span>
+                  <span class="item__price">{{ money(it.price) }}</span>
+                </button>
+                @if (itemExtras(it.id); as exs) {
+                  @if (exs.length) {
+                    <div class="extras-bar">
+                      <button
+                        type="button"
+                        class="extras-toggle"
+                        [class.extras-toggle--on]="extrasOpenFor() === it.id"
+                        (click)="toggleItemExtras(it.id, $event)"
+                        [attr.aria-expanded]="extrasOpenFor() === it.id"
+                      >
+                        Extras
+                        <span class="extras-badge">{{ exs.length }}</span>
+                      </button>
+                      @if (extrasOpenFor() === it.id) {
+                        <div class="extras">
+                          @for (ex of exs; track ex.id) {
+                            <button
+                              type="button"
+                              class="extra"
+                              (click)="addExtra(ex, it, $event)"
+                            >
+                              + {{ ex.name }}
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
                 }
+              </li>
+            } @empty {
+              @if (!sellablePromos().length || sectionFilter()) {
+                <li class="muted">Sin ítems. Revisá la carta del local.</li>
               }
-            </li>
-          } @empty {
-            <li class="muted">Sin ítems. Revisá la carta del local.</li>
+            }
+          </ul>
+        }
+
+        @if (sellablePromos().length && (!sectionFilter() || showingPromosOnly())) {
+          @if (!showingPromosOnly()) {
+            <h3 class="cat-sub">Promos</h3>
           }
-        </ul>
+          <ul class="items">
+            @for (pr of sellablePromos(); track pr.id) {
+              <li class="item-wrap">
+                <button
+                  type="button"
+                  class="item"
+                  [class.item--dim]="pr.inSchedule === false"
+                  [disabled]="pr.inSchedule === false"
+                  [title]="pr.inSchedule === false ? 'Fuera de horario' : pr.name"
+                  (click)="addPromo(pr)"
+                >
+                  <span>{{ pr.name }}</span>
+                  <span class="item__price">
+                    @if (pr.inSchedule === false) {
+                      Fuera de horario
+                    } @else {
+                      {{ money(pr.fixedPrice) }}
+                    }
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
       </section>
     </div>
 
@@ -663,64 +833,143 @@
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="ticket-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     <h2 id="ticket-title">Ticket mesa {{ session()?.table?.label }}</h2>
-    <div class="ticket-sum">
-      <p class="ticket-sum__label">Resumen</p>
-      <ul class="ticket-sum__list">
-        @for (row of ticketEditableRows(); track row.orderId + ':' + row.lineIndex) {
-          <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
-            @if (row.extra) {
-              <div class="ticket-sum__info">
-                <span class="ticket-sum__name">+ {{ row.name }}</span>
-                <button
-                  type="button"
-                  class="ticket-sum__remove"
-                  [disabled]="busy() || !capabilities().allowRemoveTicketLines"
-                  (click)="removeTicketLine(row.orderId, row.lineIndex)"
-                >
-                  Quitar
-                </button>
-              </div>
-            } @else {
-              <div class="ticket-sum__info">
-                <span class="ticket-sum__name">{{ row.name }}</span>
-                <div class="ticket-sum__qty">
-                  <button
-                    type="button"
-                    [disabled]="busy() || !capabilities().allowEditTicket"
-                    (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, -1)"
-                  >
-                    −
-                  </button>
-                  <span>{{ row.qty }}</span>
-                  <button
-                    type="button"
-                    [disabled]="busy() || !capabilities().allowEditTicket"
-                    (click)="bumpTicketItem(row.orderId, row.lineIndex, row.qty, 1)"
-                  >
-                    +
-                  </button>
-                </div>
+
+    <div class="ticket-bill">
+      @if (session()?.promoBreakdown; as pb) {
+        @if (pb.applied?.length || pb.packs > 0) {
+          @if (pb.applied?.length) {
+            @for (a of pb.applied!; track a.promoId) {
+              <div class="ticket-bill__row">
+                <span>{{ a.packs }}× {{ a.promoName }}</span>
+                <span>{{ money(a.packsTotal) }}</span>
               </div>
             }
-            <label class="ticket-sum__price">
-              <span class="sr-only">Precio</span>
-              <input
-                type="number"
-                min="0"
-                step="100"
-                [ngModel]="row.unitPrice"
-                [disabled]="busy() || !capabilities().allowEditTicket"
-                (change)="setTicketLinePrice(row.orderId, row.lineIndex, +$any($event.target).value, row.unitPrice)"
-                [attr.name]="'tp-' + row.orderId + '-' + row.lineIndex"
-              />
-            </label>
-          </li>
-        } @empty {
-          <li class="muted">Sin ítems</li>
+          } @else {
+            <div class="ticket-bill__row">
+              <span>{{ pb.packs }}× {{ pb.promoName }}</span>
+              <span>{{ money(pb.packsTotal) }}</span>
+            </div>
+          }
+          @if (pb.soldPromoTotal > 0) {
+            <div class="ticket-bill__row">
+              <span>Promos vendidas</span>
+              <span>{{ money(pb.soldPromoTotal) }}</span>
+            </div>
+          }
+          @if (pb.outsideTotal > 0) {
+            <div class="ticket-bill__row ticket-bill__row--muted">
+              <span>Fuera de promo</span>
+              <span>{{ money(pb.outsideTotal) }}</span>
+            </div>
+            @if (ticketOutsideGrouped(pb.outside); as outs) {
+              @if (outs.length) {
+                <button
+                  type="button"
+                  class="ticket-bill__toggle"
+                  (click)="ticketOutsideOpen.update((v) => !v)"
+                  [attr.aria-expanded]="ticketOutsideOpen()"
+                >
+                  {{ ticketOutsideOpen() ? 'Ocultar detalle' : 'Ver ' + outs.length + ' ítems' }}
+                </button>
+                @if (ticketOutsideOpen()) {
+                  <ul class="ticket-bill__detail">
+                    @for (row of outs; track row.name + ':' + row.qty) {
+                      <li>
+                        <span>{{ row.qty }}× {{ row.name }}</span>
+                        <span>{{ money(row.amount) }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            }
+          }
+        } @else if (sessionPromoIds().length) {
+          <p class="ticket-bill__note">
+            Promo asignada, sin packs aplicados (horario o cupo).
+          </p>
         }
-      </ul>
-      <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
+      }
+      <div class="ticket-bill__row ticket-bill__row--sub">
+        <span>Subtotal</span>
+        <span>{{ money(sessionSubtotal()) }}</span>
+      </div>
     </div>
+
+    <section class="session-fold ticket-edit" [class.session-fold--open]="ticketEditOpen()">
+      <button
+        type="button"
+        class="session-fold__toggle"
+        (click)="ticketEditOpen.update((v) => !v)"
+        [attr.aria-expanded]="ticketEditOpen()"
+      >
+        <span>
+          Editar ítems
+          <em>{{ ticketEditableRows().length }}</em>
+        </span>
+        <span class="session-fold__chev" aria-hidden="true">{{ ticketEditOpen() ? '▾' : '▸' }}</span>
+      </button>
+      @if (ticketEditOpen()) {
+        <div class="session-fold__body ticket-sum ticket-sum--edit">
+          <ul class="ticket-sum__list">
+            @for (row of ticketEditableRows(); track row.key) {
+              <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
+                @if (row.extra) {
+                  <div class="ticket-sum__info">
+                    <span class="ticket-sum__name">+ {{ row.name }}</span>
+                    <button
+                      type="button"
+                      class="ticket-sum__remove"
+                      [disabled]="busy() || !capabilities().allowRemoveTicketLines"
+                      (click)="removeTicketLine(row)"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                } @else {
+                  <div class="ticket-sum__info">
+                    <span class="ticket-sum__name">{{ row.name }}</span>
+                    <div class="ticket-sum__qty">
+                      <button
+                        type="button"
+                        [disabled]="busy() || !capabilities().allowEditTicket"
+                        (click)="bumpTicketItem(row, -1)"
+                      >
+                        −
+                      </button>
+                      <span>{{ row.qty }}</span>
+                      <button
+                        type="button"
+                        [disabled]="busy() || !capabilities().allowEditTicket"
+                        (click)="bumpTicketItem(row, 1)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                }
+                <label class="ticket-sum__price">
+                  <span aria-hidden="true">$</span>
+                  <span class="sr-only">Precio</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    [ngModel]="row.unitPrice"
+                    [disabled]="busy() || !capabilities().allowEditTicket"
+                    (change)="setTicketLinePrice(row, +$any($event.target).value)"
+                    [attr.name]="'tp-' + row.key"
+                  />
+                </label>
+              </li>
+            } @empty {
+              <li class="muted">Sin ítems</li>
+            }
+          </ul>
+        </div>
+      }
+    </section>
+
     @if (capabilities().allowTicketDiscount) {
       <div class="sheet__field">
         <span class="sheet__label">Descuento</span>

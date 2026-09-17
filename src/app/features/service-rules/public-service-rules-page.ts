@@ -83,8 +83,6 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
     }
   `,
   styles: `
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700;800&display=swap');
-
     :host {
       display: block;
       min-height: 100vh;

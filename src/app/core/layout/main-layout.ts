@@ -484,6 +484,7 @@ export class MainLayoutComponent {
       canManageOrderingCatalog(user, shopId)
     ) {
       local.push(leaf('adminMenu'));
+      local.push(leaf('adminPromos'));
     }
     if (
       shopId &&

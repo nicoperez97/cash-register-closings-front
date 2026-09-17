@@ -38,13 +38,14 @@ import {
 
 type PosLine = {
   key: string;
-  kind: 'ITEM' | 'EXTRA';
+  kind: 'ITEM' | 'EXTRA' | 'PROMO';
   menuItemId: string;
   name: string;
   unitPrice: number;
   qty: number;
   extraId?: string;
   attachedToMenuItemId?: string;
+  promoId?: string;
 };
 
 type CatalogItem = {
@@ -106,6 +107,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly lines = signal<PosLine[]>([]);
   readonly query = signal('');
   readonly sectionFilter = signal<string | null>(null);
+  /** Filtro de chip «Promos» (no es una sección de carta). */
+  readonly promosSection = '__promos__';
   readonly notes = signal('');
   readonly printKitchen = signal(true);
   readonly printCustomerTicket = signal(false);
@@ -114,6 +117,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly cartDetail = signal(false);
   /** Ítem de carta con extras desplegados (null = todos contraídos). */
   readonly extrasOpenFor = signal<string | null>(null);
+  /** Envíos / Resumen de mesa: colapsados por defecto para priorizar la carta. */
+  readonly sessionEnviosOpen = signal(false);
+  readonly sessionResumenOpen = signal(false);
+  /** Borrador del cupo por promoId (vacío = ilimitado). */
+  readonly promoCupoDrafts = signal<Record<string, string>>({});
 
   /** Sheet: pedir comensales (y mozo en admin) antes de abrir. */
   readonly coversSheet = signal<WaiterTable | null>(null);
@@ -140,6 +148,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   /** Sheet: imprimir ticket con descuento. */
   readonly ticketSheet = signal(false);
+  /** Editar ítems del ticket: colapsado por defecto. */
+  readonly ticketEditOpen = signal(false);
+  readonly ticketOutsideOpen = signal(false);
   readonly ticketDiscountMode = signal<'none' | 'percent' | 'fixed'>('none');
   readonly ticketDiscountValue = signal<number | null>(null);
   readonly ticketDiscountPresetId = signal<string | null>(null);
@@ -419,6 +430,22 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   readonly extras = computed(() => this.catalog()?.extras ?? []);
 
+  readonly sellablePromos = computed(() =>
+    (this.catalog()?.promos ?? []).filter((p) => p.sellable),
+  );
+
+  readonly showCatalogChips = computed(
+    () => this.sections().length > 1 || this.sellablePromos().length > 0,
+  );
+
+  readonly showingPromosOnly = computed(
+    () => this.sectionFilter() === this.promosSection,
+  );
+
+  readonly matchablePromos = computed(() =>
+    (this.catalog()?.promos ?? []).filter((p) => p.tableMatchable),
+  );
+
   readonly discountPresets = computed(() =>
     resolveDiscountPresets(this.catalog()?.discountPresets),
   );
@@ -584,6 +611,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return formatOrderLinesInline(items);
   }
 
+  orderGroups(items: Parameters<typeof groupOrderLines>[0]) {
+    return groupOrderLines(items);
+  }
+
   orderTime(iso: string | Date | null | undefined): string {
     if (!iso) return '';
     const d = iso instanceof Date ? iso : new Date(iso);
@@ -591,77 +622,96 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
-  /** Ítems editables de toda la mesa para el sheet de ticket. */
+  /** Ítems editables de toda la mesa (agrupados por ítem + precio). */
   ticketEditableRows(): Array<{
-    orderId: string;
-    lineIndex: number;
+    key: string;
     name: string;
     qty: number;
     unitPrice: number;
     amount: number;
     extra: boolean;
+    parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
   }> {
     const orders = this.session()?.orders ?? [];
-    const rows: Array<{
-      orderId: string;
-      lineIndex: number;
+    type Acc = {
+      key: string;
       name: string;
       qty: number;
       unitPrice: number;
       amount: number;
       extra: boolean;
-    }> = [];
+      parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
+    };
+    const map = new Map<string, Acc>();
+
+    const push = (
+      key: string,
+      name: string,
+      qty: number,
+      unitPrice: number,
+      extra: boolean,
+      orderId: string,
+      lineIndex: number,
+    ) => {
+      const q = Math.max(0, Number(qty) || 0);
+      if (!q) return;
+      const price = Number(unitPrice) || 0;
+      const prev = map.get(key);
+      if (prev) {
+        prev.qty += q;
+        prev.amount += price * q;
+        prev.parts.push({ orderId, lineIndex, qty: q });
+      } else {
+        map.set(key, {
+          key,
+          name,
+          qty: q,
+          unitPrice: price,
+          amount: price * q,
+          extra,
+          parts: [{ orderId, lineIndex, qty: q }],
+        });
+      }
+    };
+
     for (const o of orders) {
       const items = o.items ?? [];
       const usedExtras = new Set<number>();
       const mains = items
         .map((l, i) => ({ l, i }))
-        .filter(({ l }) => String(l.kind || 'ITEM').toUpperCase() !== 'EXTRA');
+        .filter(({ l }) => {
+          const kind = String(l.kind || 'ITEM').toUpperCase();
+          return kind !== 'EXTRA' && kind !== 'PROMO';
+        });
       const extras = items
         .map((l, i) => ({ l, i }))
         .filter(({ l }) => String(l.kind || '').toUpperCase() === 'EXTRA');
 
       for (const { l: item, i: itemIdx } of mains) {
-        rows.push({
-          orderId: o.id,
-          lineIndex: itemIdx,
-          name: item.name,
-          qty: Number(item.qty) || 0,
-          unitPrice: Number(item.unitPrice) || 0,
-          amount: (Number(item.unitPrice) || 0) * (Number(item.qty) || 0),
-          extra: false,
-        });
         const id = String(item.menuItemId || '').trim();
+        const price = Number(item.unitPrice) || 0;
+        const key = `i:${id || item.name}:${price}`;
+        push(key, item.name, Number(item.qty) || 0, price, false, o.id, itemIdx);
+
         for (const { l: ex, i: exIdx } of extras) {
           if (usedExtras.has(exIdx)) continue;
           const parent = String(ex.attachedToMenuItemId || '').trim();
           if (!parent || !id || parent !== id) continue;
           usedExtras.add(exIdx);
-          rows.push({
-            orderId: o.id,
-            lineIndex: exIdx,
-            name: ex.name,
-            qty: Number(ex.qty) || 0,
-            unitPrice: Number(ex.unitPrice) || 0,
-            amount: (Number(ex.unitPrice) || 0) * (Number(ex.qty) || 0),
-            extra: true,
-          });
+          const exPrice = Number(ex.unitPrice) || 0;
+          const exKey = `e:${parent}:${ex.name}:${exPrice}`;
+          push(exKey, ex.name, Number(ex.qty) || 0, exPrice, true, o.id, exIdx);
         }
       }
       for (const { l: ex, i: exIdx } of extras) {
         if (usedExtras.has(exIdx)) continue;
-        rows.push({
-          orderId: o.id,
-          lineIndex: exIdx,
-          name: ex.name,
-          qty: Number(ex.qty) || 0,
-          unitPrice: Number(ex.unitPrice) || 0,
-          amount: (Number(ex.unitPrice) || 0) * (Number(ex.qty) || 0),
-          extra: true,
-        });
+        const exPrice = Number(ex.unitPrice) || 0;
+        const parent = String(ex.attachedToMenuItemId || '').trim();
+        const exKey = `e:${parent || '_'}:${ex.name}:${exPrice}`;
+        push(exKey, ex.name, Number(ex.qty) || 0, exPrice, true, o.id, exIdx);
       }
     }
-    return rows;
+    return [...map.values()];
   }
 
   patchTicketLine(body: {
@@ -693,21 +743,94 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  bumpTicketItem(orderId: string, lineIndex: number, qty: number, delta: number): void {
-    if (!this.capabilities().allowEditTicket) return;
-    this.patchTicketLine({ orderId, lineIndex, qty: Math.max(0, qty + delta) });
+  /** Aplica varios parches en serie (mismo precio / quitar grupo). */
+  private patchTicketLineChain(
+    ops: Array<{
+      orderId: string;
+      lineIndex: number;
+      qty?: number | null;
+      unitPrice?: number | null;
+      remove?: boolean;
+    }>,
+  ): void {
+    if (!ops.length) return;
+    const [head, ...rest] = ops;
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session || this.busy()) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.api.patchSessionLine(slug, token, session.id, head).subscribe({
+      next: (updated) => {
+        this.session.set(updated);
+        if (!(updated.orderCount ?? updated.orders?.length)) {
+          this.busy.set(false);
+          this.ticketSheet.set(false);
+          this.showToast('Sin ítems en la mesa');
+          return;
+        }
+        this.busy.set(false);
+        if (rest.length) this.patchTicketLineChain(rest);
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudo actualizar el ítem'));
+      },
+    });
   }
 
-  setTicketLinePrice(orderId: string, lineIndex: number, unitPrice: number, current: number): void {
+  bumpTicketItem(
+    row: {
+      parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
+    },
+    delta: number,
+  ): void {
+    if (!this.capabilities().allowEditTicket) return;
+    if (!row.parts.length) return;
+    const last = row.parts[row.parts.length - 1];
+    this.patchTicketLine({
+      orderId: last.orderId,
+      lineIndex: last.lineIndex,
+      qty: Math.max(0, last.qty + delta),
+    });
+  }
+
+  setTicketLinePrice(
+    row: {
+      unitPrice: number;
+      parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
+    },
+    unitPrice: number,
+  ): void {
     if (!this.capabilities().allowEditTicket) return;
     const next = Math.max(0, Math.round((Number(unitPrice) || 0) * 100) / 100);
-    if (next === current) return;
-    this.patchTicketLine({ orderId, lineIndex, unitPrice: next });
+    if (next === row.unitPrice) return;
+    this.patchTicketLineChain(
+      row.parts.map((p) => ({
+        orderId: p.orderId,
+        lineIndex: p.lineIndex,
+        unitPrice: next,
+      })),
+    );
   }
 
-  removeTicketLine(orderId: string, lineIndex: number): void {
+  removeTicketLine(row: {
+    parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
+  }): void {
     if (!this.capabilities().allowRemoveTicketLines) return;
-    this.patchTicketLine({ orderId, lineIndex, remove: true });
+    // Quitar de atrás hacia adelante para no invalidar índices en el mismo envío.
+    const ops = [...row.parts]
+      .sort((a, b) => {
+        if (a.orderId !== b.orderId) return a.orderId < b.orderId ? -1 : 1;
+        return b.lineIndex - a.lineIndex;
+      })
+      .map((p) => ({
+        orderId: p.orderId,
+        lineIndex: p.lineIndex,
+        remove: true as const,
+      }));
+    this.patchTicketLineChain(ops);
   }
 
   showToast(msg: string): void {
@@ -969,8 +1092,193 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       caps.allowPrintCustomerTicket && caps.defaultPrintCustomerTicket,
     );
     this.cartOpen.set(false);
+    this.sessionEnviosOpen.set(false);
+    this.sessionResumenOpen.set(false);
+    this.syncPromoCupoDraft(session);
     this.view.set('session');
     this.ensureCatalog();
+  }
+
+  private syncPromoCupoDraft(session: WaiterSession | null = this.session()): void {
+    const drafts: Record<string, string> = {};
+    for (const p of session?.sessionPromos ?? []) {
+      drafts[p.promoId] = p.maxCount == null ? '' : String(p.maxCount);
+    }
+    // Compat legacy single
+    if (!Object.keys(drafts).length && session?.promoId) {
+      drafts[session.promoId] =
+        session.promoMaxCount == null ? '' : String(session.promoMaxCount);
+    }
+    this.promoCupoDrafts.set(drafts);
+  }
+
+  sessionPromoIds(): string[] {
+    const s = this.session();
+    if (s?.sessionPromos?.length) return s.sessionPromos.map((p) => p.promoId);
+    return s?.promoId ? [s.promoId] : [];
+  }
+
+  isSessionPromoOn(promoId: string): boolean {
+    return this.sessionPromoIds().includes(promoId);
+  }
+
+  promoCupoDraft(promoId: string): string {
+    return this.promoCupoDrafts()[promoId] ?? '';
+  }
+
+  onPromoCupoDraft(promoId: string, value: string | number | null): void {
+    const next =
+      value == null || value === '' ? '' : String(value);
+    this.promoCupoDrafts.update((cur) => ({ ...cur, [promoId]: next }));
+  }
+
+  commitPromoCupo(promoId: string): void {
+    const session = this.session();
+    if (!session || this.busy() || !this.isSessionPromoOn(promoId)) return;
+    const raw = (this.promoCupoDrafts()[promoId] ?? '').trim();
+    let next: number | null = null;
+    if (raw !== '') {
+      const n = Math.round(Number(raw));
+      next = Number.isFinite(n) && n >= 1 ? n : null;
+    }
+    this.promoCupoDrafts.update((cur) => ({
+      ...cur,
+      [promoId]: next == null ? '' : String(next),
+    }));
+    const cur =
+      session.sessionPromos?.find((p) => p.promoId === promoId)?.maxCount ??
+      (session.promoId === promoId ? session.promoMaxCount ?? null : null);
+    if (cur === next) return;
+    this.saveSessionPromos(
+      this.sessionPromoIds().map((id) => ({
+        promoId: id,
+        maxCount: id === promoId ? next : this.cupoForPromo(id),
+      })),
+    );
+  }
+
+  private cupoForPromo(promoId: string): number | null {
+    const raw = (this.promoCupoDrafts()[promoId] ?? '').trim();
+    if (!raw) return null;
+    const n = Math.round(Number(raw));
+    return Number.isFinite(n) && n >= 0 ? Math.min(999, n) : null;
+  }
+
+  toggleSessionPromo(promoId: string): void {
+    const on = this.isSessionPromoOn(promoId);
+    if (on) {
+      const next = this.sessionPromoIds()
+        .filter((id) => id !== promoId)
+        .map((id) => ({ promoId: id, maxCount: this.cupoForPromo(id) }));
+      this.saveSessionPromos(next);
+      return;
+    }
+    this.saveSessionPromos([
+      ...this.sessionPromoIds().map((id) => ({
+        promoId: id,
+        maxCount: this.cupoForPromo(id),
+      })),
+      { promoId, maxCount: null },
+    ]);
+  }
+
+  clearSessionPromos(): void {
+    this.saveSessionPromos([]);
+  }
+
+  saveSessionPromos(
+    promos: Array<{ promoId: string; maxCount: number | null }>,
+  ): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session || this.busy()) return;
+    this.busy.set(true);
+    this.api
+      .patchSessionPromo(slug, token, session.id, { promos })
+      .subscribe({
+        next: (s) => {
+          this.busy.set(false);
+          this.session.set(s);
+          this.syncPromoCupoDraft(s);
+          this.showToast(
+            promos.length ? 'Promos de mesa actualizadas' : 'Promos de mesa quitadas',
+          );
+        },
+        error: (err) => {
+          this.busy.set(false);
+          this.error.set(apiErrorMessage(err, 'No se pudo guardar la promo'));
+        },
+      });
+  }
+
+  addPromo(promo: {
+    id: string;
+    name: string;
+    fixedPrice: number;
+    items?: Array<{ menuItemId: string; qty: number }>;
+    specialName?: string | null;
+    tableMatchable?: boolean;
+  }): void {
+    const items = promo.items ?? [];
+    if (items.length) {
+      // Composición = mismos ítems de carta; el matching de mesa hace el precio.
+      const catalog = this.catalogItems();
+      this.lines.update((list) => {
+        let next = [...list];
+        for (const it of items) {
+          const found = catalog.find((c) => c.id === it.menuItemId);
+          if (!found) continue;
+          const key = `i:${found.id}`;
+          const qtyAdd = Math.max(1, Number(it.qty) || 1);
+          const idx = next.findIndex((l) => l.key === key);
+          if (idx >= 0) {
+            next = next.map((l, i) =>
+              i === idx ? { ...l, qty: Math.min(99, l.qty + qtyAdd) } : l,
+            );
+          } else {
+            next.push({
+              key,
+              kind: 'ITEM',
+              menuItemId: found.id,
+              name: found.name,
+              unitPrice: Number(found.price) || 0,
+              qty: qtyAdd,
+            });
+          }
+        }
+        return next;
+      });
+      if (promo.tableMatchable !== false && !this.isSessionPromoOn(promo.id)) {
+        this.toggleSessionPromo(promo.id);
+      }
+      this.cartOpen.set(true);
+      return;
+    }
+
+    // Evento sin composición: línea PROMO.
+    const key = `p:${promo.id}`;
+    this.lines.update((list) => {
+      const idx = list.findIndex((l) => l.key === key);
+      if (idx >= 0) {
+        return list.map((l, i) =>
+          i === idx ? { ...l, qty: Math.min(99, l.qty + 1) } : l,
+        );
+      }
+      return [
+        ...list,
+        {
+          key,
+          kind: 'PROMO',
+          menuItemId: promo.id,
+          name: promo.name,
+          unitPrice: Number(promo.fixedPrice) || 0,
+          qty: 1,
+          promoId: promo.id,
+        },
+      ];
+    });
+    this.cartOpen.set(true);
   }
 
   backToTables(): void {
@@ -1187,26 +1495,35 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         qty: l.qty,
         attachedToMenuItemId: l.attachedToMenuItemId ?? null,
       }));
+    const promos = lines
+      .filter((l) => l.kind === 'PROMO' && l.promoId)
+      .map((l) => ({ promoId: l.promoId!, qty: l.qty }));
     this.busy.set(true);
     this.error.set(null);
     this.api
       .createOrder(slug, token, session.id, {
         items,
         extras,
+        promos: promos.length ? promos : undefined,
         customerNotes: this.notes().trim() || null,
         printKitchen,
         printCustomerTicket,
       })
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.busy.set(false);
           this.lines.set([]);
           this.notes.set('');
           this.cartOpen.set(false);
           this.cartDetail.set(false);
-          this.showToast(
-            printKitchen || printCustomerTicket ? 'Comanda enviada' : 'Agregado a la mesa',
-          );
+          const warn = res?.print?.kitchenWarning;
+          if (printKitchen && warn) {
+            this.showToast(warn);
+          } else {
+            this.showToast(
+              printKitchen || printCustomerTicket ? 'Comanda enviada' : 'Agregado a la mesa',
+            );
+          }
           this.session.set(null);
           this.view.set('tables');
           this.loadTables();
@@ -1216,6 +1533,28 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.error.set(apiErrorMessage(err, 'No se pudo enviar la comanda'));
         },
       });
+  }
+
+  reprintKitchen(orderId: string): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session || this.busy()) return;
+    if (!this.capabilities().allowPrintKitchen) {
+      this.error.set('No está permitido imprimir cocina');
+      return;
+    }
+    this.busy.set(true);
+    this.api.reprintKitchen(slug, token, session.id, orderId).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.showToast('Comanda reencolada a cocina');
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudo reimprimir'));
+      },
+    });
   }
 
   askCloseTable(): void {
@@ -1438,6 +1777,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.ticketDiscountMode.set('none');
     this.ticketDiscountValue.set(null);
     this.ticketDiscountPresetId.set(null);
+    this.ticketEditOpen.set(false);
+    this.ticketOutsideOpen.set(false);
     this.ticketSheet.set(true);
   }
 
@@ -1455,6 +1796,28 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   cancelTicketSheet(): void {
     this.ticketSheet.set(false);
+    this.ticketEditOpen.set(false);
+    this.ticketOutsideOpen.set(false);
+  }
+
+  ticketOutsideGrouped(
+    outside: NonNullable<WaiterSession['promoBreakdown']>['outside'] | null | undefined,
+  ): Array<{ name: string; qty: number; amount: number }> {
+    const map = new Map<string, { name: string; qty: number; amount: number }>();
+    for (const row of outside ?? []) {
+      const name = String(row.name ?? '').trim() || 'Ítem';
+      const key = `${row.kind}|${name}|${row.unitPrice}`;
+      const prev = map.get(key);
+      const qty = Math.max(0, Number(row.qty) || 0);
+      const amount = Math.max(0, Number(row.amount) || 0);
+      if (prev) {
+        prev.qty += qty;
+        prev.amount += amount;
+      } else {
+        map.set(key, { name, qty, amount });
+      }
+    }
+    return [...map.values()].filter((r) => r.qty > 0);
   }
 
   sessionSubtotal(): number {
