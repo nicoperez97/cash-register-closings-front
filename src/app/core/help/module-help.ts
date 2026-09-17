@@ -898,7 +898,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Con Pedidos clientes (Todo) o Catálogo pedidos ves la pestaña Configurar: abrir caja del turno, take away, delivery, medios de pago, y alta/baja de ítems y extras.',
         items: [
           'Antes de recibir pedidos online abrí la caja del turno con el efectivo de apertura (cambio).',
-          'Con la caja abierta los clientes pueden pedir. En el tablero ves el aviso de caja abierta o el CTA para abrirla.',
+          'Con la caja abierta podés Abrir local / Cerrar local para pausar o retomar pedidos sin cerrar la caja.',
           'Al finalizar el turno el local se cierra solo para pedidos; después abrí la caja del próximo turno.',
           'Si ya guardaste el cierre de ese turno y necesitás seguir con pedidos, Abrir caja inicia otra caja (el cierre anterior queda en el historial).',
           'Guardá con el botón Guardar al pie (canales e ítems). Ítems y extras vienen contraídos: tocá para expandir.',

@@ -9,6 +9,7 @@
   --paper: #eef1ee;
   --sheet: #ffffff;
   --accent: #2e7d32;
+  --on-accent: #ffffff;
   --line: color-mix(in srgb, var(--accent) 16%, #d5dcd2);
   color: var(--ink);
   color-scheme: light;
@@ -124,7 +125,7 @@ button {
   border-radius: 12px;
   padding: 0.8rem;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent, #fff);
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
