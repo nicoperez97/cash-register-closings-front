@@ -793,6 +793,11 @@ export class OrderingCatalogPanelComponent {
               `${summary.openTablesCount} mesa(s) abierta(s) (no se incluyen hasta cobrarlas)`,
             );
           }
+          if (!summary.orderCount && !summary.tables?.closedCount && !warnings.length) {
+            warnings.push(
+              `Sin pedidos completados ni mesas cobradas en «${summary.shiftName}» (${summary.businessDate}). Acreditado ≠ completado: cerrá los pedidos en Pedidos antes de generar`,
+            );
+          }
           if (warnings.length) {
             const cont = window.confirm(
               `${warnings.join('. ')}. ¿Generar el cierre igual?`,
