@@ -1,6 +1,7 @@
 import {
   Component,
   DestroyRef,
+  HostBinding,
   OnDestroy,
   OnInit,
   computed,
@@ -27,6 +28,7 @@ import {
   groupOrderLines,
   OrderLineGroup,
   orderingMoney,
+  onAccentColor,
   paymentLabel,
   statusLabel,
 } from './ordering-ui.util';
@@ -66,8 +68,20 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
   readonly order = signal<PublicCustomerOrder | null>(null);
   readonly justCreated = signal(false);
   readonly needsPhone = signal(false);
+  readonly accent = signal('#2e7d32');
+  readonly onAccent = computed(() => onAccentColor(this.accent()));
 
   phone = '';
+
+  @HostBinding('style.--accent')
+  get hostAccent(): string {
+    return this.accent();
+  }
+
+  @HostBinding('style.--on-accent')
+  get hostOnAccent(): string {
+    return this.onAccent();
+  }
 
   readonly steps = computed(() => {
     const o = this.order();
@@ -129,6 +143,18 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     const code = this.code();
     this.title.setTitle(code ? `Pedido ${code}` : 'Tu pedido');
+
+    if (slug) {
+      this.api.getPublicOrdering(slug).subscribe({
+        next: (cfg) => {
+          const color = cfg.shop?.accentColor?.trim() || '#2e7d32';
+          this.accent.set(color);
+          if (!code) {
+            this.title.setTitle(`Pedido · ${cfg.shop?.name ?? slug}`);
+          }
+        },
+      });
+    }
 
     const remembered = recallOrderPhone(slug, code);
     if (remembered) {

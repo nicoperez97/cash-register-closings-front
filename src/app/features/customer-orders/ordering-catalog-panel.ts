@@ -139,7 +139,7 @@ type ClosingSummary = {
                 <strong>Caja abierta</strong>
                 <span>
                   Turno {{ caja.shiftName || '—' }} · cambio
-                  {{ money(caja.cashOpeningAmount ?? 0) }} · pedidos online habilitados
+                  {{ money(caja.cashOpeningAmount ?? 0) }}
                 </span>
               </div>
               @if (canCreateClosing() && canEditCaja()) {
@@ -152,6 +152,35 @@ type ClosingSummary = {
                 >
                   <mat-icon>point_of_sale</mat-icon>
                   {{ generatingClosing() ? 'Preparando…' : 'Generar cierre' }}
+                </button>
+              }
+            </div>
+            <div class="ocp__caja-local">
+              <div>
+                <strong>{{ orderingOpen() ? 'Local abierto' : 'Local cerrado' }}</strong>
+                <span>
+                  {{
+                    orderingOpen()
+                      ? 'Los clientes pueden hacer pedidos online.'
+                      : 'Pedidos online pausados. La caja sigue abierta.'
+                  }}
+                </span>
+              </div>
+              @if (canEditCaja()) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="togglingLocal()"
+                  (click)="setOrderingOpen(!orderingOpen())"
+                >
+                  <mat-icon>{{ orderingOpen() ? 'storefront' : 'store' }}</mat-icon>
+                  {{
+                    togglingLocal()
+                      ? 'Guardando…'
+                      : orderingOpen()
+                        ? 'Cerrar local'
+                        : 'Abrir local'
+                  }}
                 </button>
               }
             </div>
@@ -494,20 +523,34 @@ type ClosingSummary = {
       background: #f4f8f6;
     }
     .ocp__caja-open,
-    .ocp__caja-closed {
+    .ocp__caja-closed,
+    .ocp__caja-local {
       display: grid;
       gap: 0.65rem;
     }
     .ocp__caja-open strong,
-    .ocp__caja-closed strong {
+    .ocp__caja-closed strong,
+    .ocp__caja-local strong {
       display: block;
       font-size: 0.95rem;
     }
     .ocp__caja-open span,
-    .ocp__caja-closed span {
+    .ocp__caja-closed span,
+    .ocp__caja-local span {
       display: block;
       font-size: 0.82rem;
       color: var(--guy-muted, #5f6f76);
+    }
+    .ocp__caja-local {
+      padding-top: 0.55rem;
+      border-top: 1px dashed var(--guy-border, #d7e0d9);
+    }
+    @media (min-width: 640px) {
+      .ocp__caja-open,
+      .ocp__caja-local {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+      }
     }
     .ocp__caja-open-form {
       display: flex;
@@ -546,8 +589,10 @@ export class OrderingCatalogPanelComponent {
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly openingCaja = signal(false);
+  readonly togglingLocal = signal(false);
   readonly generatingClosing = signal(false);
   readonly openClosing = signal<CashClosing | null>(null);
+  readonly orderingOpen = signal(false);
   readonly items = signal<ToggleRow[]>([]);
   readonly extras = signal<ToggleRow[]>([]);
   readonly itemQuery = signal('');
@@ -651,6 +696,7 @@ export class OrderingCatalogPanelComponent {
       next: (caja) => {
         this.openingCaja.set(false);
         this.openClosing.set(caja);
+        this.orderingOpen.set(true);
         this.shiftActiveClosed.set(false);
         this.justAutoClosed.set(false);
         const shop = this.shops.selectedShop();
@@ -673,6 +719,35 @@ export class OrderingCatalogPanelComponent {
         });
       },
     });
+  }
+
+  setOrderingOpen(open: boolean): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canEditCaja() || !this.openClosing()) return;
+    if (open === this.orderingOpen()) return;
+    this.togglingLocal.set(true);
+    this.http
+      .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
+        orderingForceClosed: !open,
+      })
+      .subscribe({
+        next: (updated: any) => {
+          this.togglingLocal.set(false);
+          this.orderingOpen.set(!updated?.orderingForceClosed);
+          this.shops.upsertShop(updated);
+          this.snack.open(
+            open ? 'Local abierto para pedidos' : 'Local cerrado · pedidos pausados',
+            'OK',
+            { duration: 2800 },
+          );
+        },
+        error: (err: HttpErrorResponse) => {
+          this.togglingLocal.set(false);
+          this.snack.open(apiErrorMessage(err, 'No se pudo cambiar el estado del local'), 'OK', {
+            duration: 4000,
+          });
+        },
+      });
   }
 
   generateClosing(): void {
@@ -739,6 +814,7 @@ export class OrderingCatalogPanelComponent {
             .subscribe({
               next: (updated: any) => {
                 this.shops.upsertShop(updated);
+                this.orderingOpen.set(false);
                 this.generatingClosing.set(false);
                 const mesas = summary.tables?.closedCount ?? 0;
                 const bits = [
@@ -933,6 +1009,7 @@ export class OrderingCatalogPanelComponent {
       .subscribe({
         next: (s) => {
           const open = !s.orderingForceClosed;
+          this.orderingOpen.set(open);
           this.shiftActiveClosed.set(!!s.orderingShiftActive && !open);
           this.justAutoClosed.set(!!s.orderingJustAutoClosed);
           if (s.orderingJustAutoClosed) {
