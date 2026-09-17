@@ -78,10 +78,46 @@ export type TablePaymentMethod = {
   active?: boolean;
 };
 
+export type WaiterPromoBreakdown = {
+  promoId: string;
+  promoName: string;
+  packs: number;
+  packPrice: number;
+  packsTotal: number;
+  applied?: Array<{
+    promoId: string;
+    promoName: string;
+    packs: number;
+    packPrice: number;
+    packsTotal: number;
+  }>;
+  outside: Array<{
+    name: string;
+    qty: number;
+    unitPrice: number;
+    amount: number;
+    kind: string;
+  }>;
+  outsideTotal: number;
+  soldPromoTotal: number;
+  baseTotal: number;
+};
+
+export type WaiterSessionPromo = {
+  promoId: string;
+  maxCount: number | null;
+  name: string;
+};
+
 export type WaiterSession = {
   id: string;
   status: 'OPEN' | 'CLOSED';
   covers: number;
+  promoId?: string | null;
+  promoMaxCount?: number | null;
+  promoName?: string | null;
+  sessionPromos?: WaiterSessionPromo[];
+  promoBreakdown?: WaiterPromoBreakdown | null;
   customerTicketPrinted: boolean;
   ticketDiscountAmount?: number;
   ticketDiscountLabel?: string | null;
@@ -162,6 +198,18 @@ export type WaiterCatalog = {
     label: string;
     mode: 'percent' | 'fixed';
     value: number;
+  }>;
+  promos?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    fixedPrice: number;
+    sellable: boolean;
+    tableMatchable: boolean;
+    /** false = fuera de la ventana horaria de la promo. */
+    inSchedule?: boolean;
+    items: Array<{ menuItemId: string; qty: number }>;
+    specialName?: string | null;
   }>;
   tablePaymentMethods?: TablePaymentMethod[];
   capabilities?: WaiterCapProfile;
@@ -284,7 +332,7 @@ export class WaiterApiService {
     token: string,
     sessionId: string,
     body: {
-      items: Array<{
+      items?: Array<{
         menuItemId: string;
         qty: number;
         notes?: string | null;
@@ -295,13 +343,42 @@ export class WaiterApiService {
         qty: number;
         attachedToMenuItemId?: string | null;
       }>;
+      promos?: Array<{ promoId: string; qty: number }>;
       customerNotes?: string | null;
       printKitchen?: boolean;
       printCustomerTicket?: boolean;
     },
   ) {
-    return this.http.post(
+    return this.http.post<{
+      id?: string;
+      print?: { kitchenQueued: boolean; kitchenWarning: string | null };
+    }>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/orders`,
+      body,
+      this.authHeaders(token),
+    );
+  }
+
+  reprintKitchen(slug: string, token: string, sessionId: string, orderId: string) {
+    return this.http.post<{ ok: boolean; id: string; status: string }>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/orders/${orderId}/reprint-kitchen`,
+      {},
+      this.authHeaders(token),
+    );
+  }
+
+  patchSessionPromo(
+    slug: string,
+    token: string,
+    sessionId: string,
+    body: {
+      promoId?: string | null;
+      promoMaxCount?: number | null;
+      promos?: Array<{ promoId: string; maxCount?: number | null }> | null;
+    },
+  ) {
+    return this.http.patch<WaiterSession>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/promo`,
       body,
       this.authHeaders(token),
     );

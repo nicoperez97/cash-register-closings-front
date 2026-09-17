@@ -125,7 +125,7 @@ export function canAccessAppRoute(
   if (path.startsWith('/admin/messages')) {
     return canAccessShopAdmin(user, shopId);
   }
-  if (path.startsWith('/admin/menu')) {
+  if (path.startsWith('/admin/menu') || path.startsWith('/admin/promos')) {
     return (
       canSeeShopConfigSection(user, shopId, 'carta') &&
       (canAccessShopConfig(user, shopId) || canManageOrderingCatalog(user, shopId))

@@ -51,6 +51,13 @@ type MenuSummary = {
   title: string;
 };
 
+type PublicPromo = {
+  id: string;
+  name: string;
+  description?: string | null;
+  fixedPrice: number;
+};
+
 type FilterId = 'all' | 'veggie' | 'dessert' | 'combo' | 'drinks';
 
 type FilterOpt = { id: FilterId; label: string };
@@ -258,6 +265,26 @@ type FilterOpt = { id: FilterId; label: string };
             <p class="menu__empty">No encontramos eso en la carta. Probá con otra palabra.</p>
           }
 
+          @if (promos().length && filter() === 'all' && !query()) {
+            <section class="menu__section" id="promos">
+              <h2 class="menu__section-title">Promos</h2>
+              <ul>
+                @for (pr of promos(); track pr.id) {
+                  <li class="menu__item">
+                    <div class="menu__row">
+                      <span class="menu__name">{{ pr.name }}</span>
+                      <span class="menu__dots" aria-hidden="true"></span>
+                      <span class="menu__price">{{ money(pr.fixedPrice) }}</span>
+                    </div>
+                    @if (pr.description) {
+                      <p class="menu__desc">{{ pr.description }}</p>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+
           @if (data()?.menu?.note) {
             <p class="menu__note">{{ data()?.menu?.note }}</p>
           }
@@ -271,8 +298,6 @@ type FilterOpt = { id: FilterId; label: string };
   `,
   styles: [
     `
-      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Figtree:wght@400;500;600;700&display=swap');
-
       :host {
         display: block;
         min-height: 100dvh;
@@ -728,13 +753,19 @@ export class PublicMenuPageComponent implements OnInit {
   private jumping = false;
   private sourceObjectUrl: string | null = null;
 
-  readonly data = signal<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu } | null>(null);
+  readonly data = signal<{
+    shop: PublicShop;
+    menus: MenuSummary[];
+    menu: ShopMenu;
+    promos?: PublicPromo[];
+  } | null>(null);
   readonly error = signal('');
   readonly query = signal('');
   readonly filter = signal<FilterId>('all');
   readonly activeSection = signal('');
   readonly shop = computed(() => this.data()?.shop ?? null);
   readonly menus = computed(() => this.data()?.menus ?? []);
+  readonly promos = computed(() => this.data()?.promos ?? []);
   readonly currentSlug = computed(() => this.data()?.menu?.slug || this.menuSlug || this.menus()[0]?.slug || '');
   readonly hasSourceFile = computed(() => !!this.data()?.menu?.hasSourceFile);
   readonly accent = computed(() => this.shop()?.accentColor || '#2f6b45');
@@ -838,7 +869,9 @@ export class PublicMenuPageComponent implements OnInit {
     this.closeSource();
     const base = `${environment.apiUrl}/public/shops/${encodeURIComponent(this.shopSlug)}/menu`;
     const url = this.menuSlug ? `${base}/${encodeURIComponent(this.menuSlug)}` : base;
-    this.http.get<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu }>(url).subscribe({
+    this.http
+      .get<{ shop: PublicShop; menus: MenuSummary[]; menu: ShopMenu; promos?: PublicPromo[] }>(url)
+      .subscribe({
       next: (res) => {
         this.data.set(res);
         this.analytics.setPublicShopContext({
@@ -997,6 +1030,11 @@ export class PublicMenuPageComponent implements OnInit {
 
   priceOf(item: MenuItem): string {
     return menuPriceOf(item);
+  }
+
+  money(n: number): string {
+    const v = Math.round(Number(n) || 0);
+    return `$ ${v.toLocaleString('es-AR')}`;
   }
 }
 

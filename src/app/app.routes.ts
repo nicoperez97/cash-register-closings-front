@@ -520,6 +520,21 @@ export const routes: Routes = [
         title: 'Carta',
       },
       {
+        path: 'admin/promos',
+        canActivate: [
+          anyPermissionGuard(
+            'shopConfig.read',
+            'shopConfig.manage',
+            'shops.manage',
+            'orderingCatalog.manage',
+          ),
+          shopConfigSectionGuard('carta'),
+        ],
+        loadComponent: () =>
+          import('./features/menu/admin-promos').then((m) => m.AdminPromosPage),
+        title: 'Promos',
+      },
+      {
         path: 'admin/qr',
         canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>

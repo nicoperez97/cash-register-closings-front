@@ -90,6 +90,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'adminShopAvanzado', label: 'Avanzado', icon: 'tune', defaultGroup: 'local', route: '/admin/shop/avanzado' },
   { id: 'adminMessages', label: 'Mensajes', icon: 'campaign', defaultGroup: 'admin', route: '/admin/messages' },
   { id: 'adminMenu', label: 'Carta', icon: 'restaurant_menu', defaultGroup: 'local', route: '/admin/menu' },
+  { id: 'adminPromos', label: 'Promos', icon: 'local_offer', defaultGroup: 'local', route: '/admin/promos' },
   { id: 'adminQr', label: 'QR', icon: 'qr_code_2', defaultGroup: 'admin', route: '/admin/qr' },
   { id: 'adminInstrucciones', label: 'Instrucciones', icon: 'menu_book', defaultGroup: 'admin', route: '/admin/instrucciones' },
   { id: 'adminUsers', label: 'Usuarios', icon: 'manage_accounts', defaultGroup: 'admin', route: '/admin/users' },

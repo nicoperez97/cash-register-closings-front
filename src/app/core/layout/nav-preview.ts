@@ -269,6 +269,7 @@ export function buildNavPreview(
     canManageOrderingCatalog(user, shopId)
   ) {
     pushLeaf(local, 'adminMenu');
+    pushLeaf(local, 'adminPromos');
   }
   if (
     hasShopPermission(user, shopId, 'integrations.read') ||
