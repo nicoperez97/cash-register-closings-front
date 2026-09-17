@@ -773,10 +773,9 @@ export class OrderingCatalogPanelComponent {
     }
 
     this.generatingClosing.set(true);
-    const shop = this.shops.selectedShop();
     const todayBd = resolveShopBusinessDate(new Date(), {
-      timezone: shop?.timezone,
-      openingTime: shop?.openingTime,
+      timezone: shop.timezone,
+      openingTime: shop.openingTime,
     });
     const cajaDate = String(caja.businessDate ?? '').slice(0, 10);
     const params = new URLSearchParams();
