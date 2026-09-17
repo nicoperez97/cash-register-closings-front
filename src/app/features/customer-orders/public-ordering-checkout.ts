@@ -8,7 +8,6 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
   CreatePublicCustomerOrderBody,
   CustomerOrderFulfillment,
-  CustomerOrderPaymentMethod,
   CustomerOrdersApiService,
   PublicOrderingConfig,
 } from './customer-orders-api.service';
@@ -25,7 +24,10 @@ import {
   onAccentColor,
   orderingLogoUrl,
   orderingMoney,
-  paymentLabel,
+  orderingPayChoices,
+  orderingPayNeedsCashTender,
+  orderingPayToApiMethod,
+  type OrderingPayChoice,
 } from './ordering-ui.util';
 
 @Component({
@@ -72,7 +74,17 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
   readonly fulfillment = signal<CustomerOrderFulfillment | ''>('');
   readonly deliveryZoneId = signal('');
-  readonly paymentMethod = signal<CustomerOrderPaymentMethod | ''>('');
+  readonly paymentChoiceId = signal<string>('');
+  readonly paymentChoices = computed(() => orderingPayChoices(this.config()?.payments));
+  readonly selectedPayment = computed(() => {
+    const id = this.paymentChoiceId();
+    return this.paymentChoices().find((c) => c.id === id) ?? null;
+  });
+  readonly needsCashTender = computed(() => orderingPayNeedsCashTender(this.selectedPayment()));
+  readonly paymentMethod = computed(() => {
+    const choice = this.selectedPayment();
+    return choice ? orderingPayToApiMethod(choice) : ('' as const);
+  });
   readonly mapPoint = signal<LatLng | null>(null);
 
   addressStreet = '';
@@ -130,8 +142,6 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   readonly menuLink = computed(() =>
     this.staffMode() ? ['/customer-orders/nuevo'] : ['/pedir', this.slug(), 'menu'],
   );
-
-  readonly paymentMethods = computed(() => this.config()?.payments?.methods ?? []);
 
   readonly selectedZone = computed(() => {
     const id = this.deliveryZoneId();
@@ -247,8 +257,12 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
           this.fulfillment.set('');
           this.pickingFulfillment.set(true);
         }
-        const methods = cfg.payments?.methods ?? [];
-        if (methods.length === 1) this.paymentMethod.set(methods[0]);
+        const choices = orderingPayChoices(cfg.payments);
+        const preferred =
+          choices.find((c) => orderingPayNeedsCashTender(c)) ??
+          choices.find((c) => c.kind === 'CASH') ??
+          choices[0];
+        if (preferred) this.paymentChoiceId.set(preferred.id);
         if (this.staffMode() && !this.phone.trim() && cfg.shop?.phone) {
           this.phone = String(cfg.shop.phone);
         }
@@ -272,10 +286,6 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     return fulfillmentLabel(f);
   }
 
-  payLabel(p: CustomerOrderPaymentMethod): string {
-    return paymentLabel(p);
-  }
-
   chooseFulfillment(f: CustomerOrderFulfillment): void {
     this.fulfillment.set(f);
     this.pickingFulfillment.set(false);
@@ -289,8 +299,13 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     this.pickingFulfillment.set(true);
   }
 
-  setPayment(m: CustomerOrderPaymentMethod): void {
-    this.paymentMethod.set(m);
+  setPayment(choice: OrderingPayChoice): void {
+    this.paymentChoiceId.set(choice.id);
+    if (orderingPayNeedsCashTender(choice)) {
+      if (this.cashAmount == null || Number(this.cashAmount) < this.total()) {
+        this.cashAmount = this.total();
+      }
+    }
   }
 
   onZoneChange(id: string): void {
@@ -479,7 +494,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     const lines = this.cart.lines();
     const fulfillment = this.fulfillment();
-    const paymentMethod = this.paymentMethod();
+    const pay = this.selectedPayment();
     if (!slug || !lines.length) {
       this.formError.set('El carrito está vacío.');
       return;
@@ -519,11 +534,11 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         return;
       }
     }
-    if (!paymentMethod || !this.paymentMethods().includes(paymentMethod)) {
+    if (!pay) {
       this.formError.set('Elegí un medio de pago.');
       return;
     }
-    if (paymentMethod === 'CASH') {
+    if (orderingPayNeedsCashTender(pay)) {
       const cash = Number(this.cashAmount);
       if (!Number.isFinite(cash) || cash < this.total()) {
         this.formError.set('Indicá con cuánto abonás (debe cubrir el total).');
@@ -539,6 +554,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const paymentMethod = orderingPayToApiMethod(pay);
     const body: CreatePublicCustomerOrderBody = {
       fulfillment,
       items: lines
@@ -560,6 +576,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       lastName: this.lastName.trim(),
       phone: this.phone.trim(),
       paymentMethod,
+      paymentMethodId: pay.id,
       customerNotes: this.customerNotes.trim() || null,
     };
     if (fulfillment === 'DELIVERY') {
@@ -578,7 +595,9 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       }
     }
     if (paymentMethod === 'CASH') {
-      body.cashAmount = Number(this.cashAmount);
+      body.cashAmount = orderingPayNeedsCashTender(pay)
+        ? Number(this.cashAmount)
+        : this.total();
     }
 
     this.submitting.set(true);

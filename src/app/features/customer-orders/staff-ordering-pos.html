@@ -265,19 +265,19 @@
           <div class="pos__pay">
             <span class="pos__label">Pago</span>
             <div class="pos__chips">
-              @for (m of paymentMethods(); track m) {
+              @for (m of paymentChoices(); track m.id) {
                 <button
                   type="button"
                   class="pos__chip"
-                  [class.pos__chip--on]="paymentMethod() === m"
+                  [class.pos__chip--on]="paymentChoiceId() === m.id"
                   (click)="setPayment(m)"
                 >
-                  {{ payLabel(m) }}
+                  {{ m.name }}
                 </button>
               }
             </div>
           </div>
-          @if (paymentMethod() === 'CASH') {
+          @if (needsCashTender()) {
             <label>
               Con cuánto abona
               <input type="number" min="0" step="1" [(ngModel)]="cashAmount" />

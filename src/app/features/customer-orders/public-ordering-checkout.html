@@ -273,19 +273,19 @@
       <form class="card" (submit)="submit($event)">
         <h2>Pago</h2>
         <div class="choices">
-          @for (m of paymentMethods(); track m) {
+          @for (m of paymentChoices(); track m.id) {
             <button
               type="button"
               class="choice"
-              [class.choice--on]="paymentMethod() === m"
+              [class.choice--on]="paymentChoiceId() === m.id"
               (click)="setPayment(m)"
             >
-              {{ payLabel(m) }}
+              {{ m.name }}
             </button>
           }
         </div>
 
-        @if (paymentMethod() === 'CASH') {
+        @if (needsCashTender()) {
           <label class="field">
             <span>¿Con cuánto abonás?</span>
             <input
