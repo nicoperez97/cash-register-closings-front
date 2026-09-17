@@ -14,6 +14,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageShopUsers, userRoleLabel } from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
+import { AdminUserNotificationsDialogComponent } from './admin-user-notifications-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { isUserVisible } from '../../shared/user-visibility';
 
@@ -69,11 +70,15 @@ function accountTypeLabel(row: Record<string, unknown>): string {
           [removeLabel]="removeActionLabel()"
           [removeIcon]="removeActionIcon()"
           [canDuplicate]="always"
+          [canShare]="canConfigureNotifications"
           editLabel="Editar datos"
           duplicateLabel="Editar roles"
           duplicateIcon="shield"
+          shareLabel="Notificaciones"
+          shareIcon="notifications"
           (edit)="openEdit($event)"
           (duplicate)="openRoles($event)"
+          (share)="openNotifications($event)"
           (remove)="onRemove($event)"
         />
       </div>
@@ -97,6 +102,12 @@ export class AdminUsersPage implements OnInit {
   readonly always = () => true;
   readonly canRemoveRow = (row: AdminUserRow) =>
     row.id !== this.auth.currentUser()?.id;
+  readonly canConfigureNotifications = (row: AdminUserRow) => {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return false;
+    const ids = row.shopIds ?? [];
+    return !ids.length || ids.includes(shopId);
+  };
 
   readonly isOwner = () => this.auth.isSuperAdmin();
   /** Scope multi-local: Super admin, o admin con más de un local asignado. */
@@ -314,6 +325,35 @@ export class AdminUsersPage implements OnInit {
 
   openRoles(row: AdminUserRow): void {
     void this.router.navigate(['/admin/users', row.id, 'permisos']);
+  }
+
+  openNotifications(row: AdminUserRow): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) {
+      this.snack.open('Seleccioná un local para configurar notificaciones', 'OK', {
+        duration: 3000,
+      });
+      return;
+    }
+    this.dialogTitle
+      .track(
+        this.dialog.open(AdminUserNotificationsDialogComponent, {
+          width: '560px',
+          maxWidth: '96vw',
+          maxHeight: '90vh',
+          autoFocus: 'dialog',
+          panelClass: 'guy-dialog',
+          data: {
+            userId: row.id,
+            fullName: row.fullName || row.email,
+            shopId,
+            shopName: this.shops.selectedShop()?.name ?? 'Local',
+          },
+        }),
+        `Notificaciones · ${row.fullName || row.email}`,
+      )
+      .afterClosed()
+      .subscribe();
   }
 
   private canAssignUsersModule(): boolean {

@@ -1476,7 +1476,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'group',
         tone: 'do',
         anyOf: ['users.manage'],
-        body: 'Invitá gente desde Nuevo usuario. Para roles y módulos tocá Editar roles: se abre la pantalla de permisos con vista previa del menú.',
+        body: 'Invitá gente desde Nuevo usuario. Para roles y módulos tocá el escudo (Editar roles). Para avisos App/Mail tocá la campana (Notificaciones), igual que en el perfil de esa persona.',
         items: [
           'En permisos elegís tipo de cuenta, presets o módulos Off / Ver / Todo.',
           'A la derecha ves en tiempo real qué menú tendría esa persona.',
@@ -1485,6 +1485,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Con Pedidos clientes o Catálogo pedidos podés definir Off / Ver / Todo en Pedidos → Configurar.',
           'Comanda de mesas es un módulo aparte (preset Comanda). No se habilita con Pedidos clientes.',
           'Solo un super admin puede marcar “Puede editar y borrar gastos” y “Puede editar y borrar pagos”.',
+          'Notificaciones: solo aparecen los avisos que el local le habilitó; podés apagar App, Mail o ambos.',
         ],
         tip: 'Tocá la foto o el nombre en la columna Foto para verla en grande.',
       },
