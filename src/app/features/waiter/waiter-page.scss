@@ -873,23 +873,6 @@
   color: var(--muted);
 }
 
-.ticket-sum--session {
-  margin: 0;
-  max-width: none;
-  padding: 0.55rem 0 0;
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-
-  .ticket-sum__list {
-    max-height: none;
-  }
-
-  .ticket-sum__label {
-    display: none;
-  }
-}
-
 .pos__catalog {
   background: var(--sheet);
   border: 1px solid var(--line);
@@ -1306,6 +1289,86 @@
   li {
     min-width: 0;
   }
+}
+
+.entrada-tag {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  background: color-mix(in srgb, var(--accent, #007a14) 18%, #fff);
+  color: var(--accent, #007a14);
+}
+
+.entrada-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin: 0.15rem 0 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent, #007a14) 35%, #c5cdd2);
+  background: #fff;
+  color: var(--muted, #5f6f76);
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.entrada-toggle.on {
+  border-color: var(--accent, #007a14);
+  background: color-mix(in srgb, var(--accent, #007a14) 12%, #fff);
+  color: var(--accent, #007a14);
+}
+
+.entrada-toggle--compact {
+  margin: 0.1rem 0 0.25rem;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.7rem;
+}
+
+.cart-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.cart-flags--compact {
+  margin-top: 0.1rem;
+}
+
+.cart-flags .entrada-toggle {
+  margin: 0;
+}
+
+.combine-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.2rem 0 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent, #007a14) 22%, #d7e0d9);
+  background: color-mix(in srgb, var(--accent, #007a14) 6%, #fff);
+}
+
+.combine-pick__row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink, #1a2421);
+  cursor: pointer;
+}
+
+.combine-pick__row input {
+  accent-color: var(--accent, #007a14);
 }
 
 .qty {
@@ -2023,6 +2086,72 @@
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 650;
+}
+
+/* Resumen de mesa: sin card interna ni scroll. */
+.session-resumen {
+  padding-top: 0.35rem;
+  overflow: visible;
+
+  .ticket-sum__list {
+    max-height: none;
+    overflow: visible;
+    overflow-x: hidden;
+    gap: 0;
+  }
+
+  .ticket-sum__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem 0.65rem;
+    align-items: center;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+    min-width: 0;
+  }
+
+  .ticket-sum__row:last-of-type {
+    border-bottom: 0;
+  }
+
+  .ticket-sum__info {
+    min-width: 0;
+  }
+
+  .ticket-sum__name {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .ticket-sum__price {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin: 0;
+    flex-shrink: 0;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 0.82rem;
+
+    input {
+      width: 5.5rem;
+      box-sizing: border-box;
+      padding: 0.4rem 0.45rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      text-align: right;
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 750;
+    }
+  }
+
+  .ticket-sum__sub {
+    margin-top: 0.25rem;
+  }
 }
 
 .sr-only {

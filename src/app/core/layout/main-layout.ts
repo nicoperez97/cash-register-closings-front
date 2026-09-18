@@ -27,10 +27,11 @@ import {
   isComandaOnly,
   isProducerOnly,
   canViewClosingsList,
+  isShopAdministrator,
 } from '../auth/auth.models';
 import { canAccessAppRoute } from '../auth/route-access';
 import { ToolbarComponent } from './toolbar/toolbar';
-import { SidebarComponent, NavItem } from './sidebar/sidebar';
+import { SidebarComponent, NavItem, type NavChild } from './sidebar/sidebar';
 import { ShopContextService } from '../shop/shop-context.service';
 import { PageRefreshService } from '../page-refresh.service';
 import { PullToRefreshComponent } from '../../shared/components/pull-to-refresh';
@@ -43,10 +44,14 @@ import { TipsInboxService } from '../../features/tips/tips-inbox.service';
 import { ReimbursementsInboxService } from '../../features/reimbursements/reimbursements-inbox.service';
 import { CustomerOrdersInboxService } from '../../features/customer-orders/customer-orders-inbox.service';
 import { applyNavConfig, appShortcutById, effectiveNavConfig, navGroupPagePath, navLeaf } from './nav-config';
+import { publicPagesNavChildren } from '../shop/public-pages';
+import { canAccessAnyPublicPage } from '../shop/public-page-access';
 import { NavMenuService } from './nav-menu.service';
+import { ImmersiveChromeService } from './immersive-chrome.service';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
-import type { NavChild } from './sidebar/sidebar';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 const SIDENAV_EXPANDED_KEY = 'crc.sidenav.expanded';
 
@@ -88,6 +93,8 @@ function saveSidenavExpanded(expanded: boolean): void {
     RouterOutlet,
     MatSidenavModule,
     MatProgressBarModule,
+    MatIconModule,
+    MatTooltipModule,
     ToolbarComponent,
     SidebarComponent,
     PullToRefreshComponent,
@@ -112,6 +119,7 @@ export class MainLayoutComponent {
   private readonly customerOrdersInbox = inject(CustomerOrdersInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
   private readonly navMenu = inject(NavMenuService);
+  readonly immersiveChrome = inject(ImmersiveChromeService);
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
@@ -127,7 +135,7 @@ export class MainLayoutComponent {
     { initialValue: false },
   );
 
-  readonly sidenavOpen = signal(true);
+  readonly sidenavOpen = signal(!this.immersiveChrome.toolbarHidden());
   /** Desktop: menú ancho vs rail de iconos. Persistido en localStorage. */
   readonly sidenavExpanded = signal(loadSidenavExpanded());
   readonly currentUrl = signal(this.router.url);
@@ -452,6 +460,24 @@ export class MainLayoutComponent {
       });
     }
 
+    if (shopId && canAccessAnyPublicPage(user, shopId)) {
+      const publicChildren: NavChild[] = [
+        ...(isShopAdministrator(user, shopId) ? [leaf('adminPublicPages')] : []),
+        ...publicPagesNavChildren(this.shopContext.selectedShop(), user, shopId),
+      ];
+      if (publicChildren.length) {
+        items.push({
+          label: 'Páginas públicas',
+          route: '__group_publicPages',
+          icon: 'public',
+          defaultRoute:
+            publicChildren.find((c) => c.route && !c.route.startsWith('__'))?.route ??
+            navGroupPagePath('publicPages'),
+          children: publicChildren,
+        });
+      }
+    }
+
     const local: NonNullable<NavItem['children']> = [];
     if (shopId && canAccessShopConfig(user, shopId)) {
       if (canSeeShopConfigSection(user, shopId, 'resumen')) {
@@ -546,6 +572,25 @@ export class MainLayoutComponent {
     isCashierOnly(this.auth.currentUser(), this.shopContext.selectedShopId()),
   );
 
+  /** Visor de página pública: sin toolbar del admin (barra mínima propia). */
+  readonly isPublicPageViewer = computed(() => {
+    const path = this.currentUrl().split('?')[0] || '';
+    return /^\/admin\/public-pages\/[^/]+/.test(path);
+  });
+
+  /** Sin toolbar: visor público u operativa (Comanda / Pedidos) con barra ocultada. */
+  readonly hideMainToolbar = computed(
+    () => this.isPublicPageViewer() || this.immersiveChrome.toolbarHidden(),
+  );
+
+  /** Controles flotantes para volver a mostrar la toolbar (no aplica al visor público). */
+  readonly showChromeReveal = computed(
+    () => this.immersiveChrome.toolbarHidden() && !this.isPublicPageViewer(),
+  );
+
+  /** Overlay (móvil o chrome oculta): el menú no empuja el contenido. */
+  readonly sidenavOverlay = computed(() => this.isMobile() || this.showChromeReveal());
+
   constructor() {
     this.mainPwa.start();
 
@@ -553,20 +598,45 @@ export class MainLayoutComponent {
       this.navMenu.items.set(this.navItems());
     });
 
+    let lastSidenavToggle = 0;
+    effect(() => {
+      const n = this.navMenu.sidenavToggleRequest();
+      if (n === lastSidenavToggle) return;
+      lastSidenavToggle = n;
+      untracked(() => this.toggleSidenav());
+    });
+
     effect(() => {
       const mobile = this.isMobile();
       const prev = this.lastMobile();
       if (prev === mobile) return;
       this.lastMobile.set(mobile);
-      // Desktop: drawer siempre abierto (rail o expandido). Mobile: overlay cerrado al entrar.
+      // Desktop: drawer abierto (salvo modo inmersivo). Mobile: overlay cerrado.
+      if (untracked(() => this.showChromeReveal())) {
+        this.sidenavOpen.set(false);
+        return;
+      }
       this.sidenavOpen.set(!mobile);
     });
 
-    // En móvil, con el drawer abierto: bloquear scroll de la página detrás
-    // (si no, el gesto a veces scrollea el contenido y no la sidebar).
+    // Al entrar a Comanda / Pedidos: cerrar sidenav. Al salir: restaurar en desktop.
+    let wasImmersive = false;
+    effect(() => {
+      const immersive = this.showChromeReveal();
+      if (immersive === wasImmersive) return;
+      const leaving = wasImmersive && !immersive;
+      wasImmersive = immersive;
+      if (immersive) {
+        untracked(() => this.sidenavOpen.set(false));
+      } else if (leaving && !untracked(() => this.isMobile())) {
+        untracked(() => this.sidenavOpen.set(true));
+      }
+    });
+
+    // Con overlay abierto: bloquear scroll de la página detrás.
     effect(() => {
       if (typeof document === 'undefined') return;
-      const lock = !!this.isMobile() && this.sidenavOpen();
+      const lock = !!this.sidenavOverlay() && this.sidenavOpen();
       if (lock) this.bodyLock.lock('sidenav');
       else this.bodyLock.unlock('sidenav');
     });
@@ -717,7 +787,7 @@ export class MainLayoutComponent {
   }
 
   toggleSidenav(): void {
-    if (this.isMobile()) {
+    if (this.sidenavOverlay()) {
       this.sidenavOpen.update((open) => !open);
       return;
     }
@@ -731,7 +801,7 @@ export class MainLayoutComponent {
   }
 
   expandSidenav(): void {
-    if (this.isMobile()) return;
+    if (this.sidenavOverlay()) return;
     if (this.sidenavExpanded()) return;
     this.sidenavExpanded.set(true);
     saveSidenavExpanded(true);
@@ -739,7 +809,7 @@ export class MainLayoutComponent {
   }
 
   onSidenavOpenedChange(opened: boolean): void {
-    if (this.isMobile()) {
+    if (this.sidenavOverlay()) {
       this.sidenavOpen.set(opened);
       return;
     }
@@ -754,7 +824,7 @@ export class MainLayoutComponent {
   }
 
   closeSidenavOnNavigate(): void {
-    if (this.isMobile()) {
+    if (this.sidenavOverlay()) {
       this.sidenavOpen.set(false);
     }
   }

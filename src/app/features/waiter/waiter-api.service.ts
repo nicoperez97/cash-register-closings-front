@@ -337,6 +337,8 @@ export class WaiterApiService {
         qty: number;
         notes?: string | null;
         removedIngredients?: string[];
+        isEntrada?: boolean;
+        combinesWithNames?: string[];
       }>;
       extras?: Array<{
         extraId: string;

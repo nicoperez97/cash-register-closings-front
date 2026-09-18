@@ -433,7 +433,7 @@
           <span class="session-fold__chev" aria-hidden="true">{{ sessionResumenOpen() ? '▾' : '▸' }}</span>
         </button>
         @if (sessionResumenOpen()) {
-          <div class="session-fold__body ticket-sum ticket-sum--session">
+          <div class="session-fold__body session-resumen">
             <ul class="ticket-sum__list">
               @for (row of ticketEditableRows(); track row.key) {
                 <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
@@ -472,6 +472,7 @@
                     </div>
                   }
                   <label class="ticket-sum__price">
+                    <span aria-hidden="true">$</span>
                     <span class="sr-only">Precio</span>
                     <input
                       type="number"
@@ -649,7 +650,12 @@
                   <li>
                     @if (cartDetail()) {
                       <div class="lines__row">
-                        <strong>{{ group.item.name }}</strong>
+                        <strong>
+                          @if (group.item.isEntrada) {
+                            <span class="entrada-tag">Entrada</span>
+                          }
+                          {{ group.item.name }}
+                        </strong>
                         <span>{{ money(group.item.unitPrice * group.item.qty) }}</span>
                       </div>
                       <div class="qty">
@@ -657,6 +663,42 @@
                         <span>{{ group.item.qty }}</span>
                         <button type="button" (click)="bump(group.item, 1)">+</button>
                       </div>
+                      @if (group.item.kind === 'ITEM') {
+                        <div class="cart-flags">
+                          <button
+                            type="button"
+                            class="entrada-toggle"
+                            [class.on]="group.item.isEntrada"
+                            (click)="toggleEntrada(group.item, $event)"
+                          >
+                            {{ group.item.isEntrada ? 'Quitar entrada' : 'Marcar entrada' }}
+                          </button>
+                          @if (otherCartItems(group.item).length) {
+                            <button
+                              type="button"
+                              class="entrada-toggle"
+                              [class.on]="hasCombines(group.item)"
+                              (click)="toggleCombinePanel(group.item, $event)"
+                            >
+                              {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
+                            </button>
+                          }
+                        </div>
+                        @if (combineOpenKey() === group.item.key) {
+                          <div class="combine-pick">
+                            @for (other of otherCartItems(group.item); track other.key) {
+                              <label class="combine-pick__row">
+                                <input
+                                  type="checkbox"
+                                  [checked]="isCombinedWith(group.item, other)"
+                                  (change)="toggleCombine(group.item, other, $event)"
+                                />
+                                <span>{{ other.name }}</span>
+                              </label>
+                            }
+                          </div>
+                        }
+                      }
                       @for (ex of group.extras; track ex.key) {
                         <div class="lines__extra">
                           <span>+ {{ ex.name }}</span>
@@ -666,11 +708,52 @@
                     } @else {
                       <div class="lines__simple">
                         <span class="lines__simple-qty">{{ group.item.qty }}×</span>
-                        <strong>{{ group.item.name }}</strong>
+                        <strong>
+                          @if (group.item.isEntrada) {
+                            <span class="entrada-tag">E</span>
+                          }
+                          {{ group.item.name }}
+                        </strong>
                         <span class="lines__simple-price">{{
                           money(group.item.unitPrice * group.item.qty)
                         }}</span>
                       </div>
+                      @if (group.item.kind === 'ITEM') {
+                        <div class="cart-flags cart-flags--compact">
+                          <button
+                            type="button"
+                            class="entrada-toggle entrada-toggle--compact"
+                            [class.on]="group.item.isEntrada"
+                            (click)="toggleEntrada(group.item, $event)"
+                          >
+                            {{ group.item.isEntrada ? 'Entrada ✓' : 'Entrada' }}
+                          </button>
+                          @if (otherCartItems(group.item).length) {
+                            <button
+                              type="button"
+                              class="entrada-toggle entrada-toggle--compact"
+                              [class.on]="hasCombines(group.item)"
+                              (click)="toggleCombinePanel(group.item, $event)"
+                            >
+                              {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
+                            </button>
+                          }
+                        </div>
+                        @if (combineOpenKey() === group.item.key) {
+                          <div class="combine-pick">
+                            @for (other of otherCartItems(group.item); track other.key) {
+                              <label class="combine-pick__row">
+                                <input
+                                  type="checkbox"
+                                  [checked]="isCombinedWith(group.item, other)"
+                                  (change)="toggleCombine(group.item, other, $event)"
+                                />
+                                <span>{{ other.name }}</span>
+                              </label>
+                            }
+                          </div>
+                        }
+                      }
                       @for (ex of group.extras; track ex.key) {
                         <div class="lines__simple lines__simple--extra">
                           <span class="lines__simple-qty"></span>

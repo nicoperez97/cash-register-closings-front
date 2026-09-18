@@ -75,7 +75,19 @@ export type Permission =
   | 'vacations.read'
   | 'vacations.manage'
   | 'serviceRules.read'
-  | 'serviceRules.manage';
+  | 'serviceRules.manage'
+  /** @deprecated migrar a publicMenu.read, etc. */
+  | 'publicPages.read'
+  | 'publicMenu.read'
+  | 'publicOrdering.read'
+  | 'publicOrderLookup.read'
+  | 'publicWaiter.read'
+  | 'publicReservationsBoard.read'
+  | 'publicReservationSignup.read'
+  | 'publicReservationLookup.read'
+  | 'publicWaiting.read'
+  | 'publicAttendance.read'
+  | 'publicNormas.read';
 
 const ALL_PERMISSIONS: Permission[] = [
   'closings.create',
@@ -150,6 +162,17 @@ const ALL_PERMISSIONS: Permission[] = [
   'vacations.manage',
   'serviceRules.read',
   'serviceRules.manage',
+  'publicPages.read',
+  'publicMenu.read',
+  'publicOrdering.read',
+  'publicOrderLookup.read',
+  'publicWaiter.read',
+  'publicReservationsBoard.read',
+  'publicReservationSignup.read',
+  'publicReservationLookup.read',
+  'publicWaiting.read',
+  'publicAttendance.read',
+  'publicNormas.read',
 ];
 
 /** Fallback si el API aún no envía shopPermissions. */
@@ -179,6 +202,16 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'attendance.read',
     'serviceRules.read',
     'serviceRules.manage',
+    'publicMenu.read',
+    'publicOrdering.read',
+    'publicOrderLookup.read',
+    'publicWaiter.read',
+    'publicReservationsBoard.read',
+    'publicReservationSignup.read',
+    'publicReservationLookup.read',
+    'publicWaiting.read',
+    'publicAttendance.read',
+    'publicNormas.read',
     'payroll.manage',
     'payroll.read',
     'commissions.manage',
@@ -238,6 +271,16 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'candidates.read',
     'attendance.read',
     'serviceRules.read',
+    'publicMenu.read',
+    'publicOrdering.read',
+    'publicOrderLookup.read',
+    'publicWaiter.read',
+    'publicReservationsBoard.read',
+    'publicReservationSignup.read',
+    'publicReservationLookup.read',
+    'publicWaiting.read',
+    'publicAttendance.read',
+    'publicNormas.read',
     'payroll.read',
     'commissions.read',
     'movements.read',
@@ -310,6 +353,17 @@ export type ModuleKey =
   | 'reimbursements'
   | 'vacations'
   | 'serviceRules'
+  | 'publicPages'
+  | 'publicMenu'
+  | 'publicOrdering'
+  | 'publicOrderLookup'
+  | 'publicWaiter'
+  | 'publicReservationsBoard'
+  | 'publicReservationSignup'
+  | 'publicReservationLookup'
+  | 'publicWaiting'
+  | 'publicAttendance'
+  | 'publicNormas'
   | 'shop'
   | 'shopConfig'
   | 'users';
@@ -318,8 +372,8 @@ export interface ModuleDef {
   key: ModuleKey;
   label: string;
   icon: string;
-  /** Agrupa la UI: daily | people | config */
-  group: 'daily' | 'people' | 'config';
+  /** Agrupa la UI: daily | people | config | public */
+  group: 'daily' | 'people' | 'config' | 'public';
   hint?: string;
   levels: Array<{ value: string; label: string; short?: string }>;
 }
@@ -712,6 +766,116 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'publicMenu',
+    label: 'Carta pública',
+    icon: 'restaurant_menu',
+    group: 'public',
+    hint: 'Ver la carta pública (/m) dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicOrdering',
+    label: 'Pedir (público)',
+    icon: 'shopping_bag',
+    group: 'public',
+    hint: 'Ver /pedir dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicOrderLookup',
+    label: 'Consultar pedido',
+    icon: 'search',
+    group: 'public',
+    hint: 'Ver /mi-pedido dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicWaiter',
+    label: 'Comanda mozos (link)',
+    icon: 'room_service',
+    group: 'public',
+    hint: 'Ver /mozo dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicReservationsBoard',
+    label: 'Tablero de reservas',
+    icon: 'table_restaurant',
+    group: 'public',
+    hint: 'Ver /r dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicReservationSignup',
+    label: 'Reservar (público)',
+    icon: 'event',
+    group: 'public',
+    hint: 'Ver /reservar dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicReservationLookup',
+    label: 'Consultar reserva',
+    icon: 'find_in_page',
+    group: 'public',
+    hint: 'Ver /mi-reserva dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicWaiting',
+    label: 'Lista de espera (pública)',
+    icon: 'hourglass_top',
+    group: 'public',
+    hint: 'Ver /w dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicAttendance',
+    label: 'Presentismo público',
+    icon: 'event_available',
+    group: 'public',
+    hint: 'Ver /p dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'publicNormas',
+    label: 'Normas públicas',
+    icon: 'menu_book',
+    group: 'public',
+    hint: 'Ver /n dentro del admin',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
     key: 'shop',
     label: 'Local / POS',
     icon: 'storefront',
@@ -752,6 +916,7 @@ export const MODULE_GROUPS: Array<{ id: ModuleDef['group']; label: string }> = [
   { id: 'daily', label: 'Operación diaria' },
   { id: 'people', label: 'Personal' },
   { id: 'config', label: 'Configuración' },
+  { id: 'public', label: 'Páginas públicas' },
 ];
 
 export const MODULE_PRESETS: Array<{
@@ -860,6 +1025,7 @@ export const MODULE_PRESETS: Array<{
 export function emptyModuleLevels(): Record<ModuleKey, string> {
   const out = {} as Record<ModuleKey, string>;
   for (const d of MODULE_DEFS) out[d.key] = 'none';
+  out.publicPages = 'none'; // legacy (ya no en UI)
   return out;
 }
 
@@ -903,6 +1069,32 @@ export function migrateModuleLevels(
     (out.shop === 'read' || out.shop === 'manage')
   ) {
     out.shopConfig = out.shop;
+  }
+  const publicKeys: ModuleKey[] = [
+    'publicMenu',
+    'publicOrdering',
+    'publicOrderLookup',
+    'publicWaiter',
+    'publicReservationsBoard',
+    'publicReservationSignup',
+    'publicReservationLookup',
+    'publicWaiting',
+    'publicAttendance',
+    'publicNormas',
+  ];
+  const legacyPublic = raw['publicPages'];
+  if (legacyPublic === 'read') {
+    for (const k of publicKeys) {
+      if (!out[k] || out[k] === 'none') out[k] = 'read';
+    }
+  } else if (
+    !publicKeys.some((k) => Object.prototype.hasOwnProperty.call(raw, k)) &&
+    (out.shop === 'read' ||
+      out.shop === 'manage' ||
+      out.shopConfig === 'read' ||
+      out.shopConfig === 'manage')
+  ) {
+    for (const k of publicKeys) out[k] = 'read';
   }
   return out;
 }
@@ -1315,6 +1507,36 @@ export function expandModulePermissions(
   }
   pair(levels.vacations, 'vacations.read', 'vacations.manage');
   pair(levels.serviceRules, 'serviceRules.read', 'serviceRules.manage');
+  const grantPublic = (key: ModuleKey, perm: Permission) => {
+    if (levels[key] === 'read') addPermission(set, perm);
+  };
+  grantPublic('publicMenu', 'publicMenu.read');
+  grantPublic('publicOrdering', 'publicOrdering.read');
+  grantPublic('publicOrderLookup', 'publicOrderLookup.read');
+  grantPublic('publicWaiter', 'publicWaiter.read');
+  grantPublic('publicReservationsBoard', 'publicReservationsBoard.read');
+  grantPublic('publicReservationSignup', 'publicReservationSignup.read');
+  grantPublic('publicReservationLookup', 'publicReservationLookup.read');
+  grantPublic('publicWaiting', 'publicWaiting.read');
+  grantPublic('publicAttendance', 'publicAttendance.read');
+  grantPublic('publicNormas', 'publicNormas.read');
+  // Legacy: un solo flag encendía todas.
+  if (levels.publicPages === 'read') {
+    addPermission(
+      set,
+      'publicMenu.read',
+      'publicOrdering.read',
+      'publicOrderLookup.read',
+      'publicWaiter.read',
+      'publicReservationsBoard.read',
+      'publicReservationSignup.read',
+      'publicReservationLookup.read',
+      'publicWaiting.read',
+      'publicAttendance.read',
+      'publicNormas.read',
+      'publicPages.read',
+    );
+  }
   if (levels.payments === 'manage') {
     addPermission(set, 'suppliers.read', 'suppliers.manage', 'services.read', 'services.manage');
   }
@@ -1425,6 +1647,34 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.reimbursements = reimbursements();
   base.vacations = level('vacations.read', 'vacations.manage');
   base.serviceRules = level('serviceRules.read', 'serviceRules.manage');
+  const pub = (perm: Permission): string => (has(perm) ? 'read' : 'none');
+  base.publicMenu = pub('publicMenu.read');
+  base.publicOrdering = pub('publicOrdering.read');
+  base.publicOrderLookup = pub('publicOrderLookup.read');
+  base.publicWaiter = pub('publicWaiter.read');
+  base.publicReservationsBoard = pub('publicReservationsBoard.read');
+  base.publicReservationSignup = pub('publicReservationSignup.read');
+  base.publicReservationLookup = pub('publicReservationLookup.read');
+  base.publicWaiting = pub('publicWaiting.read');
+  base.publicAttendance = pub('publicAttendance.read');
+  base.publicNormas = pub('publicNormas.read');
+  // Compat: permiso legacy.
+  if (has('publicPages.read')) {
+    for (const k of [
+      'publicMenu',
+      'publicOrdering',
+      'publicOrderLookup',
+      'publicWaiter',
+      'publicReservationsBoard',
+      'publicReservationSignup',
+      'publicReservationLookup',
+      'publicWaiting',
+      'publicAttendance',
+      'publicNormas',
+    ] as ModuleKey[]) {
+      if (base[k] === 'none') base[k] = 'read';
+    }
+  }
   base.accounts = has('accounts.manage') ? 'manage' : 'none';
   base.concepts = has('concepts.manage') ? 'manage' : 'none';
   base.shop = has('shops.manage') ? 'manage' : has('shops.read') ? 'read' : 'none';
@@ -1451,6 +1701,11 @@ export function permissionsForShop(
     return [...ALL_PERMISSIONS];
   }
   if (!shopId) return [];
+  const shopRole = (user.shopRoles?.[shopId] ?? null) as GlobalRole | null;
+  // Admin del local: acceso total (igual que en API).
+  if (shopRole === 'OWNER' || shopRole === 'ADMIN') {
+    return [...ALL_PERMISSIONS];
+  }
   const shopPerms = user.shopPermissions;
   if (shopPerms && Object.prototype.hasOwnProperty.call(shopPerms, shopId)) {
     return shopPerms[shopId] as Permission[];

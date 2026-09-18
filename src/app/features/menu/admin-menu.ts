@@ -40,6 +40,12 @@ import {
   type MenuBulkPriceDialogResult,
   type MenuBulkPriceItem,
 } from './menu-bulk-price-dialog';
+import {
+  MenuAssignSectorsDialogComponent,
+  type MenuAssignSectorsDialogData,
+  type MenuAssignSectorsDialogResult,
+  type MenuAssignSectorItem,
+} from './menu-assign-sectors-dialog';
 
 export type ShopMenuItem = {
   id?: string;
@@ -51,6 +57,15 @@ export type ShopMenuItem = {
   imageUrl?: string | null;
   /** Texto o lista: ingredientes que el cliente puede quitar. */
   removableIngredients?: string[] | string | null;
+  /** Sectores (comanda). */
+  kitchenSectorIds?: string[];
+};
+
+export type KitchenSector = {
+  id: string;
+  name: string;
+  /** Avisar entradas de otros sectores en esta comanda (texto chico). */
+  showEntradas?: boolean;
 };
 
 export type ShopMenuSection = {
@@ -73,6 +88,7 @@ type MenuAdminResponse = {
   enabled: boolean;
   slug: string;
   menus: ShopMenu[];
+  kitchenSectors?: KitchenSector[];
 };
 
 type OrderingExtraDraft = {
@@ -115,6 +131,29 @@ function newItemId(): string {
   return `i_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function newKitchenSectorId(): string {
+  return `ks_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeItemSectorIds(it: {
+  kitchenSectorIds?: unknown;
+  kitchenSectorId?: unknown;
+}): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (v: unknown) => {
+    const id = String(v ?? '').trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    out.push(id);
+  };
+  if (Array.isArray(it.kitchenSectorIds)) {
+    for (const v of it.kitchenSectorIds) push(v);
+  }
+  push(it.kitchenSectorId);
+  return out;
+}
+
 function emptySections(): ShopMenuSection[] {
   return [];
 }
@@ -141,6 +180,7 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
         removableIngredients: Array.isArray(it.removableIngredients)
           ? it.removableIngredients.join(', ')
           : String(it.removableIngredients ?? ''),
+        kitchenSectorIds: normalizeItemSectorIds(it),
       })),
     })),
   };
@@ -204,6 +244,62 @@ function toPrice(value: unknown): number | null {
             </div>
             <p class="menu-admin__url">{{ hubUrl() }}</p>
           }
+        </section>
+
+        <section class="panel-card">
+          <h2>Sectores</h2>
+          <p class="menu-admin__hint">
+            Cocina, Pizzería, Bar… Cada ítem puede ir a uno o más sectores. En el print agent
+            asignás cada sector a una comandera. Con «Mostrar entradas», esa comanda avisa en
+            chico las entradas que salen en otro sector.
+          </p>
+          @for (sector of kitchenSectors(); track sector.id; let si = $index) {
+            <div class="menu-sector-row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
+                <mat-label>Sector</mat-label>
+                <input matInput [(ngModel)]="sector.name" placeholder="ej. Cocina" />
+              </mat-form-field>
+              <label class="menu-sector-flag">
+                <input type="checkbox" [(ngModel)]="sector.showEntradas" />
+                Mostrar entradas
+              </label>
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Quitar sector"
+                (click)="removeKitchenSector(si)"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          } @empty {
+            <p class="menu-admin__hint">Todavía no hay sectores. Agregá al menos uno para repartir comandas.</p>
+          }
+          <div class="menu-sector-actions">
+            <button mat-stroked-button type="button" (click)="addKitchenSector()">
+              <mat-icon>add</mat-icon>
+              Agregar sector
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="!kitchenSectors().length"
+              (click)="openAssignSectorsDialog()"
+            >
+              <mat-icon>playlist_add_check</mat-icon>
+              Asignar a ítems
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="savingSectors()"
+              (click)="saveSectors()"
+            >
+              <mat-icon>save</mat-icon>
+              {{ savingSectors() ? 'Guardando…' : 'Guardar sectores' }}
+            </button>
+          </div>
         </section>
 
         @if (showCatalog()) {
@@ -574,6 +670,14 @@ function toPrice(value: unknown): number | null {
                                 (ngModelChange)="onItemPriceChange(section.index, ii)"
                               />
                             </mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__sector">
+                              <mat-label>Sectores</mat-label>
+                              <mat-select [(ngModel)]="item.kitchenSectorIds" multiple>
+                                @for (s of kitchenSectors(); track s.id) {
+                                  <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                                }
+                              </mat-select>
+                            </mat-form-field>
                           </div>
                           <label class="menu-item__avail menu-item__avail--bar">
                             <input type="checkbox" [(ngModel)]="item.available" />
@@ -655,21 +759,21 @@ function toPrice(value: unknown): number | null {
               <mat-icon>playlist_add</mat-icon>
               Sección
             </button>
+
+            <div class="menu-admin__save">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="saving()"
+                (click)="save()"
+              >
+                <mat-icon>save</mat-icon>
+                {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
+              </button>
+            </div>
           </section>
         }
-
-        <div class="menu-admin__save">
-          <button
-            mat-flat-button
-            color="primary"
-            type="button"
-            [disabled]="saving()"
-            (click)="save()"
-          >
-            <mat-icon>save</mat-icon>
-            {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
-          </button>
-        </div>
       </div>
     }
   `,
@@ -930,9 +1034,52 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__core {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 7.5rem;
+      grid-template-columns: minmax(0, 1fr) 6.5rem minmax(7rem, 9rem);
       gap: 0.4rem;
       min-width: 0;
+    }
+    @media (max-width: 900px) {
+      .menu-item__core {
+        grid-template-columns: 1fr 1fr;
+      }
+      .menu-item__sector {
+        grid-column: 1 / -1;
+      }
+    }
+    .menu-sector-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 0.35rem;
+      align-items: center;
+      margin-bottom: 0.35rem;
+    }
+    @media (max-width: 720px) {
+      .menu-sector-row {
+        grid-template-columns: 1fr auto;
+      }
+      .menu-sector-flag {
+        grid-column: 1 / -1;
+      }
+    }
+    .menu-sector-flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--guy-muted, #5f6f76);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    .menu-sector-flag input {
+      accent-color: var(--guy-accent, #007a14);
+    }
+    .menu-sector-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.35rem;
     }
     .menu-item__avail--bar {
       font-size: 0.78rem;
@@ -982,8 +1129,9 @@ function toPrice(value: unknown): number | null {
     .menu-admin__save {
       display: flex;
       justify-content: flex-end;
-      position: sticky;
-      bottom: 0.75rem;
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--guy-border, #d7e0d9);
     }
     .menu-admin__full {
       width: 100%;
@@ -1025,6 +1173,7 @@ export class AdminMenuPage {
   );
   readonly loading = signal(false);
   readonly saving = signal(false);
+  readonly savingSectors = signal(false);
   readonly savingExtras = signal(false);
   readonly parsing = signal(false);
   readonly analyzingIngredients = signal(false);
@@ -1036,6 +1185,7 @@ export class AdminMenuPage {
   readonly geminiWarning = signal('');
   readonly rawText = signal('');
   readonly menus = signal<ShopMenu[]>([]);
+  readonly kitchenSectors = signal<KitchenSector[]>([]);
   readonly activeId = signal<string | null>(null);
   readonly extras = signal<OrderingExtraDraft[]>([]);
   readonly extraItemQuery = signal('');
@@ -1264,10 +1414,72 @@ export class AdminMenuPage {
     this.shopSlug.set(res.slug ?? this.shops.selectedShop()?.slug ?? '');
     const menus = (res.menus ?? []).map((m) => cloneMenu(m));
     this.menus.set(menus);
+    this.kitchenSectors.set(
+      (res.kitchenSectors ?? [])
+        .map((s) => ({
+          id: String(s.id ?? '').trim() || newKitchenSectorId(),
+          name: String(s.name ?? '').trim(),
+          showEntradas: !!s.showEntradas,
+        }))
+        .filter((s) => s.name),
+    );
     const keep = menus.find((m) => m.id === this.activeId()) ?? menus[0];
     this.activeId.set(keep?.id ?? null);
     if (keep) this.loadEditor(keep);
     else this.clearEditor();
+  }
+
+  addKitchenSector(): void {
+    const n = this.kitchenSectors().length + 1;
+    this.kitchenSectors.update((list) => [
+      ...list,
+      {
+        id: newKitchenSectorId(),
+        name: n === 1 ? 'Cocina' : `Sector ${n}`,
+        showEntradas: false,
+      },
+    ]);
+  }
+
+  removeKitchenSector(index: number): void {
+    const removed = this.kitchenSectors()[index];
+    if (!removed) return;
+    this.kitchenSectors.update((list) => list.filter((_, i) => i !== index));
+    const clearId = removed.id;
+    const scrub = (menus: ShopMenu[]) =>
+      menus.map((m) => ({
+        ...m,
+        sections: (m.sections ?? []).map((sec) => ({
+          ...sec,
+          items: (sec.items ?? []).map((it) => ({
+            ...it,
+            kitchenSectorIds: (it.kitchenSectorIds ?? []).filter((id) => id !== clearId),
+          })),
+        })),
+      }));
+    this.menus.update(scrub);
+    this.sections.update((secs) =>
+      secs.map((sec) => ({
+        ...sec,
+        items: (sec.items ?? []).map((it) => ({
+          ...it,
+          kitchenSectorIds: (it.kitchenSectorIds ?? []).filter((id) => id !== clearId),
+        })),
+      })),
+    );
+  }
+
+  private menuSaveBody(): { menus: ShopMenu[]; kitchenSectors: KitchenSector[] } {
+    return {
+      menus: this.menus(),
+      kitchenSectors: this.kitchenSectors()
+        .map((s) => ({
+          id: String(s.id ?? '').trim() || newKitchenSectorId(),
+          name: String(s.name ?? '').trim().slice(0, 60),
+          showEntradas: !!s.showEntradas,
+        }))
+        .filter((s) => s.name),
+    };
   }
 
   private loadEditor(menu: ShopMenu): void {
@@ -1327,6 +1539,9 @@ export class AdminMenuPage {
               .map((s) => s.trim())
               .filter(Boolean)
               .slice(0, 24),
+            kitchenSectorIds: Array.isArray(it.kitchenSectorIds)
+              ? it.kitchenSectorIds.map((id) => String(id).trim()).filter(Boolean)
+              : [],
           }))
           .filter((it) => it.name),
       })),
@@ -1401,6 +1616,7 @@ export class AdminMenuPage {
             available: true,
             imageUrl: null,
             removableIngredients: '',
+            kitchenSectorIds: [],
           },
         ],
       },
@@ -1430,6 +1646,7 @@ export class AdminMenuPage {
                   available: true,
                   imageUrl: null,
                   removableIngredients: '',
+                  kitchenSectorIds: [],
                 },
               ],
             }
@@ -1613,6 +1830,96 @@ export class AdminMenuPage {
       });
   }
 
+  openAssignSectorsDialog(): void {
+    const sectors = this.kitchenSectors()
+      .map((s) => ({
+        id: String(s.id ?? '').trim(),
+        name: String(s.name ?? '').trim(),
+      }))
+      .filter((s) => s.id && s.name);
+    if (!sectors.length) {
+      this.snack.open('Agregá al menos un sector antes de asignar', 'OK', { duration: 3000 });
+      return;
+    }
+    const items: MenuAssignSectorItem[] = [];
+    this.sections().forEach((sec, si) => {
+      (sec.items ?? []).forEach((it, ii) => {
+        const name = String(it.name ?? '').trim();
+        if (!name) return;
+        items.push({
+          key: this.itemKey(si, ii),
+          sectionName: String(sec.name ?? '').trim() || 'Sin sección',
+          name,
+          sectorIds: Array.isArray(it.kitchenSectorIds) ? [...it.kitchenSectorIds] : [],
+        });
+      });
+    });
+    if (!items.length) {
+      this.snack.open('Agregá ítems con nombre antes de asignar sectores', 'OK', { duration: 3000 });
+      return;
+    }
+    const data: MenuAssignSectorsDialogData = {
+      sectors,
+      items,
+    };
+    this.dialogTitle
+      .track(
+        this.dialog.open<
+          MenuAssignSectorsDialogComponent,
+          MenuAssignSectorsDialogData,
+          MenuAssignSectorsDialogResult | null
+        >(MenuAssignSectorsDialogComponent, {
+          width: '600px',
+          maxWidth: '96vw',
+          maxHeight: '90vh',
+          autoFocus: 'dialog',
+          panelClass: 'guy-dialog',
+          data,
+        }),
+        'Asignar sectores',
+      )
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result?.keys?.length || !result.sectorIds?.length) return;
+        const keySet = new Set<string>(result.keys);
+        const addIds = result.sectorIds;
+        let changed = 0;
+        this.sections.update((list) =>
+          list.map((s, si) => ({
+            ...s,
+            items: (s.items ?? []).map((it, ii) => {
+              const key = this.itemKey(si, ii);
+              if (!keySet.has(key)) return it;
+              changed += 1;
+              if (result.mode === 'replace') {
+                return { ...it, kitchenSectorIds: [...addIds] };
+              }
+              const seen = new Set(it.kitchenSectorIds ?? []);
+              const next = [...(it.kitchenSectorIds ?? [])];
+              for (const id of addIds) {
+                if (seen.has(id)) continue;
+                seen.add(id);
+                next.push(id);
+              }
+              return { ...it, kitchenSectorIds: next };
+            }),
+          })),
+        );
+        this.selectedItemKeys.set(keySet);
+        const names = sectors
+          .filter((s) => addIds.includes(s.id))
+          .map((s) => s.name)
+          .join(', ');
+        this.snack.open(
+          result.mode === 'replace'
+            ? `Sectores (${names}) en ${changed} ítem(s)`
+            : `Sumados (${names}) a ${changed} ítem(s)`,
+          'OK',
+          { duration: 2800 },
+        );
+      });
+  }
+
   itemImageSrc(item: ShopMenuItem): string | null {
     const slug = this.shopSlug();
     const id = String(item.id ?? '').trim();
@@ -1640,7 +1947,7 @@ export class AdminMenuPage {
     this.flushActive();
     await new Promise<void>((resolve, reject) => {
       this.http
-        .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, { menus: this.menus() })
+        .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody())
         .subscribe({
           next: (res) => {
             this.menus.set((res.menus ?? []).map(cloneMenu));
@@ -1939,7 +2246,7 @@ export class AdminMenuPage {
     this.flushActive();
     this.uploadingSource.set(true);
     // Guardamos primero para que el menuId exista en el servidor
-    this.http.put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, { menus: this.menus() }).subscribe({
+    this.http.put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody()).subscribe({
       next: (saved) => {
         this.applyPayload(saved);
         const id = this.activeId() || menuId;
@@ -1998,13 +2305,33 @@ export class AdminMenuPage {
       });
   }
 
+  saveSectors(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.flushActive();
+    this.savingSectors.set(true);
+    this.http
+      .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody())
+      .subscribe({
+        next: (res) => {
+          this.savingSectors.set(false);
+          this.applyPayload(res);
+          this.snack.open('Sectores guardados', 'OK', { duration: 2200 });
+        },
+        error: () => {
+          this.savingSectors.set(false);
+          this.snack.open('No se pudieron guardar los sectores', 'OK', { duration: 3000 });
+        },
+      });
+  }
+
   save(): void {
     const shopId = this.shopId();
     if (!shopId) return;
     this.flushActive();
     this.saving.set(true);
     this.http
-      .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, { menus: this.menus() })
+      .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody())
       .subscribe({
         next: (res) => {
           this.saving.set(false);

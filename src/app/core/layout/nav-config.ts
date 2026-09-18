@@ -18,6 +18,7 @@ export const NAV_GROUP_DEFS: Array<{ id: string; label: string; icon: string }> 
   { id: 'pagos', label: 'Pagos', icon: 'payments' },
   { id: 'reportes', label: 'Reportes', icon: 'insights' },
   { id: 'personal', label: 'Personal', icon: 'groups' },
+  { id: 'publicPages', label: 'Páginas públicas', icon: 'public' },
   { id: 'local', label: 'Configuración del local', icon: 'storefront' },
   { id: 'admin', label: 'Administración', icon: 'settings' },
 ];
@@ -31,6 +32,8 @@ export type NavItemDef = {
   route: string;
   /** Prefijos adicionales que mapean a este id (p. ej. /closings/123). */
   pathPrefixes?: string[];
+  /** Si true, solo la ruta exacta (no /ruta/hijo). */
+  exact?: boolean;
 };
 
 export const NAV_ITEM_DEFS: NavItemDef[] = [
@@ -97,6 +100,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'adminUserActivity', label: 'Actividad', icon: 'history', defaultGroup: 'admin', route: '/admin/user-activity' },
   { id: 'adminAccounts', label: 'Cuentas', icon: 'account_balance', defaultGroup: 'admin', route: '/admin/accounts' },
   { id: 'adminConcepts', label: 'Conceptos', icon: 'category', defaultGroup: 'admin', route: '/admin/concepts' },
+  { id: 'adminPublicPages', label: 'Enlaces y copiar', icon: 'link', defaultGroup: 'publicPages', route: '/admin/public-pages', exact: true },
   { id: 'adminSalesSystems', label: 'Sistemas', icon: 'dns', defaultGroup: 'admin', route: '/admin/sales-systems' },
   { id: 'adminPosProducts', label: 'Platos y rubros', icon: 'restaurant', defaultGroup: 'admin', route: '/admin/pos-products' },
 ];
@@ -174,7 +178,8 @@ export function navItemIdForRoute(route: string): string | null {
     if (def.id === 'home') continue;
     const candidates = [def.route, ...(def.pathPrefixes ?? [])];
     for (const c of candidates) {
-      if (path === c || path.startsWith(`${c}/`)) {
+      const hit = def.exact ? path === c : path === c || path.startsWith(`${c}/`);
+      if (hit) {
         if (!best || c.length > best.len) best = { id: def.id, len: c.length };
       }
     }
@@ -271,6 +276,8 @@ export function applyNavConfig(
     string,
     { label: string; icon: string; badge?: number | null; badgeInGroup?: boolean }
   >();
+  /** Hijos sin id de catálogo (p. ej. URLs públicas con slug). */
+  const uncataloguedByGroup = new Map<string, NavChild[]>();
 
   for (const item of rest) {
     const gid = groupIdFromRoute(item.route);
@@ -283,7 +290,13 @@ export function applyNavConfig(
       });
       for (const child of item.children) {
         const leaf = leafFromChild(child, gid);
-        if (leaf) leaves.push(leaf);
+        if (leaf) {
+          leaves.push(leaf);
+        } else {
+          const list = uncataloguedByGroup.get(gid) ?? [];
+          list.push(child);
+          uncataloguedByGroup.set(gid, list);
+        }
       }
       continue;
     }
@@ -361,16 +374,20 @@ export function applyNavConfig(
   const pushGroup = (groupId: string) => {
     if (used.has(groupId)) return;
     const bucket = buckets.get(groupId);
-    if (!bucket?.items.length) return;
+    const extra = uncataloguedByGroup.get(groupId) ?? [];
+    if (!bucket?.items.length && !extra.length) return;
     used.add(groupId);
     const def = NAV_GROUP_DEFS.find((g) => g.id === groupId);
     const meta = groupMeta.get(groupId);
     const label = groupLabelOverride.get(groupId) ?? meta?.label ?? def?.label ?? groupId;
     const icon = meta?.icon ?? def?.icon ?? 'folder';
-    const children: NavChild[] = bucket.items.map(({ navId, sourceGroupId: _s, ...child }) => ({
-      ...child,
-      label: itemLabels[navId]?.trim() || child.label,
-    }));
+    const children: NavChild[] = [
+      ...(bucket?.items ?? []).map(({ navId, sourceGroupId: _s, ...child }) => ({
+        ...child,
+        label: itemLabels[navId]?.trim() || child.label,
+      })),
+      ...extra,
+    ];
     out.push({
       label,
       route: groupRoute(groupId),
@@ -387,6 +404,7 @@ export function applyNavConfig(
     if (key === '__root') continue;
     pushGroup(key);
   }
+  for (const gid of uncataloguedByGroup.keys()) pushGroup(gid);
 
   const root = buckets.get('__root');
   if (root?.items.length) {

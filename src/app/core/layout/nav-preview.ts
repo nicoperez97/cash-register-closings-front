@@ -8,11 +8,13 @@ import {
   canViewClosingsList,
   expandModulePermissions,
   hasShopPermission,
+  isShopAdministrator,
   migrateModuleLevels,
   type GlobalRole,
   type ModuleKey,
   type Permission,
 } from '../auth/auth.models';
+import { canAccessAnyPublicPage, PUBLIC_PAGE_ACCESS } from '../shop/public-page-access';
 import { navLeaf, NAV_GROUP_DEFS } from './nav-config';
 
 export type NavPreviewLeaf = {
@@ -307,6 +309,30 @@ export function buildNavPreview(
   }
   if (admin.length) {
     groups.push({ id: 'admin', label: 'Administración', icon: 'settings', children: admin });
+  }
+
+  if (canAccessAnyPublicPage(user, shopId)) {
+    const publicChildren: NavPreviewLeaf[] = [];
+    if (isShopAdministrator(user, shopId)) {
+      pushLeaf(publicChildren, 'adminPublicPages');
+    }
+    for (const p of PUBLIC_PAGE_ACCESS) {
+      if (!hasShopPermission(user, shopId, p.permission as Permission)) continue;
+      publicChildren.push({
+        id: `public-${p.pageId}`,
+        label: p.label,
+        icon: p.icon,
+        route: `/admin/public-pages/${p.pageId}`,
+      });
+    }
+    if (publicChildren.length) {
+      groups.push({
+        id: 'publicPages',
+        label: 'Páginas públicas',
+        icon: 'public',
+        children: publicChildren,
+      });
+    }
   }
 
   return groups;
