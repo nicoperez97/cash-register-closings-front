@@ -101,8 +101,22 @@ export class SalonTablesPage {
     return hasShopPermission(
       this.auth.currentUser(),
       this.shops.selectedShopId(),
-      'reservations.manage',
+      'salonTables.manage',
     );
+  }
+
+  canSeeTab(tab: 'mesas' | 'diagrama' | 'reglas' | 'horarios'): boolean {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    const perm =
+      tab === 'mesas'
+        ? 'salonTables.read'
+        : tab === 'diagrama'
+          ? 'diagrama.read'
+          : tab === 'reglas'
+            ? 'salonRules.read'
+            : 'salonHours.read';
+    return hasShopPermission(user, shopId, perm);
   }
 
   isEditing(sectorId: string): boolean {

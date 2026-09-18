@@ -155,18 +155,10 @@ export function buildNavPreview(
   if (hasShopPermission(user, shopId, 'accountTransfers.read')) {
     pushLeaf(cuentas, 'accountTransfers');
   }
-  if (
-    hasShopPermission(user, shopId, 'expenses.read') ||
-    hasShopPermission(user, shopId, 'incomes.read') ||
-    hasShopPermission(user, shopId, 'accountTransfers.read')
-  ) {
-    pushLeaf(cuentas, 'accountBalances');
-    pushLeaf(cuentas, 'transactions');
-  }
-  if (hasShopPermission(user, shopId, 'partnerSplits.read')) {
-    pushLeaf(cuentas, 'partnerSplits');
-    pushLeaf(cuentas, 'splits');
-  }
+  if (hasShopPermission(user, shopId, 'accountBalances.read')) pushLeaf(cuentas, 'accountBalances');
+  if (hasShopPermission(user, shopId, 'transactions.read')) pushLeaf(cuentas, 'transactions');
+  if (hasShopPermission(user, shopId, 'partnerSplits.read')) pushLeaf(cuentas, 'partnerSplits');
+  if (hasShopPermission(user, shopId, 'splits.read')) pushLeaf(cuentas, 'splits');
   if (cuentas.length) {
     groups.push({ id: 'cuentas', label: 'Cuentas', icon: 'account_balance', children: cuentas });
   }
@@ -174,13 +166,21 @@ export function buildNavPreview(
   const salon: NavPreviewLeaf[] = [];
   if (hasShopPermission(user, shopId, 'reservations.read') && f.reservationsEnabled) {
     pushLeaf(salon, 'reservations');
-    pushLeaf(salon, 'salonTables');
-    pushLeaf(salon, 'diagrama');
-    pushLeaf(salon, 'salonRules');
-    pushLeaf(salon, 'salonHours');
   }
   if (hasShopPermission(user, shopId, 'waitingList.read') && f.waitingListEnabled) {
     pushLeaf(salon, 'waitingList');
+  }
+  if (hasShopPermission(user, shopId, 'salonTables.read') && f.reservationsEnabled) {
+    pushLeaf(salon, 'salonTables');
+  }
+  if (hasShopPermission(user, shopId, 'diagrama.read') && f.reservationsEnabled) {
+    pushLeaf(salon, 'diagrama');
+  }
+  if (hasShopPermission(user, shopId, 'salonRules.read') && f.reservationsEnabled) {
+    pushLeaf(salon, 'salonRules');
+  }
+  if (hasShopPermission(user, shopId, 'salonHours.read') && f.reservationsEnabled) {
+    pushLeaf(salon, 'salonHours');
   }
   if (salon.length) {
     groups.push({ id: 'salon', label: 'Salón', icon: 'table_restaurant', children: salon });
@@ -195,14 +195,17 @@ export function buildNavPreview(
     groups.push({ id: 'stock', label: 'Stock', icon: 'inventory_2', children: stock });
   }
 
-  if (hasShopPermission(user, shopId, 'attendance.read')) {
+  const asistencia: NavPreviewLeaf[] = [];
+  if (hasShopPermission(user, shopId, 'attendance.read')) pushLeaf(asistencia, 'attendance');
+  if (hasShopPermission(user, shopId, 'productionAttendance.read')) {
+    pushLeaf(asistencia, 'productionAttendance');
+  }
+  if (asistencia.length) {
     groups.push({
       id: 'asistencia',
       label: 'Asistencia',
       icon: 'event_available',
-      children: [leaf('attendance'), leaf('productionAttendance')].filter(
-        (x): x is NavPreviewLeaf => !!x,
-      ),
+      children: asistencia,
     });
   } else if (hasShopPermission(user, shopId, 'attendance.self')) {
     const my = leaf('myProduction');
@@ -210,30 +213,23 @@ export function buildNavPreview(
   }
 
   const pagos: NavPreviewLeaf[] = [];
-  if (hasShopPermission(user, shopId, 'payments.read')) {
-    pushLeaf(pagos, 'paymentsSuppliers');
-    pushLeaf(pagos, 'paymentsServices');
-    pushLeaf(pagos, 'paymentsEmployees');
-    pushLeaf(pagos, 'paymentsPartners');
-  }
+  if (hasShopPermission(user, shopId, 'paymentsSuppliers.read')) pushLeaf(pagos, 'paymentsSuppliers');
+  if (hasShopPermission(user, shopId, 'paymentsServices.read')) pushLeaf(pagos, 'paymentsServices');
+  if (hasShopPermission(user, shopId, 'paymentsEmployees.read')) pushLeaf(pagos, 'paymentsEmployees');
+  if (hasShopPermission(user, shopId, 'paymentsPartners.read')) pushLeaf(pagos, 'paymentsPartners');
   if (hasShopPermission(user, shopId, 'suppliers.read')) pushLeaf(pagos, 'suppliers');
   if (hasShopPermission(user, shopId, 'services.read')) pushLeaf(pagos, 'services');
   if (pagos.length) {
     groups.push({ id: 'pagos', label: 'Pagos', icon: 'payments', children: pagos });
   }
 
-  if (hasShopPermission(user, shopId, 'reports.view')) {
-    groups.push({
-      id: 'reportes',
-      label: 'Reportes',
-      icon: 'insights',
-      children: [
-        leaf('reports'),
-        leaf('reportsConcepts'),
-        leaf('reportsProducts'),
-        leaf('reportsStats'),
-      ].filter((x): x is NavPreviewLeaf => !!x),
-    });
+  const reportes: NavPreviewLeaf[] = [];
+  if (hasShopPermission(user, shopId, 'reports.view')) pushLeaf(reportes, 'reports');
+  if (hasShopPermission(user, shopId, 'reportsConcepts.read')) pushLeaf(reportes, 'reportsConcepts');
+  if (hasShopPermission(user, shopId, 'reportsProducts.read')) pushLeaf(reportes, 'reportsProducts');
+  if (hasShopPermission(user, shopId, 'reportsStats.read')) pushLeaf(reportes, 'reportsStats');
+  if (reportes.length) {
+    groups.push({ id: 'reportes', label: 'Reportes', icon: 'insights', children: reportes });
   }
 
   const personal: NavPreviewLeaf[] = [];
@@ -266,12 +262,9 @@ export function buildNavPreview(
     }
     if (canSeeShopConfigSection(user, shopId, 'menu')) pushLeaf(local, 'adminShopMenu');
   }
-  if (
-    canSeeShopConfigSection(user, shopId, 'carta') &&
-    canManageOrderingCatalog(user, shopId)
-  ) {
-    pushLeaf(local, 'adminMenu');
-    pushLeaf(local, 'adminPromos');
+  if (canSeeShopConfigSection(user, shopId, 'carta')) {
+    if (canManageOrderingCatalog(user, shopId)) pushLeaf(local, 'adminMenu');
+    if (hasShopPermission(user, shopId, 'promos.manage')) pushLeaf(local, 'adminPromos');
   }
   if (
     hasShopPermission(user, shopId, 'integrations.read') ||

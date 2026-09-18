@@ -102,6 +102,15 @@ export function canAccessAppRoute(
       featureOn(features, 'settlementsEnabled')
     );
   }
+  if (path.startsWith('/reports/concepts')) {
+    return hasShopPermission(user, shopId, 'reportsConcepts.read');
+  }
+  if (path.startsWith('/reports/products')) {
+    return hasShopPermission(user, shopId, 'reportsProducts.read');
+  }
+  if (path.startsWith('/reports/stats')) {
+    return hasShopPermission(user, shopId, 'reportsStats.read');
+  }
   if (path.startsWith('/reports')) {
     return hasShopPermission(user, shopId, 'reports.view');
   }
@@ -139,10 +148,18 @@ export function canAccessAppRoute(
   if (path.startsWith('/admin/messages')) {
     return canAccessShopAdmin(user, shopId);
   }
-  if (path.startsWith('/admin/menu') || path.startsWith('/admin/promos')) {
+  if (path.startsWith('/admin/menu')) {
     return (
       canSeeShopConfigSection(user, shopId, 'carta') &&
       (canAccessShopConfig(user, shopId) || canManageOrderingCatalog(user, shopId))
+    );
+  }
+  if (path.startsWith('/admin/promos')) {
+    return (
+      canSeeShopConfigSection(user, shopId, 'carta') &&
+      (canAccessShopConfig(user, shopId) ||
+        hasShopPermission(user, shopId, 'promos.manage') ||
+        canManageOrderingCatalog(user, shopId))
     );
   }
   if (path.startsWith('/admin/qr')) {
@@ -182,26 +199,24 @@ export function canAccessAppRoute(
     return hasShopPermission(user, shopId, 'accountTransfers.read');
   }
   if (path.startsWith('/account-balances')) {
-    return (
-      hasShopPermission(user, shopId, 'expenses.read') ||
-      hasShopPermission(user, shopId, 'incomes.read') ||
-      hasShopPermission(user, shopId, 'accountTransfers.read')
-    );
+    return hasShopPermission(user, shopId, 'accountBalances.read');
   }
   if (path.startsWith('/transactions')) {
-    return (
-      hasShopPermission(user, shopId, 'expenses.read') ||
-      hasShopPermission(user, shopId, 'incomes.read') ||
-      hasShopPermission(user, shopId, 'accountTransfers.read')
-    );
+    return hasShopPermission(user, shopId, 'transactions.read');
   }
-  if (path.startsWith('/partner-splits') || path.startsWith('/splits')) {
+  if (path.startsWith('/partner-splits')) {
     return hasShopPermission(user, shopId, 'partnerSplits.read');
+  }
+  if (path.startsWith('/splits')) {
+    return hasShopPermission(user, shopId, 'splits.read');
   }
   if (path.startsWith('/my-production')) {
     return hasShopPermission(user, shopId, 'attendance.self');
   }
-  if (path.startsWith('/attendance') || path.startsWith('/production-attendance')) {
+  if (path.startsWith('/production-attendance')) {
+    return hasShopPermission(user, shopId, 'productionAttendance.read');
+  }
+  if (path.startsWith('/attendance')) {
     return hasShopPermission(user, shopId, 'attendance.read');
   }
   if (path.startsWith('/reservations')) {
@@ -216,17 +231,62 @@ export function canAccessAppRoute(
       featureOn(features, 'waitingListEnabled')
     );
   }
-  if (path.startsWith('/salon')) {
+  if (path.startsWith('/salon/mesas')) {
     return (
-      hasShopPermission(user, shopId, 'reservations.read') &&
+      hasShopPermission(user, shopId, 'salonTables.read') &&
       featureOn(features, 'reservationsEnabled')
+    );
+  }
+  if (path.startsWith('/salon/diagrama')) {
+    return (
+      hasShopPermission(user, shopId, 'diagrama.read') &&
+      featureOn(features, 'reservationsEnabled')
+    );
+  }
+  if (path.startsWith('/salon/reglas')) {
+    return (
+      hasShopPermission(user, shopId, 'salonRules.read') &&
+      featureOn(features, 'reservationsEnabled')
+    );
+  }
+  if (path.startsWith('/salon/horarios')) {
+    return (
+      hasShopPermission(user, shopId, 'salonHours.read') &&
+      featureOn(features, 'reservationsEnabled')
+    );
+  }
+  if (path === '/salon' || path.startsWith('/salon/')) {
+    return (
+      featureOn(features, 'reservationsEnabled') &&
+      (hasShopPermission(user, shopId, 'salonTables.read') ||
+        hasShopPermission(user, shopId, 'diagrama.read') ||
+        hasShopPermission(user, shopId, 'salonRules.read') ||
+        hasShopPermission(user, shopId, 'salonHours.read'))
     );
   }
   if (path.startsWith('/tips')) {
     return hasShopPermission(user, shopId, 'tips.read') && featureOn(features, 'tipsEnabled');
   }
+  if (path.startsWith('/payments/suppliers')) {
+    return hasShopPermission(user, shopId, 'paymentsSuppliers.read');
+  }
+  if (path.startsWith('/payments/services')) {
+    return hasShopPermission(user, shopId, 'paymentsServices.read');
+  }
+  if (path.startsWith('/payments/employees')) {
+    return hasShopPermission(user, shopId, 'paymentsEmployees.read');
+  }
+  if (path.startsWith('/payments/partners')) {
+    return hasShopPermission(user, shopId, 'paymentsPartners.read');
+  }
   if (path.startsWith('/payments')) {
-    return hasShopPermission(user, shopId, 'payments.read');
+    return (
+      hasShopPermission(user, shopId, 'paymentsSuppliers.read') ||
+      hasShopPermission(user, shopId, 'paymentsServices.read') ||
+      hasShopPermission(user, shopId, 'paymentsEmployees.read') ||
+      hasShopPermission(user, shopId, 'paymentsPartners.read') ||
+      hasShopPermission(user, shopId, 'payments.read')
+    );
   }
   if (path.startsWith('/suppliers')) {
     return hasShopPermission(user, shopId, 'suppliers.read');
