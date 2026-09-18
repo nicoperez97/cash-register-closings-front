@@ -281,6 +281,20 @@ type ClosingSummary = {
           </div>
           }
         </div>
+        @if (canEditChannels() || canEditPayments()) {
+          <div class="ocp__save ocp__save--inline">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="savingChannels()"
+              (click)="saveChannels()"
+            >
+              <mat-icon>save</mat-icon>
+              {{ savingChannels() ? 'Guardando…' : 'Guardar canales' }}
+            </button>
+          </div>
+        }
         }
 
         @if (showItems()) {
@@ -319,6 +333,20 @@ type ClosingSummary = {
                 </div>
               } @empty {
                 <p class="ocp__hint">No hay ítems en la carta o no coinciden con la búsqueda.</p>
+              }
+              @if (canEditItems()) {
+                <div class="ocp__save ocp__save--inline">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="savingItems()"
+                    (click)="saveItems()"
+                  >
+                    <mat-icon>save</mat-icon>
+                    {{ savingItems() ? 'Guardando…' : 'Guardar ítems' }}
+                  </button>
+                </div>
               }
             </div>
           }
@@ -362,23 +390,22 @@ type ClosingSummary = {
               } @empty {
                 <p class="ocp__hint">Todavía no hay extras, o no coinciden con la búsqueda.</p>
               }
+              @if (canEditExtras()) {
+                <div class="ocp__save ocp__save--inline">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="savingExtras()"
+                    (click)="saveExtrasAvailability()"
+                  >
+                    <mat-icon>save</mat-icon>
+                    {{ savingExtras() ? 'Guardando…' : 'Guardar extras' }}
+                  </button>
+                </div>
+              }
             </div>
           }
-        </div>
-        }
-
-        @if (showCatalogSave()) {
-        <div class="ocp__save">
-          <button
-            mat-flat-button
-            color="primary"
-            type="button"
-            [disabled]="saving()"
-            (click)="save()"
-          >
-            <mat-icon>save</mat-icon>
-            {{ saving() ? 'Guardando…' : 'Guardar' }}
-          </button>
         </div>
         }
       }
@@ -578,6 +605,10 @@ type ClosingSummary = {
       justify-content: center;
       margin-top: 0.15rem;
     }
+    .ocp__save--inline {
+      justify-content: flex-start;
+      margin-top: 0.45rem;
+    }
   `,
 })
 export class OrderingCatalogPanelComponent {
@@ -589,7 +620,9 @@ export class OrderingCatalogPanelComponent {
   private readonly closingsApi = inject(ClosingsApiService);
 
   readonly loading = signal(true);
-  readonly saving = signal(false);
+  readonly savingChannels = signal(false);
+  readonly savingItems = signal(false);
+  readonly savingExtras = signal(false);
   readonly openingCaja = signal(false);
   readonly togglingLocal = signal(false);
   readonly generatingClosing = signal(false);
@@ -657,13 +690,6 @@ export class OrderingCatalogPanelComponent {
   readonly canEditPayments = computed(() => this.canEdit('payments'));
   readonly canEditItems = computed(() => this.canEdit('items'));
   readonly canEditExtras = computed(() => this.canEdit('extras'));
-  readonly showCatalogSave = computed(
-    () =>
-      this.canEditChannels() ||
-      this.canEditPayments() ||
-      this.canEditItems() ||
-      this.canEditExtras(),
-  );
 
   constructor() {
     effect(() => {
@@ -1127,10 +1153,33 @@ export class OrderingCatalogPanelComponent {
       });
   }
 
-  save(): void {
+  private patchCatalog(
+    body: Record<string, unknown>,
+    saving: { set: (v: boolean) => void },
+    okMsg: string,
+  ): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId || !this.showCatalogSave()) return;
-    this.saving.set(true);
+    if (!shopId || !Object.keys(body).length) return;
+    saving.set(true);
+    this.http
+      .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, body)
+      .subscribe({
+        next: (shop: any) => {
+          saving.set(false);
+          this.justAutoClosed.set(false);
+          this.shops.upsertShop(shop);
+          this.snack.open(okMsg, 'OK', { duration: 2500 });
+          this.reload(shopId);
+        },
+        error: (err: HttpErrorResponse) => {
+          saving.set(false);
+          this.snack.open(err.error?.message ?? 'No se pudo guardar', 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  saveChannels(): void {
+    if (!this.canEditChannels() && !this.canEditPayments()) return;
     const body: Record<string, unknown> = {};
     if (this.canEditChannels()) {
       body['takeawayEnabled'] = this.takeawayEnabled;
@@ -1143,32 +1192,34 @@ export class OrderingCatalogPanelComponent {
       ];
       body['orderingPayments'] = { methods };
     }
-    if (this.canEditItems()) {
-      body['menuItemAvailability'] = this.items().map((it) => ({
-        id: it.id,
-        available: it.available,
-      }));
-    }
-    if (this.canEditExtras()) {
-      body['orderingExtraAvailability'] = this.extras().map((ex) => ({
-        id: ex.id,
-        available: ex.available,
-      }));
-    }
-    this.http
-      .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, body)
-      .subscribe({
-        next: (shop: any) => {
-          this.saving.set(false);
-          this.justAutoClosed.set(false);
-          this.shops.upsertShop(shop);
-          this.snack.open('Configuración guardada', 'OK', { duration: 2500 });
-          this.reload(shopId);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.saving.set(false);
-          this.snack.open(err.error?.message ?? 'No se pudo guardar', 'OK', { duration: 3500 });
-        },
-      });
+    this.patchCatalog(body, this.savingChannels, 'Canales guardados');
+  }
+
+  saveItems(): void {
+    if (!this.canEditItems()) return;
+    this.patchCatalog(
+      {
+        menuItemAvailability: this.items().map((it) => ({
+          id: it.id,
+          available: it.available,
+        })),
+      },
+      this.savingItems,
+      'Ítems guardados',
+    );
+  }
+
+  saveExtrasAvailability(): void {
+    if (!this.canEditExtras()) return;
+    this.patchCatalog(
+      {
+        orderingExtraAvailability: this.extras().map((ex) => ({
+          id: ex.id,
+          available: ex.available,
+        })),
+      },
+      this.savingExtras,
+      'Extras guardados',
+    );
   }
 }

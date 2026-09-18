@@ -1357,7 +1357,7 @@ export class AdminUserDialogComponent implements OnInit {
     return this.form.controls.accountType.value === 'EMPLOYEE';
   }
 
-  modulesOf(group: 'daily' | 'people' | 'config') {
+  modulesOf(group: 'daily' | 'people' | 'config' | 'public') {
     return this.visibleModules.filter((m) => m.group === group);
   }
 

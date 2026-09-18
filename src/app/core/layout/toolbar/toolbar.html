@@ -149,6 +149,31 @@
       </span>
     }
 
+    @if (immersiveChrome.canToggle()) {
+      <button
+        type="button"
+        class="tb-btn"
+        matTooltip="Ocultar barra"
+        aria-label="Ocultar barra"
+        (click)="immersiveChrome.setToolbarHidden(true)"
+      >
+        <mat-icon>unfold_less</mat-icon>
+      </button>
+    }
+
+    @if (fullscreenSupported()) {
+      <button
+        type="button"
+        class="tb-btn"
+        [matTooltip]="isFullscreen() ? 'Salir de pantalla completa' : 'Pantalla completa'"
+        [attr.aria-label]="isFullscreen() ? 'Salir de pantalla completa' : 'Pantalla completa'"
+        [attr.aria-pressed]="isFullscreen()"
+        (click)="toggleFullscreen()"
+      >
+        <mat-icon>{{ isFullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+      </button>
+    }
+
     <button
       type="button"
       class="tb-btn notif-btn"

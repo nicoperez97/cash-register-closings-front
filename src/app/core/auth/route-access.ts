@@ -9,10 +9,14 @@ import {
   canViewClosingsList,
   hasShopPermission,
   isClosingsCreateOnly,
+  isShopAdministrator,
   isSuperAdminUser,
 } from './auth.models';
 import { navItemIdForRoute } from '../layout/nav-config';
 import { isNavPathHidden, type ShopNavConfig } from '../layout/nav-config';
+import {
+  permissionForPublicPage,
+} from '../shop/public-page-access';
 
 /** Flags del local que condicionan rutas de salón / propinas / rendiciones. */
 export type ShopRouteFeatures = {
@@ -57,6 +61,16 @@ export function canAccessAppRoute(
 
   const path = route.split('?')[0] || route;
   const features = featuresOf(opts);
+
+  // Páginas públicas: listado de enlaces solo admin; visor por permiso de página.
+  if (path === '/admin/public-pages' || path === '/admin/public-pages/') {
+    return isShopAdministrator(user, shopId);
+  }
+  if (path.startsWith('/admin/public-pages/')) {
+    const pageId = path.slice('/admin/public-pages/'.length).split('/')[0] || '';
+    const perm = permissionForPublicPage(pageId);
+    return perm ? hasShopPermission(user, shopId, perm) : false;
+  }
 
   if (
     opts?.respectNavHidden !== false &&

@@ -1,15 +1,16 @@
 <div
   class="layout-root"
   [class.layout-root--mobile]="isMobile()"
-  [class.layout-root--rail]="!isMobile() && !sidenavExpanded()"
+  [class.layout-root--rail]="!sidenavOverlay() && !isMobile() && !sidenavExpanded()"
+  [class.layout-root--chrome-off]="showChromeReveal()"
 >
   <mat-sidenav-container class="layout-container">
     <mat-sidenav
       class="layout-sidenav"
-      [class.layout-sidenav--mobile]="isMobile()"
-      [class.layout-sidenav--rail]="!isMobile() && !sidenavExpanded()"
-      [mode]="isMobile() ? 'over' : 'side'"
-      [opened]="sidenavOpen()"
+      [class.layout-sidenav--mobile]="sidenavOverlay()"
+      [class.layout-sidenav--rail]="!sidenavOverlay() && !isMobile() && !sidenavExpanded()"
+      [mode]="sidenavOverlay() ? 'over' : 'side'"
+      [opened]="sidenavOverlay() ? sidenavOpen() : true"
       [fixedInViewport]="true"
       [fixedTopGap]="0"
       [fixedBottomGap]="0"
@@ -17,8 +18,8 @@
     >
       <app-sidebar
         [navItems]="navItems()"
-        [isMobile]="isMobile()"
-        [rail]="!isMobile() && !sidenavExpanded()"
+        [isMobile]="sidenavOverlay()"
+        [rail]="!sidenavOverlay() && !isMobile() && !sidenavExpanded()"
         (close)="onSidenavOpenedChange(false)"
         (navigate)="closeSidenavOnNavigate()"
         (expandRequest)="expandSidenav()"
@@ -31,20 +32,27 @@
       [class.layout-shell--mobile]="isMobile()"
       [class.sidenav-open]="isMobile() && sidenavOpen()"
     >
-      <app-toolbar
-        [user]="user()"
-        [isMobile]="isMobile()"
-        [sidenavOpen]="isMobile() ? sidenavOpen() : sidenavExpanded()"
-        (menuToggle)="toggleSidenav()"
-        (logout)="logout()"
-      />
+      @if (!hideMainToolbar()) {
+        <app-toolbar
+          [user]="user()"
+          [isMobile]="isMobile()"
+          [sidenavOpen]="isMobile() ? sidenavOpen() : sidenavExpanded()"
+          (menuToggle)="toggleSidenav()"
+          (logout)="logout()"
+        />
+      }
 
-      <div class="layout-main-scroll">
+      <div
+        class="layout-main-scroll"
+        [class.layout-main-scroll--immersive]="isPublicPageViewer()"
+        [class.layout-main-scroll--chrome-off]="showChromeReveal()"
+      >
         <main
           class="layout-content container-fluid guy-page-enter"
-          [class.py-4]="!isCashierLayout()"
-          [class.py-2]="isCashierLayout()"
+          [class.py-4]="!isCashierLayout() && !hideMainToolbar()"
+          [class.py-2]="isCashierLayout() || showChromeReveal()"
           [class.layout-content--cashier]="isCashierLayout()"
+          [class.layout-content--immersive]="isPublicPageViewer()"
         >
           @if (isMobile() && pageRefresh.hasHandler()) {
             <app-pull-to-refresh
@@ -64,8 +72,33 @@
           </div>
         </main>
 
-        <app-main-pwa-install-banner />
+        @if (!hideMainToolbar()) {
+          <app-main-pwa-install-banner />
+        }
       </div>
     </mat-sidenav-content>
   </mat-sidenav-container>
+
+  @if (showChromeReveal()) {
+    <div class="chrome-reveal" aria-label="Barra oculta">
+      <button
+        type="button"
+        class="chrome-reveal__btn chrome-reveal__btn--menu"
+        matTooltip="Menú"
+        aria-label="Menú"
+        (click)="toggleSidenav()"
+      >
+        <mat-icon>menu</mat-icon>
+      </button>
+      <button
+        type="button"
+        class="chrome-reveal__btn chrome-reveal__btn--show"
+        matTooltip="Mostrar barra"
+        aria-label="Mostrar barra"
+        (click)="immersiveChrome.setToolbarHidden(false)"
+      >
+        <mat-icon>unfold_more</mat-icon>
+      </button>
+    </div>
+  }
 </div>

@@ -15,6 +15,7 @@ import { activeLabel, conceptKindLabel, yesNoLabel } from '../../core/i18n/label
 import { formatConceptCategories } from '../../shared/concept-categories';
 import { AdminConceptDialogComponent, AdminConceptRow } from './admin-concept-dialog';
 import { AdminConceptsExcelDialogComponent } from './admin-concepts-excel-dialog';
+import { AdminConceptsUnifyDialogComponent } from './admin-concepts-unify-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
 @Component({
@@ -55,6 +56,16 @@ import { usePageRefresh } from '../../core/page-refresh.service';
         <span class="bulk-bar__count">
           {{ selectedIds().length }} seleccionado{{ selectedIds().length === 1 ? '' : 's' }}
         </span>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="bulkBusy() || selectedIds().length < 1"
+          (click)="unifySelected()"
+        >
+          <mat-icon>merge_type</mat-icon>
+          Unificar
+        </button>
         <button
           mat-flat-button
           color="warn"
@@ -234,6 +245,35 @@ export class AdminConceptsPage {
       .afterClosed()
       .subscribe((ok) => {
         if (ok) this.reload();
+      });
+  }
+
+  unifySelected(): void {
+    const ids = this.selectedIds();
+    const shopId = this.shops.selectedShopId();
+    if (!ids.length || !shopId || this.bulkBusy()) return;
+    const selected = this.rows().filter((r) => ids.includes(r.id));
+    if (selected.length < 1) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(AdminConceptsUnifyDialogComponent, {
+          width: '520px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: {
+            shopId,
+            selected,
+            all: this.rows(),
+          },
+        }),
+        'Unificar conceptos',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) {
+          this.selectedIds.set([]);
+          this.reload();
+        }
       });
   }
 

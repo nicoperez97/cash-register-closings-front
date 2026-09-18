@@ -42,6 +42,7 @@ import {
   canCustomizeLayout,
   userRoleLabel,
 } from '../../auth/auth.models';
+import { ImmersiveChromeService } from '../immersive-chrome.service';
 import { ThemeService, ThemeMode } from '../../theme/theme.service';
 import { OfflineService } from '../../offline/offline.service';
 import { ShopContextService } from '../../shop/shop-context.service';
@@ -179,6 +180,7 @@ export class ToolbarComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject(ElementRef<HTMLElement>);
+  readonly immersiveChrome = inject(ImmersiveChromeService);
 
   readonly user = input<ToolbarUser | null>(null);
   readonly isMobile = input(false);
@@ -195,6 +197,8 @@ export class ToolbarComponent implements OnInit {
   /** Filtro del panel: todas | solo no leídas. */
   readonly notifFilter = signal<'all' | 'unread'>('all');
   readonly notifMenuOpen = signal(false);
+  readonly isFullscreen = signal(false);
+  readonly fullscreenSupported = signal(false);
 
   readonly filteredNotifications = computed(() => {
     const rows = this.notifications();
@@ -457,6 +461,22 @@ export class ToolbarComponent implements OnInit {
       };
       document.addEventListener('visibilitychange', onVis);
       this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVis));
+
+      const root = document.documentElement as HTMLElement & {
+        webkitRequestFullscreen?: () => Promise<void> | void;
+      };
+      this.fullscreenSupported.set(
+        typeof root.requestFullscreen === 'function' ||
+          typeof root.webkitRequestFullscreen === 'function',
+      );
+      const syncFs = () => this.isFullscreen.set(!!this.currentFullscreenElement());
+      syncFs();
+      document.addEventListener('fullscreenchange', syncFs);
+      document.addEventListener('webkitfullscreenchange', syncFs as EventListener);
+      this.destroyRef.onDestroy(() => {
+        document.removeEventListener('fullscreenchange', syncFs);
+        document.removeEventListener('webkitfullscreenchange', syncFs as EventListener);
+      });
     }
   }
 
@@ -466,6 +486,37 @@ export class ToolbarComponent implements OnInit {
     void this.push.refreshStatus().then(() => this.push.promptEnableIfNeeded());
     // Lista en caché para que la campana no arranque en “Cargando…”.
     this.loadNotifs$.next({ showSpinner: false });
+  }
+
+  private currentFullscreenElement(): Element | null {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    try {
+      if (this.currentFullscreenElement()) {
+        const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+        if (typeof document.exitFullscreen === 'function') {
+          await document.exitFullscreen();
+        } else if (typeof doc.webkitExitFullscreen === 'function') {
+          await doc.webkitExitFullscreen();
+        }
+        return;
+      }
+      const root = document.documentElement as HTMLElement & {
+        webkitRequestFullscreen?: () => Promise<void> | void;
+      };
+      if (typeof root.requestFullscreen === 'function') {
+        await root.requestFullscreen();
+      } else if (typeof root.webkitRequestFullscreen === 'function') {
+        await root.webkitRequestFullscreen();
+      } else {
+        this.snack.open('Este dispositivo no admite pantalla completa', 'OK', { duration: 2800 });
+      }
+    } catch {
+      this.snack.open('No se pudo cambiar a pantalla completa', 'OK', { duration: 2800 });
+    }
   }
 
   private bindQuickSpaceObserver(): void {

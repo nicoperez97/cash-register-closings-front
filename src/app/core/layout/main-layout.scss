@@ -21,6 +21,11 @@
   --layout-sidenav-w: 0px;
 }
 
+.layout-root--chrome-off {
+  /* Sin empujar contenido por el rail cuando la chrome está oculta. */
+  --layout-sidenav-w: 0px;
+}
+
 .layout-container {
   min-height: 100vh;
   min-height: 100dvh;
@@ -234,6 +239,74 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+}
+
+.layout-main-scroll--immersive {
+  overflow: hidden;
+}
+
+.chrome-reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.chrome-reveal__btn {
+  pointer-events: auto;
+  position: absolute;
+  top: max(0.45rem, env(safe-area-inset-top, 0px));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 94%, transparent);
+  color: var(--guy-ink, #1a2421);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+
+.chrome-reveal__btn--menu {
+  left: max(0.45rem, env(safe-area-inset-left, 0px));
+}
+
+.chrome-reveal__btn--show {
+  right: max(0.45rem, env(safe-area-inset-right, 0px));
+}
+
+.chrome-reveal__btn mat-icon {
+  font-size: 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.layout-content--immersive {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-content--immersive .route-outlet {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-content--immersive .route-outlet > *:not(router-outlet) {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Mobile + mode=over: Material a veces deja transform residual en el content

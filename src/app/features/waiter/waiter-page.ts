@@ -46,6 +46,10 @@ type PosLine = {
   extraId?: string;
   attachedToMenuItemId?: string;
   promoId?: string;
+  /** Sale a cocina como entrada. */
+  isEntrada?: boolean;
+  /** Keys de otras líneas del carrito con las que combina. */
+  combinesWithKeys?: string[];
 };
 
 type CatalogItem = {
@@ -115,6 +119,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly cartOpen = signal(false);
   /** Vista detallada del carrito (qty +/− y nota). Por defecto resumen. */
   readonly cartDetail = signal(false);
+  /** Key de la línea cuyo panel «Combina» está abierto. */
+  readonly combineOpenKey = signal<string | null>(null);
   /** Ítem de carta con extras desplegados (null = todos contraídos). */
   readonly extrasOpenFor = signal<string | null>(null);
   /** Envíos / Resumen de mesa: colapsados por defecto para priorizar la carta. */
@@ -1329,7 +1335,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   addItem(it: CatalogItem): void {
     const key = `i:${it.id}`;
     this.lines.update((list) => {
-      const idx = list.findIndex((l) => l.key === key);
+      const idx = list.findIndex((l) => l.key === key && !l.isEntrada);
       if (idx >= 0) {
         return list.map((l, i) =>
           i === idx ? { ...l, qty: Math.min(99, l.qty + 1) } : l,
@@ -1344,10 +1350,101 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           name: it.name,
           unitPrice: Number(it.price) || 0,
           qty: 1,
+          isEntrada: false,
+          combinesWithKeys: [],
         },
       ];
     });
     this.cartOpen.set(true);
+  }
+
+  toggleEntrada(line: PosLine, ev?: Event): void {
+    ev?.stopPropagation();
+    if (line.kind !== 'ITEM') return;
+    const oldKey = line.key;
+    this.lines.update((list) => {
+      const nextKey = !line.isEntrada
+        ? `i:${line.menuItemId}:entrada`
+        : `i:${line.menuItemId}`;
+      return list.map((l) => {
+        if (l.key === oldKey) {
+          return {
+            ...l,
+            isEntrada: !l.isEntrada,
+            key: nextKey,
+          };
+        }
+        if (!(l.combinesWithKeys ?? []).includes(oldKey)) return l;
+        return {
+          ...l,
+          combinesWithKeys: (l.combinesWithKeys ?? []).map((k) =>
+            k === oldKey ? nextKey : k,
+          ),
+        };
+      });
+    });
+    if (this.combineOpenKey() === oldKey) {
+      this.combineOpenKey.set(
+        !line.isEntrada ? `i:${line.menuItemId}:entrada` : `i:${line.menuItemId}`,
+      );
+    }
+  }
+
+  otherCartItems(line: PosLine): PosLine[] {
+    return this.lines().filter((l) => l.kind === 'ITEM' && l.key !== line.key);
+  }
+
+  hasCombines(line: PosLine): boolean {
+    return (line.combinesWithKeys ?? []).length > 0;
+  }
+
+  isCombinedWith(line: PosLine, other: PosLine): boolean {
+    return (line.combinesWithKeys ?? []).includes(other.key);
+  }
+
+  toggleCombinePanel(line: PosLine, ev?: Event): void {
+    ev?.stopPropagation();
+    if (line.kind !== 'ITEM') return;
+    this.combineOpenKey.update((cur) => (cur === line.key ? null : line.key));
+  }
+
+  toggleCombine(line: PosLine, other: PosLine, ev?: Event): void {
+    ev?.stopPropagation();
+    if (line.kind !== 'ITEM' || other.kind !== 'ITEM') return;
+    this.lines.update((list) =>
+      list.map((l) => {
+        if (l.key === line.key) {
+          const set = new Set(l.combinesWithKeys ?? []);
+          if (set.has(other.key)) set.delete(other.key);
+          else set.add(other.key);
+          return { ...l, combinesWithKeys: [...set] };
+        }
+        if (l.key === other.key) {
+          const set = new Set(l.combinesWithKeys ?? []);
+          if (set.has(line.key)) set.delete(line.key);
+          else set.add(line.key);
+          return { ...l, combinesWithKeys: [...set] };
+        }
+        return l;
+      }),
+    );
+  }
+
+  private combinesWithNamesFor(line: PosLine, all: PosLine[]): string[] {
+    const keys = new Set(line.combinesWithKeys ?? []);
+    if (!keys.size) return [];
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const l of all) {
+      if (!keys.has(l.key)) continue;
+      const name = String(l.name || '').trim();
+      if (!name) continue;
+      const k = name.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      names.push(name);
+    }
+    return names;
   }
 
   itemExtras(itemId: string) {
@@ -1375,10 +1472,13 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (!parent?.id) return;
     const itemId = String(parent.id);
     const itemKey = `i:${itemId}`;
+    const itemKeyEntrada = `i:${itemId}:entrada`;
     const extraKey = `e:${String(extra.id)}:${itemId}`;
     this.lines.update((list) => {
       let next = [...list];
-      const itemIdx = next.findIndex((l) => l.key === itemKey);
+      const itemIdx = next.findIndex(
+        (l) => l.key === itemKey || l.key === itemKeyEntrada,
+      );
       const exIdx = next.findIndex((l) => l.key === extraKey);
 
       if (itemIdx < 0) {
@@ -1391,6 +1491,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
             name: parent.name,
             unitPrice: Number(parent.price) || 0,
             qty: 1,
+            isEntrada: false,
+            combinesWithKeys: [],
           },
           {
             key: extraKey,
@@ -1443,7 +1545,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       // Si baja/sube el plato, alineá extras colgados; si lo saca, sacá los extras.
       if (line.kind === 'ITEM') {
         const parentId = String(line.menuItemId);
-        return next
+        const pruned = next
           .map((l) => {
             if (l.kind !== 'EXTRA') return l;
             const attach = String(l.attachedToMenuItemId || l.menuItemId || '');
@@ -1451,6 +1553,13 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
             return { ...l, qty: updated.qty };
           })
           .filter((l) => l.qty > 0);
+        if (updated.qty > 0) return pruned;
+        const gone = line.key;
+        if (this.combineOpenKey() === gone) this.combineOpenKey.set(null);
+        return pruned.map((l) => ({
+          ...l,
+          combinesWithKeys: (l.combinesWithKeys ?? []).filter((k) => k !== gone),
+        }));
       }
       return next.filter((l) => l.qty > 0);
     });
@@ -1459,6 +1568,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   clearCart(): void {
     this.lines.set([]);
     this.cartDetail.set(false);
+    this.combineOpenKey.set(null);
   }
 
   sendOrder(): void {
@@ -1484,7 +1594,15 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (caps.lockPrintCustomerTicket) printCustomerTicket = !!caps.defaultPrintCustomerTicket;
     const items = lines
       .filter((l) => l.kind === 'ITEM')
-      .map((l) => ({ menuItemId: l.menuItemId, qty: l.qty }));
+      .map((l) => {
+        const combinesWithNames = this.combinesWithNamesFor(l, lines);
+        return {
+          menuItemId: l.menuItemId,
+          qty: l.qty,
+          isEntrada: !!l.isEntrada,
+          ...(combinesWithNames.length ? { combinesWithNames } : {}),
+        };
+      });
     const extras = lines
       .filter((l) => l.kind === 'EXTRA' && l.extraId)
       .map((l) => ({
@@ -1513,6 +1631,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.notes.set('');
           this.cartOpen.set(false);
           this.cartDetail.set(false);
+          this.combineOpenKey.set(null);
           const warn = res?.print?.kitchenWarning;
           if (printKitchen && warn) {
             this.showToast(warn);

@@ -2,7 +2,11 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
-import { Permission, canManageShopUsers, canSeeShopConfigSection, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly } from '../auth/auth.models';
+import { Permission, canManageShopUsers, canSeeShopConfigSection, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly, isShopAdministrator } from '../auth/auth.models';
+import {
+  canAccessAnyPublicPage,
+  canAccessPublicPage,
+} from '../shop/public-page-access';
 import { SettlementsInboxService } from '../../features/settlements/settlements-inbox.service';
 
 /** Permisos que un super admin puede usar sin local seleccionado. */
@@ -180,4 +184,62 @@ export const shopConfigSectionGuard = (
     }
     return true;
   };
+};
+
+/** Listado Enlaces y copiar: solo admin del local / super admin. */
+export const publicPagesLinksGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+  const user = auth.currentUser();
+  const shopId = shops.selectedShopId();
+  if (!shopId) {
+    return router.createUrlTree([defaultHomeRoute(user, null)]);
+  }
+  if (!isShopAdministrator(user, shopId)) {
+    return deniedTree(router);
+  }
+  return true;
+};
+
+/** Al menos una página pública con Ver. */
+export const anyPublicPageGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+  const user = auth.currentUser();
+  const shopId = shops.selectedShopId();
+  if (!shopId) {
+    return router.createUrlTree([defaultHomeRoute(user, null)]);
+  }
+  if (!canAccessAnyPublicPage(user, shopId)) {
+    return deniedTree(router);
+  }
+  return true;
+};
+
+/** Visor de una página pública concreta. */
+export const publicPageViewerGuard: CanActivateFn = (route) => {
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+  const user = auth.currentUser();
+  const shopId = shops.selectedShopId();
+  if (!shopId) {
+    return router.createUrlTree([defaultHomeRoute(user, null)]);
+  }
+  const pageId = String(route.paramMap.get('pageId') ?? '').trim();
+  if (!canAccessPublicPage(user, shopId, pageId)) {
+    return deniedTree(router);
+  }
+  return true;
 };

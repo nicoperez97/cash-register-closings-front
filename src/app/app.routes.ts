@@ -8,6 +8,8 @@ import {
   shopConfigSectionGuard,
   shopUsersGuard,
   superAdminGuard,
+  publicPagesLinksGuard,
+  publicPageViewerGuard,
 } from './core/guards/permission.guard';
 import { MainLayoutComponent } from './core/layout/main-layout';
 import { LoginComponent } from './features/auth/login';
@@ -584,6 +586,22 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/admin-concepts').then((m) => m.AdminConceptsPage),
         title: 'Conceptos',
+      },
+      {
+        path: 'admin/public-pages',
+        canActivate: [publicPagesLinksGuard],
+        loadComponent: () =>
+          import('./features/admin/admin-public-pages').then((m) => m.AdminPublicPagesPage),
+        title: 'Páginas públicas',
+      },
+      {
+        path: 'admin/public-pages/:pageId',
+        canActivate: [publicPageViewerGuard],
+        loadComponent: () =>
+          import('./features/admin/admin-public-page-viewer').then(
+            (m) => m.AdminPublicPageViewerPage,
+          ),
+        title: 'Página pública',
       },
       {
         path: 'admin/sales-systems',
