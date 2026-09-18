@@ -56,30 +56,38 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
     />
 
     <nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
-      <a routerLink="/salon/mesas" class="salon-tabs__link">
-        <mat-icon>table_restaurant</mat-icon>
-        Mesas
-      </a>
-      <a
-        routerLink="/salon/diagrama"
-        class="salon-tabs__link"
-        [class.salon-tabs__link--on]="view() === 'diagrama'"
-      >
-        <mat-icon>grid_view</mat-icon>
-        Diagrama
-      </a>
-      <a
-        routerLink="/salon/reglas"
-        class="salon-tabs__link"
-        [class.salon-tabs__link--on]="view() === 'reglas'"
-      >
-        <mat-icon>tune</mat-icon>
-        Reglas
-      </a>
-      <a routerLink="/salon/horarios" class="salon-tabs__link">
-        <mat-icon>schedule</mat-icon>
-        Horarios
-      </a>
+      @if (canSeeTab('mesas')) {
+        <a routerLink="/salon/mesas" class="salon-tabs__link">
+          <mat-icon>table_restaurant</mat-icon>
+          Mesas
+        </a>
+      }
+      @if (canSeeTab('diagrama')) {
+        <a
+          routerLink="/salon/diagrama"
+          class="salon-tabs__link"
+          [class.salon-tabs__link--on]="view() === 'diagrama'"
+        >
+          <mat-icon>grid_view</mat-icon>
+          Diagrama
+        </a>
+      }
+      @if (canSeeTab('reglas')) {
+        <a
+          routerLink="/salon/reglas"
+          class="salon-tabs__link"
+          [class.salon-tabs__link--on]="view() === 'reglas'"
+        >
+          <mat-icon>tune</mat-icon>
+          Reglas
+        </a>
+      }
+      @if (canSeeTab('horarios')) {
+        <a routerLink="/salon/horarios" class="salon-tabs__link">
+          <mat-icon>schedule</mat-icon>
+          Horarios
+        </a>
+      }
     </nav>
 
     @if (loading()) {
@@ -113,10 +121,12 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
               Armar desde reservas
             </app-busy-label>
           </button>
-          <a routerLink="/salon/mesas" class="salon-add">
-            <mat-icon>table_restaurant</mat-icon>
-            Ir a Mesas
-          </a>
+          @if (canSeeTab('mesas')) {
+            <a routerLink="/salon/mesas" class="salon-add">
+              <mat-icon>table_restaurant</mat-icon>
+              Ir a Mesas
+            </a>
+          }
         </div>
       }
       <div class="salon-sectors">
@@ -328,7 +338,22 @@ export class SalonPage {
 
   canManage(): boolean {
     const shopId = this.shops.selectedShopId();
-    return hasShopPermission(this.auth.currentUser(), shopId, 'reservations.manage');
+    const perm = this.view() === 'reglas' ? 'salonRules.manage' : 'diagrama.manage';
+    return hasShopPermission(this.auth.currentUser(), shopId, perm);
+  }
+
+  canSeeTab(tab: 'mesas' | 'diagrama' | 'reglas' | 'horarios'): boolean {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    const perm =
+      tab === 'mesas'
+        ? 'salonTables.read'
+        : tab === 'diagrama'
+          ? 'diagrama.read'
+          : tab === 'reglas'
+            ? 'salonRules.read'
+            : 'salonHours.read';
+    return hasShopPermission(user, shopId, perm);
   }
 
   tablesOf(area: SalonArea): SalonTable[] {

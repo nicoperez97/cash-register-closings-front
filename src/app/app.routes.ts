@@ -195,14 +195,14 @@ export const routes: Routes = [
       },
       {
         path: 'reports/stats',
-        canActivate: [permissionGuard('reports.view')],
+        canActivate: [permissionGuard('reportsStats.read')],
         loadComponent: () =>
           import('./features/reports/stats-page').then((m) => m.StatsPage),
         title: 'Estadísticas',
       },
       {
         path: 'reports/concepts',
-        canActivate: [permissionGuard('reports.view')],
+        canActivate: [permissionGuard('reportsConcepts.read')],
         loadComponent: () =>
           import('./features/reports/concepts-report-page').then(
             (m) => m.ConceptsReportPage,
@@ -211,7 +211,7 @@ export const routes: Routes = [
       },
       {
         path: 'reports/products',
-        canActivate: [permissionGuard('reports.view')],
+        canActivate: [permissionGuard('reportsProducts.read')],
         loadComponent: () =>
           import('./features/reports/sales-products-page').then((m) => m.SalesProductsPage),
         title: 'Ventas POS',
@@ -251,7 +251,7 @@ export const routes: Routes = [
       {
         path: 'salon/mesas',
         canActivate: [
-          permissionGuard('reservations.read'),
+          permissionGuard('salonTables.read'),
           shopFeatureGuard('reservations'),
         ],
         loadComponent: () =>
@@ -261,7 +261,7 @@ export const routes: Routes = [
       {
         path: 'salon/diagrama',
         canActivate: [
-          permissionGuard('reservations.read'),
+          permissionGuard('diagrama.read'),
           shopFeatureGuard('reservations'),
         ],
         loadComponent: () => import('./features/salon/salon-page').then((m) => m.SalonPage),
@@ -270,7 +270,7 @@ export const routes: Routes = [
       {
         path: 'salon/reglas',
         canActivate: [
-          permissionGuard('reservations.read'),
+          permissionGuard('salonRules.read'),
           shopFeatureGuard('reservations'),
         ],
         loadComponent: () => import('./features/salon/salon-page').then((m) => m.SalonPage),
@@ -279,7 +279,7 @@ export const routes: Routes = [
       {
         path: 'salon/horarios',
         canActivate: [
-          permissionGuard('reservations.read'),
+          permissionGuard('salonHours.read'),
           shopFeatureGuard('reservations'),
         ],
         loadComponent: () =>
@@ -300,7 +300,7 @@ export const routes: Routes = [
       },
       {
         path: 'payments/suppliers',
-        canActivate: [permissionGuard('payments.read')],
+        canActivate: [permissionGuard('paymentsSuppliers.read')],
         data: { paymentKind: 'supplier' },
         loadComponent: () =>
           import('./features/payments/payments-page').then((m) => m.PaymentsPage),
@@ -308,7 +308,7 @@ export const routes: Routes = [
       },
       {
         path: 'payments/employees',
-        canActivate: [permissionGuard('payments.read')],
+        canActivate: [permissionGuard('paymentsEmployees.read')],
         data: { paymentKind: 'employee' },
         loadComponent: () =>
           import('./features/payments/payments-page').then((m) => m.PaymentsPage),
@@ -316,7 +316,7 @@ export const routes: Routes = [
       },
       {
         path: 'payments/services',
-        canActivate: [permissionGuard('payments.read')],
+        canActivate: [permissionGuard('paymentsServices.read')],
         data: { paymentKind: 'service' },
         loadComponent: () =>
           import('./features/payments/payments-page').then((m) => m.PaymentsPage),
@@ -324,7 +324,7 @@ export const routes: Routes = [
       },
       {
         path: 'payments/partners',
-        canActivate: [permissionGuard('payments.read')],
+        canActivate: [permissionGuard('paymentsPartners.read')],
         data: { paymentKind: 'partner' },
         loadComponent: () =>
           import('./features/payments/payments-page').then((m) => m.PaymentsPage),
@@ -528,6 +528,7 @@ export const routes: Routes = [
             'shopConfig.read',
             'shopConfig.manage',
             'shops.manage',
+            'promos.manage',
             'orderingCatalog.manage',
           ),
           shopConfigSectionGuard('carta'),
@@ -663,9 +664,7 @@ export const routes: Routes = [
       },
       {
         path: 'account-balances',
-        canActivate: [
-          anyPermissionGuard('expenses.read', 'incomes.read', 'accountTransfers.read'),
-        ],
+        canActivate: [permissionGuard('accountBalances.read')],
         loadComponent: () =>
           import('./features/movements/account-balances-page').then(
             (m) => m.AccountBalancesPage,
@@ -683,7 +682,7 @@ export const routes: Routes = [
       },
       {
         path: 'splits',
-        canActivate: [permissionGuard('partnerSplits.read')],
+        canActivate: [permissionGuard('splits.read')],
         loadComponent: () =>
           import('./features/partner-splits/splits-history-page').then(
             (m) => m.SplitsHistoryPage,
@@ -692,9 +691,7 @@ export const routes: Routes = [
       },
       {
         path: 'transactions',
-        canActivate: [
-          anyPermissionGuard('expenses.read', 'incomes.read', 'accountTransfers.read'),
-        ],
+        canActivate: [permissionGuard('transactions.read')],
         loadComponent: () =>
           import('./features/movements/transactions-list').then((m) => m.TransactionsListPage),
         title: 'Transacciones',
@@ -744,7 +741,7 @@ export const routes: Routes = [
       },
       {
         path: 'production-attendance',
-        canActivate: [permissionGuard('attendance.read')],
+        canActivate: [permissionGuard('productionAttendance.read')],
         loadComponent: () =>
           import('./features/attendance/production-attendance-page').then(
             (m) => m.ProductionAttendancePage,

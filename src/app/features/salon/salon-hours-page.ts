@@ -55,22 +55,30 @@ type DayDraft = { hours: string[]; message: string; newTime: string };
     />
 
     <nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
-      <a routerLink="/salon/mesas" class="salon-tabs__link">
-        <mat-icon>table_restaurant</mat-icon>
-        Mesas
-      </a>
-      <a routerLink="/salon/diagrama" class="salon-tabs__link">
-        <mat-icon>grid_view</mat-icon>
-        Diagrama
-      </a>
-      <a routerLink="/salon/reglas" class="salon-tabs__link">
-        <mat-icon>tune</mat-icon>
-        Reglas
-      </a>
-      <a routerLink="/salon/horarios" class="salon-tabs__link salon-tabs__link--on">
-        <mat-icon>schedule</mat-icon>
-        Horarios
-      </a>
+      @if (canSeeTab('mesas')) {
+        <a routerLink="/salon/mesas" class="salon-tabs__link">
+          <mat-icon>table_restaurant</mat-icon>
+          Mesas
+        </a>
+      }
+      @if (canSeeTab('diagrama')) {
+        <a routerLink="/salon/diagrama" class="salon-tabs__link">
+          <mat-icon>grid_view</mat-icon>
+          Diagrama
+        </a>
+      }
+      @if (canSeeTab('reglas')) {
+        <a routerLink="/salon/reglas" class="salon-tabs__link">
+          <mat-icon>tune</mat-icon>
+          Reglas
+        </a>
+      }
+      @if (canSeeTab('horarios')) {
+        <a routerLink="/salon/horarios" class="salon-tabs__link salon-tabs__link--on">
+          <mat-icon>schedule</mat-icon>
+          Horarios
+        </a>
+      }
     </nav>
 
     @if (loading()) {
@@ -180,7 +188,21 @@ export class SalonHoursPage {
   }
 
   canManage(): boolean {
-    return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reservations.manage');
+    return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'salonHours.manage');
+  }
+
+  canSeeTab(tab: 'mesas' | 'diagrama' | 'reglas' | 'horarios'): boolean {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    const perm =
+      tab === 'mesas'
+        ? 'salonTables.read'
+        : tab === 'diagrama'
+          ? 'diagrama.read'
+          : tab === 'reglas'
+            ? 'salonRules.read'
+            : 'salonHours.read';
+    return hasShopPermission(user, shopId, perm);
   }
 
   load(): void {

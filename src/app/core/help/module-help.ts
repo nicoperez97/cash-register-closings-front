@@ -475,13 +475,19 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'payments',
     title: 'Pagos',
-    summary: 'A proveedores, servicios, empleados o socios: primero se valida, después se paga.',
+    summary: 'Cada tipo (proveedores, servicios, empleados, socios) se habilita aparte en Usuarios.',
     blocks: [
       {
         title: 'Dos pestañas',
         icon: 'tab',
         tone: 'read',
-        anyOf: ['payments.read'],
+        anyOf: [
+          'paymentsSuppliers.read',
+          'paymentsServices.read',
+          'paymentsEmployees.read',
+          'paymentsPartners.read',
+          'payments.read',
+        ],
         body: 'Arriba está el recorte del día a día. No hace falta pelear con el filtro de estado.',
         items: [
           'Pendientes: a validar y ya validados que faltan pagar.',
@@ -643,7 +649,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'reservations',
     title: 'Reservas',
-    summary: 'Mesas del día, pedidos que llegan por la web y el tablero de salón.',
+    summary: 'Reservas del día, solicitudes web y confirmar mesas.',
     blocks: [
       {
         title: 'La agenda',
@@ -663,7 +669,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Tablero para la sala: /r (suena al llegar una reserva a la lista).',
           'Formulario para el cliente: /reservar. Si falta un campo obligatorio, te dice cuál.',
           'Consulta de reserva por mail: /mi-reserva (pendiente, confirmada o rechazada con motivo).',
-          'Horarios y textos del formulario: Salón → Horarios.',
+          'Horarios y textos del formulario: menú Horarios (permiso aparte de Reservas).',
           'Ahí también elegís si el horario es obligatorio. Un día se cambia en Aviso y cupos.',
           'Desde el admin podés cargar y editar sin tope de cupo ni de personas por sector.',
           'Abierto / Adentro / Afuera piden confirmación, para no cambiarlos sin querer.',
@@ -701,13 +707,13 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'salon',
     title: 'Salón',
-    summary: 'El mapa de mesas y cuánta gente entra en cada sector. No son las normas de servicio.',
+    summary: 'Mesas, diagrama, reglas y horarios: cada uno con su propio permiso en Usuarios.',
     blocks: [
       {
         title: 'Mesas',
         icon: 'table_restaurant',
         tone: 'do',
-        anyOf: ['reservations.manage'],
+        anyOf: ['salonTables.manage'],
         body: 'En Mesas creás sectores con nombre libre y numerás las mesas de cada uno (comanda mozos).',
         items: [
           'Tocá Sector, poné un nombre (ej. Terraza) y sumá mesas o Generá un rango.',
@@ -720,7 +726,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'El diagrama',
         icon: 'grid_view',
         tone: 'read',
-        anyOf: ['reservations.read'],
+        anyOf: ['diagrama.read'],
         body: 'Vista Adentro / Afuera para reservas. Independiente de la comanda de mozos.',
         items: [
           'Si no hay inventario ni cantidades, al entrar se arma solo con el pico de reservas confirmadas.',
@@ -731,7 +737,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Las reglas',
         icon: 'tune',
         tone: 'do',
-        anyOf: ['reservations.manage'],
+        anyOf: ['salonRules.manage'],
         body: 'Cuántas mesas armadas de cada tamaño en Adentro / Afuera. Si el salón estaba vacío, ya vienen del pico de reservas.',
         items: [
           'Cambiá tamaño o cantidad y tocá Guardar. Con + tamaño sumás uno que falte, por ejemplo 1 de 8.',
@@ -742,7 +748,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Horarios y mensajes',
         icon: 'schedule',
         tone: 'do',
-        anyOf: ['reservations.manage'],
+        anyOf: ['salonHours.manage'],
         body: 'En Horarios está el mensaje de todos los días y si el horario es opcional u obligatorio. Tocá un día para editar sus turnos y el texto. Eso se ve en Reservá tu mesa. Un día puntual (aviso, cupo u horario) se carga en Reservas.',
         tip: 'Si un día no tiene horarios, el cliente pide mesa sin elegir hora aunque esté marcado como obligatorio.',
       },

@@ -82,7 +82,7 @@ export type AdminConceptsUnifyData = {
         Cancelar
       </button>
       <button mat-flat-button color="primary" type="button" [disabled]="busy()" (click)="save()">
-        <app-busy-label [busy]="busy()" idle="Unificar" busyText="Unificando…" />
+        <app-busy-label [busy]="busy()" busyLabel="Unificando…">Unificar</app-busy-label>
       </button>
     </mat-dialog-actions>
   `,
