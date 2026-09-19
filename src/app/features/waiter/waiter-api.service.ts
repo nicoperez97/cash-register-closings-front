@@ -109,6 +109,67 @@ export type WaiterSessionPromo = {
   name: string;
 };
 
+export type WaiterLineAudit = {
+  id: string;
+  action: 'REMOVE' | 'QTY' | 'PRICE' | 'EDIT';
+  orderCode: string;
+  itemName: string;
+  lineKind?: string;
+  qtyBefore?: number | null;
+  qtyAfter?: number | null;
+  unitPriceBefore?: number | null;
+  unitPriceAfter?: number | null;
+  relatedLines?: Array<{
+    name: string;
+    qty: number;
+    unitPrice: number;
+    kind?: string;
+    qtyAfter?: number | null;
+    unitPriceAfter?: number | null;
+  }>;
+  actorName: string;
+  actorTyp?: 'waiter' | 'waiter_staff';
+  orderRemoved?: boolean;
+  createdAt: string;
+  tableLabel?: string | null;
+};
+
+export type ComandaMonitorLine = { qty: number; name: string; extra?: boolean };
+
+export type ComandaMonitorTable = {
+  sessionId: string;
+  tableId: string;
+  tableLabel: string;
+  sectorName: string;
+  covers: number;
+  waiterName: string;
+  openedAt: string;
+  orderCount: number;
+  customerTicketPrinted: boolean;
+  lastOrderAt?: string | null;
+  lastOrderCode?: string | null;
+  total: number;
+  lines: ComandaMonitorLine[];
+};
+
+export type ComandaMonitorOrder = {
+  id: string;
+  code: string;
+  tableLabel: string;
+  waiterName: string;
+  createdAt: string;
+  total: number;
+  items: ComandaMonitorLine[];
+};
+
+export type ComandaMonitorPayload = {
+  shopName: string;
+  shiftName?: string | null;
+  tables: ComandaMonitorTable[];
+  recentOrders: ComandaMonitorOrder[];
+  recentAudits: WaiterLineAudit[];
+};
+
 export type WaiterSession = {
   id: string;
   status: 'OPEN' | 'CLOSED';
@@ -140,6 +201,7 @@ export type WaiterSession = {
   table: { id: string; label: string; area: string; seats: number } | null;
   waiter: { id: string; fullName: string };
   orders: WaiterSessionOrder[];
+  lineAudits?: WaiterLineAudit[];
 };
 
 export type WaiterShiftTipsSummary = {
@@ -251,6 +313,12 @@ export class WaiterApiService {
   staffWaiters(shopId: string) {
     return this.http.get<Array<{ id: string; fullName: string }>>(
       `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/waiters`,
+    );
+  }
+
+  staffMonitor(shopId: string) {
+    return this.http.get<ComandaMonitorPayload>(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/monitor`,
     );
   }
 

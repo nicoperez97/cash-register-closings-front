@@ -20,6 +20,7 @@ import { apiErrorMessage, formatOrderLinesInline, groupOrderLines, onAccentColor
 import {
   WaiterApiService,
   WaiterCatalog,
+  WaiterLineAudit,
   WaiterMapObject,
   WaiterSession,
   WaiterShiftTipsSummary,
@@ -126,6 +127,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   /** Envíos / Resumen de mesa: colapsados por defecto para priorizar la carta. */
   readonly sessionEnviosOpen = signal(false);
   readonly sessionResumenOpen = signal(false);
+  readonly sessionAuditOpen = signal(false);
   /** Borrador del cupo por promoId (vacío = ilimitado). */
   readonly promoCupoDrafts = signal<Record<string, string>>({});
 
@@ -628,6 +630,32 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
+  lineAudits(): WaiterLineAudit[] {
+    return this.session()?.lineAudits ?? [];
+  }
+
+  auditText(a: WaiterLineAudit): string {
+    const name = a.itemName || 'Ítem';
+    const extras = (a.relatedLines ?? [])
+      .map((r) => r.name)
+      .filter(Boolean)
+      .join(', ');
+    const extraBit = extras ? ` (+ ${extras})` : '';
+    if (a.action === 'REMOVE') {
+      const qty = a.qtyBefore ?? 1;
+      let s = `Quitó ${qty}× ${name}${extraBit}`;
+      if (a.orderRemoved) s += ` · se borró el envío #${a.orderCode}`;
+      return s;
+    }
+    if (a.action === 'PRICE') {
+      return `Precio de ${name}: ${this.money(a.unitPriceBefore ?? 0)} → ${this.money(a.unitPriceAfter ?? 0)}`;
+    }
+    if (a.action === 'QTY') {
+      return `Cantidad de ${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${extraBit}`;
+    }
+    return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}`;
+  }
+
   /** Ítems editables de toda la mesa (agrupados por ítem + precio). */
   ticketEditableRows(): Array<{
     key: string;
@@ -949,12 +977,14 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly historyOrderItems = signal<
     Array<{ name: string; qty: number; unitPrice: number; extra?: boolean }>
   >([]);
+  readonly historyLineAudits = signal<WaiterLineAudit[]>([]);
   readonly historyOrderLoading = signal(false);
 
   openHistory(): void {
     if (!this.capabilities().allowHistory) return;
     this.historyDetailId.set(null);
     this.historyOrderItems.set([]);
+    this.historyLineAudits.set([]);
     this.historyOpen.set(true);
     this.loadTipsSummary();
   }
@@ -963,6 +993,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.historyOpen.set(false);
     this.historyDetailId.set(null);
     this.historyOrderItems.set([]);
+    this.historyLineAudits.set([]);
   }
 
   openHistoryDetail(sessionId: string): void {
@@ -977,6 +1008,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (!slug || !token) return;
     this.historyOrderLoading.set(true);
     this.historyOrderItems.set([]);
+    this.historyLineAudits.set([]);
     this.api.getSession(slug, token, sessionId).subscribe({
       next: (session) => {
         const rows: Array<{ name: string; qty: number; unitPrice: number; extra?: boolean }> =
@@ -1001,10 +1033,12 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           }
         }
         this.historyOrderItems.set(rows);
+        this.historyLineAudits.set(session.lineAudits ?? []);
         this.historyOrderLoading.set(false);
       },
       error: () => {
         this.historyOrderItems.set([]);
+        this.historyLineAudits.set([]);
         this.historyOrderLoading.set(false);
       },
     });
@@ -1100,6 +1134,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.cartOpen.set(false);
     this.sessionEnviosOpen.set(false);
     this.sessionResumenOpen.set(false);
+    this.sessionAuditOpen.set(false);
     this.syncPromoCupoDraft(session);
     this.view.set('session');
     this.ensureCatalog();

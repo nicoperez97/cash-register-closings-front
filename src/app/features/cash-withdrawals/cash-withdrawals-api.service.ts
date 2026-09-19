@@ -50,6 +50,7 @@ export interface CashWithdrawalHistoryGroup {
   pickedAt: string;
   pickedByUserId: string | null;
   pickedByName: string;
+  fromAccountName?: string | null;
   accountId: string | null;
   accountName: string | null;
   confirmedByUserId: string | null;

@@ -168,6 +168,7 @@ export class AdminShopPage implements OnInit {
   readonly shops = inject(ShopContextService);
 
   readonly salesSystems = signal<SalesSystemOption[]>([]);
+  readonly concepts = signal<Array<{ id: string; name: string; kind: string }>>([]);
   readonly allLedgerAccounts = signal<AdminAccountRow[]>([]);
   readonly shopUsers = signal<ShopUserOption[]>([]);
   readonly saving = signal(false);
@@ -289,6 +290,7 @@ export class AdminShopPage implements OnInit {
     deliveryHours: this.fb.array(this.emptyWeekdayHours()),
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
+    cashWithdrawalConceptId: this.fb.control<string | null>(null),
     paymentConceptCategories: this.fb.nonNullable.group({
       supplier: this.fb.nonNullable.control<string[]>([
         ...DEFAULT_PAYMENT_CONCEPT_CATEGORIES.supplier,
@@ -776,6 +778,7 @@ export class AdminShopPage implements OnInit {
         switchMap(({ shopId }) => {
           if (!shopId) {
             this.allLedgerAccounts.set([]);
+            this.concepts.set([]);
             this.printAgentConfigured.set(false);
             this.printAgentTokenPrefix.set(null);
             this.printAgentFreshToken.set(null);
@@ -787,6 +790,7 @@ export class AdminShopPage implements OnInit {
             });
           }
           this.reloadAccounts();
+          this.reloadConcepts();
           this.reloadPrintAgentStatus();
           this.sourcesLoading.set(true);
           this.sourcesLoadFailed.set(false);
@@ -950,6 +954,7 @@ export class AdminShopPage implements OnInit {
     } | null;
     active?: boolean;
     salesSystemId?: string | null;
+    cashWithdrawalConceptId?: string | null;
   }): void {
     this.form.patchValue({
       name: s.name ?? '',
@@ -993,6 +998,7 @@ export class AdminShopPage implements OnInit {
       orderingWhatsapp: s.orderingPayments?.whatsapp ?? '',
       active: s.active ?? true,
       salesSystemId: s.salesSystemId ?? null,
+      cashWithdrawalConceptId: s.cashWithdrawalConceptId ?? null,
     });
     this.setHoursFromConfig(this.takeawayHours, s.orderingHours?.takeaway);
     this.setHoursFromConfig(this.deliveryHours, s.orderingHours?.delivery);
@@ -1488,6 +1494,22 @@ export class AdminShopPage implements OnInit {
     });
   }
 
+  reloadConcepts(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.http
+      .get<Array<{ id: string; name: string; kind: string }>>(
+        `${environment.apiUrl}/shops/${shopId}/concepts`,
+      )
+      .subscribe({
+        next: (rows) =>
+          this.concepts.set(
+            [...rows].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+          ),
+        error: () => this.concepts.set([]),
+      });
+  }
+
   private printAgentTokenStorageKey(shopId: string): string {
     return `print-agent-token:${shopId}`;
   }
@@ -1855,6 +1877,7 @@ export class AdminShopPage implements OnInit {
         .filter((p) => p.value > 0),
       active: raw.active,
       salesSystemId: raw.salesSystemId || null,
+      cashWithdrawalConceptId: raw.cashWithdrawalConceptId || null,
       paymentConceptCategories: { ...raw.paymentConceptCategories },
       navConfig: this.navConfigDraft(),
       toolbarConfig: this.toolbarConfigDraft(),

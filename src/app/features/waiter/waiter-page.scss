@@ -1729,6 +1729,43 @@
   font-size: 0.84rem !important;
 }
 
+.audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.55rem 0.9rem 0.85rem;
+  display: grid;
+  gap: 0.7rem;
+
+  li {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+}
+
+.audit-list--history {
+  padding: 0.35rem 0 0;
+}
+
+.audit-list__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.audit-list__code {
+  font-variant-numeric: tabular-nums;
+}
+
 .choice {
   appearance: none;
   border: 1px solid var(--line);

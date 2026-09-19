@@ -280,6 +280,13 @@ export class ToolbarComponent implements OnInit {
     if (isCustomerOrdersOnly(user, shopId)) {
       if (hasShopPermission(user, shopId, 'customerOrders.read') && shop?.onlineOrderingEnabled) {
         pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/customer-orders');
+        pushRoute(
+          'customer-orders-history',
+          'Historial de pedidos',
+          'history',
+          '/customer-orders/historial',
+        );
+        pushRoute('customer-orders-monitor', 'Monitor pedidos', 'monitor', '/customer-orders/monitor');
       }
       return applyToolbarConfig(items, cfg);
     }
@@ -287,6 +294,7 @@ export class ToolbarComponent implements OnInit {
     if (isComandaOnly(user, shopId)) {
       if (hasShopPermission(user, shopId, 'comanda.manage') && shop?.waiterOrderingEnabled) {
         pushRoute('comanda', 'Comanda', 'room_service', '/comanda');
+        pushRoute('comanda-monitor', 'Monitor comanda', 'tv', '/comanda/monitor');
       }
       return applyToolbarConfig(items, cfg);
     }

@@ -342,7 +342,10 @@ export class CustomerOrdersPage {
     } else {
       statusParam = v;
     }
-    this.api.listStaff(shopId, statusParam).subscribe({
+    this.api.listStaff(shopId, {
+      status: statusParam,
+      scope: v === 'COMPLETED' ? 'current-shift' : undefined,
+    }).subscribe({
       next: (rows) => {
         const nextIds = new Set(rows.map((r) => r.id));
         if (!this.skipNewToast && this.lastKnownIds.size && v === 'board') {

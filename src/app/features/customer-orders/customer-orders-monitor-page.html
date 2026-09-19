@@ -1,0 +1,84 @@
+<div class="panel-card mon-shell">
+  <div class="mon-top">
+    <div class="mon-top__title">
+      <div>
+        <h1>Monitor pedidos</h1>
+        <p>{{ shops.selectedShop()?.name || '' }} · en vivo</p>
+      </div>
+      <span class="mon-clock">{{ clockLabel() }}</span>
+      @if (openTotal()) {
+        <span class="mon-pill">{{ openTotal() }} abiertos</span>
+      }
+      <button type="button" class="mon-icon" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+    <div class="mon-top__actions">
+      <a class="mon-tool" routerLink="/customer-orders">Tablero</a>
+      <button type="button" class="mon-tool" (click)="reload()" [disabled]="loading()" title="Actualizar">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  @if (loading() && !orders().length) {
+    <p class="mon-empty">Cargando…</p>
+  } @else {
+    <div class="mon-board">
+      @for (col of boardColumns(); track col.id) {
+        <section class="mon-col" [attr.data-col]="col.id">
+          <header>
+            <h2>{{ col.title }}</h2>
+            <span [class.mon-col__hot]="col.id === 'pending' && col.orders.length">{{ col.orders.length }}</span>
+          </header>
+          <div class="mon-col__list">
+            @if (!col.orders.length) {
+              <p class="mon-col__empty">—</p>
+            } @else {
+              @for (o of col.orders; track o.id) {
+                <article class="mon-card" [class.mon-card--pending]="o.status === 'PENDING'">
+                  <header>
+                    <button type="button" class="mon-card__code" (click)="copyCode(o.code)">#{{ o.code }}</button>
+                    <time>{{ o.createdAt | date: 'HH:mm' }} · {{ ageLabel(o.createdAt) }}</time>
+                  </header>
+                  <p class="mon-card__guest">
+                    <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
+                    <span>{{ channel(o) }}</span>
+                  </p>
+                  @if (o.status === 'ACCEPTED' || o.status === 'PREPARING') {
+                    <span class="mon-card__sub">{{ statusLabel(o.status) }}</span>
+                  }
+                  @if (o.customerNotes) {
+                    <p class="mon-card__notes">{{ o.customerNotes }}</p>
+                  }
+                  <ul>
+                    @for (g of itemGroups(o); track $index) {
+                      @if (g.item; as it) {
+                        <li>{{ it.qty }}× {{ it.name }}</li>
+                      }
+                      @for (ex of g.extras; track $index) {
+                        <li class="mon-card__extra">+ {{ ex.name }}</li>
+                      }
+                    }
+                  </ul>
+                  <p class="mon-card__pay">
+                    <span>{{ paymentText(o) }}</span>
+                    @if (isAccredited(o)) {
+                      <span class="mon-card__ok">Acreditado</span>
+                    } @else {
+                      <span class="mon-card__wait">Sin acreditar</span>
+                    }
+                  </p>
+                  <p class="mon-card__total">{{ money(o.total) }}</p>
+                </article>
+              }
+            }
+          </div>
+        </section>
+      }
+    </div>
+    @if (!openTotal() && !loading()) {
+      <p class="mon-empty">No hay pedidos abiertos. Cuando confirmen en /pedir, aparecen acá.</p>
+    }
+  }
+</div>

@@ -380,6 +380,30 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        path: 'customer-orders/historial',
+        canActivate: [
+          anyPermissionGuard('customerOrders.read'),
+          shopFeatureGuard('onlineOrdering'),
+        ],
+        loadComponent: () =>
+          import('./features/customer-orders/customer-orders-history-page').then(
+            (m) => m.CustomerOrdersHistoryPage,
+          ),
+        title: 'Historial de pedidos',
+      },
+      {
+        path: 'customer-orders/monitor',
+        canActivate: [
+          anyPermissionGuard('customerOrders.read'),
+          shopFeatureGuard('onlineOrdering'),
+        ],
+        loadComponent: () =>
+          import('./features/customer-orders/customer-orders-monitor-page').then(
+            (m) => m.CustomerOrdersMonitorPage,
+          ),
+        title: 'Monitor pedidos',
+      },
+      {
         path: 'customer-orders',
         canActivate: [
           anyPermissionGuard('customerOrders.read', 'orderingCatalog.manage'),
@@ -397,6 +421,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/integrations/integrations-page').then((m) => m.IntegrationsPage),
         title: 'Integraciones',
+      },
+      {
+        path: 'comanda/monitor',
+        canActivate: [
+          anyPermissionGuard('comanda.manage', 'shops.manage'),
+          shopFeatureGuard('waiterOrdering'),
+        ],
+        loadComponent: () =>
+          import('./features/waiter/comanda-monitor-page').then((m) => m.ComandaMonitorPage),
+        title: 'Monitor comanda',
       },
       {
         path: 'comanda',

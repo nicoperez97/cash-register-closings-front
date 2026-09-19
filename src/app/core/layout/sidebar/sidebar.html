@@ -256,7 +256,9 @@
                     class="nav-child"
                     [routerLink]="child.route"
                     routerLinkActive="active"
-                    [routerLinkActiveOptions]="{ exact: child.route === '/reports' }"
+                    [routerLinkActiveOptions]="{
+                      exact: child.exact === true || child.route === '/reports'
+                    }"
                     [attr.tabindex]="isGroupOpen(item) ? null : -1"
                     (click)="onNavClick()"
                   >
