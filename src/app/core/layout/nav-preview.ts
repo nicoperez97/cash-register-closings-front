@@ -137,6 +137,10 @@ export function buildNavPreview(
       hasShopPermission(user, shopId, 'orderingCatalog.manage'))
   ) {
     pushLeaf(operacion, 'customerOrders');
+    if (hasShopPermission(user, shopId, 'customerOrders.read')) {
+      pushLeaf(operacion, 'customerOrdersHistory');
+      pushLeaf(operacion, 'customerOrdersMonitor');
+    }
   }
   if (
     f.waiterOrderingEnabled &&
@@ -144,6 +148,7 @@ export function buildNavPreview(
       hasShopPermission(user, shopId, 'shops.manage'))
   ) {
     pushLeaf(operacion, 'comanda');
+    pushLeaf(operacion, 'comandaMonitor');
   }
   if (operacion.length) {
     groups.push({ id: 'operacion', label: 'Operación', icon: 'today', children: operacion });

@@ -60,8 +60,11 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'beverageStock', label: 'Bebidas', icon: 'local_bar', defaultGroup: 'stock', route: '/beverage-stock' },
   { id: 'shortages', label: 'Faltantes', icon: 'error_outline', defaultGroup: 'stock', route: '/shortages' },
   { id: 'orders', label: 'Pedidos', icon: 'local_shipping', defaultGroup: 'stock', route: '/orders' },
-  { id: 'customerOrders', label: 'Pedidos clientes', icon: 'shopping_bag', defaultGroup: 'operacion', route: '/customer-orders' },
-  { id: 'comanda', label: 'Comanda', icon: 'room_service', defaultGroup: 'operacion', route: '/comanda' },
+  { id: 'customerOrders', label: 'Pedidos clientes', icon: 'shopping_bag', defaultGroup: 'operacion', route: '/customer-orders', exact: true },
+  { id: 'customerOrdersHistory', label: 'Historial de pedidos', icon: 'history', defaultGroup: 'operacion', route: '/customer-orders/historial' },
+  { id: 'customerOrdersMonitor', label: 'Monitor pedidos', icon: 'monitor', defaultGroup: 'operacion', route: '/customer-orders/monitor' },
+  { id: 'comanda', label: 'Comanda', icon: 'room_service', defaultGroup: 'operacion', route: '/comanda', exact: true },
+  { id: 'comandaMonitor', label: 'Monitor comanda', icon: 'tv', defaultGroup: 'operacion', route: '/comanda/monitor' },
   { id: 'integrations', label: 'Integraciones', icon: 'hub', defaultGroup: 'local', route: '/integrations' },
   { id: 'attendance', label: 'Presentismo de salón', icon: 'storefront', defaultGroup: 'asistencia', route: '/attendance' },
   { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/production-attendance' },
@@ -122,7 +125,13 @@ export function navLeaf(
 ): NavChild | null {
   const d = NAV_ITEM_BY_ID.get(id);
   if (!d) return null;
-  return { label: d.label, route: d.route, icon: d.icon, ...extra };
+  return {
+    label: d.label,
+    route: d.route,
+    icon: d.icon,
+    ...(d.exact ? { exact: true } : {}),
+    ...extra,
+  };
 }
 
 /**

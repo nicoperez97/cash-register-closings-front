@@ -93,6 +93,9 @@ const ADDABLE_NAV_IDS = [
   'adminShop',
   'adminOrdering',
   'customerOrders',
+  'customerOrdersHistory',
+  'customerOrdersMonitor',
+  'comandaMonitor',
 ] as const;
 
 /** Módulos del menú que se pueden sumar como atajo custom (desde el catálogo). */

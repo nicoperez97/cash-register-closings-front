@@ -8,7 +8,9 @@ const ROUTES: Array<{ key: ImmersiveKey; test: (path: string) => boolean }> = [
   { key: 'comanda', test: (p) => p === '/comanda' || p.startsWith('/comanda/') },
   {
     key: 'customer-orders',
-    test: (p) => p === '/customer-orders' || p.startsWith('/customer-orders/'),
+    test: (p) =>
+      p === '/customer-orders' ||
+      (p.startsWith('/customer-orders/') && !p.startsWith('/customer-orders/historial')),
   },
 ];
 

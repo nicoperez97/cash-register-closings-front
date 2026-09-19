@@ -80,25 +80,29 @@
   </mat-sidenav-container>
 
   @if (showChromeReveal()) {
-    <div class="chrome-reveal" aria-label="Barra oculta">
-      <button
-        type="button"
-        class="chrome-reveal__btn chrome-reveal__btn--menu"
-        matTooltip="Menú"
-        aria-label="Menú"
-        (click)="toggleSidenav()"
-      >
-        <mat-icon>menu</mat-icon>
-      </button>
-      <button
-        type="button"
-        class="chrome-reveal__btn chrome-reveal__btn--show"
-        matTooltip="Mostrar barra"
-        aria-label="Mostrar barra"
-        (click)="immersiveChrome.setToolbarHidden(false)"
-      >
-        <mat-icon>unfold_more</mat-icon>
-      </button>
+    <div class="chrome-reveal" aria-label="Controles de pantalla">
+      <div class="chrome-reveal__dock">
+        <button
+          type="button"
+          class="chrome-reveal__btn"
+          matTooltip="Menú"
+          aria-label="Menú"
+          (click)="toggleSidenav()"
+        >
+          <mat-icon>menu</mat-icon>
+          <span>Menú</span>
+        </button>
+        <button
+          type="button"
+          class="chrome-reveal__btn"
+          matTooltip="Mostrar barra"
+          aria-label="Mostrar barra"
+          (click)="immersiveChrome.setToolbarHidden(false)"
+        >
+          <mat-icon>unfold_more</mat-icon>
+          <span>Barra</span>
+        </button>
+      </div>
     </div>
   }
 </div>

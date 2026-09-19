@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import {
   ControlContainer,
   FormArray,
@@ -13,6 +13,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
+import { AdminClosingDepositsComponent } from './admin-closing-deposits';
+import { conceptKindLabel } from '../../core/i18n/labels';
 
 export interface AdminShopTimezoneOption {
   value: string;
@@ -27,6 +34,12 @@ export interface AdminShopWeekdayOption {
 export interface AdminShopSalesSystemOption {
   id: string;
   name: string;
+}
+
+export interface AdminShopConceptOption {
+  id: string;
+  name: string;
+  kind: string;
 }
 
 export interface AdminShopConceptCategoryOption {
@@ -45,6 +58,8 @@ export interface AdminShopConceptCategoryOption {
     MatSelectModule,
     MatSlideToggleModule,
     MatIconModule,
+    SelectSearchComponent,
+    AdminClosingDepositsComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -99,6 +114,36 @@ export interface AdminShopConceptCategoryOption {
           </div>
           <mat-slide-toggle formControlName="coversEnabled" aria-label="Comensales habilitados" />
         </div>
+      </section>
+
+      <section class="panel-card op__card">
+        <header class="op__head">
+          <h2 class="op__title">Retiro de efectivo</h2>
+          <p class="op__lead">
+            Cuando alguien se lleva la caja, el movimiento sale de Efectivo Caja hacia esa cuenta,
+            con la fecha del retiro (no la del cierre).
+          </p>
+        </header>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__field-full">
+          <mat-label>Concepto del movimiento</mat-label>
+          <mat-select
+            formControlName="cashWithdrawalConceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+            </mat-option>
+            <mat-option [value]="null">Automático (Utilidades)</mat-option>
+            @for (c of filteredConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
+            }
+            @if (conceptQuery() && !filteredConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Se usa en Transacciones y en el Excel. Podés crear más en Conceptos.</mat-hint>
+        </mat-form-field>
       </section>
 
       <section class="panel-card op__card">
@@ -417,12 +462,13 @@ export interface AdminShopConceptCategoryOption {
       </section>
 
       @if (canManageAccounts()) {
+        <app-admin-closing-deposits />
         <aside class="op__accounts panel-card">
           <div class="op__accounts-copy">
             <mat-icon aria-hidden="true">account_balance</mat-icon>
             <div>
-              <strong>Cuentas y depósitos</strong>
-              <p>Canal, depósitos del cierre y el resto del dinero.</p>
+              <strong>Cuentas</strong>
+              <p>Canal, socios y el resto del dinero del local.</p>
             </div>
           </div>
           <a mat-stroked-button routerLink="/admin/accounts" class="op__accounts-btn">
@@ -441,6 +487,7 @@ export class AdminShopOperationComponent {
   readonly timezoneOptions = input<readonly AdminShopTimezoneOption[]>([]);
   readonly weekdayOptions = input<readonly AdminShopWeekdayOption[]>([]);
   readonly salesSystems = input<readonly AdminShopSalesSystemOption[]>([]);
+  readonly concepts = input<readonly AdminShopConceptOption[]>([]);
   readonly conceptCategoryOptions = input<readonly AdminShopConceptCategoryOption[]>([]);
   readonly canManageAccounts = input(false);
   readonly isShiftWeekday = input<(index: number, day: number) => boolean>(() => false);
@@ -450,6 +497,18 @@ export class AdminShopOperationComponent {
   readonly removeShift = output<number>();
   readonly toggleShiftWeekday = output<{ index: number; day: number }>();
   readonly toggleClosedWeekday = output<number>();
+
+  readonly conceptQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly kindLabel = conceptKindLabel;
+  readonly filteredConcepts = computed(() =>
+    filterBySelectQuery(
+      [...this.concepts()],
+      this.conceptQuery(),
+      (c) => `${c.name} ${this.kindLabel(c.kind)}`,
+      this.host.form.get('cashWithdrawalConceptId')?.value,
+    ),
+  );
 
   readonly reservationsOn = computed(
     () => !!this.host.formValue()?.reservationsEnabled,

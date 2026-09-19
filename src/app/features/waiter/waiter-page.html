@@ -419,6 +419,37 @@
         }
       </section>
 
+      @if (lineAudits().length) {
+        <section class="session-fold anim-in" [class.session-fold--open]="sessionAuditOpen()">
+          <button
+            type="button"
+            class="session-fold__toggle"
+            (click)="sessionAuditOpen.update((v) => !v)"
+            [attr.aria-expanded]="sessionAuditOpen()"
+          >
+            <span>
+              Cambios
+              <em>{{ lineAudits().length }}</em>
+            </span>
+            <span class="session-fold__chev" aria-hidden="true">{{ sessionAuditOpen() ? '▾' : '▸' }}</span>
+          </button>
+          @if (sessionAuditOpen()) {
+            <ul class="audit-list">
+              @for (a of lineAudits(); track a.id) {
+                <li>
+                  <div class="audit-list__meta">
+                    <time>{{ orderTime(a.createdAt) }}</time>
+                    <span>{{ a.actorName }}</span>
+                    <span class="audit-list__code">#{{ a.orderCode }}</span>
+                  </div>
+                  <p>{{ auditText(a) }}</p>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+
       <section class="session-fold anim-in" [class.session-fold--open]="sessionResumenOpen()">
         <button
           type="button"
@@ -1230,7 +1261,7 @@
   <div class="sheet anim-up sheet--tall" role="dialog" aria-modal="true" aria-labelledby="history-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     @if (historyDetail(); as detail) {
-      <button type="button" class="link" (click)="historyDetailId.set(null); historyOrderItems.set([])">← Volver</button>
+      <button type="button" class="link" (click)="historyDetailId.set(null); historyOrderItems.set([]); historyLineAudits.set([])">← Volver</button>
       <h2 id="history-title">Mesa {{ detail.tableLabel }}</h2>
       <p class="muted">
         @if (detail.closedAt) {
@@ -1264,6 +1295,23 @@
           </ul>
         }
       </div>
+      @if (historyLineAudits().length) {
+        <div class="sheet__field">
+          <span class="sheet__label">Cambios después de emitir</span>
+          <ul class="audit-list audit-list--history">
+            @for (a of historyLineAudits(); track a.id) {
+              <li>
+                <div class="audit-list__meta">
+                  <time>{{ orderTime(a.createdAt) }}</time>
+                  <span>{{ a.actorName }}</span>
+                  <span class="audit-list__code">#{{ a.orderCode }}</span>
+                </div>
+                <p>{{ auditText(a) }}</p>
+              </li>
+            }
+          </ul>
+        </div>
+      }
       <div class="sheet__field">
         <span class="sheet__label">Pagos</span>
         <ul class="history-pays">

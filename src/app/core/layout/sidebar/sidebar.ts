@@ -21,6 +21,8 @@ export interface NavChild {
   badge?: number | null;
   /** Si false, el badge no se suma al del grupo (p. ej. comensales ≠ pendientes). */
   badgeInGroup?: boolean;
+  /** Si true, activo solo en la ruta exacta (no en hijos). */
+  exact?: boolean;
 }
 
 export interface NavItem {

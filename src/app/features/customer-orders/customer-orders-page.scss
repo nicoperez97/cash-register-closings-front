@@ -563,6 +563,18 @@
   cursor: not-allowed;
 }
 
+.co-shift-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.co-shift-hint a {
+  color: var(--guy-primary, #0b5cab);
+  font-weight: 650;
+  text-decoration: none;
+}
+
 .co-archive {
   display: grid;
   gap: 0.55rem;

@@ -1536,6 +1536,8 @@ export interface ShopSummary {
   /** Usuarios que reciben mail; null = todos. */
   emailNotificationUserIds?: string[] | null;
   salesSystemId?: string | null;
+  /** Concepto del movimiento al retirar efectivo. null = Utilidades / Gastos varios. */
+  cashWithdrawalConceptId?: string | null;
   posnets?: ShopPosnet[];
   paymentConceptCategories?: {
     supplier?: string[];

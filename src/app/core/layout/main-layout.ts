@@ -155,11 +155,16 @@ export class MainLayoutComponent {
       return [
         leaf('customerOrders', {
           badge: this.customerOrdersInbox.pendingCount() || null,
+          exact: true,
         }),
+        leaf('customerOrdersHistory'),
+        leaf('customerOrdersMonitor'),
       ];
     }
     if (isComandaOnly(user, shopId)) {
-      return this.shopFeature('waiterOrdering') ? [leaf('comanda')] : [];
+      return this.shopFeature('waiterOrdering')
+        ? [leaf('comanda'), leaf('comandaMonitor')]
+        : [];
     }
     if (isProducerOnly(user, shopId)) {
       const items: NavItem[] = [leaf('myProduction')];
@@ -234,8 +239,13 @@ export class MainLayoutComponent {
         leaf('customerOrders', {
           badge: this.customerOrdersInbox.pendingCount() || null,
           badgeInGroup: false,
+          exact: true,
         }),
       );
+      if (hasShopPermission(user, shopId, 'customerOrders.read')) {
+        operacion.push(leaf('customerOrdersHistory'));
+        operacion.push(leaf('customerOrdersMonitor'));
+      }
     }
     if (
       shopId &&
@@ -244,6 +254,7 @@ export class MainLayoutComponent {
         hasShopPermission(user, shopId, 'shops.manage'))
     ) {
       operacion.push(leaf('comanda'));
+      operacion.push(leaf('comandaMonitor'));
     }
     if (operacion.length) {
       items.push({

@@ -270,19 +270,33 @@
       @if (!openTotal() && !loading()) {
         <p class="co-board-hint">Cuando confirmen en /pedir, aparecen acá por estado.</p>
       }
-    } @else if (!archiveOrders().length) {
-      <div class="co-empty-card">
-        <mat-icon>shopping_bag</mat-icon>
-        <p>No hay pedidos {{ view() === 'COMPLETED' ? 'completados' : 'cancelados' }}.</p>
-      </div>
     } @else {
-      <div class="co-archive">
-        @for (o of archiveOrders(); track o.id) {
-          <article
-            class="co-card co-card--clickable"
-            [attr.id]="'co-' + o.id"
-            (click)="openOrder(o, $event)"
-          >
+      @if (view() === 'COMPLETED') {
+        <p class="co-shift-hint">
+          Solo el turno de ahora
+          @if (openCaja()?.shiftName) {
+            ({{ openCaja()!.shiftName }})
+          }.
+          <a routerLink="/customer-orders/historial">Historial de pedidos</a>
+          para otras fechas.
+        </p>
+      }
+      @if (!archiveOrders().length) {
+        <div class="co-empty-card">
+          <mat-icon>shopping_bag</mat-icon>
+          <p>
+            No hay pedidos
+            {{ view() === 'COMPLETED' ? 'completados en este turno' : 'cancelados' }}.
+          </p>
+        </div>
+      } @else {
+        <div class="co-archive">
+          @for (o of archiveOrders(); track o.id) {
+            <article
+              class="co-card co-card--clickable"
+              [attr.id]="'co-' + o.id"
+              (click)="openOrder(o, $event)"
+            >
             <header class="co-card__head">
               <button type="button" class="co-card__code" (click)="$event.stopPropagation(); copyCode(o.code)">#{{ o.code }}</button>
               <time>{{ o.createdAt | date: 'dd/MM HH:mm' }}</time>
@@ -359,6 +373,7 @@
           </article>
         }
       </div>
+      }
     }
   </div>
 }

@@ -120,6 +120,7 @@ export class AdminShopIdentidadPage {
         [timezoneOptions]="host.timezoneOptions"
         [weekdayOptions]="host.weekdayOptions"
         [salesSystems]="host.salesSystems()"
+        [concepts]="host.concepts()"
         [conceptCategoryOptions]="host.conceptCategoryOptions"
         [canManageAccounts]="host.canManageAccounts()"
         [isShiftWeekday]="host.isShiftWeekdayBound"

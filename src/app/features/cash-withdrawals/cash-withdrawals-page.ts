@@ -230,7 +230,7 @@ function formatMoney(value: number): string {
           <div>
             <p class="history__eyebrow">Cierres</p>
             <h2 class="history__title">Historial de retiros</h2>
-            <p class="history__sub">Quién se lo llevó, cuenta, monto y cierres incluidos</p>
+            <p class="history__sub">De caja a la cuenta, monto y cierres incluidos</p>
           </div>
         </header>
         @if (historyLoading()) {
@@ -257,11 +257,14 @@ function formatMoney(value: number): string {
                   <div>
                     <h3 class="withdrawal-card__date">{{ formatDateTime(group.pickedAt) }}</h3>
                     <p class="history-card__who">
-                      {{ group.pickedByName }}
+                      {{ group.fromAccountName || 'Efectivo Caja' }}
                       @if (group.accountName) {
                         <span> → {{ group.accountName }}</span>
                       }
                     </p>
+                    @if (group.pickedByName && group.pickedByName !== group.accountName) {
+                      <p class="history-card__meta">Se lo llevó {{ group.pickedByName }}</p>
+                    }
                     @if (group.confirmedByName && group.confirmedByName !== group.pickedByName) {
                       <p class="history-card__meta">Confirmó {{ group.confirmedByName }}</p>
                     }
