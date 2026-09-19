@@ -46,10 +46,6 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
               <input matInput type="number" inputmode="numeric" pattern="[0-9]*" formControlName="coversCount" />
             </mat-form-field>
           }
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Efectivo retirado</mat-label>
-            <input matInput type="number" inputmode="decimal" formControlName="cashWithdrawn" />
-          </mat-form-field>
           <mat-form-field appearance="outline" class="closing-notes" subscriptSizing="dynamic">
             <mat-label>Notas</mat-label>
             <textarea matInput rows="2" formControlName="notes"></textarea>

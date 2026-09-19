@@ -47,6 +47,17 @@
   align-items: start;
 }
 
+.closing-form__pending {
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e2b86a;
+  background: #fff8e8;
+  color: #5c4816;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
 .closing-form__fields .mat-mdc-form-field {
   width: 100%;
   margin-bottom: 0 !important;

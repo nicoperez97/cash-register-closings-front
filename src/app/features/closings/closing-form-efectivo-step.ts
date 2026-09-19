@@ -85,7 +85,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
             <input matInput type="text" inputmode="decimal" appMoney formControlName="cashLeftInRegister" />
           </mat-form-field>
           <p class="closing-form__account-hint closing-form__span-all">
-            El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja.
+            Al cargar el total se completa a retirar. Si dejás plata en caja, se descuenta solo.
           </p>
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
             <mat-label>Quién se lo lleva</mat-label>

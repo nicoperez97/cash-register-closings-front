@@ -18,9 +18,12 @@ import {
 import { environment } from '../../../environments/environment';
 import {
   clearClosingDraft,
+  formatPendingClosingLabel,
+  pendingClosingFromOpenCaja,
   persistClosingDraft,
   readClosingDraft,
   type ClosingFormDraft,
+  type PendingClosingNotice,
 } from '../closings/closing-form-draft';
 import { ClosingsApiService, type CashClosing } from '../closings/closings-api.service';
 import {
@@ -29,7 +32,8 @@ import {
 } from '../../shared/components/select-search';
 import { formatMoney } from '../../shared/utils/money';
 import { apiErrorMessage } from './ordering-ui.util';
-import { resolveShopBusinessDate } from '../../core/shop/business-date';
+import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
+import { resolveCurrentShift } from '../../core/shop/shop-shifts';
 
 type ToggleRow = {
   id: string;
@@ -131,8 +135,13 @@ type ClosingSummary = {
             recibir.
           </div>
         }
-
         @if (showCaja()) {
+        @if (pendingCaja(); as pending) {
+          <div class="ocp__alert" role="status">
+            Hay un cierre pendiente para el {{ formatPendingLabel(pending) }}. Generar cierre arma el del
+            día y turno de ahora.
+          </div>
+        }
         <div class="ocp__caja">
           @if (openClosing(); as caja) {
             <div class="ocp__caja-open">
@@ -627,6 +636,9 @@ export class OrderingCatalogPanelComponent {
   readonly togglingLocal = signal(false);
   readonly generatingClosing = signal(false);
   readonly openClosing = signal<CashClosing | null>(null);
+  readonly pendingCaja = computed(() =>
+    pendingClosingFromOpenCaja(this.openClosing(), this.shops.selectedShop()),
+  );
   readonly orderingOpen = signal(false);
   readonly items = signal<ToggleRow[]>([]);
   readonly extras = signal<ToggleRow[]>([]);
@@ -708,6 +720,10 @@ export class OrderingCatalogPanelComponent {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
     if (!m) return s || '—';
     return `${Number(m[3])}/${Number(m[2])}`;
+  }
+
+  formatPendingLabel(pending: PendingClosingNotice): string {
+    return formatPendingClosingLabel(pending);
   }
 
   setItemAvailable(id: string, available: boolean): void {
@@ -807,7 +823,6 @@ export class OrderingCatalogPanelComponent {
     }
 
     this.generatingClosing.set(true);
-    // getOpen en API mueve la caja del día anterior al día laboral actual.
     this.closingsApi.getOpen(shopId).subscribe({
       next: (fresh) => {
         const cajaNow = fresh ?? caja;
@@ -828,10 +843,11 @@ export class OrderingCatalogPanelComponent {
       timezone: shop.timezone,
       openingTime: shop.openingTime,
     });
-    const cajaDate = String(caja.businessDate ?? '').slice(0, 10);
+    const currentShift = resolveCurrentShift(shop);
+    const pending = pendingClosingFromOpenCaja(caja, shop);
     const params = new URLSearchParams();
-    if (caja.shiftId) params.set('shiftId', String(caja.shiftId));
-    params.set('businessDate', cajaDate === todayBd ? cajaDate : todayBd);
+    params.set('businessDate', todayBd);
+    if (currentShift.id) params.set('shiftId', currentShift.id);
     const qs = params.toString();
     this.http
       .get<ClosingSummary>(
@@ -866,7 +882,18 @@ export class OrderingCatalogPanelComponent {
           }
 
           clearClosingDraft();
-          const draft = this.buildClosingDraft(shopId, userId, summary, caja);
+          const draft = this.buildClosingDraft(
+            shopId,
+            userId,
+            {
+              ...summary,
+              businessDate: todayBd,
+              shiftId: currentShift.id,
+              shiftName: currentShift.name,
+            },
+            pending ? null : caja,
+            pending,
+          );
           persistClosingDraft(draft);
 
           this.http
@@ -880,14 +907,17 @@ export class OrderingCatalogPanelComponent {
                 this.generatingClosing.set(false);
                 const mesas = summary.tables?.closedCount ?? 0;
                 const bits = [
-                  `Cierre del turno «${summary.shiftName}» (${summary.businessDate})`,
+                  `Cierre del turno «${currentShift.name}» (${formatIsoDateDisplay(todayBd)})`,
                   summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
                   mesas ? `${mesas} mesa(s)` : null,
+                  pending
+                    ? `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}`
+                    : null,
                 ].filter(Boolean);
                 this.snack.open(
-                  bits.length > 1 ? bits.join(': ') : `${bits[0]} (sin movimientos)`,
+                  bits.length > 1 ? bits.join('. ') : `${bits[0]} (sin movimientos)`,
                   'OK',
-                  { duration: 3200 },
+                  { duration: pending ? 5200 : 3200 },
                 );
                 void this.router.navigate(['/closings/new']);
               },
@@ -916,6 +946,7 @@ export class OrderingCatalogPanelComponent {
     userId: string,
     summary: ClosingSummary,
     caja?: CashClosing | null,
+    pendingClosing?: PendingClosingNotice | null,
   ): ClosingFormDraft {
     const shop = this.shops.selectedShop();
     const openingFromCaja =
@@ -1015,6 +1046,7 @@ export class OrderingCatalogPanelComponent {
       userId,
       savedAt: Date.now(),
       tipDraft: null,
+      pendingClosing: pendingClosing ?? null,
       form: {
         businessDate: summary.businessDate,
         shiftId: summary.shiftId,

@@ -13,7 +13,7 @@ import {
   cobroPaymentMethodToMeta,
   normalizeCobroPaymentMethod,
 } from './closings-form-load';
-import { POSNET_TYPE_LABEL, closingNum, toDateString } from './closings-form.utils';
+import { POSNET_TYPE_LABEL, closingNum, roundMoney, toDateString } from './closings-form.utils';
 import { userIdForWithdrawAccount } from './withdraw-account-options';
 
 export type ClosingFormExpenseRaw = {
@@ -177,7 +177,8 @@ export function prepareClosingSaveBody(
   const cashFromCobros = cobros
     .filter((s) => s.paymentMethod === 'CASH')
     .reduce((sum, s) => sum + s.amount, 0);
-  const cashAmount = Math.max(closingNum(raw.cashAmount), cashFromCobros);
+  const fieldCash = roundMoney(raw.cashAmount);
+  const cashAmount = fieldCash > 0 ? fieldCash : roundMoney(cashFromCobros);
 
   const body: CashClosingInput & Record<string, unknown> = {
     ...raw,
@@ -306,7 +307,8 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
   const cashFromCobros = cobros
     .filter((s) => s.paymentMethod === 'CASH')
     .reduce((sum, s) => sum + s.amount, 0);
-  const cashAmount = Math.max(closingNum(raw.cashAmount), cashFromCobros);
+  const fieldCash = roundMoney(raw.cashAmount);
+  const cashAmount = fieldCash > 0 ? fieldCash : roundMoney(cashFromCobros);
   const declared =
     closingNum(raw.cardAmount) +
     cashAmount +

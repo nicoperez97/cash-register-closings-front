@@ -40,6 +40,22 @@ export function closingNum(v: unknown): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+/** Centavos, sin basura de float. */
+export function roundMoney(v: unknown): number {
+  return Math.round(closingNum(v) * 100) / 100;
+}
+
+/** Efectivo total = a retirar + lo que se deja en caja. */
+export function cashSplitBalances(
+  total: unknown,
+  withdrawn: unknown,
+  leftInRegister: unknown,
+): boolean {
+  const cash = roundMoney(total);
+  if (cash <= 0) return true;
+  return roundMoney(roundMoney(withdrawn) + roundMoney(leftInRegister)) === cash;
+}
+
 /** Vacío en el input si no hay monto (evita el 0 adelante en móvil). */
 export function emptyNum(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;

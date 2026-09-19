@@ -98,16 +98,21 @@ import {
   applyClosingFormDraft,
   clearClosingDraft,
   closingDraftFromForm,
+  formatPendingClosingLabel,
+  pendingClosingFromOpenCaja,
   persistClosingDraft as writeClosingDraft,
   readClosingDraft,
   sourceAmountsFromDraft,
+  type PendingClosingNotice,
 } from './closing-form-draft';
 import {
   POSNET_TYPE_LABEL,
   POSNET_TYPE_OPTIONS,
+  cashSplitBalances,
   closingMoney,
   closingNum,
   emptyNum as toEmptyNum,
+  roundMoney,
   toDateInput,
   toDateString,
   type PosnetType,
@@ -185,6 +190,9 @@ import {
               </mat-form-field>
             }
           </div>
+          @if (pendingClosingHint()) {
+            <p class="closing-form__pending" role="status">{{ pendingClosingHint() }}</p>
+          }
 
           @if (isMobile()) {
             <div class="closing-stepper__progress">
@@ -402,6 +410,12 @@ export class ClosingsFormPage implements OnInit {
   readonly tipEditorValue = signal<TipsEditorState | null>(null);
   private tipDraft: TipsEditorState | null = null;
   readonly isEdit = signal(false);
+  readonly pendingClosing = signal<PendingClosingNotice | null>(null);
+  readonly pendingClosingHint = computed(() => {
+    const pending = this.pendingClosing();
+    if (!pending) return '';
+    return `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}. Este formulario es del día y turno de ahora.`;
+  });
   readonly saving = signal(false);
   readonly status = signal<string | null>(null);
   readonly users = signal<ShopUserOption[]>([]);
@@ -707,9 +721,9 @@ export class ClosingsFormPage implements OnInit {
     if (amount > 0) {
       return `Quedará en A Retirar (${this.money(amount)}).`;
     }
-    const cash = this.cashAmount();
+    const cash = roundMoney(v.cashAmount);
     if (cash <= 0) return '';
-    // Sin asignar pero no hay monto a retirar (todo queda en caja / egresos).
+    if (cashSplitBalances(v.cashAmount, v.cashWithdrawn, v.cashLeftInRegister)) return '';
     return 'El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja.';
   });
 
@@ -735,7 +749,7 @@ export class ClosingsFormPage implements OnInit {
   withdrawPanelHint(): string {
     const amount = this.n(this.formValue().cashWithdrawn);
     if (amount > 0) return this.money(amount);
-    return 'Retiro, propinas y notas';
+    return 'Notas y egresos';
   }
 
   expensesPanelHint(): string {
@@ -797,6 +811,13 @@ export class ClosingsFormPage implements OnInit {
     merge(this.posnetAmounts.valueChanges, this.dniTransfers.valueChanges)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.runSyncDerivedTotals());
+
+    merge(
+      this.form.controls.cashAmount.valueChanges,
+      this.form.controls.cashLeftInRegister.valueChanges,
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncCashWithdrawnFromTotal());
 
     this.otherCobros.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -861,6 +882,7 @@ export class ClosingsFormPage implements OnInit {
           duration: 4000,
         });
       }
+      this.refreshPendingClosingNotice();
       this.startClosingDraftAutosave();
     }
 
@@ -916,6 +938,18 @@ export class ClosingsFormPage implements OnInit {
 
   money(value: number): string {
     return closingMoney(value);
+  }
+
+  /** A retirar = total − lo que se deja en caja. */
+  private syncCashWithdrawnFromTotal(): void {
+    const total = roundMoney(this.form.controls.cashAmount.value);
+    const leave = roundMoney(this.form.controls.cashLeftInRegister.value);
+    const next = Math.max(0, roundMoney(total - leave));
+    const current = roundMoney(this.form.controls.cashWithdrawn.value);
+    if (Math.abs(current - next) < 0.005) return;
+    this.form.controls.cashWithdrawn.setValue(total <= 0 && next <= 0 ? null : next, {
+      emitEvent: false,
+    });
   }
 
   private n(v: unknown): number {
@@ -1401,6 +1435,7 @@ export class ClosingsFormPage implements OnInit {
       .subscribe((result) => {
         if (!result || result.total <= 0) return;
         this.form.patchValue({ cashAmount: result.total });
+        this.syncCashWithdrawnFromTotal();
       });
   }
 
@@ -1503,10 +1538,10 @@ export class ClosingsFormPage implements OnInit {
       this.form.markAllAsTouched();
       return null;
     }
-    const cashTotal = this.cashAmount();
-    const cashLeave = this.n(this.form.controls.cashLeftInRegister.value);
-    const cashTake = this.n(this.form.controls.cashWithdrawn.value);
-    if (cashTotal > 0 && Math.abs(cashTotal - (cashTake + cashLeave)) > 0.05) {
+    const cashTotal = roundMoney(this.form.controls.cashAmount.value);
+    const cashLeave = roundMoney(this.form.controls.cashLeftInRegister.value);
+    const cashTake = roundMoney(this.form.controls.cashWithdrawn.value);
+    if (cashTotal > 0 && !cashSplitBalances(cashTotal, cashTake, cashLeave)) {
       this.snack.open(
         'El efectivo total tiene que ser igual a efectivo a retirar más efectivo que se deja en caja',
         'OK',
@@ -1769,7 +1804,7 @@ export class ClosingsFormPage implements OnInit {
     const userId = this.auth.currentUser()?.id;
     if (!shopId || !userId) return;
     writeClosingDraft(
-      closingDraftFromForm(shopId, userId, this.form, this.tipDraft),
+      closingDraftFromForm(shopId, userId, this.form, this.tipDraft, this.pendingClosing()),
     );
   }
 
@@ -1781,11 +1816,34 @@ export class ClosingsFormPage implements OnInit {
     if (!draft) return false;
     applyClosingFormDraft(this.form, this.fb, draft, (v) => this.emptyNum(v), toDateInput);
     this.tipDraft = draft.tipDraft;
+    this.pendingClosing.set(draft.pendingClosing ?? null);
     this.savedSourceAmounts = sourceAmountsFromDraft(draft);
     this.syncSourceAmounts();
     const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
     if (date) this.loadTipDay(date);
     return true;
+  }
+
+  private refreshPendingClosingNotice(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || this.isEdit()) return;
+    this.api.getOpen(shopId).subscribe({
+      next: (caja) => {
+        const pending = pendingClosingFromOpenCaja(caja, this.shop());
+        if (!pending) return;
+        const formDate = toDateString(this.form.controls.businessDate.value as Date | string | null);
+        const formShift = String(this.form.controls.shiftId.value ?? '');
+        if (formDate === pending.businessDate && formShift === pending.shiftId) {
+          this.pendingClosing.set(null);
+          return;
+        }
+        this.pendingClosing.set(pending);
+        this.persistClosingDraft();
+      },
+      error: () => {
+        /* el aviso del borrador local, si había, se mantiene */
+      },
+    });
   }
 
   private startClosingDraftAutosave(): void {
@@ -1796,6 +1854,7 @@ export class ClosingsFormPage implements OnInit {
 
   private resetForNextClosing(): void {
     clearClosingDraft();
+    this.pendingClosing.set(null);
     const today = this.currentBusinessDate();
     this.expenses.clear();
     this.dniTransfers.clear();
