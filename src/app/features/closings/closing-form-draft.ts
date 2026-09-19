@@ -4,10 +4,19 @@ import type { ClosingSourceAmount } from './closings-api.service';
 import { closingNum } from './closings-form.utils';
 import { buildExpenseGroup, normalizeCobroPaymentMethod, populateOtherCobros } from './closings-form-load';
 import { buildDniTransferGroup } from './closings-form-payment-lines';
+import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
+import { resolveCurrentShift } from '../../core/shop/shop-shifts';
 
 const DRAFT_KEY = 'crc.closing-draft.v1';
 const RETURN_URL_KEY = 'crc.return-url';
 const MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+export type PendingClosingNotice = {
+  businessDate: string;
+  shiftId: string;
+  shiftName: string;
+  closingId?: string;
+};
 
 export type ClosingFormDraft = {
   v: 1;
@@ -16,7 +25,43 @@ export type ClosingFormDraft = {
   savedAt: number;
   form: Record<string, unknown>;
   tipDraft: TipsEditorState | null;
+  pendingClosing?: PendingClosingNotice | null;
 };
+
+export function pendingClosingFromOpenCaja(
+  caja:
+    | {
+        id?: string;
+        businessDate?: string | null;
+        shiftId?: string | null;
+        shiftName?: string | null;
+      }
+    | null
+    | undefined,
+  shop: { timezone?: string; openingTime?: string } | null | undefined,
+): PendingClosingNotice | null {
+  if (!caja || !shop) return null;
+  const currentDate = resolveShopBusinessDate(new Date(), {
+    timezone: shop.timezone,
+    openingTime: shop.openingTime,
+  });
+  const currentShift = resolveCurrentShift(shop);
+  const cajaDate = String(caja.businessDate ?? '').slice(0, 10);
+  const cajaShiftId = String(caja.shiftId ?? '');
+  const sameDay = cajaDate === currentDate;
+  const sameShift = !cajaShiftId || cajaShiftId === currentShift.id;
+  if (sameDay && sameShift) return null;
+  return {
+    businessDate: cajaDate || currentDate,
+    shiftId: cajaShiftId,
+    shiftName: String(caja.shiftName ?? '').trim() || 'turno',
+    closingId: caja.id,
+  };
+}
+
+export function formatPendingClosingLabel(pending: PendingClosingNotice): string {
+  return `${formatIsoDateDisplay(pending.businessDate)} · ${pending.shiftName}`;
+}
 
 export function persistReturnUrl(url: string): void {
   try {
@@ -77,6 +122,7 @@ export function closingDraftFromForm(
   userId: string,
   form: FormGroup,
   tipDraft: TipsEditorState | null,
+  pendingClosing: PendingClosingNotice | null = null,
 ): ClosingFormDraft {
   return {
     v: 1,
@@ -85,6 +131,7 @@ export function closingDraftFromForm(
     savedAt: Date.now(),
     form: serializeForm(form.getRawValue()),
     tipDraft: tipDraft ? structuredClone(tipDraft) : null,
+    pendingClosing: pendingClosing ?? null,
   };
 }
 
