@@ -18,6 +18,8 @@ export interface CashClosing {
   businessDate: string;
   shiftId?: string | null;
   shiftName?: string | null;
+  kind?: 'REGULAR' | 'EVENT' | string | null;
+  eventName?: string | null;
   posSystemAmount: number;
   cardAmount: number;
   cashAmount: number;
@@ -57,6 +59,10 @@ export interface CashClosing {
   extraLines?: Array<{ id?: string; type: string; label: string; amount: number; meta?: string }>;
   sourceAmounts?: ClosingSourceAmount[];
   stepFiles?: ClosingStepFile[];
+}
+
+export function isEventClosing(row?: { kind?: string | null } | null): boolean {
+  return String(row?.kind ?? '') === 'EVENT';
 }
 
 export type ClosingStepFileSlot =

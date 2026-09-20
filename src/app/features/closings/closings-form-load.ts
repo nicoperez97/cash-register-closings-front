@@ -297,6 +297,8 @@ export function patchClosingFormValues(
   form.patchValue({
     businessDate: toDateInput(closing.businessDate),
     shiftId: closing.shiftId ?? '',
+    kind: String(closing.kind ?? '') === 'EVENT' ? 'EVENT' : 'REGULAR',
+    eventName: closing.eventName ?? '',
     posSystemAmount: emptyNum(closing.posSystemAmount),
     cardAmount: emptyNum(closing.cardAmount),
     cashAmount: emptyNum(closing.cashAmount),
@@ -382,6 +384,8 @@ export function resetClosingFormForNext(opts: {
 }) {
   return {
     businessDate: opts.toDateInput(opts.currentBusinessDate),
+    kind: 'REGULAR' as const,
+    eventName: '',
     posSystemAmount: null,
     cardAmount: null,
     cashAmount: null,

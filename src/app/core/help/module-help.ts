@@ -131,11 +131,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'list',
         tone: 'read',
         anyOf: ['closings.read', 'closings.create'],
-        body: 'Cada fila es un día (y un turno, si el local tiene más de uno). Primero ves caja sistema, total declarado y la diferencia en color (si el declarado es mayor, estás a favor en verde). Después el desglose: efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros y egresos.',
+        body: 'Cada fila es un cierre del día (y un turno, si el local tiene más de uno) o un cierre de evento. Primero ves caja sistema, total declarado y la diferencia en color (si el declarado es mayor, estás a favor en verde). Después el desglose: efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros y egresos.',
         items: [
           'Entrá al cierre para ver el detalle.',
           'En el celular la lista viene compacta. Con el botón de info de cada fila ves el detalle, o cambiá a vista detallada junto a Buscar.',
           'Volver a procesar compara cada cierre con el libro. Marcá cuáles cargar.',
+          'Cierre de evento carga un cierre aparte (cumpleaños, after, feria): no pisa el cierre del día ni el turno. En la lista aparece como Evento.',
         ],
       },
       {
@@ -176,6 +177,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['closings.lock'],
         body: 'Cuando el día ya está conciliado, bloquealo. Un cierre bloqueado no se edita.',
       },
+      {
+        title: 'Eliminar',
+        icon: 'delete',
+        tone: 'lock',
+        anyOf: ['closings.read', 'closings.create'],
+        body: 'Solo un super admin puede eliminar un cierre. Se saca de la lista y se anulan los ingresos y egresos que había generado en el libro: los saldos vuelven atrás.',
+        tip: 'No se puede deshacer. Si era un error de carga, eliminá y volvé a cargar el día.',
+      },
     ],
   },
   {
@@ -192,6 +201,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Los egresos del cierre salen de conceptos con categoría Cierre: monto y descripción.',
           'Las propinas van en un paso aparte.',
+          'Si es un cierre de evento, marcá Cierre de evento y poné el nombre: se guarda aparte y no reemplaza el cierre del día. Las propinas de ese día no se tocan.',
           'En Posnets, cada terminal tiene Foto y Archivo cuando cargás un monto. Si PVS o Mercado Pago se cargan a mano (sin terminal), también.',
           'En Cobros, elegí tipo de pago (efectivo, transferencia, tarjeta u otro). El efectivo de un cobro se suma en el paso Efectivo; el resto queda en Cobros.',
           'En Cobros, Cuenta DNI y cada cuenta aparte (Pedidos Ya, Rappi, etc.): Foto y Archivo aparecen si hay monto. Podés adjuntar más de uno.',

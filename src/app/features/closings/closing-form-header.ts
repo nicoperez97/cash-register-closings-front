@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
   template: `
     <header class="closing-form-head">
       <div>
-        <h1>{{ isEdit() ? 'Editar cierre' : 'Nuevo cierre' }}</h1>
+        <h1>{{ heading() }}</h1>
         <p>{{ shopName() }}</p>
       </div>
       <div class="closing-form-actions closing-form-actions--top">
@@ -37,6 +37,7 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class ClosingFormHeaderComponent {
   readonly isEdit = input(false);
+  readonly isEvent = input(false);
   readonly shopName = input('');
   readonly cashierOnly = input(false);
   readonly isLocked = input(false);
@@ -45,4 +46,11 @@ export class ClosingFormHeaderComponent {
 
   readonly cancelClicked = output<void>();
   readonly unlockClicked = output<void>();
+
+  heading(): string {
+    if (this.isEvent()) {
+      return this.isEdit() ? 'Editar cierre de evento' : 'Cierre de evento';
+    }
+    return this.isEdit() ? 'Editar cierre' : 'Nuevo cierre';
+  }
 }

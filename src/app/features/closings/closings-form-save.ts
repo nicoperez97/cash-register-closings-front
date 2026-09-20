@@ -34,6 +34,8 @@ export type ClosingFormDniTransferRaw = {
 export type ClosingFormRawValue = {
   businessDate: Date | string | null;
   shiftId?: string | null;
+  kind?: 'REGULAR' | 'EVENT' | string | null;
+  eventName?: string | null;
   posSystemAmount: unknown;
   cardAmount: unknown;
   cashAmount: unknown;
@@ -184,6 +186,11 @@ export function prepareClosingSaveBody(
     ...raw,
     businessDate: toDateString(raw.businessDate as Date | string | null),
     shiftId: String(raw.shiftId ?? '').trim() || null,
+    kind: String(raw.kind ?? '') === 'EVENT' ? 'EVENT' : 'REGULAR',
+    eventName:
+      String(raw.kind ?? '') === 'EVENT'
+        ? String(raw.eventName ?? '').trim() || null
+        : null,
     posSystemAmount: closingNum(raw.posSystemAmount),
     cardAmount: closingNum(raw.cardAmount),
     cashAmount,

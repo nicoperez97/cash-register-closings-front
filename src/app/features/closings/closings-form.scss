@@ -47,6 +47,17 @@
   align-items: start;
 }
 
+.closing-form__event-check {
+  display: block;
+  margin: 0.65rem 0 0.15rem;
+}
+
+.closing-form__event-name {
+  display: block;
+  max-width: 28rem;
+  margin-top: 0.35rem;
+}
+
 .closing-form__pending {
   margin: 0.75rem 0 0;
   padding: 0.7rem 0.85rem;
