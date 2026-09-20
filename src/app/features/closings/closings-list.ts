@@ -28,6 +28,7 @@ import { closingSharePayload } from '../../shared/components/record-share-builde
 import { shareText } from '../../shared/utils/share-text';
 import {
   CLOSING_DIFFERENCE_FILTERS,
+  CLOSING_KIND_FILTERS,
   CLOSING_PAYMENT_FILTERS,
   CLOSING_SOURCE_FILTERS,
   CLOSING_STATUS_FILTERS,
@@ -144,6 +145,15 @@ import { closingMoneyColumns } from './closing-list-columns';
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Tipo</mat-label>
+            <mat-select formControlName="kind">
+              @for (opt of kindOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Origen</mat-label>
             <mat-select formControlName="source">
               @for (opt of sourceOptions; track opt.value) {
@@ -181,6 +191,10 @@ import { closingMoneyColumns } from './closing-list-columns';
             Filtrar
           </button>
           @if (canCreate()) {
+            <button mat-stroked-button type="button" (click)="goCreateEvent()">
+              <mat-icon>celebration</mat-icon>
+              Cierre de evento
+            </button>
             <button mat-stroked-button type="button" (click)="downloadTemplate()">
               <mat-icon>download</mat-icon>
               Plantilla Excel
@@ -239,6 +253,7 @@ export class ClosingsListPage {
   readonly toggleFilters = this.filtersUi.toggleFilters;
 
   readonly statusOptions = CLOSING_STATUS_FILTERS;
+  readonly kindOptions = CLOSING_KIND_FILTERS;
   readonly paymentOptions = CLOSING_PAYMENT_FILTERS;
   readonly differenceOptions = CLOSING_DIFFERENCE_FILTERS;
   readonly sourceOptions = CLOSING_SOURCE_FILTERS;
@@ -258,6 +273,7 @@ export class ClosingsListPage {
 
   readonly filters = new FormGroup({
     status: new FormControl('', { nonNullable: true }),
+    kind: new FormControl('', { nonNullable: true }),
     withdrawnByUserId: new FormControl('', { nonNullable: true }),
     createdByUserId: new FormControl('', { nonNullable: true }),
     paymentMethod: new FormControl('', { nonNullable: true }),
@@ -313,6 +329,7 @@ export class ClosingsListPage {
     });
     this.filters.reset({
       status: '',
+      kind: '',
       withdrawnByUserId: '',
       createdByUserId: '',
       paymentMethod: '',
@@ -331,6 +348,7 @@ export class ClosingsListPage {
       from: this.formatDate(this.range.controls.start.value),
       to: this.formatDate(this.range.controls.end.value),
       status: f.status || null,
+      kind: f.kind || null,
       withdrawnByUserId: f.withdrawnByUserId || null,
       createdByUserId: f.createdByUserId || null,
       paymentMethod: f.paymentMethod || null,
@@ -378,6 +396,10 @@ export class ClosingsListPage {
     void this.router.navigate(['/closings/new']);
   }
 
+  goCreateEvent(): void {
+    void this.router.navigate(['/closings/new'], { queryParams: { evento: '1' } });
+  }
+
   goEdit(row: CashClosing): void {
     void this.router.navigate(['/closings', row.id]);
   }
@@ -402,7 +424,9 @@ export class ClosingsListPage {
     if (!this.auth.isAdmin()) return;
     const ok = await this.confirmDialog.confirm(
       'Eliminar cierre',
-      `¿Eliminar el cierre del ${row.businessDate}? Esta acción no se puede deshacer.`,
+      `¿Eliminar el cierre del ${row.businessDate}${
+        String(row.kind ?? '') === 'EVENT' && row.eventName ? ` (${row.eventName})` : ''
+      }? Esta acción no se puede deshacer.`,
     );
     if (!ok) return;
     const shopId = this.shopId();

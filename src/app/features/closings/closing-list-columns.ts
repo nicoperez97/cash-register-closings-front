@@ -7,7 +7,17 @@ const money = (v: unknown) => formatMoney(Number(v ?? 0), { spaced: true });
 export function closingMoneyColumns(): DataTableColumn[] {
   return [
     { key: 'businessDate', label: 'Fecha' },
-    { key: 'shiftName', label: 'Turno' },
+    {
+      key: 'shiftName',
+      label: 'Turno',
+      format: (r) => {
+        if (String(r['kind'] ?? '') === 'EVENT') {
+          const name = String(r['eventName'] ?? '').trim();
+          return name ? `Evento · ${name}` : 'Evento';
+        }
+        return String(r['shiftName'] ?? '');
+      },
+    },
     {
       key: 'posSystemAmount',
       label: 'Caja sistema',

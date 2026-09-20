@@ -11,6 +11,7 @@ export interface ClosingQueryFilters {
   hasDifference?: string | null;
   paymentMethod?: string | null;
   source?: string | null;
+  kind?: string | null;
   q?: string | null;
 }
 
@@ -38,6 +39,12 @@ export const CLOSING_DIFFERENCE_FILTERS = [
   { value: 'no', label: 'Sin diferencia' },
 ] as const;
 
+export const CLOSING_KIND_FILTERS = [
+  { value: '', label: 'Todos los tipos' },
+  { value: 'regular', label: 'Del día' },
+  { value: 'event', label: 'Eventos' },
+] as const;
+
 export const CLOSING_SOURCE_FILTERS = [
   { value: '', label: 'Cualquier origen' },
   { value: 'manual', label: 'Manual' },
@@ -61,6 +68,7 @@ export function closingFiltersToParams(filters: ClosingQueryFilters): HttpParams
   set('hasDifference', filters.hasDifference);
   set('paymentMethod', filters.paymentMethod);
   set('source', filters.source);
+  set('kind', filters.kind);
   set('q', filters.q?.trim());
   return params;
 }

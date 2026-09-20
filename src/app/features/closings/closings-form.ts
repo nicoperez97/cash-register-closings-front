@@ -12,6 +12,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { debounceTime, firstValueFrom, map, merge, startWith, catchError, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { HttpClient } from '@angular/common/http';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { environment } from '../../../environments/environment';
@@ -131,6 +132,7 @@ import {
     MatDialogModule,
     MatDatepickerModule,
     MatStepperModule,
+    MatCheckboxModule,
     ClosingFormHeaderComponent,
     ClosingFormStickyActionsComponent,
     ClosingFormSummaryComponent,
@@ -149,6 +151,7 @@ import {
     <div class="closing-form-shell panel-card">
       <app-closing-form-header
         [isEdit]="isEdit()"
+        [isEvent]="isEvent()"
         [shopName]="shop()?.name ?? ''"
         [cashierOnly]="cashierOnly()"
         [isLocked]="isLocked()"
@@ -166,7 +169,7 @@ import {
         [class.closing-form--locked]="isLocked() && !auth.isAdmin()"
       >
         <section class="closing-form__section closing-form__main">
-          <h2>Cobros del día</h2>
+          <h2>{{ isEvent() ? 'Cobros del evento' : 'Cobros del día' }}</h2>
           <div class="closing-form__fields closing-form__fields--date">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Fecha</mat-label>
@@ -190,6 +193,21 @@ import {
               </mat-form-field>
             }
           </div>
+          @if (!isEdit()) {
+            <mat-checkbox
+              class="closing-form__event-check"
+              [checked]="isEvent()"
+              (change)="onEventToggle($event.checked)"
+            >
+              Cierre de evento (no pisa el cierre del día)
+            </mat-checkbox>
+          }
+          @if (isEvent()) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__event-name">
+              <mat-label>Nombre del evento</mat-label>
+              <input matInput formControlName="eventName" placeholder="Cumpleaños, after, feria…" maxlength="120" />
+            </mat-form-field>
+          }
           @if (pendingClosingHint()) {
             <p class="closing-form__pending" role="status">{{ pendingClosingHint() }}</p>
           }
@@ -410,8 +428,10 @@ export class ClosingsFormPage implements OnInit {
   readonly tipEditorValue = signal<TipsEditorState | null>(null);
   private tipDraft: TipsEditorState | null = null;
   readonly isEdit = signal(false);
+  readonly isEvent = signal(false);
   readonly pendingClosing = signal<PendingClosingNotice | null>(null);
   readonly pendingClosingHint = computed(() => {
+    if (this.isEvent()) return '';
     const pending = this.pendingClosing();
     if (!pending) return '';
     return `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}. Este formulario es del día y turno de ahora.`;
@@ -456,6 +476,8 @@ export class ClosingsFormPage implements OnInit {
   readonly form = this.fb.group({
     businessDate: [null as Date | null, Validators.required],
     shiftId: [''],
+    kind: ['REGULAR' as 'REGULAR' | 'EVENT'],
+    eventName: [''],
     posSystemAmount: [null as number | null],
     cardAmount: [null as number | null],
     cashAmount: [null as number | null],
@@ -833,6 +855,8 @@ export class ClosingsFormPage implements OnInit {
       this.closingId = id;
       this.api.get(shopId, id).subscribe((c) => {
         this.status.set(c.status);
+        const event = String(c.kind ?? '') === 'EVENT';
+        this.isEvent.set(event);
         if (c.status === 'LOCKED' && !this.auth.isAdmin()) {
           this.form.disable({ emitEvent: false });
         }
@@ -855,7 +879,7 @@ export class ClosingsFormPage implements OnInit {
             ),
           );
         }
-        this.loadTipDay(c.businessDate);
+        if (!event) this.loadTipDay(c.businessDate);
         this.savedSourceAmounts = c.sourceAmounts ?? [];
         this.savedStepFiles.set(c.stepFiles ?? []);
         this.pendingStepFiles.set([]);
@@ -864,25 +888,30 @@ export class ClosingsFormPage implements OnInit {
       });
     } else {
       const today = this.currentBusinessDate();
+      const wantEvent = this.route.snapshot.queryParamMap.get('evento') === '1';
+      this.isEvent.set(wantEvent);
       this.form.patchValue(
         defaultNewClosingPatch(this.shop(), today, (v) => this.emptyNum(v), toDateInput),
       );
       this.form.patchValue(
-        { shiftId: resolveCurrentShift(this.shop()).id },
+        {
+          shiftId: resolveCurrentShift(this.shop()).id,
+          kind: wantEvent ? 'EVENT' : 'REGULAR',
+        },
         { emitEvent: false },
       );
       this.initPaymentLines();
-      this.loadTipDay(today);
+      if (!wantEvent) this.loadTipDay(today);
       this.savedSourceAmounts = null;
       this.syncSourceAmounts();
       this.syncOtherCobros([]);
-      if (this.restoreClosingDraft()) {
+      if (!wantEvent && this.restoreClosingDraft()) {
         this.userPickedShift = true;
         this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
           duration: 4000,
         });
       }
-      this.refreshPendingClosingNotice();
+      if (!this.isEvent()) this.refreshPendingClosingNotice();
       this.startClosingDraftAutosave();
     }
 
@@ -891,8 +920,26 @@ export class ClosingsFormPage implements OnInit {
       ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((v) => {
         const date = toDateString(v as Date | string | null);
-        if (date) this.loadTipDay(date);
+        if (date && !this.isEvent()) this.loadTipDay(date);
       });
+  }
+
+  onEventToggle(checked: boolean): void {
+    this.isEvent.set(checked);
+    this.form.patchValue(
+      { kind: checked ? 'EVENT' : 'REGULAR' },
+      { emitEvent: false },
+    );
+    if (checked) {
+      this.tipDraft = null;
+      this.tipEditorValue.set(null);
+      this.pendingClosing.set(null);
+    } else {
+      const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
+      if (date) this.loadTipDay(date);
+      this.refreshPendingClosingNotice();
+    }
+    this.persistClosingDraft();
   }
 
   onTipEditorChange(state: TipsEditorState) {
@@ -910,7 +957,7 @@ export class ClosingsFormPage implements OnInit {
 
   private loadTipDay(businessDate: string) {
     const shopId = this.shops.selectedShopId();
-    if (!shopId || !this.tipsEnabled() || !/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+    if (!shopId || !this.tipsEnabled() || this.isEvent() || !/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
       return;
     }
     this.tipsApi.getByDate(shopId, businessDate).subscribe({
@@ -1538,6 +1585,10 @@ export class ClosingsFormPage implements OnInit {
       this.form.markAllAsTouched();
       return null;
     }
+    if (this.isEvent() && !String(this.form.controls.eventName.value ?? '').trim()) {
+      this.snack.open('Indicá el nombre del evento', 'OK', { duration: 3000 });
+      return null;
+    }
     const cashTotal = roundMoney(this.form.controls.cashAmount.value);
     const cashLeave = roundMoney(this.form.controls.cashLeftInRegister.value);
     const cashTake = roundMoney(this.form.controls.cashWithdrawn.value);
@@ -1555,7 +1606,7 @@ export class ClosingsFormPage implements OnInit {
       users: this.users(),
       declaredTotal: this.declaredTotal(),
       shopId: this.shops.selectedShopId(),
-      tipsEnabled: this.tipsEnabled(),
+      tipsEnabled: this.tipsEnabled() && !this.isEvent(),
       tipDraft: this.tipDraft,
     });
     if (!result.ok) {
@@ -1820,7 +1871,8 @@ export class ClosingsFormPage implements OnInit {
     this.savedSourceAmounts = sourceAmountsFromDraft(draft);
     this.syncSourceAmounts();
     const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
-    if (date) this.loadTipDay(date);
+    this.isEvent.set(String(this.form.controls.kind.value ?? '') === 'EVENT');
+    if (date && !this.isEvent()) this.loadTipDay(date);
     return true;
   }
 
@@ -1855,6 +1907,7 @@ export class ClosingsFormPage implements OnInit {
   private resetForNextClosing(): void {
     clearClosingDraft();
     this.pendingClosing.set(null);
+    this.isEvent.set(false);
     const today = this.currentBusinessDate();
     this.expenses.clear();
     this.dniTransfers.clear();

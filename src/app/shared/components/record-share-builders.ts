@@ -328,7 +328,14 @@ export function closingSharePayload(
   opts?: { unitsLabel?: string | null },
 ): { title: string; text: string } {
   const date = formatDateAr(closing.businessDate);
-  const lines = [`Cierre de caja — ${shopName}`, `Fecha: ${date}`];
+  const isEvent = String(closing.kind ?? '') === 'EVENT';
+  const eventName = String(closing.eventName ?? '').trim();
+  const lines = [
+    isEvent
+      ? `Cierre de evento${eventName ? ` — ${eventName}` : ''} — ${shopName}`
+      : `Cierre de caja — ${shopName}`,
+    `Fecha: ${date}`,
+  ];
 
   if (closing.status) {
     lines.push(`Estado: ${closingStatusLabel(closing.status)}`);
