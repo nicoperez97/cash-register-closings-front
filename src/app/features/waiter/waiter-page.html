@@ -251,7 +251,7 @@
     @let s = session();
     <header class="bar bar--sticky anim-in">
       <div>
-        <button type="button" class="link" (click)="backToTables()">← Mesas</button>
+        <button type="button" class="link bar__back" (click)="backToTables()">← Mesas</button>
         <h1>Mesa {{ s?.table?.label ?? '—' }}</h1>
         <p class="muted">
           {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos

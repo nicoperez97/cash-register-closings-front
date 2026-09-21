@@ -53,6 +53,15 @@
   padding-top: 0.85rem;
 }
 
+/* Chrome oculta: el contenido arranca bajo la status bar de iOS y se ve difuminado. */
+:host.staff-embedded.chrome-off .page {
+  padding-top: calc(0.55rem + env(safe-area-inset-top, 0px));
+}
+
+:host.staff-embedded.chrome-off.view-session .page {
+  padding-top: 0;
+}
+
 :host.view-map .page {
   max-width: 42rem;
 
@@ -290,6 +299,30 @@
     padding: 0.35rem 0 0.65rem;
     background: var(--paper);
   }
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0.35rem 0.4rem 0.35rem 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* iOS: pintar detrás del reloj y dejar ← Mesas debajo, tocable. */
+:host.chrome-off.view-session .bar--sticky {
+  z-index: 8;
+  padding-top: calc(0.4rem + env(safe-area-inset-top, 0px));
+  background: var(--paper);
+}
+
+:host:not(.staff-embedded).view-session .bar--sticky {
+  z-index: 8;
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  padding-top: calc(0.4rem + env(safe-area-inset-top, 0px));
+  background: var(--paper);
 }
 
 .muted {

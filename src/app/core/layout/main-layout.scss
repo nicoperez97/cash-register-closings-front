@@ -26,6 +26,11 @@
   --layout-sidenav-w: 0px;
 }
 
+.layout-root--chrome-off .layout-content {
+  /* El py-2 no alcanza para el notch; cada pantalla cubre el safe-area. */
+  padding-top: 0 !important;
+}
+
 .layout-container {
   min-height: 100vh;
   min-height: 100dvh;
