@@ -105,8 +105,9 @@ function isSystemLedgerName(name: string): boolean {
 
     <mat-dialog-content>
       <p class="text-muted mb-3">
-        Subí el Excel del contador. Asigná cuentas y conceptos a los del local, o crealos.
-        Las filas que ya existen no se duplican.
+        Subí el Excel del contador o el de seguimiento (Fecha, Cuenta Emisora, Cuenta Receptora).
+        Detectamos si cada fila es gasto, ingreso o pase entre cuentas. Asigná cuentas y conceptos
+        a los del local, o crealos. Las filas que ya existen no se duplican.
       </p>
 
       <div class="xl-actions mb-3">
@@ -1125,6 +1126,9 @@ export class MovementsExcelImportDialogComponent {
         modules,
         this.toAccountMap(),
         this.toConceptMap(),
+        this.items()
+          .filter((i) => i.detectedKind)
+          .map((i) => ({ rowNumber: i.rowNumber, kind: i.detectedKind! })),
       )
       .subscribe({
         next: (res) => {

@@ -180,9 +180,6 @@ export interface DataTableColumn {
                       (change)="toggleRow(row, $event.checked)"
                     />
                   </td>
-                  @if (showTotals()) {
-                    <td mat-footer-cell *matFooterCellDef class="data-table__select-col"></td>
-                  }
                 </ng-container>
               }
               @for (col of columns(); track col.key; let i = $index) {
@@ -230,23 +227,6 @@ export interface DataTableColumn {
                       {{ cellValue(row, col) }}
                     }
                   </td>
-                  @if (showTotals()) {
-                    <td
-                      mat-footer-cell
-                      *matFooterCellDef
-                      class="data-table__footer-cell"
-                      [class.data-table__footer-cell--total]="!!col.totalize"
-                    >
-                      @if (i === 0) {
-                        <span class="data-table__total-label">
-                          Total · {{ filteredRows().length }}
-                        </span>
-                      }
-                      @if (col.totalize) {
-                        {{ formatColumnTotal(col) }}
-                      }
-                    </td>
-                  }
                 </ng-container>
               }
               @if (showActions()) {
@@ -328,9 +308,6 @@ export interface DataTableColumn {
                       </button>
                     }
                   </td>
-                  @if (showTotals()) {
-                    <td mat-footer-cell *matFooterCellDef class="data-table__footer-cell"></td>
-                  }
                 </ng-container>
               }
               <tr mat-header-row *matHeaderRowDef="displayed()"></tr>
@@ -342,13 +319,6 @@ export interface DataTableColumn {
                 [class.data-table__row--selected]="selectable() && isSelected(row)"
                 (click)="onRowClick(row)"
               ></tr>
-              @if (showTotals()) {
-                <tr
-                  mat-footer-row
-                  *matFooterRowDef="displayed(); sticky: true"
-                  class="data-table__footer-row"
-                ></tr>
-              }
             </table>
           </div>
 
@@ -486,14 +456,18 @@ export interface DataTableColumn {
             }
           </div>
           @if (showTotals() && filteredRows().length) {
-            <div class="data-table__mobile-totals" aria-label="Totales">
-              <span class="data-table__total-label">Total · {{ filteredRows().length }}</span>
-              @for (col of totalizeColumns(); track col.key) {
-                <span class="data-table__mobile-total">
-                  <span class="data-table__mobile-total-label">{{ col.label }}</span>
-                  <strong>{{ formatColumnTotal(col) }}</strong>
-                </span>
-              }
+            <div class="data-table__totals" aria-label="Totales">
+              <span class="data-table__totals-count">Total · {{ filteredRows().length }}</span>
+              <div class="data-table__totals-values">
+                @for (col of totalizeColumns(); track col.key) {
+                  <span class="data-table__totals-item">
+                    @if (totalizeColumns().length > 1) {
+                      <span class="data-table__totals-item-label">{{ col.label }}</span>
+                    }
+                    <strong>{{ formatColumnTotal(col) }}</strong>
+                  </span>
+                }
+              </div>
             </div>
           }
         }
@@ -1000,51 +974,58 @@ export interface DataTableColumn {
         background: transparent;
       }
 
-      .data-table__footer-row .mat-mdc-footer-cell,
-      .data-table__footer-cell {
-        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 85%, #fff);
-        border-top: 1px solid var(--guy-border, #d7e0d9);
-        font-weight: 750;
-        color: var(--guy-navy, #003366);
-        white-space: nowrap;
-      }
-
-      .data-table__footer-cell--total {
-        font-variant-numeric: tabular-nums;
-      }
-
-      .data-table__total-label {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--guy-muted, #5f6f76);
-      }
-
-      .data-table__mobile-totals {
+      .data-table__totals {
         display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
+        align-items: center;
         justify-content: space-between;
         gap: 0.55rem 1rem;
+        flex-wrap: wrap;
         margin-top: 0.65rem;
-        padding: 0.7rem 0.85rem;
+        padding: 0.7rem 0.95rem;
         border-radius: 10px;
         border: 1px solid var(--guy-border, #d7e0d9);
         background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 85%, #fff);
       }
 
-      .data-table__mobile-total {
+      .data-table__totals-count {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--guy-muted, #5f6f76);
+      }
+
+      .data-table__totals-values {
         display: flex;
-        flex-direction: column;
-        gap: 0.1rem;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: flex-end;
+        gap: 0.35rem 1.35rem;
+        margin-left: auto;
+      }
+
+      .data-table__totals-item {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.4rem;
         font-variant-numeric: tabular-nums;
       }
 
-      .data-table__mobile-total-label {
+      .data-table__totals-item-label {
         font-size: 0.7rem;
         font-weight: 700;
         letter-spacing: 0.04em;
         text-transform: uppercase;
         color: var(--guy-muted, #5f6f76);
+      }
+
+      .data-table__totals-item strong {
+        font-size: 1rem;
+        font-weight: 750;
+        color: var(--guy-navy, #003366);
+        white-space: nowrap;
+      }
+
+      :host-context(html[data-theme='dark']) .data-table__totals-item strong {
+        color: var(--guy-text);
       }
 
       .mat-sort-header-container {
@@ -1175,7 +1156,7 @@ export class DataTableComponent {
       if (Number.isFinite(raw)) sum += raw;
     }
     if (col.totalFormat) return col.totalFormat(sum);
-    return formatMoney(sum, { spaced: true });
+    return formatMoney(sum, { spaced: true, compact: false });
   }
 
   /** Keep checkbox aligned with sticky data columns while scrolling. */

@@ -314,11 +314,13 @@ export class MovementsApiService {
     modules?: MovementKind[],
     accountMap?: AccountImportMapping[],
     conceptMap?: ConceptImportMapping[],
+    kindFixes?: Array<{ rowNumber: number; kind: MovementKind }>,
   ) {
     const body = new FormData();
     body.append('file', file, safeUploadFileName(file.name));
     if (accountMap?.length) body.append('accountMap', JSON.stringify(accountMap));
     if (conceptMap?.length) body.append('conceptMap', JSON.stringify(conceptMap));
+    if (kindFixes?.length) body.append('kindFixes', JSON.stringify(kindFixes));
     let params = new HttpParams().set('commit', 'true');
     if (kind) params = params.set('kind', kind);
     if (modules?.length) params = params.set('modules', modules.join(','));
@@ -392,6 +394,7 @@ export interface LedgerImportGemini {
   accounts: Array<{ name: string; note: string }>;
   warnings: string[];
   message: string | null;
+  kindFixes?: Array<{ rowNumber: number; kind: MovementKind }>;
 }
 
 export interface MovementImportPreview {
