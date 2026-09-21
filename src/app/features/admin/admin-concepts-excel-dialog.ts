@@ -19,6 +19,7 @@ export interface ConceptImportItem {
   kind: 'INCOME' | 'EXPENSE' | 'TRANSFER';
   categories?: string[];
   validated: boolean;
+  active?: boolean;
   exists: boolean;
   valid: boolean;
   error?: string;
@@ -42,16 +43,18 @@ export interface ConceptImportResult {
       [fileName]="fileName()"
       [canCommit]="!!file() && validCount() > 0"
       [commitLabel]="'Importar ' + validCount()"
+      templateLabel="Descargar plantilla"
       (downloadTemplate)="downloadTemplate()"
       (fileSelected)="onPickedFile($event)"
       (commit)="commit()"
       (cancel)="ref.close(false)"
     >
       <p hint class="text-muted mb-0">
-        Descargá la plantilla (hoja <em>Conceptos</em>), completala y subila acá. Columnas:
-        Nombre, Descripción, Tipo (Ingreso / Egreso / Transferencia), Categorías
-        (Empleados, Servicios, Proveedores, Movimientos, Otros) y Validado (Sí / No).
-        Si el nombre ya existe, se actualiza. Solo los validados aparecen en movimientos y pagos.
+        Descargá la plantilla (hoja <em>Conceptos</em>), completala y subila acá. En la lista
+        también está Descargar conceptos, con los actuales. Columnas: Nombre, Descripción, Tipo
+        (Ingreso / Egreso / Transferencia), Categorías (Empleados, Servicios, Proveedores,
+        Movimientos, Cierre, Otros), Validado y Activo (Sí / No). Si el nombre ya existe, se
+        actualiza. Solo los validados aparecen en movimientos y pagos.
       </p>
       @if (items().length) {
         <p class="mb-2">
@@ -67,6 +70,7 @@ export interface ConceptImportResult {
                 <th>Tipo</th>
                 <th>Categorías</th>
                 <th>Validado</th>
+                <th>Activo</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -78,6 +82,7 @@ export interface ConceptImportResult {
                   <td>{{ kindLabel(row.kind) }}</td>
                   <td>{{ formatCats(row.categories) }}</td>
                   <td>{{ yesNo(row.validated) }}</td>
+                  <td>{{ yesNo(row.active !== false) }}</td>
                   <td>
                     @if (!row.valid) {
                       {{ row.error || 'Error' }}
