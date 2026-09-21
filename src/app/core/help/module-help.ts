@@ -1685,7 +1685,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'sell',
         tone: 'do',
         anyOf: ['concepts.manage'],
-        body: 'Tipo ingreso, egreso o transferencia, y categorías (incluida Cierre, para los egresos del cierre de caja). Descargá la plantilla y subila con Importar Excel.',
+        body: 'Tipo ingreso, egreso o transferencia, y categorías (incluida Cierre, para los egresos del cierre de caja).',
+        items: [
+          'Descargar plantilla: Excel de ejemplo para armar conceptos nuevos.',
+          'Descargar conceptos: Excel con los del local ahora. Mismo formato; lo podés editar y subir.',
+          'Importar Excel crea o actualiza por nombre: descripción, tipo, categorías, validado y activo.',
+        ],
       },
       {
         title: 'Unificar',

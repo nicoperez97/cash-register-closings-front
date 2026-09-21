@@ -40,9 +40,13 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 
     @if (shops.selectedShopId()) {
       <div class="xl-toolbar mb-3">
-        <button mat-stroked-button type="button" (click)="downloadTemplate()">
+        <button mat-stroked-button type="button" [disabled]="downloading() === 'template'" (click)="downloadTemplate()">
           <mat-icon>download</mat-icon>
-          Descargar plantilla
+          {{ downloading() === 'template' ? 'Descargando…' : 'Descargar plantilla' }}
+        </button>
+        <button mat-stroked-button type="button" [disabled]="downloading() === 'current'" (click)="downloadCurrent()">
+          <mat-icon>table_view</mat-icon>
+          {{ downloading() === 'current' ? 'Descargando…' : 'Descargar conceptos' }}
         </button>
         <button mat-stroked-button type="button" (click)="openExcelImport()">
           <mat-icon>upload_file</mat-icon>
@@ -133,6 +137,7 @@ export class AdminConceptsPage {
   readonly loading = signal(true);
   readonly selectedIds = signal<string[]>([]);
   readonly bulkBusy = signal(false);
+  readonly downloading = signal<'template' | 'current' | null>(null);
 
   readonly columns: DataTableColumn[] = [
     { key: 'name', label: 'Nombre' },
@@ -207,22 +212,51 @@ export class AdminConceptsPage {
   }
 
   downloadTemplate(): void {
+    this.downloadXlsx(
+      'template',
+      'import-template.xlsx',
+      'plantilla-conceptos.xlsx',
+      'No se pudo descargar la plantilla',
+    );
+  }
+
+  downloadCurrent(): void {
+    const slug = this.shops.selectedShop()?.slug || 'local';
+    this.downloadXlsx(
+      'current',
+      'export.xlsx',
+      `conceptos-${slug}.xlsx`,
+      'No se pudieron descargar los conceptos',
+    );
+  }
+
+  private downloadXlsx(
+    kind: 'template' | 'current',
+    path: string,
+    filename: string,
+    errorMsg: string,
+  ): void {
     const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
+    if (!shopId || this.downloading()) return;
+    this.downloading.set(kind);
     this.http
-      .get(`${environment.apiUrl}/shops/${shopId}/concepts/import-template.xlsx`, {
+      .get(`${environment.apiUrl}/shops/${shopId}/concepts/${path}`, {
         responseType: 'blob',
       })
       .subscribe({
         next: (blob) => {
+          this.downloading.set(null);
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = 'plantilla-conceptos.xlsx';
+          a.download = filename;
           a.click();
           URL.revokeObjectURL(url);
         },
-        error: () => this.snack.open('No se pudo descargar la plantilla', 'OK', { duration: 3000 }),
+        error: () => {
+          this.downloading.set(null);
+          this.snack.open(errorMsg, 'OK', { duration: 3000 });
+        },
       });
   }
 
