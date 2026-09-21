@@ -1102,7 +1102,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'room_service',
         tone: 'do',
         anyOf: ['comanda.manage', 'shops.manage'],
-        body: 'En Operación → Comanda abrís el mapa del local activo (sin código mozo). Es independiente de Pedidos clientes. Al entrar se ocultan la toolbar y el menú; podés mostrarlos con los botones flotantes.',
+        body: 'En Operación → Comanda abrís el mapa del local activo (sin código mozo). Es independiente de Pedidos clientes. Al entrar se ocultan la toolbar y el menú; en el mapa los mostrás con los botones de abajo a la izquierda. En la mesa se esconden para no tapar Enviar comanda.',
         items: [
           'Si las mesas tienen posición en Salón → Mesas (vista Mapa), ves el plano; podés cambiar a Lista.',
           'Mesa libre: indicá comensales y, si el local lo pide, el mozo a cargo; después enviá.',

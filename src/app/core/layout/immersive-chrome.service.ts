@@ -73,6 +73,23 @@ export class ImmersiveChromeService {
     return this.revealed()[key] !== true;
   });
 
+  /**
+   * Pantallas con barra inferior propia (carrito, sheets).
+   * Los botones Menú/Barra se ocultan para no tapar Enviar comanda.
+   */
+  private readonly bottomBlockers = signal<ReadonlySet<string>>(new Set());
+
+  readonly bottomBlocked = computed(() => this.bottomBlockers().size > 0);
+
+  setBottomBlocked(id: string, blocked: boolean): void {
+    this.bottomBlockers.update((cur) => {
+      const next = new Set(cur);
+      if (blocked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
   setToolbarHidden(hidden: boolean): void {
     const key = this.routeKey();
     if (!key) return;

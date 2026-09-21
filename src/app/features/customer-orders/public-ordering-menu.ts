@@ -9,6 +9,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +18,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { ImmersiveChromeService } from '../../core/layout/immersive-chrome.service';
 import { prettySection } from '../menu/menu-display';
 import {
   CustomerOrdersApiService,
@@ -60,6 +62,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private readonly title = inject(Title);
   private readonly shops = inject(ShopContextService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly immersiveChrome = inject(ImmersiveChromeService);
 
   private observer: IntersectionObserver | null = null;
   private jumping = false;
@@ -185,6 +188,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       this.observer?.disconnect();
       window.removeEventListener('resize', onResize);
     });
+
+    effect(() => {
+      const blocked = this.staffMode() && this.cartCount() > 0;
+      untracked(() => this.immersiveChrome.setBottomBlocked('ordering-menu', blocked));
+    });
   }
 
   itemPhoto(it: PublicOrderingMenuItem): string | null {
@@ -207,6 +215,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.immersiveChrome.setBottomBlocked('ordering-menu', false);
     resetStatusBar();
   }
 
