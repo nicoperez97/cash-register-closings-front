@@ -14,6 +14,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { SelectSearchComponent } from '../../shared/components/select-search';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
+import { closingSourceKindEnablesSettlements } from '../closings/closings-api.service';
 
 export interface AdminShopPosnetTypeOption {
   value: string;
@@ -51,7 +52,9 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
       <div class="shop-admin__posnets-head">
         <p class="text-muted small mb-0">
           Token para <strong>Cierres-Comandas.exe</strong>. Las comanderas y qué platos salen en cada una
-          se configuran en el exe (Carta).
+          se configuran en el exe (Carta). El token se copia al generarlo; después no se puede ver. Si hay dos PCs
+          escuchando con el mismo token, cada comanda sale una sola vez. Si una comandera falla y otra ya imprimió,
+          el reintento solo va a las que faltan.
         </p>
         <div class="shop-admin__source-actions">
           @if (canEdit()) {
@@ -100,45 +103,14 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
             </button>
           </div>
         } @else {
-          <div class="shop-admin__token-legacy">
+          <p class="text-muted small mb-0">
+            El token completo solo se muestra al generarlo. Si lo perdiste,
             @if (canEdit()) {
-              <p class="text-muted small mb-0">
-                Este token es anterior y no se puede copiar así. Regeneralo una vez (el agent pide el token nuevo) o dejá Cierres-Comandas conectado y recargá.
-              </p>
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="printAgentLoading()"
-                (click)="reloadPrintAgentStatus.emit()"
-              >
-                <mat-icon>refresh</mat-icon>
-                Recargar
-              </button>
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="printAgentBusy()"
-                (click)="generatePrintAgentToken.emit()"
-              >
-                <mat-icon>vpn_key</mat-icon>
-                Regenerar para poder copiar
-              </button>
+              usá Regenerar token y pegalo de nuevo en Cierres-Comandas.
             } @else {
-              <p class="text-muted small mb-0">
-                Este token es anterior. Abrí Cierres-Comandas con este token, esperá que conecte y recargá esta página para poder copiarlo. Si no, pedile a quien administre el local que lo regenere una vez.
-              </p>
-              <button
-                mat-stroked-button
-                type="button"
-                [disabled]="printAgentLoading()"
-                (click)="reloadPrintAgentStatus.emit()"
-              >
-                <mat-icon>refresh</mat-icon>
-                Recargar
-              </button>
+              pedile a quien administre el local que lo regenere.
             }
-          </div>
+          </p>
         }
       } @else if (canEdit()) {
         <p class="text-muted small mb-0">Todavía no hay token. Generá uno y pegalo en Cierres-Comandas → Conexión.</p>
@@ -235,93 +207,125 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
       </div>
     </section>
 
-    <section class="panel-card guy-form-section">
-      <h2 class="guy-section-title">Cuentas aparte</h2>
-      <div class="shop-admin__posnets-head">
-        <p class="text-muted small mb-0">
-          Fuentes que no deben sumar al total declarado (Pedidos Ya, delivery propio, etc.). Si
-          rinden después o van a una cuenta, elegí el destino (o creá una cuenta nueva desde el
-          selector). Guardá con el botón de esta sección (es aparte del Guardar cambios del pie).
-        </p>
-        <div class="shop-admin__source-actions">
-          @if (canEdit()) {
-            <button mat-stroked-button type="button" (click)="addClosingSource.emit()">
+    <section class="panel-card guy-form-section shop-admin__sources-section">
+      <div class="shop-admin__sources-head">
+        <div class="shop-admin__sources-head-copy">
+          <h2 class="guy-section-title">Cuentas aparte</h2>
+          <p class="shop-admin__sources-hint">
+            Fuentes que no van al total declarado (Pedidos Ya, delivery propio, etc.). Elegí si
+            rinden después o a una cuenta. Guardá con
+            <strong>Guardar fuentes</strong> (aparte del pie de la página).
+          </p>
+        </div>
+        @if (canEdit()) {
+          <div class="shop-admin__source-actions">
+            <button mat-stroked-button type="button" class="shop-admin__source-add" (click)="addClosingSource.emit()">
               <mat-icon>add</mat-icon>
               Agregar fuente
             </button>
             <button
-              mat-stroked-button
+              mat-flat-button
+              color="primary"
               type="button"
+              class="shop-admin__source-save"
               [disabled]="sourceSaving()"
               (click)="saveClosingSources.emit()"
             >
               <mat-icon>save</mat-icon>
               {{ sourceSaving() ? 'Guardando…' : 'Guardar fuentes' }}
             </button>
-          }
-        </div>
+          </div>
+        }
       </div>
       <div class="shop-admin__sources" formArrayName="closingSources">
         @for (row of closingSources.controls; track row; let i = $index) {
-          <div class="shop-admin__source-row" [formGroupName]="i">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Nombre</mat-label>
-              <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Qué hacer con el monto</mat-label>
-              <mat-select
-                formControlName="kind"
-                (selectionChange)="closingSourceKindChange.emit(i)"
-              >
-                @for (opt of closingSourceKinds(); track opt.value) {
-                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            @if (sourceNeedsAccount()(i)) {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cuenta destino</mat-label>
-                <mat-select
-                  formControlName="accountId"
-                  panelClass="guy-select-search-panel"
-                  (openedChange)="selectOpened.emit($event)"
-                  (selectionChange)="onDestinationPicked(i, $event.value)"
+          <article class="shop-admin__source-card" [formGroupName]="i">
+            <header class="shop-admin__source-card-head">
+              <div class="shop-admin__source-card-title">
+                <span class="shop-admin__source-card-index" aria-hidden="true">{{ i + 1 }}</span>
+                <strong>{{ sourceDisplayName(row, i) }}</strong>
+              </div>
+              @if (canEdit()) {
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="shop-admin__posnet-remove shop-admin__source-card-remove"
+                  aria-label="Quitar fuente"
+                  (click)="removeClosingSource.emit(i)"
                 >
-                  <mat-option disabled class="select-search-opt">
-                    <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
-                  </mat-option>
-                  @if (canEdit() && canManageAccounts()) {
-                    <mat-option [value]="createAccountValue">+ Nueva cuenta…</mat-option>
-                  }
-                  <mat-option [value]="null">Elegí una cuenta</mat-option>
-                  @for (a of filteredSourceAccounts()(accountIdOf(row)); track a.id) {
-                    <mat-option [value]="a.id">{{ a.name }}</mat-option>
-                  }
-                  @if (
-                    accountSearchQuery() &&
-                    !filteredSourceAccounts()(accountIdOf(row)).length
-                  ) {
-                    <mat-option disabled>Sin resultados</mat-option>
+                  <mat-icon>delete</mat-icon>
+                </button>
+              }
+            </header>
+
+            <div class="shop-admin__source-card-fields">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__source-field shop-admin__source-field--name">
+                <mat-label>Nombre</mat-label>
+                <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__source-field shop-admin__source-field--kind">
+                <mat-label>Qué hacer con el monto</mat-label>
+                <mat-select
+                  formControlName="kind"
+                  (selectionChange)="closingSourceKindChange.emit(i)"
+                >
+                  @for (opt of closingSourceKinds(); track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
                   }
                 </mat-select>
               </mat-form-field>
-            } @else {
-              <span class="shop-admin__source-spacer" aria-hidden="true"></span>
-            }
-            <mat-checkbox formControlName="includeInDeclared">Suma al declarado</mat-checkbox>
-            @if (canEdit()) {
-              <button
-                mat-icon-button
-                type="button"
-                class="shop-admin__posnet-remove"
-                aria-label="Quitar fuente"
-                (click)="removeClosingSource.emit(i)"
-              >
-                <mat-icon>delete</mat-icon>
-              </button>
-            }
-          </div>
+              @if (sourceNeedsAccount()(i)) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__source-field shop-admin__source-field--account">
+                  <mat-label>Cuenta destino</mat-label>
+                  <mat-select
+                    formControlName="accountId"
+                    panelClass="guy-select-search-panel"
+                    (openedChange)="selectOpened.emit($event)"
+                    (selectionChange)="onDestinationPicked(i, $event.value)"
+                  >
+                    <mat-option disabled class="select-search-opt">
+                      <app-select-search [(query)]="accountSearchQuery" placeholder="Buscar cuenta…" />
+                    </mat-option>
+                    @if (canEdit() && canManageAccounts()) {
+                      <mat-option [value]="createAccountValue">+ Nueva cuenta…</mat-option>
+                    }
+                    <mat-option [value]="null">Elegí una cuenta</mat-option>
+                    @for (a of filteredSourceAccounts()(accountIdOf(row)); track a.id) {
+                      <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                    }
+                    @if (
+                      accountSearchQuery() &&
+                      !filteredSourceAccounts()(accountIdOf(row)).length
+                    ) {
+                      <mat-option disabled>Sin resultados</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+              @if (sourceEnablesSettlements(row)) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="shop-admin__source-field shop-admin__source-field--lag">
+                  <mat-label>Días hasta acreditación</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    min="0"
+                    max="90"
+                    step="1"
+                    formControlName="settlementLagDays"
+                    inputmode="numeric"
+                  />
+                  <mat-hint>0 = mismo día del cierre</mat-hint>
+                </mat-form-field>
+              }
+            </div>
+
+            <footer class="shop-admin__source-card-foot">
+              <mat-checkbox formControlName="includeInDeclared" class="shop-admin__source-declared">
+                Suma al declarado
+              </mat-checkbox>
+              <span class="shop-admin__source-declared-hint">Si está marcado, entra en el total del cierre</span>
+            </footer>
+          </article>
         } @empty {
           @if (sourcesLoading()) {
             <p class="text-muted small mb-0">Cargando fuentes…</p>
@@ -334,9 +338,17 @@ export const CREATE_DESTINATION_ACCOUNT_VALUE = '__create_account__';
               </button>
             </div>
           } @else {
-            <p class="text-muted small mb-0">
-              Sin fuentes extra. El cierre usa solo PVS, efectivo, MP, DNI, delivery y transferencia.
-            </p>
+            <div class="shop-admin__sources-empty">
+              <p class="text-muted small mb-0">
+                Todavía no hay fuentes. Agregá Pedidos Ya u otra cuenta aparte del cierre.
+              </p>
+              @if (canEdit()) {
+                <button mat-stroked-button type="button" (click)="addClosingSource.emit()">
+                  <mat-icon>add</mat-icon>
+                  Agregar fuente
+                </button>
+              }
+            </div>
           }
         }
       </div>
@@ -419,6 +431,15 @@ export class AdminShopDevicesComponent {
   accountIdOf(row: AbstractControl): string | null {
     const v = row.get('accountId')?.value;
     return v == null || v === '' ? null : String(v);
+  }
+
+  sourceDisplayName(row: AbstractControl, index: number): string {
+    const name = String(row.get('name')?.value ?? '').trim();
+    return name || `Fuente ${index + 1}`;
+  }
+
+  sourceEnablesSettlements(row: AbstractControl): boolean {
+    return closingSourceKindEnablesSettlements(String(row.get('kind')?.value ?? ''));
   }
 
   onDestinationPicked(index: number, value: string | null): void {

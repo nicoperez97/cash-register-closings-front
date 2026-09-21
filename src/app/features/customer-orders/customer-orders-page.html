@@ -18,6 +18,11 @@
         @if (pendingCount()) {
           <span class="co-pending-pill">{{ pendingCount() }}</span>
         }
+        @if (outboxCount()) {
+          <span class="co-pending-pill" title="Pedidos de mostrador sin enviar">
+            {{ outboxCount() }} sin enviar
+          </span>
+        }
         <button type="button" class="co-icon-btn" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
           <mat-icon>info_outline</mat-icon>
         </button>
@@ -48,6 +53,25 @@
         </button>
       </div>
     </div>
+
+    @if (outboxCount() || outboxFailed()) {
+      <div class="co-outbox">
+        @if (outboxCount()) {
+          <p>
+            {{ outboxCount() }}
+            {{ outboxCount() === 1 ? 'pedido de mostrador sin enviar' : 'pedidos de mostrador sin enviar' }}.
+            Se mandan solos al volver la red. Cocina no los ve todavía.
+          </p>
+        }
+        @if (outboxFailed()) {
+          <p>
+            {{ outboxFailed() }}
+            {{ outboxFailed() === 1 ? 'pedido no se pudo enviar' : 'pedidos no se pudieron enviar' }}.
+            <button type="button" class="co-outbox__retry" (click)="retryOutbox()">Reintentar</button>
+          </p>
+        }
+      </div>
+    }
 
     <div class="co-views" role="tablist" aria-label="Vista de pedidos">
       @if (canReadOrders()) {

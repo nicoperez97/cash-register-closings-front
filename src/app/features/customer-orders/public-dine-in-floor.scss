@@ -381,7 +381,7 @@
 .sheet {
   background: #fff;
   border-radius: 22px 22px 0 0;
-  padding: 1.25rem 1.15rem calc(1.25rem + env(safe-area-inset-bottom));
+  padding: 1.25rem 1.15rem calc(1.25rem + var(--guy-safe-bottom));
   display: grid;
   gap: 0.75rem;
   max-width: 40rem;

@@ -135,10 +135,16 @@ export class StockApiService {
     );
   }
 
-  adjust(shopId: string, kind: StockKind, id: string, delta: 1 | -1) {
+  adjust(
+    shopId: string,
+    kind: StockKind,
+    id: string,
+    delta: 1 | -1,
+    opts?: { reason?: string; note?: string },
+  ) {
     return this.http.post<StockProduct>(
       `${this.base}/shops/${shopId}/stock/products/${id}/adjust`,
-      { delta },
+      { delta, reason: opts?.reason, note: opts?.note ?? null },
       { params: this.params(kind) },
     );
   }

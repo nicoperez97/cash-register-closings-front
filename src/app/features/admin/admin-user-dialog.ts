@@ -660,13 +660,6 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                         }
                       </div>
                       </div>
-                      @if (mod.key === 'closings') {
-                        <div class="module-row__check">
-                          <mat-checkbox formControlName="requireClosingFiles">
-                            Archivos obligatorios si hay monto
-                          </mat-checkbox>
-                        </div>
-                      }
                     </div>
                   }
                 </div>
@@ -1303,9 +1296,6 @@ export class AdminUserDialogComponent implements OnInit {
       });
     }
     this.syncActivePreset();
-    if (this.user?.requireClosingFiles === true) {
-      this.form.controls.requireClosingFiles.setValue(true);
-    }
     this.syncRequireClosingFilesEnabled();
   }
 
@@ -1503,7 +1493,7 @@ export class AdminUserDialogComponent implements OnInit {
           isShortageAdmin: !!raw.isShortageAdmin,
           isReservationAdmin: !!raw.isReservationAdmin,
           isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
-          requireClosingFiles: !!raw.requireClosingFiles,
+          requireClosingFiles: false,
           canEditExpenses: !!raw.canEditExpenses,
           canEditPayments: !!raw.canEditPayments,
         })
@@ -1543,7 +1533,7 @@ export class AdminUserDialogComponent implements OnInit {
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
         isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
-        requireClosingFiles: !!raw.requireClosingFiles,
+        requireClosingFiles: false,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
       };
@@ -1593,7 +1583,7 @@ export class AdminUserDialogComponent implements OnInit {
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
         isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
-        requireClosingFiles: !!raw.requireClosingFiles,
+        requireClosingFiles: false,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
       })

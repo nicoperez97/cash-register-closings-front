@@ -43,6 +43,11 @@ import { MovementsApiService } from '../movements/movements-api.service';
 import { QuickExpenseDialogComponent } from '../movements/quick-expense-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
 import { ReservationsInboxService } from '../reservations/reservations-inbox.service';
+import {
+  ChannelReceivablesSummary,
+  SettlementsApiService,
+} from '../settlements/settlements-api.service';
+import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
@@ -99,6 +104,43 @@ interface BalanceRowExt extends BalanceAccountRow {
 
     @if (kpis().length) {
       <app-kpi-strip [items]="kpis()" class="mb-3" />
+    }
+
+    @if (canViewSettlements() && channelReceivables()?.count) {
+      <a
+        class="panel-card mb-3 channel-receivables-card guy-enter-scale"
+        routerLink="/settlements"
+      >
+        <div class="channel-receivables-card__body">
+          <div>
+            <h2 class="channel-receivables-card__title">Canales nos deben</h2>
+            <p class="channel-receivables-card__hint">
+              {{ channelReceivables()!.count }}
+              pendiente{{ channelReceivables()!.count === 1 ? '' : 's' }}
+              @if (channelReceivables()!.earliestExpected) {
+                · primera acreditación ~{{ formatDate(channelReceivables()!.earliestExpected!) }}
+              }
+            </p>
+            <ul class="channel-receivables-card__list">
+              @for (ch of channelReceivables()!.byChannel.slice(0, 4); track ch.name + ch.kind) {
+                <li>
+                  <span>{{ ch.name }}</span>
+                  <strong>{{ formatMoney(ch.net) }}</strong>
+                  @if (ch.earliestExpected) {
+                    <em>~{{ formatDate(ch.earliestExpected) }}</em>
+                  }
+                </li>
+              }
+            </ul>
+          </div>
+          <div class="channel-receivables-card__right">
+            <strong class="channel-receivables-card__count">{{
+              formatMoney(channelReceivables()!.totalNet)
+            }}</strong>
+            <mat-icon>chevron_right</mat-icon>
+          </div>
+        </div>
+      </a>
     }
 
     @if (canExport()) {
@@ -426,6 +468,72 @@ interface BalanceRowExt extends BalanceAccountRow {
       .pending-reservations-card__right mat-icon {
         color: var(--guy-muted, #5f6f76);
       }
+      .channel-receivables-card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border-color: color-mix(in srgb, #9a6700 22%, var(--guy-border, #d7e0d9));
+        background: color-mix(in srgb, #fff3cd 55%, var(--guy-card, #fff));
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      .channel-receivables-card:hover {
+        border-color: color-mix(in srgb, #9a6700 40%, var(--guy-border, #d7e0d9));
+        box-shadow: 0 6px 18px rgba(0, 51, 102, 0.08);
+      }
+      .channel-receivables-card__body {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.85rem;
+      }
+      .channel-receivables-card__title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--guy-navy, #003366);
+      }
+      .channel-receivables-card__hint {
+        margin: 0.2rem 0 0.55rem;
+        font-size: 0.85rem;
+        color: var(--guy-muted, #5f6f76);
+      }
+      .channel-receivables-card__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.25rem;
+      }
+      .channel-receivables-card__list li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 0.45rem 0.65rem;
+        align-items: baseline;
+        font-size: 0.84rem;
+      }
+      .channel-receivables-card__list em {
+        font-style: normal;
+        color: var(--guy-muted, #5f6f76);
+        font-size: 0.78rem;
+      }
+      .channel-receivables-card__right {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        flex-shrink: 0;
+      }
+      .channel-receivables-card__count {
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+        color: #9a6700;
+        font-variant-numeric: tabular-nums;
+      }
+      .channel-receivables-card__right mat-icon {
+        color: var(--guy-muted, #5f6f76);
+      }
       .home-export {
         display: flex;
         flex-wrap: wrap;
@@ -462,7 +570,7 @@ interface BalanceRowExt extends BalanceAccountRow {
       }
       .home-modules__quick-btn {
         flex: 1 1 9rem;
-        min-height: 2.5rem;
+        min-height: var(--guy-touch-min, 44px);
       }
       .home-modules__grid {
         display: grid;
@@ -470,7 +578,7 @@ interface BalanceRowExt extends BalanceAccountRow {
         gap: 0.45rem;
       }
       .home-modules__grid--tiles {
-        grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(5.75rem, 1fr));
         gap: 0.55rem;
       }
       .home-modules__head--spaced {
@@ -483,15 +591,16 @@ interface BalanceRowExt extends BalanceAccountRow {
         align-items: center;
         justify-content: center;
         gap: 0.3rem;
-        min-height: 4.5rem;
-        padding: 0.55rem 0.35rem;
+        min-height: 5rem;
+        padding: 0.65rem 0.35rem;
         border: 1px solid rgba(0, 51, 102, 0.12);
-        border-radius: 10px;
+        border-radius: 12px;
         background: #fff;
         color: var(--guy-navy, #003366);
         text-decoration: none;
         font: inherit;
         cursor: pointer;
+        touch-action: manipulation;
         transition: background 0.15s ease, border-color 0.15s ease;
       }
       .home-module-tile:hover,
@@ -549,6 +658,7 @@ export class HomePageComponent {
   private readonly movementsApi = inject(MovementsApiService);
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
+  private readonly settlementsApi = inject(SettlementsApiService);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
@@ -579,6 +689,7 @@ export class HomePageComponent {
   readonly employeePaymentsToValidateMine = signal<number | null>(null);
   readonly employeePaymentsToPayMine = signal<number | null>(null);
   readonly pendingReservations = computed(() => this.reservationsInbox.pendingRequests());
+  readonly channelReceivables = signal<ChannelReceivablesSummary | null>(null);
 
   readonly routeFeatures = computed(() => {
     const shop = this.shopContext.selectedShop();
@@ -788,6 +899,26 @@ export class HomePageComponent {
       });
     }
 
+    if (this.canViewSettlements()) {
+      const recv = this.channelReceivables();
+      const count = recv?.count ?? 0;
+      const earliest = recv?.earliestExpected;
+      items.push({
+        label: 'Canales nos deben',
+        value: recv ? this.formatMoney(recv.totalNet) : '—',
+        hint: !recv
+          ? 'Cargando…'
+          : count === 0
+            ? 'Sin pendientes'
+            : earliest
+              ? `${count} pend. · ~${this.formatDate(earliest)}`
+              : `${count} pendiente${count === 1 ? '' : 's'}`,
+        icon: 'storefront',
+        route: '/settlements',
+        tone: count > 0 ? 'warn' : 'default',
+      });
+    }
+
     return items;
   });
 
@@ -826,6 +957,15 @@ export class HomePageComponent {
           next: (res) =>
             this.balanceRows.set((res.accounts ?? []).map((a) => mapBalanceAccount(a))),
           error: () => this.balanceRows.set([]),
+        });
+      }
+
+      if (!shopId || !this.canViewSettlements()) {
+        this.channelReceivables.set(null);
+      } else {
+        this.settlementsApi.receivablesSummary(shopId).subscribe({
+          next: (s) => this.channelReceivables.set(s),
+          error: () => this.channelReceivables.set(null),
         });
       }
 
@@ -986,6 +1126,19 @@ export class HomePageComponent {
         hasShopPermission(this.auth.currentUser(), shopId, 'accountTransfers.read') ||
         hasShopPermission(this.auth.currentUser(), shopId, 'incomes.read'))
     );
+  }
+
+  canViewSettlements(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return (
+      !!shopId &&
+      !!this.routeFeatures().settlementsEnabled &&
+      hasShopPermission(this.auth.currentUser(), shopId, 'settlements.read')
+    );
+  }
+
+  formatDate(iso: string): string {
+    return formatIsoDateDisplay(iso);
   }
 
   canManageMovements(): boolean {

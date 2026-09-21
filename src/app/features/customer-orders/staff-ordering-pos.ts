@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { OfflineService } from '../../core/offline/offline.service';
 import { prettySection } from '../menu/menu-display';
 import {
   CreatePublicCustomerOrderBody,
@@ -24,12 +25,17 @@ import {
   StaffCustomerOrder,
 } from './customer-orders-api.service';
 import {
+  StaffOrderOutboxService,
+  newStaffOrderClientRequestId,
+} from './staff-order-outbox.service';
+import {
   DeliveryMapPickerComponent,
   DeliveryMapSelection,
 } from './delivery-map-picker';
 import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
 import {
   apiErrorMessage,
+  isRetryableOrderError,
   onAccentColor,
   orderingMoney,
   orderingPayChoices,
@@ -66,6 +72,8 @@ export class StaffOrderingPosComponent implements OnInit {
   private readonly snack = inject(MatSnackBar);
   private readonly title = inject(Title);
   readonly shops = inject(ShopContextService);
+  readonly offline = inject(OfflineService);
+  private readonly outbox = inject(StaffOrderOutboxService);
 
   /** Embebido en la card del tablero (sin navegar). */
   readonly embedded = input(false);
@@ -100,6 +108,8 @@ export class StaffOrderingPosComponent implements OnInit {
 
   readonly shopId = computed(() => String(this.shops.selectedShopId() ?? '').trim());
   readonly slug = computed(() => String(this.shops.selectedShop()?.slug ?? '').trim());
+  readonly queuedCount = computed(() => this.outbox.countFor(this.shopId()));
+  readonly online = computed(() => this.offline.effectivelyOnline());
 
   readonly deliveryEnabled = computed(() => !!this.config()?.deliveryEnabled);
   readonly deliveryZones = computed(() => this.config()?.deliveryZones ?? []);
@@ -548,6 +558,13 @@ export class StaffOrderingPosComponent implements OnInit {
     if (this.discountMode() === 'fixed' && Number(this.discountValue()) > 0) {
       body.discountFixed = Number(this.discountValue());
     }
+    body.clientRequestId = newStaffOrderClientRequestId();
+
+    if (!this.offline.effectivelyOnline()) {
+      this.outbox.enqueue(shopId, body);
+      this.afterQueued();
+      return;
+    }
 
     this.submitting.set(true);
     this.api.createStaffOrder(shopId, body).subscribe({
@@ -558,10 +575,25 @@ export class StaffOrderingPosComponent implements OnInit {
       },
       error: (err) => {
         this.submitting.set(false);
+        if (isRetryableOrderError(err)) {
+          this.outbox.enqueue(shopId, body);
+          this.afterQueued();
+          return;
+        }
         this.snack.open(apiErrorMessage(err, 'No se pudo crear el pedido'), 'OK', {
           duration: 3500,
         });
       },
     });
+  }
+
+  private afterQueued(): void {
+    this.snack.open(
+      'Cobro guardado en este dispositivo. Cocina y ticket salen cuando vuelva la red.',
+      'OK',
+      { duration: 5000 },
+    );
+    this.clearTicket();
+    this.notes = '';
   }
 }

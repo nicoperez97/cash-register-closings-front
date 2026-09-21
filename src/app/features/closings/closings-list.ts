@@ -24,8 +24,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { isUserVisible } from '../../shared/user-visibility';
-import { closingSharePayload } from '../../shared/components/record-share-builders';
-import { shareText } from '../../shared/utils/share-text';
+import { shareClosingPdf, shareClosingSnack } from './closing-pdf';
 import {
   CLOSING_DIFFERENCE_FILTERS,
   CLOSING_KIND_FILTERS,
@@ -408,15 +407,14 @@ export class ClosingsListPage {
 
   async shareClosing(row: CashClosing): Promise<void> {
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
-    const result = await shareText(
-      closingSharePayload(row, shopName, {
+    try {
+      const result = await shareClosingPdf(row, shopName, {
         unitsLabel: this.shops.selectedShop()?.unitsLabel,
-      }),
-    );
-    if (result === 'copied') {
-      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
-    } else if (result === 'failed') {
-      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+      });
+      const msg = shareClosingSnack(result);
+      if (msg) this.snack.open(msg, 'OK', { duration: 2800 });
+    } catch {
+      this.snack.open('No se pudo armar el PDF', 'OK', { duration: 3000 });
     }
   }
 

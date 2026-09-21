@@ -130,6 +130,8 @@ export type WaiterLineAudit = {
   actorName: string;
   actorTyp?: 'waiter' | 'waiter_staff';
   orderRemoved?: boolean;
+  reason?: string | null;
+  reasonNote?: string | null;
   createdAt: string;
   tableLabel?: string | null;
 };
@@ -196,6 +198,7 @@ export type WaiterSession = {
   paymentMethods?: TablePaymentMethod[];
   sessionSubtotal?: number;
   orderCount: number;
+  pendingMainsCount?: number;
   openedAt: string;
   closedAt?: string | null;
   table: { id: string; label: string; area: string; seats: number } | null;
@@ -437,6 +440,14 @@ export class WaiterApiService {
     );
   }
 
+  fireMains(slug: string, token: string, sessionId: string) {
+    return this.http.post<WaiterSession & { ok: boolean; printedOrders?: number }>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/fire-mains`,
+      {},
+      this.authHeaders(token),
+    );
+  }
+
   patchSessionPromo(
     slug: string,
     token: string,
@@ -502,6 +513,8 @@ export class WaiterApiService {
       qty?: number | null;
       unitPrice?: number | null;
       remove?: boolean;
+      reason?: string | null;
+      reasonNote?: string | null;
     },
   ) {
     return this.http.patch<WaiterSession>(

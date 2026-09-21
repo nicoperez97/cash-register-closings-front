@@ -7,6 +7,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { appendClosingUnitsAndCarrier } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
+import { shareClosingPdf, shareClosingSnack } from './closing-pdf';
+import type { CashClosing } from './closings-api.service';
 
 export type ClosingSaveSummary = {
   shopName: string;
@@ -23,6 +25,7 @@ export type ClosingSaveSummary = {
   /** Texto completo para compartir (incluye todos los datos del cierre). */
   shareTitle?: string;
   shareText?: string;
+  shareClosing?: CashClosing;
   /** Tras guardar, dispara el share automáticamente. */
   shareAfterSave?: boolean;
 };
@@ -239,32 +242,44 @@ export class ClosingSaveDialogComponent {
   }
 
   async share(): Promise<void> {
-    const fallbackLines = [
-      `Cierre de caja — ${this.data.shopName}`,
-      `Fecha: ${this.data.date}`,
-      `PVS: ${this.data.pvs}`,
-      `Efectivo: ${this.data.cash}`,
-      `Cuenta DNI: ${this.data.accountDni}`,
-      `Caja sistema: ${this.data.posSystem}`,
-    ];
-    appendClosingUnitsAndCarrier(fallbackLines, {
-      unitsLabel: this.data.unitsLabel,
-      unitsSold: this.data.unitsSold,
-      cashWithdrawnByName: this.data.cashWithdrawnByName,
-    });
-    fallbackLines.push(`Total: ${this.data.total}`);
-
     this.sharing.set(true);
-    const result = await shareText({
-      title: this.data.shareTitle || `Cierre ${this.data.shopName}`,
-      text: this.data.shareText || fallbackLines.join('\n'),
-    });
-    this.sharing.set(false);
+    try {
+      if (this.data.shareClosing) {
+        const result = await shareClosingPdf(this.data.shareClosing, this.data.shopName, {
+          unitsLabel: this.data.unitsLabel,
+        });
+        const msg = shareClosingSnack(result);
+        if (msg) this.snack.open(msg, 'OK', { duration: 2800 });
+        return;
+      }
+      const fallbackLines = [
+        `Cierre de caja — ${this.data.shopName}`,
+        `Fecha: ${this.data.date}`,
+        `PVS: ${this.data.pvs}`,
+        `Efectivo: ${this.data.cash}`,
+        `Cuenta DNI: ${this.data.accountDni}`,
+        `Caja sistema: ${this.data.posSystem}`,
+      ];
+      appendClosingUnitsAndCarrier(fallbackLines, {
+        unitsLabel: this.data.unitsLabel,
+        unitsSold: this.data.unitsSold,
+        cashWithdrawnByName: this.data.cashWithdrawnByName,
+      });
+      fallbackLines.push(`Total: ${this.data.total}`);
 
-    if (result === 'copied') {
-      this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
-    } else if (result === 'failed') {
+      const result = await shareText({
+        title: this.data.shareTitle || `Cierre ${this.data.shopName}`,
+        text: this.data.shareText || fallbackLines.join('\n'),
+      });
+      if (result === 'copied') {
+        this.snack.open('Copiado al portapapeles', 'OK', { duration: 2200 });
+      } else if (result === 'failed') {
+        this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+      }
+    } catch {
       this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    } finally {
+      this.sharing.set(false);
     }
   }
 }

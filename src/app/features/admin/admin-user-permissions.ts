@@ -290,9 +290,6 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <mat-slide-toggle formControlName="isShortageAdmin">Admin faltantes</mat-slide-toggle>
           <mat-slide-toggle formControlName="isReservationAdmin">Admin reservas</mat-slide-toggle>
           <mat-slide-toggle formControlName="isCustomerOrdersAdmin">Admin pedidos online</mat-slide-toggle>
-          <mat-slide-toggle formControlName="requireClosingFiles">
-            Exigir archivo en cierres con monto
-          </mat-slide-toggle>
 
           @if (canAssignSuperAdmin) {
             <mat-slide-toggle formControlName="canEditExpenses">Puede editar/borrar gastos</mat-slide-toggle>
@@ -842,7 +839,7 @@ export class AdminUserPermissionsPage implements OnInit {
       isShortageAdmin: !!user.isShortageAdmin,
       isReservationAdmin: !!user.isReservationAdmin,
       isCustomerOrdersAdmin: !!user.isCustomerOrdersAdmin,
-      requireClosingFiles: !!user.requireClosingFiles,
+      requireClosingFiles: false,
       canEditExpenses: !!user.canEditExpenses,
       canEditPayments: !!user.canEditPayments,
       visibility: vis,
@@ -975,7 +972,7 @@ export class AdminUserPermissionsPage implements OnInit {
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
         isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
-        requireClosingFiles: !!raw.requireClosingFiles,
+        requireClosingFiles: false,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
       })

@@ -25,6 +25,7 @@ import {
   StaffCustomerOrder,
 } from './customer-orders-api.service';
 import { CustomerOrdersInboxService } from './customer-orders-inbox.service';
+import { StaffOrderOutboxService } from './staff-order-outbox.service';
 import { OrderingCatalogPanelComponent } from './ordering-catalog-panel';
 import { StaffOrderingPosComponent } from './staff-ordering-pos';
 import { ClosingsApiService, type CashClosing } from '../closings/closings-api.service';
@@ -83,6 +84,7 @@ export class CustomerOrdersPage {
   private readonly live = inject(ShopLiveClient);
   private readonly auth = inject(AuthService);
   private readonly inbox = inject(CustomerOrdersInboxService);
+  private readonly outbox = inject(StaffOrderOutboxService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
@@ -99,6 +101,12 @@ export class CustomerOrdersPage {
   private skipNewToast = true;
 
   readonly pendingCount = this.inbox.pendingCount;
+  readonly outboxCount = computed(() =>
+    this.outbox.countFor(this.shops.selectedShopId()),
+  );
+  readonly outboxFailed = computed(() =>
+    this.outbox.failedCountFor(this.shops.selectedShopId()),
+  );
 
   readonly canManage = computed(() =>
     hasShopPermission(
@@ -198,6 +206,10 @@ export class CustomerOrdersPage {
       .subscribe((tick) => {
         if (tick) this.reload();
       });
+
+    this.outbox.synced.pipe(takeUntilDestroyed()).subscribe(() => {
+      if (this.view() !== 'nuevo' && this.view() !== 'config') this.reload();
+    });
   }
 
   setView(mode: ViewMode): void {
@@ -224,6 +236,11 @@ export class CustomerOrdersPage {
 
   onPosCancelled(): void {
     this.setView('board');
+  }
+
+  retryOutbox(): void {
+    this.outbox.retryFailed();
+    void this.outbox.flush();
   }
 
   statusLabel(s: CustomerOrderStatus): string {

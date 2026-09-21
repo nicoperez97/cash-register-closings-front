@@ -42,7 +42,12 @@ import {
 } from './stock-api.service';
 import { StockProductDialogComponent } from './stock-product-dialog';
 import { StockShareDialogComponent } from './stock-share-dialog';
+import {
+  StockAdjustReasonDialogComponent,
+  type StockAdjustReasonDialogResult,
+} from './stock-adjust-reason-dialog';
 import { shareText } from '../../shared/utils/share-text';
+import { firstValueFrom } from 'rxjs';
 
 const TAB_ALL = '__all__';
 const TAB_UNCATEGORIZED = '__none__';
@@ -1354,11 +1359,31 @@ export class StockPage {
     this.openDialog({ mode: 'edit', product: row });
   }
 
-  adjust(row: StockProduct, delta: 1 | -1): void {
+  async adjust(row: StockProduct, delta: 1 | -1): Promise<void> {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canManage()) return;
+    let reason: string | undefined;
+    let note: string | undefined;
+    if (delta < 0) {
+      const result = await firstValueFrom(
+        this.dialogTitle
+          .track(
+            this.dialog.open(StockAdjustReasonDialogComponent, {
+              data: { productName: row.name },
+              width: '400px',
+              maxWidth: '95vw',
+              panelClass: 'guy-dialog',
+            }),
+            'Restar stock',
+          )
+          .afterClosed(),
+      );
+      if (!result?.reason) return;
+      reason = result.reason;
+      note = result.note;
+    }
     this.adjustingId.set(row.id);
-    this.api.adjust(shopId, this.kind(), row.id, delta).subscribe({
+    this.api.adjust(shopId, this.kind(), row.id, delta, { reason, note }).subscribe({
       next: (updated) => {
         this.adjustingId.set(null);
         this.products.update((list) => list.map((r) => (r.id === updated.id ? updated : r)));

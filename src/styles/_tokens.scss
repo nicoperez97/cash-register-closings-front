@@ -1,4 +1,4 @@
-// Design tokens extendidos — escala de espaciado, elevación y focus.
+// Design tokens extendidos — escala de espaciado, elevación, focus y chrome mobile.
 :root {
   --guy-space-1: 0.25rem;
   --guy-space-2: 0.5rem;
@@ -15,4 +15,28 @@
   --guy-focus-ring: 0 0 0 3px color-mix(in srgb, var(--guy-primary) 28%, transparent);
   --guy-focus-offset: 2px;
   --guy-touch-min: 44px;
+
+  /* Safe-area iOS (notch / home indicator) */
+  --guy-safe-top: env(safe-area-inset-top, 0px);
+  --guy-safe-right: env(safe-area-inset-right, 0px);
+  --guy-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --guy-safe-left: env(safe-area-inset-left, 0px);
+
+  /*
+   * Chrome de la app (barras fijas propias).
+   * --guy-bottom-nav-height: altura de nav inferior si existiera (hoy 0 en layout).
+   * --guy-chrome-bottom: overlay fijo operativo (sticky cierre, dock, etc.) — setear por pantalla.
+   * --guy-sticky-offset: dónde anclar un fixed inferior (nav + safe).
+   */
+  --guy-bottom-nav-height: 0px;
+  --guy-chrome-top: 0px;
+  --guy-chrome-bottom: 0px;
+  --guy-sticky-offset: calc(var(--guy-bottom-nav-height, 0px) + var(--guy-safe-bottom));
+  --guy-content-pad-bottom: calc(1.25rem + var(--guy-chrome-bottom) + var(--guy-safe-bottom));
+}
+
+/* Utilidad: hit target táctil mínimo (iOS HIG / Material) */
+.guy-touch-target {
+  min-width: var(--guy-touch-min, 44px);
+  min-height: var(--guy-touch-min, 44px);
 }

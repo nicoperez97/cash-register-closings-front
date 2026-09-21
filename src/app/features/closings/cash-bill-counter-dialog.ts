@@ -280,14 +280,17 @@ function formatMoneyLocal(value: number): string {
       .bill-row__btn {
         display: grid;
         place-items: center;
-        width: 40px;
-        height: 40px;
+        width: var(--guy-touch-min, 44px);
+        height: var(--guy-touch-min, 44px);
+        min-width: var(--guy-touch-min, 44px);
+        min-height: var(--guy-touch-min, 44px);
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 10px;
         background: #fff;
         color: var(--guy-navy, #003366);
         cursor: pointer;
         padding: 0;
+        touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
       }
 
@@ -304,11 +307,12 @@ function formatMoneyLocal(value: number): string {
 
       .bill-row__input {
         width: 3.25rem;
-        height: 40px;
+        height: var(--guy-touch-min, 44px);
         border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 10px;
         text-align: center;
         font: inherit;
+        font-size: 1rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
         color: var(--guy-navy, #003366);

@@ -298,7 +298,7 @@ export class PaymentsPage {
   readonly shops = inject(ShopContextService);
   readonly isMobile = toSignal(
     inject(BreakpointObserver)
-      .observe('(max-width: 720px)')
+      .observe('(max-width: 960px)')
       .pipe(map((r) => r.matches)),
     { initialValue: false },
   );

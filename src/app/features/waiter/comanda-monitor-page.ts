@@ -18,6 +18,7 @@ import {
   WaiterApiService,
   WaiterLineAudit,
 } from './waiter-api.service';
+import { comandaReasonLabel } from './comanda-line-reason-dialog';
 
 @Component({
   selector: 'app-comanda-monitor-page',
@@ -88,9 +89,15 @@ export class ComandaMonitorPage {
       .filter(Boolean)
       .join(', ');
     const extraBit = extras ? ` (+ ${extras})` : '';
+    const reasonBit = (() => {
+      const label = comandaReasonLabel(a.reason);
+      if (!label) return '';
+      const note = String(a.reasonNote ?? '').trim();
+      return note ? ` · ${label}: ${note}` : ` · ${label}`;
+    })();
     if (a.action === 'REMOVE') {
       const qty = a.qtyBefore ?? 1;
-      let s = `Quitó ${qty}× ${name}${extraBit}`;
+      let s = `Quitó ${qty}× ${name}${extraBit}${reasonBit}`;
       if (a.orderRemoved) s += ` · se borró el envío #${a.orderCode}`;
       return s;
     }
@@ -98,9 +105,9 @@ export class ComandaMonitorPage {
       return `Precio de ${name}: ${this.money(a.unitPriceBefore ?? 0)} → ${this.money(a.unitPriceAfter ?? 0)}`;
     }
     if (a.action === 'QTY') {
-      return `Cantidad de ${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${extraBit}`;
+      return `Cantidad de ${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${extraBit}${reasonBit}`;
     }
-    return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}`;
+    return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}${reasonBit}`;
   }
 
   openHelp(): void {

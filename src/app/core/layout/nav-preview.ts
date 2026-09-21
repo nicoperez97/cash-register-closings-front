@@ -97,6 +97,7 @@ export function buildSyntheticAuthUser(opts: {
         slug: 'preview',
         coversEnabled: false,
         defaultChangeAmount: 0,
+        differenceReasonMinAmount: 0,
         currency: 'ARS',
         shopConfigVisibility: opts.shopConfigVisibility ?? null,
       },

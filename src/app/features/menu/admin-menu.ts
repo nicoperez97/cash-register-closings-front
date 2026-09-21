@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { catchError, forkJoin, of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,6 +20,7 @@ import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { downloadIframePdf } from '../../shared/pdf/html-pdf';
 import { pdfFileSlug } from '../../shared/pdf/pdf-text';
 import { OrderingCatalogPanelComponent } from '../customer-orders/ordering-catalog-panel';
+import { StockApiService, type StockProduct } from '../stock/stock-api.service';
 import {
   SelectSearchComponent,
   filterBySelectQuery,
@@ -59,6 +61,10 @@ export type ShopMenuItem = {
   removableIngredients?: string[] | string | null;
   /** Sectores (comanda). */
   kitchenSectorIds?: string[];
+  /** Insumos de stock por unidad de plato. */
+  recipe?: Array<{ stockProductId: string; qty: number }>;
+  recipePickId?: string;
+  recipePickQty?: number;
 };
 
 export type KitchenSector = {
@@ -181,6 +187,16 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
           ? it.removableIngredients.join(', ')
           : String(it.removableIngredients ?? ''),
         kitchenSectorIds: normalizeItemSectorIds(it),
+        recipe: Array.isArray(it.recipe)
+          ? it.recipe
+              .map((r) => ({
+                stockProductId: String(r.stockProductId ?? '').trim(),
+                qty: Number(r.qty) || 0,
+              }))
+              .filter((r) => r.stockProductId && r.qty > 0)
+          : [],
+        recipePickId: '',
+        recipePickQty: 1,
       })),
     })),
   };
@@ -742,6 +758,46 @@ function toPrice(value: unknown): number | null {
                               />
                               <mat-hint>Separá con coma.</mat-hint>
                             </mat-form-field>
+                            <div class="menu-item__recipe">
+                              <p>Receta (baja el stock al vender; si un insumo queda bajo el mínimo, el plato se oculta en /pedir, mostrador y comanda)</p>
+                              @for (line of item.recipe ?? []; track line.stockProductId) {
+                                <div class="menu-item__recipe-line">
+                                  <span>{{ stockProductName(line.stockProductId) }}</span>
+                                  <span>× {{ line.qty }}</span>
+                                  <button
+                                    mat-icon-button
+                                    type="button"
+                                    aria-label="Quitar insumo"
+                                    (click)="removeRecipeLine(section.index, ii, line.stockProductId)"
+                                  >
+                                    <mat-icon>close</mat-icon>
+                                  </button>
+                                </div>
+                              }
+                              @if (stockProducts().length) {
+                                <div class="menu-item__recipe-add">
+                                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                    <mat-label>Insumo</mat-label>
+                                    <mat-select [(ngModel)]="item.recipePickId">
+                                      @for (p of stockProducts(); track p.id) {
+                                        <mat-option [value]="p.id">
+                                          {{ p.name }} ({{ p.kind === 'beverage' ? 'bebida' : 'alimento' }})
+                                        </mat-option>
+                                      }
+                                    </mat-select>
+                                  </mat-form-field>
+                                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__recipe-qty">
+                                    <mat-label>Cant.</mat-label>
+                                    <input matInput type="number" min="0.01" step="0.01" [(ngModel)]="item.recipePickQty" />
+                                  </mat-form-field>
+                                  <button mat-stroked-button type="button" (click)="addRecipeLine(section.index, ii)">
+                                    Sumar
+                                  </button>
+                                </div>
+                              } @else {
+                                <p class="menu-item__recipe-empty">Cargá insumos en Stock alimentos o bebidas para armar la receta.</p>
+                              }
+                            </div>
                           </div>
                         }
                       </div>
@@ -1101,6 +1157,39 @@ function toPrice(value: unknown): number | null {
     .menu-item__ing {
       width: 100%;
     }
+    .menu-item__recipe {
+      display: grid;
+      gap: 0.35rem;
+      padding: 0.45rem 0.5rem;
+      border: 1px dashed var(--guy-border, #d7e0d9);
+      border-radius: 10px;
+      background: #fafcfb;
+    }
+    .menu-item__recipe p {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .menu-item__recipe-line {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+    }
+    .menu-item__recipe-line span:first-child {
+      flex: 1;
+    }
+    .menu-item__recipe-add {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 5.5rem auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .menu-item__recipe-empty {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--guy-muted, #5f6f76);
+    }
     .menu-item__avail {
       display: flex;
       align-items: center;
@@ -1163,6 +1252,7 @@ export class AdminMenuPage {
   private readonly snack = inject(MatSnackBar);
   private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
+  private readonly stockApi = inject(StockApiService);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
 
@@ -1186,6 +1276,7 @@ export class AdminMenuPage {
   readonly rawText = signal('');
   readonly menus = signal<ShopMenu[]>([]);
   readonly kitchenSectors = signal<KitchenSector[]>([]);
+  readonly stockProducts = signal<StockProduct[]>([]);
   readonly activeId = signal<string | null>(null);
   readonly extras = signal<OrderingExtraDraft[]>([]);
   readonly extraItemQuery = signal('');
@@ -1318,6 +1409,7 @@ export class AdminMenuPage {
         this.loading.set(false);
         this.applyPayload(res);
         if (this.showCatalog()) this.loadExtras();
+        this.loadStockProducts();
       },
       error: () => {
         this.loading.set(false);
@@ -1352,6 +1444,24 @@ export class AdminMenuPage {
           );
         },
       });
+  }
+
+  private loadStockProducts(): void {
+    const shopId = this.shopId();
+    if (!shopId) {
+      this.stockProducts.set([]);
+      return;
+    }
+    forkJoin({
+      food: this.stockApi.listProducts(shopId, 'food').pipe(catchError(() => of([] as StockProduct[]))),
+      beverage: this.stockApi
+        .listProducts(shopId, 'beverage')
+        .pipe(catchError(() => of([] as StockProduct[]))),
+    }).subscribe(({ food, beverage }) => {
+      this.stockProducts.set(
+        [...food, ...beverage].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+      );
+    });
   }
 
   addExtra(): void {
@@ -1542,6 +1652,12 @@ export class AdminMenuPage {
             kitchenSectorIds: Array.isArray(it.kitchenSectorIds)
               ? it.kitchenSectorIds.map((id) => String(id).trim()).filter(Boolean)
               : [],
+            recipe: (it.recipe ?? [])
+              .map((r) => ({
+                stockProductId: String(r.stockProductId ?? '').trim(),
+                qty: Number(r.qty) || 0,
+              }))
+              .filter((r) => r.stockProductId && r.qty > 0),
           }))
           .filter((it) => it.name),
       })),
@@ -1647,11 +1763,54 @@ export class AdminMenuPage {
                   imageUrl: null,
                   removableIngredients: '',
                   kitchenSectorIds: [],
+                  recipe: [],
+                  recipePickId: '',
+                  recipePickQty: 1,
                 },
               ],
             }
           : s,
       ),
+    );
+  }
+
+  stockProductName(id: string): string {
+    return this.stockProducts().find((p) => p.id === id)?.name || 'Insumo';
+  }
+
+  addRecipeLine(sectionIndex: number, itemIndex: number): void {
+    this.sections.update((list) =>
+      list.map((s, i) => {
+        if (i !== sectionIndex) return s;
+        const items = s.items.map((it, j) => {
+          if (j !== itemIndex) return it;
+          const productId = String(it.recipePickId ?? '').trim();
+          const qty = Number(it.recipePickQty ?? 0);
+          if (!productId || !Number.isFinite(qty) || qty <= 0) return it;
+          const recipe = [...(it.recipe ?? []).filter((r) => r.stockProductId !== productId), {
+            stockProductId: productId,
+            qty: Math.round(qty * 100) / 100,
+          }];
+          return { ...it, recipe, recipePickId: '', recipePickQty: 1 };
+        });
+        return { ...s, items };
+      }),
+    );
+  }
+
+  removeRecipeLine(sectionIndex: number, itemIndex: number, productId: string): void {
+    this.sections.update((list) =>
+      list.map((s, i) => {
+        if (i !== sectionIndex) return s;
+        return {
+          ...s,
+          items: s.items.map((it, j) =>
+            j === itemIndex
+              ? { ...it, recipe: (it.recipe ?? []).filter((r) => r.stockProductId !== productId) }
+              : it,
+          ),
+        };
+      }),
     );
   }
 

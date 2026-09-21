@@ -34,7 +34,7 @@ import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
         z-index: 1200;
         left: 0.75rem;
         right: 0.75rem;
-        bottom: calc(0.75rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
+        bottom: calc(0.75rem + var(--guy-sticky-offset, 0px));
         display: flex;
         flex-wrap: wrap;
         align-items: center;

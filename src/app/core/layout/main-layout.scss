@@ -213,7 +213,7 @@
 }
 
 .layout-shell--mobile .layout-content {
-  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: var(--guy-content-pad-bottom, calc(1.25rem + env(safe-area-inset-bottom, 0px))) !important;
 }
 
 :host ::ng-deep .mat-drawer-content.layout-shell {
@@ -256,8 +256,8 @@
   bottom: 0;
   z-index: 200;
   pointer-events: none;
-  padding: 0 0 max(0.75rem, env(safe-area-inset-bottom, 0px))
-    max(0.75rem, env(safe-area-inset-left, 0px));
+  padding: 0 0 max(0.75rem, var(--guy-safe-bottom, 0px))
+    max(0.75rem, var(--guy-safe-left, 0px));
 }
 
 .chrome-reveal__dock {
@@ -279,8 +279,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
-  min-width: 2.35rem;
-  height: 2.35rem;
+  min-width: var(--guy-touch-min, 44px);
+  min-height: var(--guy-touch-min, 44px);
+  height: auto;
   margin: 0;
   padding: 0 0.7rem;
   border: 0;

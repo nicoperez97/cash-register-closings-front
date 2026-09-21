@@ -419,6 +419,21 @@
         }
       </section>
 
+      @if (capabilities().allowPrintKitchen && (s?.pendingMainsCount ?? 0) > 0) {
+        <div class="fire-mains anim-in">
+          <button
+            type="button"
+            class="btn btn--primary fire-mains__btn"
+            [disabled]="busy()"
+            (click)="fireMains()"
+          >
+            Mandar principales
+            <em>{{ s!.pendingMainsCount }}</em>
+          </button>
+          <p class="fire-mains__hint">Imprime en cocina solo lo que no es entrada y todavía no se disparó.</p>
+        </div>
+      }
+
       @if (lineAudits().length) {
         <section class="session-fold anim-in" [class.session-fold--open]="sessionAuditOpen()">
           <button
@@ -877,54 +892,56 @@
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="covers-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     <h2 id="covers-title">Mesa {{ table.label }}</h2>
-    <p class="muted">¿Cuántos comensales?</p>
-    <div class="covers">
-      <button type="button" class="covers__btn" (click)="bumpCovers(-1)">−</button>
-      <input
-        type="number"
-        min="1"
-        max="30"
-        inputmode="numeric"
-        [ngModel]="coversDraft()"
-        (ngModelChange)="coversDraft.set(+$event || 1)"
-        name="covers"
-      />
-      <button type="button" class="covers__btn" (click)="bumpCovers(1)">+</button>
-    </div>
-    @if (staffMode && capabilities().requireWaiterOnOpen) {
-      <mat-form-field class="covers-waiter" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Mozo a cargo</mat-label>
-        <mat-select
-          [ngModel]="coversWaiterId()"
-          (ngModelChange)="coversWaiterId.set($event || null)"
-          name="waiter"
-        >
-          <mat-option [value]="null">Elegí un mozo…</mat-option>
-          @for (w of staffWaiters(); track w.id) {
-            <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      @if (!staffWaiters().length) {
-        <p class="muted covers-waiter__hint">
-          No hay mozos cargados. Marcá el rol Mozo o un PIN en Empleados.
-        </p>
+    <div class="sheet__body">
+      <p class="muted">¿Cuántos comensales?</p>
+      <div class="covers">
+        <button type="button" class="covers__btn" (click)="bumpCovers(-1)">−</button>
+        <input
+          type="number"
+          min="1"
+          max="30"
+          inputmode="numeric"
+          [ngModel]="coversDraft()"
+          (ngModelChange)="coversDraft.set(+$event || 1)"
+          name="covers"
+        />
+        <button type="button" class="covers__btn" (click)="bumpCovers(1)">+</button>
+      </div>
+      @if (staffMode && capabilities().requireWaiterOnOpen) {
+        <mat-form-field class="covers-waiter" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Mozo a cargo</mat-label>
+          <mat-select
+            [ngModel]="coversWaiterId()"
+            (ngModelChange)="coversWaiterId.set($event || null)"
+            name="waiter"
+          >
+            <mat-option [value]="null">Elegí un mozo…</mat-option>
+            @for (w of staffWaiters(); track w.id) {
+              <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        @if (!staffWaiters().length) {
+          <p class="muted covers-waiter__hint">
+            No hay mozos cargados. Marcá el rol Mozo o un PIN en Empleados.
+          </p>
+        }
+      } @else if (staffMode) {
+        <mat-form-field class="covers-waiter" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Mozo a cargo (opcional)</mat-label>
+          <mat-select
+            [ngModel]="coversWaiterId()"
+            (ngModelChange)="coversWaiterId.set($event || null)"
+            name="waiter"
+          >
+            <mat-option [value]="null">Sin asignar</mat-option>
+            @for (w of staffWaiters(); track w.id) {
+              <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
       }
-    } @else if (staffMode) {
-      <mat-form-field class="covers-waiter" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Mozo a cargo (opcional)</mat-label>
-        <mat-select
-          [ngModel]="coversWaiterId()"
-          (ngModelChange)="coversWaiterId.set($event || null)"
-          name="waiter"
-        >
-          <mat-option [value]="null">Sin asignar</mat-option>
-          @for (w of staffWaiters(); track w.id) {
-            <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    }
+    </div>
     <div class="sheet__actions">
       <button type="button" class="btn btn--ghost" (click)="cancelCovers()">Cancelar</button>
       <button
@@ -948,6 +965,7 @@
     <div class="sheet__handle" aria-hidden="true"></div>
     <h2 id="ticket-title">Ticket mesa {{ session()?.table?.label }}</h2>
 
+    <div class="sheet__body">
     <div class="ticket-bill">
       @if (session()?.promoBreakdown; as pb) {
         @if (pb.applied?.length || pb.packs > 0) {
@@ -1140,6 +1158,7 @@
       }
     }
     <p class="sheet__total"><span>Total</span><strong>{{ money(ticketPreviewTotal()) }}</strong></p>
+    </div>
     <div class="sheet__actions sheet__actions--col">
       <button type="button" class="btn btn--lg" [disabled]="busy() || !ticketEditableRows().length" (click)="confirmPrintTicket()">
         Imprimir ticket
@@ -1154,6 +1173,7 @@
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="close-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     <h2 id="close-title">Cerrar mesa {{ session()?.table?.label }}</h2>
+    <div class="sheet__body">
     <p class="sheet__total sheet__total--sm">
       <span>Ticket</span><strong>{{ money(closeDueAmount()) }}</strong>
     </p>
@@ -1241,6 +1261,7 @@
         <span>Restan {{ money(closeRemaining()) }}</span>
       </p>
     </div>
+    </div>
 
     <div class="sheet__actions sheet__actions--col">
       <button
@@ -1261,8 +1282,9 @@
   <div class="sheet anim-up sheet--tall" role="dialog" aria-modal="true" aria-labelledby="history-title">
     <div class="sheet__handle" aria-hidden="true"></div>
     @if (historyDetail(); as detail) {
-      <button type="button" class="link" (click)="historyDetailId.set(null); historyOrderItems.set([]); historyLineAudits.set([])">← Volver</button>
+      <button type="button" class="link sheet__back-link" (click)="historyDetailId.set(null); historyOrderItems.set([]); historyLineAudits.set([])">← Volver</button>
       <h2 id="history-title">Mesa {{ detail.tableLabel }}</h2>
+      <div class="sheet__body">
       <p class="muted">
         @if (detail.closedAt) {
           Cerrada {{ orderTime(detail.closedAt) }}
@@ -1325,11 +1347,13 @@
           }
         </ul>
       </div>
+      </div>
       <div class="sheet__actions sheet__actions--col">
         <button type="button" class="link" (click)="closeHistory()">Cerrar</button>
       </div>
     } @else {
       <h2 id="history-title">Historial de mesas</h2>
+      <div class="sheet__body">
       @if (tipsSummary(); as tips) {
         <p class="muted">
           {{ tips.shift.name }} · {{ tips.closedTables }} cerrada{{ tips.closedTables === 1 ? '' : 's' }}
@@ -1363,6 +1387,7 @@
           <li class="muted">Todavía no hay mesas cerradas en este turno.</li>
         }
       </ul>
+      </div>
       <div class="sheet__actions sheet__actions--col">
         <button type="button" class="link" (click)="closeHistory()">Cerrar</button>
       </div>

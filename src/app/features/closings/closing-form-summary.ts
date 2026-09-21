@@ -11,7 +11,7 @@ import { MatStepperModule } from '@angular/material/stepper';
       <div class="closing-totals__head">
         <div>
           <h2>Resumen</h2>
-          <p class="closing-totals__sub">Lo que importa del día</p>
+          <p class="closing-totals__sub">Lo que importa del día. Compartir arma un PDF para el grupo.</p>
         </div>
         <button mat-stroked-button type="button" (click)="shareClicked.emit()">
           <mat-icon>share</mat-icon>
@@ -43,6 +43,16 @@ import { MatStepperModule } from '@angular/material/stepper';
           <span>Total declarado</span>
           <strong>{{ declaredTotal() }}</strong>
         </div>
+        @if (difference()) {
+          <div
+            class="closing-totals__item"
+            [class.closing-totals__item--ok]="differenceTone() === 0"
+            [class.closing-totals__item--warn]="(differenceTone() ?? 0) !== 0"
+          >
+            <span>Diferencia</span>
+            <strong>{{ difference() }}</strong>
+          </div>
+        }
         @if (asideTotal()) {
           <div class="closing-totals__item">
             <span>Cuentas aparte</span>
@@ -90,6 +100,8 @@ export class ClosingFormSummaryComponent {
   readonly accountDniAmount = input('');
   readonly posAmount = input('');
   readonly declaredTotal = input('');
+  readonly difference = input('');
+  readonly differenceTone = input<number | null>(null);
   readonly asideTotal = input('');
   readonly dayTotal = input('');
   readonly asideLines = input<Array<{ name: string; amount: string }>>([]);

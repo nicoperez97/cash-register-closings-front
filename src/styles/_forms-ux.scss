@@ -121,7 +121,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(0.85rem + var(--guy-bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(0.85rem + var(--guy-sticky-offset, 0px));
   z-index: 40;
   display: flex;
   justify-content: center;

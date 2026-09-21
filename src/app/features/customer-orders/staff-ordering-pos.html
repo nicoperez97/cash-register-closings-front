@@ -5,6 +5,9 @@
       <h2>Pedido mostrador</h2>
       <p>Tocá ítems, elegí mostrador o delivery, descuento y creá.</p>
     </div>
+    @if (queuedCount()) {
+      <span class="pos__queue-pill">{{ queuedCount() }} sin enviar</span>
+    }
     <button type="button" class="pos__clear" [disabled]="!lines().length" (click)="clearTicket()">
       Vaciar
     </button>
@@ -308,11 +311,20 @@
           {{
             submitting()
               ? 'Creando…'
-              : fulfillment() === 'DELIVERY'
-                ? 'Crear delivery'
-                : 'Crear pedido'
+              : !online()
+                ? fulfillment() === 'DELIVERY'
+                  ? 'Cobrar delivery (sin red)'
+                  : 'Cobrar (sin red)'
+                : fulfillment() === 'DELIVERY'
+                  ? 'Crear delivery'
+                  : 'Crear pedido'
           }}
         </button>
+        @if (!online()) {
+          <p class="pos__muted">
+            Sin red: cobrás igual. El pedido se manda al volver; cocina y ticket salen entonces.
+          </p>
+        }
       </aside>
     </div>
   }

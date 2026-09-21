@@ -315,6 +315,7 @@ export function patchClosingFormValues(
     cashWithdrawnToAccountId: closing.cashWithdrawnToAccountId ?? '',
     tipsAmount: emptyNum(closing.tipsAmount),
     notes: closing.notes ?? '',
+    differenceReason: closing.differenceReason ?? '',
   });
 }
 
@@ -382,6 +383,7 @@ export function resetClosingFormForNext(opts: {
   emptyNum: (v: unknown) => number | null;
   toDateInput: (value?: string | null) => Date;
 }) {
+  const opening = opts.emptyNum(opts.defaultChangeAmount);
   return {
     businessDate: opts.toDateInput(opts.currentBusinessDate),
     kind: 'REGULAR' as const,
@@ -389,6 +391,7 @@ export function resetClosingFormForNext(opts: {
     posSystemAmount: null,
     cardAmount: null,
     cashAmount: null,
+    cashOpeningAmount: opening,
     mercadoPagoAmount: null,
     deliveryAppsAmount: null,
     transferAmount: null,
@@ -401,6 +404,7 @@ export function resetClosingFormForNext(opts: {
     cashWithdrawnToAccountId: '',
     tipsAmount: null,
     notes: '',
+    differenceReason: '',
     expenses: [] as unknown[],
     posnetAmounts: [] as unknown[],
     dniTransfers: [] as unknown[],

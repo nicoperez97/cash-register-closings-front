@@ -212,7 +212,7 @@ function addCanvasPage(
   pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', x, y, w, h, undefined, 'FAST');
 }
 
-function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = false): void {
+function canvasToPdfDoc(canvas: HTMLCanvasElement, singlePage = false): jsPDF {
   const pageW = 595.28;
   const pageH = 841.89;
   const margin = 22;
@@ -220,17 +220,16 @@ function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = f
   const fitH = pageH - margin * 2;
   const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
 
-  const saveFitOnePage = () => {
+  const fitOnePage = () => {
     const scale = Math.min(fitW / Math.max(canvas.width, 1), fitH / Math.max(canvas.height, 1));
     const imgW = canvas.width * scale;
     const imgH = canvas.height * scale;
     addCanvasPage(pdf, canvas, margin + (fitW - imgW) / 2, margin, imgW, imgH);
-    pdf.save(filename);
   };
 
   if (singlePage) {
-    saveFitOnePage();
-    return;
+    fitOnePage();
+    return pdf;
   }
 
   let imgW = fitW;
@@ -248,14 +247,13 @@ function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = f
 
   if (imgH <= fitH + 0.5) {
     addCanvasPage(pdf, canvas, margin + (fitW - imgW) / 2, margin, imgW, imgH);
-    pdf.save(filename);
-    return;
+    return pdf;
   }
 
   // Un poco de más: achicar a una hoja en vez de cortar una fila al medio.
   if (imgH <= fitH * 1.42) {
-    saveFitOnePage();
-    return;
+    fitOnePage();
+    return pdf;
   }
 
   const pxPerPt = canvas.width / imgW;
@@ -277,7 +275,11 @@ function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = f
     y += slicePx;
     page += 1;
   }
-  pdf.save(filename);
+  return pdf;
+}
+
+function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = false): void {
+  canvasToPdfDoc(canvas, singlePage).save(filename);
 }
 
 async function renderCanvas(
@@ -474,13 +476,7 @@ function waitForElement(doc: Document, selector: string, timeoutMs: number): Pro
   });
 }
 
-export async function downloadHtmlPdf(opts: {
-  filename: string;
-  html: string;
-  widthPx?: number;
-  singlePage?: boolean;
-}): Promise<void> {
-  const width = opts.widthPx ?? 920;
+async function mountHtmlForPdf(html: string, width: number): Promise<HTMLDivElement> {
   const wrap = document.createElement('div');
   wrap.id = `pdf-html-${Date.now()}`;
   wrap.style.cssText = [
@@ -494,8 +490,19 @@ export async function downloadHtmlPdf(opts: {
     'color:#1b2a33',
     'font:14px Figtree,Segoe UI,sans-serif',
   ].join(';');
-  wrap.innerHTML = opts.html;
+  wrap.innerHTML = html;
   document.body.appendChild(wrap);
+  return wrap;
+}
+
+export async function downloadHtmlPdf(opts: {
+  filename: string;
+  html: string;
+  widthPx?: number;
+  singlePage?: boolean;
+}): Promise<void> {
+  const width = opts.widthPx ?? 920;
+  const wrap = await mountHtmlForPdf(opts.html, width);
   try {
     await withGeneratingMask(() =>
       downloadElementPdf(wrap, opts.filename, {
@@ -504,6 +511,41 @@ export async function downloadHtmlPdf(opts: {
         singlePage: opts.singlePage === true,
       }),
     );
+  } finally {
+    wrap.remove();
+  }
+}
+
+export async function htmlPdfBlob(opts: {
+  html: string;
+  widthPx?: number;
+  singlePage?: boolean;
+}): Promise<Blob> {
+  const width = opts.widthPx ?? 920;
+  const wrap = await mountHtmlForPdf(opts.html, width);
+  try {
+    return await withGeneratingMask(async () => {
+      await ensureWebFonts();
+      await waitImages(wrap);
+      const unlock = unlockOverflow(wrap);
+      const unhide = hideForPdf(wrap);
+      wrap.classList.add('pdf-capturing');
+      const unpin = pinSourceForCapture(wrap, width);
+      try {
+        await new Promise((r) => window.setTimeout(r, 80));
+        const canvas = await renderCanvas(wrap, '#ffffff');
+        return canvasToPdfDoc(canvas, opts.singlePage === true).output('blob');
+      } finally {
+        try {
+          unpin();
+        } catch {
+          /* ignore */
+        }
+        wrap.classList.remove('pdf-capturing');
+        unhide();
+        unlock();
+      }
+    });
   } finally {
     wrap.remove();
   }

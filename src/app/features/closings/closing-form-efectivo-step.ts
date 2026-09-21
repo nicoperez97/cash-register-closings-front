@@ -33,7 +33,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
           <h3>Efectivo</h3>
-          <span class="closing-form__meta">Contá billetes, dejá cambio y quién se lo lleva</span>
+          <span class="closing-form__meta">Contá sin mirar el POS. La diferencia se ve en Caja, al revelar.</span>
         </div>
         <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="countBills.emit()">
           <mat-icon>payments</mat-icon>
@@ -83,6 +83,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
             <mat-label>Efectivo que se deja en caja</mat-label>
             <span matTextPrefix class="closing-field__prefix">$</span>
             <input matInput type="text" inputmode="decimal" appMoney formControlName="cashLeftInRegister" />
+            <mat-hint>Se propone como apertura del próximo turno</mat-hint>
           </mat-form-field>
           <p class="closing-form__account-hint closing-form__span-all">
             Al cargar el total se completa a retirar. Si dejás plata en caja, se descuenta solo.

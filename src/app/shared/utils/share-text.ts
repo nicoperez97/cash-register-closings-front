@@ -1,3 +1,4 @@
+import { downloadPdfBytes } from '../pdf/pdf-text';
 import { formatMoney } from './money';
 
 /** Comparte texto vía Web Share API o lo copia al portapapeles. */
@@ -25,6 +26,43 @@ export async function shareText(opts: {
   }
 
   if (await copyText(text)) return 'copied';
+  return 'failed';
+}
+
+export type SharePdfResult = 'shared' | 'copied' | 'downloaded' | 'aborted' | 'failed';
+
+/** Comparte un PDF (WhatsApp, etc.) o lo descarga y copia el texto. */
+export async function sharePdf(opts: {
+  title: string;
+  text: string;
+  filename: string;
+  bytes: Uint8Array;
+}): Promise<SharePdfResult> {
+  const copy = Uint8Array.from(opts.bytes);
+  const file = new File([copy], opts.filename, { type: 'application/pdf' });
+  const canShareFiles =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [file] });
+
+  if (canShareFiles) {
+    try {
+      await navigator.share({ title: opts.title, text: opts.text, files: [file] });
+      return 'shared';
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return 'aborted';
+      try {
+        await navigator.share({ title: opts.title, files: [file] });
+        return 'shared';
+      } catch (err2) {
+        if ((err2 as { name?: string })?.name === 'AbortError') return 'aborted';
+      }
+    }
+  }
+
+  downloadPdfBytes(copy, opts.filename);
+  if (await copyText(opts.text)) return 'downloaded';
   return 'failed';
 }
 

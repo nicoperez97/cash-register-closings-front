@@ -111,7 +111,7 @@
 .pay-list--compact {
   gap: 0.45rem;
 }
-@media (min-width: 720px) {
+@media (min-width: 961px) {
   .pay-list--cards {
     grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
     gap: 0.85rem;
@@ -145,7 +145,7 @@
 .pay-list--cards app-payment-card .pay-card__grid {
   grid-template-columns: 1fr;
 }
-@media (max-width: 719px) {
+@media (max-width: 960px) {
   .pay-list--cards {
     grid-template-columns: 1fr;
   }

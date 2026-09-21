@@ -9,6 +9,7 @@ import {
   untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { Title } from '@angular/platform-browser';
@@ -29,6 +30,9 @@ import {
   WaiterTable,
 } from './waiter-api.service';
 import {
+  ComandaLineReasonDialogComponent,
+  comandaReasonLabel,
+} from './comanda-line-reason-dialog';import {
   DEFAULT_WAITER_CAP_PUBLIC,
   DEFAULT_WAITER_CAP_STAFF,
   normalizeWaiterCapProfile,
@@ -87,6 +91,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(WaiterApiService);
+  private readonly dialog = inject(MatDialog);
   private readonly title = inject(Title);
   private readonly shopContext = inject(ShopContextService);
   private readonly theme = inject(ThemeService);
@@ -661,9 +666,15 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       .filter(Boolean)
       .join(', ');
     const extraBit = extras ? ` (+ ${extras})` : '';
+    const reasonBit = (() => {
+      const label = comandaReasonLabel(a.reason);
+      if (!label) return '';
+      const note = String(a.reasonNote ?? '').trim();
+      return note ? ` · ${label}: ${note}` : ` · ${label}`;
+    })();
     if (a.action === 'REMOVE') {
       const qty = a.qtyBefore ?? 1;
-      let s = `Quitó ${qty}× ${name}${extraBit}`;
+      let s = `Quitó ${qty}× ${name}${extraBit}${reasonBit}`;
       if (a.orderRemoved) s += ` · se borró el envío #${a.orderCode}`;
       return s;
     }
@@ -671,9 +682,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       return `Precio de ${name}: ${this.money(a.unitPriceBefore ?? 0)} → ${this.money(a.unitPriceAfter ?? 0)}`;
     }
     if (a.action === 'QTY') {
-      return `Cantidad de ${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${extraBit}`;
+      return `Cantidad de ${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${extraBit}${reasonBit}`;
     }
-    return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}`;
+    return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}${reasonBit}`;
   }
 
   /** Ítems editables de toda la mesa (agrupados por ítem + precio). */
@@ -774,6 +785,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     qty?: number | null;
     unitPrice?: number | null;
     remove?: boolean;
+    reason?: string | null;
+    reasonNote?: string | null;
   }): void {
     const slug = this.slug();
     const token = this.token();
@@ -805,6 +818,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       qty?: number | null;
       unitPrice?: number | null;
       remove?: boolean;
+      reason?: string | null;
+      reasonNote?: string | null;
     }>,
   ): void {
     if (!ops.length) return;
@@ -834,8 +849,26 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  private askLineReason(
+    itemName: string,
+    mode: 'remove' | 'qty_down',
+    onOk: (reason: string, note: string) => void,
+  ): void {
+    this.dialog
+      .open(ComandaLineReasonDialogComponent, {
+        width: 'min(420px, 94vw)',
+        data: { itemName, mode },
+      })
+      .afterClosed()
+      .subscribe((res) => {
+        if (!res?.reason) return;
+        onOk(res.reason, res.note || '');
+      });
+  }
+
   bumpTicketItem(
     row: {
+      name?: string;
       parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
     },
     delta: number,
@@ -843,10 +876,33 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (!this.capabilities().allowEditTicket) return;
     if (!row.parts.length) return;
     const last = row.parts[row.parts.length - 1];
+    const nextQty = Math.max(0, last.qty + delta);
+    if (delta < 0) {
+      this.askLineReason(row.name || 'Ítem', nextQty <= 0 ? 'remove' : 'qty_down', (reason, note) => {
+        if (nextQty <= 0) {
+          this.patchTicketLine({
+            orderId: last.orderId,
+            lineIndex: last.lineIndex,
+            remove: true,
+            reason,
+            reasonNote: note || null,
+          });
+        } else {
+          this.patchTicketLine({
+            orderId: last.orderId,
+            lineIndex: last.lineIndex,
+            qty: nextQty,
+            reason,
+            reasonNote: note || null,
+          });
+        }
+      });
+      return;
+    }
     this.patchTicketLine({
       orderId: last.orderId,
       lineIndex: last.lineIndex,
-      qty: Math.max(0, last.qty + delta),
+      qty: nextQty,
     });
   }
 
@@ -870,21 +926,25 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   removeTicketLine(row: {
+    name?: string;
     parts: Array<{ orderId: string; lineIndex: number; qty: number }>;
   }): void {
     if (!this.capabilities().allowRemoveTicketLines) return;
-    // Quitar de atrás hacia adelante para no invalidar índices en el mismo envío.
-    const ops = [...row.parts]
-      .sort((a, b) => {
-        if (a.orderId !== b.orderId) return a.orderId < b.orderId ? -1 : 1;
-        return b.lineIndex - a.lineIndex;
-      })
-      .map((p) => ({
-        orderId: p.orderId,
-        lineIndex: p.lineIndex,
-        remove: true as const,
-      }));
-    this.patchTicketLineChain(ops);
+    this.askLineReason(row.name || 'Ítem', 'remove', (reason, note) => {
+      const ops = [...row.parts]
+        .sort((a, b) => {
+          if (a.orderId !== b.orderId) return a.orderId < b.orderId ? -1 : 1;
+          return b.lineIndex - a.lineIndex;
+        })
+        .map((p) => ({
+          orderId: p.orderId,
+          lineIndex: p.lineIndex,
+          remove: true as const,
+          reason,
+          reasonNote: note || null,
+        }));
+      this.patchTicketLineChain(ops);
+    });
   }
 
   showToast(msg: string): void {
@@ -1724,6 +1784,30 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.busy.set(false);
         this.error.set(apiErrorMessage(err, 'No se pudo reimprimir'));
+      },
+    });
+  }
+
+  fireMains(): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session || this.busy()) return;
+    if (!this.capabilities().allowPrintKitchen) {
+      this.error.set('No está permitido imprimir cocina');
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    this.api.fireMains(slug, token, session.id).subscribe({
+      next: (updated) => {
+        this.busy.set(false);
+        this.session.set(updated);
+        this.showToast('Principales enviados a cocina');
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudieron mandar los principales'));
       },
     });
   }

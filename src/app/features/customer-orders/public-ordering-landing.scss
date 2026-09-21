@@ -25,8 +25,8 @@
 .page {
   max-width: 28rem;
   margin: 0 auto;
-  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem
-    calc(2.5rem + env(safe-area-inset-bottom, 0px));
+  padding: calc(1rem + var(--guy-safe-top)) 1rem
+    calc(2.5rem + var(--guy-safe-bottom));
 }
 
 .page--error,

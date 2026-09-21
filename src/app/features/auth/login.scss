@@ -558,7 +558,7 @@
   .login-page {
     padding: 1rem;
     padding-top: max(1rem, env(safe-area-inset-top));
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(1rem + var(--guy-safe-bottom));
     align-content: center;
   }
 

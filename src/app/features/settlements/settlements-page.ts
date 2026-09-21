@@ -152,6 +152,9 @@ type SettlementGroup = {
                   <p>
                     {{ kindLabel(group.kind) }}
                     · {{ group.items.length }} pendiente{{ group.items.length === 1 ? '' : 's' }}
+                    @if (groupNet(group) !== group.total) {
+                      · neto ~{{ money(groupNet(group)) }}
+                    }
                   </p>
                 </div>
                 <strong class="settle-group__total">{{ money(group.total) }}</strong>
@@ -171,6 +174,21 @@ type SettlementGroup = {
                     <div class="settle-card__main">
                       <div>
                         <h3 class="settle-card__date">{{ formatDate(row.businessDate) }}</h3>
+                        @if (row.expectedCreditDate) {
+                          <p class="settle-card__expect">
+                            Acredita ~
+                            {{ formatDate(row.expectedCreditDate) }}
+                            @if (row.settlementLagDays) {
+                              ({{ row.settlementLagDays }}d)
+                            }
+                          </p>
+                        }
+                        @if (row.commissionPercent) {
+                          <p class="settle-card__lines">
+                            Neto ~{{ money(row.netEstimate ?? row.amount) }}
+                            · comisión {{ row.commissionPercent }}%
+                          </p>
+                        }
                         @if (row.lines.length > 1) {
                           <p class="settle-card__lines">{{ linesLabel(row) }}</p>
                         }
@@ -331,6 +349,12 @@ type SettlementGroup = {
       .settle-card__date {
         margin: 0 0 0.2rem;
         font-size: 1.05rem;
+      }
+      .settle-card__expect {
+        margin: 0 0 0.2rem;
+        font-size: 0.82rem;
+        font-weight: 650;
+        color: var(--guy-primary, #0b5cab);
       }
       .settle-card__lines {
         margin: 0 0 0.2rem;
@@ -549,6 +573,10 @@ export class SettlementsPage {
 
   kindLabel(kind: PendingSettlement['kind']): string {
     return closingSourceKindLabel(kind);
+  }
+
+  groupNet(group: SettlementGroup): number {
+    return group.items.reduce((s, r) => s + (r.netEstimate ?? r.amount ?? 0), 0);
   }
 
   formatDate(iso: string): string {

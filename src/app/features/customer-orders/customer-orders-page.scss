@@ -18,6 +18,42 @@
   padding: 0.9rem 1rem 1rem;
 }
 
+.co-outbox {
+  margin: 0 0 0.9rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: #fff8e8;
+  border: 1px solid #f0d78c;
+  color: #7a5a00;
+  font-size: 0.9rem;
+  font-weight: 650;
+  box-shadow: 0 6px 18px color-mix(in srgb, #f0d78c 35%, transparent);
+}
+
+.co-outbox p {
+  margin: 0;
+}
+
+.co-outbox p + p {
+  margin-top: 0.45rem;
+}
+
+.co-outbox__retry {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--guy-touch-min, 44px);
+  margin-left: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid color-mix(in srgb, #7a5a00 35%, transparent);
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
 .co-config {
   display: grid;
   gap: 0.85rem;
