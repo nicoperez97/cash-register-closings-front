@@ -613,13 +613,18 @@ export class MainLayoutComponent {
     () => this.isPublicPageViewer() || this.immersiveChrome.toolbarHidden(),
   );
 
-  /** Controles flotantes para volver a mostrar la toolbar (no aplica al visor público). */
-  readonly showChromeReveal = computed(
+  /** Modo inmersivo (Comanda / Pedidos) con chrome oculta. */
+  readonly chromeOff = computed(
     () => this.immersiveChrome.toolbarHidden() && !this.isPublicPageViewer(),
   );
 
+  /** Botones flotantes Menú/Barra: no se muestran si tapan el carrito o un sheet. */
+  readonly showChromeReveal = computed(
+    () => this.chromeOff() && !this.immersiveChrome.bottomBlocked(),
+  );
+
   /** Overlay (móvil o chrome oculta): el menú no empuja el contenido. */
-  readonly sidenavOverlay = computed(() => this.isMobile() || this.showChromeReveal());
+  readonly sidenavOverlay = computed(() => this.isMobile() || this.chromeOff());
 
   constructor() {
     this.mainPwa.start();
@@ -642,7 +647,7 @@ export class MainLayoutComponent {
       if (prev === mobile) return;
       this.lastMobile.set(mobile);
       // Desktop: drawer abierto (salvo modo inmersivo). Mobile: overlay cerrado.
-      if (untracked(() => this.showChromeReveal())) {
+      if (untracked(() => this.chromeOff())) {
         this.sidenavOpen.set(false);
         return;
       }
@@ -652,7 +657,7 @@ export class MainLayoutComponent {
     // Al entrar a Comanda / Pedidos: cerrar sidenav. Al salir: restaurar en desktop.
     let wasImmersive = false;
     effect(() => {
-      const immersive = this.showChromeReveal();
+      const immersive = this.chromeOff();
       if (immersive === wasImmersive) return;
       const leaving = wasImmersive && !immersive;
       wasImmersive = immersive;

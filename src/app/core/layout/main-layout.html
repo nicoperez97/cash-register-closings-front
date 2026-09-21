@@ -2,7 +2,7 @@
   class="layout-root"
   [class.layout-root--mobile]="isMobile()"
   [class.layout-root--rail]="!sidenavOverlay() && !isMobile() && !sidenavExpanded()"
-  [class.layout-root--chrome-off]="showChromeReveal()"
+  [class.layout-root--chrome-off]="chromeOff()"
 >
   <mat-sidenav-container class="layout-container">
     <mat-sidenav
@@ -50,7 +50,7 @@
         <main
           class="layout-content container-fluid guy-page-enter"
           [class.py-4]="!isCashierLayout() && !hideMainToolbar()"
-          [class.py-2]="isCashierLayout() || showChromeReveal()"
+          [class.py-2]="isCashierLayout() || chromeOff()"
           [class.layout-content--cashier]="isCashierLayout()"
           [class.layout-content--immersive]="isPublicPageViewer()"
         >

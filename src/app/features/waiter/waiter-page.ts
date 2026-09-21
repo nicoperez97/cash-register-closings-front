@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -15,6 +16,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ThemeService } from '../../core/theme/theme.service';
+import { ImmersiveChromeService } from '../../core/layout/immersive-chrome.service';
 import { prettySection } from '../menu/menu-display';
 import { apiErrorMessage, formatOrderLinesInline, groupOrderLines, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
 import {
@@ -87,6 +89,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly title = inject(Title);
   private readonly shopContext = inject(ShopContextService);
   private readonly theme = inject(ThemeService);
+  private readonly immersiveChrome = inject(ImmersiveChromeService);
 
   /** Operación → Comanda (JWT, sin PIN). */
   readonly staffMode = !!this.route.snapshot.data['staffComanda'];
@@ -189,6 +192,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       const fromShop = this.shopContext.accentColor();
       const next = this.resolveAccent(fromShop);
       if (next !== this.accent()) this.accent.set(next);
+    });
+
+    effect(() => {
+      if (!this.staffMode) return;
+      const blocked =
+        this.view() === 'session' ||
+        this.coversSheet() != null ||
+        this.closeSheet() ||
+        this.historyOpen() ||
+        this.ticketSheet();
+      untracked(() => this.immersiveChrome.setBottomBlocked('comanda', blocked));
     });
   }
 
@@ -604,6 +618,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.immersiveChrome.setBottomBlocked('comanda', false);
     resetStatusBar();
   }
 
