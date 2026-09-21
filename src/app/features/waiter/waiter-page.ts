@@ -80,6 +80,7 @@ function tokenKey(slug: string) {
     '[class.view-session]': 'view() === "session"',
     '[class.view-map]': 'view() === "tables" && showMap()',
     '[class.staff-embedded]': 'staffMode',
+    '[class.chrome-off]': 'staffChromeOff()',
   },
 })
 export class WaiterPageComponent implements OnInit, OnDestroy {
@@ -93,6 +94,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   /** Operación → Comanda (JWT, sin PIN). */
   readonly staffMode = !!this.route.snapshot.data['staffComanda'];
+  /** Toolbar oculta: hay que respetar el safe-area de iOS (si no, ← Mesas queda bajo el reloj). */
+  readonly staffChromeOff = computed(
+    () => this.staffMode && this.immersiveChrome.toolbarHidden(),
+  );
 
   private readonly slugSignal = signal(
     String(this.route.snapshot.paramMap.get('slug') ?? '').trim(),
