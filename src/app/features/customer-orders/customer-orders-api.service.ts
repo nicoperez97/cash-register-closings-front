@@ -23,7 +23,7 @@ export interface PublicOrderingShop {
   phone?: string | null;
   instagramHandle?: string | null;
   currency?: string;
-  shopMode?: string;
+  shopMode?: string; // obsoleto: Pedidos / Comanda / Salón se prenden aparte
 }
 
 export interface PublicOrderingMenuItem {
@@ -129,6 +129,8 @@ export interface CreatePublicCustomerOrderBody {
   discountFixed?: number | null;
   /** Solo mostrador: imprimir ticket del cliente (default true). */
   printCustomerTicket?: boolean;
+  /** Idempotencia: reenviar el mismo id no duplica el pedido. */
+  clientRequestId?: string;
 }
 
 export interface PublicCustomerOrder {

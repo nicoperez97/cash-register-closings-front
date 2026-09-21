@@ -52,6 +52,7 @@ export type ClosingFormRawValue = {
   cashWithdrawnByUserId: string;
   cashWithdrawnToAccountId: string;
   notes: string;
+  differenceReason?: string;
   posnetAmounts: ClosingPosnetAmount[];
   dniTransfers: ClosingFormDniTransferRaw[];
   expenses: ClosingFormExpenseRaw[];
@@ -242,6 +243,7 @@ export function prepareClosingSaveBody(
       meta: cobroPaymentMethodToMeta(s.paymentMethod),
     })),
     notes: String(raw.notes ?? '').trim() || null,
+    differenceReason: String(raw.differenceReason ?? '').trim() || null,
     sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
       .filter((s) => !!s.sourceId)
       .map((s) => {
@@ -350,6 +352,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     declaredTotal: declared,
     calculatedTotal: declared,
     difference: pos - declared,
+    differenceReason: String(raw.differenceReason ?? '').trim() || null,
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,
     expenses,

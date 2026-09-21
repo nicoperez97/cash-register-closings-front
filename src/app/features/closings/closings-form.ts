@@ -40,7 +40,7 @@ import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ClosingStepFile, ClosingStepFileSlot, ShopClosingSource, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
-import { shareText } from '../../shared/utils/share-text';
+import { shareClosingPdf, shareClosingSnack } from './closing-pdf';
 import {
   closingSharePayload,
 } from '../../shared/components/record-share-builders';
@@ -112,6 +112,7 @@ import {
   cashSplitBalances,
   closingMoney,
   closingNum,
+  differenceReasonIsRequired,
   emptyNum as toEmptyNum,
   roundMoney,
   toDateInput,
@@ -230,8 +231,9 @@ import {
                   </button>
                 }
               </div>
-              <span aria-live="polite">
-                Paso {{ stepIndex() + 1 }} de {{ stepLabels.length }} · {{ stepLabels[stepIndex()] }}
+              <span class="closing-stepper__title" aria-live="polite">
+                <em>{{ stepLabels[stepIndex()] }}</em>
+                <small>Paso {{ stepIndex() + 1 }} de {{ stepLabels.length }}</small>
               </span>
             </div>
           }
@@ -242,7 +244,7 @@ import {
             orientation="horizontal"
             [linear]="false"
             [animationDuration]="isMobile() ? '0' : ''"
-            (selectionChange)="stepIndex.set($event.selectedIndex)"
+            (selectionChange)="onStepChange($event.selectedIndex)"
           >
             <mat-step label="Posnets">
               <app-closing-form-posnets-step
@@ -339,11 +341,15 @@ import {
                 [breakdown]="cajaBreakdown()"
                 [difference]="cajaDifference()"
                 [differenceLabel]="cajaDifferenceLabel()"
+                [reasonRequired]="differenceReasonRequired()"
+                [reasonHint]="differenceReasonHint()"
                 [files]="posSystemFiles()"
                 [filesBusy]="parsingKey() === 'pos_system'"
                 [filesDisabled]="filesDisabled()"
                 [requireClosingFiles]="requireClosingFiles()"
-                [hasAmount]="posAmount() > 0"
+                [hasAmount]="cajaEntered()"
+                [revealed]="cajaRevealed()"
+                (reveal)="cajaRevealed.set(true)"
                 (filePicked)="onStepFilesPicked('pos_system', null, $event)"
                 (fileView)="onStepFileView($event)"
                 (fileRemove)="onStepFileRemoved('pos_system', null, $event)"
@@ -358,6 +364,8 @@ import {
                 [accountDniAmount]="money(accountDniAmount())"
                 [posAmount]="money(posAmount())"
                 [declaredTotal]="money(declaredTotal())"
+                [difference]="cajaRevealed() ? cajaDifferenceLabel() : ''"
+                [differenceTone]="cajaDifference()"
                 [asideTotal]="asideTotal() > 0 ? money(asideTotal()) : ''"
                 [dayTotal]="money(dayTotal())"
                 [asideLines]="asideLines()"
@@ -445,7 +453,7 @@ export class ClosingsFormPage implements OnInit {
   readonly cashierOnly = () => isCashierOnly(this.auth.currentUser(), this.shops.selectedShopId());
   readonly isLocked = () => this.status() === 'LOCKED';
   readonly isMobile = toSignal(
-    this.breakpointObserver.observe('(max-width: 720px)').pipe(map((r) => r.matches)),
+    this.breakpointObserver.observe('(max-width: 960px)').pipe(map((r) => r.matches)),
     { initialValue: false },
   );
   readonly stepIndex = signal(0);
@@ -459,6 +467,7 @@ export class ClosingsFormPage implements OnInit {
     'Resumen',
   ] as const;
   readonly isLastStep = computed(() => this.stepIndex() === this.stepLabels.length - 1);
+  readonly cajaRevealed = signal(false);
   private readonly stepper = viewChild(MatStepper);
   private closingId: string | null = null;
 
@@ -494,6 +503,7 @@ export class ClosingsFormPage implements OnInit {
     cashWithdrawnToAccountId: [''],
     tipsAmount: [null as number | null],
     notes: [''],
+    differenceReason: [''],
     expenses: this.fb.array([]),
     posnetAmounts: this.fb.array([]),
     dniTransfers: this.fb.array([]),
@@ -594,7 +604,7 @@ export class ClosingsFormPage implements OnInit {
   readonly mpAmount = computed(() => this.n(this.formValue().mercadoPagoAmount));
   readonly accountDniAmount = computed(() => this.n(this.formValue().accountDniAmount));
   readonly posAmount = computed(() => this.n(this.formValue().posSystemAmount));
-  readonly requireClosingFiles = computed(() => !!this.shop()?.requireClosingFiles);
+  readonly requireClosingFiles = computed(() => false);
   readonly dniNeedsFiles = computed(() => {
     const transfers = (this.formValue().dniTransfers ?? []) as Array<{ amount?: unknown }>;
     const hasTransfer = transfers.some((t) => this.n(t.amount) > 0);
@@ -678,6 +688,22 @@ export class ClosingsFormPage implements OnInit {
   readonly cajaDifferenceLabel = computed(() => {
     const difference = this.cajaDifference();
     return difference == null ? '—' : this.money(difference);
+  });
+
+  readonly differenceReasonMinAmount = computed(
+    () => Number(this.shop()?.differenceReasonMinAmount ?? 0) || 0,
+  );
+
+  readonly saveDifference = computed(() => this.posAmount() - this.declaredTotal());
+
+  readonly differenceReasonRequired = computed(() =>
+    differenceReasonIsRequired(this.differenceReasonMinAmount(), this.saveDifference()),
+  );
+
+  readonly differenceReasonHint = computed(() => {
+    const min = this.differenceReasonMinAmount();
+    if (!(min > 0)) return 'Opcional. Explicá si hay diferencia.';
+    return `Obligatorio si la diferencia es de ${this.money(min)} o más.`;
   });
 
   readonly asideLines = computed(() => {
@@ -885,6 +911,7 @@ export class ClosingsFormPage implements OnInit {
         this.pendingStepFiles.set([]);
         this.syncSourceAmounts();
         this.syncOtherCobros(cobrosFromClosing(c));
+        this.cajaRevealed.set(true);
       });
     } else {
       const today = this.currentBusinessDate();
@@ -910,6 +937,8 @@ export class ClosingsFormPage implements OnInit {
         this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
           duration: 4000,
         });
+      } else if (!wantEvent) {
+        this.applySuggestedOpening(shopId);
       }
       if (!this.isEvent()) this.refreshPendingClosingNotice();
       this.startClosingDraftAutosave();
@@ -1464,14 +1493,16 @@ export class ClosingsFormPage implements OnInit {
   }
 
   openBillCounter(): void {
+    const mobile = this.isMobile();
     this.dialogTitle
       .track(
         this.dialog.open(CashBillCounterDialogComponent, {
-          width: '440px',
-          maxWidth: '96vw',
-          maxHeight: 'calc(100dvh - 4.5rem)',
+          width: mobile ? '100vw' : '440px',
+          maxWidth: mobile ? '100vw' : '96vw',
+          height: mobile ? '100dvh' : undefined,
+          maxHeight: mobile ? '100dvh' : 'calc(100dvh - 4.5rem)',
           autoFocus: 'dialog',
-          panelClass: 'guy-dialog',
+          panelClass: mobile ? ['guy-dialog', 'guy-dialog--sheet'] : 'guy-dialog',
           data: {
             initialTotal: this.form.controls.cashAmount.value,
           },
@@ -1533,14 +1564,14 @@ export class ClosingsFormPage implements OnInit {
 
   private async doShare(): Promise<void> {
     const shopName = this.shop()?.name ?? 'Local';
-    const payload = closingSharePayload(this.shareClosingSnapshot(), shopName, {
-      unitsLabel: this.shop()?.unitsLabel,
-    });
-    const result = await shareText(payload);
-    if (result === 'copied') {
-      this.snack.open('Resumen copiado al portapapeles', 'OK', { duration: 2500 });
-    } else if (result === 'failed') {
-      this.snack.open('No se pudo compartir', 'OK', { duration: 3000 });
+    try {
+      const result = await shareClosingPdf(this.shareClosingSnapshot(), shopName, {
+        unitsLabel: this.shop()?.unitsLabel,
+      });
+      const msg = shareClosingSnack(result);
+      if (msg) this.snack.open(msg, 'OK', { duration: 2800 });
+    } catch {
+      this.snack.open('No se pudo armar el PDF', 'OK', { duration: 3000 });
     }
   }
 
@@ -1601,6 +1632,15 @@ export class ClosingsFormPage implements OnInit {
       return null;
     }
     this.runSyncDerivedTotals();
+    if (this.differenceReasonRequired()) {
+      const reason = String(this.form.controls.differenceReason.value ?? '').trim();
+      if (!reason) {
+        this.cajaRevealed.set(true);
+        this.goToStep(5);
+        this.snack.open(this.differenceReasonHint(), 'OK', { duration: 4000 });
+        return null;
+      }
+    }
     const result = prepareClosingSaveBody({
       formRaw: this.form.getRawValue() as ClosingFormRawValue,
       users: this.users(),
@@ -1771,6 +1811,7 @@ export class ClosingsFormPage implements OnInit {
               cashWithdrawnByName: body.cashWithdrawnByName ?? null,
               shareTitle: share.title,
               shareText: share.text,
+              shareClosing: snapshot,
               shareAfterSave: opts?.shareAfterSave === true,
               save$: () =>
                 this.api.create(shopId, body).pipe(
@@ -1812,6 +1853,12 @@ export class ClosingsFormPage implements OnInit {
     const stepper = this.stepper();
     if (!stepper || index < 0 || index >= this.stepLabels.length) return;
     stepper.selectedIndex = index;
+    this.onStepChange(index);
+  }
+
+  onStepChange(index: number): void {
+    const cajaIndex = this.stepLabels.indexOf('Caja');
+    if (index > cajaIndex && this.cajaEntered()) this.cajaRevealed.set(true);
     this.stepIndex.set(index);
   }
 
@@ -1898,6 +1945,22 @@ export class ClosingsFormPage implements OnInit {
     });
   }
 
+  private applySuggestedOpening(shopId: string | null): void {
+    if (!shopId) return;
+    this.api.suggestedOpening(shopId).subscribe({
+      next: (s) => {
+        const amount = this.emptyNum(s.amount);
+        this.form.patchValue({
+          cashOpeningAmount: amount,
+          cashLeftInRegister: amount,
+        });
+      },
+      error: () => {
+        /* queda el cambio por defecto del local */
+      },
+    });
+  }
+
   private startClosingDraftAutosave(): void {
     this.form.valueChanges
       .pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef))
@@ -1905,6 +1968,7 @@ export class ClosingsFormPage implements OnInit {
   }
 
   private resetForNextClosing(): void {
+    const lastLeave = this.emptyNum(this.form.controls.cashLeftInRegister.value);
     clearClosingDraft();
     this.pendingClosing.set(null);
     this.isEvent.set(false);
@@ -1914,7 +1978,7 @@ export class ClosingsFormPage implements OnInit {
     this.form.reset(
       resetClosingFormForNext({
         currentBusinessDate: today,
-        defaultChangeAmount: this.shop()?.defaultChangeAmount,
+        defaultChangeAmount: lastLeave ?? this.shop()?.defaultChangeAmount,
         emptyNum: (v) => this.emptyNum(v),
         toDateInput,
       }),
@@ -1925,6 +1989,7 @@ export class ClosingsFormPage implements OnInit {
     this.pendingStepFiles.set([]);
     this.syncSourceAmounts();
     this.syncOtherCobros([]);
+    this.cajaRevealed.set(false);
   }
 
   addExpense(): void {

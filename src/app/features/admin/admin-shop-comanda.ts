@@ -39,6 +39,7 @@ import { WAITER_CAP_FIELDS, type WaiterCapProfile } from './waiter-capabilities'
           <h2 class="op__title">Comandas</h2>
           <p class="op__lead">
             Operación → Comanda, link público /mozo, medios de pago de mesa y permisos.
+            Independiente de Pedidos: un restaurante puede tener mesas y también take away y delivery.
           </p>
         </div>
 

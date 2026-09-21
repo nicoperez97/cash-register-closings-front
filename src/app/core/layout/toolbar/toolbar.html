@@ -148,6 +148,17 @@
         }
       </span>
     }
+    @if (staffOutboxCount()) {
+      <span
+        class="offline-pill"
+        matTooltip="Pedidos de mostrador en cola; se mandan al volver la red"
+      >
+        <mat-icon>cloud_upload</mat-icon>
+        @if (!isMobile()) {
+          <span>{{ staffOutboxCount() }} sin enviar</span>
+        }
+      </span>
+    }
 
     @if (immersiveChrome.canToggle()) {
       <button

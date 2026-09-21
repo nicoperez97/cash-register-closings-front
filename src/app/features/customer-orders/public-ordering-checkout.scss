@@ -23,8 +23,8 @@
 .page {
   max-width: 28rem;
   margin: 0 auto;
-  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem
-    calc(2.5rem + env(safe-area-inset-bottom, 0px));
+  padding: calc(1rem + var(--guy-safe-top)) 1rem
+    calc(5.5rem + var(--guy-safe-bottom));
   display: grid;
   gap: 0.85rem;
   width: 100%;
@@ -408,11 +408,31 @@ textarea:focus {
   margin-top: 1rem;
   background: var(--accent, #2e7d32);
   color: var(--on-accent, #ffffff);
+  min-height: var(--guy-touch-min, 44px);
 }
 
 .btn--primary:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.checkout-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin: 1rem -0.15rem -0.35rem;
+  padding: 0.65rem 0.15rem calc(0.65rem + var(--guy-safe-bottom));
+  background: linear-gradient(
+    to top,
+    var(--paper, #eef1ee) 55%,
+    color-mix(in srgb, var(--paper, #eef1ee) 70%, transparent)
+  );
+
+  .btn--primary {
+    margin-top: 0;
+    width: 100%;
+    min-height: calc(var(--guy-touch-min, 44px) + 0.35rem);
+  }
 }
 
 .btn--ghost {
@@ -560,8 +580,8 @@ textarea:focus {
 @media (min-width: 720px) {
   .page {
     max-width: min(56rem, 94vw);
-    padding: calc(1.15rem + env(safe-area-inset-top, 0px)) 1.5rem
-      calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    padding: calc(1.15rem + var(--guy-safe-top)) 1.5rem
+      calc(2.75rem + var(--guy-safe-bottom));
     gap: 1rem;
   }
 

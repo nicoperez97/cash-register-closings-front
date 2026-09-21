@@ -15,7 +15,6 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
 import { debounceTime, merge } from 'rxjs';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
 import { copyText } from '../../shared/utils/share-text';
@@ -39,7 +38,6 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   imports: [
     ReactiveFormsModule,
-    RouterLink,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
@@ -55,7 +53,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
         <header class="op__head">
           <h2 class="op__title">Pedidos</h2>
           <p class="op__lead">
-            Página pública /pedir, take away y delivery. La comanda de mesas está en Comandas.
+            Página pública /pedir, take away y delivery. Independiente de las mesas: podés tener
+            Pedidos y Comanda al mismo tiempo.
           </p>
         </header>
 
@@ -105,8 +104,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
         </div>
 
         <p class="op__schedule-hint" style="margin-top: 0.75rem">
-          Comanda de mesas (/mozo y Operación → Comanda) se configura en
-          <a routerLink="/admin/shop/comanda">Comandas</a>.
+          Mesas en el local: Configuración → Comandas (y Salón si usás reservas). No se apaga al
+          activar take away o delivery.
         </p>
 
         <div class="guy-form-grid guy-form-grid--2" style="margin-top: 1rem">

@@ -78,6 +78,25 @@
   cursor: pointer;
 }
 
+.pos__queue-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--guy-touch-min, 44px);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  background: #fff3cd;
+  color: #9a6700;
+  border: 1px solid #f0d78c;
+  margin-left: auto;
+  box-shadow: 0 4px 12px color-mix(in srgb, #f0d78c 40%, transparent);
+}
+
+.pos__queue-pill + .pos__clear {
+  margin-left: 0;
+}
+
 .pos__clear:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -395,8 +414,10 @@
   background: #fff;
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
+  min-height: var(--guy-touch-min, 44px);
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
   color: var(--guy-ink, #1a221c);
 }
 
@@ -414,18 +435,29 @@
 }
 
 @media (max-width: 900px) {
+  :host {
+    --guy-chrome-bottom: 4.75rem;
+  }
+
+  .pos {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(4.75rem + var(--guy-safe-bottom, 0px));
+  }
+
   .pos__grid {
     grid-template-columns: 1fr;
-    overflow: auto;
+    overflow: visible;
   }
 
   .pos__ticket {
-    order: -1;
+    order: 2;
     overflow: visible;
     flex: 0 0 auto;
   }
 
   .pos__catalog {
+    order: 1;
     overflow: visible;
     flex: 0 0 auto;
   }
@@ -433,5 +465,26 @@
   .pos__items {
     flex: none;
     max-height: min(50dvh, 22rem);
+  }
+
+  .pos__qty button {
+    width: var(--guy-touch-min, 44px);
+    height: var(--guy-touch-min, 44px);
+    min-width: var(--guy-touch-min, 44px);
+    min-height: var(--guy-touch-min, 44px);
+  }
+
+  /* CTA cobrar siempre visible sobre home indicator. */
+  .pos__btn--primary {
+    position: fixed;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(0.65rem + var(--guy-sticky-offset, 0px));
+    z-index: 30;
+    width: auto;
+    max-width: calc(100% - 1.5rem);
+    margin: 0 auto;
+    min-height: calc(var(--guy-touch-min, 44px) + 0.35rem);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--accent, #2e7d32) 35%, transparent);
   }
 }

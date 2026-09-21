@@ -175,7 +175,7 @@
   color: var(--guy-navy, #003366);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 960px) {
   /* Evitar tarjeta dentro de tarjeta: el section ya enmarca el paso */
   .closing-form__block {
     padding: 0;
@@ -206,8 +206,8 @@
   }
 
   .closing-form__add-btn {
-    min-height: 36px !important;
-    padding-inline: 0.7rem !important;
+    min-height: var(--guy-touch-min, 44px) !important;
+    padding-inline: 0.85rem !important;
   }
 
   .closing-form__block-body {

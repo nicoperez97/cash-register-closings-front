@@ -105,3 +105,26 @@ export const POSNET_TYPE_LABEL: Record<string, string> = {
 };
 
 export type PosnetType = 'PVS' | 'MERCADO_PAGO' | 'CUENTA_DNI';
+
+/** Si el local pide motivo cuando |diferencia| llega al tope. 0 = no pedir. */
+export function differenceReasonIsRequired(
+  minAmount: number | null | undefined,
+  difference: number | null | undefined,
+): boolean {
+  const min = Number(minAmount ?? 0);
+  if (!(min > 0) || difference == null || !Number.isFinite(Number(difference))) return false;
+  return Math.abs(Number(difference)) >= min;
+}
+
+export function formatSuggestedOpeningHint(s: {
+  source?: 'previous' | 'default' | string | null;
+  previousDate?: string | null;
+  previousShiftName?: string | null;
+}): string {
+  if (s.source !== 'previous') return 'Cambio por defecto del local';
+  const raw = String(s.previousDate ?? '').slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const date = m ? `${Number(m[3])}/${Number(m[2])}` : raw || '—';
+  const shift = String(s.previousShiftName ?? '').trim();
+  return shift ? `Dejado en caja el ${date} · ${shift}` : `Dejado en caja el ${date}`;
+}

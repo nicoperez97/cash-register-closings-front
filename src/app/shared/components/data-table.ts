@@ -844,7 +844,7 @@ export interface DataTableColumn {
         display: none;
       }
 
-      @media (max-width: 720px) {
+      @media (max-width: 960px) {
         .data-table {
           border: none;
           box-shadow: none;

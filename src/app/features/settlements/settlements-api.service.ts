@@ -12,6 +12,11 @@ export interface PendingSettlement {
   kind: ClosingSourceKind;
   amount: number;
   lines: number[];
+  settlementLagDays?: number;
+  expectedCreditDate?: string | null;
+  commissionPercent?: number;
+  commissionAmount?: number;
+  netEstimate?: number;
 }
 
 export interface SettlementHistoryItem {
@@ -37,6 +42,23 @@ export interface SettlementHistoryGroup {
   items: SettlementHistoryItem[];
 }
 
+export interface ChannelReceivableRow {
+  name: string;
+  kind: ClosingSourceKind;
+  count: number;
+  gross: number;
+  net: number;
+  earliestExpected: string | null;
+}
+
+export interface ChannelReceivablesSummary {
+  totalGross: number;
+  totalNet: number;
+  count: number;
+  earliestExpected: string | null;
+  byChannel: ChannelReceivableRow[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class SettlementsApiService {
   private readonly http = inject(HttpClient);
@@ -48,6 +70,12 @@ export class SettlementsApiService {
 
   pendingCount(shopId: string) {
     return this.http.get<{ count: number }>(`${this.base}/shops/${shopId}/settlements/pending-count`);
+  }
+
+  receivablesSummary(shopId: string) {
+    return this.http.get<ChannelReceivablesSummary>(
+      `${this.base}/shops/${shopId}/settlements/receivables-summary`,
+    );
   }
 
   listHistory(shopId: string) {

@@ -9,8 +9,10 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(var(--guy-bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px));
+    bottom: var(--guy-sticky-offset, env(safe-area-inset-bottom, 0px));
     z-index: 25;
+    /* Altura de esta barra para que el form reserve espacio (Ola 0). */
+    --guy-chrome-bottom: 4.75rem;
   }
 
   .closing-form-actions--sticky {
@@ -26,6 +28,6 @@
 
   .closing-form-actions--sticky .mat-mdc-button-base {
     flex: 1 1 0;
-    min-height: 44px;
+    min-height: var(--guy-touch-min, 44px);
   }
 }

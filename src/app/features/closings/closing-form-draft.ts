@@ -208,6 +208,7 @@ export function applyClosingFormDraft(
       cashWithdrawnToAccountId: String(raw['cashWithdrawnToAccountId'] ?? ''),
       tipsAmount: emptyNum(raw['tipsAmount']),
       notes: String(raw['notes'] ?? ''),
+      differenceReason: String(raw['differenceReason'] ?? ''),
     },
     { emitEvent: false },
   );

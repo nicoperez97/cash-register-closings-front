@@ -26,6 +26,7 @@ import {
   type PendingClosingNotice,
 } from '../closings/closing-form-draft';
 import { ClosingsApiService, type CashClosing } from '../closings/closings-api.service';
+import { formatSuggestedOpeningHint } from '../closings/closings-form.utils';
 import {
   SelectSearchComponent,
   filterBySelectQuery,
@@ -87,6 +88,8 @@ type ClosingSummary = {
   tables?: {
     closedCount: number;
     coversTotal: number;
+    coversFromReservations?: number;
+    coversSuggested?: number;
     ticketTotal: number;
     tipTotal: number;
     cashTotal: number;
@@ -216,6 +219,9 @@ type ClosingSummary = {
                     name="openingAmount"
                     [disabled]="openingCaja()"
                   />
+                  @if (openingHint) {
+                    <small>{{ openingHint }}</small>
+                  }
                 </label>
                 <button
                   mat-flat-button
@@ -609,6 +615,10 @@ type ClosingSummary = {
       border-radius: 8px;
       font: inherit;
     }
+    .ocp__caja-amount small {
+      max-width: 14rem;
+      line-height: 1.25;
+    }
     .ocp__save {
       display: flex;
       justify-content: center;
@@ -650,6 +660,7 @@ export class OrderingCatalogPanelComponent {
   readonly justAutoClosed = signal(false);
 
   openingAmount: number | null = null;
+  openingHint = '';
   takeawayEnabled = true;
   deliveryEnabled = false;
   payCash = true;
@@ -1060,7 +1071,12 @@ export class OrderingCatalogPanelComponent {
         transferAmount: null,
         posSystemAmount: null,
         unitsSold: summary.unitsSold > 0 ? summary.unitsSold : null,
-        coversCount: tables?.coversTotal && tables.coversTotal > 0 ? tables.coversTotal : null,
+        coversCount:
+          tables?.coversSuggested && tables.coversSuggested > 0
+            ? tables.coversSuggested
+            : tables?.coversTotal && tables.coversTotal > 0
+              ? tables.coversTotal
+              : null,
         cashWithdrawn: null,
         cashWithdrawnByUserId: '',
         cashWithdrawnToAccountId: '',
@@ -1075,12 +1091,31 @@ export class OrderingCatalogPanelComponent {
     };
   }
 
+  private applySuggestedOpening(shopId: string): void {
+    this.closingsApi.suggestedOpening(shopId).subscribe({
+      next: (s) => {
+        this.openingAmount = Number(s.amount) || 0;
+        this.openingHint = formatSuggestedOpeningHint(s);
+      },
+      error: () => {
+        /* queda el cambio por defecto */
+      },
+    });
+  }
+
   private reload(shopId: string): void {
     this.loading.set(true);
     this.openingAmount = this.shops.selectedShop()?.defaultChangeAmount ?? this.openingAmount;
+    this.openingHint = this.openingAmount != null ? 'Cambio por defecto del local' : '';
     this.closingsApi.getOpen(shopId).subscribe({
-      next: (caja) => this.openClosing.set(caja ?? null),
-      error: () => this.openClosing.set(null),
+      next: (caja) => {
+        this.openClosing.set(caja ?? null);
+        if (!caja) this.applySuggestedOpening(shopId);
+      },
+      error: () => {
+        this.openClosing.set(null);
+        this.applySuggestedOpening(shopId);
+      },
     });
     this.http
       .get<{
@@ -1113,6 +1148,7 @@ export class OrderingCatalogPanelComponent {
           }
           if (this.openingAmount == null && s.defaultChangeAmount != null) {
             this.openingAmount = Number(s.defaultChangeAmount) || 0;
+            if (!this.openingHint) this.openingHint = 'Cambio por defecto del local';
           }
           this.takeawayEnabled = s.takeawayEnabled !== false;
           this.deliveryEnabled = !!s.deliveryEnabled;

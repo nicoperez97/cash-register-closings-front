@@ -30,6 +30,7 @@ export interface AdminShopRow {
   publicAttendanceEnabled?: boolean;
   menuEnabled?: boolean;
   defaultChangeAmount?: number;
+  differenceReasonMinAmount?: number;
   openingTime?: string;
   logoUrl?: string | null;
   accentColor?: string | null;
@@ -142,10 +143,17 @@ function slugify(raw: string): string {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cambio por defecto</mat-label>
-          <mat-icon matPrefix>payments</mat-icon>
-          <input matInput type="number" inputmode="decimal" formControlName="defaultChangeAmount" />
-        </mat-form-field>
+            <mat-label>Cambio por defecto</mat-label>
+            <mat-icon matPrefix>payments</mat-icon>
+            <input matInput type="number" inputmode="decimal" formControlName="defaultChangeAmount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Pedir motivo de diferencia desde</mat-label>
+            <mat-icon matPrefix>report</mat-icon>
+            <input matInput type="number" inputmode="decimal" formControlName="differenceReasonMinAmount" />
+            <mat-hint>0 = no pedir</mat-hint>
+          </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Hora de apertura</mat-label>
@@ -243,6 +251,7 @@ export class AdminShopDialogComponent {
     unitsLabel: [this.shop?.unitsLabel ?? ''],
     currency: [this.shop?.currency ?? 'ARS'],
     defaultChangeAmount: [this.shop?.defaultChangeAmount ?? 0],
+    differenceReasonMinAmount: [this.shop?.differenceReasonMinAmount ?? 0],
     openingTime: [this.shop?.openingTime ?? '10:00'],
     accentColor: [this.shop?.accentColor ?? '#2E7D32'],
     accentSecondary: [this.shop?.accentSecondary ?? '#F9A825'],
@@ -287,6 +296,7 @@ export class AdminShopDialogComponent {
       unitsLabel: raw.unitsLabel.trim() || null,
       currency: raw.currency || 'ARS',
       defaultChangeAmount: Number(raw.defaultChangeAmount) || 0,
+      differenceReasonMinAmount: Number(raw.differenceReasonMinAmount) || 0,
       openingTime: raw.openingTime || '10:00',
       accentColor: raw.accentColor.trim() || null,
       accentSecondary: raw.accentSecondary.trim() || null,

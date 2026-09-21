@@ -1,8 +1,8 @@
 import { Injectable, DestroyRef, computed, inject, signal } from '@angular/core';
 
 /**
- * Estado de conectividad para demos y banners offline.
- * En producción combiná esto con Service Worker + sync/outbox.
+ * Estado de conectividad (navigator.onLine + simulación).
+ * El POS de mostrador combina esto con StaffOrderOutboxService.
  */
 @Injectable({ providedIn: 'root' })
 export class OfflineService {

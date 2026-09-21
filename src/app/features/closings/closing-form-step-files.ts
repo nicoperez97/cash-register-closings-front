@@ -103,7 +103,19 @@ export function closingStepFilesMissing(
       gap: 0.45rem;
     }
     .step-files__actions button {
-      min-height: 36px;
+      min-height: var(--guy-touch-min, 44px);
+    }
+    @media (max-width: 960px) {
+      .step-files__actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem;
+      }
+      .step-files__actions button {
+        min-height: 3.25rem;
+        border-radius: 14px !important;
+        font-weight: 700;
+      }
     }
     .step-files__hint {
       margin: 0;

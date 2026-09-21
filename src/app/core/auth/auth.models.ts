@@ -1445,7 +1445,10 @@ export interface ShopSummary {
   holidayPayMultiplier?: number;
   /** Carta pública del local. */
   menuEnabled?: boolean;
-  /** Al paso o restaurante. */
+  /**
+   * Obsoleto: Pedidos, Comanda y Salón se prenden por separado.
+   * Un restaurante puede tener mesas y también take away / delivery.
+   */
   shopMode?: 'AL_PASO' | 'RESTAURANTE';
   /** Pedidos online take away / delivery. */
   onlineOrderingEnabled?: boolean;
@@ -1501,6 +1504,8 @@ export interface ShopSummary {
     value: number;
   }> | null;
   defaultChangeAmount: number;
+  /** Si |diferencia| llega a este monto, el motivo es obligatorio. 0 = no pedir. */
+  differenceReasonMinAmount?: number;
   currency: string;
   timezone?: string;
   /** Hora de apertura HH:mm; el día laboral dura hasta esa hora del día siguiente. */

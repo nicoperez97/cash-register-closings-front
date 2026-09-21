@@ -123,6 +123,8 @@ export interface ShopClosingSource {
   kind: ClosingSourceKind;
   accountId: string | null;
   accountName?: string | null;
+  /** Días hasta acreditación esperada (solo SETTLE_*). */
+  settlementLagDays?: number;
   sortOrder: number;
   active: boolean;
 }
@@ -147,6 +149,13 @@ export type ClosingSourceAmountInput = {
 
 export type CashClosingInput = Omit<Partial<CashClosing>, 'sourceAmounts'> & {
   sourceAmounts?: ClosingSourceAmountInput[];
+};
+
+export type SuggestedOpening = {
+  amount: number;
+  source: 'previous' | 'default';
+  previousDate?: string | null;
+  previousShiftName?: string | null;
 };
 
 export interface ShopUserAccountOption {
@@ -241,6 +250,12 @@ export class ClosingsApiService {
 
   getOpen(shopId: string) {
     return this.http.get<CashClosing | null>(`${this.base}/shops/${shopId}/closings/open`);
+  }
+
+  suggestedOpening(shopId: string) {
+    return this.http.get<SuggestedOpening>(
+      `${this.base}/shops/${shopId}/closings/suggested-opening`,
+    );
   }
 
   openRegister(shopId: string, body: { cashOpeningAmount: number; shiftId?: string | null }) {

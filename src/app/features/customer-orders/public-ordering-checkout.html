@@ -340,15 +340,17 @@
           <p class="form-error">{{ fe }}</p>
         }
 
-        <button type="submit" class="btn btn--primary" [disabled]="submitting()">
-          {{
-            submitting()
-              ? 'Enviando…'
-              : staffMode()
-                ? 'Crear pedido en el tablero'
-                : 'Finalizar pedido'
-          }}
-        </button>
+        <div class="checkout-cta">
+          <button type="submit" class="btn btn--primary" [disabled]="submitting()">
+            {{
+              submitting()
+                ? 'Enviando…'
+                : staffMode()
+                  ? 'Crear pedido en el tablero'
+                  : 'Finalizar pedido'
+            }}
+          </button>
+        </div>
       </form>
     }
   </div>

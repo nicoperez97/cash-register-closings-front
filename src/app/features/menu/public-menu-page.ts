@@ -315,8 +315,8 @@ type FilterOpt = { id: FilterId; label: string };
         background:
           radial-gradient(ellipse 70% 40% at 50% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
           linear-gradient(180deg, #e8ece6 0%, var(--paper) 28%, #eef1ec 100%);
-        padding: calc(0.85rem + env(safe-area-inset-top, 0px)) 0.85rem
-          calc(2rem + env(safe-area-inset-bottom, 0px));
+        padding: calc(0.85rem + var(--guy-safe-top)) 0.85rem
+          calc(2rem + var(--guy-safe-bottom));
       }
       .menu__sheet {
         max-width: 38rem;

@@ -250,6 +250,7 @@ export class AdminShopPage implements OnInit {
     unitsLabel: [''],
     currency: ['ARS'],
     defaultChangeAmount: [0],
+    differenceReasonMinAmount: [0],
     openingTime: ['10:00'],
     timezone: ['America/Argentina/Buenos_Aires'],
     productionDefaultHours: [8],
@@ -268,7 +269,6 @@ export class AdminShopPage implements OnInit {
     publicAttendanceEnabled: [false],
     publicServiceRulesEnabled: [false],
     menuEnabled: [false],
-    shopMode: this.fb.nonNullable.control<'AL_PASO' | 'RESTAURANTE'>('RESTAURANTE'),
     onlineOrderingEnabled: [false],
     waiterOrderingEnabled: [false],
     takeawayEnabled: [true],
@@ -883,6 +883,7 @@ export class AdminShopPage implements OnInit {
     unitsLabel?: string | null;
     currency?: string | null;
     defaultChangeAmount?: number | null;
+    differenceReasonMinAmount?: number | null;
     openingTime?: string | null;
     timezone?: string | null;
     productionDefaultHours?: number | null;
@@ -901,7 +902,6 @@ export class AdminShopPage implements OnInit {
     serviceAttendanceWithHours?: boolean;
     holidayPayMultiplier?: number | null;
     menuEnabled?: boolean;
-    shopMode?: 'AL_PASO' | 'RESTAURANTE';
     onlineOrderingEnabled?: boolean;
     waiterOrderingEnabled?: boolean;
     takeawayEnabled?: boolean;
@@ -969,6 +969,7 @@ export class AdminShopPage implements OnInit {
       unitsLabel: s.unitsLabel ?? '',
       currency: s.currency ?? 'ARS',
       defaultChangeAmount: s.defaultChangeAmount ?? 0,
+      differenceReasonMinAmount: s.differenceReasonMinAmount ?? 0,
       openingTime: s.openingTime ?? '10:00',
       timezone: s.timezone ?? 'America/Argentina/Buenos_Aires',
       productionDefaultHours: s.productionDefaultHours ?? 8,
@@ -987,7 +988,6 @@ export class AdminShopPage implements OnInit {
       serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
       holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 1) || 1,
       menuEnabled: !!s.menuEnabled,
-      shopMode: s.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
       onlineOrderingEnabled: !!s.onlineOrderingEnabled,
       waiterOrderingEnabled: !!s.waiterOrderingEnabled,
       takeawayEnabled: s.takeawayEnabled !== false,
@@ -1339,6 +1339,7 @@ export class AdminShopPage implements OnInit {
         includeInDeclared: false,
         kind: 'RECORD_ONLY',
         accountId: null,
+        settlementLagDays: 0,
         sortOrder: this.closingSources.length + 1,
         active: true,
       }),
@@ -1434,6 +1435,7 @@ export class AdminShopPage implements OnInit {
           includeInDeclared: !!raw.includeInDeclared,
           kind: raw.kind,
           accountId: raw.accountId || null,
+          settlementLagDays: Number(raw.settlementLagDays ?? 0) || 0,
           sortOrder: i + 1,
           active: true,
         };
@@ -1481,6 +1483,7 @@ export class AdminShopPage implements OnInit {
       includeInDeclared: [!!value.includeInDeclared],
       kind: [value.kind || 'RECORD_ONLY'],
       accountId: [value.accountId ?? null],
+      settlementLagDays: [Number(value.settlementLagDays ?? 0) || 0],
       sortOrder: [value.sortOrder ?? 0],
     });
   }
@@ -1682,7 +1685,11 @@ export class AdminShopPage implements OnInit {
           this.printAgentTokenPrefix.set(res.tokenPrefix ?? null);
           this.printAgentFreshToken.set(res.token);
           this.rememberPrintAgentToken(shopId, res.token, res.tokenPrefix ?? null);
-          this.snack.open(res.hint || 'Token generado. Podés copiarlo cuando quieras.', 'OK', { duration: 4500 });
+          this.snack.open(
+            res.hint || 'Copiá el token ahora. Después no se puede ver: hay que regenerarlo.',
+            'OK',
+            { duration: 5000 },
+          );
         },
         error: (err) => {
           this.printAgentBusy.set(false);
@@ -1768,6 +1775,7 @@ export class AdminShopPage implements OnInit {
       unitsLabel: raw.unitsLabel.trim() || null,
       currency: raw.currency || 'ARS',
       defaultChangeAmount: raw.defaultChangeAmount,
+      differenceReasonMinAmount: Number(raw.differenceReasonMinAmount) || 0,
       openingTime: raw.openingTime || '10:00',
       shifts: (raw.shifts as ShopShift[])
         .map((s) => ({
@@ -1795,7 +1803,6 @@ export class AdminShopPage implements OnInit {
       publicAttendanceEnabled: raw.publicAttendanceEnabled,
       publicServiceRulesEnabled: raw.publicServiceRulesEnabled,
       menuEnabled: raw.menuEnabled,
-      shopMode: raw.shopMode === 'AL_PASO' ? 'AL_PASO' : 'RESTAURANTE',
       onlineOrderingEnabled: raw.onlineOrderingEnabled,
       waiterOrderingEnabled: raw.waiterOrderingEnabled,
       takeawayEnabled: raw.takeawayEnabled,
@@ -1902,7 +1909,6 @@ export class AdminShopPage implements OnInit {
     const req$ = canFull
       ? this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}`, body)
       : this.http.patch<any>(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
-          shopMode: body['shopMode'],
           onlineOrderingEnabled: body['onlineOrderingEnabled'],
           waiterOrderingEnabled: body['waiterOrderingEnabled'],
           takeawayEnabled: body['takeawayEnabled'],

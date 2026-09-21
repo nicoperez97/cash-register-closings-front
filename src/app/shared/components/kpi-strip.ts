@@ -115,6 +115,22 @@ export interface KpiItem {
         font-size: 0.75rem;
         color: var(--guy-muted, #5f6f76);
       }
+      @media (max-width: 960px) {
+        .row {
+          --bs-gutter-x: 0.65rem;
+          --bs-gutter-y: 0.65rem;
+        }
+        :host ::ng-deep .guy-kpi,
+        :host ::ng-deep a.guy-kpi {
+          min-height: 5.25rem;
+          padding: 0.85rem 0.9rem;
+          border-radius: 14px;
+          touch-action: manipulation;
+        }
+        :host ::ng-deep .guy-kpi__value {
+          font-size: 1.35rem;
+        }
+      }
       .guy-kpi__details {
         margin-top: 0.4rem;
         display: flex;

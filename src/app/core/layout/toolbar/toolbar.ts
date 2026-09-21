@@ -45,6 +45,7 @@ import {
 import { ImmersiveChromeService } from '../immersive-chrome.service';
 import { ThemeService, ThemeMode } from '../../theme/theme.service';
 import { OfflineService } from '../../offline/offline.service';
+import { StaffOrderOutboxService } from '../../../features/customer-orders/staff-order-outbox.service';
 import { ShopContextService } from '../../shop/shop-context.service';
 import { PageRefreshService } from '../../page-refresh.service';
 import { DialogTitleService } from '../../../shared/services/dialog-title.service';
@@ -168,6 +169,7 @@ export class ToolbarComponent implements OnInit {
   readonly brand = APP_BRAND;
   readonly theme = inject(ThemeService);
   readonly offline = inject(OfflineService);
+  readonly staffOutbox = inject(StaffOrderOutboxService);
   readonly shopContext = inject(ShopContextService);
   readonly pageRefresh = inject(PageRefreshService);
   private readonly auth = inject(AuthService);
@@ -192,6 +194,9 @@ export class ToolbarComponent implements OnInit {
   private readonly userTrigger = viewChild<MatMenuTrigger>('userTrigger');
 
   readonly unreadCount = this.notifsInbox.unreadCount;
+  readonly staffOutboxCount = computed(() =>
+    this.staffOutbox.countFor(this.shopContext.selectedShopId()),
+  );
   readonly notifications = signal<AppNotification[]>([]);
   readonly loadingNotifs = signal(false);
   /** Filtro del panel: todas | solo no leídas. */

@@ -96,7 +96,19 @@ export interface AdminShopConceptCategoryOption {
               step="1"
               inputmode="decimal"
             />
-            <mat-hint>Al abrir un cierre</mat-hint>
+            <mat-hint>Si no hay cierre anterior, al abrir caja</mat-hint>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Pedir motivo de diferencia desde</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="differenceReasonMinAmount"
+              min="0"
+              step="1"
+              inputmode="decimal"
+            />
+            <mat-hint>0 = no pedir. Si la diferencia llega a este monto, hay que escribir el motivo.</mat-hint>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Zona horaria</mat-label>
@@ -333,7 +345,7 @@ export interface AdminShopConceptCategoryOption {
           <div class="op__row-toggle">
             <div>
               <strong>Reservas</strong>
-              <span>Módulo interno y pantalla pública</span>
+              <span>Salón (mesas, diagrama, reservas). Independiente de Pedidos.</span>
             </div>
             <mat-slide-toggle formControlName="reservationsEnabled" aria-label="Reservas" />
           </div>

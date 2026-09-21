@@ -163,8 +163,8 @@ import { BoardPwaService } from './board-pwa.service';
       .board {
         --accent: #2e7d32;
         min-height: 100dvh;
-        padding: calc(1.15rem + env(safe-area-inset-top, 0px)) 1.1rem
-          calc(5.5rem + env(safe-area-inset-bottom, 0px));
+        padding: calc(1.15rem + var(--guy-safe-top)) 1.1rem
+          calc(5.5rem + var(--guy-safe-bottom));
         color: #f4efe6;
         box-sizing: border-box;
         background:

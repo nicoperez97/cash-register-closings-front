@@ -233,3 +233,10 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   if (typeof msg === 'string' && msg.trim()) return msg.trim();
   return fallback;
 }
+
+/** Red caída, timeout o 5xx: se puede reintentar / encolar. */
+export function isRetryableOrderError(err: unknown): boolean {
+  const status = Number((err as { status?: number })?.status ?? 0);
+  if (!Number.isFinite(status) || status === 0) return true;
+  return status === 408 || status === 429 || status >= 500;
+}
