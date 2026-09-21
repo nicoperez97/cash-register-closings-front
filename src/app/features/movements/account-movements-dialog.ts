@@ -227,7 +227,7 @@ export class AccountMovementsDialogComponent {
       format: (r) => this.signedMoney(r as Movement),
       totalize: true,
       totalValue: (r) => this.signedAmount(r as Movement),
-      totalFormat: (sum) => formatMoney(sum, { spaced: true }),
+      totalFormat: (sum) => formatMoney(sum, { spaced: true, compact: false }),
     },
     {
       key: 'source',

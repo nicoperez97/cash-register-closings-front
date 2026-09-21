@@ -28,6 +28,16 @@ export function parseLocaleNumber(value: unknown): number {
 
 const MILLION = 1_000_000;
 
+/** True si el monto se mostraría abreviado con M (1.000.000 o más). */
+export function usesCompactMoney(
+  value: number | string | null | undefined,
+  compact = true,
+): boolean {
+  if (compact === false) return false;
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) && Math.abs(n) >= MILLION;
+}
+
 export type FormatNumberOptions = {
   /**
    * Si abs(valor) >= 1.000.000 → compacto con M (1M, 1,5M, 12,3M).

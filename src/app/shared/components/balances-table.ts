@@ -3,7 +3,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { formatMoney as formatMoneyValue } from '../utils/money';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { formatMoney as formatMoneyValue, usesCompactMoney } from '../utils/money';
 import { MovementsApiService } from '../../features/movements/movements-api.service';
 import { AccountMovementsDialogComponent } from '../../features/movements/account-movements-dialog';
 import { DialogTitleService } from '../services/dialog-title.service';
@@ -53,9 +54,28 @@ function downloadBlobFile(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+const COMPACT_KEY = 'guy.saldos.compact';
+
+function readCompactPref(): boolean {
+  try {
+    const v = localStorage.getItem(COMPACT_KEY);
+    if (v === '0') return false;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
 @Component({
   selector: 'app-balances-table',
-  imports: [MatButtonModule, MatIconModule, MatSnackBarModule, MatDialogModule, ExportMenuComponent],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    MatSnackBarModule,
+    MatDialogModule,
+    MatTooltipModule,
+    ExportMenuComponent,
+  ],
   template: `
     <div class="guy-saldos" role="region" [attr.aria-label]="title">
       @if (showHeader) {
@@ -72,6 +92,21 @@ function downloadBlobFile(blob: Blob, filename: string): void {
             </div>
           </div>
           <div class="guy-saldos__head-actions">
+            <button
+              mat-stroked-button
+              type="button"
+              class="guy-saldos__mode"
+              [class.guy-saldos__mode--on]="compact()"
+              [attr.aria-pressed]="compact()"
+              [matTooltip]="
+                compact() ? 'Ver montos completos' : 'Volver a montos simplificados'
+              "
+              matTooltipShowDelay="250"
+              (click)="toggleCompact()"
+            >
+              <mat-icon>{{ compact() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+              {{ compact() ? 'Simplificado' : 'Exactos' }}
+            </button>
             @if (shopId) {
               <app-export-menu
                 label="Descargar"
@@ -84,9 +119,14 @@ function downloadBlobFile(blob: Blob, filename: string): void {
               class="guy-saldos__total-pill"
               [class.guy-saldos__total-pill--neg]="total < 0"
               [class.guy-saldos__total-pill--pos]="total > 0"
+              [class.guy-saldos__amount--tip]="!!exactTooltip(total, compact())"
+              [matTooltip]="exactTooltip(total, compact())"
+              [matTooltipDisabled]="!exactTooltip(total, compact())"
+              matTooltipTouchGestures="off"
+              matTooltipShowDelay="150"
             >
               <span class="guy-saldos__total-label">Total</span>
-              <strong class="guy-saldos__total-value">{{ formatMoney(total) }}</strong>
+              <strong class="guy-saldos__total-value">{{ formatMoney(total, compact()) }}</strong>
             </div>
           </div>
         </header>
@@ -116,7 +156,7 @@ function downloadBlobFile(blob: Blob, filename: string): void {
             <div class="guy-saldos__main">
               <span class="guy-saldos__name">{{ row.name }}</span>
               @if (hasCommission(row)) {
-                <span class="guy-saldos__hint">{{ commissionHint(row) }}</span>
+                <span class="guy-saldos__hint">{{ commissionHint(row, compact()) }}</span>
               }
             </div>
             <span
@@ -124,8 +164,13 @@ function downloadBlobFile(blob: Blob, filename: string): void {
               [class.guy-saldos__amount--neg]="row.balance < 0"
               [class.guy-saldos__amount--pos]="row.balance > 0"
               [class.guy-saldos__amount--zero]="row.balance === 0"
+              [class.guy-saldos__amount--tip]="!!exactTooltip(row.balance, compact())"
+              [matTooltip]="exactTooltip(row.balance, compact())"
+              [matTooltipDisabled]="!exactTooltip(row.balance, compact())"
+              matTooltipTouchGestures="off"
+              matTooltipShowDelay="150"
             >
-              {{ formatMoney(row.balance) }}
+              {{ formatMoney(row.balance, compact()) }}
             </span>
           </div>
         } @empty {
@@ -143,8 +188,13 @@ function downloadBlobFile(blob: Blob, filename: string): void {
             class="guy-saldos__foot-amount"
             [class.guy-saldos__amount--neg]="total < 0"
             [class.guy-saldos__amount--pos]="total > 0"
+            [class.guy-saldos__amount--tip]="!!exactTooltip(total, compact())"
+            [matTooltip]="exactTooltip(total, compact())"
+            [matTooltipDisabled]="!exactTooltip(total, compact())"
+            matTooltipTouchGestures="off"
+            matTooltipShowDelay="150"
           >
-            {{ formatMoney(total) }}
+            {{ formatMoney(total, compact()) }}
           </strong>
         </footer>
       }
@@ -189,6 +239,23 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       gap: 0.55rem;
       flex-wrap: wrap;
       margin-left: auto;
+    }
+
+    .guy-saldos__mode {
+      flex: none;
+    }
+
+    .guy-saldos__mode mat-icon {
+      margin-right: 0.2rem;
+      font-size: 1.1rem;
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+
+    .guy-saldos__mode--on {
+      border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 45%, var(--guy-border, #d7e0d9));
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, transparent);
+      color: var(--guy-primary, #1d65a0);
     }
 
     .guy-saldos__export {
@@ -420,6 +487,10 @@ function downloadBlobFile(blob: Blob, filename: string): void {
       font-weight: 500;
     }
 
+    .guy-saldos__amount--tip {
+      cursor: help;
+    }
+
     .guy-saldos__empty {
       display: flex;
       flex-direction: column;
@@ -510,9 +581,20 @@ export class BalancesTableComponent {
   @Input() balancesScope: 'panel' | 'all' = 'panel';
 
   readonly exporting = signal(false);
+  readonly compact = signal(readCompactPref());
 
   get total(): number {
     return this.accounts.reduce((sum, row) => sum + Number(row.balance ?? 0), 0);
+  }
+
+  toggleCompact(): void {
+    const next = !this.compact();
+    this.compact.set(next);
+    try {
+      localStorage.setItem(COMPACT_KEY, next ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
   }
 
   canOpen(row: BalanceAccountRow): boolean {
@@ -554,13 +636,13 @@ export class BalancesTableComponent {
           withCommission
             ? [
                 a.name,
-                this.formatMoney(a.balance),
-                this.hasCommission(a) ? this.formatMoney(a.grossBalance ?? a.balance) : '',
+                this.formatMoney(a.balance, false),
+                this.hasCommission(a) ? this.formatMoney(a.grossBalance ?? a.balance, false) : '',
                 this.hasCommission(a)
-                  ? `${this.formatPercent(a.commissionPercent ?? 0)} %  ${this.formatMoney(a.commissionAmount ?? 0)}`
+                  ? `${this.formatPercent(a.commissionPercent ?? 0)} %  ${this.formatMoney(a.commissionAmount ?? 0, false)}`
                   : '',
               ]
-            : [a.name, this.formatMoney(a.balance)],
+            : [a.name, this.formatMoney(a.balance, false)],
         ),
       });
       return;
@@ -599,19 +681,24 @@ export class BalancesTableComponent {
       .slice(0, 40) || 'local';
   }
 
-  formatMoney(value: number): string {
-    return formatMoneyValue(value);
+  formatMoney(value: number, compact = this.compact()): string {
+    return formatMoneyValue(value, { compact });
+  }
+
+  exactTooltip(value: number, compact: boolean): string {
+    if (!usesCompactMoney(value, compact)) return '';
+    return formatMoneyValue(value, { compact: false });
   }
 
   hasCommission(row: BalanceAccountRow): boolean {
     return Number(row.commissionPercent ?? 0) > 0;
   }
 
-  commissionHint(row: BalanceAccountRow): string {
+  commissionHint(row: BalanceAccountRow, compact = this.compact()): string {
     const gross = Number(row.grossBalance ?? row.balance);
     const percent = Number(row.commissionPercent ?? 0);
     const amount = Number(row.commissionAmount ?? 0);
-    return `Sin comisión ${this.formatMoney(gross)} · Comisión ${this.formatPercent(percent)} % ${this.formatMoney(amount)}`;
+    return `Sin comisión ${this.formatMoney(gross, compact)} · Comisión ${this.formatPercent(percent)} % ${this.formatMoney(amount, compact)}`;
   }
 
   private formatPercent(value: number): string {

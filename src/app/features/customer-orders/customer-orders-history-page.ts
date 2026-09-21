@@ -260,7 +260,7 @@ export class CustomerOrdersHistoryPage {
       format: (r) => formatMoney(Number(r.total) || 0, { spaced: true }),
       totalize: true,
       totalValue: (r) => Number(r.total) || 0,
-      totalFormat: (sum) => formatMoney(sum, { spaced: true }),
+      totalFormat: (sum) => formatMoney(sum, { spaced: true, compact: false }),
     },
   ];
 

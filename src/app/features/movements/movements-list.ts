@@ -95,7 +95,7 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
 
     @if (shopId()) {
       <div class="xl-toolbar mb-3">
-        @if (canManage() && kind() !== 'all') {
+        @if (canManage()) {
           <button
             mat-stroked-button
             type="button"
@@ -501,7 +501,7 @@ export class MovementsListPage {
         format: (r) => formatMoney(r['amountUyu'], { spaced: true }),
         totalize: true,
         totalValue: (r) => Number(r['amountUyu'] ?? 0),
-        totalFormat: (sum) => formatMoney(sum, { spaced: true }),
+        totalFormat: (sum) => formatMoney(sum, { spaced: true, compact: false }),
       },
       { key: 'invoiced', label: 'Facturado', format: (r) => (r['invoiced'] ? 'Sí' : 'No') },
       ...(this.kind() === 'expense' || this.kind() === 'all'
@@ -790,13 +790,23 @@ export class MovementsListPage {
   }
 
   canManage(): boolean {
+    const user = this.auth.currentUser();
+    const shopId = this.shopId();
+    if (this.kind() === 'all') {
+      return (
+        hasShopPermission(user, shopId, 'expenses.manage') ||
+        hasShopPermission(user, shopId, 'incomes.manage') ||
+        hasShopPermission(user, shopId, 'accountTransfers.manage') ||
+        hasShopPermission(user, shopId, 'movements.manage')
+      );
+    }
     const perm =
       this.kind() === 'transfer'
         ? 'accountTransfers.manage'
         : this.kind() === 'income'
           ? 'incomes.manage'
           : 'expenses.manage';
-    return hasShopPermission(this.auth.currentUser(), this.shopId(), perm);
+    return hasShopPermission(user, shopId, perm);
   }
 
   /** Transferencias: admin con manage, o dueño de cuenta socio (envía su saldo a Dividendos). */
@@ -1059,7 +1069,6 @@ export class MovementsListPage {
     const shopId = this.shopId();
     if (!shopId || !this.canManage()) return;
     const kind = this.apiKind();
-    if (!kind) return;
     this.dialogTitle
       .track(
         this.dialog.open(MovementsExcelImportDialogComponent, {
@@ -1070,14 +1079,16 @@ export class MovementsListPage {
           data: {
             shopId,
             shopName: this.shops.selectedShop()?.name ?? 'Local',
-            kind,
+            kind: kind ?? undefined,
           },
         }),
         kind === 'transfer'
           ? 'Importar transferencias'
           : kind === 'income'
             ? 'Importar ingresos'
-            : 'Importar gastos',
+            : kind === 'expense'
+              ? 'Importar gastos'
+              : 'Importar Excel',
       )
       .afterClosed()
       .subscribe((ok) => {
@@ -1089,9 +1100,8 @@ export class MovementsListPage {
     const shopId = this.shopId();
     if (!shopId || !this.canManage() || this.templateBusy()) return;
     const kind = this.apiKind();
-    if (!kind) return;
     this.templateBusy.set(true);
-    this.api.downloadImportTemplate(shopId, kind).subscribe({
+    this.api.downloadImportTemplate(shopId, kind ?? undefined).subscribe({
       next: (blob) => {
         this.templateBusy.set(false);
         const url = URL.createObjectURL(blob);
