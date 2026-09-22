@@ -33,9 +33,9 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
     path: 'operacion',
     label: 'Operación',
     icon: 'schedule',
-    blurb: 'Turnos de caja, presentismo, multiplicador de feriado, francos y módulos públicos.',
+    blurb: 'Turnos de caja, presentismo, Comandas (impresora), francos y módulos públicos.',
     subtitle:
-      'Día a día del local: caja, horarios del personal, producción y qué módulos están activos.',
+      'Día a día del local: caja, horarios del personal, token de impresión de comandas, producción y qué módulos están activos.',
   },
   {
     id: 'pedidos',
@@ -57,10 +57,10 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
   {
     id: 'dispositivos',
     path: 'dispositivos',
-    label: 'Dispositivos',
-    icon: 'point_of_sale',
-    blurb: 'Posnets y cuentas aparte del cierre.',
-    subtitle: 'Terminales de cobro y fuentes que no entran al total declarado (Pedidos Ya, etc.).',
+    label: 'Cuentas del local',
+    icon: 'account_balance_wallet',
+    blurb: 'Cuentas del cierre y posnets.',
+    subtitle: 'Cuentas del local (PVS, Mercado Pago, Pedidos Ya…) y sus posnets para el cierre.',
   },
   {
     id: 'menu',

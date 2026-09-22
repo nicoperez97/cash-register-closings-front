@@ -7,7 +7,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { appendClosingUnitsAndCarrier } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
-import { shareClosingPdf, shareClosingSnack } from './closing-pdf';
+import { shareClosingText, shareClosingSnack } from './closing-pdf';
 import type { CashClosing } from './closings-api.service';
 
 export type ClosingSaveSummary = {
@@ -245,7 +245,7 @@ export class ClosingSaveDialogComponent {
     this.sharing.set(true);
     try {
       if (this.data.shareClosing) {
-        const result = await shareClosingPdf(this.data.shareClosing, this.data.shopName, {
+        const result = await shareClosingText(this.data.shareClosing, this.data.shopName, {
           unitsLabel: this.data.unitsLabel,
         });
         const msg = shareClosingSnack(result);

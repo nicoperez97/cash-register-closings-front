@@ -1,8 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { ControlContainer, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 import {
@@ -16,9 +14,7 @@ import {
   selector: 'app-closing-form-caja-step',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
     MatFormFieldModule,
-    MatIconModule,
     MatInputModule,
     ClosingFormStepNavComponent,
     ClosingFormStepFilesComponent,
@@ -29,7 +25,7 @@ import {
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
           <h3>Caja</h3>
-          <span class="closing-form__meta">Cargá el total del POS. Lo que contaste se ve al revelar.</span>
+          <span class="closing-form__meta">Cargá el total del POS y comparalo con lo calculado.</span>
         </div>
       </div>
       <div class="closing-form__block-body">
@@ -56,66 +52,47 @@ import {
             (remove)="fileRemove.emit($event)"
           />
         }
-        @if (revealed()) {
-          <ul class="closing-caja__calc">
-            @for (row of breakdown(); track row.name) {
-              <li>
-                <span>{{ row.name }}</span>
-                <strong>{{ row.amount }}</strong>
-              </li>
-            } @empty {
-              <li class="closing-caja__empty">Todavía no hay cobros cargados</li>
-            }
-            <li class="closing-caja__calc-total">
-              <span>Calculado</span>
-              <strong>{{ calculated() }}</strong>
+        <ul class="closing-caja__calc">
+          @for (row of breakdown(); track row.name) {
+            <li>
+              <span>{{ row.name }}</span>
+              <strong>{{ row.amount }}</strong>
             </li>
-          </ul>
-          <div
-            class="closing-caja__diff"
-            [class.closing-caja__diff--pending]="difference() === null"
-            [class.closing-caja__diff--ok]="difference() === 0"
-            [class.closing-caja__diff--plus]="(difference() ?? 0) > 0"
-            [class.closing-caja__diff--minus]="(difference() ?? 0) < 0"
-          >
-            <div>
-              <span>Diferencia</span>
-              <small>Caja − Calculado</small>
-            </div>
-            <strong>{{ differenceLabel() }}</strong>
+          } @empty {
+            <li class="closing-caja__empty">Todavía no hay cobros cargados</li>
+          }
+          <li class="closing-caja__calc-total">
+            <span>Calculado</span>
+            <strong>{{ calculated() }}</strong>
+          </li>
+        </ul>
+        <div
+          class="closing-caja__diff"
+          [class.closing-caja__diff--pending]="difference() === null"
+          [class.closing-caja__diff--ok]="difference() === 0"
+          [class.closing-caja__diff--plus]="(difference() ?? 0) > 0"
+          [class.closing-caja__diff--minus]="(difference() ?? 0) < 0"
+        >
+          <div>
+            <span>Diferencia</span>
+            <small>Calculado − Caja</small>
           </div>
-          <mat-form-field
-            appearance="outline"
-            subscriptSizing="dynamic"
-            class="closing-form__caja-reason"
-          >
-            <mat-label>{{ reasonRequired() ? 'Motivo de la diferencia' : 'Motivo de la diferencia (opcional)' }}</mat-label>
-            <textarea
-              matInput
-              rows="2"
-              maxlength="500"
-              formControlName="differenceReason"
-            ></textarea>
-            <mat-hint>{{ reasonHint() }}</mat-hint>
-          </mat-form-field>
-        } @else {
-          <div class="closing-caja__blind">
-            <p>
-              Arqueo ciego: cargá el total del ticket Z o del archivo.
-              Todavía no ves lo que contaste, para no acomodar los números.
-            </p>
-            <button
-              mat-stroked-button
-              color="primary"
-              type="button"
-              [disabled]="!hasAmount()"
-              (click)="reveal.emit()"
-            >
-              <mat-icon>visibility</mat-icon>
-              Revelar diferencia
-            </button>
-          </div>
-        }
+          <strong>{{ differenceLabel() }}</strong>
+        </div>
+        <mat-form-field
+          appearance="outline"
+          subscriptSizing="dynamic"
+          class="closing-form__caja-reason"
+        >
+          <mat-label>{{ reasonRequired() ? 'Motivo de la diferencia' : 'Motivo de la diferencia (opcional)' }}</mat-label>
+          <textarea
+            matInput
+            rows="2"
+            maxlength="500"
+            formControlName="differenceReason"
+          ></textarea>
+          <mat-hint>{{ reasonHint() }}</mat-hint>
+        </mat-form-field>
       </div>
     </div>
     <app-closing-form-step-nav />
@@ -134,10 +111,8 @@ export class ClosingFormCajaStepComponent {
   readonly filesDisabled = input(false);
   readonly requireClosingFiles = input(false);
   readonly hasAmount = input(false);
-  readonly revealed = input(false);
 
   readonly filePicked = output<File[]>();
-  readonly reveal = output<void>();
   readonly fileView = output<ClosingStepFileView>();
   readonly fileRemove = output<ClosingStepFileView>();
 

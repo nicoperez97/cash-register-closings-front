@@ -91,7 +91,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'adminShopOperacion', label: 'Operación', icon: 'schedule', defaultGroup: 'local', route: '/admin/shop/operacion' },
   { id: 'adminOrdering', label: 'Pedidos', icon: 'shopping_bag', defaultGroup: 'local', route: '/admin/shop/pedidos' },
   { id: 'adminComanda', label: 'Comandas', icon: 'room_service', defaultGroup: 'local', route: '/admin/shop/comanda' },
-  { id: 'adminShopDispositivos', label: 'Dispositivos', icon: 'point_of_sale', defaultGroup: 'local', route: '/admin/shop/dispositivos' },
+  { id: 'adminShopDispositivos', label: 'Cuentas del local', icon: 'account_balance_wallet', defaultGroup: 'local', route: '/admin/shop/dispositivos' },
   { id: 'adminShopMenu', label: 'Menú', icon: 'menu', defaultGroup: 'local', route: '/admin/shop/menu' },
   { id: 'adminShopAvanzado', label: 'Avanzado', icon: 'tune', defaultGroup: 'local', route: '/admin/shop/avanzado' },
   { id: 'adminMessages', label: 'Mensajes', icon: 'campaign', defaultGroup: 'admin', route: '/admin/messages' },
@@ -116,6 +116,14 @@ export function navItemById(id: string): NavItemDef | undefined {
 
 export function navItemLabel(id: string, fallback = id): string {
   return NAV_ITEM_BY_ID.get(id)?.label ?? fallback;
+}
+
+/** Label efectivo: override del local, salvo renombres obsoletos del catálogo. */
+export function resolveNavItemLabel(navId: string, override: string | undefined | null, catalogLabel: string): string {
+  const t = String(override ?? '').trim();
+  if (!t) return catalogLabel;
+  if (navId === 'adminShopDispositivos' && /^dispositivos$/i.test(t)) return catalogLabel;
+  return t;
 }
 
 /** Hoja de menú desde el catálogo (label/ícono/ruta únicos). */
@@ -393,7 +401,7 @@ export function applyNavConfig(
     const children: NavChild[] = [
       ...(bucket?.items ?? []).map(({ navId, sourceGroupId: _s, ...child }) => ({
         ...child,
-        label: itemLabels[navId]?.trim() || child.label,
+        label: resolveNavItemLabel(navId, itemLabels[navId], child.label),
       })),
       ...extra,
     ];
@@ -421,7 +429,7 @@ export function applyNavConfig(
       const { navId, sourceGroupId: _s, ...item } = leaf;
       out.push({
         ...item,
-        label: itemLabels[navId]?.trim() || item.label,
+        label: resolveNavItemLabel(navId, itemLabels[navId], item.label),
       });
     }
   }

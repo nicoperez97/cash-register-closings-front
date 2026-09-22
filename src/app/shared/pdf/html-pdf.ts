@@ -19,6 +19,8 @@ export async function ensureWebFonts(): Promise<void> {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = FONT_HREF;
+    // Sin CORS el navegador bloquea cssRules y html-to-image falla al embeber fuentes.
+    link.crossOrigin = 'anonymous';
     link.setAttribute('data-pdf-fonts', '1');
     document.head.appendChild(link);
   }
@@ -209,10 +211,20 @@ function addCanvasPage(
   w: number,
   h: number,
 ): void {
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', x, y, w, h, undefined, 'FAST');
+  pdf.addImage(canvasToJpegDataUrl(canvas), 'JPEG', x, y, w, h, undefined, 'FAST');
+}
+
+function canvasToJpegDataUrl(canvas: HTMLCanvasElement): string {
+  return canvas.toDataURL('image/jpeg', 0.97);
+}
+
+function assertCanvasExportable(canvas: HTMLCanvasElement): void {
+  // Fuerza el SecurityError acá (canvas “tainted”) antes de armar el PDF.
+  void canvasToJpegDataUrl(canvas);
 }
 
 function canvasToPdfDoc(canvas: HTMLCanvasElement, singlePage = false): jsPDF {
+  assertCanvasExportable(canvas);
   const pageW = 595.28;
   const pageH = 841.89;
   const margin = 22;
@@ -286,50 +298,66 @@ async function renderCanvas(
   source: HTMLElement,
   background: string,
 ): Promise<HTMLCanvasElement> {
-  const width = Math.max(source.offsetWidth, 1);
+  const width = Math.max(source.offsetWidth, source.scrollWidth, 1);
   const height = Math.max(source.scrollHeight, source.offsetHeight, 1);
-  try {
-    return await toCanvas(source, {
-      pixelRatio: 2,
-      backgroundColor: background,
-      cacheBust: true,
-      skipAutoScale: true,
-      width,
-      height,
-      canvasWidth: Math.round(width * 2),
-      canvasHeight: Math.round(height * 2),
-      filter: (node) => !shouldSkipNode(node),
-      style: {
-        margin: '0',
-        transform: 'none',
-        left: '0',
-        top: '0',
-        overflow: 'visible',
-      },
-    });
-  } catch {
-    return html2canvas(source, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: background,
-      logging: false,
-      x: 0,
-      y: 0,
-      scrollX: 0,
-      scrollY: 0,
-      width,
-      height,
-      windowWidth: width,
-      windowHeight: height,
-      onclone: (clonedDoc) => {
-        const clone = source.id
-          ? clonedDoc.getElementById(source.id)
-          : (clonedDoc.body.firstElementChild as HTMLElement | null);
-        if (clone) copyComputedTree(source, clone);
-      },
-    });
+  const attempts: Array<() => Promise<HTMLCanvasElement>> = [
+    () =>
+      toCanvas(source, {
+        pixelRatio: 2,
+        backgroundColor: background,
+        cacheBust: true,
+        skipAutoScale: true,
+        skipFonts: true,
+        width,
+        height,
+        canvasWidth: Math.round(width * 2),
+        canvasHeight: Math.round(height * 2),
+        filter: (node) => !shouldSkipNode(node),
+        style: {
+          margin: '0',
+          transform: 'none',
+          left: '0',
+          top: '0',
+          overflow: 'visible',
+        },
+      }),
+    () =>
+      html2canvas(source, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        foreignObjectRendering: false,
+        backgroundColor: background,
+        logging: false,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        width,
+        height,
+        windowWidth: width,
+        windowHeight: height,
+        onclone: (clonedDoc) => {
+          const clone = source.id
+            ? clonedDoc.getElementById(source.id)
+            : (clonedDoc.body.firstElementChild as HTMLElement | null);
+          if (clone) copyComputedTree(source, clone);
+        },
+      }),
+  ];
+
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      const canvas = await attempt();
+      if (!canvas.width || !canvas.height) throw new Error('Canvas vacío');
+      assertCanvasExportable(canvas);
+      return canvas;
+    } catch (err) {
+      lastError = err;
+    }
   }
+  throw lastError instanceof Error ? lastError : new Error('No se pudo capturar el PDF');
 }
 
 export type HtmlPdfCaptureOpts = {
@@ -476,23 +504,62 @@ function waitForElement(doc: Document, selector: string, timeoutMs: number): Pro
   });
 }
 
-async function mountHtmlForPdf(html: string, width: number): Promise<HTMLDivElement> {
-  const wrap = document.createElement('div');
-  wrap.id = `pdf-html-${Date.now()}`;
-  wrap.style.cssText = [
+async function mountHtmlForPdf(html: string, width: number): Promise<{
+  root: HTMLElement;
+  dispose: () => void;
+}> {
+  // Iframe aislado: evita cssRules de Google Fonts / CSS del app (CORS).
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('title', 'PDF');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.cssText = [
     'position:fixed',
-    'left:-12000px',
+    'left:0',
     'top:0',
     `width:${width}px`,
-    'padding:0',
-    'margin:0',
+    'height:1400px',
+    'border:0',
+    'opacity:0',
+    'pointer-events:none',
+    'z-index:1',
     'background:#fff',
-    'color:#1b2a33',
-    'font:14px Figtree,Segoe UI,sans-serif',
   ].join(';');
-  wrap.innerHTML = html;
-  document.body.appendChild(wrap);
-  return wrap;
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    iframe.remove();
+    throw new Error('No se pudo preparar el PDF');
+  }
+  doc.open();
+  doc.write(`<!doctype html><html><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0;background:#fff;color:#1b2a33;
+    font:14px "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+</style>
+</head><body>${html}</body></html>`);
+  doc.close();
+
+  await new Promise((r) => window.setTimeout(r, 60));
+  const root =
+    (doc.querySelector('.closing-pdf') as HTMLElement | null) ??
+    (doc.body.firstElementChild as HTMLElement | null) ??
+    doc.body;
+  const height = Math.max(root.scrollHeight, root.offsetHeight, doc.body.scrollHeight, 400);
+  iframe.style.height = `${height + 24}px`;
+  await waitImages(doc);
+  await new Promise((r) => window.setTimeout(r, 40));
+
+  return {
+    root,
+    dispose: () => {
+      try {
+        iframe.remove();
+      } catch {
+        /* ignore */
+      }
+    },
+  };
 }
 
 export async function downloadHtmlPdf(opts: {
@@ -502,17 +569,14 @@ export async function downloadHtmlPdf(opts: {
   singlePage?: boolean;
 }): Promise<void> {
   const width = opts.widthPx ?? 920;
-  const wrap = await mountHtmlForPdf(opts.html, width);
+  const mounted = await mountHtmlForPdf(opts.html, width);
   try {
-    await withGeneratingMask(() =>
-      downloadElementPdf(wrap, opts.filename, {
-        background: '#ffffff',
-        widthPx: width,
-        singlePage: opts.singlePage === true,
-      }),
-    );
+    await withGeneratingMask(async () => {
+      const canvas = await renderCanvas(mounted.root, '#ffffff');
+      canvasToPdf(canvas, opts.filename, opts.singlePage === true);
+    });
   } finally {
-    wrap.remove();
+    mounted.dispose();
   }
 }
 
@@ -522,32 +586,14 @@ export async function htmlPdfBlob(opts: {
   singlePage?: boolean;
 }): Promise<Blob> {
   const width = opts.widthPx ?? 920;
-  const wrap = await mountHtmlForPdf(opts.html, width);
+  const mounted = await mountHtmlForPdf(opts.html, width);
   try {
     return await withGeneratingMask(async () => {
-      await ensureWebFonts();
-      await waitImages(wrap);
-      const unlock = unlockOverflow(wrap);
-      const unhide = hideForPdf(wrap);
-      wrap.classList.add('pdf-capturing');
-      const unpin = pinSourceForCapture(wrap, width);
-      try {
-        await new Promise((r) => window.setTimeout(r, 80));
-        const canvas = await renderCanvas(wrap, '#ffffff');
-        return canvasToPdfDoc(canvas, opts.singlePage === true).output('blob');
-      } finally {
-        try {
-          unpin();
-        } catch {
-          /* ignore */
-        }
-        wrap.classList.remove('pdf-capturing');
-        unhide();
-        unlock();
-      }
+      const canvas = await renderCanvas(mounted.root, '#ffffff');
+      return canvasToPdfDoc(canvas, opts.singlePage === true).output('blob');
     });
   } finally {
-    wrap.remove();
+    mounted.dispose();
   }
 }
 

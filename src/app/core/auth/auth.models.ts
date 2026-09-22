@@ -1141,7 +1141,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Configuración del local',
     icon: 'tune',
     group: 'config',
-    hint: 'Hub del local. Con Todo podés poner Off / Ver / Todo por sección (Identidad, Dispositivos…)',
+    hint: 'Hub del local. Con Todo podés poner Off / Ver / Todo por sección (Identidad, Cuentas del local…)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },

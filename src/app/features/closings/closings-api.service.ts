@@ -94,6 +94,7 @@ export interface ClosingStepUploadResult extends ClosingStepParseResult {
 }
 
 export type ClosingSourceKind = 'OWN_ACCOUNT' | 'SETTLE_CASH' | 'SETTLE_ACCOUNT' | 'RECORD_ONLY';
+export type ClosingSourceRole = 'STANDARD' | 'CASH';
 
 export const CLOSING_SOURCE_KIND_OPTIONS: Array<{ value: ClosingSourceKind; label: string }> = [
   { value: 'RECORD_ONLY', label: 'Solo registrar (cuenta aparte)' },
@@ -112,7 +113,18 @@ export function closingSourceKindEnablesSettlements(kind: string | null | undefi
 }
 
 export function closingSourceKindLabel(kind: string | null | undefined): string {
-  return CLOSING_SOURCE_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? 'Cuenta aparte';
+  return CLOSING_SOURCE_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? 'Cuenta del local';
+}
+
+export interface SourcePosnet {
+  id: string;
+  name: string;
+}
+
+export interface SourcePosnetAmount {
+  posnetId: string;
+  name: string;
+  amount: number;
 }
 
 export interface ShopClosingSource {
@@ -121,8 +133,10 @@ export interface ShopClosingSource {
   name: string;
   includeInDeclared: boolean;
   kind: ClosingSourceKind;
+  role?: ClosingSourceRole;
   accountId: string | null;
   accountName?: string | null;
+  posnets?: SourcePosnet[];
   /** Días hasta acreditación esperada (solo SETTLE_*). */
   settlementLagDays?: number;
   sortOrder: number;
@@ -135,9 +149,11 @@ export interface ClosingSourceAmount {
   name: string;
   includeInDeclared: boolean;
   kind: ClosingSourceKind;
+  role?: ClosingSourceRole;
   accountId?: string | null;
   amount: number;
   lines?: number[] | null;
+  posnetAmounts?: SourcePosnetAmount[] | null;
 }
 
 /** Payload al guardar: el API toma name/kind/includeInDeclared del catálogo del local. */
@@ -145,6 +161,7 @@ export type ClosingSourceAmountInput = {
   sourceId: string;
   amount: number;
   lines?: number[];
+  posnetAmounts?: SourcePosnetAmount[];
 };
 
 export type CashClosingInput = Omit<Partial<CashClosing>, 'sourceAmounts'> & {

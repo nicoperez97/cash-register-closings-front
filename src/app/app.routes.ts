@@ -513,7 +513,7 @@ export const routes: Routes = [
               import('./features/admin/admin-shop-section-pages').then(
                 (m) => m.AdminShopDispositivosPage,
               ),
-            title: 'Dispositivos',
+            title: 'Cuentas del local',
           },
           {
             path: 'menu',

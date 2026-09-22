@@ -11,7 +11,7 @@ import { MatStepperModule } from '@angular/material/stepper';
       <div class="closing-totals__head">
         <div>
           <h2>Resumen</h2>
-          <p class="closing-totals__sub">Lo que importa del día. Compartir arma un PDF para el grupo.</p>
+          <p class="closing-totals__sub">Lo que importa del día. Compartir copia el texto para el grupo.</p>
         </div>
         <button mat-stroked-button type="button" (click)="shareClicked.emit()">
           <mat-icon>share</mat-icon>
@@ -47,7 +47,8 @@ import { MatStepperModule } from '@angular/material/stepper';
           <div
             class="closing-totals__item"
             [class.closing-totals__item--ok]="differenceTone() === 0"
-            [class.closing-totals__item--warn]="(differenceTone() ?? 0) !== 0"
+            [class.closing-totals__item--plus]="(differenceTone() ?? 0) > 0"
+            [class.closing-totals__item--minus]="(differenceTone() ?? 0) < 0"
           >
             <span>Diferencia</span>
             <strong>{{ difference() }}</strong>

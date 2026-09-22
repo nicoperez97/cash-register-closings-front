@@ -28,7 +28,7 @@ import { ClosingFormStepNavComponent } from './closing-form-step-nav';
     <div class="closing-form__block">
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
-          <h3>Retiro y extras</h3>
+          <h3>Egresos y notas</h3>
           <span class="closing-form__meta">{{ withdrawHint() }}</span>
         </div>
       </div>

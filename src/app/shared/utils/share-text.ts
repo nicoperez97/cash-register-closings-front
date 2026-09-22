@@ -39,7 +39,8 @@ export async function sharePdf(opts: {
   bytes: Uint8Array;
 }): Promise<SharePdfResult> {
   const copy = Uint8Array.from(opts.bytes);
-  const file = new File([copy], opts.filename, { type: 'application/pdf' });
+  const blob = new Blob([copy as BlobPart], { type: 'application/pdf' });
+  const file = new File([blob], opts.filename, { type: 'application/pdf' });
   const canShareFiles =
     typeof navigator !== 'undefined' &&
     typeof navigator.share === 'function' &&
@@ -61,9 +62,15 @@ export async function sharePdf(opts: {
     }
   }
 
-  downloadPdfBytes(copy, opts.filename);
-  if (await copyText(opts.text)) return 'downloaded';
-  return 'failed';
+  try {
+    downloadPdfBytes(copy, opts.filename);
+  } catch {
+    if (await copyText(opts.text)) return 'copied';
+    return 'failed';
+  }
+  // Aunque falle el portapapeles, el PDF ya se bajó.
+  void copyText(opts.text);
+  return 'downloaded';
 }
 
 export async function copyText(text: string): Promise<boolean> {

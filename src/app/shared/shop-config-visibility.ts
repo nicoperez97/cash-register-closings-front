@@ -62,9 +62,9 @@ export const SHOP_CONFIG_VISIBILITY_OPTIONS: Array<{
   },
   {
     key: 'dispositivos',
-    label: 'Dispositivos',
-    hint: 'Token Comandas, posnets y cuentas aparte',
-    icon: 'point_of_sale',
+    label: 'Cuentas del local',
+    hint: 'Cuentas del cierre (PVS, MP, Pedidos Ya…) y posnets',
+    icon: 'account_balance_wallet',
   },
   {
     key: 'menu',
