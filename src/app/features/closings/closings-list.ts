@@ -24,7 +24,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { isUserVisible } from '../../shared/user-visibility';
-import { shareClosingPdf, shareClosingSnack } from './closing-pdf';
+import { shareClosingText, shareClosingSnack } from './closing-pdf';
 import {
   CLOSING_DIFFERENCE_FILTERS,
   CLOSING_KIND_FILTERS,
@@ -408,13 +408,13 @@ export class ClosingsListPage {
   async shareClosing(row: CashClosing): Promise<void> {
     const shopName = this.shops.selectedShop()?.name ?? 'Local';
     try {
-      const result = await shareClosingPdf(row, shopName, {
+      const result = await shareClosingText(row, shopName, {
         unitsLabel: this.shops.selectedShop()?.unitsLabel,
       });
       const msg = shareClosingSnack(result);
       if (msg) this.snack.open(msg, 'OK', { duration: 2800 });
     } catch {
-      this.snack.open('No se pudo armar el PDF', 'OK', { duration: 3000 });
+      this.snack.open('No se pudo armar el texto', 'OK', { duration: 3000 });
     }
   }
 

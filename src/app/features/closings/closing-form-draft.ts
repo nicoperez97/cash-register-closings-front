@@ -154,19 +154,33 @@ export function sourceAmountsFromDraft(draft: ClosingFormDraft): ClosingSourceAm
     : [];
   return rows
     .map((row) => {
+      const posnetAmounts = Array.isArray(row['posnetAmounts'])
+        ? (row['posnetAmounts'] as Array<Record<string, unknown>>)
+            .map((p) => ({
+              posnetId: String(p['posnetId'] ?? ''),
+              name: String(p['name'] ?? '').trim() || 'Posnet',
+              amount: closingNum(p['amount']),
+            }))
+            .filter((p) => !!p.posnetId)
+        : [];
       const lines = Array.isArray(row['lines'])
         ? (row['lines'] as Array<{ amount?: unknown }>)
             .map((l) => closingNum(l?.amount))
             .filter((n) => n > 0)
         : [];
-      const amount = lines.length ? lines.reduce((s, n) => s + n, 0) : closingNum(row['amount']);
+      const amount = posnetAmounts.length
+        ? posnetAmounts.reduce((s, p) => s + closingNum(p.amount), 0)
+        : lines.length
+          ? lines.reduce((s, n) => s + n, 0)
+          : closingNum(row['amount']);
       return {
         sourceId: String(row['sourceId'] ?? ''),
         name: String(row['name'] ?? ''),
         includeInDeclared: !!row['includeInDeclared'],
         kind: (row['kind'] as ClosingSourceAmount['kind']) || 'OTHER',
         amount,
-        lines: lines.length ? lines : null,
+        lines: posnetAmounts.length ? null : lines.length ? lines : null,
+        posnetAmounts: posnetAmounts.length ? posnetAmounts : null,
       };
     })
     .filter((row) => row.sourceId);

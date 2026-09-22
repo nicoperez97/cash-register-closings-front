@@ -1,4 +1,4 @@
-/* Barra fija al viewport (no usar display:contents: rompe encapsulado y el fixed). */
+/* Barra fija solo en mobile (en desktop van los botones del paso). */
 :host {
   display: none;
 }
@@ -7,11 +7,10 @@
   :host {
     display: block;
     position: fixed;
-    left: 0;
+    left: var(--layout-sidenav-w, 0px);
     right: 0;
     bottom: var(--guy-sticky-offset, env(safe-area-inset-bottom, 0px));
-    z-index: 25;
-    /* Altura de esta barra para que el form reserve espacio (Ola 0). */
+    z-index: 26;
     --guy-chrome-bottom: 4.75rem;
   }
 

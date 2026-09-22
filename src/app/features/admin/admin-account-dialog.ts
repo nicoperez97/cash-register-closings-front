@@ -159,17 +159,6 @@ interface UserOption {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Medio de pago vinculado (opcional)</mat-label>
-          <mat-icon matPrefix>payments</mat-icon>
-          <mat-select formControlName="linkedPaymentMethod">
-            <mat-option [value]="null">Ninguno</mat-option>
-            @for (opt of paymentOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Usuarios asociados</mat-label>
           <mat-icon matPrefix>group</mat-icon>
           <mat-select formControlName="userIds" multiple>
@@ -289,7 +278,6 @@ export class AdminAccountDialogComponent implements OnInit {
   private readonly shops = inject(ShopContextService);
   readonly canConfigureOpeningBalances = canConfigureShopOpeningBalances(this.auth.currentUser());
 
-  readonly paymentOptions = LINKED_PAYMENT_METHOD_OPTIONS;
   readonly isEdit = this.data.mode === 'edit';
   private readonly account = this.data.mode === 'edit' ? this.data.account : null;
   /** En alta: el código sigue al nombre hasta que el usuario lo edite a mano. */
@@ -341,7 +329,6 @@ export class AdminAccountDialogComponent implements OnInit {
       this.account?.type ?? this.data.defaultType ?? 'PARTNER',
       Validators.required,
     ],
-    linkedPaymentMethod: this.fb.control<string | null>(this.account?.linkedPaymentMethod ?? null),
     userIds: this.fb.nonNullable.control<string[]>(this.initialUserIds()),
     listInExpenses: [this.account?.listInExpenses !== false],
     listInIncomes: [this.account?.listInIncomes !== false],
@@ -394,7 +381,7 @@ export class AdminAccountDialogComponent implements OnInit {
       name: raw.name.trim(),
       code: raw.code.trim(),
       type: raw.type,
-      linkedPaymentMethod: raw.linkedPaymentMethod || null,
+      linkedPaymentMethod: null,
       userIds: raw.userIds ?? [],
       hideFromCashWithdraw:
         raw.type === 'SUPPLIER' || raw.type === 'SERVICE' ? true : !raw.listInCashWithdraw,

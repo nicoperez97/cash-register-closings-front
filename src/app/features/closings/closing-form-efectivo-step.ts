@@ -33,7 +33,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
       <div class="closing-form__block-head">
         <div class="closing-form__block-title">
           <h3>Efectivo</h3>
-          <span class="closing-form__meta">Contá sin mirar el POS. La diferencia se ve en Caja, al revelar.</span>
+          <span class="closing-form__meta">Contá sin mirar el POS. La diferencia se ve en Caja.</span>
         </div>
         <button mat-stroked-button type="button" class="closing-form__add-btn" (click)="countBills.emit()">
           <mat-icon>payments</mat-icon>
@@ -116,7 +116,9 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
         </div>
       </div>
     </div>
-    <app-closing-form-step-nav />
+    @if (showNav()) {
+      <app-closing-form-step-nav />
+    }
   `,
   styleUrl: './closing-form-efectivo-step.scss',
 })
@@ -125,6 +127,7 @@ export class ClosingFormEfectivoStepComponent {
 
   readonly withdrawAccounts = input<WithdrawAccountOption[]>([]);
   readonly pendingHint = input('');
+  readonly showNav = input(true);
 
   readonly countBills = output<void>();
   readonly withdrawnAccountChange = output<string>();

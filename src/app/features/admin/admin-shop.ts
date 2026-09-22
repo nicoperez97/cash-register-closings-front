@@ -1219,26 +1219,39 @@ export class AdminShopPage implements OnInit {
   }
 
   addPosnet(): void {
+    /* legacy: posnets viven en cada cuenta del local */
+  }
+
+  removePosnet(_index: number): void {
+    /* legacy */
+  }
+
+  addSourcePosnet(sourceIndex: number): void {
     if (!this.canEditCurrentSection()) {
       this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
       return;
     }
-    this.posnets.push(
-      this.buildPosnetGroup({
-        id: newId(),
-        name: '',
-        type: 'PVS',
+    const row = this.closingSources.at(sourceIndex);
+    if (!row || String(row.get('role')?.value ?? '') === 'CASH') return;
+    const posnets = row.get('posnets') as FormArray;
+    posnets.push(
+      this.fb.nonNullable.group({
+        id: [newId()],
+        name: ['', Validators.required],
       }),
     );
     this.syncSectionFormEditable();
   }
 
-  removePosnet(index: number): void {
+  removeSourcePosnet(sourceIndex: number, posnetIndex: number): void {
     if (!this.canEditCurrentSection()) {
       this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
       return;
     }
-    this.posnets.removeAt(index);
+    const row = this.closingSources.at(sourceIndex);
+    if (!row) return;
+    const posnets = row.get('posnets') as FormArray;
+    posnets.removeAt(posnetIndex);
   }
 
   addShift(): void {
@@ -1352,7 +1365,12 @@ export class AdminShopPage implements OnInit {
       this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
       return;
     }
-    const id = String(this.closingSources.at(index)?.get('id')?.value ?? '');
+    const row = this.closingSources.at(index);
+    if (String(row?.get('role')?.value ?? '') === 'CASH') {
+      this.snack.open('No se puede eliminar Efectivo', 'OK', { duration: 2500 });
+      return;
+    }
+    const id = String(row?.get('id')?.value ?? '');
     if (id) this.removedClosingSourceIds.push(id);
     this.closingSources.removeAt(index);
   }
@@ -1430,14 +1448,29 @@ export class AdminShopPage implements OnInit {
       for (let i = 0; i < this.closingSources.length; i++) {
         const row = this.closingSources.at(i);
         const raw = row?.getRawValue() as ShopClosingSource;
+        const isCash = String((raw as { role?: string }).role ?? '') === 'CASH';
         const body = {
           name: String(raw.name ?? '').trim(),
-          includeInDeclared: !!raw.includeInDeclared,
-          kind: raw.kind,
+          includeInDeclared: isCash ? true : !!raw.includeInDeclared,
+          kind: isCash ? ('OWN_ACCOUNT' as const) : raw.kind,
           accountId: raw.accountId || null,
           settlementLagDays: Number(raw.settlementLagDays ?? 0) || 0,
           sortOrder: i + 1,
           active: true,
+          ...(isCash
+            ? {}
+            : {
+                posnets: (
+                  Array.isArray((raw as { posnets?: unknown }).posnets)
+                    ? ((raw as { posnets: Array<{ id?: string; name?: string }> }).posnets ?? [])
+                    : []
+                )
+                  .map((p): { id: string; name: string } => ({
+                    id: String(p.id ?? '').trim() || newId(),
+                    name: String(p.name ?? '').trim(),
+                  }))
+                  .filter((p) => !!p.name),
+              }),
         };
         if (raw.id) {
           const updated = await firstValueFrom(this.api.updateClosingSource(shopId, raw.id, body));
@@ -1448,12 +1481,12 @@ export class AdminShopPage implements OnInit {
         } else {
           const created = await firstValueFrom(this.api.createClosingSource(shopId, body));
           row?.patchValue(
-            { id: created.id, accountId: created.accountId ?? null },
+            { id: created.id, accountId: created.accountId ?? null, role: created.role ?? 'STANDARD' },
             { emitEvent: false },
           );
         }
       }
-      this.snack.open('Fuentes extra actualizadas', 'OK', { duration: 2500 });
+      this.snack.open('Cuentas del local actualizadas', 'OK', { duration: 2500 });
       this.reloadClosingSources();
       await this.auth.refreshMe();
       this.settlementsInbox.refresh();
@@ -1477,14 +1510,24 @@ export class AdminShopPage implements OnInit {
   }
 
   private buildClosingSourceGroup(value: ShopClosingSource) {
+    const posnets = this.fb.array(
+      (value.posnets ?? []).map((p) =>
+        this.fb.nonNullable.group({
+          id: [p.id || newId()],
+          name: [p.name || '', Validators.required],
+        }),
+      ),
+    );
     return this.fb.group({
       id: [value.id || ''],
       name: [value.name || ''],
       includeInDeclared: [!!value.includeInDeclared],
       kind: [value.kind || 'RECORD_ONLY'],
+      role: [value.role || 'STANDARD'],
       accountId: [value.accountId ?? null],
       settlementLagDays: [Number(value.settlementLagDays ?? 0) || 0],
       sortOrder: [value.sortOrder ?? 0],
+      posnets,
     });
   }
 
@@ -1888,13 +1931,7 @@ export class AdminShopPage implements OnInit {
       paymentConceptCategories: { ...raw.paymentConceptCategories },
       navConfig: this.navConfigDraft(),
       toolbarConfig: this.toolbarConfigDraft(),
-      posnets: (raw.posnets as ShopPosnet[])
-        .map((p) => ({
-          id: p.id,
-          name: String(p.name ?? '').trim(),
-          type: p.type,
-        }))
-        .filter((p) => !!p.name),
+      posnets: [],
     };
     const smtpPass = String(raw.emailSmtpPassword ?? '').trim();
     if (this.clearSmtpPasswordOnSave()) {

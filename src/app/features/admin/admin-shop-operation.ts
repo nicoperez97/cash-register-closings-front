@@ -18,7 +18,6 @@ import {
   filterBySelectQuery,
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
-import { AdminClosingDepositsComponent } from './admin-closing-deposits';
 import { conceptKindLabel } from '../../core/i18n/labels';
 
 export interface AdminShopTimezoneOption {
@@ -59,7 +58,6 @@ export interface AdminShopConceptCategoryOption {
     MatSlideToggleModule,
     MatIconModule,
     SelectSearchComponent,
-    AdminClosingDepositsComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
@@ -473,14 +471,122 @@ export interface AdminShopConceptCategoryOption {
         </div>
       </section>
 
+      <section class="panel-card op__card">
+        <header class="op__head op__head--row">
+          <div>
+            <h2 class="op__title">Comandas (impresora)</h2>
+            <p class="op__lead">
+              Token para <strong>Cierres-Comandas.exe</strong>. Las comanderas y qué platos salen en
+              cada una se configuran en el exe (Carta). El token se copia al generarlo; después no se
+              puede ver. Si hay dos PCs escuchando con el mismo token, cada comanda sale una sola vez.
+              Si una comandera falla y otra ya imprimió, el reintento solo va a las que faltan.
+            </p>
+          </div>
+          @if (canEdit()) {
+            <div class="op__print-actions">
+              @if (printAgentConfigured()) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  color="warn"
+                  [disabled]="printAgentBusy()"
+                  (click)="revokePrintAgentToken.emit()"
+                >
+                  <mat-icon>link_off</mat-icon>
+                  Revocar
+                </button>
+              }
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="printAgentBusy()"
+                (click)="generatePrintAgentToken.emit()"
+              >
+                <mat-icon>vpn_key</mat-icon>
+                {{ printAgentConfigured() ? 'Regenerar token' : 'Generar token' }}
+              </button>
+            </div>
+          }
+        </header>
+        @if (printAgentLoading()) {
+          <p class="op__muted">Cargando…</p>
+        } @else if (printAgentConfigured()) {
+          <p class="op__muted">
+            Token activo:
+            <code>{{ printAgentTokenPrefix() || 'pa_…' }}</code>
+          </p>
+          @if (printAgentFreshToken()) {
+            <div class="op__print-token">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__print-token-field">
+                <mat-label>Token</mat-label>
+                <input matInput readonly [value]="printAgentFreshToken()" />
+              </mat-form-field>
+              <button mat-flat-button color="primary" type="button" (click)="copyPrintAgentToken.emit()">
+                <mat-icon>content_copy</mat-icon>
+                Copiar
+              </button>
+            </div>
+          } @else {
+            <p class="op__muted">
+              El token completo solo se muestra al generarlo. Si lo perdiste,
+              @if (canEdit()) {
+                usá Regenerar token y pegalo de nuevo en Cierres-Comandas.
+              } @else {
+                pedile a quien administre el local que lo regenere.
+              }
+            </p>
+          }
+        } @else if (canEdit()) {
+          <p class="op__muted">Todavía no hay token. Generá uno y pegalo en Cierres-Comandas → Conexión.</p>
+        } @else {
+          <p class="op__muted">Todavía no hay token de Comandas.</p>
+        }
+        <div class="op__installer">
+          <p class="op__muted">Instaladores publicados</p>
+          @if (installerLoading()) {
+            <p class="op__muted">Buscando instaladores…</p>
+          } @else if (installerItems().length) {
+            <div class="op__installer-list">
+              @for (item of installerItems(); track item.os) {
+                <div class="op__installer-row">
+                  <p class="op__muted">
+                    <strong>{{ osLabel(item.os) }}</strong>
+                    · v{{ item.version }}
+                    · {{ item.source === 'url' ? 'Link' : 'Archivo' }}
+                    · {{ item.fileName }}
+                    @if (item.source !== 'url') {
+                      @if (sizeLabel(item.size); as sz) {
+                        · {{ sz }}
+                      }
+                    }
+                  </p>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="installerBusy()"
+                    (click)="downloadInstaller.emit(item.os)"
+                  >
+                    <mat-icon>download</mat-icon>
+                    Descargar
+                  </button>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="op__muted">
+              Todavía no hay instalador publicado. Pedile a un super admin que lo cargue en Locales.
+            </p>
+          }
+        </div>
+      </section>
+
       @if (canManageAccounts()) {
-        <app-admin-closing-deposits />
         <aside class="op__accounts panel-card">
           <div class="op__accounts-copy">
             <mat-icon aria-hidden="true">account_balance</mat-icon>
             <div>
               <strong>Cuentas</strong>
-              <p>Canal, socios y el resto del dinero del local.</p>
+              <p>Canal, socios y el resto del dinero del local. Los depósitos del cierre se configuran en Cuentas del local.</p>
             </div>
           </div>
           <a mat-stroked-button routerLink="/admin/accounts" class="op__accounts-btn">
@@ -502,6 +608,25 @@ export class AdminShopOperationComponent {
   readonly concepts = input<readonly AdminShopConceptOption[]>([]);
   readonly conceptCategoryOptions = input<readonly AdminShopConceptCategoryOption[]>([]);
   readonly canManageAccounts = input(false);
+  readonly canEdit = input(true);
+  readonly printAgentLoading = input(false);
+  readonly printAgentBusy = input(false);
+  readonly printAgentConfigured = input(false);
+  readonly printAgentTokenPrefix = input<string | null>(null);
+  readonly printAgentFreshToken = input<string | null>(null);
+  readonly installerLoading = input(false);
+  readonly installerBusy = input(false);
+  readonly installerItems = input<
+    readonly {
+      os: string;
+      version: string;
+      source?: 'file' | 'url';
+      fileName: string;
+      size: number;
+      uploadedAt: string;
+      downloadUrl?: string;
+    }[]
+  >([]);
   readonly isShiftWeekday = input<(index: number, day: number) => boolean>(() => false);
   readonly isClosedWeekday = input<(day: number) => boolean>(() => false);
 
@@ -509,6 +634,10 @@ export class AdminShopOperationComponent {
   readonly removeShift = output<number>();
   readonly toggleShiftWeekday = output<{ index: number; day: number }>();
   readonly toggleClosedWeekday = output<number>();
+  readonly generatePrintAgentToken = output<void>();
+  readonly revokePrintAgentToken = output<void>();
+  readonly copyPrintAgentToken = output<void>();
+  readonly downloadInstaller = output<string>();
 
   readonly conceptQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
@@ -528,5 +657,19 @@ export class AdminShopOperationComponent {
 
   get shifts(): FormArray {
     return this.host.form.get('shifts') as FormArray;
+  }
+
+  osLabel(os: string): string {
+    if (os === 'windows') return 'Windows';
+    if (os === 'macos') return 'macOS';
+    if (os === 'linux') return 'Linux';
+    return os;
+  }
+
+  sizeLabel(n: number | null | undefined): string | null {
+    if (n == null || !Number.isFinite(n) || n < 0) return null;
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   }
 }

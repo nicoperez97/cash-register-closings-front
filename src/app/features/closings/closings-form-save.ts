@@ -63,6 +63,7 @@ export type ClosingFormRawValue = {
     kind: string;
     amount?: unknown;
     lines?: Array<{ amount?: unknown }> | number[] | null;
+    posnetAmounts?: Array<{ posnetId?: string; name?: string; amount?: unknown }> | null;
   }>;
   otherCobros: Array<{
     label: string;
@@ -138,25 +139,6 @@ export function prepareClosingSaveBody(
   const userId = userIdForWithdrawAccount(users, accountId);
   const selected = users.find((u) => u.id === userId);
 
-  const posnetAmounts: ClosingPosnetAmount[] = (raw.posnetAmounts as ClosingPosnetAmount[])
-    .filter((p) => !!String(p.name ?? '').trim() || closingNum(p.amount) > 0)
-    .map((p) => ({
-      posnetId: p.posnetId || newId(),
-      name: String(p.name ?? '').trim() || POSNET_TYPE_LABEL[p.type] || 'Posnet',
-      type: p.type,
-      amount: closingNum(p.amount),
-    }));
-
-  for (const t of raw.dniTransfers as ClosingFormDniTransferRaw[]) {
-    if (!String(t.label ?? '').trim() && closingNum(t.amount) <= 0) continue;
-    posnetAmounts.push({
-      posnetId: t.id || newId(),
-      name: String(t.label ?? '').trim() || 'Transferencia Cuenta DNI',
-      type: 'CUENTA_DNI',
-      amount: closingNum(t.amount),
-    });
-  }
-
   const tip = buildTipPayloadForClosing({
     tipsEnabled: input.tipsEnabled,
     tipDraft: input.tipDraft,
@@ -183,6 +165,11 @@ export function prepareClosingSaveBody(
   const fieldCash = roundMoney(raw.cashAmount);
   const cashAmount = fieldCash > 0 ? fieldCash : roundMoney(cashFromCobros);
 
+  const sourcesRaw = (raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'];
+  const sourcesDeclared = sourcesRaw
+    .filter((s) => !!s.includeInDeclared)
+    .reduce((sum, s) => sum + sourceRowTotal(s), 0);
+
   const body: CashClosingInput & Record<string, unknown> = {
     ...raw,
     businessDate: toDateString(raw.businessDate as Date | string | null),
@@ -193,13 +180,13 @@ export function prepareClosingSaveBody(
         ? String(raw.eventName ?? '').trim() || null
         : null,
     posSystemAmount: closingNum(raw.posSystemAmount),
-    cardAmount: closingNum(raw.cardAmount),
+    cardAmount: 0,
     cashAmount,
     cashOpeningAmount: closingNum(raw.cashOpeningAmount),
-    mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
+    mercadoPagoAmount: 0,
     deliveryAppsAmount: 0,
     transferAmount: 0,
-    accountDniAmount: closingNum(raw.accountDniAmount),
+    accountDniAmount: 0,
     otherAmount: cobrosSum,
     cashLeftInRegister: closingNum(raw.cashLeftInRegister),
     cashWithdrawn: closingNum(raw.cashWithdrawn),
@@ -217,16 +204,8 @@ export function prepareClosingSaveBody(
           if (explicit > 0) return explicit;
           return Math.max(0, cashAmount - closingNum(raw.cashLeftInRegister));
         })(),
-    declaredTotal:
-      closingNum(raw.cardAmount) +
-      cashAmount +
-      closingNum(raw.mercadoPagoAmount) +
-      closingNum(raw.accountDniAmount) +
-      cobrosSum +
-      ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
-        .filter((s) => !!s.includeInDeclared)
-        .reduce((sum, s) => sum + sourceRowTotal(s), 0),
-    posnetAmounts: posnetAmounts.length ? posnetAmounts : [],
+    declaredTotal: cashAmount + cobrosSum + sourcesDeclared,
+    posnetAmounts: [],
     expenses: (raw.expenses as ClosingFormExpenseRaw[])
       .filter((e) => (!!e.label || !!e.conceptId) && closingNum(e.amount) > 0)
       .map((e) => ({
@@ -244,14 +223,24 @@ export function prepareClosingSaveBody(
     })),
     notes: String(raw.notes ?? '').trim() || null,
     differenceReason: String(raw.differenceReason ?? '').trim() || null,
-    sourceAmounts: ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
-      .filter((s) => !!s.sourceId)
+    sourceAmounts: sourcesRaw
+      .filter((s) => !!s.sourceId && sourceRowTotal(s) > 0)
       .map((s) => {
-        const lines = sourceLinesFromRaw(s);
+        const posnetRows = Array.isArray(s.posnetAmounts)
+          ? s.posnetAmounts
+              .map((p) => ({
+                posnetId: String(p.posnetId ?? ''),
+                name: String(p.name ?? '').trim() || 'Posnet',
+                amount: closingNum(p.amount),
+              }))
+              .filter((p) => p.amount > 0)
+          : [];
+        const lines = posnetRows.length ? [] : sourceLinesFromRaw(s);
         return {
           sourceId: s.sourceId,
           amount: sourceRowTotal(s),
           lines: lines.length ? lines : undefined,
+          posnetAmounts: posnetRows.length ? posnetRows : undefined,
         };
       }),
     ...tip.payload,
@@ -351,7 +340,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     coversCount: raw.coversCount || null,
     declaredTotal: declared,
     calculatedTotal: declared,
-    difference: pos - declared,
+    difference: declared - pos,
     differenceReason: String(raw.differenceReason ?? '').trim() || null,
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,

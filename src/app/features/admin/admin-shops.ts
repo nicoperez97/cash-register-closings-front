@@ -73,7 +73,7 @@ function formatInstallerSize(n: number | null | undefined): string | null {
         <h2>Instalador Cierres-Comandas</h2>
         <p>
           Podés subir el archivo o pegar el link de descarga, por sistema operativo y versión. Los
-          locales lo bajan desde Configuración → Dispositivos.
+          locales lo bajan desde Configuración → Operación (Comandas / impresora).
         </p>
       </div>
 

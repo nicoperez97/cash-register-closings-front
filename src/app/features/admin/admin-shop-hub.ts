@@ -22,7 +22,7 @@ import { ADMIN_SHOP_SECTIONS } from './admin-shop-sections';
     />
 
     <p class="shop-hub__intro text-muted">
-      Acá está todo lo del local: marca, horarios, dispositivos y menú. Cada tarjeta abre una
+      Acá está todo lo del local: marca, horarios, cuentas del local y menú. Cada tarjeta abre una
       pantalla aparte. Los cambios se guardan con el botón fijo al pie.
     </p>
 

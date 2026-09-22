@@ -29,6 +29,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.closing-form-actions--top .mat-mdc-button-base {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 960px) {

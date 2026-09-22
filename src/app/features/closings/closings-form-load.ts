@@ -28,6 +28,18 @@ export function sourceLineAmounts(saved?: ClosingSourceAmount | null): number[] 
   return amount > 0 ? [amount] : [];
 }
 
+export function buildSourcePosnetAmountGroup(
+  fb: FormBuilder,
+  value: { posnetId: string; name: string; amount?: number | null },
+  emptyNum: (v: unknown) => number | null,
+) {
+  return fb.group({
+    posnetId: [value.posnetId],
+    name: [value.name],
+    amount: [emptyNum(value.amount)],
+  });
+}
+
 export function buildSourceAmountGroup(
   fb: FormBuilder,
   value: {
@@ -35,10 +47,60 @@ export function buildSourceAmountGroup(
     name: string;
     includeInDeclared: boolean;
     kind: string;
+    role?: string;
     lines?: number[];
+    posnets?: Array<{ id: string; name: string }>;
+    posnetAmounts?: Array<{ posnetId: string; name: string; amount: number }>;
   },
   emptyNum: (v: unknown) => number | null,
 ) {
+  const catalogPosnets = normalizeCatalogPosnets(value.posnets);
+  const savedPosnets = value.posnetAmounts ?? [];
+  const savedById = new Map(savedPosnets.map((p) => [p.posnetId, p]));
+
+  const posnetDefs =
+    catalogPosnets.length > 0
+      ? catalogPosnets.map((p) => ({
+          posnetId: p.id,
+          name: p.name,
+          amount: savedById.get(p.id)?.amount ?? null,
+        }))
+      : savedPosnets.map((p) => ({
+          posnetId: p.posnetId,
+          name: p.name,
+          amount: p.amount,
+        }));
+
+  // Ad-hoc del snapshot que no están en el catálogo
+  if (catalogPosnets.length) {
+    for (const p of savedPosnets) {
+      if (catalogPosnets.some((c) => c.id === p.posnetId)) continue;
+      if (posnetDefs.some((d) => d.posnetId === p.posnetId)) continue;
+      posnetDefs.push({ posnetId: p.posnetId, name: p.name, amount: p.amount });
+    }
+  }
+
+  if (posnetDefs.length) {
+    const posnetAmounts = fb.array(
+      posnetDefs.map((p) =>
+        buildSourcePosnetAmountGroup(
+          fb,
+          { posnetId: p.posnetId, name: p.name, amount: p.amount },
+          emptyNum,
+        ),
+      ),
+    );
+    return fb.group({
+      sourceId: [value.sourceId],
+      name: [value.name],
+      includeInDeclared: [!!value.includeInDeclared],
+      kind: [value.kind],
+      role: [value.role || 'STANDARD'],
+      lines: fb.array([]),
+      posnetAmounts,
+    });
+  }
+
   const lines = fb.array(
     (value.lines ?? []).map((amount) => buildSourceLineGroup(fb, amount, emptyNum)),
   );
@@ -47,10 +109,70 @@ export function buildSourceAmountGroup(
     name: [value.name],
     includeInDeclared: [!!value.includeInDeclared],
     kind: [value.kind],
+    role: [value.role || 'STANDARD'],
     lines,
+    posnetAmounts: fb.array([]),
   });
   ensureTrailingSourceLines(fb, group.get('lines') as FormArray, emptyNum);
   return group;
+}
+
+/** Normaliza posnets del catálogo (array, JSON string o vacío). */
+export function normalizeCatalogPosnets(
+  raw: unknown,
+): Array<{ id: string; name: string }> {
+  let value = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  const out: Array<{ id: string; name: string }> = [];
+  for (const row of value) {
+    if (!row || typeof row !== 'object') continue;
+    const name = String((row as { name?: string }).name ?? '').trim();
+    const id = String((row as { id?: string }).id ?? '').trim();
+    if (!name || !id) continue;
+    out.push({ id, name });
+  }
+  return out;
+}
+
+/** Posnets legacy del shop (con type) que corresponden a una cuenta del local por nombre. */
+export function legacyShopPosnetsForSource(
+  sourceName: string,
+  shopPosnets: Array<{ id: string; name: string; type?: string }> | null | undefined,
+): Array<{ id: string; name: string }> {
+  if (!shopPosnets?.length) return [];
+  const n = sourceName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  let types: string[] = [];
+  if (n === 'pvs' || n.includes('tarjeta') || n.includes('card')) types = ['PVS'];
+  else if (n.includes('mercado') || n === 'mp') types = ['MERCADO_PAGO'];
+  else if (n.includes('dni')) types = ['CUENTA_DNI'];
+  if (!types.length) return [];
+  return shopPosnets
+    .filter((p) => types.includes(String(p.type ?? '')))
+    .map((p) => ({
+      id: String(p.id || ''),
+      name: String(p.name ?? '').trim() || 'Posnet',
+    }))
+    .filter((p) => !!p.id);
+}
+
+export function resolveSourceCatalogPosnets(
+  src: Pick<ShopClosingSource, 'name' | 'posnets'>,
+  shopPosnets?: Array<{ id: string; name: string; type?: string }> | null,
+): Array<{ id: string; name: string }> {
+  const fromSource = normalizeCatalogPosnets(src.posnets);
+  if (fromSource.length) return fromSource;
+  return legacyShopPosnetsForSource(src.name, shopPosnets);
 }
 
 export function populateSourceAmounts(
@@ -59,14 +181,35 @@ export function populateSourceAmounts(
   catalog: ShopClosingSource[],
   saved: ClosingSourceAmount[] | null | undefined,
   emptyNum: (v: unknown) => number | null,
+  legacyPosnets?: Array<{ posnetId: string; name: string; type?: string; amount: number }> | null,
+  shopPosnets?: Array<{ id: string; name: string; type?: string }> | null,
 ): void {
   formArray.clear({ emitEvent: false });
   const savedById = new Map((saved ?? []).map((s) => [s.sourceId, s]));
   const seen = new Set<string>();
+  const legacyByPosnetId = new Map((legacyPosnets ?? []).map((p) => [p.posnetId, p]));
+
   for (const src of catalog) {
-    if (!src.active && !savedById.has(src.id)) continue;
+    if (src.role === 'CASH') continue;
+    // active ausente o true = visible; solo omitir si está explícitamente inactiva
+    if (src.active === false && !savedById.has(src.id)) continue;
     seen.add(src.id);
     const prev = savedById.get(src.id);
+    const catalogPosnets = resolveSourceCatalogPosnets(src, shopPosnets);
+
+    let posnetAmounts = prev?.posnetAmounts ?? undefined;
+    // Compat: montos top-level tipados → posnets de esta cuenta por id
+    if ((!posnetAmounts || !posnetAmounts.length) && catalogPosnets.length > 0) {
+      const fromLegacy = catalogPosnets
+        .map((p) => {
+          const hit = legacyByPosnetId.get(p.id);
+          return hit
+            ? { posnetId: p.id, name: p.name, amount: closingNum(hit.amount) }
+            : { posnetId: p.id, name: p.name, amount: 0 };
+        })
+        .filter((p) => closingNum(p.amount) > 0);
+      if (fromLegacy.length) posnetAmounts = fromLegacy;
+    }
     formArray.push(
       buildSourceAmountGroup(
         fb,
@@ -75,7 +218,10 @@ export function populateSourceAmounts(
           name: src.name,
           includeInDeclared: !!src.includeInDeclared,
           kind: src.kind,
-          lines: sourceLineAmounts(prev),
+          role: src.role,
+          lines: catalogPosnets.length ? [] : sourceLineAmounts(prev),
+          posnets: catalogPosnets,
+          posnetAmounts,
         },
         emptyNum,
       ),
@@ -84,15 +230,18 @@ export function populateSourceAmounts(
   }
   for (const s of saved ?? []) {
     if (!s.sourceId || seen.has(s.sourceId)) continue;
+    if (s.role === 'CASH') continue;
     formArray.push(
       buildSourceAmountGroup(
         fb,
         {
           sourceId: s.sourceId,
-          name: s.name || 'Fuente',
+          name: s.name || 'Cuenta',
           includeInDeclared: !!s.includeInDeclared,
           kind: s.kind || 'RECORD_ONLY',
+          role: s.role,
           lines: sourceLineAmounts(s),
+          posnetAmounts: s.posnetAmounts ?? undefined,
         },
         emptyNum,
       ),
@@ -121,7 +270,10 @@ export function ensureTrailingAllSourceLines(
   emptyNum: (v: unknown) => number | null,
 ): void {
   for (let i = 0; i < sourceAmounts.length; i++) {
-    const lines = sourceAmounts.at(i)?.get('lines') as FormArray | null;
+    const row = sourceAmounts.at(i);
+    const posnets = row?.get('posnetAmounts') as FormArray | null;
+    if (posnets && posnets.length > 0) continue;
+    const lines = row?.get('lines') as FormArray | null;
     if (lines) ensureTrailingSourceLines(fb, lines, emptyNum);
   }
 }
@@ -129,7 +281,12 @@ export function ensureTrailingAllSourceLines(
 export function sourceLinesFromRaw(row: {
   amount?: unknown;
   lines?: Array<{ amount?: unknown }> | number[] | null;
+  posnetAmounts?: Array<{ amount?: unknown }> | null;
 }): number[] {
+  const posnets = row.posnetAmounts;
+  if (Array.isArray(posnets) && posnets.length) {
+    return posnets.map((p) => closingNum(p?.amount)).filter((v) => v > 0);
+  }
   const lines = row.lines;
   if (Array.isArray(lines) && lines.length) {
     return lines
@@ -143,6 +300,7 @@ export function sourceLinesFromRaw(row: {
 export function sourceRowTotal(row: {
   amount?: unknown;
   lines?: Array<{ amount?: unknown }> | number[] | null;
+  posnetAmounts?: Array<{ amount?: unknown }> | null;
 }): number {
   return sourceLinesFromRaw(row).reduce((sum, value) => sum + value, 0);
 }

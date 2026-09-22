@@ -11,7 +11,6 @@ import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
-import { AdminClosingDepositsComponent, paymentMethodLabel } from './admin-closing-deposits';
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatMoney } from '../../shared/utils/money';
@@ -38,7 +37,6 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
     DataTableComponent,
     SegmentTabsComponent,
     FilterChipsComponent,
-    AdminClosingDepositsComponent,
   ],
   template: `
     <app-page-header
@@ -49,8 +47,6 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
       [actionLarge]="true"
       (action)="openCreate()"
     />
-
-    <app-admin-closing-deposits (saved)="reload()" />
 
     <app-segment-tabs
       ariaLabel="Tipo de cuenta"
@@ -163,11 +159,6 @@ export class AdminAccountsPage {
           if (n <= 0) return '—';
           return `${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`;
         },
-      },
-      {
-        key: 'linkedPaymentMethod',
-        label: 'Depósito',
-        format: (r) => paymentMethodLabel(String(r['linkedPaymentMethod'] ?? '')),
       },
       {
         key: 'hideFromCashWithdraw',

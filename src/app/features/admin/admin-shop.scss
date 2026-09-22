@@ -695,6 +695,25 @@
         border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 75%, transparent);
       }
 
+      .shop-admin__source-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--guy-primary, #1a3a4a);
+        background: color-mix(in srgb, var(--guy-primary, #1a3a4a) 12%, transparent);
+      }
+
+      .shop-admin__source-posnets {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding-top: 0.35rem;
+        border-top: 1px dashed color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, transparent);
+      }
+
       .shop-admin__source-declared {
         min-height: var(--guy-touch-min, 44px);
         display: inline-flex;

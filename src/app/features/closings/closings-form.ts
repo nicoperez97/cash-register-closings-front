@@ -40,7 +40,7 @@ import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ClosingStepFile, ClosingStepFileSlot, ShopClosingSource, ShopUserOption } from './closings-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
-import { shareClosingPdf, shareClosingSnack } from './closing-pdf';
+import { shareClosingText, shareClosingSnack } from './closing-pdf';
 import {
   closingSharePayload,
 } from '../../shared/components/record-share-builders';
@@ -52,8 +52,8 @@ import { TipsApiService } from '../tips/tips-api.service';
 import { TipsEditorState } from '../tips/tips-editor';
 import { ClosingFormHeaderComponent } from './closing-form-header';
 import { ClosingFormStickyActionsComponent } from './closing-form-sticky-actions';
+import { ClosingFormLiveSummaryComponent } from './closing-form-live-summary';
 import { ClosingFormSummaryComponent } from './closing-form-summary';
-import { ClosingFormPosnetsStepComponent } from './closing-form-posnets-step';
 import { ClosingFormCajaOtrosStepComponent } from './closing-form-caja-otros-step';
 import { ClosingFormCajaStepComponent } from './closing-form-caja-step';
 import { ClosingFormEfectivoStepComponent } from './closing-form-efectivo-step';
@@ -136,8 +136,8 @@ import {
     MatCheckboxModule,
     ClosingFormHeaderComponent,
     ClosingFormStickyActionsComponent,
+    ClosingFormLiveSummaryComponent,
     ClosingFormSummaryComponent,
-    ClosingFormPosnetsStepComponent,
     ClosingFormCajaOtrosStepComponent,
     ClosingFormCajaStepComponent,
     ClosingFormEfectivoStepComponent,
@@ -147,6 +147,7 @@ import {
   host: {
     class: 'closing-form-page',
     '[class.closing-form-page--cashier]': 'cashierOnly()',
+    '[class.closing-form-page--summary]': 'isLastStep()',
   },
   template: `
     <div class="closing-form-shell panel-card">
@@ -214,28 +215,31 @@ import {
           }
 
           @if (isMobile()) {
-            <div class="closing-stepper__progress">
-              <div class="closing-stepper__dots" role="tablist" aria-label="Pasos del cierre">
-                @for (label of stepLabels; track label; let i = $index) {
-                  <button
-                    type="button"
-                    class="closing-stepper__dot"
-                    role="tab"
-                    [attr.aria-label]="label"
-                    [attr.aria-selected]="stepIndex() === i"
-                    [class.is-active]="stepIndex() === i"
+            <nav class="closing-stepper__progress" aria-label="Pasos del cierre">
+              @for (label of stepLabels(); track label; let i = $index; let last = $last) {
+                <button
+                  type="button"
+                  class="closing-stepper__step"
+                  role="tab"
+                  [attr.aria-label]="label"
+                  [attr.aria-current]="stepIndex() === i ? 'step' : null"
+                  [attr.aria-selected]="stepIndex() === i"
+                  [class.is-active]="stepIndex() === i"
+                  [class.is-done]="stepIndex() > i"
+                  (click)="goToStep(i)"
+                >
+                  <span class="closing-stepper__index">{{ i + 1 }}</span>
+                  <span class="closing-stepper__name">{{ label }}</span>
+                </button>
+                @if (!last) {
+                  <span
+                    class="closing-stepper__rail"
                     [class.is-done]="stepIndex() > i"
-                    (click)="goToStep(i)"
-                  >
-                    {{ i + 1 }}
-                  </button>
+                    aria-hidden="true"
+                  ></span>
                 }
-              </div>
-              <span class="closing-stepper__title" aria-live="polite">
-                <em>{{ stepLabels[stepIndex()] }}</em>
-                <small>Paso {{ stepIndex() + 1 }} de {{ stepLabels.length }}</small>
-              </span>
-            </div>
+              }
+            </nav>
           }
 
           <mat-stepper
@@ -246,64 +250,37 @@ import {
             [animationDuration]="isMobile() ? '0' : ''"
             (selectionChange)="onStepChange($event.selectedIndex)"
           >
-            <mat-step label="Posnets">
-              <app-closing-form-posnets-step
-                [posnetAmounts]="posnetAmounts"
-                [panelHint]="posnetsPanelHint()"
-                [locksCard]="locksCard()"
-                [locksMp]="locksMp()"
-                [configuredIds]="configuredPosnetIds"
-                [posnetTypes]="posnetTypes"
-                [typeLabels]="posnetTypeLabels"
-                [posnetFiles]="posnetFilesMap()"
-                [cardFiles]="cardFiles()"
-                [mpFiles]="mpFiles()"
-                [filesBusyKey]="parsingKey()"
-                [filesDisabled]="filesDisabled()"
-                [requireClosingFiles]="requireClosingFiles()"
-                [cardHasAmount]="cardAmount() > 0 && !locksCard()"
-                [mpHasAmount]="mpAmount() > 0 && !locksMp()"
-                (add)="addPosnet()"
-                (remove)="removePosnet($event)"
-                (filePicked)="onStepFilesPicked($event.slot, $event.sourceId, $event.files)"
-                (fileView)="onStepFileView($event)"
-                (fileRemove)="onStepFileRemoved($event.slot, $event.sourceId, $event.file)"
+            <mat-step label="Ingresos">
+              <app-closing-form-efectivo-step
+                [withdrawAccounts]="withdrawAccounts()"
+                [pendingHint]="pendingWithdrawHint()"
+                [showNav]="false"
+                (countBills)="openBillCounter()"
+                (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
               />
-            </mat-step>
-
-            <mat-step label="Cobros">
               <app-closing-form-caja-otros-step
                 [sourceAmounts]="sourceAmounts"
                 [sourceCount]="sourceCount()"
                 [otherCobros]="otherCobros"
                 [cobrosHint]="cobrosPanelHint()"
                 [cobrosTotal]="money(cobrosStepTotal())"
-                [dniTransfers]="dniTransfers"
-                [dniHint]="dniPanelHint()"
-                [locksDni]="locksDni()"
                 [sourceFiles]="sourceFilesMap()"
-                [dniFiles]="dniStepFiles()"
                 [cobrosFiles]="cobrosStepFiles()"
                 [filesBusyKey]="parsingKey()"
                 [filesDisabled]="filesDisabled()"
                 [requireClosingFiles]="requireClosingFiles()"
-                [dniHasAmount]="dniNeedsFiles()"
                 [cobrosHasAmount]="cobrosStepTotal() > 0"
                 (remove)="removeOtherCobro($event)"
                 (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
-                (addDni)="addDniTransfer()"
-                (removeDni)="removeDniTransfer($event)"
                 (filePicked)="onStepFilesPicked('channel', $event.sourceId, $event.files)"
                 (fileView)="onStepFileView($event)"
                 (fileRemove)="onStepFileRemoved('channel', $event.sourceId, $event.file)"
-                (dniFilePicked)="onStepFilesPicked('account_dni', null, $event)"
-                (dniFileRemove)="onStepFileRemoved('account_dni', null, $event)"
                 (cobrosFilePicked)="onStepFilesPicked('other', null, $event)"
                 (cobrosFileRemove)="onStepFileRemoved('other', null, $event)"
               />
             </mat-step>
 
-            <mat-step label="Retiro y egresos">
+            <mat-step label="Egresos y notas">
               <app-closing-form-retiro-step
                 [expenses]="expenses"
                 [withdrawHint]="withdrawPanelHint()"
@@ -316,24 +293,17 @@ import {
               />
             </mat-step>
 
-            <mat-step label="Propinas">
-              <app-closing-form-tips-step
-                [tipsEnabled]="tipsEnabled()"
-                [tipsReadonly]="isLocked() && !auth.isAdmin()"
-                [tipEmployees]="tipEmployees()"
-                [tipEditorValue]="tipEditorValue()"
-                (tipChange)="onTipEditorChange($event)"
-              />
-            </mat-step>
-
-            <mat-step label="Efectivo">
-              <app-closing-form-efectivo-step
-                [withdrawAccounts]="withdrawAccounts()"
-                [pendingHint]="pendingWithdrawHint()"
-                (countBills)="openBillCounter()"
-                (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
-              />
-            </mat-step>
+            @if (showTipsStep()) {
+              <mat-step label="Propinas">
+                <app-closing-form-tips-step
+                  [tipsEnabled]="true"
+                  [tipsReadonly]="isLocked() && !auth.isAdmin()"
+                  [tipEmployees]="tipEmployees()"
+                  [tipEditorValue]="tipEditorValue()"
+                  (tipChange)="onTipEditorChange($event)"
+                />
+              </mat-step>
+            }
 
             <mat-step label="Caja">
               <app-closing-form-caja-step
@@ -348,8 +318,6 @@ import {
                 [filesDisabled]="filesDisabled()"
                 [requireClosingFiles]="requireClosingFiles()"
                 [hasAmount]="cajaEntered()"
-                [revealed]="cajaRevealed()"
-                (reveal)="cajaRevealed.set(true)"
                 (filePicked)="onStepFilesPicked('pos_system', null, $event)"
                 (fileView)="onStepFileView($event)"
                 (fileRemove)="onStepFileRemoved('pos_system', null, $event)"
@@ -364,7 +332,7 @@ import {
                 [accountDniAmount]="money(accountDniAmount())"
                 [posAmount]="money(posAmount())"
                 [declaredTotal]="money(declaredTotal())"
-                [difference]="cajaRevealed() ? cajaDifferenceLabel() : ''"
+                [difference]="cajaDifferenceLabel()"
                 [differenceTone]="cajaDifference()"
                 [asideTotal]="asideTotal() > 0 ? money(asideTotal()) : ''"
                 [dayTotal]="money(dayTotal())"
@@ -376,22 +344,35 @@ import {
             </mat-step>
           </mat-stepper>
         </section>
+
+        @if (!isLastStep()) {
+          <app-closing-form-live-summary
+            class="closing-form-live-summary"
+            [lines]="cajaBreakdown()"
+            [asideLines]="asideLines()"
+            [declaredTotal]="money(declaredTotal())"
+            [dayTotal]="money(dayTotal())"
+            [difference]="cajaDifferenceLabel()"
+            [differenceTone]="cajaDifference()"
+          />
+        }
       </form>
     </div>
 
-    <!-- Fuera del panel-card: su animación usa transform y desancora position:fixed -->
-    <app-closing-form-sticky-actions
-      [navigateMode]="!isLastStep()"
-      [canGoBack]="stepIndex() > 0"
-      [cashierOnly]="cashierOnly()"
-      [isLocked]="isLocked()"
-      [isAdmin]="auth.isAdmin()"
-      [saving]="saving()"
-      (backClicked)="stepBack()"
-      (nextClicked)="stepNext()"
-      (cancelClicked)="cancel()"
-      (unlockClicked)="unlock()"
-    />
+    @if (!isLastStep()) {
+      <app-closing-form-sticky-actions
+        [navigateMode]="true"
+        [canGoBack]="stepIndex() > 0"
+        [cashierOnly]="cashierOnly()"
+        [isLocked]="isLocked()"
+        [isAdmin]="auth.isAdmin()"
+        [saving]="saving()"
+        (backClicked)="stepBack()"
+        (nextClicked)="stepNext()"
+        (cancelClicked)="cancel()"
+        (unlockClicked)="unlock()"
+      />
+    }
   `,
   styleUrl: './closings-form.scss',
 })
@@ -457,17 +438,15 @@ export class ClosingsFormPage implements OnInit {
     { initialValue: false },
   );
   readonly stepIndex = signal(0);
-  readonly stepLabels = [
-    'Posnets',
-    'Cobros',
-    'Retiro y egresos',
-    'Propinas',
-    'Efectivo',
-    'Caja',
-    'Resumen',
-  ] as const;
-  readonly isLastStep = computed(() => this.stepIndex() === this.stepLabels.length - 1);
-  readonly cajaRevealed = signal(false);
+  /** Propinas solo si el local las tiene activas y no es cierre de evento. */
+  readonly showTipsStep = computed(() => this.tipsEnabled() && !this.isEvent());
+  readonly stepLabels = computed(() => {
+    const labels = ['Ingresos', 'Egresos y notas'];
+    if (this.showTipsStep()) labels.push('Propinas');
+    labels.push('Caja', 'Resumen');
+    return labels;
+  });
+  readonly isLastStep = computed(() => this.stepIndex() === this.stepLabels().length - 1);
   private readonly stepper = viewChild(MatStepper);
   private closingId: string | null = null;
 
@@ -533,6 +512,10 @@ export class ClosingsFormPage implements OnInit {
 
   private catalogSources: ShopClosingSource[] = [];
   private savedSourceAmounts: CashClosing['sourceAmounts'] | null = null;
+  private savedLegacyPosnets: CashClosing['posnetAmounts'] | null = null;
+  /** Esperar catálogo antes de aplicar borrador / apertura sugerida. */
+  private pendingDraftRestore = false;
+  private pendingApplyOpening = false;
   readonly sourceCount = signal(0);
   readonly savedStepFiles = signal<ClosingStepFile[]>([]);
   readonly pendingStepFiles = signal<
@@ -635,18 +618,12 @@ export class ClosingsFormPage implements OnInit {
       includeInDeclared?: boolean;
       amount?: number | null;
       lines?: Array<{ amount?: unknown }> | number[] | null;
+      posnetAmounts?: Array<{ amount?: unknown }> | null;
     }>;
     const fromSources = sources
       .filter((s) => !!s.includeInDeclared)
       .reduce((sum, s) => sum + sourceRowTotal(s), 0);
-    return (
-      this.n(v.cardAmount) +
-      this.cashAmount() +
-      this.n(v.mercadoPagoAmount) +
-      this.n(v.accountDniAmount) +
-      this.cobrosTotal() +
-      fromSources
-    );
+    return this.cashAmount() + this.cobrosTotal() + fromSources;
   });
 
   readonly cajaBreakdown = computed(() => {
@@ -655,22 +632,20 @@ export class ClosingsFormPage implements OnInit {
     const push = (name: string, value: number) => {
       if (value > 0) rows.push({ name, amount: this.money(value) });
     };
-    push('PVS', this.n(v.cardAmount));
     push('Efectivo', this.cashAmount());
-    push('Mercado Pago', this.n(v.mercadoPagoAmount));
-    push('Cuenta DNI', this.n(v.accountDniAmount));
     push('Cobros', this.cobrosTotal());
     const sources = (v.sourceAmounts ?? []) as Array<{
       name?: string;
       includeInDeclared?: boolean;
       amount?: number | null;
       lines?: Array<{ amount?: unknown }> | number[] | null;
+      posnetAmounts?: Array<{ amount?: unknown }> | null;
     }>;
     for (const source of sources) {
       if (!source.includeInDeclared) continue;
       const total = sourceRowTotal(source);
       if (total > 0) {
-        push(String(source.name ?? '').trim() || 'Fuente', total);
+        push(String(source.name ?? '').trim() || 'Cuenta', total);
       }
     }
     return rows;
@@ -682,7 +657,7 @@ export class ClosingsFormPage implements OnInit {
   });
 
   readonly cajaDifference = computed(() =>
-    this.cajaEntered() ? this.posAmount() - this.declaredTotal() : null,
+    this.cajaEntered() ? this.declaredTotal() - this.posAmount() : null,
   );
 
   readonly cajaDifferenceLabel = computed(() => {
@@ -694,7 +669,7 @@ export class ClosingsFormPage implements OnInit {
     () => Number(this.shop()?.differenceReasonMinAmount ?? 0) || 0,
   );
 
-  readonly saveDifference = computed(() => this.posAmount() - this.declaredTotal());
+  readonly saveDifference = computed(() => this.declaredTotal() - this.posAmount());
 
   readonly differenceReasonRequired = computed(() =>
     differenceReasonIsRequired(this.differenceReasonMinAmount(), this.saveDifference()),
@@ -713,6 +688,7 @@ export class ClosingsFormPage implements OnInit {
       includeInDeclared?: boolean;
       amount?: number | null;
       lines?: Array<{ amount?: unknown }> | number[] | null;
+      posnetAmounts?: Array<{ amount?: unknown }> | null;
     }>;
     return sources
       .filter((s) => !s.includeInDeclared && sourceRowTotal(s) > 0)
@@ -728,6 +704,7 @@ export class ClosingsFormPage implements OnInit {
       includeInDeclared?: boolean;
       amount?: number | null;
       lines?: Array<{ amount?: unknown }> | number[] | null;
+      posnetAmounts?: Array<{ amount?: unknown }> | null;
     }>;
     return sources
       .filter((s) => !s.includeInDeclared)
@@ -797,7 +774,7 @@ export class ClosingsFormPage implements OnInit {
   withdrawPanelHint(): string {
     const amount = this.n(this.formValue().cashWithdrawn);
     if (amount > 0) return this.money(amount);
-    return 'Notas y egresos';
+    return 'Egresos y notas';
   }
 
   expensesPanelHint(): string {
@@ -824,17 +801,14 @@ export class ClosingsFormPage implements OnInit {
       });
       this.api.listClosingSources(shopId).subscribe({
         next: (rows) => {
-          this.catalogSources = rows;
-          this.syncSourceAmounts();
+          this.catalogSources = Array.isArray(rows) ? rows : [];
+          this.onClosingSourcesCatalogReady(shopId);
         },
         error: () => {
-          this.snack.open('No se pudieron cargar las cuentas aparte', 'OK', {
+          this.snack.open('No se pudieron cargar las cuentas del local', 'OK', {
             duration: 3000,
           });
-          if (!this.catalogSources.length) {
-            this.catalogSources = [];
-            this.syncSourceAmounts();
-          }
+          this.onClosingSourcesCatalogReady(shopId);
         },
       });
       this.http
@@ -907,11 +881,11 @@ export class ClosingsFormPage implements OnInit {
         }
         if (!event) this.loadTipDay(c.businessDate);
         this.savedSourceAmounts = c.sourceAmounts ?? [];
+        this.savedLegacyPosnets = c.posnetAmounts ?? [];
         this.savedStepFiles.set(c.stepFiles ?? []);
         this.pendingStepFiles.set([]);
         this.syncSourceAmounts();
         this.syncOtherCobros(cobrosFromClosing(c));
-        this.cajaRevealed.set(true);
       });
     } else {
       const today = this.currentBusinessDate();
@@ -930,15 +904,13 @@ export class ClosingsFormPage implements OnInit {
       this.initPaymentLines();
       if (!wantEvent) this.loadTipDay(today);
       this.savedSourceAmounts = null;
-      this.syncSourceAmounts();
+      this.savedLegacyPosnets = null;
       this.syncOtherCobros([]);
-      if (!wantEvent && this.restoreClosingDraft()) {
-        this.userPickedShift = true;
-        this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
-          duration: 4000,
-        });
-      } else if (!wantEvent) {
-        this.applySuggestedOpening(shopId);
+      this.pendingDraftRestore = !wantEvent;
+      this.pendingApplyOpening = !wantEvent;
+      // Si el catálogo ya llegó (carrera), armar ahora; si no, espera al listClosingSources.
+      if (this.catalogSources.length) {
+        this.onClosingSourcesCatalogReady(shopId);
       }
       if (!this.isEvent()) this.refreshPendingClosingNotice();
       this.startClosingDraftAutosave();
@@ -968,6 +940,7 @@ export class ClosingsFormPage implements OnInit {
       if (date) this.loadTipDay(date);
       this.refreshPendingClosingNotice();
     }
+    this.clampStepIndex();
     this.persistClosingDraft();
   }
 
@@ -1055,6 +1028,25 @@ export class ClosingsFormPage implements OnInit {
     syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
   }
 
+  private onClosingSourcesCatalogReady(shopId: string | null): void {
+    if (this.pendingDraftRestore) {
+      this.pendingDraftRestore = false;
+      const restored = this.restoreClosingDraft();
+      if (restored) {
+        this.userPickedShift = true;
+        this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
+          duration: 4000,
+        });
+        this.pendingApplyOpening = false;
+      }
+    }
+    this.syncSourceAmounts();
+    if (this.pendingApplyOpening) {
+      this.pendingApplyOpening = false;
+      if (shopId) this.applySuggestedOpening(shopId);
+    }
+  }
+
   private syncSourceAmounts(): void {
     populateSourceAmounts(
       this.fb,
@@ -1062,9 +1054,11 @@ export class ClosingsFormPage implements OnInit {
       this.catalogSources,
       this.savedSourceAmounts,
       (v) => this.emptyNum(v),
+      this.savedLegacyPosnets,
+      this.shop()?.posnets ?? [],
     );
     this.sourceCount.set(this.sourceAmounts.length);
-    this.sourceAmounts.updateValueAndValidity();
+    this.sourceAmounts.updateValueAndValidity({ emitEvent: false });
   }
 
   private syncOtherCobros(rows: OtherCobroRow[]): void {
@@ -1565,13 +1559,13 @@ export class ClosingsFormPage implements OnInit {
   private async doShare(): Promise<void> {
     const shopName = this.shop()?.name ?? 'Local';
     try {
-      const result = await shareClosingPdf(this.shareClosingSnapshot(), shopName, {
+      const result = await shareClosingText(this.shareClosingSnapshot(), shopName, {
         unitsLabel: this.shop()?.unitsLabel,
       });
       const msg = shareClosingSnack(result);
       if (msg) this.snack.open(msg, 'OK', { duration: 2800 });
     } catch {
-      this.snack.open('No se pudo armar el PDF', 'OK', { duration: 3000 });
+      this.snack.open('No se pudo armar el texto', 'OK', { duration: 3000 });
     }
   }
 
@@ -1635,8 +1629,7 @@ export class ClosingsFormPage implements OnInit {
     if (this.differenceReasonRequired()) {
       const reason = String(this.form.controls.differenceReason.value ?? '').trim();
       if (!reason) {
-        this.cajaRevealed.set(true);
-        this.goToStep(5);
+        this.goToStep(this.cajaStepIndex());
         this.snack.open(this.differenceReasonHint(), 'OK', { duration: 4000 });
         return null;
       }
@@ -1663,10 +1656,11 @@ export class ClosingsFormPage implements OnInit {
   private missingRequiredFiles(): { labels: string[]; step: number } | null {
     if (!this.requireClosingFiles()) return null;
     const labels: string[] = [];
-    let step: number = this.stepLabels.length;
+    let step: number = this.stepLabels().length;
     const bump = (index: number) => {
       if (index < step) step = index;
     };
+    const cajaIdx = this.cajaStepIndex();
 
     for (const row of this.posnetAmounts.controls) {
       const raw = row.getRawValue() as ClosingPosnetAmount;
@@ -1688,11 +1682,11 @@ export class ClosingsFormPage implements OnInit {
     }
     if (this.dniNeedsFiles() && !this.dniStepFiles().length) {
       labels.push('Cuenta DNI');
-      bump(1);
+      bump(0);
     }
     if (this.cobrosStepTotal() > 0 && !this.cobrosStepFiles().length) {
       labels.push('Cobros');
-      bump(1);
+      bump(0);
     }
     for (const row of this.sourceAmounts.controls) {
       const sourceId = String(row.get('sourceId')?.value ?? '');
@@ -1700,11 +1694,11 @@ export class ClosingsFormPage implements OnInit {
       if (sourceRowTotal(row.getRawValue()) <= 0) continue;
       if ((this.sourceFilesMap()[sourceId] ?? []).length) continue;
       labels.push(String(row.get('name')?.value ?? '').trim() || 'Cuenta de canal');
-      bump(1);
+      bump(0);
     }
     if (this.posAmount() > 0 && !this.posSystemFiles().length) {
       labels.push('Caja sistema');
-      bump(5);
+      bump(cajaIdx >= 0 ? cajaIdx : 0);
     }
     if (!labels.length) return null;
     return { labels, step };
@@ -1851,15 +1845,23 @@ export class ClosingsFormPage implements OnInit {
 
   goToStep(index: number): void {
     const stepper = this.stepper();
-    if (!stepper || index < 0 || index >= this.stepLabels.length) return;
+    if (!stepper || index < 0 || index >= this.stepLabels().length) return;
     stepper.selectedIndex = index;
     this.onStepChange(index);
   }
 
   onStepChange(index: number): void {
-    const cajaIndex = this.stepLabels.indexOf('Caja');
-    if (index > cajaIndex && this.cajaEntered()) this.cajaRevealed.set(true);
     this.stepIndex.set(index);
+  }
+
+  private cajaStepIndex(): number {
+    return this.stepLabels().indexOf('Caja');
+  }
+
+  /** Si desaparece el paso Propinas (evento / tips off), no dejar el índice fuera de rango. */
+  private clampStepIndex(): void {
+    const max = this.stepLabels().length - 1;
+    if (this.stepIndex() > max) this.goToStep(Math.max(0, max));
   }
 
   stepBack(): void {
@@ -1989,7 +1991,6 @@ export class ClosingsFormPage implements OnInit {
     this.pendingStepFiles.set([]);
     this.syncSourceAmounts();
     this.syncOtherCobros([]);
-    this.cajaRevealed.set(false);
   }
 
   addExpense(): void {

@@ -529,3 +529,56 @@
   color: var(--guy-muted, #5f6f76);
   word-break: break-all;
 }
+
+.op__muted {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.op__print-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.op__print-token {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.op__print-token-field {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+
+.op__installer {
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0e4) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.op__installer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.op__installer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.op__installer-row .op__muted {
+  margin: 0;
+}

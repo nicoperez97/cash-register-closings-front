@@ -29,11 +29,11 @@ export function closingMoneyColumns(): DataTableColumn[] {
       label: 'Diferencia',
       format: (r) => money(r['difference']),
       cellClass: (r) => {
-        // difference = caja sistema − total declarado
+        // difference = total declarado − caja sistema
         // declarado mayor → a favor (verde); sistema mayor → en contra (rojo)
         const d = Number(r['difference'] ?? 0);
-        if (d < 0) return 'data-table__diff--pos';
-        if (d > 0) return 'data-table__diff--neg';
+        if (d > 0) return 'data-table__diff--pos';
+        if (d < 0) return 'data-table__diff--neg';
         return '';
       },
     },
