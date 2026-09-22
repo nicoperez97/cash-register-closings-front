@@ -1588,7 +1588,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Operación: turnos de caja (también dan la entrada/retirada de presentismo), multiplicador de feriado (liquidación), producción, POS, cambio por defecto (si no hay cierre anterior), tope para pedir motivo de diferencia (0 = no pedir), concepto del retiro de efectivo, francos y Comandas (impresora): token para Cierres-Comandas (Generar/Regenerar/Revocar) e instaladores publicados.',
           'Pedidos: página /pedir, take away, delivery, horarios, zonas y pagos online. La bandeja está en Operación → Pedidos clientes. Independiente de Comanda y Salón: se pueden tener todos.',
           'Comandas: activar comanda mozos, link /mozo, medios de pago de mesa y permisos por canal. No reemplaza a Pedidos.',
-          'Cuentas del local: lista compacta de cuentas del cierre (Efectivo, PVS, Mercado Pago…). Tocá una fila para editar destino y posnets. Agregar inserta debajo de Efectivo. Guardá con Guardar.',
+          'Cuentas del local: lista compacta de cuentas del cierre (Efectivo, PVS, Mercado Pago…). Tocá una fila para editar destino y posnets. Agregar inserta debajo de Efectivo. Guardá con el botón Guardar de esa pantalla (no hay barra fija al pie).',
           'Menú: grupos y módulos del menú lateral; abajo, Accesos rápidos de la barra (arrastrar, ocultar y agregar atajos).',
           'Carta: ítems y precios de la página pública.',
           'Avanzado: activar/desactivar el local y dump (super admin).',
