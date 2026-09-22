@@ -222,7 +222,6 @@ export class AdminShopComandaPage {
         [(accountSearchQuery)]="host.accountSearchQuery"
         [sourceNeedsAccount]="host.sourceNeedsAccountBound"
         [filteredSourceAccounts]="host.filteredSourceAccountsBound"
-        (addClosingSource)="host.addClosingSource()"
         (removeClosingSource)="host.removeClosingSource($event)"
         (addSourcePosnet)="host.addSourcePosnet($event)"
         (removeSourcePosnet)="host.removeSourcePosnet($event.sourceIndex, $event.posnetIndex)"
