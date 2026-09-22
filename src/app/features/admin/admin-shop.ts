@@ -1339,12 +1339,20 @@ export class AdminShopPage implements OnInit {
     this.sourcesReloadTick.update((n) => n + 1);
   }
 
-  addClosingSource(): void {
+  /** Inserta debajo de Efectivo. Devuelve el índice o -1 si no se pudo. */
+  addClosingSource(): number {
     if (!this.canEditCurrentSection()) {
       this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
-      return;
+      return -1;
     }
-    this.closingSources.push(
+    let insertAt = 0;
+    for (let i = 0; i < this.closingSources.length; i++) {
+      if (String(this.closingSources.at(i)?.get('role')?.value ?? '') === 'CASH') {
+        insertAt = i + 1;
+      }
+    }
+    this.closingSources.insert(
+      insertAt,
       this.buildClosingSourceGroup({
         id: '',
         shopId: this.shops.selectedShopId() ?? '',
@@ -1353,11 +1361,12 @@ export class AdminShopPage implements OnInit {
         kind: 'RECORD_ONLY',
         accountId: null,
         settlementLagDays: 0,
-        sortOrder: this.closingSources.length + 1,
+        sortOrder: insertAt + 1,
         active: true,
       }),
     );
     this.syncSectionFormEditable();
+    return insertAt;
   }
 
   removeClosingSource(index: number): void {

@@ -60,7 +60,7 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
     label: 'Cuentas del local',
     icon: 'account_balance_wallet',
     blurb: 'Cuentas del cierre y posnets.',
-    subtitle: 'Cuentas del local (PVS, Mercado Pago, Pedidos Ya…) y sus posnets para el cierre.',
+    subtitle: 'Lista compacta: destino y posnets por cuenta del cierre.',
   },
   {
     id: 'menu',
