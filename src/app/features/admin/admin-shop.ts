@@ -686,23 +686,23 @@ export class AdminShopPage implements OnInit {
     this.logoCacheBust.set(Date.now());
   }
 
-  /** Save bar solo en submódulos (no en el hub). */
+  /** Save bar solo en submódulos (no en el hub ni en cuentas del local, que tienen Guardar propio). */
   readonly showSaveBar = toSignal(
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       map((e) =>
-        /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/.test(
+        /\/admin\/shop\/(identidad|operacion|pedidos|comanda|menu|avanzado)/.test(
           e.urlAfterRedirects,
         ),
       ),
       startWith(
-        /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/.test(
+        /\/admin\/shop\/(identidad|operacion|pedidos|comanda|menu|avanzado)/.test(
           this.router.url,
         ),
       ),
     ),
     {
-      initialValue: /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/.test(
+      initialValue: /\/admin\/shop\/(identidad|operacion|pedidos|comanda|menu|avanzado)/.test(
         this.router.url,
       ),
     },
@@ -1439,8 +1439,12 @@ export class AdminShopPage implements OnInit {
     for (let i = 0; i < this.closingSources.length; i++) {
       const row = this.closingSources.at(i)?.getRawValue() as ShopClosingSource;
       const name = String(row?.name ?? '').trim();
-      if (!name) {
-        this.snack.open('Cada fuente necesita un nombre', 'OK', { duration: 3000 });
+      if (!name || name.length < 2) {
+        this.snack.open(
+          name ? 'El nombre debe tener al menos 2 caracteres' : 'Cada cuenta necesita un nombre',
+          'OK',
+          { duration: 3000 },
+        );
         return;
       }
       if (closingSourceKindNeedsAccount(row.kind) && !row.accountId) {
@@ -1481,8 +1485,11 @@ export class AdminShopPage implements OnInit {
                   .filter((p) => !!p.name),
               }),
         };
-        if (raw.id) {
-          const updated = await firstValueFrom(this.api.updateClosingSource(shopId, raw.id, body));
+        const existingId = String(raw.id ?? '').trim();
+        if (existingId) {
+          const updated = await firstValueFrom(
+            this.api.updateClosingSource(shopId, existingId, body),
+          );
           row?.patchValue(
             { id: updated.id, accountId: updated.accountId ?? null },
             { emitEvent: false },
@@ -1490,7 +1497,11 @@ export class AdminShopPage implements OnInit {
         } else {
           const created = await firstValueFrom(this.api.createClosingSource(shopId, body));
           row?.patchValue(
-            { id: created.id, accountId: created.accountId ?? null, role: created.role ?? 'STANDARD' },
+            {
+              id: created.id,
+              accountId: created.accountId ?? null,
+              role: created.role ?? 'STANDARD',
+            },
             { emitEvent: false },
           );
         }
@@ -1502,7 +1513,7 @@ export class AdminShopPage implements OnInit {
     } catch (err) {
       const msg =
         (err as { error?: { message?: string | string[] } })?.error?.message ??
-        'No se pudieron guardar las fuentes';
+        'No se pudieron guardar las cuentas del local';
       this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
     } finally {
       this.sourceSaving.set(false);
@@ -1800,6 +1811,10 @@ export class AdminShopPage implements OnInit {
   }
 
   save(): void {
+    if (this.currentShopSection() === 'dispositivos') {
+      void this.saveClosingSources();
+      return;
+    }
     if (!this.canEditCurrentSection()) {
       this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
       return;
