@@ -97,22 +97,30 @@ import { Component, input } from '@angular/core';
         list-style: none;
         margin: 0;
         padding: 0;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-        gap: 0.35rem 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 1.35rem;
       }
       .closing-live__lines li,
       .closing-live__aside li {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.4rem;
-        min-width: 0;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.55rem;
+        width: fit-content;
+        max-width: 100%;
         font-size: 0.8rem;
         color: var(--guy-muted, #5f6f76);
         font-variant-numeric: tabular-nums;
       }
+      .closing-live__lines li > span,
+      .closing-live__aside li > span {
+        min-width: 0;
+        white-space: nowrap;
+      }
       .closing-live__lines strong,
       .closing-live__aside strong {
+        flex-shrink: 0;
+        white-space: nowrap;
         color: var(--guy-navy, #003366);
       }
       .closing-live__aside {
@@ -127,9 +135,12 @@ import { Component, input } from '@angular/core';
       }
       .closing-live__day,
       .closing-live__diff {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.5rem;
+        display: inline-flex;
+        align-items: baseline;
+        justify-content: flex-start;
+        gap: 0.65rem;
+        width: fit-content;
+        max-width: 100%;
         margin-top: 0.4rem;
         font-size: 0.82rem;
         font-weight: 600;
@@ -137,6 +148,9 @@ import { Component, input } from '@angular/core';
       }
       .closing-live__day strong {
         color: var(--guy-navy, #003366);
+      }
+      .closing-live__diff strong {
+        white-space: nowrap;
       }
       .closing-live__diff--ok strong,
       .closing-live__diff--plus strong {

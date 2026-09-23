@@ -623,7 +623,12 @@ export class ClosingsFormPage implements OnInit {
     const fromSources = sources
       .filter((s) => !!s.includeInDeclared)
       .reduce((sum, s) => sum + sourceRowTotal(s), 0);
-    return this.cashAmount() + this.cobrosTotal() + fromSources;
+    const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
+    const expensesTotal = expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
+    // Recaudación efectivo = contado − apertura + egresos.
+    const cashCollected =
+      this.cashAmount() - this.n(v.cashOpeningAmount) + expensesTotal;
+    return cashCollected + this.cobrosTotal() + fromSources;
   });
 
   readonly cajaBreakdown = computed(() => {
@@ -632,7 +637,12 @@ export class ClosingsFormPage implements OnInit {
     const push = (name: string, value: number) => {
       if (value > 0) rows.push({ name, amount: this.money(value) });
     };
-    push('Efectivo', this.cashAmount());
+    const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
+    const expensesTotal = expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
+    const opening = this.n(v.cashOpeningAmount);
+    // Contado − apertura + egresos (lo que suma al declarado).
+    const cashCollected = this.cashAmount() - opening + expensesTotal;
+    push('Efectivo', cashCollected);
     push('Cobros', this.cobrosTotal());
     const sources = (v.sourceAmounts ?? []) as Array<{
       name?: string;
