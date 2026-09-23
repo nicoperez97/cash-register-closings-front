@@ -262,6 +262,7 @@ export function buildNavPreview(
   }
   if (canSeeShopConfigSection(user, shopId, 'pedidos')) pushLeaf(local, 'adminOrdering');
   if (canSeeShopConfigSection(user, shopId, 'comanda')) pushLeaf(local, 'adminComanda');
+  if (canSeeShopConfigSection(user, shopId, 'comanderas')) pushLeaf(local, 'adminComanderas');
   if (canAccessShopConfig(user, shopId)) {
     if (canSeeShopConfigSection(user, shopId, 'dispositivos')) {
       pushLeaf(local, 'adminShopDispositivos');

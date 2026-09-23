@@ -73,7 +73,7 @@ function formatInstallerSize(n: number | null | undefined): string | null {
         <h2>Instalador Cierres-Comandas</h2>
         <p>
           Podés subir el archivo o pegar el link de descarga, por sistema operativo y versión. Los
-          locales lo bajan desde Configuración → Operación (Comandas / impresora).
+          locales lo bajan desde Configuración → Comanderas.
         </p>
       </div>
 
@@ -443,10 +443,6 @@ export class AdminShopsPage implements OnInit {
 
   downloadInstaller(os: PrintAgentInstallerOs, item: PrintAgentInstallerItem): void {
     if (this.installerBusy()) return;
-    if (item.source === 'url' && item.downloadUrl) {
-      window.open(item.downloadUrl, '_blank', 'noopener');
-      return;
-    }
     this.installerBusy.set(true);
     this.http
       .get(`${environment.apiUrl}/admin/print-agent-installer/${os}/download`, {
@@ -455,6 +451,14 @@ export class AdminShopsPage implements OnInit {
       .subscribe({
         next: (blob) => {
           this.installerBusy.set(false);
+          if (!blob || blob.size < 1024) {
+            this.snack.open(
+              'La descarga parece incompleta. Subí el instalador como Archivo en vez de link de Drive.',
+              'OK',
+              { duration: 5000 },
+            );
+            return;
+          }
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;

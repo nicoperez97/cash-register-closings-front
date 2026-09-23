@@ -730,7 +730,7 @@ export class AdminShopPage implements OnInit {
 
   private sectionFromUrl(url: string): ShopConfigVisibilityKey | null {
     const m = url.match(
-      /\/admin\/shop\/(identidad|operacion|pedidos|comanda|dispositivos|menu|avanzado)/,
+      /\/admin\/shop\/(identidad|operacion|pedidos|comanda|comanderas|dispositivos|menu|avanzado)/,
     );
     return (m?.[1] as ShopConfigVisibilityKey) ?? null;
   }
@@ -1701,10 +1701,7 @@ export class AdminShopPage implements OnInit {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !os || this.installerBusy()) return;
     const item = this.installerItems().find((x) => x.os === os);
-    if (item?.source === 'url' && item.downloadUrl) {
-      window.open(item.downloadUrl, '_blank', 'noopener');
-      return;
-    }
+    // Siempre vía API: en links de Drive el servidor resuelve el aviso de virus y entrega el .exe real.
     this.installerBusy.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/print-agent/installer/${os}`, {
@@ -1713,6 +1710,14 @@ export class AdminShopPage implements OnInit {
       .subscribe({
         next: (blob) => {
           this.installerBusy.set(false);
+          if (!blob || blob.size < 1024) {
+            this.snack.open(
+              'La descarga parece incompleta. Pedile a un super admin que suba el instalador como archivo en Locales.',
+              'OK',
+              { duration: 5000 },
+            );
+            return;
+          }
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -1728,10 +1733,6 @@ export class AdminShopPage implements OnInit {
   }
 
   generatePrintAgentToken(): void {
-    if (!this.canEditCurrentSection()) {
-      this.snack.open('Solo lectura en esta sección', 'OK', { duration: 2500 });
-      return;
-    }
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.printAgentBusy()) return;
     this.printAgentBusy.set(true);
@@ -1793,6 +1794,22 @@ export class AdminShopPage implements OnInit {
     if (!token) return;
     void navigator.clipboard.writeText(token).then(
       () => this.snack.open('Token copiado', 'OK', { duration: 2000 }),
+      () => this.snack.open('No se pudo copiar. Seleccioná el texto a mano.', 'OK', { duration: 3500 }),
+    );
+  }
+
+  copyPrintAgentApiUrl(): void {
+    let url = String(environment.apiUrl || '')
+      .trim()
+      .replace(/\/+$/, '');
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) {
+      const origin = window.location.origin.replace(/\/+$/, '');
+      const path = url.startsWith('/') ? url : `/${url}`;
+      url = `${origin}${path}`;
+    }
+    void navigator.clipboard.writeText(url).then(
+      () => this.snack.open('URL de la API copiada', 'OK', { duration: 2000 }),
       () => this.snack.open('No se pudo copiar. Seleccioná el texto a mano.', 'OK', { duration: 3500 }),
     );
   }

@@ -4,6 +4,7 @@ export type AdminShopSectionId =
   | 'operacion'
   | 'pedidos'
   | 'comanda'
+  | 'comanderas'
   | 'dispositivos'
   | 'menu'
   | 'avanzado';
@@ -33,9 +34,9 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
     path: 'operacion',
     label: 'Operación',
     icon: 'schedule',
-    blurb: 'Turnos de caja, presentismo, Comandas (impresora), francos y módulos públicos.',
+    blurb: 'Turnos de caja, presentismo, francos y módulos públicos.',
     subtitle:
-      'Día a día del local: caja, horarios del personal, token de impresión de comandas, producción y qué módulos están activos.',
+      'Día a día del local: caja, horarios del personal, producción y qué módulos están activos.',
   },
   {
     id: 'pedidos',
@@ -53,6 +54,15 @@ export const ADMIN_SHOP_SECTIONS: readonly AdminShopSection[] = [
     blurb: 'Comanda mozos: link /mozo, pagos de mesa y permisos.',
     subtitle:
       'Operación → Comanda y /mozo: activación, medios de pago al cerrar y qué puede hacer cada canal.',
+  },
+  {
+    id: 'comanderas',
+    path: 'comanderas',
+    label: 'Comanderas',
+    icon: 'print',
+    blurb: 'Token e instalador de Cierres-Comandas. Con Ver ya se puede regenerar el token.',
+    subtitle:
+      'Generá o regenerá el token (también con permiso Ver), descargá el instalador y pegalo en Cierres-Comandas → Conexión.',
   },
   {
     id: 'dispositivos',

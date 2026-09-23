@@ -162,6 +162,7 @@ export const shopConfigSectionGuard = (
     | 'operacion'
     | 'pedidos'
     | 'comanda'
+    | 'comanderas'
     | 'dispositivos'
     | 'menu'
     | 'carta'

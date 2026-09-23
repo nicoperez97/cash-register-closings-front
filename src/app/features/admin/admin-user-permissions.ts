@@ -700,6 +700,7 @@ export class AdminUserPermissionsPage implements OnInit {
       operacion: 'manage',
       pedidos: 'manage',
       comanda: 'manage',
+      comanderas: 'manage',
       dispositivos: 'manage',
       menu: 'manage',
       carta: 'manage',

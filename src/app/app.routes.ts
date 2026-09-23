@@ -507,6 +507,15 @@ export const routes: Routes = [
             title: 'Comandas',
           },
           {
+            path: 'comanderas',
+            canActivate: [shopConfigSectionGuard('comanderas')],
+            loadComponent: () =>
+              import('./features/admin/admin-shop-section-pages').then(
+                (m) => m.AdminShopComanderasPage,
+              ),
+            title: 'Comanderas',
+          },
+          {
             path: 'dispositivos',
             canActivate: [shopConfigSectionGuard('dispositivos')],
             loadComponent: () =>
