@@ -19,6 +19,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom } from 'rxjs';
+import * as pdfjs from 'pdfjs-dist';
 import { environment } from '../../../environments/environment';
 import { menuPriceOf } from './menu-display';
 
@@ -69,6 +70,26 @@ function rgbToHex(r: number, g: number, b: number): string {
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
+}
+
+/** Worker servido desde /assets (angular.json); CDN como respaldo en stage/prod. */
+function configurePdfWorker(): void {
+  if (pdfjs.GlobalWorkerOptions.workerSrc) return;
+  const base = document.querySelector('base')?.getAttribute('href') || '/';
+  const root = base.endsWith('/') ? base : `${base}/`;
+  pdfjs.GlobalWorkerOptions.workerSrc = `${root}assets/pdfjs/pdf.worker.min.mjs`;
+}
+
+function isPdfBytes(buf: ArrayBuffer): boolean {
+  if (buf.byteLength < 5) return false;
+  const head = new Uint8Array(buf, 0, 5);
+  return (
+    head[0] === 0x25 &&
+    head[1] === 0x50 &&
+    head[2] === 0x44 &&
+    head[3] === 0x46 &&
+    head[4] === 0x2d
+  ); // %PDF-
 }
 
 @Component({
@@ -572,11 +593,12 @@ export class MenuPriceSlotsEditorComponent implements OnDestroy {
     () => `translate(${this.panX()}px, ${this.panY()}px) scale(${this.zoom()})`,
   );
 
-  private pdfDoc: import('pdfjs-dist').PDFDocumentProxy | null = null;
+  private pdfDoc: pdfjs.PDFDocumentProxy | null = null;
   private pageSizePt = { width: 595.28, height: 841.89 };
   private drag: { x0: number; y0: number } | null = null;
   private panDrag: { x0: number; y0: number; panX0: number; panY0: number } | null = null;
   private renderToken = 0;
+  private loadToken = 0;
   private onKeyDown = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape' && this.pickMode()) this.cancelColorPick();
   };
@@ -892,6 +914,7 @@ export class MenuPriceSlotsEditorComponent implements OnDestroy {
   }
 
   private async loadPdf(shopId: string, menuId: string): Promise<void> {
+    const token = ++this.loadToken;
     this.loading.set(true);
     this.loadError.set('');
     this.pageIndex.set(0);
@@ -900,24 +923,53 @@ export class MenuPriceSlotsEditorComponent implements OnDestroy {
       await this.pdfDoc?.destroy();
       this.pdfDoc = null;
       const url = `${environment.apiUrl}/shops/${shopId}/menu/${encodeURIComponent(menuId)}/source`;
-      const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
-      const buf = await blob.arrayBuffer();
-      const pdfjs = await import('pdfjs-dist');
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.min.mjs',
-        import.meta.url,
-      ).toString();
-      this.pdfDoc = await pdfjs.getDocument({ data: buf }).promise;
-      this.pageCount.set(this.pdfDoc.numPages);
-      await this.renderPage(true);
-    } catch (err) {
-      this.loadError.set(
-        'No se pudo cargar el PDF físico. Guardá la carta y volvé a subir el archivo.',
+      const resp = await firstValueFrom(
+        this.http.get(url, { responseType: 'blob', observe: 'response' }),
       );
+      if (token !== this.loadToken) return;
+      const blob = resp.body;
+      if (!blob || blob.size < 5) {
+        throw new Error('empty');
+      }
+      const buf = await blob.arrayBuffer();
+      if (!isPdfBytes(buf)) {
+        const ctype = String(resp.headers.get('content-type') || blob.type || '');
+        throw new Error(ctype.includes('json') || ctype.includes('html') ? 'not-pdf' : 'not-pdf');
+      }
+      configurePdfWorker();
+      try {
+        this.pdfDoc = await pdfjs.getDocument({ data: buf }).promise;
+      } catch (workerErr) {
+        // Respaldo: worker local faltante en deploy → CDN de la misma versión.
+        console.warn('pdf.js worker local falló, probando CDN', workerErr);
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+        this.pdfDoc = await pdfjs.getDocument({ data: buf }).promise;
+      }
+      if (token !== this.loadToken) return;
+      this.pageCount.set(this.pdfDoc.numPages);
+      // Esperar a que el canvas esté en el DOM (effect puede correr antes del primer paint).
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await this.renderPage(true);
+      if (!this.canvasRef?.nativeElement) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+        await this.renderPage(true);
+      }
+    } catch (err) {
+      if (token !== this.loadToken) return;
+      const status = (err as { status?: number })?.status;
+      if (status === 401 || status === 403) {
+        this.loadError.set('No tenés permiso para ver el archivo físico de esta carta.');
+      } else if (status === 404) {
+        this.loadError.set('No hay PDF físico cargado. Subilo de nuevo en esta pestaña.');
+      } else {
+        this.loadError.set(
+          'No se pudo cargar el PDF físico. Guardá la carta, volvé a subir el archivo y recargá la página.',
+        );
+      }
       this.pageCount.set(0);
       console.error(err);
     } finally {
-      this.loading.set(false);
+      if (token === this.loadToken) this.loading.set(false);
     }
   }
 
@@ -942,7 +994,6 @@ export class MenuPriceSlotsEditorComponent implements OnDestroy {
     this.canvasCssH.set(h);
     await page.render({ canvasContext: ctx, viewport }).promise;
     if (fitAfter) {
-      // Esperar un frame para que el viewport tenga tamaño real.
       requestAnimationFrame(() => this.fitToView());
     }
   }
