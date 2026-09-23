@@ -1,6 +1,8 @@
 import { toCanvas } from 'html-to-image';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { pdfWinAnsi } from './pdf-text';
 
 const FONT_HREF =
   'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Figtree:wght@400;500;600;700&display=swap';
@@ -223,7 +225,12 @@ function assertCanvasExportable(canvas: HTMLCanvasElement): void {
   void canvasToJpegDataUrl(canvas);
 }
 
-function canvasToPdfDoc(canvas: HTMLCanvasElement, singlePage = false): jsPDF {
+function canvasToPdfDoc(
+  canvas: HTMLCanvasElement,
+  singlePage = false,
+  /** Cortes preferidos en px de canvas (p.ej. fondo de cada <tr>). */
+  preferredBreaksPx?: number[],
+): jsPDF {
   assertCanvasExportable(canvas);
   const pageW = 595.28;
   const pageH = 841.89;
@@ -263,17 +270,34 @@ function canvasToPdfDoc(canvas: HTMLCanvasElement, singlePage = false): jsPDF {
   }
 
   // Un poco de más: achicar a una hoja en vez de cortar una fila al medio.
-  if (imgH <= fitH * 1.42) {
+  if (imgH <= fitH * 1.42 && !(preferredBreaksPx && preferredBreaksPx.length)) {
     fitOnePage();
     return pdf;
   }
 
   const pxPerPt = canvas.width / imgW;
   const pagePx = fitH * pxPerPt;
+  const breaks = (preferredBreaksPx ?? [])
+    .map((y) => Math.round(y))
+    .filter((y) => y > 0 && y < canvas.height)
+    .sort((a, b) => a - b);
+
   let y = 0;
   let page = 0;
   while (y < canvas.height - 0.5) {
-    const slicePx = Math.min(pagePx, canvas.height - y);
+    const idealEnd = y + pagePx;
+    let cut = Math.min(idealEnd, canvas.height);
+    if (cut < canvas.height - 0.5 && breaks.length) {
+      // Último borde de fila que entra completo en esta hoja.
+      let snapped = 0;
+      for (const b of breaks) {
+        if (b <= y + 2) continue;
+        if (b <= idealEnd + 0.5) snapped = b;
+        else break;
+      }
+      if (snapped > y + 8) cut = snapped;
+    }
+    const slicePx = Math.max(1, cut - y);
     const slice = document.createElement('canvas');
     slice.width = canvas.width;
     slice.height = Math.max(1, Math.round(slicePx));
@@ -286,12 +310,32 @@ function canvasToPdfDoc(canvas: HTMLCanvasElement, singlePage = false): jsPDF {
     addCanvasPage(pdf, slice, margin, margin, imgW, slice.height / pxPerPt);
     y += slicePx;
     page += 1;
+    if (page > 200) break;
   }
   return pdf;
 }
 
-function canvasToPdf(canvas: HTMLCanvasElement, filename: string, singlePage = false): void {
-  canvasToPdfDoc(canvas, singlePage).save(filename);
+function canvasToPdf(
+  canvas: HTMLCanvasElement,
+  filename: string,
+  singlePage = false,
+  preferredBreaksPx?: number[],
+): void {
+  canvasToPdfDoc(canvas, singlePage, preferredBreaksPx).save(filename);
+}
+
+/** Fondos de filas <tr> en coordenadas de canvas, para no partir celdas. */
+function tableRowBreaksPx(source: HTMLElement, canvas: HTMLCanvasElement): number[] {
+  const contentH = Math.max(source.scrollHeight, source.offsetHeight, 1);
+  const scaleY = canvas.height / contentH;
+  const ys: number[] = [];
+  const rootTop = source.getBoundingClientRect().top;
+  source.querySelectorAll('tr').forEach((tr) => {
+    const r = (tr as HTMLElement).getBoundingClientRect();
+    const bottom = (r.bottom - rootTop) * scaleY;
+    if (Number.isFinite(bottom) && bottom > 0) ys.push(bottom);
+  });
+  return ys;
 }
 
 async function renderCanvas(
@@ -391,7 +435,8 @@ export async function downloadElementPdf(
   try {
     await new Promise((r) => window.setTimeout(r, 80));
     const canvas = await renderCanvas(source, opts?.background ?? pageBackground(source));
-    canvasToPdf(canvas, filename, opts?.singlePage === true);
+    const breaks = tableRowBreaksPx(source, canvas);
+    canvasToPdf(canvas, filename, opts?.singlePage === true, breaks);
     saved = true;
   } finally {
     try {
@@ -606,32 +651,131 @@ export async function downloadTablePdf(opts: {
   /** HTML opcional (p.ej. torta) entre subtítulo y tabla. */
   chartHtml?: string;
 }): Promise<void> {
+  await withGeneratingMask(async () => {
+    const pageW = 595.28;
+    const margin = 36;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+    let cursorY = margin;
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.setTextColor(26, 31, 28);
+    pdf.text(pdfWinAnsi(opts.title), margin, cursorY);
+    cursorY += 16;
+
+    if (opts.subtitle?.trim()) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(85, 102, 110);
+      const lines = pdf.splitTextToSize(pdfWinAnsi(opts.subtitle), pageW - margin * 2);
+      pdf.text(lines, margin, cursorY);
+      cursorY += lines.length * 11 + 4;
+      pdf.setTextColor(26, 31, 28);
+    }
+
+    if (opts.chartHtml?.trim()) {
+      const chart = await htmlSnippetToJpeg(opts.chartHtml, 840);
+      if (chart) {
+        const maxW = pageW - margin * 2;
+        const imgW = Math.min(maxW, chart.widthPt);
+        const imgH = (chart.heightPt * imgW) / Math.max(chart.widthPt, 1);
+        // Si no entra con la tabla, al menos la torta completa en esta hoja.
+        if (cursorY + imgH > 841.89 - margin) {
+          pdf.addPage();
+          cursorY = margin;
+        }
+        pdf.addImage(chart.dataUrl, 'JPEG', margin, cursorY, imgW, imgH, undefined, 'FAST');
+        cursorY += imgH + 12;
+      }
+    }
+
+    const head = [opts.headers.map((h) => pdfWinAnsi(String(h ?? '')))];
+    const body = opts.rows.length
+      ? opts.rows.map((row) => row.map((c) => pdfWinAnsi(String(c ?? ''))))
+      : [[pdfWinAnsi('Sin datos')]];
+
+    autoTable(pdf, {
+      startY: cursorY,
+      head,
+      body,
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 8,
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+        overflow: 'linebreak',
+        valign: 'middle',
+        textColor: [26, 31, 28],
+        lineColor: [220, 226, 222],
+        lineWidth: 0.3,
+      },
+      headStyles: {
+        fillColor: [241, 245, 242],
+        textColor: [26, 31, 28],
+        fontStyle: 'bold',
+        fontSize: 8,
+      },
+      alternateRowStyles: { fillColor: [252, 253, 252] },
+      margin: { left: margin, right: margin, bottom: margin },
+      // Nunca partir una fila a la mitad entre páginas.
+      rowPageBreak: 'avoid',
+      showHead: 'everyPage',
+      tableWidth: 'auto',
+    });
+
+    pdf.save(opts.filename);
+  });
+}
+
+/** Captura un fragmento HTML (SVG/charts) a JPEG para embeber en PDF vectorial. */
+async function htmlSnippetToJpeg(
+  html: string,
+  widthPx: number,
+): Promise<{ dataUrl: string; widthPt: number; heightPt: number } | null> {
   const wrap = document.createElement('div');
-  wrap.id = `pdf-table-${Date.now()}`;
-  wrap.style.cssText =
-    'position:fixed;left:-12000px;top:0;width:920px;padding:16px 18px;background:#fff;color:#1a1f1c;font:13px Figtree,Segoe UI,sans-serif;';
-  const rowsHtml = opts.rows
-    .map(
-      (row) =>
-        `<tr>${row.map((c) => `<td style="padding:3px 3px;border-bottom:1px solid #eee">${escapePdfHtml(String(c ?? ''))}</td>`).join('')}</tr>`,
-    )
-    .join('');
-  wrap.innerHTML = `
-    <h1 style="margin:0 0 2px;font:700 16px Figtree,sans-serif">${escapePdfHtml(opts.title)}</h1>
-    ${opts.subtitle ? `<p style="margin:0 0 8px;color:#556;font-size:11px">${escapePdfHtml(opts.subtitle)}</p>` : ''}
-    ${opts.chartHtml || ''}
-    <table style="width:100%;border-collapse:collapse;font-size:10px">
-      <thead>
-        <tr>
-          ${opts.headers.map((h) => `<th style="text-align:left;border-bottom:1px solid #ccc;padding:3px 3px">${escapePdfHtml(h)}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>${rowsHtml || `<tr><td colspan="${opts.headers.length}">Sin datos</td></tr>`}</tbody>
-    </table>
-  `;
+  wrap.style.cssText = `position:fixed;left:-12000px;top:0;width:${widthPx}px;padding:0;background:#fff;color:#1a1f1c;font:13px Figtree,Segoe UI,sans-serif;`;
+  wrap.innerHTML = html;
   document.body.appendChild(wrap);
   try {
-    await withGeneratingMask(() => downloadElementPdf(wrap, opts.filename, { background: '#ffffff' }));
+    await ensureWebFonts();
+    await new Promise((r) => window.setTimeout(r, 40));
+    const width = Math.max(wrap.offsetWidth, wrap.scrollWidth, 1);
+    const height = Math.max(wrap.scrollHeight, wrap.offsetHeight, 1);
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await toCanvas(wrap, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        skipAutoScale: true,
+        skipFonts: true,
+        width,
+        height,
+        canvasWidth: Math.round(width * 2),
+        canvasHeight: Math.round(height * 2),
+      });
+    } catch {
+      canvas = await html2canvas(wrap, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width,
+        height,
+      });
+    }
+    if (!canvas.width || !canvas.height) return null;
+    // A4 usable ~ 523 pt de ancho → mapear px CSS a pt (widthPx ≈ ancho útil).
+    const widthPt = Math.min(523, widthPx * 0.62);
+    const heightPt = (canvas.height / canvas.width) * widthPt;
+    return {
+      dataUrl: canvas.toDataURL('image/jpeg', 0.96),
+      widthPt,
+      heightPt,
+    };
+  } catch {
+    return null;
   } finally {
     wrap.remove();
   }
