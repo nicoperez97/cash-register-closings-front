@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { pdfWinAnsi } from './pdf-text';
+import { drawPdfDonut, type PdfDonutChart } from './pdf-donut';
 
 const FONT_HREF =
   'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Figtree:wght@400;500;600;700&display=swap';
@@ -269,12 +270,7 @@ function canvasToPdfDoc(
     return pdf;
   }
 
-  // Un poco de más: achicar a una hoja en vez de cortar una fila al medio.
-  if (imgH <= fitH * 1.42 && !(preferredBreaksPx && preferredBreaksPx.length)) {
-    fitOnePage();
-    return pdf;
-  }
-
+  // Si no entra en una hoja → saltar de página (nunca achicar para evitar el corte).
   const pxPerPt = canvas.width / imgW;
   const pagePx = fitH * pxPerPt;
   const breaks = (preferredBreaksPx ?? [])
@@ -288,7 +284,7 @@ function canvasToPdfDoc(
     const idealEnd = y + pagePx;
     let cut = Math.min(idealEnd, canvas.height);
     if (cut < canvas.height - 0.5 && breaks.length) {
-      // Último borde de fila que entra completo en esta hoja.
+      // Último borde de fila / bloque que entra completo en esta hoja.
       let snapped = 0;
       for (const b of breaks) {
         if (b <= y + 2) continue;
@@ -324,14 +320,16 @@ function canvasToPdf(
   canvasToPdfDoc(canvas, singlePage, preferredBreaksPx).save(filename);
 }
 
-/** Fondos de filas <tr> en coordenadas de canvas, para no partir celdas. */
-function tableRowBreaksPx(source: HTMLElement, canvas: HTMLCanvasElement): number[] {
+/** Bordes inferiores preferidos en px de canvas, para no partir bloques al medio. */
+function contentBreaksPx(source: HTMLElement, canvas: HTMLCanvasElement): number[] {
   const contentH = Math.max(source.scrollHeight, source.offsetHeight, 1);
   const scaleY = canvas.height / contentH;
   const ys: number[] = [];
   const rootTop = source.getBoundingClientRect().top;
-  source.querySelectorAll('tr').forEach((tr) => {
-    const r = (tr as HTMLElement).getBoundingClientRect();
+  const sel =
+    'tr, thead, tbody, section, article, header, footer, h1, h2, h3, h4, table, .pdf-page-break, [data-pdf-break]';
+  source.querySelectorAll(sel).forEach((el) => {
+    const r = (el as HTMLElement).getBoundingClientRect();
     const bottom = (r.bottom - rootTop) * scaleY;
     if (Number.isFinite(bottom) && bottom > 0) ys.push(bottom);
   });
@@ -435,7 +433,7 @@ export async function downloadElementPdf(
   try {
     await new Promise((r) => window.setTimeout(r, 80));
     const canvas = await renderCanvas(source, opts?.background ?? pageBackground(source));
-    const breaks = tableRowBreaksPx(source, canvas);
+    const breaks = contentBreaksPx(source, canvas);
     canvasToPdf(canvas, filename, opts?.singlePage === true, breaks);
     saved = true;
   } finally {
@@ -618,7 +616,8 @@ export async function downloadHtmlPdf(opts: {
   try {
     await withGeneratingMask(async () => {
       const canvas = await renderCanvas(mounted.root, '#ffffff');
-      canvasToPdf(canvas, opts.filename, opts.singlePage === true);
+      const breaks = opts.singlePage ? undefined : contentBreaksPx(mounted.root, canvas);
+      canvasToPdf(canvas, opts.filename, opts.singlePage === true, breaks);
     });
   } finally {
     mounted.dispose();
@@ -635,7 +634,8 @@ export async function htmlPdfBlob(opts: {
   try {
     return await withGeneratingMask(async () => {
       const canvas = await renderCanvas(mounted.root, '#ffffff');
-      return canvasToPdfDoc(canvas, opts.singlePage === true).output('blob');
+      const breaks = opts.singlePage ? undefined : contentBreaksPx(mounted.root, canvas);
+      return canvasToPdfDoc(canvas, opts.singlePage === true, breaks).output('blob');
     });
   } finally {
     mounted.dispose();
@@ -648,14 +648,26 @@ export async function downloadTablePdf(opts: {
   filename: string;
   headers: string[];
   rows: Array<Array<string | number>>;
-  /** HTML opcional (p.ej. torta) entre subtítulo y tabla. */
+  /** Torta dibujada en vector (preferido). */
+  chart?: PdfDonutChart;
+  /** @deprecated Usar `chart`. Se ignora si viene `chart`. */
   chartHtml?: string;
 }): Promise<void> {
   await withGeneratingMask(async () => {
     const pageW = 595.28;
+    const pageH = 841.89;
     const margin = 36;
+    /** Mínimo para cabecera de tabla + una fila; si no entra → nueva hoja. */
+    const minTableBlock = 56;
+    const chartReserve = 150;
     const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
     let cursorY = margin;
+
+    const ensureSpace = (needed: number) => {
+      if (cursorY + needed <= pageH - margin) return;
+      pdf.addPage();
+      cursorY = margin;
+    };
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
@@ -668,26 +680,24 @@ export async function downloadTablePdf(opts: {
       pdf.setFontSize(9);
       pdf.setTextColor(85, 102, 110);
       const lines = pdf.splitTextToSize(pdfWinAnsi(opts.subtitle), pageW - margin * 2);
+      ensureSpace(lines.length * 11 + 6);
       pdf.text(lines, margin, cursorY);
-      cursorY += lines.length * 11 + 4;
+      cursorY += lines.length * 11 + 6;
       pdf.setTextColor(26, 31, 28);
     }
 
-    if (opts.chartHtml?.trim()) {
-      const chart = await htmlSnippetToJpeg(opts.chartHtml, 840);
-      if (chart) {
-        const maxW = pageW - margin * 2;
-        const imgW = Math.min(maxW, chart.widthPt);
-        const imgH = (chart.heightPt * imgW) / Math.max(chart.widthPt, 1);
-        // Si no entra con la tabla, al menos la torta completa en esta hoja.
-        if (cursorY + imgH > 841.89 - margin) {
-          pdf.addPage();
-          cursorY = margin;
-        }
-        pdf.addImage(chart.dataUrl, 'JPEG', margin, cursorY, imgW, imgH, undefined, 'FAST');
-        cursorY += imgH + 12;
-      }
+    if (opts.chart?.items?.length) {
+      ensureSpace(chartReserve);
+      cursorY = drawPdfDonut(pdf, {
+        ...opts.chart,
+        x: margin,
+        y: cursorY,
+        maxWidth: pageW - margin * 2,
+      });
     }
+
+    // Si tras título/gráfico no cabe al menos cabecera + 1 fila, la tabla empieza en hoja nueva.
+    ensureSpace(minTableBlock);
 
     const head = [opts.headers.map((h) => pdfWinAnsi(String(h ?? '')))];
     const body = opts.rows.length
@@ -716,8 +726,8 @@ export async function downloadTablePdf(opts: {
         fontSize: 8,
       },
       alternateRowStyles: { fillColor: [252, 253, 252] },
-      margin: { left: margin, right: margin, bottom: margin },
-      // Nunca partir una fila a la mitad entre páginas.
+      margin: { top: margin, left: margin, right: margin, bottom: margin },
+      pageBreak: 'auto',
       rowPageBreak: 'avoid',
       showHead: 'everyPage',
       tableWidth: 'auto',
@@ -725,58 +735,4 @@ export async function downloadTablePdf(opts: {
 
     pdf.save(opts.filename);
   });
-}
-
-/** Captura un fragmento HTML (SVG/charts) a JPEG para embeber en PDF vectorial. */
-async function htmlSnippetToJpeg(
-  html: string,
-  widthPx: number,
-): Promise<{ dataUrl: string; widthPt: number; heightPt: number } | null> {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = `position:fixed;left:-12000px;top:0;width:${widthPx}px;padding:0;background:#fff;color:#1a1f1c;font:13px Figtree,Segoe UI,sans-serif;`;
-  wrap.innerHTML = html;
-  document.body.appendChild(wrap);
-  try {
-    await ensureWebFonts();
-    await new Promise((r) => window.setTimeout(r, 40));
-    const width = Math.max(wrap.offsetWidth, wrap.scrollWidth, 1);
-    const height = Math.max(wrap.scrollHeight, wrap.offsetHeight, 1);
-    let canvas: HTMLCanvasElement;
-    try {
-      canvas = await toCanvas(wrap, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-        skipAutoScale: true,
-        skipFonts: true,
-        width,
-        height,
-        canvasWidth: Math.round(width * 2),
-        canvasHeight: Math.round(height * 2),
-      });
-    } catch {
-      canvas = await html2canvas(wrap, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width,
-        height,
-      });
-    }
-    if (!canvas.width || !canvas.height) return null;
-    // A4 usable ~ 523 pt de ancho → mapear px CSS a pt (widthPx ≈ ancho útil).
-    const widthPt = Math.min(523, widthPx * 0.62);
-    const heightPt = (canvas.height / canvas.width) * widthPt;
-    return {
-      dataUrl: canvas.toDataURL('image/jpeg', 0.96),
-      widthPt,
-      heightPt,
-    };
-  } catch {
-    return null;
-  } finally {
-    wrap.remove();
-  }
 }

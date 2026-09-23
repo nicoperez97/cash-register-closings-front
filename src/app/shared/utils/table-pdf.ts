@@ -1,5 +1,6 @@
 import { DataTableColumn } from '../components/data-table';
 import { downloadTablePdf } from '../pdf/html-pdf';
+import type { PdfDonutChart } from '../pdf/pdf-donut';
 
 export function tablePdfRows(
   columns: DataTableColumn[],
@@ -20,6 +21,8 @@ export async function downloadColumnsPdf(opts: {
   filename: string;
   columns: DataTableColumn[];
   rows: any[];
+  chart?: PdfDonutChart;
+  /** @deprecated Usar `chart`. */
   chartHtml?: string;
 }): Promise<void> {
   await downloadTablePdf({
@@ -28,6 +31,7 @@ export async function downloadColumnsPdf(opts: {
     filename: opts.filename,
     headers: opts.columns.map((c) => c.label),
     rows: tablePdfRows(opts.columns, opts.rows),
+    chart: opts.chart,
     chartHtml: opts.chartHtml,
   });
 }
