@@ -91,7 +91,7 @@ function formatMoney(value: number): string {
             <strong>Nada pendiente</strong>
             <div class="small">
               Cuando un cierre se guarda sin quién se lleva el efectivo y hay monto a retirar
-              (efectivo − lo dejado en caja − egresos), aparece acá. Si después hay un gasto de
+              (efectivo − lo dejado en caja), aparece acá. Si después hay un gasto de
               caja, se descuenta de este total.
             </div>
           </div>

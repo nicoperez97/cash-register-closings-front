@@ -307,9 +307,12 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     .reduce((sum, s) => sum + s.amount, 0);
   const fieldCash = roundMoney(raw.cashAmount);
   const cashAmount = fieldCash > 0 ? fieldCash : roundMoney(cashFromCobros);
+  const expensesSum = expenses.reduce((sum, e) => sum + closingNum(e.amount), 0);
+  const opening = closingNum(raw.cashOpeningAmount);
+  const cashCollected = cashAmount - opening + expensesSum;
   const declared =
     closingNum(raw.cardAmount) +
-    cashAmount +
+    cashCollected +
     closingNum(raw.mercadoPagoAmount) +
     closingNum(raw.accountDniAmount) +
     cobrosSum +

@@ -72,7 +72,15 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
           >
             <mat-label>Efectivo a retirar</mat-label>
             <span matTextPrefix class="closing-field__prefix">$</span>
-            <input matInput type="text" inputmode="decimal" appMoney formControlName="cashWithdrawn" />
+            <input
+              matInput
+              type="text"
+              inputmode="decimal"
+              appMoney
+              formControlName="cashWithdrawn"
+              readonly
+            />
+            <mat-hint>Se calcula solo: total − lo que dejás en caja</mat-hint>
           </mat-form-field>
           <mat-form-field
             appearance="outline"
@@ -86,7 +94,8 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
             <mat-hint>Se propone como apertura del próximo turno</mat-hint>
           </mat-form-field>
           <p class="closing-form__account-hint closing-form__span-all">
-            Al cargar el total se completa a retirar. Si dejás plata en caja, se descuenta solo.
+            Al cargar el total se completa a retirar (no se edita). Si dejás plata en caja, se
+            descuenta solo.
           </p>
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__span-all">
             <mat-label>Quién se lo lleva</mat-label>
