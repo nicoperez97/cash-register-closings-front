@@ -17,6 +17,7 @@ import {
   StockKind,
   StockProduct,
 } from './stock-api.service';
+import { asBool } from '../../core/utils/as-bool';
 
 export type StockProductDialogData = {
   shopId: string;
@@ -207,7 +208,7 @@ export class StockProductDialogComponent implements OnInit {
     quantity: [this.product?.quantity ?? 0],
     minQuantity: [this.product?.minQuantity ?? 0],
     maxQuantity: [this.product?.maxQuantity ?? 0],
-    active: [this.product?.active ?? true],
+    active: [asBool(this.product?.active, true)],
   });
 
   ngOnInit(): void {
@@ -279,7 +280,7 @@ export class StockProductDialogComponent implements OnInit {
 
     const req =
       this.isEdit && this.product
-        ? this.api.updateProduct(shopId, kind, this.product.id, { ...body, active: raw.active })
+        ? this.api.updateProduct(shopId, kind, this.product.id, { ...body, active: asBool(raw.active) })
         : this.api.createProduct(shopId, kind, body);
 
     req.subscribe({

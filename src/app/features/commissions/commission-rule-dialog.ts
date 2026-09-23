@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, forkJoin, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { CommissionRule, CommissionsApiService } from './commissions-api.service';
@@ -243,12 +244,9 @@ export class CommissionRuleDialogComponent implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        const msg = err?.error?.message;
-        this.snack.open(
-          typeof msg === 'string' ? msg : 'No se pudo guardar',
-          'OK',
-          { duration: 3500 },
-        );
+        this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', {
+          duration: 3500,
+        });
       },
     });
   }

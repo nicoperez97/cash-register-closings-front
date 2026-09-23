@@ -16,6 +16,7 @@ import {
   CONCEPT_CATEGORY_OPTIONS,
   ConceptCategory,
 } from '../../shared/concept-categories';
+import { asBool } from '../../core/utils/as-bool';
 
 export interface AdminConceptRow {
   id: string;
@@ -150,8 +151,8 @@ export class AdminConceptDialogComponent {
     categories: [
       this.concept?.categories?.length ? [...this.concept.categories] : (['MOVEMENTS'] as ConceptCategory[]),
     ],
-    validated: [this.concept?.validated ?? true],
-    active: [this.concept?.active ?? true],
+    validated: [asBool(this.concept?.validated, true)],
+    active: [asBool(this.concept?.active, true)],
   });
 
   save(): void {
@@ -166,8 +167,8 @@ export class AdminConceptDialogComponent {
       description: raw.description.trim() || null,
       kind: raw.kind,
       categories: raw.categories,
-      validated: raw.validated,
-      ...(this.isEdit ? { active: raw.active } : {}),
+      validated: asBool(raw.validated),
+      ...(this.isEdit ? { active: asBool(raw.active) } : {}),
     };
     this.busy.set(true);
 

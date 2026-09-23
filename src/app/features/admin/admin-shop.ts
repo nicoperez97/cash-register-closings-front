@@ -31,6 +31,7 @@ import {
   resolveDiscountPresets,
 } from '../../core/shop/discount-presets';
 import { normalizeLogoUrl, resolveShopLogoSrc, isUploadedShopLogoPath } from '../../core/utils/drive-url';
+import { asBool } from '../../core/utils/as-bool';
 import { newId } from '../../core/utils/id';
 import { environment } from '../../../environments/environment';
 import {
@@ -1949,7 +1950,7 @@ export class AdminShopPage implements OnInit {
           value: Number(p.value) || 0,
         }))
         .filter((p) => p.value > 0),
-      active: raw.active,
+      active: asBool(raw.active, true),
       salesSystemId: raw.salesSystemId || null,
       cashWithdrawalConceptId: raw.cashWithdrawalConceptId || null,
       paymentConceptCategories: { ...raw.paymentConceptCategories },

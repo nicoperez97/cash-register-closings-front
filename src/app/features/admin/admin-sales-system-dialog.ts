@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { asBool } from '../../core/utils/as-bool';
 
 export interface AdminSalesSystemRow {
   id: string;
@@ -130,7 +131,7 @@ export class AdminSalesSystemDialogComponent {
       this.system?.parserKey ?? this.data.parsers[0]?.key ?? 'restosoft',
       Validators.required,
     ],
-    active: [this.system?.active ?? true],
+    active: [asBool(this.system?.active, true)],
   });
 
   save(): void {
@@ -143,7 +144,7 @@ export class AdminSalesSystemDialogComponent {
       name: raw.name.trim(),
       code: raw.code.trim(),
       parserKey: raw.parserKey,
-      ...(this.isEdit ? { active: raw.active } : {}),
+      ...(this.isEdit ? { active: asBool(raw.active) } : {}),
     };
     this.busy.set(true);
 

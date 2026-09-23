@@ -424,9 +424,16 @@ export class ClosingsApiService {
     );
   }
 
-  commitPosSalesImport(shopId: string, file: File) {
+  commitPosSalesImport(
+    shopId: string,
+    file: File,
+    productLabels?: PosSalesProductLabel[] | null,
+  ) {
     const body = new FormData();
     body.append('file', file);
+    if (productLabels?.length) {
+      body.append('productLabels', JSON.stringify(productLabels));
+    }
     return this.http.post<PosSalesImportResult>(
       `${this.base}/shops/${shopId}/sales-reports/import-excel?commit=true`,
       body,
@@ -771,6 +778,28 @@ export interface PosSalesImportPreview {
   dayCount: number;
   days: PosSalesDayPreview[];
   unknownPaymentCodes: string[];
+  products?: PosSalesProductPreview[];
+  categoryOptions?: string[];
+  geminiWarning?: string | null;
+}
+
+export type PosSalesProductSource = 'catalog' | 'seed' | 'gemini' | 'none';
+
+export interface PosSalesProductPreview {
+  productCode: string;
+  productName: string | null;
+  category: string | null;
+  subcategory: string | null;
+  source: PosSalesProductSource;
+  qty: number;
+  amount: number;
+}
+
+export interface PosSalesProductLabel {
+  productCode: string;
+  productName?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
 }
 
 export interface PosSalesImportResult extends PosSalesImportPreview {

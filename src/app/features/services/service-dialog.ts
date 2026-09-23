@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormDialogShellComponent } from '../../shared/components/form-dialog-shell';
 import { ShopService, ServicesApiService } from './services-api.service';
+import { asBool } from '../../core/utils/as-bool';
 
 export type ServiceDialogData = {
   shopId: string;
@@ -102,7 +103,7 @@ export class ServiceDialogComponent {
     taxId: [this.service?.taxId ?? ''],
     bankAlias: [this.service?.bankAlias ?? ''],
     notes: [this.service?.notes ?? ''],
-    active: [this.service?.active ?? true],
+    active: [asBool(this.service?.active, true)],
   });
 
   save(): void {
@@ -121,7 +122,7 @@ export class ServiceDialogComponent {
     this.busy.set(true);
     const req =
       this.isEdit && this.service
-        ? this.api.update(this.data.shopId, this.service.id, { ...body, active: raw.active })
+        ? this.api.update(this.data.shopId, this.service.id, { ...body, active: asBool(raw.active) })
         : this.api.create(this.data.shopId, body);
     req.subscribe({
       next: (row) => {

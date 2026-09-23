@@ -29,6 +29,7 @@ import {
   scheduledShiftHours,
 } from '../../shared/utils/shift-hours';
 import { ShopShift, shiftHoursLabel } from '../../core/shop/shop-shifts';
+import { asBool } from '../../core/utils/as-bool';
 
 export type ProducerOption = {
   id: string;
@@ -582,7 +583,7 @@ export class EmployeeDialogComponent implements OnInit {
     bankAlias: [this.employee?.bankAlias ?? ''],
     waiterPin: [''],
     clearWaiterPin: [false],
-    active: [this.employee?.active ?? true],
+    active: [asBool(this.employee?.active, true)],
   });
 
   private readonly shiftForm = toSignal(
@@ -746,7 +747,7 @@ export class EmployeeDialogComponent implements OnInit {
 
     const saveEmp$: Observable<Employee> =
       this.isEdit && this.employee
-        ? this.api.update(shopId, this.employee.id, { ...body, active: raw.active })
+        ? this.api.update(shopId, this.employee.id, { ...body, active: asBool(raw.active) })
         : this.api.create(shopId, body);
 
     const desiredSupervised = producesFood ? raw.supervisedIds : [];

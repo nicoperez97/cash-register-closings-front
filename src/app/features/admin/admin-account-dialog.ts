@@ -16,6 +16,7 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { AuthService } from '../../core/auth/auth.service';
 import { canConfigureShopOpeningBalances } from '../../core/auth/auth.models';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { asBool } from '../../core/utils/as-bool';
 
 export interface AdminAccountRow {
   id: string;
@@ -330,11 +331,11 @@ export class AdminAccountDialogComponent implements OnInit {
       Validators.required,
     ],
     userIds: this.fb.nonNullable.control<string[]>(this.initialUserIds()),
-    listInExpenses: [this.account?.listInExpenses !== false],
-    listInIncomes: [this.account?.listInIncomes !== false],
-    listInTransfers: [this.account?.listInTransfers !== false],
-    listInBalances: [this.account?.listInBalances !== false],
-    listInCashWithdraw: [!(this.account?.hideFromCashWithdraw ?? false)],
+    listInExpenses: [asBool(this.account?.listInExpenses, true)],
+    listInIncomes: [asBool(this.account?.listInIncomes, true)],
+    listInTransfers: [asBool(this.account?.listInTransfers, true)],
+    listInBalances: [asBool(this.account?.listInBalances, true)],
+    listInCashWithdraw: [!asBool(this.account?.hideFromCashWithdraw, false)],
     openingBalance: [Number(this.account?.openingBalance ?? 0)],
     commissionPercent: [
       Number(this.account?.commissionPercent ?? 0),
@@ -344,7 +345,7 @@ export class AdminAccountDialogComponent implements OnInit {
       Number(this.account?.ownershipPercent ?? 0),
       [Validators.min(0), Validators.max(100)],
     ],
-    active: [this.account?.active ?? true],
+    active: [asBool(this.account?.active, true)],
   });
 
   ngOnInit(): void {
@@ -398,7 +399,7 @@ export class AdminAccountDialogComponent implements OnInit {
       commissionPercent:
         raw.type === 'SYSTEM' || raw.type === 'DIVIDENDS' ? 0 : Number(raw.commissionPercent ?? 0),
       ownershipPercent: raw.type === 'PARTNER' ? Number(raw.ownershipPercent ?? 0) : 0,
-      ...(this.isEdit ? { active: raw.active } : {}),
+      ...(this.isEdit ? { active: asBool(raw.active) } : {}),
     };
     this.busy.set(true);
 

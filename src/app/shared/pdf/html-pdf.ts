@@ -603,6 +603,8 @@ export async function downloadTablePdf(opts: {
   filename: string;
   headers: string[];
   rows: Array<Array<string | number>>;
+  /** HTML opcional (p.ej. torta) entre subtítulo y tabla. */
+  chartHtml?: string;
 }): Promise<void> {
   const wrap = document.createElement('div');
   wrap.id = `pdf-table-${Date.now()}`;
@@ -617,6 +619,7 @@ export async function downloadTablePdf(opts: {
   wrap.innerHTML = `
     <h1 style="margin:0 0 2px;font:700 16px Figtree,sans-serif">${escapePdfHtml(opts.title)}</h1>
     ${opts.subtitle ? `<p style="margin:0 0 8px;color:#556;font-size:11px">${escapePdfHtml(opts.subtitle)}</p>` : ''}
+    ${opts.chartHtml || ''}
     <table style="width:100%;border-collapse:collapse;font-size:10px">
       <thead>
         <tr>
