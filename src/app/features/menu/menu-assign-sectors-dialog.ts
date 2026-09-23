@@ -341,7 +341,7 @@ export type MenuAssignSectorsDialogResult = {
       font-size: 0.78rem;
       color: var(--guy-muted, #5f6f76);
       white-space: nowrap;
-      max-width: 9rem;
+      max-width: 12rem;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -368,13 +368,19 @@ export class MenuAssignSectorsDialogComponent {
     new Set([this.data.items[0]?.sectionName || 'Sin sección']),
   );
 
-  private readonly sectorNameById = new Map(
-    this.data.sectors.map((s) => [s.id, s.name] as const),
-  );
+  private readonly sectorNameById = new Map<string, string>();
 
   readonly selected = computed(() => this.selectedKeys());
   readonly pickedSectors = computed(() => this.picked());
   readonly selectedCount = computed(() => this.selectedKeys().size);
+
+  constructor() {
+    for (const s of this.data.sectors ?? []) {
+      const id = String(s.id ?? '').trim();
+      const name = String(s.name ?? '').trim();
+      if (id && name) this.sectorNameById.set(id, name);
+    }
+  }
 
   readonly filtered = computed(() => {
     const q = this.query().trim().toLowerCase();
@@ -397,9 +403,16 @@ export class MenuAssignSectorsDialogComponent {
   });
 
   sectorLabel(it: MenuAssignSectorItem): string {
-    const names = (it.sectorIds ?? [])
-      .map((id) => this.sectorNameById.get(id) || id)
-      .filter(Boolean);
+    const names: string[] = [];
+    for (const raw of it.sectorIds ?? []) {
+      const id = String(raw ?? '').trim();
+      if (!id) continue;
+      const name =
+        this.sectorNameById.get(id) ||
+        this.data.sectors.find((s) => String(s.id).trim() === id)?.name?.trim() ||
+        '';
+      if (name) names.push(name);
+    }
     return names.length ? names.join(', ') : 'Sin sector';
   }
 
