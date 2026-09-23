@@ -202,6 +202,9 @@ function formatMoney(value: number): string {
             <div class="withdrawal-card__main">
               <div>
                 <h3 class="withdrawal-card__date">{{ formatDate(row.businessDate) }}</h3>
+                @if (shiftLabel(row); as shift) {
+                  <p class="withdrawal-card__shift">{{ shift }}</p>
+                }
                 @if ((row.deductedAmount ?? 0) > 0) {
                   <p class="withdrawal-card__deducted">
                     {{ money(row.originalAmount ?? row.amount) }} − gastos
@@ -277,7 +280,12 @@ function formatMoney(value: number): string {
                 <ul class="history-card__items">
                   @for (item of group.items; track item.id) {
                     <li>
-                      <span>{{ formatDate(item.businessDate) }}</span>
+                      <span>
+                        {{ formatDate(item.businessDate) }}
+                        @if (shiftLabel(item); as shift) {
+                          <span class="history-card__shift"> · {{ shift }}</span>
+                        }
+                      </span>
                       <a [routerLink]="['/closings', item.closingId]">Ver cierre</a>
                       <strong>{{ money(item.amount) }}</strong>
                     </li>
@@ -398,6 +406,16 @@ function formatMoney(value: number): string {
       .withdrawal-card__date {
         margin: 0 0 0.2rem;
         font-size: 1.05rem;
+      }
+      .withdrawal-card__shift {
+        margin: 0 0 0.25rem;
+        font-size: 0.85rem;
+        font-weight: 650;
+        color: var(--guy-navy, #1a2b22);
+      }
+      .history-card__shift {
+        font-weight: 550;
+        color: var(--guy-muted, #5a6b5e);
       }
       .withdrawal-card__link {
         display: inline-flex;
@@ -596,6 +614,16 @@ export class CashWithdrawalsPage {
 
   formatDate(iso: string): string {
     return formatIsoDateDisplay(iso);
+  }
+
+  shiftLabel(row: {
+    shiftName?: string | null;
+    kind?: string | null;
+    eventName?: string | null;
+  }): string {
+    const event = String(row.eventName ?? '').trim();
+    if (String(row.kind ?? '') === 'EVENT' && event) return event;
+    return String(row.shiftName ?? '').trim();
   }
 
   formatDateTime(iso: string): string {

@@ -828,7 +828,10 @@ export class ClosingsFormPage implements OnInit {
         .subscribe({
           next: (rows) =>
             this.closingConcepts.set(
-              rows.filter((c) => (c.categories ?? []).includes('CLOSURE')),
+              rows.filter((c) => {
+                const cats = c.categories ?? [];
+                return cats.includes('CLOSURE') || cats.includes('SUPPLIERS');
+              }),
             ),
           error: () => this.closingConcepts.set([]),
         });

@@ -205,7 +205,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['closings.create', 'closings.update'],
         body: 'Andá sección por sección: Ingresos (efectivo con arqueo, cuentas del local con posnets y cobros libres), egresos y notas, propinas (si el local las tiene activas) y Caja. En Efectivo contá sin mirar el POS. En Caja cargás el total del sistema y ves calculado y diferencia al toque. Si el local tiene más de un turno, elegí en qué turno cerrás (viene el que está vigente: sigue hasta que abre el siguiente).',
         items: [
-          'Los egresos del cierre salen de conceptos con categoría Cierre: monto y descripción. Recaudación en efectivo = contado − apertura + egresos: eso va al declarado y al ingreso de efectivo en el libro.',
+          'Los egresos del cierre salen de conceptos con categoría Cierre (también los de Proveedores): monto y descripción. Recaudación en efectivo = contado − apertura + egresos: eso va al declarado y al ingreso de efectivo en el libro.',
           'Si el local tiene propinas activas, van en un paso aparte. Si están desactivadas, ese paso no aparece.',
           'Si es un cierre de evento, marcá Cierre de evento y poné el nombre: se guarda aparte y no reemplaza el cierre del día. Las propinas de ese día no se tocan y el paso no aparece.',
           'En Ingresos el orden es Efectivo → Cuentas del local → Cobros. Si una cuenta tiene posnets (ej. PVS), ves cada uno y la suma abajo.',
@@ -237,6 +237,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['cashWithdrawals.read'],
         body: 'Acá están los retiros que salieron del cierre y todavía no tienen dueño.',
         items: [
+          'Cada ítem muestra la fecha y el turno del cierre (si el local tiene más de uno).',
           'Elegí los cierres y en Quién se lo lleva la cuenta del socio.',
           'Confirmá retiro: sale de Efectivo Caja hacia esa cuenta, con la fecha y hora de ahora (no la del cierre).',
           'El historial muestra Efectivo Caja → cuenta, quién se lo llevó y los cierres incluidos.',
@@ -1620,8 +1621,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'En Avanzado → Zona peligrosa abrís Dump y reset. Podés bajar Excel o SQL, por módulo o todo el local. Cargar dump solo acepta Excel. El reset pide escribir RESET.',
         items: [
           'Por módulos ves todos los de la app, cada uno aparte: cierres, a retirar, rendiciones, gastos, ingresos, movimientos, división de socios, pagos, reservas, salón, stock, personal, POS, cuentas y conceptos.',
+          'Si el Excel es de otro local, te avisa y podés forzar: se borra el alcance de este local y se carga el dump acá.',
         ],
-        tip: 'Si vaciás conceptos, también se limpian movimientos, gastos, ingresos y pagos. Los cierres se resetean aparte.',
+        tip: 'Si el Excel es de otro local, te pide forzar. Después de cargar, revisá A retirar: se regenera desde los cierres. Un dump viejo puede omitir filas si fallaban FKs de usuarios.',
       },
     ],
   },
@@ -1753,7 +1755,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'sell',
         tone: 'do',
         anyOf: ['concepts.manage'],
-        body: 'Tipo ingreso, egreso o transferencia, y categorías (incluida Cierre, para los egresos del cierre de caja).',
+        body: 'Tipo ingreso, egreso o transferencia, y categorías (incluida Cierre, para los egresos del cierre de caja). Los de Proveedores también quedan habilitados para el cierre.',
         items: [
           'Descargar plantilla: Excel de ejemplo para armar conceptos nuevos.',
           'Descargar conceptos: Excel con los del local ahora. Mismo formato; lo podés editar y subir.',
