@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -48,6 +49,11 @@ import {
   type MenuAssignSectorsDialogResult,
   type MenuAssignSectorItem,
 } from './menu-assign-sectors-dialog';
+import {
+  MenuPriceSlotsEditorComponent,
+  type MenuPriceSlot,
+  type PriceSlotMenuItem,
+} from './menu-price-slots-editor';
 
 export type ShopMenuItem = {
   id?: string;
@@ -87,6 +93,7 @@ export type ShopMenu = {
   sourceFile?: string | null;
   sourceFileName?: string | null;
   sourceMime?: string | null;
+  priceSlots?: MenuPriceSlot[];
   sections: ShopMenuSection[];
 };
 
@@ -173,6 +180,9 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
     sourceFile: menu.sourceFile ?? null,
     sourceFileName: menu.sourceFileName ?? null,
     sourceMime: menu.sourceMime ?? null,
+    priceSlots: Array.isArray(menu.priceSlots)
+      ? menu.priceSlots.map((s) => ({ ...s }))
+      : [],
     sections: (menu.sections ?? []).map((s) => ({
       name: s.name ?? '',
       items: (s.items ?? []).map((it) => ({
@@ -219,10 +229,12 @@ function toPrice(value: unknown): number | null {
     MatInputModule,
     MatSelectModule,
     MatSnackBarModule,
+    MatTabsModule,
     PageHeaderComponent,
     LoadingStateComponent,
     OrderingCatalogPanelComponent,
     SelectSearchComponent,
+    MenuPriceSlotsEditorComponent,
   ],
   template: `
     <app-page-header
@@ -240,603 +252,890 @@ function toPrice(value: unknown): number | null {
       />
     } @else {
       <div class="menu-admin">
-        <section class="panel-card">
-          <h2>Página pública</h2>
-          @if (!enabled()) {
-            <p class="menu-admin__warn">
-              La carta pública está apagada. Activala en Configuración del local → Operación → Módulos públicos.
-            </p>
-          }
-          @if (shopSlug()) {
-            <div class="menu-admin__links">
-              <a class="menu-admin__btn" [href]="hubUrl()" target="_blank" rel="noopener">
-                <mat-icon>open_in_new</mat-icon>
-                Ver cartas
-              </a>
-              <button type="button" class="menu-admin__btn menu-admin__btn--ghost" (click)="copyUrl(hubUrl(), 'Link de las cartas copiado')">
-                <mat-icon>content_copy</mat-icon>
-                Copiar link
-              </button>
-            </div>
-            <p class="menu-admin__url">{{ hubUrl() }}</p>
-          }
-        </section>
+        <input
+          #fileInput
+          type="file"
+          hidden
+          accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
+          (change)="onFilePicked(fileInput, 'add')"
+        />
+        <input
+          #replaceInput
+          type="file"
+          hidden
+          accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
+          (change)="onFilePicked(replaceInput, 'replace')"
+        />
+        <input
+          #sourceInput
+          type="file"
+          hidden
+          accept=".pdf,image/*,.jpg,.jpeg,.png,.webp"
+          (change)="onSourcePicked(sourceInput)"
+        />
 
-        <section class="panel-card">
-          <h2>Sectores</h2>
-          <p class="menu-admin__hint">
-            Cocina, Pizzería, Bar… Cada ítem puede ir a uno o más sectores. En el print agent
-            asignás cada sector a una comandera. Con «Mostrar entradas», esa comanda avisa en
-            chico las entradas que salen en otro sector.
-          </p>
-          @for (sector of kitchenSectors(); track sector.id; let si = $index) {
-            <div class="menu-sector-row">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
-                <mat-label>Sector</mat-label>
-                <input matInput [(ngModel)]="sector.name" placeholder="ej. Cocina" />
-              </mat-form-field>
-              <label class="menu-sector-flag">
-                <input type="checkbox" [(ngModel)]="sector.showEntradas" />
-                Mostrar entradas
-              </label>
-              <button
-                mat-icon-button
-                type="button"
-                aria-label="Quitar sector"
-                (click)="removeKitchenSector(si)"
-              >
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          } @empty {
-            <p class="menu-admin__hint">Todavía no hay sectores. Agregá al menos uno para repartir comandas.</p>
-          }
-          <div class="menu-sector-actions">
-            <button mat-stroked-button type="button" (click)="addKitchenSector()">
-              <mat-icon>add</mat-icon>
-              Agregar sector
-            </button>
-            <button
-              mat-stroked-button
-              type="button"
-              [disabled]="!kitchenSectors().length"
-              (click)="openAssignSectorsDialog()"
-            >
-              <mat-icon>playlist_add_check</mat-icon>
-              Asignar a ítems
-            </button>
-            <button
-              mat-flat-button
-              color="primary"
-              type="button"
-              [disabled]="savingSectors()"
-              (click)="saveSectors()"
-            >
-              <mat-icon>save</mat-icon>
-              {{ savingSectors() ? 'Guardando…' : 'Guardar sectores' }}
-            </button>
-          </div>
-        </section>
-
-        @if (showCatalog()) {
-          <app-ordering-catalog-panel />
-
-          <section class="panel-card">
-            <h2>Extras del pedido online</h2>
-            <p class="menu-admin__hint">
-              Creá y editá extras acá. La alta/baja rápida también está en Pedidos clientes → Configurar.
-            </p>
-            @for (extra of extras(); track extra.id; let ei = $index) {
-              <article class="menu-extra">
-                <div class="menu-extra__row">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Extra</mat-label>
-                    <input matInput [(ngModel)]="extra.name" placeholder="ej. Extra queso" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
-                    <mat-label>Precio</mat-label>
-                    <input matInput type="number" min="0" [(ngModel)]="extra.price" />
-                  </mat-form-field>
-                  <label class="menu-item__avail">
-                    <input type="checkbox" [(ngModel)]="extra.available" />
-                    Disponible
-                  </label>
-                  <button mat-icon-button type="button" aria-label="Quitar extra" (click)="removeExtra(ei)">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </div>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
-                  <mat-label>Ítems adheridos</mat-label>
-                  <mat-select
-                    multiple
-                    [ngModel]="extra.menuItemIds"
-                    (ngModelChange)="setExtraItems(ei, $event)"
-                    (openedChange)="onSelectSearchOpened($event, extraItemQuery)"
-                  >
-                    <mat-select-trigger>
-                      @if (!extra.menuItemIds.length) {
-                        Toda la carta
-                      } @else {
-                        {{ extraItemLabels(extra.menuItemIds) }}
-                      }
-                    </mat-select-trigger>
-                    <app-select-search [(query)]="extraItemQuery" placeholder="Buscar ítem…" />
-                    @for (it of filteredExtraItems(); track it.id) {
-                      <mat-option [value]="it.id">{{ it.name }}</mat-option>
-                    }
-                  </mat-select>
-                  <mat-hint>Vacío = todos los ítems</mat-hint>
-                </mat-form-field>
-              </article>
-            } @empty {
-              <p class="menu-admin__hint">Todavía no hay extras.</p>
-            }
-            <button mat-stroked-button type="button" (click)="addExtra()">
-              <mat-icon>add</mat-icon>
-              Agregar extra
-            </button>
-            <div class="menu-admin__catalog-save">
-              <button
-                mat-stroked-button
-                color="primary"
-                type="button"
-                [disabled]="savingExtras()"
-                (click)="saveExtras()"
-              >
-                <mat-icon>save</mat-icon>
-                {{ savingExtras() ? 'Guardando…' : 'Guardar extras' }}
-              </button>
-            </div>
-          </section>
-        }
-
-        <section class="panel-card">
-          <div class="menu-admin__tabs-head">
-            <h2>Cartas del local</h2>
-            <div class="menu-admin__tab-actions">
-              <input
-                #fileInput
-                type="file"
-                hidden
-                accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
-                (change)="onFilePicked(fileInput, 'add')"
-              />
-              <input
-                #replaceInput
-                type="file"
-                hidden
-                accept=".pdf,.txt,image/*,.jpg,.jpeg,.png,.webp"
-                (change)="onFilePicked(replaceInput, 'replace')"
-              />
-              <input
-                #sourceInput
-                type="file"
-                hidden
-                accept=".pdf,image/*,.jpg,.jpeg,.png,.webp"
-                (change)="onSourcePicked(sourceInput)"
-              />
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="parsing() || menus().length >= 8"
-                (click)="fileInput.click()"
-              >
-                <mat-icon>upload_file</mat-icon>
-                {{ parsing() ? 'Leyendo…' : 'Agregar carta' }}
-              </button>
-              <button mat-stroked-button type="button" [disabled]="menus().length >= 8" (click)="addBlank()">
-                <mat-icon>note_add</mat-icon>
-                En blanco
-              </button>
-            </div>
-          </div>
-          <p class="menu-admin__hint">
-            <strong>Agregar / Reemplazar</strong> lee el PDF con Gemini y abre una vista previa para elegir qué
-            cargar, reemplazar u omitir.
-            <strong>Detectar ingredientes</strong> vuelve a analizar los ítems ya cargados.
-            <strong>Cargar carta física</strong> sube el archivo que el cliente ve en la web (sin cambiar los ítems).
-            <strong>PDF para imprimir</strong> es la carta pública (mismo estilo), sin buscador, filtros ni botones.
-          </p>
-          @if (menus().length) {
-            <div class="menu-admin__tabs" role="tablist">
-              @for (m of menus(); track m.id) {
-                <button
-                  type="button"
-                  class="menu-admin__tab"
-                  [class.menu-admin__tab--on]="m.id === activeId()"
-                  (click)="selectMenu(m.id)"
-                >
-                  {{ m.title || 'Carta' }}
-                </button>
-              }
-            </div>
-          } @else {
-            <p class="menu-admin__hint">Todavía no hay cartas. Subí un archivo o creá una en blanco.</p>
-          }
-          @if (parseNote()) {
-            <p class="menu-admin__parse">{{ parseNote() }}</p>
-          }
-          @if (geminiWarning()) {
-            <p class="menu-admin__warn">{{ geminiWarning() }}</p>
-          }
-          @if (rawText()) {
-            <details class="menu-admin__raw">
-              <summary>Texto leído del archivo</summary>
-              <pre>{{ rawText() }}</pre>
-            </details>
-          }
-        </section>
-
-        @if (activeId()) {
-          <section class="panel-card menu-editor">
-            <div class="menu-admin__editor-head">
-              <div>
-                <h2>Editar {{ title || 'carta' }}</h2>
-                <p class="menu-admin__hint menu-admin__hint--tight">
-                  Filas compactas: expandí un ítem para foto, descripción e ingredientes. Usá
-                  <strong>Ajustar precios</strong> para cambiar varios de una vez.
-                </p>
-              </div>
-              <div class="menu-admin__links">
-                @if (activePublicUrl()) {
-                  <a class="menu-admin__btn menu-admin__btn--ghost" [href]="activePublicUrl()" target="_blank" rel="noopener">
-                    <mat-icon>open_in_new</mat-icon>
-                    Esta carta
-                  </a>
-                  <button type="button" class="menu-admin__btn menu-admin__btn--ghost" (click)="copyUrl(activePublicUrl(), 'Link de esta carta copiado')">
-                    <mat-icon>content_copy</mat-icon>
-                    Copiar
-                  </button>
-                }
-                <button
-                  type="button"
-                  class="menu-admin__btn menu-admin__btn--ghost"
-                  (click)="downloadStyledPdf()"
-                  title="PDF generado con el contenido de la carta"
-                >
-                  <mat-icon>picture_as_pdf</mat-icon>
-                  PDF
-                </button>
-                <button mat-stroked-button type="button" [disabled]="parsing()" (click)="replaceInput.click()">
-                  <mat-icon>sync</mat-icon>
-                  Reemplazar
-                </button>
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="analyzingIngredients() || parsing() || !sections().length"
-                  (click)="analyzeIngredients()"
-                >
-                  <mat-icon>auto_awesome</mat-icon>
-                  {{ analyzingIngredients() ? 'Detectando…' : 'Ingredientes' }}
-                </button>
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="uploadingSource() || parsing()"
-                  (click)="sourceInput.click()"
-                >
-                  <mat-icon>upload_file</mat-icon>
-                  {{ uploadingSource() ? 'Subiendo…' : 'Carta física' }}
-                </button>
-                <button mat-stroked-button type="button" color="warn" (click)="removeActive()">
-                  <mat-icon>delete</mat-icon>
-                  Quitar
-                </button>
-              </div>
-            </div>
-            <div class="menu-admin__meta">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Nombre</mat-label>
-                <input matInput [(ngModel)]="title" placeholder="Carta" (ngModelChange)="onTitleChange()" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Link</mat-label>
-                <input matInput [(ngModel)]="menuSlug" placeholder="vinos" />
-                <span matPrefix>/m/{{ shopSlug() }}/&nbsp;</span>
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__meta-note">
-                <mat-label>Nota al pie</mat-label>
-                <textarea
-                  matInput
-                  rows="2"
-                  [(ngModel)]="note"
-                  placeholder="Precios sujetos a cambio, IVA incluido…"
-                ></textarea>
-              </mat-form-field>
-            </div>
-            @if (sourceFileName) {
-              <div class="menu-admin__source">
-                <p>
-                  Carta física lista: <strong>{{ sourceFileName }}</strong>
-                  — el cliente la ve con “Carta física” en la página pública.
-                </p>
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="uploadingSource()"
-                  (click)="clearSource()"
-                >
-                  <mat-icon>link_off</mat-icon>
-                  Quitar archivo físico
-                </button>
-              </div>
-            } @else {
-              <p class="menu-admin__hint">
-                Todavía no hay PDF/foto para la vista pública. Usá <strong>Carta física</strong> (no hace falta
-                reemplazar el contenido).
-              </p>
-            }
-
-            <div class="menu-editor__toolbar">
-              <label class="menu-editor__search">
-                <mat-icon>search</mat-icon>
-                <input
-                  type="search"
-                  [ngModel]="itemQuery()"
-                  (ngModelChange)="itemQuery.set($event)"
-                  name="itemQuery"
-                  placeholder="Buscar ítem o sección…"
-                  autocomplete="off"
-                />
-              </label>
-              <div class="menu-editor__toolbar-actions">
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="button"
-                  [disabled]="!hasPricedItems()"
-                  (click)="openBulkPriceDialog()"
-                >
-                  <mat-icon>sell</mat-icon>
-                  Ajustar precios
-                </button>
-                <button mat-stroked-button type="button" (click)="setAllSectionsOpen(true)">
-                  Expandir secciones
-                </button>
-                <button mat-stroked-button type="button" (click)="setAllSectionsOpen(false)">
-                  Colapsar
-                </button>
-              </div>
-              @if (selectedItemKeys().size) {
-                <p class="menu-editor__sel">
-                  {{ selectedItemKeys().size }} ítem(s) marcado(s)
-                  <button type="button" class="menu-editor__link" (click)="clearItemSelection()">
-                    Limpiar
-                  </button>
-                </p>
-              }
-            </div>
-
-            @for (section of filteredSections(); track section.key; let si = $index) {
-              <article class="menu-section" [class.menu-section--collapsed]="!isSectionOpen(section.key)">
-                <div class="menu-section__head">
-                  <button
-                    type="button"
-                    class="menu-section__toggle"
-                    (click)="toggleSectionOpen(section.key)"
-                    [attr.aria-expanded]="isSectionOpen(section.key)"
-                  >
-                    <mat-icon>{{ isSectionOpen(section.key) ? 'expand_more' : 'chevron_right' }}</mat-icon>
-                  </button>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-section__name">
-                    <mat-label>Sección</mat-label>
-                    <input matInput [(ngModel)]="section.section.name" placeholder="Entradas" />
-                  </mat-form-field>
-                  <span class="menu-section__count">{{ section.section.items.length }}</span>
-                  <button
-                    mat-icon-button
-                    type="button"
-                    aria-label="Quitar sección"
-                    (click)="removeSection(section.index)"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-                @if (isSectionOpen(section.key) || itemQuery().trim()) {
-                  <div class="menu-section__tools">
-                    <button type="button" class="menu-editor__link" (click)="selectSectionItems(section.index, true)">
-                      Marcar sección
+        <div class="panel-card panel-card--flush">
+          <mat-tab-group
+            animationDuration="0ms"
+            class="menu-admin-tabs"
+            [selectedIndex]="mainTabIndex()"
+            (selectedIndexChange)="mainTabIndex.set($event)"
+          >
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="menu-admin-tabs__ico">restaurant_menu</mat-icon>
+                Cartas
+              </ng-template>
+              <div class="menu-admin-tabs__body">
+                <div class="menu-admin__tabs-head">
+                  <div>
+                    <h2>Cartas del local</h2>
+                    <p class="menu-admin__hint menu-admin__hint--tight">
+                      Agregar / Reemplazar lee el PDF con Gemini. Editá ítems acá; la carta física y los precios
+                      sobre el PDF están en la pestaña <strong>Carta física</strong>.
+                    </p>
+                  </div>
+                  <div class="menu-admin__tab-actions">
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="button"
+                      [disabled]="parsing() || menus().length >= 8"
+                      (click)="fileInput.click()"
+                    >
+                      <mat-icon>upload_file</mat-icon>
+                      {{ parsing() ? 'Leyendo…' : 'Agregar carta' }}
                     </button>
-                    <button type="button" class="menu-editor__link" (click)="selectSectionItems(section.index, false)">
-                      Desmarcar
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      [disabled]="menus().length >= 8"
+                      (click)="addBlank()"
+                    >
+                      <mat-icon>note_add</mat-icon>
+                      En blanco
                     </button>
                   </div>
-                  @for (item of section.section.items; track item.id || $index; let ii = $index) {
-                    @if (itemMatchesQuery(section.section.name, item)) {
-                      <div
-                        class="menu-item"
-                        [class.menu-item--open]="isItemOpen(section.index, ii)"
-                        [class.menu-item--selected]="isItemSelected(section.index, ii)"
+                </div>
+
+                @if (menus().length > 1) {
+                  <div class="menu-admin__tabs" role="tablist">
+                    @for (m of menus(); track m.id) {
+                      <button
+                        type="button"
+                        class="menu-admin__tab"
+                        [class.menu-admin__tab--on]="m.id === activeId()"
+                        (click)="selectMenu(m.id)"
                       >
-                        <div class="menu-item__bar">
-                          <label class="menu-item__check" title="Incluir en ajuste de precios">
-                            <input
-                              type="checkbox"
-                              [checked]="isItemSelected(section.index, ii)"
-                              (change)="toggleItemSelected(section.index, ii, $any($event.target).checked)"
-                            />
-                          </label>
+                        {{ m.title || 'Carta' }}
+                      </button>
+                    }
+                  </div>
+                } @else if (!menus().length) {
+                  <p class="menu-admin__hint">Todavía no hay cartas. Subí un archivo o creá una en blanco.</p>
+                }
+                @if (parseNote()) {
+                  <p class="menu-admin__parse">{{ parseNote() }}</p>
+                }
+                @if (geminiWarning()) {
+                  <p class="menu-admin__warn">{{ geminiWarning() }}</p>
+                }
+                @if (rawText()) {
+                  <details class="menu-admin__raw">
+                    <summary>Texto leído del archivo</summary>
+                    <pre>{{ rawText() }}</pre>
+                  </details>
+                }
+
+                @if (activeId()) {
+                  <div class="menu-editor menu-editor--in-tab">
+                    <div class="menu-admin__editor-head">
+                      <div>
+                        <h2>Editar {{ title || 'carta' }}</h2>
+                        <p class="menu-admin__hint menu-admin__hint--tight">
+                          Filas compactas: expandí un ítem para foto, descripción e ingredientes. Usá
+                          <strong>Ajustar precios</strong> para cambiar varios de una vez.
+                        </p>
+                      </div>
+                      <div class="menu-admin__links">
+                        @if (activePublicUrl()) {
+                          <a
+                            class="menu-admin__btn menu-admin__btn--ghost"
+                            [href]="activePublicUrl()"
+                            target="_blank"
+                            rel="noopener"
+                          >
+                            <mat-icon>open_in_new</mat-icon>
+                            Esta carta
+                          </a>
                           <button
                             type="button"
-                            class="menu-item__thumb"
-                            (click)="toggleItemOpen(section.index, ii)"
-                            [attr.aria-label]="isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Ver detalle'"
+                            class="menu-admin__btn menu-admin__btn--ghost"
+                            (click)="copyUrl(activePublicUrl(), 'Link de esta carta copiado')"
                           >
-                            @if (itemImageSrc(item); as src) {
-                              <img [src]="src" alt="" />
-                            } @else {
-                              <span>Sin foto</span>
-                            }
+                            <mat-icon>content_copy</mat-icon>
+                            Copiar
                           </button>
-                          <div class="menu-item__core">
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__name">
-                              <mat-label>Ítem</mat-label>
-                              <input matInput [(ngModel)]="item.name" />
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__price">
-                              <mat-label>Precio</mat-label>
-                              <input
-                                matInput
-                                type="number"
-                                min="0"
-                                step="1"
-                                [(ngModel)]="item.price"
-                                (ngModelChange)="onItemPriceChange(section.index, ii)"
-                              />
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__sector">
-                              <mat-label>Sectores</mat-label>
-                              <mat-select [(ngModel)]="item.kitchenSectorIds" multiple>
-                                @for (s of kitchenSectors(); track s.id) {
-                                  <mat-option [value]="s.id">{{ s.name }}</mat-option>
-                                }
-                              </mat-select>
-                            </mat-form-field>
-                          </div>
-                          <label class="menu-item__avail menu-item__avail--bar">
-                            <input type="checkbox" [(ngModel)]="item.available" />
-                            Online
-                          </label>
+                        }
+                        <button
+                          type="button"
+                          class="menu-admin__btn menu-admin__btn--ghost"
+                          (click)="downloadStyledPdf()"
+                          title="PDF generado con el contenido de la carta"
+                        >
+                          <mat-icon>picture_as_pdf</mat-icon>
+                          PDF
+                        </button>
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          [disabled]="parsing()"
+                          (click)="replaceInput.click()"
+                        >
+                          <mat-icon>sync</mat-icon>
+                          Reemplazar
+                        </button>
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          [disabled]="analyzingIngredients() || parsing() || !sections().length"
+                          (click)="analyzeIngredients()"
+                        >
+                          <mat-icon>auto_awesome</mat-icon>
+                          {{ analyzingIngredients() ? 'Detectando…' : 'Ingredientes' }}
+                        </button>
+                        <button mat-stroked-button type="button" (click)="goToPhysicalTab()">
+                          <mat-icon>menu_book</mat-icon>
+                          Carta física
+                        </button>
+                        <button mat-stroked-button type="button" color="warn" (click)="removeActive()">
+                          <mat-icon>delete</mat-icon>
+                          Quitar
+                        </button>
+                      </div>
+                    </div>
+                    <div class="menu-admin__meta">
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Nombre</mat-label>
+                        <input
+                          matInput
+                          [(ngModel)]="title"
+                          placeholder="Carta"
+                          (ngModelChange)="onTitleChange()"
+                        />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Link</mat-label>
+                        <input matInput [(ngModel)]="menuSlug" placeholder="vinos" />
+                        <span matPrefix>/m/{{ shopSlug() }}/&nbsp;</span>
+                      </mat-form-field>
+                      <mat-form-field
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                        class="menu-admin__meta-note"
+                      >
+                        <mat-label>Nota al pie</mat-label>
+                        <textarea
+                          matInput
+                          rows="2"
+                          [(ngModel)]="note"
+                          placeholder="Precios sujetos a cambio, IVA incluido…"
+                        ></textarea>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="menu-editor__toolbar">
+                      <label class="menu-editor__search">
+                        <mat-icon>search</mat-icon>
+                        <input
+                          type="search"
+                          [ngModel]="itemQuery()"
+                          (ngModelChange)="itemQuery.set($event)"
+                          name="itemQuery"
+                          placeholder="Buscar ítem o sección…"
+                          autocomplete="off"
+                        />
+                      </label>
+                      <div class="menu-editor__toolbar-actions">
+                        <button
+                          mat-flat-button
+                          color="primary"
+                          type="button"
+                          [disabled]="!hasPricedItems()"
+                          (click)="openBulkPriceDialog()"
+                        >
+                          <mat-icon>sell</mat-icon>
+                          Ajustar precios
+                        </button>
+                        <button mat-stroked-button type="button" (click)="setAllSectionsOpen(true)">
+                          Expandir secciones
+                        </button>
+                        <button mat-stroked-button type="button" (click)="setAllSectionsOpen(false)">
+                          Colapsar
+                        </button>
+                      </div>
+                      @if (selectedItemKeys().size) {
+                        <p class="menu-editor__sel">
+                          {{ selectedItemKeys().size }} ítem(s) marcado(s)
+                          <button type="button" class="menu-editor__link" (click)="clearItemSelection()">
+                            Limpiar
+                          </button>
+                        </p>
+                      }
+                    </div>
+
+                    @for (section of filteredSections(); track section.key; let si = $index) {
+                      <article
+                        class="menu-section"
+                        [class.menu-section--collapsed]="!isSectionOpen(section.key)"
+                      >
+                        <div class="menu-section__head">
+                          <button
+                            type="button"
+                            class="menu-section__toggle"
+                            (click)="toggleSectionOpen(section.key)"
+                            [attr.aria-expanded]="isSectionOpen(section.key)"
+                          >
+                            <mat-icon>{{
+                              isSectionOpen(section.key) ? 'expand_more' : 'chevron_right'
+                            }}</mat-icon>
+                          </button>
+                          <mat-form-field
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                            class="menu-section__name"
+                          >
+                            <mat-label>Sección</mat-label>
+                            <input matInput [(ngModel)]="section.section.name" placeholder="Entradas" />
+                          </mat-form-field>
+                          <span class="menu-section__count">{{ section.section.items.length }}</span>
                           <button
                             mat-icon-button
                             type="button"
-                            [attr.aria-label]="isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Más campos'"
-                            (click)="toggleItemOpen(section.index, ii)"
+                            aria-label="Quitar sección"
+                            (click)="removeSection(section.index)"
                           >
-                            <mat-icon>{{ isItemOpen(section.index, ii) ? 'unfold_less' : 'unfold_more' }}</mat-icon>
-                          </button>
-                          <button
-                            mat-icon-button
-                            type="button"
-                            aria-label="Quitar ítem"
-                            (click)="removeItem(section.index, ii)"
-                          >
-                            <mat-icon>close</mat-icon>
+                            <mat-icon>delete</mat-icon>
                           </button>
                         </div>
-                        @if (isItemOpen(section.index, ii)) {
-                          <div class="menu-item__detail">
-                            <div class="menu-item__photo">
-                              <input
-                                #itemPhotoInput
-                                type="file"
-                                accept="image/*"
-                                hidden
-                                (change)="onItemPhoto(section.index, ii, $event)"
-                              />
-                              <button
-                                mat-stroked-button
-                                type="button"
-                                [disabled]="!item.id || uploadingItemPhoto()"
-                                (click)="itemPhotoInput.click()"
+                        @if (isSectionOpen(section.key) || itemQuery().trim()) {
+                          <div class="menu-section__tools">
+                            <button
+                              type="button"
+                              class="menu-editor__link"
+                              (click)="selectSectionItems(section.index, true)"
+                            >
+                              Marcar sección
+                            </button>
+                            <button
+                              type="button"
+                              class="menu-editor__link"
+                              (click)="selectSectionItems(section.index, false)"
+                            >
+                              Desmarcar
+                            </button>
+                          </div>
+                          @for (item of section.section.items; track item.id || $index; let ii = $index) {
+                            @if (itemMatchesQuery(section.section.name, item)) {
+                              <div
+                                class="menu-item"
+                                [class.menu-item--open]="isItemOpen(section.index, ii)"
+                                [class.menu-item--selected]="isItemSelected(section.index, ii)"
                               >
-                                Foto
-                              </button>
-                              @if (item.imageUrl) {
-                                <button mat-button type="button" (click)="clearItemPhoto(section.index, ii)">
-                                  Quitar foto
-                                </button>
-                              }
-                            </div>
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__desc">
-                              <mat-label>Descripción</mat-label>
-                              <textarea matInput rows="2" [(ngModel)]="item.description"></textarea>
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                              <mat-label>Precio (texto, opcional)</mat-label>
-                              <input matInput [(ngModel)]="item.priceLabel" placeholder="ej. $11.000 / combo" />
-                              <mat-hint>Si está vacío, se muestra el precio numérico.</mat-hint>
-                            </mat-form-field>
-                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__ing">
-                              <mat-label>Ingredientes (se puede pedir sin)</mat-label>
-                              <input
-                                matInput
-                                [(ngModel)]="item.removableIngredients"
-                                placeholder="cebolla, tomate, mayo"
-                              />
-                              <mat-hint>Separá con coma.</mat-hint>
-                            </mat-form-field>
-                            <div class="menu-item__recipe">
-                              <p>Receta (baja el stock al vender; si un insumo queda bajo el mínimo, el plato se oculta en /pedir, mostrador y comanda)</p>
-                              @for (line of item.recipe ?? []; track line.stockProductId) {
-                                <div class="menu-item__recipe-line">
-                                  <span>{{ stockProductName(line.stockProductId) }}</span>
-                                  <span>× {{ line.qty }}</span>
+                                <div class="menu-item__bar">
+                                  <label class="menu-item__check" title="Incluir en ajuste de precios">
+                                    <input
+                                      type="checkbox"
+                                      [checked]="isItemSelected(section.index, ii)"
+                                      (change)="
+                                        toggleItemSelected(
+                                          section.index,
+                                          ii,
+                                          $any($event.target).checked
+                                        )
+                                      "
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    class="menu-item__thumb"
+                                    (click)="toggleItemOpen(section.index, ii)"
+                                    [attr.aria-label]="
+                                      isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Ver detalle'
+                                    "
+                                  >
+                                    @if (itemImageSrc(item); as src) {
+                                      <img [src]="src" alt="" />
+                                    } @else {
+                                      <span>Sin foto</span>
+                                    }
+                                  </button>
+                                  <div class="menu-item__core">
+                                    <mat-form-field
+                                      appearance="outline"
+                                      subscriptSizing="dynamic"
+                                      class="menu-item__name"
+                                    >
+                                      <mat-label>Ítem</mat-label>
+                                      <input matInput [(ngModel)]="item.name" />
+                                    </mat-form-field>
+                                    <mat-form-field
+                                      appearance="outline"
+                                      subscriptSizing="dynamic"
+                                      class="menu-item__price"
+                                    >
+                                      <mat-label>Precio</mat-label>
+                                      <input
+                                        matInput
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        [(ngModel)]="item.price"
+                                        (ngModelChange)="onItemPriceChange(section.index, ii)"
+                                      />
+                                    </mat-form-field>
+                                    <mat-form-field
+                                      appearance="outline"
+                                      subscriptSizing="dynamic"
+                                      class="menu-item__sector"
+                                    >
+                                      <mat-label>Sectores</mat-label>
+                                      <mat-select [(ngModel)]="item.kitchenSectorIds" multiple>
+                                        @for (s of kitchenSectors(); track s.id) {
+                                          <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                                        }
+                                      </mat-select>
+                                    </mat-form-field>
+                                  </div>
+                                  <label class="menu-item__avail menu-item__avail--bar">
+                                    <input type="checkbox" [(ngModel)]="item.available" />
+                                    Online
+                                  </label>
                                   <button
                                     mat-icon-button
                                     type="button"
-                                    aria-label="Quitar insumo"
-                                    (click)="removeRecipeLine(section.index, ii, line.stockProductId)"
+                                    [attr.aria-label]="
+                                      isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Más campos'
+                                    "
+                                    (click)="toggleItemOpen(section.index, ii)"
+                                  >
+                                    <mat-icon>{{
+                                      isItemOpen(section.index, ii) ? 'unfold_less' : 'unfold_more'
+                                    }}</mat-icon>
+                                  </button>
+                                  <button
+                                    mat-icon-button
+                                    type="button"
+                                    aria-label="Quitar ítem"
+                                    (click)="removeItem(section.index, ii)"
                                   >
                                     <mat-icon>close</mat-icon>
                                   </button>
                                 </div>
-                              }
-                              @if (stockProducts().length) {
-                                <div class="menu-item__recipe-add">
-                                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                                    <mat-label>Insumo</mat-label>
-                                    <mat-select [(ngModel)]="item.recipePickId">
-                                      @for (p of stockProducts(); track p.id) {
-                                        <mat-option [value]="p.id">
-                                          {{ p.name }} ({{ p.kind === 'beverage' ? 'bebida' : 'alimento' }})
-                                        </mat-option>
+                                @if (isItemOpen(section.index, ii)) {
+                                  <div class="menu-item__detail">
+                                    <div class="menu-item__photo">
+                                      <input
+                                        #itemPhotoInput
+                                        type="file"
+                                        accept="image/*"
+                                        hidden
+                                        (change)="onItemPhoto(section.index, ii, $event)"
+                                      />
+                                      <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="!item.id || uploadingItemPhoto()"
+                                        (click)="itemPhotoInput.click()"
+                                      >
+                                        Foto
+                                      </button>
+                                      @if (item.imageUrl) {
+                                        <button
+                                          mat-button
+                                          type="button"
+                                          (click)="clearItemPhoto(section.index, ii)"
+                                        >
+                                          Quitar foto
+                                        </button>
                                       }
-                                    </mat-select>
-                                  </mat-form-field>
-                                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-item__recipe-qty">
-                                    <mat-label>Cant.</mat-label>
-                                    <input matInput type="number" min="0.01" step="0.01" [(ngModel)]="item.recipePickQty" />
-                                  </mat-form-field>
-                                  <button mat-stroked-button type="button" (click)="addRecipeLine(section.index, ii)">
-                                    Sumar
-                                  </button>
-                                </div>
-                              } @else {
-                                <p class="menu-item__recipe-empty">Cargá insumos en Stock alimentos o bebidas para armar la receta.</p>
-                              }
-                            </div>
-                          </div>
+                                    </div>
+                                    <mat-form-field
+                                      appearance="outline"
+                                      subscriptSizing="dynamic"
+                                      class="menu-item__desc"
+                                    >
+                                      <mat-label>Descripción</mat-label>
+                                      <textarea matInput rows="2" [(ngModel)]="item.description"></textarea>
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                      <mat-label>Precio (texto, opcional)</mat-label>
+                                      <input
+                                        matInput
+                                        [(ngModel)]="item.priceLabel"
+                                        placeholder="ej. $11.000 / combo"
+                                      />
+                                      <mat-hint>Si está vacío, se muestra el precio numérico.</mat-hint>
+                                    </mat-form-field>
+                                    <mat-form-field
+                                      appearance="outline"
+                                      subscriptSizing="dynamic"
+                                      class="menu-item__ing"
+                                    >
+                                      <mat-label>Ingredientes (se puede pedir sin)</mat-label>
+                                      <input
+                                        matInput
+                                        [(ngModel)]="item.removableIngredients"
+                                        placeholder="cebolla, tomate, mayo"
+                                      />
+                                      <mat-hint>Separá con coma.</mat-hint>
+                                    </mat-form-field>
+                                    <div class="menu-item__recipe">
+                                      <p>
+                                        Receta (baja el stock al vender; si un insumo queda bajo el mínimo, el
+                                        plato se oculta en /pedir, mostrador y comanda)
+                                      </p>
+                                      @for (line of item.recipe ?? []; track line.stockProductId) {
+                                        <div class="menu-item__recipe-line">
+                                          <span>{{ stockProductName(line.stockProductId) }}</span>
+                                          <span>× {{ line.qty }}</span>
+                                          <button
+                                            mat-icon-button
+                                            type="button"
+                                            aria-label="Quitar insumo"
+                                            (click)="
+                                              removeRecipeLine(section.index, ii, line.stockProductId)
+                                            "
+                                          >
+                                            <mat-icon>close</mat-icon>
+                                          </button>
+                                        </div>
+                                      }
+                                      @if (stockProducts().length) {
+                                        <div class="menu-item__recipe-add">
+                                          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                            <mat-label>Insumo</mat-label>
+                                            <mat-select [(ngModel)]="item.recipePickId">
+                                              @for (p of stockProducts(); track p.id) {
+                                                <mat-option [value]="p.id">
+                                                  {{ p.name }} ({{
+                                                    p.kind === 'beverage' ? 'bebida' : 'alimento'
+                                                  }})
+                                                </mat-option>
+                                              }
+                                            </mat-select>
+                                          </mat-form-field>
+                                          <mat-form-field
+                                            appearance="outline"
+                                            subscriptSizing="dynamic"
+                                            class="menu-item__recipe-qty"
+                                          >
+                                            <mat-label>Cant.</mat-label>
+                                            <input
+                                              matInput
+                                              type="number"
+                                              min="0.01"
+                                              step="0.01"
+                                              [(ngModel)]="item.recipePickQty"
+                                            />
+                                          </mat-form-field>
+                                          <button
+                                            mat-stroked-button
+                                            type="button"
+                                            (click)="addRecipeLine(section.index, ii)"
+                                          >
+                                            Sumar
+                                          </button>
+                                        </div>
+                                      } @else {
+                                        <p class="menu-item__recipe-empty">
+                                          Cargá insumos en Stock alimentos o bebidas para armar la receta.
+                                        </p>
+                                      }
+                                    </div>
+                                  </div>
+                                }
+                              </div>
+                            }
+                          }
+                          <button mat-stroked-button type="button" (click)="addItem(section.index)">
+                            <mat-icon>add</mat-icon>
+                            Ítem
+                          </button>
                         }
-                      </div>
+                      </article>
                     }
-                  }
-                  <button mat-stroked-button type="button" (click)="addItem(section.index)">
-                    <mat-icon>add</mat-icon>
-                    Ítem
-                  </button>
+
+                    <button mat-stroked-button type="button" (click)="addSection()">
+                      <mat-icon>playlist_add</mat-icon>
+                      Sección
+                    </button>
+
+                    <div class="menu-admin__save">
+                      <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="saving()"
+                        (click)="save()"
+                      >
+                        <mat-icon>save</mat-icon>
+                        {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
+                      </button>
+                    </div>
+                  </div>
                 }
-              </article>
+              </div>
+            </mat-tab>
+
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="menu-admin-tabs__ico">menu_book</mat-icon>
+                Carta física
+              </ng-template>
+              <div class="menu-admin-tabs__body">
+                @if (!menus().length) {
+                  <p class="menu-admin__hint">
+                    Todavía no hay cartas. Creá una en la pestaña <strong>Cartas</strong>.
+                  </p>
+                } @else {
+                  @if (menus().length > 1) {
+                    <div class="menu-admin__tabs" role="tablist">
+                      @for (m of menus(); track m.id) {
+                        <button
+                          type="button"
+                          class="menu-admin__tab"
+                          [class.menu-admin__tab--on]="m.id === activeId()"
+                          (click)="selectMenu(m.id)"
+                        >
+                          {{ m.title || 'Carta' }}
+                        </button>
+                      }
+                    </div>
+                  }
+
+                  @if (activeId(); as mid) {
+                    <div class="menu-physical">
+                      <div class="menu-physical__head">
+                        <div>
+                          <h2>Archivo físico · {{ title || 'Carta' }}</h2>
+                          <p class="menu-admin__hint menu-admin__hint--tight">
+                            Subí el PDF (o foto) que el cliente abre en la web. Si es PDF, marcá dónde van los
+                            precios vivos y descargá la carta actualizada.
+                          </p>
+                        </div>
+                        <div class="menu-admin__links">
+                          <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            [disabled]="uploadingSource() || parsing()"
+                            (click)="sourceInput.click()"
+                          >
+                            <mat-icon>upload_file</mat-icon>
+                            {{
+                              uploadingSource()
+                                ? 'Subiendo…'
+                                : sourceFileName
+                                  ? 'Reemplazar archivo'
+                                  : 'Subir carta física'
+                            }}
+                          </button>
+                          @if (sourceFileName) {
+                            <button
+                              mat-stroked-button
+                              type="button"
+                              [disabled]="uploadingSource()"
+                              (click)="clearSource()"
+                            >
+                              <mat-icon>link_off</mat-icon>
+                              Quitar archivo
+                            </button>
+                          }
+                          <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="saving()"
+                            (click)="save()"
+                          >
+                            <mat-icon>save</mat-icon>
+                            {{ saving() ? 'Guardando…' : 'Guardar' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      @if (sourceFileName) {
+                        <p class="menu-admin__source-line">
+                          Archivo listo: <strong>{{ sourceFileName }}</strong>
+                          — el cliente lo ve con “Carta física” en la página pública.
+                        </p>
+                        @if (isSourcePdf()) {
+                          <app-menu-price-slots-editor
+                            [shopId]="shopId()!"
+                            [menuId]="mid"
+                            [items]="priceSlotItems()"
+                            [slots]="priceSlots()"
+                            [downloading]="downloadingPricedPdf()"
+                            (slotsChange)="onPriceSlotsChange($event)"
+                            (download)="downloadPricedPdf()"
+                          />
+                        } @else {
+                          <p class="menu-admin__hint">
+                            Este archivo no es PDF: se muestra en la web, pero el marcador de precios solo
+                            funciona con PDF.
+                          </p>
+                        }
+                      } @else {
+                        <p class="menu-admin__hint">
+                          Todavía no hay PDF/foto. Subí la carta física (no hace falta reemplazar los ítems).
+                        </p>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            </mat-tab>
+
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="menu-admin-tabs__ico">kitchen</mat-icon>
+                Sectores
+              </ng-template>
+              <div class="menu-admin-tabs__body">
+                <h2>Sectores</h2>
+                <p class="menu-admin__hint">
+                  Cocina, Pizzería, Bar… Cada ítem puede ir a uno o más sectores. En el print agent asignás
+                  cada sector a una comandera. Con «Mostrar entradas», esa comanda avisa en chico las entradas
+                  que salen en otro sector.
+                </p>
+                @for (sector of kitchenSectors(); track sector.id; let si = $index) {
+                  <div class="menu-sector-row">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
+                      <mat-label>Sector</mat-label>
+                      <input matInput [(ngModel)]="sector.name" placeholder="ej. Cocina" />
+                    </mat-form-field>
+                    <label class="menu-sector-flag">
+                      <input type="checkbox" [(ngModel)]="sector.showEntradas" />
+                      Mostrar entradas
+                    </label>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      aria-label="Quitar sector"
+                      (click)="removeKitchenSector(si)"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                } @empty {
+                  <p class="menu-admin__hint">
+                    Todavía no hay sectores. Agregá al menos uno para repartir comandas.
+                  </p>
+                }
+                <div class="menu-sector-actions">
+                  <button mat-stroked-button type="button" (click)="addKitchenSector()">
+                    <mat-icon>add</mat-icon>
+                    Agregar sector
+                  </button>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="!kitchenSectors().length"
+                    (click)="openAssignSectorsDialog()"
+                  >
+                    <mat-icon>playlist_add_check</mat-icon>
+                    Asignar a ítems
+                  </button>
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="savingSectors()"
+                    (click)="saveSectors()"
+                  >
+                    <mat-icon>save</mat-icon>
+                    {{ savingSectors() ? 'Guardando…' : 'Guardar sectores' }}
+                  </button>
+                </div>
+              </div>
+            </mat-tab>
+
+            @if (showCatalog()) {
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <mat-icon class="menu-admin-tabs__ico">tune</mat-icon>
+                  Pedidos
+                </ng-template>
+                <div class="menu-admin-tabs__body">
+                  <app-ordering-catalog-panel />
+
+                  <section class="menu-admin__extras">
+                    <h2>Extras del pedido online</h2>
+                    <p class="menu-admin__hint">
+                      Creá y editá extras acá. La alta/baja rápida también está en Pedidos clientes →
+                      Configurar.
+                    </p>
+                    @for (extra of extras(); track extra.id; let ei = $index) {
+                      <article class="menu-extra">
+                        <div class="menu-extra__row">
+                          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                            <mat-label>Extra</mat-label>
+                            <input matInput [(ngModel)]="extra.name" placeholder="ej. Extra queso" />
+                          </mat-form-field>
+                          <mat-form-field
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                            class="menu-item__price"
+                          >
+                            <mat-label>Precio</mat-label>
+                            <input matInput type="number" min="0" [(ngModel)]="extra.price" />
+                          </mat-form-field>
+                          <label class="menu-item__avail">
+                            <input type="checkbox" [(ngModel)]="extra.available" />
+                            Disponible
+                          </label>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            aria-label="Quitar extra"
+                            (click)="removeExtra(ei)"
+                          >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
+                        <mat-form-field
+                          appearance="outline"
+                          subscriptSizing="dynamic"
+                          class="menu-admin__full"
+                        >
+                          <mat-label>Ítems adheridos</mat-label>
+                          <mat-select
+                            multiple
+                            [ngModel]="extra.menuItemIds"
+                            (ngModelChange)="setExtraItems(ei, $event)"
+                            (openedChange)="onSelectSearchOpened($event, extraItemQuery)"
+                          >
+                            <mat-select-trigger>
+                              @if (!extra.menuItemIds.length) {
+                                Toda la carta
+                              } @else {
+                                {{ extraItemLabels(extra.menuItemIds) }}
+                              }
+                            </mat-select-trigger>
+                            <app-select-search [(query)]="extraItemQuery" placeholder="Buscar ítem…" />
+                            @for (it of filteredExtraItems(); track it.id) {
+                              <mat-option [value]="it.id">{{ it.name }}</mat-option>
+                            }
+                          </mat-select>
+                          <mat-hint>Vacío = todos los ítems</mat-hint>
+                        </mat-form-field>
+                      </article>
+                    } @empty {
+                      <p class="menu-admin__hint">Todavía no hay extras.</p>
+                    }
+                    <button mat-stroked-button type="button" (click)="addExtra()">
+                      <mat-icon>add</mat-icon>
+                      Agregar extra
+                    </button>
+                    <div class="menu-admin__catalog-save">
+                      <button
+                        mat-stroked-button
+                        color="primary"
+                        type="button"
+                        [disabled]="savingExtras()"
+                        (click)="saveExtras()"
+                      >
+                        <mat-icon>save</mat-icon>
+                        {{ savingExtras() ? 'Guardando…' : 'Guardar extras' }}
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              </mat-tab>
             }
 
-            <button mat-stroked-button type="button" (click)="addSection()">
-              <mat-icon>playlist_add</mat-icon>
-              Sección
-            </button>
-
-            <div class="menu-admin__save">
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="saving()"
-                (click)="save()"
-              >
-                <mat-icon>save</mat-icon>
-                {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
-              </button>
-            </div>
-          </section>
-        }
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="menu-admin-tabs__ico">public</mat-icon>
+                Página pública
+              </ng-template>
+              <div class="menu-admin-tabs__body">
+                <h2>Página pública</h2>
+                @if (!enabled()) {
+                  <p class="menu-admin__warn">
+                    La carta pública está apagada. Activala en Configuración del local → Operación → Módulos
+                    públicos.
+                  </p>
+                }
+                @if (shopSlug()) {
+                  <div class="menu-admin__links">
+                    <a class="menu-admin__btn" [href]="hubUrl()" target="_blank" rel="noopener">
+                      <mat-icon>open_in_new</mat-icon>
+                      Ver cartas
+                    </a>
+                    <button
+                      type="button"
+                      class="menu-admin__btn menu-admin__btn--ghost"
+                      (click)="copyUrl(hubUrl(), 'Link de las cartas copiado')"
+                    >
+                      <mat-icon>content_copy</mat-icon>
+                      Copiar link
+                    </button>
+                  </div>
+                  <p class="menu-admin__url">{{ hubUrl() }}</p>
+                }
+              </div>
+            </mat-tab>
+          </mat-tab-group>
+        </div>
       </div>
+
     }
   `,
   styles: `
     .menu-admin {
       display: grid;
       gap: 1rem;
+    }
+    .menu-admin-tabs__body {
+      padding: 1rem 1.1rem 1.25rem;
+    }
+    .menu-admin-tabs__ico {
+      margin-right: 0.35rem;
+      font-size: 1.15rem;
+      width: 1.15rem;
+      height: 1.15rem;
+      vertical-align: middle;
+    }
+    .menu-admin-tabs .mat-mdc-tab .mdc-tab__text-label {
+      display: inline-flex;
+      align-items: center;
+    }
+    .menu-editor--in-tab {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid color-mix(in srgb, var(--guy-border, #ccc) 70%, transparent);
+    }
+    .menu-physical__head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1rem;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    .menu-physical__head h2 {
+      margin: 0 0 0.25rem;
+    }
+    .menu-admin__source-line {
+      margin: 0 0 0.85rem;
+      font-size: 0.9rem;
+      color: var(--guy-navy, #003366);
+    }
+    .menu-admin__extras {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid color-mix(in srgb, var(--guy-border, #ccc) 70%, transparent);
     }
     .menu-admin h2 {
       margin: 0 0 0.75rem;
@@ -1278,6 +1577,8 @@ export class AdminMenuPage {
   readonly kitchenSectors = signal<KitchenSector[]>([]);
   readonly stockProducts = signal<StockProduct[]>([]);
   readonly activeId = signal<string | null>(null);
+  /** 0 Cartas · 1 Carta física · 2 Sectores · (3 Pedidos) · Pública */
+  readonly mainTabIndex = signal(0);
   readonly extras = signal<OrderingExtraDraft[]>([]);
   readonly extraItemQuery = signal('');
   private slugTouched = false;
@@ -1288,11 +1589,99 @@ export class AdminMenuPage {
   sourceFileName = '';
   private sourceFile: string | null = null;
   private sourceMime: string | null = null;
+  readonly priceSlots = signal<MenuPriceSlot[]>([]);
+  readonly downloadingPricedPdf = signal(false);
   readonly sections = signal<ShopMenuSection[]>([]);
   readonly itemQuery = signal('');
   readonly selectedItemKeys = signal<Set<string>>(new Set());
   private readonly openSectionKeys = signal<Set<string>>(new Set());
   private readonly openItemKeys = signal<Set<string>>(new Set());
+
+  readonly priceSlotItems = computed((): PriceSlotMenuItem[] => {
+    const out: PriceSlotMenuItem[] = [];
+    for (const sec of this.sections()) {
+      const sectionName = String(sec.name ?? '').trim() || 'Carta';
+      for (const it of sec.items ?? []) {
+        const id = String(it.id ?? '').trim();
+        const name = String(it.name ?? '').trim();
+        if (!id || !name) continue;
+        out.push({
+          id,
+          name,
+          sectionName,
+          price: it.price ?? null,
+          priceLabel: it.priceLabel ?? null,
+        });
+      }
+    }
+    return out;
+  });
+
+  isSourcePdf(): boolean {
+    const mime = String(this.sourceMime ?? '').toLowerCase();
+    if (mime === 'application/pdf' || mime === 'application/x-pdf') return true;
+    return /\.pdf$/i.test(this.sourceFileName || this.sourceFile || '');
+  }
+
+  onPriceSlotsChange(slots: MenuPriceSlot[]): void {
+    this.priceSlots.set(slots);
+  }
+
+  downloadPricedPdf(): void {
+    const shopId = this.shopId();
+    const menuId = this.activeId();
+    if (!shopId || !menuId) return;
+    if (!this.priceSlots().length) {
+      this.snack.open('Marcá al menos una caja de precio', 'OK', { duration: 2500 });
+      return;
+    }
+    this.flushActive();
+    this.downloadingPricedPdf.set(true);
+    this.http
+      .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody())
+      .subscribe({
+        next: (res) => {
+          this.applyPayload(res);
+          this.http
+            .get(`${environment.apiUrl}/shops/${shopId}/menu/${encodeURIComponent(menuId)}/priced.pdf`, {
+              responseType: 'blob',
+            })
+            .subscribe({
+              next: (blob) => {
+                this.downloadingPricedPdf.set(false);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `carta-precios.pdf`;
+                a.click();
+                URL.revokeObjectURL(url);
+              },
+              error: (err: HttpErrorResponse) => {
+                this.downloadingPricedPdf.set(false);
+                let msg = 'No se pudo generar el PDF con precios';
+                if (err.error instanceof Blob) {
+                  void err.error.text().then((t) => {
+                    try {
+                      const j = JSON.parse(t) as { message?: string | string[] };
+                      const m = j.message;
+                      msg = Array.isArray(m) ? m.join(', ') : String(m || msg);
+                    } catch {
+                      /* keep default */
+                    }
+                    this.snack.open(msg, 'OK', { duration: 4000 });
+                  });
+                  return;
+                }
+                this.snack.open(msg, 'OK', { duration: 4000 });
+              },
+            });
+        },
+        error: () => {
+          this.downloadingPricedPdf.set(false);
+          this.snack.open('Guardá la carta antes de descargar', 'OK', { duration: 3000 });
+        },
+      });
+  }
 
   readonly filteredSections = computed(() => {
     const q = this.itemQuery().trim().toLowerCase();
@@ -1599,6 +1988,9 @@ export class AdminMenuPage {
     this.sourceFile = menu.sourceFile ?? null;
     this.sourceFileName = menu.sourceFileName ?? '';
     this.sourceMime = menu.sourceMime ?? null;
+    this.priceSlots.set(
+      Array.isArray(menu.priceSlots) ? menu.priceSlots.map((s) => ({ ...s })) : [],
+    );
     this.sections.set(menu.sections.length ? menu.sections : emptySections());
     this.slugTouched = !!menu.slug;
     this.itemQuery.set('');
@@ -1616,6 +2008,7 @@ export class AdminMenuPage {
     this.sourceFile = null;
     this.sourceFileName = '';
     this.sourceMime = null;
+    this.priceSlots.set([]);
     this.sections.set([]);
     this.slugTouched = false;
     this.itemQuery.set('');
@@ -1633,6 +2026,7 @@ export class AdminMenuPage {
       sourceFile: this.sourceFile,
       sourceFileName: this.sourceFileName || null,
       sourceMime: this.sourceMime,
+      priceSlots: this.priceSlots().map((s) => ({ ...s })),
       sections: this.sections().map((s) => ({
         name: String(s.name ?? '').trim() || 'Carta',
         items: (s.items ?? [])
@@ -1679,6 +2073,10 @@ export class AdminMenuPage {
     if (!menu) return;
     this.activeId.set(id);
     this.loadEditor(menu);
+  }
+
+  goToPhysicalTab(): void {
+    this.mainTabIndex.set(1);
   }
 
   onTitleChange(): void {
