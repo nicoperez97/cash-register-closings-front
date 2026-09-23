@@ -528,15 +528,37 @@ export class ShopBackupDialogComponent {
       `¿Cargar dump en “${this.data.shopName}”? Se borrarán los datos del alcance del Excel (o todo si es dump completo) y se cargará el archivo.`,
     );
     if (!ok) return;
+    this.runRestore(file, false);
+  }
+
+  private runRestore(file: File, force: boolean): void {
     this.busy.set(true);
-    this.api.restoreBackup(this.data.shopId, file).subscribe({
+    this.api.restoreBackup(this.data.shopId, file, force).subscribe({
       next: () => {
         this.busy.set(false);
-        this.snack.open('Dump restaurado', 'OK', { duration: 3000 });
+        this.snack.open(
+          force ? 'Dump restaurado (forzado)' : 'Dump restaurado',
+          'OK',
+          { duration: 3000 },
+        );
         this.ref.close(true);
       },
       error: (err) => {
         this.busy.set(false);
+        const msg = String(
+          Array.isArray(err?.error?.message)
+            ? err.error.message[0]
+            : (err?.error?.message ?? ''),
+        );
+        if (!force && /force=1/i.test(msg)) {
+          const forceOk = window.confirm(
+            `${msg}\n\n¿Forzar la carga en “${this.data.shopName}”? Los datos del dump se mapearán a este local.`,
+          );
+          if (forceOk) {
+            this.runRestore(file, true);
+            return;
+          }
+        }
         this.showErr(err, 'No se pudo cargar el dump');
       },
     });

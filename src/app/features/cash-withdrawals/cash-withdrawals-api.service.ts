@@ -12,6 +12,10 @@ export interface PendingCashWithdrawal {
   deductedAmount?: number;
   status: string;
   createdAt?: string;
+  shiftId?: string | null;
+  shiftName?: string | null;
+  kind?: string | null;
+  eventName?: string | null;
 }
 
 export interface CoveredCashWithdrawal {
@@ -43,6 +47,10 @@ export interface CashWithdrawalHistoryItem {
   closingId: string;
   businessDate: string;
   amount: number;
+  shiftId?: string | null;
+  shiftName?: string | null;
+  kind?: string | null;
+  eventName?: string | null;
 }
 
 export interface CashWithdrawalHistoryGroup {
