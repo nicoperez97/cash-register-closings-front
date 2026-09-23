@@ -7,6 +7,8 @@ import {
   CustomerOrderStatus,
 } from './customer-orders-api.service';
 
+export { apiErrorMessage } from '../../core/http/api-error-message';
+
 export function orderingLogoUrl(
   logoUrl?: string | null,
   shopId?: string | null,
@@ -224,14 +226,6 @@ export function formatOrderLinesInline(
     })
     .filter(Boolean)
     .join(', ');
-}
-
-export function apiErrorMessage(err: unknown, fallback: string): string {
-  const e = err as { error?: { message?: string | string[] }; message?: string };
-  const msg = e?.error?.message ?? e?.message;
-  if (Array.isArray(msg) && msg.length) return String(msg[0]);
-  if (typeof msg === 'string' && msg.trim()) return msg.trim();
-  return fallback;
 }
 
 /** Red caída, timeout o 5xx: se puede reintentar / encolar. */

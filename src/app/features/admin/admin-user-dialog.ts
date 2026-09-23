@@ -48,6 +48,7 @@ import {
   ShopConfigVisibilityKey,
   normalizeShopConfigVisibility,
 } from '../../shared/shop-config-visibility';
+import { asBool } from '../../core/utils/as-bool';
 
 export interface AdminUserRow {
   id: string;
@@ -1202,7 +1203,7 @@ export class AdminUserDialogComponent implements OnInit {
       ),
     ),
     ledgerAccountIds: this.fb.nonNullable.control<string[]>(this.initialAccountIds()),
-    active: [this.user?.active ?? true],
+    active: [asBool(this.user?.active, true)],
     visibility: this.fb.nonNullable.group({
       cashWithdraw: [this.initialVisibility.cashWithdraw],
       closingsFilters: [this.initialVisibility.closingsFilters],
@@ -1520,7 +1521,7 @@ export class AdminUserDialogComponent implements OnInit {
         bankAlias: (raw.bankAlias as string)?.trim() || null,
         cbu: (raw.cbu as string)?.trim() || null,
         globalRole,
-        active: raw.active,
+        active: asBool(raw.active),
         shopIds,
         shopRole: globalRole,
         modulePermissions,

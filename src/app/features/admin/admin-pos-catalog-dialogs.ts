@@ -9,6 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import {
   AdminPosCategoryRow,
   AdminPosSubcategoryRow,
@@ -111,8 +112,7 @@ export class AdminPosCategoryDialogComponent {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.message;
-        this.snack.open(typeof msg === 'string' ? msg : 'No se pudo guardar', 'OK', {
+        this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', {
           duration: 3500,
         });
       },
@@ -227,8 +227,7 @@ export class AdminPosSubcategoryDialogComponent {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.message;
-        this.snack.open(typeof msg === 'string' ? msg : 'No se pudo guardar', 'OK', {
+        this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', {
           duration: 3500,
         });
       },

@@ -11,7 +11,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { apiErrorMessage } from '../customer-orders/ordering-ui.util';
+import { apiErrorMessage } from '../../core/http/api-error-message';
+import { asBool } from '../../core/utils/as-bool';
 import { SpinnerComponent } from '../../shared/components/spinner';
 
 export interface AdminPosCategoryRow {
@@ -165,8 +166,8 @@ export class AdminPosProductDialogComponent implements OnInit {
     productName: [this.data.product.productName ?? '', Validators.required],
     categoryId: [this.data.product.categoryId ?? (null as string | null)],
     subcategoryId: [this.data.product.subcategoryId ?? (null as string | null)],
-    // La API (MySQL tinyint) puede devolver 1/0; el PATCH exige boolean.
-    active: [!!this.data.product.active],
+    // MySQL tinyint puede venir como 1/0.
+    active: [asBool(this.data.product.active)],
   });
 
   ngOnInit(): void {
@@ -218,7 +219,7 @@ export class AdminPosProductDialogComponent implements OnInit {
           productName: raw.productName.trim(),
           categoryId: raw.categoryId,
           subcategoryId: raw.subcategoryId,
-          active: !!raw.active,
+          active: asBool(raw.active),
         },
       )
       .subscribe({

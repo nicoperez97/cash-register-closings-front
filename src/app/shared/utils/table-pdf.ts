@@ -20,6 +20,7 @@ export async function downloadColumnsPdf(opts: {
   filename: string;
   columns: DataTableColumn[];
   rows: any[];
+  chartHtml?: string;
 }): Promise<void> {
   await downloadTablePdf({
     title: opts.title,
@@ -27,5 +28,6 @@ export async function downloadColumnsPdf(opts: {
     filename: opts.filename,
     headers: opts.columns.map((c) => c.label),
     rows: tablePdfRows(opts.columns, opts.rows),
+    chartHtml: opts.chartHtml,
   });
 }

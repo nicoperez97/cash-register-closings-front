@@ -670,6 +670,21 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['reports.view'],
         body: 'Hace falta un sistema POS configurado (Restosoft, WeMenu, etc.). Si no hay conector, esta pantalla no tiene de dónde leer.',
       },
+      {
+        title: 'Importar reporte',
+        icon: 'upload_file',
+        tone: 'do',
+        anyOf: ['reports.export'],
+        body: 'Con Importar Restosoft / POS subís el Excel o PDF del sistema. Antes de confirmar ves los días y una lista de platos con rubro sugerido (catálogo, reglas o IA si Gemini está activo). Podés corregir nombre y rubro; eso queda en el catálogo al cargar.',
+        tip: 'Si un plato queda en Sin rubro, asignalo acá: después el mix del PDF y las comisiones se agrupan bien.',
+      },
+      {
+        title: 'Descargar',
+        icon: 'download',
+        tone: 'do',
+        anyOf: ['reports.export'],
+        body: 'Descargar abre Excel o PDF del recorte filtrado. El PDF incluye una torta de mix por rubro y la tabla de platos.',
+      },
     ],
   },
   {

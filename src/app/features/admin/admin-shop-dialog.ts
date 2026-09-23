@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { environment } from '../../../environments/environment';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
+import { asBool } from '../../core/utils/as-bool';
 
 export interface AdminShopRow {
   id: string;
@@ -266,7 +267,7 @@ export class AdminShopDialogComponent {
     tipsEnabled: [this.shop ? !!this.shop.tipsEnabled : false],
     publicAttendanceEnabled: [this.shop ? !!this.shop.publicAttendanceEnabled : false],
     menuEnabled: [this.shop ? !!this.shop.menuEnabled : false],
-    active: [this.shop?.active ?? true],
+    active: [asBool(this.shop?.active, true)],
   });
 
   suggestSlug(): void {
