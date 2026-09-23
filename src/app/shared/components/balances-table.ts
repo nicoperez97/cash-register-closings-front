@@ -14,6 +14,8 @@ import { downloadTablePdf } from '../pdf/html-pdf';
 export interface BalanceAccountRow {
   accountId?: string;
   name: string;
+  code?: string | null;
+  linkedPaymentMethod?: string | null;
   /** Saldo que se muestra: neto si hay comisión, bruto si no. */
   balance: number;
   type?: string;
@@ -25,6 +27,8 @@ export interface BalanceAccountRow {
 export function mapBalanceAccount(a: {
   accountId?: string;
   name: string;
+  code?: string | null;
+  linkedPaymentMethod?: string | null;
   type?: string;
   balance?: number;
   netBalance?: number;
@@ -37,6 +41,8 @@ export function mapBalanceAccount(a: {
   return {
     accountId: a.accountId,
     name: a.name,
+    code: a.code ?? null,
+    linkedPaymentMethod: a.linkedPaymentMethod ?? null,
     type: a.type,
     balance: hasCommission ? Number(a.netBalance ?? gross) : gross,
     grossBalance: gross,
