@@ -61,8 +61,9 @@ export interface ShopBackupDialogData {
       }
 
       <p class="lead">
-        Herramientas de super admin. Se conservan nombre, logo, color, moneda, POS y usuarios
-        asignados. El restore solo acepta Excel.
+        Dump y restore dejan el local idéntico (datos y config). Los usuarios del dump deben
+        existir ya en el sistema; los archivos en disco (comprobantes, fotos de cierre) pueden
+        faltar. El restore solo acepta Excel.
       </p>
 
       <section class="block">
