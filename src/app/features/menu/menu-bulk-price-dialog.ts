@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { formatMoney } from '../../shared/utils/money';
 
-export type MenuBulkPriceMode = 'fixed' | 'percent';
+export type MenuBulkPriceMode = 'fixed' | 'add' | 'percent';
 
 export type MenuBulkPriceItem = {
   key: string;
@@ -37,6 +37,11 @@ export function applyMenuBulkPrice(
     return Math.max(0, Math.round(v));
   }
   const base = Number(current);
+  const from = Number.isFinite(base) && base >= 0 ? base : 0;
+  if (mode === 'add') {
+    return Math.max(0, Math.round(from + v));
+  }
+  // percent
   if (!Number.isFinite(base) || base < 0) return null;
   return Math.max(0, Math.round(base * (1 + v / 100)));
 }
@@ -56,7 +61,7 @@ function moneyLabel(n: number | null | undefined): string {
       </span>
       <span class="guy-dialog__title-text">
         <strong>Ajustar precios</strong>
-        <span>Elegí ítems y aplicá un monto fijo o un porcentaje</span>
+        <span>Elegí ítems y fijá un precio, sumá un monto o aplicá un porcentaje</span>
       </span>
     </h2>
 
@@ -68,7 +73,15 @@ function moneyLabel(n: number | null | undefined): string {
           [class.mbp__chip--on]="mode() === 'fixed'"
           (click)="mode.set('fixed')"
         >
-          Monto fijo
+          Fijar precio
+        </button>
+        <button
+          type="button"
+          class="mbp__chip"
+          [class.mbp__chip--on]="mode() === 'add'"
+          (click)="mode.set('add')"
+        >
+          Sumar monto
         </button>
         <button
           type="button"
@@ -81,22 +94,16 @@ function moneyLabel(n: number | null | undefined): string {
       </div>
 
       <label class="mbp__value">
-        <span class="mbp__label">{{ mode() === 'fixed' ? 'Nuevo precio ($)' : 'Variación (%)' }}</span>
+        <span class="mbp__label">{{ valueLabel() }}</span>
         <input
           type="number"
           [ngModel]="amount()"
           (ngModelChange)="onAmountChange($event)"
           name="bulkValue"
-          [step]="mode() === 'fixed' ? 1 : 0.5"
-          [placeholder]="mode() === 'fixed' ? 'ej. 12000' : 'ej. 10 o -5'"
+          [step]="mode() === 'percent' ? 0.5 : 1"
+          [placeholder]="valuePlaceholder()"
         />
-        <span class="mbp__hint">
-          {{
-            mode() === 'percent'
-              ? 'Positivo sube, negativo baja (ej. 10 = +10%).'
-              : 'Se aplica el mismo monto a todos los ítems marcados.'
-          }}
-        </span>
+        <span class="mbp__hint">{{ valueHint() }}</span>
       </label>
 
       <label class="mbp__search">
@@ -400,8 +407,8 @@ export class MenuBulkPriceDialogComponent {
   readonly data = inject<MenuBulkPriceDialogData>(MAT_DIALOG_DATA);
   readonly ref = inject(MatDialogRef<MenuBulkPriceDialogComponent, MenuBulkPriceDialogResult | null>);
 
-  readonly mode = signal<MenuBulkPriceMode>('percent');
-  readonly amount = signal<number | null>(10);
+  readonly mode = signal<MenuBulkPriceMode>('add');
+  readonly amount = signal<number | null>(1000);
   readonly query = signal('');
 
   private readonly selectedKeys = signal<Set<string>>(
@@ -412,6 +419,26 @@ export class MenuBulkPriceDialogComponent {
   );
 
   readonly selected = computed(() => this.selectedKeys());
+
+  valueLabel(): string {
+    if (this.mode() === 'fixed') return 'Nuevo precio ($)';
+    if (this.mode() === 'add') return 'Monto a sumar ($)';
+    return 'Variación (%)';
+  }
+
+  valuePlaceholder(): string {
+    if (this.mode() === 'fixed') return 'ej. 12000';
+    if (this.mode() === 'add') return 'ej. 500 o -200';
+    return 'ej. 10 o -5';
+  }
+
+  valueHint(): string {
+    if (this.mode() === 'fixed') return 'Se aplica el mismo precio a todos los ítems marcados.';
+    if (this.mode() === 'add') {
+      return 'Positivo suma, negativo resta sobre el precio actual (ej. 500 o -200).';
+    }
+    return 'Positivo sube, negativo baja (ej. 10 = +10%).';
+  }
 
   readonly filtered = computed(() => {
     const q = this.query().trim().toLowerCase();
@@ -509,6 +536,7 @@ export class MenuBulkPriceDialogComponent {
     const v = Number(this.amount());
     if (!Number.isFinite(v)) return false;
     if (this.mode() === 'fixed' && v < 0) return false;
+    if (this.mode() === 'add' && v === 0) return false;
     return this.selectedCount() > 0;
   }
 

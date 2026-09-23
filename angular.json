@@ -56,7 +56,7 @@
               "node_modules/leaflet/dist/leaflet.css",
               "src/styles.scss"
             ],
-            "allowedCommonJsDependencies": ["qrcode", "html2canvas", "core-js", "leaflet"]
+            "allowedCommonJsDependencies": ["qrcode", "html2canvas", "core-js", "leaflet", "pdfjs-dist"]
           },
           "configurations": {
             "production": {
