@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { apiErrorMessage } from '../customer-orders/ordering-ui.util';
 import { SpinnerComponent } from '../../shared/components/spinner';
 
 export interface AdminPosCategoryRow {
@@ -164,7 +165,8 @@ export class AdminPosProductDialogComponent implements OnInit {
     productName: [this.data.product.productName ?? '', Validators.required],
     categoryId: [this.data.product.categoryId ?? (null as string | null)],
     subcategoryId: [this.data.product.subcategoryId ?? (null as string | null)],
-    active: [this.data.product.active],
+    // La API (MySQL tinyint) puede devolver 1/0; el PATCH exige boolean.
+    active: [!!this.data.product.active],
   });
 
   ngOnInit(): void {
@@ -216,7 +218,7 @@ export class AdminPosProductDialogComponent implements OnInit {
           productName: raw.productName.trim(),
           categoryId: raw.categoryId,
           subcategoryId: raw.subcategoryId,
-          active: raw.active,
+          active: !!raw.active,
         },
       )
       .subscribe({
@@ -226,8 +228,7 @@ export class AdminPosProductDialogComponent implements OnInit {
         },
         error: (err) => {
           this.saving = false;
-          const msg = err?.error?.message;
-          this.snack.open(typeof msg === 'string' ? msg : 'No se pudo guardar', 'OK', {
+          this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', {
             duration: 3500,
           });
         },
