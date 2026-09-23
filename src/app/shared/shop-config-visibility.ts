@@ -7,6 +7,7 @@ export type ShopConfigVisibilityKey =
   | 'operacion'
   | 'pedidos'
   | 'comanda'
+  | 'comanderas'
   | 'dispositivos'
   | 'menu'
   | 'carta'
@@ -61,6 +62,12 @@ export const SHOP_CONFIG_VISIBILITY_OPTIONS: Array<{
     icon: 'room_service',
   },
   {
+    key: 'comanderas',
+    label: 'Comanderas',
+    hint: 'Ver: regenerar token y bajar instalador. Todo: también revocar',
+    icon: 'print',
+  },
+  {
     key: 'dispositivos',
     label: 'Cuentas del local',
     hint: 'Cuentas del cierre (PVS, MP, Pedidos Ya…) y posnets',
@@ -96,6 +103,7 @@ export function defaultShopConfigVisibility(): ShopConfigVisibility {
     operacion: 'manage',
     pedidos: 'manage',
     comanda: 'manage',
+    comanderas: 'manage',
     dispositivos: 'manage',
     menu: 'manage',
     carta: 'manage',
@@ -118,6 +126,10 @@ export function normalizeShopConfigVisibility(
   if (!raw || typeof raw !== 'object') return base;
   for (const opt of SHOP_CONFIG_VISIBILITY_OPTIONS) {
     if (raw[opt.key] !== undefined) base[opt.key] = coerceShopConfigLevel(raw[opt.key]);
+  }
+  // Antes el token vivía en Operación: si no hay clave nueva, heredar ese nivel.
+  if (raw.comanderas === undefined && raw.operacion !== undefined) {
+    base.comanderas = coerceShopConfigLevel(raw.operacion);
   }
   return base;
 }

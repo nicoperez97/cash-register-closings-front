@@ -124,6 +124,7 @@ export function canAccessAppRoute(
       section === 'operacion' ||
       section === 'pedidos' ||
       section === 'comanda' ||
+      section === 'comanderas' ||
       section === 'dispositivos' ||
       section === 'menu' ||
       section === 'avanzado'
@@ -138,6 +139,7 @@ export function canAccessAppRoute(
       canSeeShopConfigSection(user, shopId, 'operacion') ||
       canSeeShopConfigSection(user, shopId, 'pedidos') ||
       canSeeShopConfigSection(user, shopId, 'comanda') ||
+      canSeeShopConfigSection(user, shopId, 'comanderas') ||
       canSeeShopConfigSection(user, shopId, 'dispositivos') ||
       canSeeShopConfigSection(user, shopId, 'menu') ||
       canSeeShopConfigSection(user, shopId, 'carta') ||

@@ -526,6 +526,9 @@ export class MainLayoutComponent {
     if (shopId && canSeeShopConfigSection(user, shopId, 'comanda')) {
       local.push(leaf('adminComanda'));
     }
+    if (shopId && canSeeShopConfigSection(user, shopId, 'comanderas')) {
+      local.push(leaf('adminComanderas'));
+    }
     if (shopId && canAccessShopConfig(user, shopId)) {
       if (canSeeShopConfigSection(user, shopId, 'dispositivos')) {
         local.push(leaf('adminShopDispositivos'));

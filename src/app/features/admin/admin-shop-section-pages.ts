@@ -9,6 +9,7 @@ import { AdminShopOperationComponent } from './admin-shop-operation';
 import { AdminShopOrderingComponent } from './admin-shop-ordering';
 import { AdminShopComandaComponent } from './admin-shop-comanda';
 import { AdminShopDevicesComponent } from './admin-shop-devices';
+import { AdminShopComanderasComponent } from './admin-shop-comanderas';
 import { AdminShopAdvancedComponent } from './admin-shop-advanced';
 import { AdminShopSubnavComponent } from './admin-shop-subnav';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
@@ -123,25 +124,12 @@ export class AdminShopIdentidadPage {
         [concepts]="host.concepts()"
         [conceptCategoryOptions]="host.conceptCategoryOptions"
         [canManageAccounts]="host.canManageAccounts()"
-        [canEdit]="host.canEditCurrentSection()"
-        [printAgentLoading]="host.printAgentLoading()"
-        [printAgentBusy]="host.printAgentBusy()"
-        [printAgentConfigured]="host.printAgentConfigured()"
-        [printAgentTokenPrefix]="host.printAgentTokenPrefix()"
-        [printAgentFreshToken]="host.printAgentFreshToken()"
-        [installerLoading]="host.installerLoading()"
-        [installerBusy]="host.installerBusy()"
-        [installerItems]="host.installerItems()"
         [isShiftWeekday]="host.isShiftWeekdayBound"
         [isClosedWeekday]="host.isClosedWeekdayBound"
         (addShift)="host.addShift()"
         (removeShift)="host.removeShift($event)"
         (toggleShiftWeekday)="host.toggleShiftWeekday($event.index, $event.day)"
         (toggleClosedWeekday)="host.toggleClosedWeekday($event)"
-        (generatePrintAgentToken)="host.generatePrintAgentToken()"
-        (revokePrintAgentToken)="host.revokePrintAgentToken()"
-        (copyPrintAgentToken)="host.copyPrintAgentToken()"
-        (downloadInstaller)="host.downloadPrintAgentInstaller($event)"
       />
     </div>
   `,
@@ -198,6 +186,42 @@ export class AdminShopPedidosPage {
 export class AdminShopComandaPage {
   readonly host = inject(ADMIN_SHOP_HOST);
   readonly section = adminShopSectionByPath('comanda')!;
+}
+
+@Component({
+  selector: 'app-admin-shop-comanderas-page',
+  imports: [
+    PageHeaderComponent,
+    AdminShopSubnavComponent,
+    AdminShopComanderasComponent,
+  ],
+  template: `
+    <app-page-header [title]="section.label" [subtitle]="section.subtitle" />
+    <app-admin-shop-subnav activeId="comanderas" />
+    <div class="shop-admin__tab-panel">
+      <app-admin-shop-comanderas
+        [canEdit]="host.canEditCurrentSection()"
+        [printAgentLoading]="host.printAgentLoading()"
+        [printAgentBusy]="host.printAgentBusy()"
+        [printAgentConfigured]="host.printAgentConfigured()"
+        [printAgentTokenPrefix]="host.printAgentTokenPrefix()"
+        [printAgentFreshToken]="host.printAgentFreshToken()"
+        [installerLoading]="host.installerLoading()"
+        [installerBusy]="host.installerBusy()"
+        [installerItems]="host.installerItems()"
+        (generatePrintAgentToken)="host.generatePrintAgentToken()"
+        (revokePrintAgentToken)="host.revokePrintAgentToken()"
+        (copyPrintAgentToken)="host.copyPrintAgentToken()"
+        (copyPrintAgentApiUrl)="host.copyPrintAgentApiUrl()"
+        (downloadInstaller)="host.downloadPrintAgentInstaller($event)"
+      />
+    </div>
+  `,
+  styleUrl: './admin-shop.scss',
+})
+export class AdminShopComanderasPage {
+  readonly host = inject(ADMIN_SHOP_HOST);
+  readonly section = adminShopSectionByPath('comanderas')!;
 }
 
 @Component({

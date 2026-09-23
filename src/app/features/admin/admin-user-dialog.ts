@@ -1229,6 +1229,9 @@ export class AdminUserDialogComponent implements OnInit {
       operacion: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.operacion),
       pedidos: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.pedidos),
       comanda: this.fb.nonNullable.control<ShopConfigLevel>(this.initialShopConfig.comanda),
+      comanderas: this.fb.nonNullable.control<ShopConfigLevel>(
+        this.initialShopConfig.comanderas,
+      ),
       dispositivos: this.fb.nonNullable.control<ShopConfigLevel>(
         this.initialShopConfig.dispositivos,
       ),

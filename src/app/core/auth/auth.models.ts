@@ -1589,6 +1589,7 @@ export interface ShopSummary {
     operacion?: string;
     pedidos?: string;
     comanda?: string;
+    comanderas?: string;
     dispositivos?: string;
     menu?: string;
     carta?: string;
@@ -2139,6 +2140,7 @@ export function canSeeShopConfigSection(
     | 'operacion'
     | 'pedidos'
     | 'comanda'
+    | 'comanderas'
     | 'dispositivos'
     | 'menu'
     | 'carta'
@@ -2157,6 +2159,7 @@ export function canEditShopConfigSection(
     | 'operacion'
     | 'pedidos'
     | 'comanda'
+    | 'comanderas'
     | 'dispositivos'
     | 'menu'
     | 'carta'
@@ -2185,6 +2188,7 @@ function shopConfigSectionLevel(
     | 'operacion'
     | 'pedidos'
     | 'comanda'
+    | 'comanderas'
     | 'dispositivos'
     | 'menu'
     | 'carta'
