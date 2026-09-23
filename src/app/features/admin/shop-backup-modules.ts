@@ -13,6 +13,7 @@ export type BackupModuleGroup =
 export type BackupModuleId =
   | 'catalog'
   | 'concepts'
+  | 'shopConfig'
   | 'closings'
   | 'cashWithdrawals'
   | 'settlements'
@@ -30,6 +31,7 @@ export type BackupModuleId =
   | 'reservations'
   | 'waitingList'
   | 'salon'
+  | 'customerOrders'
   | 'stock'
   | 'beverageStock'
   | 'shortages'
@@ -68,6 +70,7 @@ export const BACKUP_MODULE_OPTIONS: BackupModuleOption[] = [
   { id: 'settlements', label: 'Rendiciones', group: 'operacion', alsoClears: [] },
   { id: 'tips', label: 'Propinas', group: 'operacion', alsoClears: [] },
   { id: 'serviceRules', label: 'Normas de servicio', group: 'operacion', alsoClears: [] },
+  { id: 'customerOrders', label: 'Comandas / pedidos mesa', group: 'operacion', alsoClears: [] },
   { id: 'expenses', label: 'Gastos', group: 'cuentas', alsoClears: [] },
   { id: 'incomes', label: 'Ingresos', group: 'cuentas', alsoClears: [] },
   { id: 'movements', label: 'Movimientos entre cuentas', group: 'cuentas', alsoClears: [] },
@@ -79,7 +82,7 @@ export const BACKUP_MODULE_OPTIONS: BackupModuleOption[] = [
   { id: 'services', label: 'Servicios', group: 'pagos', alsoClears: ['paymentsServices'] },
   { id: 'reservations', label: 'Reservas', group: 'salon', alsoClears: [] },
   { id: 'waitingList', label: 'Lista de espera', group: 'salon', alsoClears: [] },
-  { id: 'salon', label: 'Salón', group: 'salon', alsoClears: [] },
+  { id: 'salon', label: 'Salón', group: 'salon', alsoClears: ['customerOrders'] },
   { id: 'stock', label: 'Stock alimentos', group: 'stock', alsoClears: [] },
   { id: 'beverageStock', label: 'Stock bebidas', group: 'stock', alsoClears: [] },
   { id: 'shortages', label: 'Faltantes', group: 'stock', alsoClears: [] },
@@ -136,6 +139,7 @@ export const BACKUP_MODULE_OPTIONS: BackupModuleOption[] = [
       'paymentsEmployees',
     ],
   },
+  { id: 'shopConfig', label: 'Config del local', group: 'config', alsoClears: [] },
 ];
 
 const LABEL = new Map(BACKUP_MODULE_OPTIONS.map((m) => [m.id, m.label]));

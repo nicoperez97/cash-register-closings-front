@@ -30,7 +30,8 @@ import { MatIconModule } from '@angular/material/icon';
         <h2 class="guy-section-title">Zona peligrosa</h2>
         <p class="text-muted small mb-3">
           Solo super admin. Acá bajás o cargás dumps y podés vaciar módulos. Pedí confirmación
-          escribiendo RESET. Se conservan configuración y usuarios.
+          escribiendo RESET. Un dump completo + restore deja el local como estaba (config incluida).
+          Los usuarios del sistema tienen que existir; los archivos en disco pueden faltar.
         </p>
         <div class="shop-admin__danger-actions">
           <button mat-flat-button color="warn" type="button" (click)="openBackup.emit()">
