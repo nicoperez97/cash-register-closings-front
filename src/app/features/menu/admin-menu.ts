@@ -2398,6 +2398,7 @@ export class AdminMenuPage {
       this.snack.open('Agregá al menos un sector antes de asignar', 'OK', { duration: 3000 });
       return;
     }
+    const validIds = new Set(sectors.map((s) => s.id));
     const items: MenuAssignSectorItem[] = [];
     this.sections().forEach((sec, si) => {
       (sec.items ?? []).forEach((it, ii) => {
@@ -2407,7 +2408,9 @@ export class AdminMenuPage {
           key: this.itemKey(si, ii),
           sectionName: String(sec.name ?? '').trim() || 'Sin sección',
           name,
-          sectorIds: Array.isArray(it.kitchenSectorIds) ? [...it.kitchenSectorIds] : [],
+          sectorIds: (Array.isArray(it.kitchenSectorIds) ? it.kitchenSectorIds : [])
+            .map((id) => String(id ?? '').trim())
+            .filter((id) => validIds.has(id)),
         });
       });
     });
