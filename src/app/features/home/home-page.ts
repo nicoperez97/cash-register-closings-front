@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { catchError, forkJoin, of } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import {
@@ -35,11 +36,11 @@ import {
 } from '../../core/home/home-actions';
 import { NavMenuService } from '../../core/layout/nav-menu.service';
 import { groupIdFromRoute, navGroupPagePath } from '../../core/layout/nav-config';
-import { ClosingsApiService } from '../closings/closings-api.service';
+import { ClosingsApiService, ShopClosingSource } from '../closings/closings-api.service';
 import { closingMoneyColumns } from '../closings/closing-list-columns';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
-import { MovementsApiService } from '../movements/movements-api.service';
+import { LedgerAccount, MovementsApiService } from '../movements/movements-api.service';
 import { QuickExpenseDialogComponent } from '../movements/quick-expense-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
 import { ReservationsInboxService } from '../reservations/reservations-inbox.service';
@@ -53,6 +54,67 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
+
+function accountNameKey(name: string | null | undefined): string {
+  return String(name ?? '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+type CashCandidate = { id: string; name: string };
+
+/**
+ * Cuenta de caja física para el KPI «Efectivo en caja».
+ * Prioridad: Cuentas del local (rol CASH) → código EFECTIVO → «Efectivo Caja» → linked cash.
+ * Nunca matchea por substring «efectivo» (evita Deliberate Efectivo, etc.).
+ */
+function resolveCashDrawerAccount(
+  sources: ShopClosingSource[],
+  accounts: LedgerAccount[],
+  balanceRows: Array<{
+    accountId?: string;
+    name: string;
+    code?: string | null;
+    linkedPaymentMethod?: string | null;
+  }>,
+): CashCandidate | null {
+  const nameOf = (id: string, fallback?: string | null): string =>
+    (
+      accounts.find((a) => a.id === id)?.name ||
+      balanceRows.find((r) => r.accountId === id)?.name ||
+      fallback ||
+      'Efectivo'
+    ).trim();
+
+  const cashSrc = sources.find((s) => s.role === 'CASH' && s.active && s.accountId);
+  if (cashSrc?.accountId) {
+    return { id: cashSrc.accountId, name: nameOf(cashSrc.accountId, cashSrc.accountName) };
+  }
+
+  const fromAccounts = (pick: (a: LedgerAccount) => boolean): CashCandidate | null => {
+    const hit = accounts.find((a) => a.active && pick(a));
+    return hit ? { id: hit.id, name: hit.name.trim() } : null;
+  };
+  const fromBalances = (
+    pick: (r: (typeof balanceRows)[number]) => boolean,
+  ): CashCandidate | null => {
+    const hit = balanceRows.find((r) => !!r.accountId && pick(r));
+    return hit?.accountId ? { id: hit.accountId, name: hit.name.trim() } : null;
+  };
+
+  return (
+    fromAccounts((a) => String(a.code ?? '').toUpperCase() === 'EFECTIVO') ??
+    fromBalances((r) => String(r.code ?? '').toUpperCase() === 'EFECTIVO') ??
+    fromAccounts((a) => accountNameKey(a.name) === 'efectivo caja') ??
+    fromBalances((r) => accountNameKey(r.name) === 'efectivo caja') ??
+    fromAccounts((a) => String(a.linkedPaymentMethod ?? '').toLowerCase() === 'cash') ??
+    fromBalances((r) => String(r.linkedPaymentMethod ?? '').toLowerCase() === 'cash') ??
+    fromBalances((r) => accountNameKey(r.name) === 'efectivo')
+  );
+}
 
 interface AttendanceEmployee {
   employeeId: string;
@@ -669,6 +731,8 @@ export class HomePageComponent {
   private readonly reportSummary = signal<any>(null);
   private readonly refreshTick = signal(0);
   readonly balanceRows = signal<BalanceRowExt[]>([]);
+  /** Cuenta de caja física (Cuentas del local → Efectivo). */
+  readonly cashDrawerAccount = signal<{ id: string; name: string } | null>(null);
   readonly attendanceBusy = signal(false);
   readonly sharingAttendance = signal(false);
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
@@ -761,14 +825,11 @@ export class HomePageComponent {
   });
 
   readonly cashBalance = computed(() => {
-    const rows = this.balanceRows();
-    const cash = rows.find(
-      (a) => a.type === 'CHANNEL' && /efectivo/i.test(a.name),
-    );
-    if (cash) return Number(cash.grossBalance ?? cash.balance ?? 0);
-    const channels = rows.filter((a) => a.type === 'CHANNEL');
-    if (!channels.length) return null;
-    return channels.reduce((sum, a) => sum + Number(a.grossBalance ?? a.balance ?? 0), 0);
+    const drawer = this.cashDrawerAccount();
+    if (!drawer) return null;
+    const row = this.balanceRows().find((a) => a.accountId === drawer.id);
+    if (!row) return null;
+    return Number(row.grossBalance ?? row.balance ?? 0);
   });
 
   readonly kpis = computed((): KpiItem[] => {
@@ -887,13 +948,11 @@ export class HomePageComponent {
 
     if (this.canViewBalances()) {
       const cash = this.cashBalance();
-      const cashRow = this.balanceRows().find(
-        (a) => a.type === 'CHANNEL' && /efectivo/i.test(a.name),
-      );
+      const drawer = this.cashDrawerAccount();
       items.push({
         label: 'Efectivo en caja',
         value: cash != null ? this.formatMoney(cash) : '—',
-        hint: cashRow ? cashRow.name : 'Suma canales',
+        hint: drawer?.name ?? 'Sin cuenta de efectivo',
         icon: 'account_balance_wallet',
         route: '/expenses',
       });
@@ -952,11 +1011,26 @@ export class HomePageComponent {
         )
       ) {
         this.balanceRows.set([]);
+        this.cashDrawerAccount.set(null);
       } else {
-        this.movementsApi.balances(shopId).subscribe({
-          next: (res) =>
-            this.balanceRows.set((res.accounts ?? []).map((a) => mapBalanceAccount(a))),
-          error: () => this.balanceRows.set([]),
+        forkJoin({
+          balances: this.movementsApi.balances(shopId),
+          sources: this.api
+            .listClosingSources(shopId, true)
+            .pipe(catchError(() => of([] as ShopClosingSource[]))),
+          accounts: this.movementsApi
+            .accounts(shopId)
+            .pipe(catchError(() => of([] as LedgerAccount[]))),
+        }).subscribe({
+          next: ({ balances, sources, accounts }) => {
+            const rows = (balances.accounts ?? []).map((a) => mapBalanceAccount(a));
+            this.balanceRows.set(rows);
+            this.cashDrawerAccount.set(resolveCashDrawerAccount(sources, accounts, rows));
+          },
+          error: () => {
+            this.balanceRows.set([]);
+            this.cashDrawerAccount.set(null);
+          },
         });
       }
 

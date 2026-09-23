@@ -335,6 +335,8 @@ export class MovementsApiService {
 export interface AccountBalanceRow {
   accountId: string;
   name: string;
+  code?: string | null;
+  linkedPaymentMethod?: string | null;
   type?: string;
   income: number;
   expense: number;
