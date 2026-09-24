@@ -1065,19 +1065,29 @@ export class HomePageComponent {
           avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
         );
         // Misma cifra que Abrir caja: lo dejado en el último cierre (suggested).
-        // Con caja abierta, la apertura del turno.
-        const fromOpen =
-          res.open != null
-            ? Number(res.open.cashOpeningAmount ?? res.open.cashLeftInRegister ?? NaN)
+        // Con caja abierta: lo dejado en el draft (0 cuenta); si aún no hay valor, la apertura.
+        const leaveNum =
+          res.open != null && res.open.cashLeftInRegister != null
+            ? Math.max(0, Number(res.open.cashLeftInRegister))
+            : NaN;
+        const openNum =
+          res.open != null && res.open.cashOpeningAmount != null
+            ? Math.max(0, Number(res.open.cashOpeningAmount))
+            : NaN;
+        const fromOpen = !Number.isNaN(leaveNum)
+          ? leaveNum
+          : !Number.isNaN(openNum)
+            ? openNum
             : NaN;
         const fromSuggested =
           res.suggested != null && Number.isFinite(Number(res.suggested.amount))
-            ? Number(res.suggested.amount)
+            ? Math.max(0, Number(res.suggested.amount))
             : NaN;
+        // 0 es un valor válido (caja vacía); solo null si no hay dato.
         const inReg = !Number.isNaN(fromOpen)
-          ? Math.max(0, fromOpen)
+          ? fromOpen
           : !Number.isNaN(fromSuggested)
-            ? Math.max(0, fromSuggested)
+            ? fromSuggested
             : null;
         this.cashInRegisterAmount.set(inReg);
       });

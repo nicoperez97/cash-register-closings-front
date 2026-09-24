@@ -64,6 +64,17 @@ export function emptyNum(v: unknown): number | null {
   return num;
 }
 
+/**
+ * Como emptyNum, pero el 0 cuenta (ej. lo dejado en caja / apertura sugerida).
+ * null/vacío → null; 0 → 0.
+ */
+export function moneyOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const num = Number(v);
+  if (!Number.isFinite(num)) return null;
+  return Math.max(0, num);
+}
+
 export const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'VEGETABLES', label: 'Verdulería' },
   { value: 'CHEESE', label: 'Quesería' },

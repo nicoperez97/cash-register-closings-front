@@ -41,7 +41,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En la barra superior, el ícono de pantalla completa ocupa toda la pantalla (Esc o el mismo botón para salir).',
           'Campana: avisos de pagos, movimientos y más. Al abrirla se apaga el número; los no leídos siguen con el punto azul hasta que los abrís o marcás todas como leídas.',
           'Abajo ves los saldos de canales y socios. Si una cuenta tiene comisión, el número grande ya la descuenta. Los millones se ven simplificados; Simplificado / Exactos cambia la vista, y al pasar el mouse ves el número completo.',
-          'Efectivo en caja es lo dejado en el último cierre (la misma cifra que propone Abrir caja). Con caja abierta, ves el cambio con el que se abrió. Se actualiza al cambiar de local, al volver a la app y al tirar hacia abajo para refrescar. Abajo ves A retirar; tocá el KPI para ir a Retiros si tenés permiso.',
+          'Efectivo en caja es lo dejado en el último cierre (la misma cifra que propone Abrir caja). Si dejaste 0 o vacío, el KPI muestra 0. Con caja abierta, ves lo dejado en ese borrador (o la apertura si todavía no lo cargaste). Se actualiza al cambiar de local, al volver a la app y al tirar hacia abajo para refrescar. Abajo ves A retirar; tocá el KPI para ir a Retiros si tenés permiso.',
           'Si el local usa Rendiciones, el KPI Canales nos deben muestra lo que Pedidos Ya / Rappi (y otras cuentas aparte) todavía no acreditaron, con neto estimado y la primera fecha esperada. Tocá el KPI o la tarjeta para ir a Rendiciones.',
         ],
         tip: 'Si llega un aviso nuevo, el número de la campana y los badges del menú se actualizan solos. Abrir la campana solo limpia el número; no marca los avisos como leídos.',

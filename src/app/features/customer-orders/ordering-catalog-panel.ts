@@ -906,6 +906,7 @@ export class OrderingCatalogPanelComponent {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canOpenCaja()) return;
     const amount = Number(this.openingAmount());
+    // 0 es válido (último cierre dejó la caja vacía).
     if (!Number.isFinite(amount) || amount < 0) {
       this.snack.open('Ingresá el efectivo de apertura', 'OK', { duration: 3000 });
       return;
