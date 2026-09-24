@@ -48,6 +48,7 @@ import {
   ChannelReceivablesSummary,
   SettlementsApiService,
 } from '../settlements/settlements-api.service';
+import { CashWithdrawalsApiService } from '../cash-withdrawals/cash-withdrawals-api.service';
 import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -721,6 +722,7 @@ export class HomePageComponent {
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly reservationsInbox = inject(ReservationsInboxService);
   private readonly settlementsApi = inject(SettlementsApiService);
+  private readonly cashWithdrawalsApi = inject(CashWithdrawalsApiService);
   private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
@@ -733,6 +735,8 @@ export class HomePageComponent {
   readonly balanceRows = signal<BalanceRowExt[]>([]);
   /** Cuenta de caja física (Cuentas del local → Efectivo). */
   readonly cashDrawerAccount = signal<{ id: string; name: string } | null>(null);
+  /** Pendiente en A retirar (no cuenta como efectivo en caja). */
+  readonly cashPendingToWithdraw = signal<number | null>(null);
   readonly attendanceBusy = signal(false);
   readonly sharingAttendance = signal(false);
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
@@ -830,6 +834,15 @@ export class HomePageComponent {
     const row = this.balanceRows().find((a) => a.accountId === drawer.id);
     if (!row) return null;
     return Number(row.grossBalance ?? row.balance ?? 0);
+  });
+
+  /** Saldo contable menos lo pendiente a retirar = lo dejado en caja. */
+  readonly cashInRegister = computed(() => {
+    const ledger = this.cashBalance();
+    if (ledger == null) return null;
+    const pending = this.cashPendingToWithdraw();
+    if (pending == null) return ledger;
+    return Math.max(0, Math.round((ledger - pending) * 100) / 100);
   });
 
   readonly kpis = computed((): KpiItem[] => {
@@ -947,14 +960,20 @@ export class HomePageComponent {
     }
 
     if (this.canViewBalances()) {
-      const cash = this.cashBalance();
-      const drawer = this.cashDrawerAccount();
+      const inRegister = this.cashInRegister();
+      const pending = this.cashPendingToWithdraw();
+      const canWithdraw = this.canViewCashWithdrawals();
       items.push({
         label: 'Efectivo en caja',
-        value: cash != null ? this.formatMoney(cash) : '—',
-        hint: drawer?.name ?? 'Sin cuenta de efectivo',
+        value: inRegister != null ? this.formatMoney(inRegister) : '—',
+        details:
+          pending != null
+            ? [{ label: 'A retirar', value: this.formatMoney(pending) }]
+            : undefined,
+        hint: pending == null ? (this.cashDrawerAccount()?.name ?? 'Sin cuenta de efectivo') : undefined,
         icon: 'account_balance_wallet',
-        route: '/expenses',
+        route: canWithdraw ? '/cash-withdrawals' : '/expenses',
+        tone: pending != null && pending > 0.009 ? 'warn' : 'default',
       });
     }
 
@@ -1012,6 +1031,7 @@ export class HomePageComponent {
       ) {
         this.balanceRows.set([]);
         this.cashDrawerAccount.set(null);
+        this.cashPendingToWithdraw.set(null);
       } else {
         forkJoin({
           balances: this.movementsApi.balances(shopId),
@@ -1021,15 +1041,23 @@ export class HomePageComponent {
           accounts: this.movementsApi
             .accounts(shopId)
             .pipe(catchError(() => of([] as LedgerAccount[]))),
+          pending: this.cashWithdrawalsApi.listPending(shopId).pipe(
+            catchError(() => of({ availableTotal: null as number | null })),
+          ),
         }).subscribe({
-          next: ({ balances, sources, accounts }) => {
+          next: ({ balances, sources, accounts, pending }) => {
             const rows = (balances.accounts ?? []).map((a) => mapBalanceAccount(a));
             this.balanceRows.set(rows);
             this.cashDrawerAccount.set(resolveCashDrawerAccount(sources, accounts, rows));
+            const avail = pending.availableTotal;
+            this.cashPendingToWithdraw.set(
+              avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
+            );
           },
           error: () => {
             this.balanceRows.set([]);
             this.cashDrawerAccount.set(null);
+            this.cashPendingToWithdraw.set(null);
           },
         });
       }
@@ -1199,6 +1227,13 @@ export class HomePageComponent {
       (hasShopPermission(this.auth.currentUser(), shopId, 'expenses.read') ||
         hasShopPermission(this.auth.currentUser(), shopId, 'accountTransfers.read') ||
         hasShopPermission(this.auth.currentUser(), shopId, 'incomes.read'))
+    );
+  }
+
+  canViewCashWithdrawals(): boolean {
+    const shopId = this.shopContext.selectedShopId();
+    return (
+      !!shopId && hasShopPermission(this.auth.currentUser(), shopId, 'cashWithdrawals.read')
     );
   }
 
