@@ -43,8 +43,8 @@
 
 .closing-form__source-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16.5rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+  gap: 0.85rem;
 }
 
 .closing-form__source-card {
@@ -52,15 +52,16 @@
   flex-direction: column;
   gap: 0.7rem;
   min-width: 0;
-  padding: 0.85rem 0.9rem 0.8rem;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
-  background: #fff;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--guy-navy, #003366) 4%, transparent);
+  padding: 0.9rem 0.95rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 82%, transparent);
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 55%, #fff);
+  box-shadow: none;
 }
 
 .closing-form__source-card--declared {
-  border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 28%, var(--guy-border, #d7e0d9));
+  border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 26%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, var(--guy-accent, #2e7d32) 5%, #fff);
 }
 
 .closing-form__source-card-head {

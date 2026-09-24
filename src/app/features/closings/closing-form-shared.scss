@@ -15,6 +15,11 @@
   margin-top: 0.7rem;
 }
 
+/** Sección dentro de una card compartida (sin borde propio). */
+.closing-form__pane {
+  min-width: 0;
+}
+
 .closing-form__block-head {
   display: flex;
   align-items: center;

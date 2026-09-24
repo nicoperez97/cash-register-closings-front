@@ -229,8 +229,8 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
     return fulfillmentLabel(f);
   }
 
-  paymentText(p: PublicCustomerOrder['paymentMethod']): string {
-    return paymentLabel(p);
+  paymentText(o: PublicCustomerOrder): string {
+    return o.paymentMethodName?.trim() || paymentLabel(o.paymentMethod);
   }
 
   money(n: number): string {

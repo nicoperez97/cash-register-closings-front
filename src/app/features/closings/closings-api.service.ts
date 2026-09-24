@@ -170,7 +170,8 @@ export type CashClosingInput = Omit<Partial<CashClosing>, 'sourceAmounts'> & {
 
 export type SuggestedOpening = {
   amount: number;
-  source: 'previous' | 'default';
+  source: 'account' | 'default' | 'previous';
+  accountName?: string | null;
   previousDate?: string | null;
   previousShiftName?: string | null;
 };

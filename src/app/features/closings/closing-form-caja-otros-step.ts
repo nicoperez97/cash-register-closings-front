@@ -9,7 +9,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { ClosingFormStepNavComponent } from './closing-form-step-nav';
 import {
   ClosingFormStepFilesComponent,
@@ -17,7 +16,6 @@ import {
   showClosingStepFiles,
   type ClosingStepFileView,
 } from './closing-form-step-files';
-import { COBRO_PAYMENT_METHOD_OPTIONS } from './closings-form-load';
 import { closingMoney, closingNum } from './closings-form.utils';
 
 @Component({
@@ -28,14 +26,13 @@ import { closingMoney, closingNum } from './closings-form.utils';
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatSelectModule,
     ClosingFormStepNavComponent,
     ClosingFormStepFilesComponent,
   ],
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   template: `
     @if (sourceCount() > 0) {
-      <div class="closing-form__block">
+      <div class="closing-form__pane">
         <div class="closing-form__block-head">
           <div class="closing-form__block-title">
             <h3>Cuentas del local</h3>
@@ -139,70 +136,6 @@ import { closingMoney, closingNum } from './closings-form.utils';
         </div>
       </div>
     }
-    <div class="closing-form__block">
-      <div class="closing-form__block-head">
-        <div class="closing-form__block-title">
-          <h3>Cobros</h3>
-          <span class="closing-form__meta">{{ cobrosHint() }}</span>
-        </div>
-      </div>
-      <div class="closing-form__block-body">
-        <div class="closing-form__stack" formArrayName="otherCobros">
-          @for (row of otherCobros().controls; track row; let i = $index) {
-            <div class="closing-form__cobro-row" [formGroupName]="i">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Cobro {{ i + 1 }}</mat-label>
-                <input matInput formControlName="label" [placeholder]="'Cobro ' + (i + 1)" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Tipo de pago</mat-label>
-                <mat-select formControlName="paymentMethod">
-                  @for (opt of paymentOptions; track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-form-field
-                appearance="outline"
-                subscriptSizing="dynamic"
-                floatLabel="always"
-                class="closing-field--money"
-              >
-                <mat-label>Monto</mat-label>
-                <span matTextPrefix class="closing-field__prefix">$</span>
-                <input matInput type="number" inputmode="decimal" formControlName="amount" />
-              </mat-form-field>
-              @if (otherCobros().length > 1 && i < otherCobros().length - 1) {
-                <button
-                  mat-icon-button
-                  type="button"
-                  class="closing-form__row-remove"
-                  aria-label="Quitar cobro"
-                  (click)="remove.emit(i)"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
-              }
-            </div>
-          }
-        </div>
-        <div class="closing-form__inline-total">
-          <span>Total cobros</span>
-          <strong>{{ cobrosTotal() }}</strong>
-        </div>
-        @if (showCobrosFiles()) {
-          <app-closing-form-step-files
-            [files]="cobrosFiles()"
-            [busy]="filesBusyKey() === 'other'"
-            [disabled]="filesDisabled()"
-            [requiredMissing]="cobrosFilesMissing()"
-            (picked)="cobrosFilePicked.emit($event)"
-            (view)="fileView.emit($event)"
-            (remove)="cobrosFileRemove.emit($event)"
-          />
-        }
-      </div>
-    </div>
     @if (showNav()) {
       <app-closing-form-step-nav />
     }
@@ -210,27 +143,18 @@ import { closingMoney, closingNum } from './closings-form.utils';
   styleUrl: './closing-form-caja-otros-step.scss',
 })
 export class ClosingFormCajaOtrosStepComponent {
-  readonly paymentOptions = COBRO_PAYMENT_METHOD_OPTIONS;
   readonly sourceAmounts = input.required<FormArray>();
   readonly sourceCount = input(0);
-  readonly otherCobros = input.required<FormArray>();
-  readonly cobrosHint = input('');
-  readonly cobrosTotal = input('');
   readonly showNav = input(true);
   readonly sourceFiles = input<Record<string, ClosingStepFileView[]>>({});
-  readonly cobrosFiles = input<ClosingStepFileView[]>([]);
   readonly filesBusyKey = input<string | null>(null);
   readonly filesDisabled = input(false);
   readonly requireClosingFiles = input(false);
-  readonly cobrosHasAmount = input(false);
 
-  readonly remove = output<number>();
   readonly removeSourceLine = output<{ sourceIndex: number; lineIndex: number }>();
   readonly filePicked = output<{ sourceId: string; files: File[] }>();
   readonly fileView = output<ClosingStepFileView>();
   readonly fileRemove = output<{ sourceId: string; file: ClosingStepFileView }>();
-  readonly cobrosFilePicked = output<File[]>();
-  readonly cobrosFileRemove = output<ClosingStepFileView>();
 
   sourceLines(index: number): FormArray {
     return this.sourceAmounts().at(index)?.get('lines') as FormArray;
@@ -316,18 +240,6 @@ export class ClosingFormCajaOtrosStepComponent {
     if (kind === 'SETTLE_CASH') return 'Rinde después en efectivo';
     if (kind === 'SETTLE_ACCOUNT') return 'Se deposita después en una cuenta';
     return 'Queda a cuenta aparte';
-  }
-
-  showCobrosFiles(): boolean {
-    return showClosingStepFiles(this.cobrosHasAmount(), this.cobrosFiles());
-  }
-
-  cobrosFilesMissing(): boolean {
-    return closingStepFilesMissing(
-      this.requireClosingFiles(),
-      this.cobrosHasAmount(),
-      this.cobrosFiles(),
-    );
   }
 
   showSourceFiles(index: number): boolean {

@@ -25,8 +25,10 @@ import {
   type ClosingFormDraft,
   type PendingClosingNotice,
 } from '../closings/closing-form-draft';
-import { ClosingsApiService, type CashClosing } from '../closings/closings-api.service';
+import { ClosingsApiService, type CashClosing, type ShopClosingSource } from '../closings/closings-api.service';
 import { formatSuggestedOpeningHint } from '../closings/closings-form.utils';
+import { catchError, forkJoin, of, Subject, switchMap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   SelectSearchComponent,
   filterBySelectQuery,
@@ -51,6 +53,15 @@ type FulfillmentBucket = {
   unitsSold: number;
 };
 
+type ClosingPayMethodRow = {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  accountId?: string | null;
+  amount: number;
+  kind: 'CASH' | 'TRANSFER' | 'CARD' | string;
+  orderCount?: number;
+};
+
 type ClosingSummary = {
   businessDate: string;
   shiftId: string;
@@ -64,9 +75,11 @@ type ClosingSummary = {
   completedCount: number;
   cashTotal: number;
   transferTotal: number;
+  cardTotal?: number;
   /** Pedidos + mesas en efectivo (listo para el campo Efectivo del cierre). */
   cashDeclaredTotal?: number;
   transferDeclaredTotal?: number;
+  cardDeclaredTotal?: number;
   total: number;
   unitsSold: number;
   defaultChangeAmount?: number;
@@ -75,6 +88,7 @@ type ClosingSummary = {
     DELIVERY: FulfillmentBucket;
     COUNTER: FulfillmentBucket;
   };
+  paymentsByMethod?: ClosingPayMethodRow[];
   deliverate?: {
     closingSourceId: string | null;
     paymentMethod: 'CASH' | 'TRANSFER';
@@ -95,12 +109,7 @@ type ClosingSummary = {
     cashTotal: number;
     transferTotal: number;
     cardTotal: number;
-    paymentsByMethod: Array<{
-      paymentMethodId: string;
-      paymentMethodName: string;
-      amount: number;
-      kind: 'CASH' | 'TRANSFER' | 'CARD' | string;
-    }>;
+    paymentsByMethod: ClosingPayMethodRow[];
   };
 };
 
@@ -215,19 +224,20 @@ type ClosingSummary = {
                     type="number"
                     min="0"
                     step="100"
-                    [(ngModel)]="openingAmount"
+                    [ngModel]="openingAmount()"
+                    (ngModelChange)="onOpeningAmountChange($event)"
                     name="openingAmount"
-                    [disabled]="openingCaja()"
+                    [disabled]="openingCaja() || openingAmountLoading()"
                   />
-                  @if (openingHint) {
-                    <small>{{ openingHint }}</small>
+                  @if (openingHint()) {
+                    <small>{{ openingHint() }}</small>
                   }
                 </label>
                 <button
                   mat-flat-button
                   color="primary"
                   type="button"
-                  [disabled]="openingCaja()"
+                  [disabled]="openingCaja() || openingAmountLoading()"
                   (click)="openCaja()"
                 >
                   <mat-icon>lock_open</mat-icon>
@@ -659,8 +669,9 @@ export class OrderingCatalogPanelComponent {
   readonly shiftActiveClosed = signal(false);
   readonly justAutoClosed = signal(false);
 
-  openingAmount: number | null = null;
-  openingHint = '';
+  readonly openingAmount = signal<number | null>(null);
+  readonly openingHint = signal('');
+  readonly openingAmountLoading = signal(false);
   takeawayEnabled = true;
   deliveryEnabled = false;
   payCash = true;
@@ -714,11 +725,148 @@ export class OrderingCatalogPanelComponent {
   readonly canEditItems = computed(() => this.canEdit('items'));
   readonly canEditExtras = computed(() => this.canEdit('extras'));
 
+  private readonly reloadShop$ = new Subject<string>();
+
   constructor() {
+    this.reloadShop$
+      .pipe(
+        switchMap((shopId) => {
+          this.loading.set(true);
+          this.openingAmount.set(null);
+          this.openingAmountLoading.set(true);
+          this.openingHint.set('Consultando efectivo en caja…');
+          return forkJoin({
+            shopId: of(shopId),
+            caja: this.closingsApi.getOpen(shopId).pipe(catchError(() => of(null))),
+            suggested: this.closingsApi.suggestedOpening(shopId).pipe(
+              catchError(() =>
+                of({
+                  amount: Number(this.shops.selectedShop()?.defaultChangeAmount) || 0,
+                  source: 'default' as const,
+                  accountName: null,
+                  previousDate: null,
+                  previousShiftName: null,
+                }),
+              ),
+            ),
+            shop: this.http
+              .get<{
+                orderingForceClosed?: boolean;
+                orderingShiftActive?: boolean;
+                orderingJustAutoClosed?: boolean;
+                takeawayEnabled?: boolean;
+                deliveryEnabled?: boolean;
+                defaultChangeAmount?: number | null;
+                orderingPayments?: {
+                  methods?: Array<'CASH' | 'TRANSFER'>;
+                } | null;
+                orderingExtras?: Array<{
+                  id?: string;
+                  name: string;
+                  price: number;
+                  available?: boolean;
+                }> | null;
+              }>(`${environment.apiUrl}/shops/${shopId}`)
+              .pipe(catchError(() => of(null))),
+            menu: this.http
+              .get<{
+                menus?: Array<{
+                  sections?: Array<{
+                    name?: string;
+                    items?: Array<{
+                      id?: string;
+                      name?: string;
+                      price?: number | null;
+                      available?: boolean;
+                    }>;
+                  }>;
+                }>;
+              }>(`${environment.apiUrl}/shops/${shopId}/menu`)
+              .pipe(catchError(() => of({ menus: [] as never[] }))),
+          });
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe({
+        next: ({ caja, suggested, shop, menu }) => {
+          this.openClosing.set(caja ?? null);
+          if (!caja) {
+            const amount = Number(suggested?.amount);
+            this.openingAmount.set(Number.isFinite(amount) ? Math.max(0, amount) : 0);
+            this.openingHint.set(formatSuggestedOpeningHint(suggested ?? { source: 'default' }));
+          } else {
+            this.openingHint.set('');
+          }
+          this.openingAmountLoading.set(false);
+
+          if (shop) {
+            const open = !shop.orderingForceClosed;
+            this.orderingOpen.set(open);
+            this.shiftActiveClosed.set(!!shop.orderingShiftActive && !open);
+            this.justAutoClosed.set(!!shop.orderingJustAutoClosed);
+            if (shop.orderingJustAutoClosed) {
+              this.snack.open('El local se cerró solo al finalizar el turno', 'OK', {
+                duration: 4200,
+              });
+            }
+            this.takeawayEnabled = shop.takeawayEnabled !== false;
+            this.deliveryEnabled = !!shop.deliveryEnabled;
+            const methods = shop.orderingPayments?.methods;
+            this.payCash = !methods || methods.includes('CASH');
+            this.payTransfer = !methods || methods.includes('TRANSFER');
+            this.extras.set(
+              (shop.orderingExtras ?? [])
+                .filter((e) => String(e.name ?? '').trim())
+                .map((e) => ({
+                  id: String(e.id ?? '').trim(),
+                  name: String(e.name).trim(),
+                  detail: this.money(Number(e.price) || 0),
+                  available: e.available !== false,
+                }))
+                .filter((e) => !!e.id),
+            );
+          }
+
+          const out: ToggleRow[] = [];
+          const seen = new Set<string>();
+          for (const m of menu?.menus ?? []) {
+            for (const sec of m.sections ?? []) {
+              for (const it of sec.items ?? []) {
+                const id = String(it.id ?? '').trim();
+                const name = String(it.name ?? '').trim();
+                if (!id || !name || seen.has(id)) continue;
+                seen.add(id);
+                const price = it.price == null ? null : Number(it.price);
+                out.push({
+                  id,
+                  name,
+                  detail: [
+                    sec.name ? String(sec.name) : '',
+                    price != null && Number.isFinite(price) ? this.money(price) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
+                  available: it.available !== false,
+                });
+              }
+            }
+          }
+          this.items.set(out);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.openingAmountLoading.set(false);
+          this.openingAmount.set(Number(this.shops.selectedShop()?.defaultChangeAmount) || 0);
+          this.openingHint.set('Cambio por defecto del local');
+          this.loading.set(false);
+          this.snack.open('No se pudo cargar la configuración', 'OK', { duration: 3000 });
+        },
+      });
+
     effect(() => {
       const shopId = this.shops.selectedShopId();
       if (!shopId) return;
-      this.reload(shopId);
+      this.reloadShop$.next(shopId);
     });
   }
 
@@ -737,6 +885,15 @@ export class OrderingCatalogPanelComponent {
     return formatPendingClosingLabel(pending);
   }
 
+  onOpeningAmountChange(raw: number | string | null): void {
+    if (raw === null || raw === '') {
+      this.openingAmount.set(null);
+      return;
+    }
+    const n = Number(raw);
+    this.openingAmount.set(Number.isFinite(n) ? n : null);
+  }
+
   setItemAvailable(id: string, available: boolean): void {
     this.items.update((list) => list.map((it) => (it.id === id ? { ...it, available } : it)));
   }
@@ -748,7 +905,7 @@ export class OrderingCatalogPanelComponent {
   openCaja(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canOpenCaja()) return;
-    const amount = Number(this.openingAmount);
+    const amount = Number(this.openingAmount());
     if (!Number.isFinite(amount) || amount < 0) {
       this.snack.open('Ingresá el efectivo de apertura', 'OK', { duration: 3000 });
       return;
@@ -860,12 +1017,15 @@ export class OrderingCatalogPanelComponent {
     params.set('businessDate', todayBd);
     if (currentShift.id) params.set('shiftId', currentShift.id);
     const qs = params.toString();
-    this.http
-      .get<ClosingSummary>(
+    forkJoin({
+      summary: this.http.get<ClosingSummary>(
         `${environment.apiUrl}/shops/${shopId}/customer-orders/closing-summary${qs ? `?${qs}` : ''}`,
-      )
-      .subscribe({
-        next: (summary) => {
+      ),
+      sources: this.closingsApi
+        .listClosingSources(shopId, true)
+        .pipe(catchError(() => of([] as ShopClosingSource[]))),
+    }).subscribe({
+      next: ({ summary, sources }) => {
           const warnings: string[] = [];
           if (summary.openCount > 0) {
             warnings.push(
@@ -902,6 +1062,7 @@ export class OrderingCatalogPanelComponent {
               shiftId: currentShift.id,
               shiftName: currentShift.name,
             },
+            sources,
             pending ? null : caja,
             pending,
           );
@@ -942,20 +1103,21 @@ export class OrderingCatalogPanelComponent {
                 );
               },
             });
-        },
-        error: (err: HttpErrorResponse) => {
-          this.generatingClosing.set(false);
-          this.snack.open(err.error?.message ?? 'No se pudo armar el resumen de pedidos', 'OK', {
-            duration: 3500,
-          });
-        },
-      });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.generatingClosing.set(false);
+        this.snack.open(err.error?.message ?? 'No se pudo armar el resumen de pedidos', 'OK', {
+          duration: 3500,
+        });
+      },
+    });
   }
 
   private buildClosingDraft(
     shopId: string,
     userId: string,
     summary: ClosingSummary,
+    sources: ShopClosingSource[],
     caja?: CashClosing | null,
     pendingClosing?: PendingClosingNotice | null,
   ): ClosingFormDraft {
@@ -969,70 +1131,208 @@ export class OrderingCatalogPanelComponent {
       (summary.defaultChangeAmount != null && summary.defaultChangeAmount > 0
         ? summary.defaultChangeAmount
         : (shop?.defaultChangeAmount ?? null));
+    const openingAmt = Math.max(0, Number(opening) || 0);
 
-    const otherCobros: Array<{
-      label: string;
+    const catalog = (sources ?? []).filter((s) => s.active !== false && s.role !== 'CASH');
+    const byAccount = new Map(
+      catalog.filter((s) => !!s.accountId).map((s) => [String(s.accountId), s] as const),
+    );
+    const nameKey = (n: string) =>
+      String(n ?? '')
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    const findByNameHint = (...hints: RegExp[]) =>
+      catalog.find((s) => hints.some((h) => h.test(nameKey(s.name)))) ?? null;
+    const pvsSource =
+      catalog.find((s) => (s.posnets ?? []).length > 0 && /pvs|tarjeta|card|posnet/i.test(s.name)) ??
+      findByNameHint(/\bpvs\b/, /tarjeta/, /card/) ??
+      catalog.find((s) => (s.posnets ?? []).some((p) => /pvs/i.test(p.name))) ??
+      null;
+    const transferSource =
+      findByNameHint(/transfer/, /transf/) ??
+      catalog.find((s) => String(s.kind) === 'OWN_ACCOUNT' && /transfer|transf/i.test(s.name)) ??
+      null;
+    const mpSource = findByNameHint(/mercado\s*pago/, /\bmp\b/);
+
+    type SourceDraft = {
+      sourceId: string;
+      name: string;
+      includeInDeclared: boolean;
+      kind: 'OWN_ACCOUNT' | 'SETTLE_CASH' | 'SETTLE_ACCOUNT' | 'RECORD_ONLY';
       amount: number;
-      paymentMethod: 'CASH' | 'TRANSFER';
-    }> = [];
-    const by = summary.byFulfillment;
-    const pushCobro = (
-      label: string,
-      amount: number,
-      paymentMethod: 'CASH' | 'TRANSFER',
-    ) => {
-      if (amount > 0) otherCobros.push({ label, amount, paymentMethod });
+      lines: number[] | null;
+      posnetAmounts: Array<{ posnetId: string; name: string; amount: number }> | null;
     };
-    if (by) {
-      pushCobro('Pedidos take away (efectivo)', by.TAKEAWAY.cashTotal, 'CASH');
-      pushCobro('Pedidos take away (transf.)', by.TAKEAWAY.transferTotal, 'TRANSFER');
-      pushCobro('Pedidos delivery (efectivo)', by.DELIVERY.cashTotal, 'CASH');
-      pushCobro('Pedidos delivery (transf.)', by.DELIVERY.transferTotal, 'TRANSFER');
-      pushCobro('Pedidos mostrador (efectivo)', by.COUNTER.cashTotal, 'CASH');
-      pushCobro('Pedidos mostrador (transf.)', by.COUNTER.transferTotal, 'TRANSFER');
-    } else {
-      pushCobro('Pedidos online (efectivo)', summary.cashTotal, 'CASH');
-      pushCobro('Pedidos online (transferencia)', summary.transferTotal, 'TRANSFER');
-    }
+    const sourceMap = new Map<string, SourceDraft>();
 
-    const tables = summary.tables;
-    if (tables) {
-      for (const m of tables.paymentsByMethod ?? []) {
-        if (!(m.amount > 0)) continue;
-        const kind = String(m.kind || '').toUpperCase();
-        if (kind === 'CARD') continue; // va a cardAmount / PVS
-        pushCobro(
-          `Mesas · ${m.paymentMethodName}`,
-          m.amount,
-          kind === 'TRANSFER' ? 'TRANSFER' : 'CASH',
-        );
+    const addToSource = (src: ShopClosingSource, amount: number) => {
+      if (!(amount > 0) || !src.id) return;
+      const prev = sourceMap.get(src.id);
+      const nextAmt = Math.round(((prev?.amount ?? 0) + amount) * 100) / 100;
+      const posnets = src.posnets ?? [];
+      if (posnets.length) {
+        const first = posnets[0];
+        const existing = prev?.posnetAmounts ?? [];
+        const byId = new Map(existing.map((p) => [p.posnetId, { ...p }]));
+        const row = byId.get(first.id) ?? {
+          posnetId: first.id,
+          name: first.name || 'Posnet',
+          amount: 0,
+        };
+        row.amount = Math.round((row.amount + amount) * 100) / 100;
+        byId.set(first.id, row);
+        sourceMap.set(src.id, {
+          sourceId: src.id,
+          name: src.name,
+          includeInDeclared: !!src.includeInDeclared,
+          kind: (src.kind as SourceDraft['kind']) || 'OWN_ACCOUNT',
+          amount: nextAmt,
+          lines: null,
+          posnetAmounts: [...byId.values()],
+        });
+      } else {
+        const lines = [...(prev?.lines ?? []), amount];
+        sourceMap.set(src.id, {
+          sourceId: src.id,
+          name: src.name,
+          includeInDeclared: !!src.includeInDeclared,
+          kind: (src.kind as SourceDraft['kind']) || 'OWN_ACCOUNT',
+          amount: nextAmt,
+          lines,
+          posnetAmounts: null,
+        });
+      }
+    };
+
+    const payRows: ClosingPayMethodRow[] = [
+      ...(summary.paymentsByMethod ?? []),
+      ...(summary.tables?.paymentsByMethod ?? []),
+    ].filter((p) => Number(p.amount) > 0);
+
+    // Compat pedidos viejos sin paymentsByMethod: armar desde buckets cash/transfer.
+    if (!payRows.length) {
+      const by = summary.byFulfillment;
+      const pushLegacy = (label: string, amount: number, kind: 'CASH' | 'TRANSFER') => {
+        if (!(amount > 0)) return;
+        payRows.push({
+          paymentMethodId: kind === 'TRANSFER' ? 'op_transfer' : 'op_cash',
+          paymentMethodName: label,
+          accountId: null,
+          amount,
+          kind,
+        });
+      };
+      if (by) {
+        pushLegacy('Pedidos take away (efectivo)', by.TAKEAWAY.cashTotal, 'CASH');
+        pushLegacy('Pedidos take away (transf.)', by.TAKEAWAY.transferTotal, 'TRANSFER');
+        pushLegacy('Pedidos delivery (efectivo)', by.DELIVERY.cashTotal, 'CASH');
+        pushLegacy('Pedidos delivery (transf.)', by.DELIVERY.transferTotal, 'TRANSFER');
+        pushLegacy('Pedidos mostrador (efectivo)', by.COUNTER.cashTotal, 'CASH');
+        pushLegacy('Pedidos mostrador (transf.)', by.COUNTER.transferTotal, 'TRANSFER');
+      } else {
+        pushLegacy('Pedidos online (efectivo)', summary.cashTotal, 'CASH');
+        pushLegacy('Pedidos online (transferencia)', summary.transferTotal, 'TRANSFER');
+      }
+      if (summary.tables?.cashTotal) {
+        pushLegacy('Mesas (efectivo)', summary.tables.cashTotal, 'CASH');
+      }
+      if (summary.tables?.transferTotal) {
+        pushLegacy('Mesas (transf.)', summary.tables.transferTotal, 'TRANSFER');
+      }
+      if (summary.tables?.cardTotal) {
+        payRows.push({
+          paymentMethodId: 'tp_card',
+          paymentMethodName: 'Tarjeta',
+          accountId: null,
+          amount: summary.tables.cardTotal,
+          kind: 'CARD',
+        });
       }
     }
 
-    const deliverate = summary.deliverate;
-    const sourceAmounts =
-      deliverate?.closingSourceId && deliverate.amount > 0
-        ? [
-            {
-              sourceId: deliverate.closingSourceId,
-              name: 'Deliverate',
-              includeInDeclared: !!deliverate.includeInDeclared,
-              kind: 'OWN_ACCOUNT' as const,
-              amount: deliverate.amount,
-              lines: [deliverate.amount],
-            },
-          ]
-        : [];
+    let cashSales = 0;
+    let cardLegacy = 0;
+    let transferLegacy = 0;
 
-    // Efectivo del campo = pedidos + mesas (mismo criterio que el save con Math.max + cobros CASH).
-    const cashDeclared =
-      summary.cashDeclaredTotal != null && summary.cashDeclaredTotal >= 0
-        ? summary.cashDeclaredTotal
-        : (Number(summary.cashTotal) || 0) + (Number(tables?.cashTotal) || 0);
-    const cashFromCobros = otherCobros
-      .filter((c) => c.paymentMethod === 'CASH')
-      .reduce((sum, c) => sum + c.amount, 0);
-    const cashAmount = Math.round(Math.max(cashDeclared, cashFromCobros) * 100) / 100;
+    const resolveSourceForPay = (pay: ClosingPayMethodRow): ShopClosingSource | null => {
+      if (pay.accountId) {
+        const byId = byAccount.get(String(pay.accountId));
+        if (byId) return byId;
+      }
+      const n = nameKey(pay.paymentMethodName);
+      if (!n) return null;
+      const exact = catalog.find((s) => nameKey(s.name) === n);
+      if (exact) return exact;
+      // Evitar que «Efectivo» matchee «Deliberate Efectivo» u otras cuentas.
+      if (/^(efectivo|cash|contado)$/.test(n)) return null;
+      return (
+        catalog.find((s) => {
+          const sn = nameKey(s.name);
+          if (sn.length < 3 || n.length < 3) return false;
+          return sn.includes(n) || n.includes(sn);
+        }) ?? null
+      );
+    };
+
+    for (const pay of payRows) {
+      const amount = Math.round(Number(pay.amount) * 100) / 100;
+      if (!(amount > 0)) continue;
+
+      // Primero la cuenta vinculada / nombre del medio → cuenta del local.
+      const linked = resolveSourceForPay(pay);
+      if (linked) {
+        addToSource(linked, amount);
+        continue;
+      }
+
+      const kind = String(pay.kind || '').toUpperCase();
+      const payName = String(pay.paymentMethodName ?? '');
+
+      if (kind === 'CARD' || /pvs|tarjeta|card|posnet/i.test(payName)) {
+        if (pvsSource) addToSource(pvsSource, amount);
+        else cardLegacy += amount;
+        continue;
+      }
+      if (kind === 'TRANSFER' || /transfer|transf/i.test(payName)) {
+        if (mpSource && /mercado|\bmp\b/i.test(payName)) {
+          addToSource(mpSource, amount);
+        } else if (transferSource) {
+          addToSource(transferSource, amount);
+        } else {
+          transferLegacy += amount;
+        }
+        continue;
+      }
+      // Sin vínculo: efectivo de caja (solo medios realmente cash).
+      cashSales += amount;
+    }
+
+    const deliverate = summary.deliverate;
+    if (deliverate?.closingSourceId && deliverate.amount > 0) {
+      const dSrc = catalog.find((s) => s.id === deliverate.closingSourceId);
+      if (dSrc) {
+        addToSource(dSrc, deliverate.amount);
+      } else {
+        sourceMap.set(deliverate.closingSourceId, {
+          sourceId: deliverate.closingSourceId,
+          name: 'Deliverate',
+          includeInDeclared: !!deliverate.includeInDeclared,
+          kind: 'OWN_ACCOUNT',
+          amount: deliverate.amount,
+          lines: [deliverate.amount],
+          posnetAmounts: null,
+        });
+      }
+    }
+
+    const sourceAmounts = [...sourceMap.values()];
+    // Contado = apertura + ventas en efectivo (si no hay ventas, queda = apertura → declarado sin resta fantasma).
+    const cashAmount = Math.round((openingAmt + cashSales) * 100) / 100;
+    const by = summary.byFulfillment;
+    const tables = summary.tables;
 
     const notesParts = [
       `Turno · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
@@ -1061,14 +1361,14 @@ export class OrderingCatalogPanelComponent {
       form: {
         businessDate: summary.businessDate,
         shiftId: summary.shiftId,
-        cashOpeningAmount: opening,
-        cashLeftInRegister: opening,
-        cashAmount: cashAmount > 0 ? cashAmount : null,
-        cardAmount: tables?.cardTotal && tables.cardTotal > 0 ? tables.cardTotal : null,
+        cashOpeningAmount: openingAmt,
+        cashLeftInRegister: null,
+        cashAmount,
+        cardAmount: cardLegacy > 0 ? cardLegacy : null,
         mercadoPagoAmount: null,
         accountDniAmount: null,
         deliveryAppsAmount: null,
-        transferAmount: null,
+        transferAmount: transferLegacy > 0 ? transferLegacy : null,
         posSystemAmount: null,
         unitsSold: summary.unitsSold > 0 ? summary.unitsSold : null,
         coversCount:
@@ -1077,148 +1377,18 @@ export class OrderingCatalogPanelComponent {
             : tables?.coversTotal && tables.coversTotal > 0
               ? tables.coversTotal
               : null,
-        cashWithdrawn: null,
+        cashWithdrawn: cashAmount > 0 ? cashAmount : null,
         cashWithdrawnByUserId: '',
         cashWithdrawnToAccountId: '',
         tipsAmount: tables?.tipTotal && tables.tipTotal > 0 ? tables.tipTotal : null,
         notes: notesParts.join(' · '),
-        otherCobros,
+        otherCobros: [],
         expenses: [],
         dniTransfers: [],
         posnetAmounts: [],
         sourceAmounts,
       },
     };
-  }
-
-  private applySuggestedOpening(shopId: string): void {
-    this.closingsApi.suggestedOpening(shopId).subscribe({
-      next: (s) => {
-        this.openingAmount = Number(s.amount) || 0;
-        this.openingHint = formatSuggestedOpeningHint(s);
-      },
-      error: () => {
-        /* queda el cambio por defecto */
-      },
-    });
-  }
-
-  private reload(shopId: string): void {
-    this.loading.set(true);
-    this.openingAmount = this.shops.selectedShop()?.defaultChangeAmount ?? this.openingAmount;
-    this.openingHint = this.openingAmount != null ? 'Cambio por defecto del local' : '';
-    this.closingsApi.getOpen(shopId).subscribe({
-      next: (caja) => {
-        this.openClosing.set(caja ?? null);
-        if (!caja) this.applySuggestedOpening(shopId);
-      },
-      error: () => {
-        this.openClosing.set(null);
-        this.applySuggestedOpening(shopId);
-      },
-    });
-    this.http
-      .get<{
-        orderingForceClosed?: boolean;
-        orderingShiftActive?: boolean;
-        orderingJustAutoClosed?: boolean;
-        takeawayEnabled?: boolean;
-        deliveryEnabled?: boolean;
-        defaultChangeAmount?: number | null;
-        orderingPayments?: {
-          methods?: Array<'CASH' | 'TRANSFER'>;
-        } | null;
-        orderingExtras?: Array<{
-          id?: string;
-          name: string;
-          price: number;
-          available?: boolean;
-        }> | null;
-      }>(`${environment.apiUrl}/shops/${shopId}`)
-      .subscribe({
-        next: (s) => {
-          const open = !s.orderingForceClosed;
-          this.orderingOpen.set(open);
-          this.shiftActiveClosed.set(!!s.orderingShiftActive && !open);
-          this.justAutoClosed.set(!!s.orderingJustAutoClosed);
-          if (s.orderingJustAutoClosed) {
-            this.snack.open('El local se cerró solo al finalizar el turno', 'OK', {
-              duration: 4200,
-            });
-          }
-          if (this.openingAmount == null && s.defaultChangeAmount != null) {
-            this.openingAmount = Number(s.defaultChangeAmount) || 0;
-            if (!this.openingHint) this.openingHint = 'Cambio por defecto del local';
-          }
-          this.takeawayEnabled = s.takeawayEnabled !== false;
-          this.deliveryEnabled = !!s.deliveryEnabled;
-          const methods = s.orderingPayments?.methods;
-          this.payCash = !methods || methods.includes('CASH');
-          this.payTransfer = !methods || methods.includes('TRANSFER');
-          this.extras.set(
-            (s.orderingExtras ?? [])
-              .filter((e) => String(e.name ?? '').trim())
-              .map((e) => ({
-                id: String(e.id ?? '').trim(),
-                name: String(e.name ?? '').trim(),
-                detail: this.money(Number(e.price) || 0),
-                available: e.available !== false,
-              }))
-              .filter((e) => !!e.id),
-          );
-          this.loading.set(false);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.snack.open('No se pudo cargar la configuración', 'OK', { duration: 3000 });
-        },
-      });
-
-    this.http
-      .get<{
-        menus?: Array<{
-          title?: string | null;
-          sections?: Array<{
-            name?: string;
-            items?: Array<{
-              id?: string;
-              name?: string;
-              price?: number | null;
-              available?: boolean;
-            }>;
-          }>;
-        }>;
-      }>(`${environment.apiUrl}/shops/${shopId}/menu`)
-      .subscribe({
-        next: (res) => {
-          const out: ToggleRow[] = [];
-          const seen = new Set<string>();
-          for (const menu of res.menus ?? []) {
-            for (const sec of menu.sections ?? []) {
-              for (const it of sec.items ?? []) {
-                const id = String(it.id ?? '').trim();
-                const name = String(it.name ?? '').trim();
-                if (!id || !name || seen.has(id)) continue;
-                seen.add(id);
-                const price = it.price == null ? null : Number(it.price);
-                out.push({
-                  id,
-                  name,
-                  detail: [
-                    sec.name ? String(sec.name) : '',
-                    price != null && Number.isFinite(price) ? this.money(price) : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · '),
-                  available: it.available !== false,
-                });
-              }
-            }
-          }
-          this.items.set(out);
-        },
-        error: () => this.items.set([]),
-      });
   }
 
   private patchCatalog(
@@ -1237,7 +1407,7 @@ export class OrderingCatalogPanelComponent {
           this.justAutoClosed.set(false);
           this.shops.upsertShop(shop);
           this.snack.open(okMsg, 'OK', { duration: 2500 });
-          this.reload(shopId);
+          this.reloadShop$.next(shopId);
         },
         error: (err: HttpErrorResponse) => {
           saving.set(false);
