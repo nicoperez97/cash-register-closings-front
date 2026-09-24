@@ -49,7 +49,7 @@
         @if (o.deliveryZoneName) {
           · {{ o.deliveryZoneName }}
         }
-        · {{ paymentText(o.paymentMethod) }}
+        · {{ paymentText(o) }}
       </p>
       @if (o.address) {
         <p class="meta">{{ o.address }}</p>

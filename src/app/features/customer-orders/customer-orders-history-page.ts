@@ -220,6 +220,7 @@ export class CustomerOrdersHistoryPage {
   readonly paymentOptions: Array<{ value: CustomerOrderPaymentMethod; label: string }> = [
     { value: 'CASH', label: paymentLabel('CASH') },
     { value: 'TRANSFER', label: paymentLabel('TRANSFER') },
+    { value: 'CARD', label: paymentLabel('CARD') },
   ];
 
   readonly columns: DataTableColumn[] = [
@@ -247,7 +248,7 @@ export class CustomerOrdersHistoryPage {
     {
       key: 'paymentMethod',
       label: 'Pago',
-      format: (r) => paymentLabel(r.paymentMethod),
+      format: (r) => r.paymentMethodName?.trim() || paymentLabel(r.paymentMethod),
     },
     {
       key: 'accredited',

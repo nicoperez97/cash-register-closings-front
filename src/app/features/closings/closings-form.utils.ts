@@ -117,10 +117,15 @@ export function differenceReasonIsRequired(
 }
 
 export function formatSuggestedOpeningHint(s: {
-  source?: 'previous' | 'default' | string | null;
+  source?: 'previous' | 'default' | 'account' | string | null;
+  accountName?: string | null;
   previousDate?: string | null;
   previousShiftName?: string | null;
 }): string {
+  if (s.source === 'account') {
+    const name = String(s.accountName ?? '').trim();
+    return name ? `Saldo de ${name}` : 'Saldo de efectivo en caja';
+  }
   if (s.source !== 'previous') return 'Cambio por defecto del local';
   const raw = String(s.previousDate ?? '').slice(0, 10);
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);

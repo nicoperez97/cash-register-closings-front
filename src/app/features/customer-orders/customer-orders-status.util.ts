@@ -84,7 +84,7 @@ export function canCompleteOrder(order: StaffCustomerOrder): boolean {
 }
 
 export function orderPaymentText(order: StaffCustomerOrder): string {
-  const base = paymentLabel(order.paymentMethod);
+  const base = order.paymentMethodName?.trim() || paymentLabel(order.paymentMethod);
   if (order.paymentMethod === 'CASH' && order.cashAmount != null && order.cashAmount > 0) {
     return `${base} (${formatMoney(order.cashAmount)})`;
   }

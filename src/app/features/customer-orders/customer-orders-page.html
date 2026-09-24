@@ -295,7 +295,7 @@
         <p class="co-board-hint">Cuando confirmen en /pedir, aparecen acá por estado.</p>
       }
     } @else {
-      @if (view() === 'COMPLETED') {
+      @if (view() === 'COMPLETED' || view() === 'CANCELLED') {
         <p class="co-shift-hint">
           Solo el turno de ahora
           @if (openCaja()?.shiftName) {
@@ -310,7 +310,11 @@
           <mat-icon>shopping_bag</mat-icon>
           <p>
             No hay pedidos
-            {{ view() === 'COMPLETED' ? 'completados en este turno' : 'cancelados' }}.
+            {{
+              view() === 'COMPLETED'
+                ? 'completados en este turno'
+                : 'cancelados en este turno'
+            }}.
           </p>
         </div>
       } @else {

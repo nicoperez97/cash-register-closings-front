@@ -486,7 +486,7 @@ export function defaultNewClosingPatch(
   return {
     businessDate: toDateInput(currentBusinessDate),
     cashOpeningAmount: emptyNum(shop?.defaultChangeAmount),
-    cashLeftInRegister: emptyNum(shop?.defaultChangeAmount),
+    cashLeftInRegister: null,
   };
 }
 
@@ -556,7 +556,7 @@ export function resetClosingFormForNext(opts: {
     accountDniAmount: null,
     unitsSold: null,
     coversCount: null,
-    cashLeftInRegister: opts.emptyNum(opts.defaultChangeAmount),
+    cashLeftInRegister: null,
     cashWithdrawn: null,
     cashWithdrawnByUserId: '',
     cashWithdrawnToAccountId: '',

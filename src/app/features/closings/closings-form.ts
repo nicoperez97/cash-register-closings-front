@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { debounceTime, firstValueFrom, map, merge, startWith, catchError, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
+import { debounceTime, firstValueFrom, map, merge, catchError, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -251,33 +251,29 @@ import {
             (selectionChange)="onStepChange($event.selectedIndex)"
           >
             <mat-step label="Ingresos">
-              <app-closing-form-efectivo-step
-                [withdrawAccounts]="withdrawAccounts()"
-                [pendingHint]="pendingWithdrawHint()"
-                [showNav]="false"
-                (countBills)="openBillCounter()"
-                (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
-              />
-              <app-closing-form-caja-otros-step
-                [sourceAmounts]="sourceAmounts"
-                [sourceCount]="sourceCount()"
-                [otherCobros]="otherCobros"
-                [cobrosHint]="cobrosPanelHint()"
-                [cobrosTotal]="money(cobrosStepTotal())"
-                [sourceFiles]="sourceFilesMap()"
-                [cobrosFiles]="cobrosStepFiles()"
-                [filesBusyKey]="parsingKey()"
-                [filesDisabled]="filesDisabled()"
-                [requireClosingFiles]="requireClosingFiles()"
-                [cobrosHasAmount]="cobrosStepTotal() > 0"
-                (remove)="removeOtherCobro($event)"
-                (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
-                (filePicked)="onStepFilesPicked('channel', $event.sourceId, $event.files)"
-                (fileView)="onStepFileView($event)"
-                (fileRemove)="onStepFileRemoved('channel', $event.sourceId, $event.file)"
-                (cobrosFilePicked)="onStepFilesPicked('other', null, $event)"
-                (cobrosFileRemove)="onStepFileRemoved('other', null, $event)"
-              />
+              <div class="closing-form__ingresos">
+                <app-closing-form-efectivo-step
+                  [withdrawAccounts]="withdrawAccounts()"
+                  [pendingHint]="pendingWithdrawHint()"
+                  [showNav]="false"
+                  (countBills)="openBillCounter()"
+                  (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
+                />
+                @if (sourceCount() > 0) {
+                  <app-closing-form-caja-otros-step
+                    [sourceAmounts]="sourceAmounts"
+                    [sourceCount]="sourceCount()"
+                    [sourceFiles]="sourceFilesMap()"
+                    [filesBusyKey]="parsingKey()"
+                    [filesDisabled]="filesDisabled()"
+                    [requireClosingFiles]="requireClosingFiles()"
+                    (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
+                    (filePicked)="onStepFilesPicked('channel', $event.sourceId, $event.files)"
+                    (fileView)="onStepFileView($event)"
+                    (fileRemove)="onStepFileRemoved('channel', $event.sourceId, $event.file)"
+                  />
+                }
+              </div>
             </mat-step>
 
             <mat-step label="Egresos y notas">
@@ -531,14 +527,16 @@ export class ClosingsFormPage implements OnInit {
   readonly sourceFilesMap = computed(() => this.sourcedFilesMap('channel'));
   readonly posnetFilesMap = computed(() => this.sourcedFilesMap('posnet'));
 
-  private readonly formValue = toSignal(
-    this.form.valueChanges.pipe(
-      startWith(null),
-      // valueChanges omite controles disabled; usamos raw para posnets bloqueados.
-      map(() => this.form.getRawValue()),
-    ),
-    { initialValue: this.form.getRawValue() },
-  );
+  private readonly formRevision = signal(0);
+  /** Lee el form completo; se refresca en valueChanges y tras patches silenciosos. */
+  private readonly formValue = computed(() => {
+    this.formRevision();
+    return this.form.getRawValue();
+  });
+
+  private touchFormValue(): void {
+    this.formRevision.update((n) => n + 1);
+  }
 
   readonly businessDayHint = computed(() => {
     const date = toDateString(this.formValue()?.businessDate as Date | string | null);
@@ -635,7 +633,7 @@ export class ClosingsFormPage implements OnInit {
     const v = this.formValue();
     const rows: Array<{ name: string; amount: string }> = [];
     const push = (name: string, value: number) => {
-      if (value > 0) rows.push({ name, amount: this.money(value) });
+      if (Math.abs(value) >= 0.005) rows.push({ name, amount: this.money(value) });
     };
     const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
     const expensesTotal = expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
@@ -847,6 +845,10 @@ export class ClosingsFormPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.runSyncDerivedTotals());
 
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.touchFormValue());
+
     merge(
       this.form.controls.cashAmount.valueChanges,
       this.form.controls.cashLeftInRegister.valueChanges,
@@ -874,6 +876,8 @@ export class ClosingsFormPage implements OnInit {
           this.form.disable({ emitEvent: false });
         }
         patchClosingFormValues(this.form, c, (v) => this.emptyNum(v), toDateInput);
+        this.syncCashWithdrawnFromTotal();
+        this.touchFormValue();
         this.hydrateWithdrawnAccount(this.users());
         this.initPaymentLines(c.posnetAmounts);
         this.expenses.clear();
@@ -1012,6 +1016,7 @@ export class ClosingsFormPage implements OnInit {
     this.form.controls.cashWithdrawn.setValue(total <= 0 && next <= 0 ? null : next, {
       emitEvent: false,
     });
+    this.touchFormValue();
   }
 
   private n(v: unknown): number {
@@ -1072,6 +1077,7 @@ export class ClosingsFormPage implements OnInit {
     );
     this.sourceCount.set(this.sourceAmounts.length);
     this.sourceAmounts.updateValueAndValidity({ emitEvent: false });
+    this.touchFormValue();
   }
 
   private syncOtherCobros(rows: OtherCobroRow[]): void {
@@ -1697,10 +1703,6 @@ export class ClosingsFormPage implements OnInit {
       labels.push('Cuenta DNI');
       bump(0);
     }
-    if (this.cobrosStepTotal() > 0 && !this.cobrosStepFiles().length) {
-      labels.push('Cobros');
-      bump(0);
-    }
     for (const row of this.sourceAmounts.controls) {
       const sourceId = String(row.get('sourceId')?.value ?? '');
       if (!sourceId) continue;
@@ -1928,10 +1930,13 @@ export class ClosingsFormPage implements OnInit {
     const draft = readClosingDraft(shopId, userId);
     if (!draft) return false;
     applyClosingFormDraft(this.form, this.fb, draft, (v) => this.emptyNum(v), toDateInput);
+    this.syncCashWithdrawnFromTotal();
     this.tipDraft = draft.tipDraft;
     this.pendingClosing.set(draft.pendingClosing ?? null);
     this.savedSourceAmounts = sourceAmountsFromDraft(draft);
     this.syncSourceAmounts();
+    syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
+    this.touchFormValue();
     const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
     this.isEvent.set(String(this.form.controls.kind.value ?? '') === 'EVENT');
     if (date && !this.isEvent()) this.loadTipDay(date);
@@ -1967,8 +1972,8 @@ export class ClosingsFormPage implements OnInit {
         const amount = this.emptyNum(s.amount);
         this.form.patchValue({
           cashOpeningAmount: amount,
-          cashLeftInRegister: amount,
         });
+        this.syncCashWithdrawnFromTotal();
       },
       error: () => {
         /* queda el cambio por defecto del local */

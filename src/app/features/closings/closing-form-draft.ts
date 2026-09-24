@@ -1,7 +1,7 @@
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import type { TipsEditorState } from '../tips/tips-editor';
 import type { ClosingSourceAmount } from './closings-api.service';
-import { closingNum } from './closings-form.utils';
+import { closingNum, roundMoney } from './closings-form.utils';
 import { buildExpenseGroup, normalizeCobroPaymentMethod, populateOtherCobros } from './closings-form-load';
 import { buildDniTransferGroup } from './closings-form-payment-lines';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
@@ -164,8 +164,8 @@ export function sourceAmountsFromDraft(draft: ClosingFormDraft): ClosingSourceAm
             .filter((p) => !!p.posnetId)
         : [];
       const lines = Array.isArray(row['lines'])
-        ? (row['lines'] as Array<{ amount?: unknown }>)
-            .map((l) => closingNum(l?.amount))
+        ? (row['lines'] as Array<number | { amount?: unknown }>)
+            .map((l) => closingNum(typeof l === 'number' ? l : l?.amount))
             .filter((n) => n > 0)
         : [];
       const amount = posnetAmounts.length
@@ -179,7 +179,13 @@ export function sourceAmountsFromDraft(draft: ClosingFormDraft): ClosingSourceAm
         includeInDeclared: !!row['includeInDeclared'],
         kind: (row['kind'] as ClosingSourceAmount['kind']) || 'OTHER',
         amount,
-        lines: posnetAmounts.length ? null : lines.length ? lines : null,
+        lines: posnetAmounts.length
+          ? null
+          : lines.length
+            ? lines
+            : amount > 0
+              ? [amount]
+              : null,
         posnetAmounts: posnetAmounts.length ? posnetAmounts : null,
       };
     })
@@ -280,4 +286,12 @@ export function applyClosingFormDraft(
     })),
     emptyNum,
   );
+
+  // A retirar = total − lo dejado (el draft a veces viene sin cashWithdrawn).
+  const total = roundMoney(form.controls['cashAmount']?.value);
+  const leave = roundMoney(form.controls['cashLeftInRegister']?.value);
+  const next = Math.max(0, roundMoney(total - leave));
+  form.controls['cashWithdrawn']?.setValue(total <= 0 && next <= 0 ? null : next, {
+    emitEvent: false,
+  });
 }

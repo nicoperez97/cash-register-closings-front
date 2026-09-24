@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
 export type CustomerOrderFulfillment = 'TAKEAWAY' | 'DELIVERY' | 'COUNTER' | 'TABLE';
-export type CustomerOrderPaymentMethod = 'CASH' | 'TRANSFER';
+export type CustomerOrderPaymentMethod = 'CASH' | 'TRANSFER' | 'CARD';
 export type CustomerOrderStatus =
   | 'PENDING'
   | 'ACCEPTED'
@@ -123,6 +123,8 @@ export interface CreatePublicCustomerOrderBody {
   paymentMethod: CustomerOrderPaymentMethod;
   /** Id del medio configurado en el local (Pedidos Ya, Efectivo, etc.). */
   paymentMethodId?: string | null;
+  /** Nombre del medio al momento del pedido (ej. PVS). */
+  paymentMethodName?: string | null;
   cashAmount?: number | null;
   customerNotes?: string | null;
   discountPercent?: number | null;
@@ -156,6 +158,8 @@ export interface PublicCustomerOrder {
   firstName: string;
   lastName: string;
   paymentMethod: CustomerOrderPaymentMethod;
+  paymentMethodId?: string | null;
+  paymentMethodName?: string | null;
   deliveryZoneName?: string | null;
   address?: string | null;
   /** WhatsApp (solo dígitos) para enviar comprobante si pagó por transferencia. */

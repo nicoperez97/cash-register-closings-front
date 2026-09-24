@@ -1048,15 +1048,24 @@ export class HomePageComponent {
             this.cashPendingToWithdraw.set(
               avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
             );
-            // Caja abierta: apertura del turno. Si no: lo dejado en el último cierre.
+            // Misma cifra que Abrir caja: saldo de la cuenta Efectivo de sistema.
+            // Con caja abierta, la apertura del turno.
+            const drawer = this.cashDrawerAccount();
+            const balRow = drawer
+              ? rows.find((r) => r.accountId === drawer.id)
+              : null;
+            const fromBalance =
+              balRow != null ? Number(balRow.balance ?? NaN) : NaN;
             const fromOpen =
               open != null ? Number(open.cashOpeningAmount ?? open.cashLeftInRegister ?? NaN) : NaN;
             const fromSuggested = suggested != null ? Number(suggested.amount) : NaN;
             const inReg = !Number.isNaN(fromOpen)
               ? Math.max(0, fromOpen)
-              : !Number.isNaN(fromSuggested)
-                ? Math.max(0, fromSuggested)
-                : null;
+              : !Number.isNaN(fromBalance)
+                ? Math.max(0, fromBalance)
+                : !Number.isNaN(fromSuggested)
+                  ? Math.max(0, fromSuggested)
+                  : null;
             this.cashInRegisterAmount.set(inReg);
           },
           error: () => {

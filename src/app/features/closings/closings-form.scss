@@ -45,6 +45,23 @@
   gap: 0.85rem;
 }
 
+/** Una sola card para Efectivo + Cuentas del local. */
+.closing-form__ingresos {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 1.1rem 1.15rem 1.2rem;
+  border-radius: 14px;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  background: var(--guy-card, #fff);
+}
+
+.closing-form__ingresos > * + * {
+  margin-top: 1.2rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 88%, transparent);
+}
+
 .closing-form__section {
   padding: 1rem 1.05rem 1.1rem;
   border: 1px solid var(--guy-border, #d7e0d9);
@@ -179,6 +196,18 @@
 
   .closing-form {
     gap: 0.6rem;
+  }
+
+  .closing-form__ingresos {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .closing-form__ingresos > * + * {
+    margin-top: 1.05rem;
+    padding-top: 1rem;
   }
 
   .closing-form__section {

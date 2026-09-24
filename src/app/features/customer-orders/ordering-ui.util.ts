@@ -94,7 +94,9 @@ export function fulfillmentLabel(f: CustomerOrderFulfillment): string {
 }
 
 export function paymentLabel(p: CustomerOrderPaymentMethod): string {
-  return p === 'TRANSFER' ? 'Transferencia' : 'Efectivo';
+  if (p === 'TRANSFER') return 'Transferencia';
+  if (p === 'CARD') return 'Tarjeta';
+  return 'Efectivo';
 }
 
 /** Misma lógica que el API: clasifica un medio por id/nombre. */
@@ -149,9 +151,11 @@ export function orderingPayNeedsCashTender(choice: OrderingPayChoice | null | un
   return /efectivo|cash|contado|op_cash|tp_cash/.test(`${choice.id} ${choice.name}`.toLowerCase());
 }
 
-/** Enum CASH|TRANSFER que acepta el API al crear el pedido. */
+/** Enum CASH|TRANSFER|CARD que acepta el API al crear el pedido. */
 export function orderingPayToApiMethod(choice: OrderingPayChoice): CustomerOrderPaymentMethod {
-  return choice.kind === 'TRANSFER' ? 'TRANSFER' : 'CASH';
+  if (choice.kind === 'TRANSFER') return 'TRANSFER';
+  if (choice.kind === 'CARD') return 'CARD';
+  return 'CASH';
 }
 
 /** Línea de pedido (ítem o extra) para agrupar en UI / texto. */

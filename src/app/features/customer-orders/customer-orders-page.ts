@@ -361,7 +361,8 @@ export class CustomerOrdersPage {
     }
     this.api.listStaff(shopId, {
       status: statusParam,
-      scope: v === 'COMPLETED' ? 'current-shift' : undefined,
+      scope:
+        v === 'COMPLETED' || v === 'CANCELLED' ? 'current-shift' : undefined,
     }).subscribe({
       next: (rows) => {
         const nextIds = new Set(rows.map((r) => r.id));
