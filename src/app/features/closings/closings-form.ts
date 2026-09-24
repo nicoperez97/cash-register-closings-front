@@ -114,6 +114,7 @@ import {
   closingNum,
   differenceReasonIsRequired,
   emptyNum as toEmptyNum,
+  moneyOrNull,
   roundMoney,
   toDateInput,
   toDateString,
@@ -1969,7 +1970,8 @@ export class ClosingsFormPage implements OnInit {
     if (!shopId) return;
     this.api.suggestedOpening(shopId).subscribe({
       next: (s) => {
-        const amount = this.emptyNum(s.amount);
+        // 0 es válido (último cierre dejó la caja vacía); no usar emptyNum.
+        const amount = moneyOrNull(s.amount);
         this.form.patchValue({
           cashOpeningAmount: amount,
         });
@@ -1988,7 +1990,8 @@ export class ClosingsFormPage implements OnInit {
   }
 
   private resetForNextClosing(): void {
-    const lastLeave = this.emptyNum(this.form.controls.cashLeftInRegister.value);
+    // 0 dejado en caja → próxima apertura 0 (no el cambio por defecto).
+    const lastLeave = moneyOrNull(this.form.controls.cashLeftInRegister.value);
     clearClosingDraft();
     this.pendingClosing.set(null);
     this.isEvent.set(false);
@@ -1999,7 +2002,7 @@ export class ClosingsFormPage implements OnInit {
       resetClosingFormForNext({
         currentBusinessDate: today,
         defaultChangeAmount: lastLeave ?? this.shop()?.defaultChangeAmount,
-        emptyNum: (v) => this.emptyNum(v),
+        emptyNum: (v) => moneyOrNull(v),
         toDateInput,
       }),
     );
