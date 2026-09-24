@@ -36,7 +36,7 @@ import {
 } from '../../core/home/home-actions';
 import { NavMenuService } from '../../core/layout/nav-menu.service';
 import { groupIdFromRoute, navGroupPagePath } from '../../core/layout/nav-config';
-import { ClosingsApiService, ShopClosingSource } from '../closings/closings-api.service';
+import { ClosingsApiService, ShopClosingSource, SuggestedOpening, CashClosing } from '../closings/closings-api.service';
 import { closingMoneyColumns } from '../closings/closing-list-columns';
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
@@ -737,6 +737,11 @@ export class HomePageComponent {
   readonly cashDrawerAccount = signal<{ id: string; name: string } | null>(null);
   /** Pendiente en A retirar (no cuenta como efectivo en caja). */
   readonly cashPendingToWithdraw = signal<number | null>(null);
+  /**
+   * Efectivo realmente en caja = lo dejado en el último cierre (o apertura de caja abierta).
+   * Es la misma cifra que se propone como efectivo de apertura del próximo turno.
+   */
+  readonly cashInRegisterAmount = signal<number | null>(null);
   readonly attendanceBusy = signal(false);
   readonly sharingAttendance = signal(false);
   readonly attendanceEmployees = signal<AttendanceEmployee[]>([]);
@@ -828,22 +833,7 @@ export class HomePageComponent {
     return this.attendanceEmployees().filter((e) => marks[e.employeeId]?.isPresent).length;
   });
 
-  readonly cashBalance = computed(() => {
-    const drawer = this.cashDrawerAccount();
-    if (!drawer) return null;
-    const row = this.balanceRows().find((a) => a.accountId === drawer.id);
-    if (!row) return null;
-    return Number(row.grossBalance ?? row.balance ?? 0);
-  });
-
-  /** Saldo contable menos lo pendiente a retirar = lo dejado en caja. */
-  readonly cashInRegister = computed(() => {
-    const ledger = this.cashBalance();
-    if (ledger == null) return null;
-    const pending = this.cashPendingToWithdraw();
-    if (pending == null) return ledger;
-    return Math.max(0, Math.round((ledger - pending) * 100) / 100);
-  });
+  readonly cashInRegister = computed(() => this.cashInRegisterAmount());
 
   readonly kpis = computed((): KpiItem[] => {
     const items: KpiItem[] = [];
@@ -1032,6 +1022,7 @@ export class HomePageComponent {
         this.balanceRows.set([]);
         this.cashDrawerAccount.set(null);
         this.cashPendingToWithdraw.set(null);
+        this.cashInRegisterAmount.set(null);
       } else {
         forkJoin({
           balances: this.movementsApi.balances(shopId),
@@ -1044,8 +1035,12 @@ export class HomePageComponent {
           pending: this.cashWithdrawalsApi.listPending(shopId).pipe(
             catchError(() => of({ availableTotal: null as number | null })),
           ),
+          open: this.api.getOpen(shopId).pipe(catchError(() => of(null as CashClosing | null))),
+          suggested: this.api.suggestedOpening(shopId).pipe(
+            catchError(() => of(null as SuggestedOpening | null)),
+          ),
         }).subscribe({
-          next: ({ balances, sources, accounts, pending }) => {
+          next: ({ balances, sources, accounts, pending, open, suggested }) => {
             const rows = (balances.accounts ?? []).map((a) => mapBalanceAccount(a));
             this.balanceRows.set(rows);
             this.cashDrawerAccount.set(resolveCashDrawerAccount(sources, accounts, rows));
@@ -1053,11 +1048,22 @@ export class HomePageComponent {
             this.cashPendingToWithdraw.set(
               avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
             );
+            // Caja abierta: apertura del turno. Si no: lo dejado en el último cierre.
+            const fromOpen =
+              open != null ? Number(open.cashOpeningAmount ?? open.cashLeftInRegister ?? NaN) : NaN;
+            const fromSuggested = suggested != null ? Number(suggested.amount) : NaN;
+            const inReg = !Number.isNaN(fromOpen)
+              ? Math.max(0, fromOpen)
+              : !Number.isNaN(fromSuggested)
+                ? Math.max(0, fromSuggested)
+                : null;
+            this.cashInRegisterAmount.set(inReg);
           },
           error: () => {
             this.balanceRows.set([]);
             this.cashDrawerAccount.set(null);
             this.cashPendingToWithdraw.set(null);
+            this.cashInRegisterAmount.set(null);
           },
         });
       }
