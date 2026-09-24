@@ -41,7 +41,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En la barra superior, el ícono de pantalla completa ocupa toda la pantalla (Esc o el mismo botón para salir).',
           'Campana: avisos de pagos, movimientos y más. Al abrirla se apaga el número; los no leídos siguen con el punto azul hasta que los abrís o marcás todas como leídas.',
           'Abajo ves los saldos de canales y socios. Si una cuenta tiene comisión, el número grande ya la descuenta. Los millones se ven simplificados; Simplificado / Exactos cambia la vista, y al pasar el mouse ves el número completo.',
-          'Efectivo en caja usa la cuenta de la fila Efectivo en Configuración del local → Cuentas del local (no otra cuenta cuyo nombre diga “efectivo”).',
+          'Efectivo en caja muestra solo lo dejado en caja en los cierres (saldo de Efectivo Caja menos lo pendiente en A retirar). Abajo ves A retirar; tocá el KPI para ir a Retiros si tenés permiso.',
           'Si el local usa Rendiciones, el KPI Canales nos deben muestra lo que Pedidos Ya / Rappi (y otras cuentas aparte) todavía no acreditaron, con neto estimado y la primera fecha esperada. Tocá el KPI o la tarjeta para ir a Rendiciones.',
         ],
         tip: 'Si llega un aviso nuevo, el número de la campana y los badges del menú se actualizan solos. Abrir la campana solo limpia el número; no marca los avisos como leídos.',
