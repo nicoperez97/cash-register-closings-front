@@ -267,12 +267,15 @@ export class ClosingsApiService {
   }
 
   getOpen(shopId: string) {
-    return this.http.get<CashClosing | null>(`${this.base}/shops/${shopId}/closings/open`);
+    return this.http.get<CashClosing | null>(`${this.base}/shops/${shopId}/closings/open`, {
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
   }
 
   suggestedOpening(shopId: string) {
     return this.http.get<SuggestedOpening>(
       `${this.base}/shops/${shopId}/closings/suggested-opening`,
+      { headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } },
     );
   }
 
