@@ -9,7 +9,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { catchError, forkJoin, of } from 'rxjs';
+import { catchError, filter, forkJoin, fromEvent, of, switchMap } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import {
@@ -995,6 +996,92 @@ export class HomePageComponent {
       this.refreshTick.update((n) => n + 1);
       if (this.canOpenReservations()) this.reservationsInbox.refresh();
     });
+
+    // PWA / tab resume: volver a pedir efectivo (sin esto queda el valor en memoria).
+    fromEvent(document, 'visibilitychange')
+      .pipe(
+        filter(() => document.visibilityState === 'visible'),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.refreshTick.update((n) => n + 1));
+    // iOS Safari / PWA: restauración desde bfcache.
+    fromEvent(window, 'pageshow')
+      .pipe(
+        filter((e) => !!(e as PageTransitionEvent).persisted),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.refreshTick.update((n) => n + 1));
+
+    // Efectivo en caja / saldos: cancelar request anterior al cambiar local o refrescar.
+    toObservable(
+      computed(() => ({
+        tick: this.refreshTick(),
+        shopId: this.shopContext.selectedShopId() ?? '',
+        userId: this.auth.currentUser()?.id ?? '',
+      })),
+    )
+      .pipe(
+        switchMap(({ shopId }) => {
+          const user = this.auth.currentUser();
+          const canBalances =
+            !!shopId &&
+            (hasShopPermission(user, shopId, 'expenses.read') ||
+              hasShopPermission(user, shopId, 'accountTransfers.read') ||
+              hasShopPermission(user, shopId, 'incomes.read'));
+          this.balanceRows.set([]);
+          this.cashDrawerAccount.set(null);
+          this.cashPendingToWithdraw.set(null);
+          this.cashInRegisterAmount.set(null);
+          if (!canBalances) return of(null);
+          return forkJoin({
+            shopId: of(shopId),
+            balances: this.movementsApi.balances(shopId),
+            sources: this.api
+              .listClosingSources(shopId, true)
+              .pipe(catchError(() => of([] as ShopClosingSource[]))),
+            accounts: this.movementsApi
+              .accounts(shopId)
+              .pipe(catchError(() => of([] as LedgerAccount[]))),
+            pending: this.cashWithdrawalsApi.listPending(shopId).pipe(
+              catchError(() => of({ availableTotal: null as number | null })),
+            ),
+            open: this.api.getOpen(shopId).pipe(catchError(() => of(null as CashClosing | null))),
+            suggested: this.api.suggestedOpening(shopId).pipe(
+              catchError(() => of(null as SuggestedOpening | null)),
+            ),
+          }).pipe(catchError(() => of(null)));
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((res) => {
+        if (!res) return;
+        // Descartar respuesta si el local ya cambió (carrera residual).
+        if (res.shopId !== (this.shopContext.selectedShopId() ?? '')) return;
+        const rows = (res.balances.accounts ?? []).map((a) => mapBalanceAccount(a));
+        this.balanceRows.set(rows);
+        this.cashDrawerAccount.set(resolveCashDrawerAccount(res.sources, res.accounts, rows));
+        const avail = res.pending.availableTotal;
+        this.cashPendingToWithdraw.set(
+          avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
+        );
+        // Misma cifra que Abrir caja: lo dejado en el último cierre (suggested).
+        // Con caja abierta, la apertura del turno.
+        const fromOpen =
+          res.open != null
+            ? Number(res.open.cashOpeningAmount ?? res.open.cashLeftInRegister ?? NaN)
+            : NaN;
+        const fromSuggested =
+          res.suggested != null && Number.isFinite(Number(res.suggested.amount))
+            ? Number(res.suggested.amount)
+            : NaN;
+        const inReg = !Number.isNaN(fromOpen)
+          ? Math.max(0, fromOpen)
+          : !Number.isNaN(fromSuggested)
+            ? Math.max(0, fromSuggested)
+            : null;
+        this.cashInRegisterAmount.set(inReg);
+      });
+
     effect(() => {
       this.refreshTick();
       const shopId = this.shopContext.selectedShopId();
@@ -1008,72 +1095,6 @@ export class HomePageComponent {
         this.api.summary(shopId, { from, to }).subscribe({
           next: (s) => this.reportSummary.set(s),
           error: () => this.reportSummary.set(null),
-        });
-      }
-
-      if (
-        !shopId ||
-        !(
-          hasShopPermission(user, shopId, 'expenses.read') ||
-          hasShopPermission(user, shopId, 'accountTransfers.read') ||
-          hasShopPermission(user, shopId, 'incomes.read')
-        )
-      ) {
-        this.balanceRows.set([]);
-        this.cashDrawerAccount.set(null);
-        this.cashPendingToWithdraw.set(null);
-        this.cashInRegisterAmount.set(null);
-      } else {
-        forkJoin({
-          balances: this.movementsApi.balances(shopId),
-          sources: this.api
-            .listClosingSources(shopId, true)
-            .pipe(catchError(() => of([] as ShopClosingSource[]))),
-          accounts: this.movementsApi
-            .accounts(shopId)
-            .pipe(catchError(() => of([] as LedgerAccount[]))),
-          pending: this.cashWithdrawalsApi.listPending(shopId).pipe(
-            catchError(() => of({ availableTotal: null as number | null })),
-          ),
-          open: this.api.getOpen(shopId).pipe(catchError(() => of(null as CashClosing | null))),
-          suggested: this.api.suggestedOpening(shopId).pipe(
-            catchError(() => of(null as SuggestedOpening | null)),
-          ),
-        }).subscribe({
-          next: ({ balances, sources, accounts, pending, open, suggested }) => {
-            const rows = (balances.accounts ?? []).map((a) => mapBalanceAccount(a));
-            this.balanceRows.set(rows);
-            this.cashDrawerAccount.set(resolveCashDrawerAccount(sources, accounts, rows));
-            const avail = pending.availableTotal;
-            this.cashPendingToWithdraw.set(
-              avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
-            );
-            // Misma cifra que Abrir caja: saldo de la cuenta Efectivo de sistema.
-            // Con caja abierta, la apertura del turno.
-            const drawer = this.cashDrawerAccount();
-            const balRow = drawer
-              ? rows.find((r) => r.accountId === drawer.id)
-              : null;
-            const fromBalance =
-              balRow != null ? Number(balRow.balance ?? NaN) : NaN;
-            const fromOpen =
-              open != null ? Number(open.cashOpeningAmount ?? open.cashLeftInRegister ?? NaN) : NaN;
-            const fromSuggested = suggested != null ? Number(suggested.amount) : NaN;
-            const inReg = !Number.isNaN(fromOpen)
-              ? Math.max(0, fromOpen)
-              : !Number.isNaN(fromBalance)
-                ? Math.max(0, fromBalance)
-                : !Number.isNaN(fromSuggested)
-                  ? Math.max(0, fromSuggested)
-                  : null;
-            this.cashInRegisterAmount.set(inReg);
-          },
-          error: () => {
-            this.balanceRows.set([]);
-            this.cashDrawerAccount.set(null);
-            this.cashPendingToWithdraw.set(null);
-            this.cashInRegisterAmount.set(null);
-          },
         });
       }
 
