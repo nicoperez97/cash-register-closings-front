@@ -311,6 +311,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Tocá una cuenta para ver sus movimientos. Ahí filtrás por período, tipo, concepto, origen y texto; al pie ves el total del Monto (con signo según entra o sale).',
           'Al importar el Excel, la pestaña Saldos muestra cómo quedaría cada cuenta antes de confirmar.',
           'Gemini lee el mismo archivo y te explica en la vista previa por qué un saldo queda raro.',
+          'El panel empieza oculto: Mostrar saldos / Ocultar saldos. Así la lista usa todo el ancho.',
         ],
       },
       {
@@ -341,10 +342,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         anyOf: ['expenses.read', 'incomes.read', 'accountTransfers.read'],
         body: 'Acá ves el libro completo: gastos, ingresos y movimientos entre cuentas. Filtrá por tipo, cuenta, forma de pago, empleado, comprobante y turno si el local tiene más de uno.',
         items: [
-          'En Concepto podés filtrar Sin concepto o Concepto eliminado (archivado). Editá la fila para asignarle uno activo.',
+          'En Concepto podés filtrar Sin concepto o Concepto eliminado (archivado). Editá la fila para asignarle uno activo, o marcá varias y usá Asignar concepto.',
           'Para cargar a mano usá Gastos, Ingresos o Movimientos. Para un Excel, Importar Excel.',
           'Abajo de la lista ves el total del Monto según los filtros y la búsqueda.',
           'Descargar Excel o PDF usa los mismos filtros que ves en pantalla.',
+          'Saldos viene oculto: tocá Mostrar saldos para ver el panel. Ocultar saldos deja la tabla a todo el ancho.',
           'En Saldos, si una cuenta tiene comisión, el número grande ya la descuenta.',
           'Los millones de Saldos se ven simplificados. Pasá el mouse o tocá Simplificado / Exactos para el monto completo.',
           'Importar Excel carga el archivo del contador o el de seguimiento (Fecha, Cuenta Emisora, Cuenta Receptora, Importe, Concepto).',
@@ -360,7 +362,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'account-transfers',
     title: 'Movimientos entre cuentas',
-    summary: 'Pases de una cuenta a otra, sin concepto.',
+    summary: 'Pases de una cuenta a otra. Podés asignarles concepto.',
     blocks: [
       {
         title: 'La lista',
@@ -371,6 +373,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Abajo de la lista ves el total del Monto según los filtros y la búsqueda.',
           'Importar Excel está acá y en Transacciones: el pase es de una cuenta operativa a otra.',
+          'Marcá varias filas y Asignar concepto para ponerles el mismo concepto de una.',
+          'Saldos viene oculto: Mostrar saldos / Ocultar saldos.',
         ],
       },
       {
@@ -385,7 +389,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'swap_horiz',
         tone: 'do',
         anyOf: ['accountTransfers.manage'],
-        body: 'Indicá origen, destino y monto. Al elegir la cuenta origen ves cuánto dispone. No lleva concepto. Aparecen las cuentas tildadas en Cuentas → Mostrar esta cuenta en → Movimientos entre cuentas. Los proveedores y servicios no se listan: se pagan desde Pagos.',
+        body: 'Indicá origen, destino y monto. Al elegir la cuenta origen ves cuánto dispone. Podés elegir un concepto. Aparecen las cuentas tildadas en Cuentas → Mostrar esta cuenta en → Movimientos entre cuentas. Los proveedores y servicios no se listan: se pagan desde Pagos.',
         tip: 'Al abrir el diálogo se cargan de nuevo las cuentas y los saldos. Si fallan, usá Reintentar.',
       },
       {

@@ -224,6 +224,13 @@ export class MovementsApiService {
     return this.http.patch<Movement>(`${this.base}/shops/${shopId}/movements/${id}`, body);
   }
 
+  bulkSetConcept(shopId: string, ids: string[], conceptId: string) {
+    return this.http.patch<{ updated: number; skipped: number }>(
+      `${this.base}/shops/${shopId}/movements/bulk-concept`,
+      { ids, conceptId },
+    );
+  }
+
   remove(
     shopId: string,
     id: string,
