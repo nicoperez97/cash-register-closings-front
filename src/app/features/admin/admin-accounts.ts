@@ -12,6 +12,7 @@ import { FilterChipsComponent, SegmentTabsComponent } from '../../shared/compone
 import {
   SelectSearchComponent,
   filterBySelectQuery,
+  normalizeSelectQuery,
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
@@ -37,6 +38,35 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
   { id: 'SYSTEM', label: 'Sistema' },
   { id: 'DIVIDENDS', label: 'Dividendos' },
 ];
+
+function isEgresoAccount(a: {
+  type?: string | null;
+  code?: string | null;
+  name?: string | null;
+}): boolean {
+  const code = String(a.code ?? '')
+    .trim()
+    .toUpperCase();
+  const name = String(a.name ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (code === 'EGRESO' || code.endsWith('_EGRESO') || code.endsWith('-EGRESO')) {
+    return true;
+  }
+  // Nombre típico del seed: "2. Egreso"
+  if (a.type === 'SYSTEM' && /(^|[^a-z])egreso([^a-z]|$)/.test(name)) {
+    return true;
+  }
+  return false;
+}
+
+function isAllowedDividendDest(a: AdminAccountRow): boolean {
+  if (a.active === false) return false;
+  if (a.type === 'SUPPLIER' || a.type === 'SERVICE') return false;
+  if (a.type === 'SYSTEM') return isEgresoAccount(a);
+  return true;
+}
 
 @Component({
   selector: 'app-admin-accounts',
@@ -69,8 +99,9 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
         <div>
           <h2 class="split-cfg__title">División de socios</h2>
           <p class="split-cfg__lead">
-            Cuenta y concepto que usan Equilibrar, Enviar a dividendos y las transferencias
-            marcadas como dividendo. El armado clásico (socio ↔ socio) solo toma el concepto.
+            Cuenta y concepto de Equilibrar, Enviar división y transferencias marcadas como
+            dividendo. Por defecto: Egreso + concepto División. El armado clásico (socio ↔ socio)
+            solo toma el concepto.
           </p>
         </div>
         <button
@@ -94,13 +125,16 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
             <mat-option disabled class="select-search-opt">
               <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
             </mat-option>
-            <mat-option [value]="null">Automático (Dividendos)</mat-option>
+            <mat-option value="">Automático (Egreso)</mat-option>
+            @if (egresoAccount(); as eg) {
+              <mat-option [value]="eg.id">{{ eg.name }} · Sistema</mat-option>
+            }
             @for (a of filteredSplitAccounts(); track a.id) {
               <mat-option [value]="a.id">
                 {{ a.name }} · {{ accountTypeLabel(a.type) }}
               </mat-option>
             }
-            @if (accountQuery() && !filteredSplitAccounts().length) {
+            @if (accountQuery() && !filteredSplitAccounts().length && !egresoAccount()) {
               <mat-option disabled>Sin resultados</mat-option>
             }
           </mat-select>
@@ -116,7 +150,7 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
             <mat-option disabled class="select-search-opt">
               <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
             </mat-option>
-            <mat-option [value]="null">Sin concepto</mat-option>
+            <mat-option [value]="null">Automático (División)</mat-option>
             @for (c of filteredConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
             }
@@ -232,25 +266,48 @@ export class AdminAccountsPage {
   readonly accountTypeLabel = accountTypeLabel;
 
   readonly splitForm = this.fb.nonNullable.group({
-    partnerDividendAccountId: this.fb.control<string | null>(null),
+    partnerDividendAccountId: this.fb.nonNullable.control(''),
     partnerDividendConceptId: this.fb.control<string | null>(null),
   });
 
-  readonly filteredSplitAccounts = computed(() =>
-    filterBySelectQuery(
-      this.rows().filter(
-        (a) =>
-          a.active !== false &&
-          a.type !== 'SUPPLIER' &&
-          a.type !== 'SERVICE' &&
-          // Sistema: solo Egreso (destino típico de dividendo/salida).
-          (a.type !== 'SYSTEM' || String(a.code ?? '').toUpperCase() === 'EGRESO'),
-      ),
+  /** Egreso siempre visible arriba del listado (aunque el filtro de búsqueda lo oculte). */
+  readonly egresoAccount = computed(() => {
+    const q = this.accountQuery().trim();
+    const eg =
+      this.rows().find((a) => a.active !== false && isEgresoAccount(a)) ?? null;
+    if (!eg) return null;
+    if (!q) return eg;
+    const label = `${eg.name} ${eg.code ?? ''} Sistema`;
+    const keep = this.splitForm.controls.partnerDividendAccountId.value === eg.id;
+    if (keep) return eg;
+    return normalizeSelectQuery(label).includes(normalizeSelectQuery(q)) ? eg : null;
+  });
+
+  readonly filteredSplitAccounts = computed(() => {
+    const egresoId = this.egresoAccount()?.id;
+    const base = this.rows().filter(
+      (a) => isAllowedDividendDest(a) && a.id !== egresoId,
+    );
+    // Destinos útiles primero: Egreso ya está fijado arriba; acá Dividendos legacy al final.
+    const sorted = [...base].sort((a, b) => {
+      const rank = (x: AdminAccountRow) => {
+        if (isEgresoAccount(x)) return 0;
+        if (x.type === 'DIVIDENDS' || String(x.code ?? '').toUpperCase() === 'DIVIDENDOS') {
+          return 2;
+        }
+        return 1;
+      };
+      const d = rank(a) - rank(b);
+      if (d) return d;
+      return String(a.name).localeCompare(String(b.name), 'es');
+    });
+    return filterBySelectQuery(
+      sorted,
       this.accountQuery(),
       (a) => `${a.name} ${a.code ?? ''} ${accountTypeLabel(a.type)}`,
-      this.splitForm.controls.partnerDividendAccountId.value,
-    ),
-  );
+      this.splitForm.controls.partnerDividendAccountId.value || null,
+    );
+  });
 
   readonly filteredConcepts = computed(() =>
     filterBySelectQuery(
@@ -319,8 +376,7 @@ export class AdminAccountsPage {
     return cols;
   });
 
-  readonly canRemove = (row: AdminAccountRow) =>
-    row.type !== 'SYSTEM' && row.type !== 'DIVIDENDS';
+  readonly canRemove = (row: AdminAccountRow) => row.type !== 'SYSTEM';
 
   constructor() {
     usePageRefresh(() => this.reload());
@@ -375,7 +431,7 @@ export class AdminAccountsPage {
     const shop = this.shops.selectedShop();
     this.splitForm.reset(
       {
-        partnerDividendAccountId: shop?.partnerDividendAccountId ?? null,
+        partnerDividendAccountId: shop?.partnerDividendAccountId ?? '',
         partnerDividendConceptId: shop?.partnerDividendConceptId ?? null,
       },
       { emitEvent: false },
@@ -392,7 +448,7 @@ export class AdminAccountsPage {
         partnerDividendAccountId?: string | null;
         partnerDividendConceptId?: string | null;
       }>(`${environment.apiUrl}/shops/${shopId}/accounts/partner-dividend-config`, {
-        partnerDividendAccountId: raw.partnerDividendAccountId || null,
+        partnerDividendAccountId: raw.partnerDividendAccountId?.trim() || null,
         partnerDividendConceptId: raw.partnerDividendConceptId || null,
       })
       .subscribe({
@@ -406,6 +462,13 @@ export class AdminAccountsPage {
               partnerDividendConceptId: cfg.partnerDividendConceptId ?? null,
             });
           }
+          this.splitForm.patchValue(
+            {
+              partnerDividendAccountId: cfg.partnerDividendAccountId ?? '',
+              partnerDividendConceptId: cfg.partnerDividendConceptId ?? null,
+            },
+            { emitEvent: false },
+          );
           this.splitForm.markAsPristine();
           this.snack.open('Configuración de división guardada', 'OK', { duration: 2500 });
         },
@@ -424,9 +487,9 @@ export class AdminAccountsPage {
     const tab = this.typeTab();
     if (tab === 'DIVIDENDS') {
       this.snack.open(
-        'La cuenta Dividendos es única por local y se crea sola',
+        'Dividendos ya no se usa: configurá Egreso + concepto División arriba',
         'OK',
-        { duration: 3500 },
+        { duration: 4000 },
       );
       return;
     }

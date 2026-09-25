@@ -46,6 +46,8 @@ export interface Movement {
   conceptId?: string | null;
   conceptName?: string | null;
   conceptKind?: string | null;
+  /** Concepto soft-deleted o inactivo. */
+  conceptDeleted?: boolean;
   invoiced: boolean;
   invoiceNumber?: string | null;
   closingId?: string | null;
