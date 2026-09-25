@@ -1764,7 +1764,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En cuentas Socio, % de división: la parte de ese socio al equilibrar en Divisiones. No es lo mismo que la comisión.',
           'Arriba hay pestañas por tipo: Todas, Canales, Socios, Sistema y Dividendos. Abajo filtrás por estado (activas/inactivas) y por retiro (visible/oculta).',
           'Dividendos: una sola cuenta por local, se crea sola. No se borra. Ahí se acumula lo que ya no es del local (personal del socio). No se muestra en el panel lateral de Saldos; sí en Cuentas → Saldos.',
-          'División de socios (arriba): elegí la cuenta destino y el concepto. Se usan en Equilibrar, Enviar a dividendos y transferencias marcadas como dividendo. Si dejás Automático, va a Dividendos. El armado clásico (socio ↔ socio) solo toma el concepto.',
+          'División de socios (arriba): elegí la cuenta destino y el concepto. Se usan en Equilibrar, Enviar a dividendos y transferencias marcadas como dividendo. Si dejás Automático, va a Dividendos. También podés elegir Egreso. El armado clásico (socio ↔ socio) solo toma el concepto.',
           'En cada cuenta tildá dónde se lista: Gastos, Ingresos, Movimientos entre cuentas, Saldos (panel lateral) y Cierres (quién se lo lleva).',
           'Cuentas → Saldos muestra el saldo de todas las cuentas activas del local, aunque no estén tildadas para el panel.',
         ],

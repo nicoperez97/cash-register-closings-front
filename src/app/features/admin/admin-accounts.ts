@@ -239,7 +239,12 @@ export class AdminAccountsPage {
   readonly filteredSplitAccounts = computed(() =>
     filterBySelectQuery(
       this.rows().filter(
-        (a) => a.active !== false && a.type !== 'SYSTEM' && a.type !== 'SUPPLIER' && a.type !== 'SERVICE',
+        (a) =>
+          a.active !== false &&
+          a.type !== 'SUPPLIER' &&
+          a.type !== 'SERVICE' &&
+          // Sistema: solo Egreso (destino típico de dividendo/salida).
+          (a.type !== 'SYSTEM' || String(a.code ?? '').toUpperCase() === 'EGRESO'),
       ),
       this.accountQuery(),
       (a) => `${a.name} ${a.code ?? ''} ${accountTypeLabel(a.type)}`,
