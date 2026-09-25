@@ -64,6 +64,24 @@ import {
 import { shareText } from '../../shared/utils/share-text';
 import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts';
 
+const BALANCES_OPEN_KEY = 'crc.movements.balancesOpen';
+
+function loadMovementsBalancesOpen(): boolean {
+  try {
+    return localStorage.getItem(BALANCES_OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveMovementsBalancesOpen(open: boolean): void {
+  try {
+    localStorage.setItem(BALANCES_OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // ignore
+  }
+}
+
 @Component({
   selector: 'app-movements-list',
   imports: [
@@ -297,16 +315,60 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
     @if (!shopId()) {
       <div class="panel-card">Seleccioná un local en el menú lateral.</div>
     } @else {
-      <div class="movements-layout mb-3">
-        <div class="panel-card panel-card--flush movements-layout__saldos">
-          <app-balances-table
-            title="Saldos"
-            subtitle="Acumulados · canales, socios y dividendos"
-            [accounts]="balanceRows()"
-            [shopId]="shopId()"
-            [fileSlug]="shops.selectedShop()?.name ?? shops.selectedShop()?.slug ?? 'local'"
-          />
+      <div class="movements-layout-toolbar mb-2">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="toggleBalances()"
+          [attr.aria-pressed]="balancesOpen()"
+        >
+          <mat-icon>{{ balancesOpen() ? 'visibility_off' : 'account_balance_wallet' }}</mat-icon>
+          {{ balancesOpen() ? 'Ocultar saldos' : 'Mostrar saldos' }}
+        </button>
+      </div>
+
+      @if (selectedIds().length && canManage()) {
+        <div class="bulk-bar mb-2">
+          <span class="bulk-bar__count">{{ selectedIds().length }} seleccionados</span>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="bulk-bar__concept">
+            <mat-label>Concepto</mat-label>
+            <mat-select [formControl]="bulkConceptId">
+              @for (c of concepts(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [disabled]="bulkBusy() || !bulkConceptId.value"
+            (click)="assignConceptToSelected()"
+          >
+            <mat-icon>sell</mat-icon>
+            {{ bulkBusy() ? 'Asignando…' : 'Asignar concepto' }}
+          </button>
+          <button mat-button type="button" [disabled]="bulkBusy()" (click)="clearSelection()">
+            Limpiar
+          </button>
         </div>
+      }
+
+      <div
+        class="movements-layout mb-3"
+        [class.movements-layout--saldos-hidden]="!balancesOpen()"
+      >
+        @if (balancesOpen()) {
+          <div class="panel-card panel-card--flush movements-layout__saldos">
+            <app-balances-table
+              title="Saldos"
+              subtitle="Acumulados · canales, socios y dividendos"
+              [accounts]="balanceRows()"
+              [shopId]="shopId()"
+              [fileSlug]="shops.selectedShop()?.name ?? shops.selectedShop()?.slug ?? 'local'"
+            />
+          </div>
+        }
 
         <div class="panel-card panel-card--flush movements-layout__table">
           <div class="panel-card__body">
@@ -315,6 +377,9 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
               [rows]="rows()"
               [loading]="loading()"
               [sortable]="true"
+              [selectable]="canManage()"
+              [selection]="selectedIds()"
+              (selectionChange)="selectedIds.set($event)"
               [canEdit]="canEditRow"
               [canRemove]="canRemoveRow"
               [canShare]="canShareRow"
@@ -341,6 +406,36 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
       gap: 0.5rem;
     }
 
+    .movements-layout-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .bulk-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--guy-primary, #1d65a0) 22%, var(--guy-border, #e6ebf0));
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+    }
+
+    .bulk-bar__count {
+      font-weight: 700;
+      color: var(--guy-navy, #003366);
+      margin-right: 0.25rem;
+    }
+
+    .bulk-bar__concept {
+      min-width: 12rem;
+      flex: 1 1 12rem;
+      max-width: 22rem;
+    }
+
     .movements-layout {
       display: grid;
       gap: 1rem;
@@ -352,7 +447,7 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
     }
 
     @media (min-width: 960px) {
-      .movements-layout {
+      .movements-layout:not(.movements-layout--saldos-hidden) {
         grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
       }
     }
@@ -393,6 +488,11 @@ export class MovementsListPage {
   readonly users = signal<MovementUserOption[]>([]);
   readonly exporting = signal(false);
   readonly templateBusy = signal(false);
+  readonly selectedIds = signal<string[]>([]);
+  readonly bulkBusy = signal(false);
+  readonly bulkConceptId = new FormControl<string>('', { nonNullable: true });
+  readonly balancesOpen = signal(loadMovementsBalancesOpen());
+
 
   readonly pageTitle = computed(() => {
     if (this.kind() === 'all') return 'Transacciones';
@@ -603,18 +703,16 @@ export class MovementsListPage {
         next: (rows) => this.accounts.set(rows),
         error: () => this.accounts.set([]),
       });
-      if (this.kind() === 'transfer') {
-        this.concepts.set([]);
-      } else {
-        const conceptOpts =
-          this.kind() === 'all'
-            ? { for: 'movement' as const }
-            : { kind: this.kind() === 'income' ? ('INCOME' as const) : ('EXPENSE' as const) };
-        this.api.concepts(shopId, conceptOpts).subscribe({
-          next: (rows) => this.concepts.set(rows),
-          error: () => this.concepts.set([]),
-        });
-      }
+      const conceptOpts =
+        this.kind() === 'income'
+          ? { kind: 'INCOME' as const }
+          : this.kind() === 'expense'
+            ? { kind: 'EXPENSE' as const }
+            : { for: 'movement' as const };
+      this.api.concepts(shopId, conceptOpts).subscribe({
+        next: (rows) => this.concepts.set(rows),
+        error: () => this.concepts.set([]),
+      });
       this.employeesApi.list(shopId).subscribe({
         next: (rows) => this.employees.set(rows.map((e) => ({ id: e.id, fullName: e.fullName }))),
         error: () => this.employees.set([]),
@@ -949,7 +1047,68 @@ export class MovementsListPage {
   }
 
   applyFilter(): void {
+    this.clearSelection();
     this.reloadToken.update((n) => n + 1);
+  }
+
+  toggleBalances(): void {
+    this.balancesOpen.update((open) => {
+      const next = !open;
+      saveMovementsBalancesOpen(next);
+      return next;
+    });
+  }
+
+  clearSelection(): void {
+    this.selectedIds.set([]);
+    this.bulkConceptId.setValue('');
+  }
+
+  assignConceptToSelected(): void {
+    const shopId = this.shopId();
+    const conceptId = this.bulkConceptId.value;
+    const ids = this.selectedIds().filter((id) => {
+      const row = this.rows().find((r) => r.id === id);
+      return row ? this.canEditRow(row) : false;
+    });
+    if (!shopId || !conceptId || !ids.length || this.bulkBusy()) {
+      if (shopId && conceptId && this.selectedIds().length && !ids.length) {
+        this.snack.open(
+          'Ninguna fila seleccionada se puede editar (p. ej. generadas por un cierre)',
+          'OK',
+          { duration: 3500 },
+        );
+      }
+      return;
+    }
+    this.bulkBusy.set(true);
+    this.api.bulkSetConcept(shopId, ids, conceptId).subscribe({
+      next: (res) => {
+        this.bulkBusy.set(false);
+        const skippedExtra = this.selectedIds().length - ids.length;
+        const skipped = (res.skipped ?? 0) + skippedExtra;
+        if (res.updated > 0) {
+          this.snack.open(
+            skipped > 0
+              ? `Concepto asignado a ${res.updated}. ${skipped} omitidos.`
+              : `Concepto asignado a ${res.updated} movimiento${res.updated === 1 ? '' : 's'}`,
+            'OK',
+            { duration: 3500 },
+          );
+        } else {
+          this.snack.open('No se pudo asignar el concepto a ninguna fila', 'OK', {
+            duration: 3500,
+          });
+        }
+        this.clearSelection();
+        this.reloadToken.update((n) => n + 1);
+      },
+      error: (err) => {
+        this.bulkBusy.set(false);
+        const msg = err?.error?.message ?? 'No se pudo asignar el concepto';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
+      },
+    });
   }
 
   clearFilters(): void {
@@ -1025,6 +1184,7 @@ export class MovementsListPage {
     this.api.list(shopId, this.currentFilters()).subscribe({
       next: (rows) => {
         this.rows.set(this.narrowBySource(rows));
+        this.selectedIds.set([]);
         this.loading.set(false);
         const focusPay = this.focusPaymentId();
         if (focusPay && this.kind() === 'expense') {
