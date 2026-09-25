@@ -38,8 +38,9 @@ export type AdminConceptsUnifyData = {
         Vas a unir
         <strong>{{ data.selected.length }}</strong>
         concepto{{ data.selected.length === 1 ? '' : 's' }} en uno. Pagos, gastos y movimientos
-        pasan al destino; los de origen se archivan.
+        de los demás pasan al destino; esos se archivan.
       </p>
+      <p class="hint">Elegí bien el destino: ese es el que queda y el que vas a ver en reportes.</p>
       <ul class="src">
         @for (c of data.selected; track c.id) {
           <li>{{ c.name }}</li>
@@ -90,6 +91,12 @@ export type AdminConceptsUnifyData = {
     .lead {
       margin: 0 0 0.75rem;
       line-height: 1.45;
+    }
+    .hint {
+      margin: 0 0 0.65rem;
+      font-size: 0.9rem;
+      color: var(--guy-muted, #5a6b7d);
+      line-height: 1.4;
     }
     .src {
       margin: 0 0 1rem;

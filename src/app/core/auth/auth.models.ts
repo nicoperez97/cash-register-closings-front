@@ -1543,6 +1543,10 @@ export interface ShopSummary {
   salesSystemId?: string | null;
   /** Concepto del movimiento al retirar efectivo. null = Utilidades / Gastos varios. */
   cashWithdrawalConceptId?: string | null;
+  /** Cuenta destino de Equilibrar / Es dividendo. null = Dividendos del local. */
+  partnerDividendAccountId?: string | null;
+  /** Concepto de división de socios / dividendos. null = sin concepto. */
+  partnerDividendConceptId?: string | null;
   posnets?: ShopPosnet[];
   paymentConceptCategories?: {
     supplier?: string[];
