@@ -11,8 +11,8 @@
         </p>
       </div>
       <span class="mon-clock">{{ clockLabel() }}</span>
-      @if (data()?.tables?.length) {
-        <span class="mon-pill">{{ data()!.tables.length }} mesas</span>
+      @if (!loading()) {
+        <span class="mon-pill">{{ summary().sends }} envíos · {{ summary().openTables }} mesas</span>
       }
       <button type="button" class="mon-icon" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
         <mat-icon>info_outline</mat-icon>
@@ -29,94 +29,132 @@
   @if (loading() && !data()) {
     <p class="mon-empty">Cargando…</p>
   } @else {
-    <div class="mon-grid">
-      <section class="mon-col">
-        <header>
-          <h2>Mesas abiertas</h2>
-          <span>{{ data()?.tables?.length || 0 }}</span>
-        </header>
-        <div class="mon-col__list">
-          @for (t of data()?.tables ?? []; track t.sessionId) {
-            <article class="mon-card">
-              <header>
-                <strong>Mesa {{ t.tableLabel }}</strong>
-                <time>{{ ageLabel(t.openedAt) }}</time>
-              </header>
-              <p class="mon-meta">
-                {{ t.sectorName }} · {{ t.covers }} com. · {{ t.waiterName }}
-                @if (t.customerTicketPrinted) {
-                  · ticket
-                }
-              </p>
-              <ul>
-                @for (line of t.lines; track $index) {
-                  <li [class.mon-extra]="line.extra">
-                    {{ line.extra ? '+ ' : line.qty + '× ' }}{{ line.name }}
-                  </li>
-                }
-              </ul>
-              <p class="mon-card__total">{{ money(t.total) }}</p>
-            </article>
-          } @empty {
-            <p class="mon-col__empty">No hay mesas con envíos.</p>
-          }
+    <section class="mon-summary" aria-label="Resumen del turno">
+      <h2>Resumen del turno</h2>
+      <div class="mon-summary__grid">
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Mesas abiertas</span>
+          <strong>{{ summary().openTables }}</strong>
         </div>
-      </section>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Comensales</span>
+          <strong>{{ summary().openCovers }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Envíos</span>
+          <strong>{{ summary().sends }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Tickets</span>
+          <strong>{{ summary().ticketsPrinted }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Cambios</span>
+          <strong>{{ summary().audits }}</strong>
+        </div>
+        <div class="mon-summary__item mon-summary__item--money">
+          <span class="mon-summary__label">Abierto $</span>
+          <strong>{{ money(summary().openTotal) }}</strong>
+        </div>
+        <div class="mon-summary__item mon-summary__item--money">
+          <span class="mon-summary__label">Envíos $</span>
+          <strong>{{ money(summary().sendsTotal) }}</strong>
+        </div>
+      </div>
+    </section>
 
-      <section class="mon-col">
-        <header>
-          <h2>Últimos envíos</h2>
-          <span>{{ data()?.recentOrders?.length || 0 }}</span>
-        </header>
-        <div class="mon-col__list">
-          @for (o of data()?.recentOrders ?? []; track o.id) {
-            <article class="mon-card">
-              <header>
-                <strong>#{{ o.code }} · Mesa {{ o.tableLabel }}</strong>
-                <time>{{ o.createdAt | date: 'HH:mm' }}</time>
-              </header>
-              <p class="mon-meta">{{ o.waiterName }}</p>
-              <ul>
-                @for (line of o.items; track $index) {
-                  <li [class.mon-extra]="line.extra">
-                    {{ line.extra ? '+ ' : line.qty + '× ' }}{{ line.name }}
-                  </li>
-                }
-              </ul>
-              <p class="mon-card__total">{{ money(o.total) }}</p>
-            </article>
-          } @empty {
-            <p class="mon-col__empty">Todavía no hay envíos.</p>
-          }
-        </div>
-      </section>
+    @if (visibleColumns().length) {
+      <div class="mon-grid" [style.--mon-cols]="visibleColumns().length">
+        @if (visibleColumns().includes('tables')) {
+          <section class="mon-col">
+            <header>
+              <h2>Mesas abiertas</h2>
+              <span>{{ data()?.tables?.length || 0 }}</span>
+            </header>
+            <div class="mon-col__list">
+              @for (t of data()?.tables ?? []; track t.sessionId) {
+                <article class="mon-card">
+                  <header>
+                    <strong>Mesa {{ t.tableLabel }}</strong>
+                    <time>{{ ageLabel(t.openedAt) }}</time>
+                  </header>
+                  <p class="mon-meta">
+                    {{ t.sectorName }} · {{ t.covers }} com. · {{ t.waiterName }}
+                    @if (t.customerTicketPrinted) {
+                      · ticket
+                    }
+                  </p>
+                  <ul>
+                    @for (line of t.lines; track $index) {
+                      <li [class.mon-extra]="line.extra">
+                        {{ line.extra ? '+ ' : line.qty + '× ' }}{{ line.name }}
+                      </li>
+                    }
+                  </ul>
+                  <p class="mon-card__total">{{ money(t.total) }}</p>
+                </article>
+              }
+            </div>
+          </section>
+        }
 
-      <section class="mon-col mon-col--audit">
-        <header>
-          <h2>Cambios del turno</h2>
-          <span>{{ data()?.recentAudits?.length || 0 }}</span>
-        </header>
-        <div class="mon-col__list">
-          @for (a of data()?.recentAudits ?? []; track a.id) {
-            <article class="mon-card mon-card--audit">
-              <header>
-                <strong>
-                  @if (a.tableLabel) {
-                    Mesa {{ a.tableLabel }}
-                  } @else {
-                    Envío #{{ a.orderCode }}
-                  }
-                </strong>
-                <time>{{ a.createdAt | date: 'HH:mm' }}</time>
-              </header>
-              <p class="mon-meta">{{ a.actorName }} · #{{ a.orderCode }}</p>
-              <p class="mon-audit">{{ auditText(a) }}</p>
-            </article>
-          } @empty {
-            <p class="mon-col__empty">Sin quitas ni cambios de precio en este turno.</p>
-          }
-        </div>
-      </section>
-    </div>
+        @if (visibleColumns().includes('sends')) {
+          <section class="mon-col">
+            <header>
+              <h2>Últimos envíos</h2>
+              <span>{{ data()?.recentOrders?.length || 0 }}</span>
+            </header>
+            <div class="mon-col__list">
+              @for (o of data()?.recentOrders ?? []; track o.id) {
+                <article class="mon-card">
+                  <header>
+                    <strong>#{{ o.code }} · Mesa {{ o.tableLabel }}</strong>
+                    <time>{{ o.createdAt | date: 'HH:mm' }}</time>
+                  </header>
+                  <p class="mon-meta">{{ o.waiterName }}</p>
+                  <ul>
+                    @for (line of o.items; track $index) {
+                      <li [class.mon-extra]="line.extra">
+                        {{ line.extra ? '+ ' : line.qty + '× ' }}{{ line.name }}
+                      </li>
+                    }
+                  </ul>
+                  <p class="mon-card__total">{{ money(o.total) }}</p>
+                </article>
+              }
+            </div>
+          </section>
+        }
+
+        @if (visibleColumns().includes('audits')) {
+          <section class="mon-col mon-col--audit">
+            <header>
+              <h2>Cambios del turno</h2>
+              <span>{{ data()?.recentAudits?.length || 0 }}</span>
+            </header>
+            <div class="mon-col__list">
+              @for (a of data()?.recentAudits ?? []; track a.id) {
+                <article class="mon-card mon-card--audit">
+                  <header>
+                    <strong>
+                      @if (a.tableLabel) {
+                        Mesa {{ a.tableLabel }}
+                      } @else {
+                        Envío #{{ a.orderCode }}
+                      }
+                    </strong>
+                    <time>{{ a.createdAt | date: 'HH:mm' }}</time>
+                  </header>
+                  <p class="mon-meta">{{ a.actorName }} · #{{ a.orderCode }}</p>
+                  <p class="mon-audit">{{ auditText(a) }}</p>
+                </article>
+              }
+            </div>
+          </section>
+        }
+      </div>
+    } @else if (!loading()) {
+      <p class="mon-empty">No hay actividad de comanda en este turno.</p>
+    }
   }
 </div>

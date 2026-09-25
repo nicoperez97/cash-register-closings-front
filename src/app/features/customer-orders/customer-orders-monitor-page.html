@@ -6,8 +6,8 @@
         <p>{{ shops.selectedShop()?.name || '' }} · en vivo</p>
       </div>
       <span class="mon-clock">{{ clockLabel() }}</span>
-      @if (openTotal()) {
-        <span class="mon-pill">{{ openTotal() }} abiertos</span>
+      @if (!loading()) {
+        <span class="mon-pill">{{ summary().totalCount }} del turno</span>
       }
       <button type="button" class="mon-icon" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
         <mat-icon>info_outline</mat-icon>
@@ -24,22 +24,63 @@
   @if (loading() && !orders().length) {
     <p class="mon-empty">Cargando…</p>
   } @else {
-    <div class="mon-board">
-      @for (col of boardColumns(); track col.id) {
-        <section class="mon-col" [attr.data-col]="col.id">
-          <header>
-            <h2>{{ col.title }}</h2>
-            <span [class.mon-col__hot]="col.id === 'pending' && col.orders.length">{{ col.orders.length }}</span>
-          </header>
-          <div class="mon-col__list">
-            @if (!col.orders.length) {
-              <p class="mon-col__empty">—</p>
-            } @else {
+    <section class="mon-summary" aria-label="Resumen del turno">
+      <h2>Resumen del turno</h2>
+      <div class="mon-summary__grid">
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Abiertos</span>
+          <strong>{{ summary().open }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Completados</span>
+          <strong>{{ summary().done }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Cancelados</span>
+          <strong>{{ summary().cancelled }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Take away</span>
+          <strong>{{ summary().takeaway }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Delivery</span>
+          <strong>{{ summary().delivery }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Mostrador</span>
+          <strong>{{ summary().counter }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Acreditados</span>
+          <strong>{{ summary().accredited }}</strong>
+        </div>
+        <div class="mon-summary__item mon-summary__item--money">
+          <span class="mon-summary__label">Total</span>
+          <strong>{{ money(summary().total) }}</strong>
+        </div>
+      </div>
+    </section>
+
+    @if (boardColumns().length) {
+      <div class="mon-board" [style.--mon-cols]="boardColumns().length">
+        @for (col of boardColumns(); track col.id) {
+          <section class="mon-col" [attr.data-col]="col.id">
+            <header>
+              <h2>{{ col.title }}</h2>
+              <span [class.mon-col__hot]="col.id === 'pending'">{{ col.orders.length }}</span>
+            </header>
+            <div class="mon-col__list">
               @for (o of col.orders; track o.id) {
-                <article class="mon-card" [class.mon-card--pending]="o.status === 'PENDING'">
+                <article
+                  class="mon-card"
+                  [class.mon-card--pending]="o.status === 'PENDING'"
+                  [class.mon-card--done]="o.status === 'COMPLETED'"
+                  [class.mon-card--cancelled]="o.status === 'CANCELLED'"
+                >
                   <header>
                     <button type="button" class="mon-card__code" (click)="copyCode(o.code)">#{{ o.code }}</button>
-                    <time>{{ o.createdAt | date: 'HH:mm' }} · {{ ageLabel(o.createdAt) }}</time>
+                    <time>{{ cardTime(o) | date: 'HH:mm' }} · {{ ageLabel(cardTime(o)) }}</time>
                   </header>
                   <p class="mon-card__guest">
                     <strong>{{ o.lastName }}, {{ o.firstName }}</strong>
@@ -65,20 +106,19 @@
                     <span>{{ paymentText(o) }}</span>
                     @if (isAccredited(o)) {
                       <span class="mon-card__ok">Acreditado</span>
-                    } @else {
+                    } @else if (o.status !== 'CANCELLED') {
                       <span class="mon-card__wait">Sin acreditar</span>
                     }
                   </p>
                   <p class="mon-card__total">{{ money(o.total) }}</p>
                 </article>
               }
-            }
-          </div>
-        </section>
-      }
-    </div>
-    @if (!openTotal() && !loading()) {
-      <p class="mon-empty">No hay pedidos abiertos. Cuando confirmen en /pedir, aparecen acá.</p>
+            </div>
+          </section>
+        }
+      </div>
+    } @else if (!loading()) {
+      <p class="mon-empty">No hay pedidos en este turno. Cuando confirmen en /pedir, aparecen acá.</p>
     }
   }
 </div>

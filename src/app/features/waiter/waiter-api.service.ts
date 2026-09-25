@@ -167,9 +167,19 @@ export type ComandaMonitorOrder = {
 export type ComandaMonitorPayload = {
   shopName: string;
   shiftName?: string | null;
+  businessDate?: string | null;
   tables: ComandaMonitorTable[];
   recentOrders: ComandaMonitorOrder[];
   recentAudits: WaiterLineAudit[];
+  summary?: {
+    openTables: number;
+    openCovers: number;
+    openTotal: number;
+    sends: number;
+    sendsTotal: number;
+    ticketsPrinted: number;
+    audits: number;
+  };
 };
 
 export type WaiterSession = {

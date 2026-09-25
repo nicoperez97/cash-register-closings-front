@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { debounceTime, filter, interval, of, switchMap } from 'rxjs';
+import { catchError, debounceTime, filter, interval, of, switchMap } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -23,7 +23,7 @@ import { isOrderAccredited, orderPaymentText, STATUS_LABEL } from './customer-or
 import { groupOrderLines, OrderLineGroup } from './ordering-ui.util';
 import { playCustomerOrderPendingSound, bindReservationAlertSoundUnlock } from '../reservations/reservation-alert-sound';
 
-type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery';
+type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery' | 'done' | 'cancelled';
 const BOARD_COLUMNS: Array<{
   id: BoardColumnId;
   title: string;
@@ -33,7 +33,12 @@ const BOARD_COLUMNS: Array<{
   { id: 'kitchen', title: 'En cocina', statuses: ['ACCEPTED', 'PREPARING'] },
   { id: 'ready', title: 'Listos', statuses: ['READY'] },
   { id: 'delivery', title: 'En camino', statuses: ['OUT_FOR_DELIVERY'] },
+  { id: 'done', title: 'Completados', statuses: ['COMPLETED'] },
+  { id: 'cancelled', title: 'Cancelados', statuses: ['CANCELLED'] },
 ];
+
+const ALL_STATUSES =
+  'PENDING,ACCEPTED,PREPARING,READY,OUT_FOR_DELIVERY,COMPLETED,CANCELLED';
 
 @Component({
   selector: 'app-customer-orders-monitor-page',
@@ -54,19 +59,59 @@ export class CustomerOrdersMonitorPage {
   private lastKnownIds = new Set<string>();
   private skipChime = true;
 
+  /** Solo columnas con al menos un pedido. */
   readonly boardColumns = computed(() => {
     const rows = this.orders();
     return BOARD_COLUMNS.map((col) => ({
       ...col,
       orders: rows
         .filter((o) => col.statuses.includes(o.status))
-        .sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? ''))),
-    }));
+        .sort((a, b) => {
+          const aKey =
+            col.id === 'done'
+              ? String(a.completedAt ?? a.createdAt ?? '')
+              : col.id === 'cancelled'
+                ? String(a.cancelledAt ?? a.createdAt ?? '')
+                : String(a.createdAt ?? '');
+          const bKey =
+            col.id === 'done'
+              ? String(b.completedAt ?? b.createdAt ?? '')
+              : col.id === 'cancelled'
+                ? String(b.cancelledAt ?? b.createdAt ?? '')
+                : String(b.createdAt ?? '');
+          return aKey.localeCompare(bKey);
+        }),
+    })).filter((col) => col.orders.length > 0);
   });
 
-  readonly openTotal = computed(() =>
-    this.boardColumns().reduce((n, c) => n + c.orders.length, 0),
-  );
+  readonly summary = computed(() => {
+    const rows = this.orders();
+    const count = (pred: (o: StaffCustomerOrder) => boolean) => rows.filter(pred).length;
+    const open = count(
+      (o) =>
+        o.status !== 'COMPLETED' &&
+        o.status !== 'CANCELLED',
+    );
+    const done = count((o) => o.status === 'COMPLETED');
+    const cancelled = count((o) => o.status === 'CANCELLED');
+    const takeaway = count((o) => o.fulfillment === 'TAKEAWAY');
+    const delivery = count((o) => o.fulfillment === 'DELIVERY');
+    const counter = count((o) => o.fulfillment === 'COUNTER');
+    const accredited = count((o) => isOrderAccredited(o));
+    const total = rows.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    return {
+      totalCount: rows.length,
+      open,
+      done,
+      cancelled,
+      takeaway,
+      delivery,
+      counter,
+      accredited,
+      pendingPay: Math.max(0, rows.length - accredited),
+      total,
+    };
+  });
 
   readonly clockLabel = computed(() =>
     new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(
@@ -140,6 +185,12 @@ export class CustomerOrdersMonitorPage {
     return `${Math.floor(min / 60)} h`;
   }
 
+  cardTime(order: StaffCustomerOrder): string | null {
+    if (order.status === 'COMPLETED') return order.completedAt ?? order.createdAt ?? null;
+    if (order.status === 'CANCELLED') return order.cancelledAt ?? order.createdAt ?? null;
+    return order.createdAt ?? null;
+  }
+
   async copyCode(code: string): Promise<void> {
     const ok = await copyText(code);
     this.snack.open(ok ? `Código ${code} copiado` : 'No se pudo copiar', 'OK', { duration: 2000 });
@@ -163,15 +214,17 @@ export class CustomerOrdersMonitorPage {
       return;
     }
     this.loading.set(true);
+    // Solo pedidos del turno vigente (abiertos, completados y cancelados).
     this.api
-      .listStaff(shopId, {
-        status: 'PENDING,ACCEPTED,PREPARING,READY,OUT_FOR_DELIVERY',
-      })
+      .listStaff(shopId, { status: ALL_STATUSES, scope: 'current-shift' })
+      .pipe(catchError(() => of([] as StaffCustomerOrder[])))
       .subscribe({
         next: (rows) => {
           const nextIds = new Set(rows.map((r) => r.id));
           if (!this.skipChime && this.lastKnownIds.size) {
-            const fresh = rows.filter((r) => !this.lastKnownIds.has(r.id));
+            const fresh = rows.filter(
+              (r) => !this.lastKnownIds.has(r.id) && r.status === 'PENDING',
+            );
             if (fresh.length) playCustomerOrderPendingSound();
           }
           this.skipChime = false;
