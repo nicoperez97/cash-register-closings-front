@@ -1,15 +1,24 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import { FilterChipsComponent, SegmentTabsComponent } from '../../shared/components/filter-bar';
+import {
+  SelectSearchComponent,
+  filterBySelectQuery,
+  onSelectSearchOpened,
+} from '../../shared/components/select-search';
+import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
-import { accountTypeLabel, activeLabel } from '../../core/i18n/labels';
+import { accountTypeLabel, activeLabel, conceptKindLabel } from '../../core/i18n/labels';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -18,6 +27,8 @@ import { formatMoney } from '../../shared/utils/money';
 type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM' | 'DIVIDENDS';
 type AccountStatusFilter = 'all' | 'active' | 'inactive';
 type AccountWithdrawFilter = 'all' | 'visible' | 'hidden';
+
+type ConceptOption = { id: string; name: string; kind: string };
 
 const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
   { id: 'all', label: 'Todas' },
@@ -30,13 +41,18 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
 @Component({
   selector: 'app-admin-accounts',
   imports: [
+    ReactiveFormsModule,
     MatButtonModule,
     MatDialogModule,
+    MatFormFieldModule,
+    MatSelectModule,
     MatSnackBarModule,
     PageHeaderComponent,
     DataTableComponent,
     SegmentTabsComponent,
     FilterChipsComponent,
+    SelectSearchComponent,
+    BusyLabelComponent,
   ],
   template: `
     <app-page-header
@@ -47,6 +63,71 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
       [actionLarge]="true"
       (action)="openCreate()"
     />
+
+    <section class="panel-card split-cfg">
+      <header class="split-cfg__head">
+        <div>
+          <h2 class="split-cfg__title">División de socios</h2>
+          <p class="split-cfg__lead">
+            Cuenta y concepto que usan Equilibrar, Enviar a dividendos y las transferencias
+            marcadas como dividendo. El armado clásico (socio ↔ socio) solo toma el concepto.
+          </p>
+        </div>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="splitBusy() || splitForm.pristine"
+          (click)="saveSplitConfig()"
+        >
+          <app-busy-label [busy]="splitBusy()" busyLabel="Guardando…">Guardar</app-busy-label>
+        </button>
+      </header>
+      <form [formGroup]="splitForm" class="split-cfg__fields">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Cuenta destino</mat-label>
+          <mat-select
+            formControlName="partnerDividendAccountId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, accountQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="accountQuery" placeholder="Buscar cuenta…" />
+            </mat-option>
+            <mat-option [value]="null">Automático (Dividendos)</mat-option>
+            @for (a of filteredSplitAccounts(); track a.id) {
+              <mat-option [value]="a.id">
+                {{ a.name }} · {{ accountTypeLabel(a.type) }}
+              </mat-option>
+            }
+            @if (accountQuery() && !filteredSplitAccounts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Ahí entra la plata al equilibrar o marcar Es dividendo.</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto</mat-label>
+          <mat-select
+            formControlName="partnerDividendConceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+            </mat-option>
+            <mat-option [value]="null">Sin concepto</mat-option>
+            @for (c of filteredConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
+            }
+            @if (conceptQuery() && !filteredConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Se usa en Transacciones y en el reporte de conceptos.</mat-hint>
+        </mat-form-field>
+      </form>
+    </section>
 
     <app-segment-tabs
       ariaLabel="Tipo de cuenta"
@@ -75,6 +156,35 @@ const TYPE_TABS: Array<{ id: AccountTypeTab; label: string }> = [
     </div>
   `,
   styles: `
+    .split-cfg {
+      margin: 0 0 1rem;
+      padding: 1rem 1.1rem 1.15rem;
+    }
+    .split-cfg__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem 1rem;
+      margin-bottom: 0.85rem;
+    }
+    .split-cfg__title {
+      margin: 0 0 0.25rem;
+      font-size: 1.05rem;
+      font-weight: 650;
+    }
+    .split-cfg__lead {
+      margin: 0;
+      max-width: 42rem;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      color: var(--guy-muted, #5a6b7d);
+    }
+    .split-cfg__fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.75rem 1rem;
+    }
     app-segment-tabs {
       margin: 0 0 0.75rem;
     }
@@ -93,10 +203,13 @@ export class AdminAccountsPage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly accountDelete = inject(AdminAccountDeleteService);
+  private readonly fb = inject(FormBuilder);
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminAccountRow[]>([]);
+  readonly concepts = signal<ConceptOption[]>([]);
   readonly loading = signal(true);
+  readonly splitBusy = signal(false);
   readonly typeTab = signal<AccountTypeTab>('all');
   readonly statusFilter = signal<AccountStatusFilter>('active');
   readonly withdrawFilter = signal<AccountWithdrawFilter>('all');
@@ -111,6 +224,37 @@ export class AdminAccountsPage {
     { id: 'visible' as const, label: 'Visible' },
     { id: 'hidden' as const, label: 'Oculta' },
   ];
+
+  readonly accountQuery = signal('');
+  readonly conceptQuery = signal('');
+  readonly onSelectSearchOpened = onSelectSearchOpened;
+  readonly kindLabel = conceptKindLabel;
+  readonly accountTypeLabel = accountTypeLabel;
+
+  readonly splitForm = this.fb.nonNullable.group({
+    partnerDividendAccountId: this.fb.control<string | null>(null),
+    partnerDividendConceptId: this.fb.control<string | null>(null),
+  });
+
+  readonly filteredSplitAccounts = computed(() =>
+    filterBySelectQuery(
+      this.rows().filter(
+        (a) => a.active !== false && a.type !== 'SYSTEM' && a.type !== 'SUPPLIER' && a.type !== 'SERVICE',
+      ),
+      this.accountQuery(),
+      (a) => `${a.name} ${a.code ?? ''} ${accountTypeLabel(a.type)}`,
+      this.splitForm.controls.partnerDividendAccountId.value,
+    ),
+  );
+
+  readonly filteredConcepts = computed(() =>
+    filterBySelectQuery(
+      this.concepts(),
+      this.conceptQuery(),
+      (c) => `${c.name} ${this.kindLabel(c.kind)}`,
+      this.splitForm.controls.partnerDividendConceptId.value,
+    ),
+  );
 
   readonly visibleRows = computed(() => {
     const tab = this.typeTab();
@@ -179,6 +323,7 @@ export class AdminAccountsPage {
       const shopId = this.shops.selectedShopId();
       if (!shopId) {
         this.rows.set([]);
+        this.concepts.set([]);
         this.loading.set(false);
         return;
       }
@@ -201,10 +346,71 @@ export class AdminAccountsPage {
         next: (rows) => {
           this.rows.set(rows);
           this.loading.set(false);
+          this.syncSplitFormFromShop();
         },
         error: () => {
           this.loading.set(false);
           this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 });
+        },
+      });
+    this.http.get<Array<ConceptOption & { active?: boolean }>>(
+      `${environment.apiUrl}/shops/${shopId}/concepts`,
+    ).subscribe({
+      next: (rows) =>
+        this.concepts.set(
+          (rows ?? [])
+            .filter((c) => c.active !== false)
+            .map((c) => ({ id: c.id, name: c.name, kind: c.kind })),
+        ),
+      error: () => this.concepts.set([]),
+    });
+  }
+
+  syncSplitFormFromShop(): void {
+    const shop = this.shops.selectedShop();
+    this.splitForm.reset(
+      {
+        partnerDividendAccountId: shop?.partnerDividendAccountId ?? null,
+        partnerDividendConceptId: shop?.partnerDividendConceptId ?? null,
+      },
+      { emitEvent: false },
+    );
+  }
+
+  saveSplitConfig(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const raw = this.splitForm.getRawValue();
+    this.splitBusy.set(true);
+    this.http
+      .put<{
+        partnerDividendAccountId?: string | null;
+        partnerDividendConceptId?: string | null;
+      }>(`${environment.apiUrl}/shops/${shopId}/accounts/partner-dividend-config`, {
+        partnerDividendAccountId: raw.partnerDividendAccountId || null,
+        partnerDividendConceptId: raw.partnerDividendConceptId || null,
+      })
+      .subscribe({
+        next: (cfg) => {
+          this.splitBusy.set(false);
+          const current = this.shops.selectedShop();
+          if (current) {
+            this.shops.upsertShop({
+              ...current,
+              partnerDividendAccountId: cfg.partnerDividendAccountId ?? null,
+              partnerDividendConceptId: cfg.partnerDividendConceptId ?? null,
+            });
+          }
+          this.splitForm.markAsPristine();
+          this.snack.open('Configuración de división guardada', 'OK', { duration: 2500 });
+        },
+        error: (err) => {
+          this.splitBusy.set(false);
+          const msg =
+            err?.error?.message ||
+            (Array.isArray(err?.error?.message) ? err.error.message.join(' · ') : null) ||
+            'No se pudo guardar';
+          this.snack.open(String(msg), 'OK', { duration: 4000 });
         },
       });
   }
