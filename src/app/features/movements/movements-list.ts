@@ -481,8 +481,9 @@ export class MovementsListPage {
       format: (r) => {
         const name = String(r['conceptName'] ?? '').trim();
         if (!name && !r['conceptId']) return 'Sin concepto';
-        if (r['conceptDeleted']) {
-          return name ? `${name} · eliminado` : 'Concepto eliminado';
+        if (r['conceptDeleted'] || /__DELETED__/i.test(name)) {
+          const base = name.replace(/__DELETED__.*/i, '').trim();
+          return base ? `${base} · eliminado` : 'Concepto eliminado';
         }
         return name || '—';
       },

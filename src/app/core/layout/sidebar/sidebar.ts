@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +12,7 @@ import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../utils/drive-url';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PageRefreshService } from '../../page-refresh.service';
+import { normalizeSelectQuery } from '../../../shared/components/select-search';
 import { groupIdFromRoute, navGroupPagePath } from '../nav-config';
 
 export interface NavChild {
@@ -35,6 +36,15 @@ export interface NavItem {
   badgeInGroup?: boolean;
   /** Al clickear el grupo (rail o título), navegar a esta ruta. */
   defaultRoute?: string;
+}
+
+interface NavSearchHit {
+  label: string;
+  route: string;
+  icon: string;
+  groupLabel: string | null;
+  badge?: number | null;
+  exact?: boolean;
 }
 
 const EXPANDED_GROUPS_KEY = 'crc.nav.expandedGroups';
@@ -100,8 +110,46 @@ export class SidebarComponent {
   readonly currentUrl = signal(this.router.url);
   readonly shopPickerOpen = signal(false);
   readonly favoriteBusy = signal(false);
+  /** Texto del buscador de módulos. */
+  readonly moduleQuery = signal('');
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('moduleSearch');
   /** Grupos abiertos. Vacío = todos contraídos. Se guarda por usuario. */
   private readonly expandedGroups = signal<ReadonlySet<string>>(new Set());
+
+  /** Resultados planos mientras hay búsqueda; `null` = menú normal. */
+  readonly searchHits = computed((): NavSearchHit[] | null => {
+    const q = normalizeSelectQuery(this.moduleQuery());
+    if (!q) return null;
+    const hits: NavSearchHit[] = [];
+    for (const item of this.navItems()) {
+      const children = item.children ?? [];
+      if (children.length) {
+        const groupMatch = normalizeSelectQuery(item.label).includes(q);
+        for (const child of children) {
+          if (groupMatch || normalizeSelectQuery(child.label).includes(q)) {
+            hits.push({
+              label: child.label,
+              route: child.route,
+              icon: child.icon,
+              groupLabel: item.label,
+              badge: child.badge,
+              exact: child.exact === true || child.route === '/reports',
+            });
+          }
+        }
+      } else if (normalizeSelectQuery(item.label).includes(q)) {
+        hits.push({
+          label: item.label,
+          route: item.route,
+          icon: item.icon,
+          groupLabel: null,
+          badge: item.badge,
+          exact: item.exact === true,
+        });
+      }
+    }
+    return hits;
+  });
 
   constructor() {
     this.notifsInbox.ensureStarted();
@@ -123,6 +171,7 @@ export class SidebarComponent {
       .subscribe((e) => {
         this.currentUrl.set(e.urlAfterRedirects);
         this.shopPickerOpen.set(false);
+        this.clearModuleQuery();
       });
   }
 
@@ -143,7 +192,42 @@ export class SidebarComponent {
 
   onNavClick(): void {
     this.shopPickerOpen.set(false);
+    this.clearModuleQuery();
     this.navigate.emit();
+  }
+
+  onModuleQueryInput(value: string): void {
+    this.moduleQuery.set(value);
+  }
+
+  clearModuleQuery(): void {
+    if (!this.moduleQuery()) return;
+    this.moduleQuery.set('');
+  }
+
+  onModuleSearchKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.clearModuleQuery();
+      (event.target as HTMLInputElement | null)?.blur();
+    }
+  }
+
+  /** En rail: expandir y enfocar el buscador. */
+  openModuleSearch(): void {
+    if (this.rail()) {
+      this.expandRequest.emit();
+      setTimeout(() => this.focusModuleSearch(), 240);
+      return;
+    }
+    this.focusModuleSearch();
+  }
+
+  focusModuleSearch(): void {
+    const el = this.searchInput()?.nativeElement;
+    if (!el) return;
+    el.focus();
+    el.select();
   }
 
   toggleShopPicker(): void {

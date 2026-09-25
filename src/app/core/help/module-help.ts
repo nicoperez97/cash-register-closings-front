@@ -62,8 +62,9 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Tocá una tarjeta para abrir ese módulo.',
           'Atrás (arriba) vuelve a Inicio. Desde un módulo, Atrás vuelve a esta grilla.',
           'En el menú, la flecha a la derecha de Operación (u otro grupo) muestra u oculta la lista; el nombre o el ícono abre esta grilla. Las listas empiezan cerradas.',
+          'Arriba del menú podés Buscar módulo: escribe parte del nombre y tocá el resultado.',
         ],
-        tip: 'Si el menú está estrecho, tocá el ícono del grupo: también abre esta pantalla.',
+        tip: 'Si el menú está estrecho, tocá la lupa o el ícono del grupo: la lupa abre el buscador y el grupo abre esta pantalla.',
       },
     ],
   },
@@ -107,6 +108,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Usar menú del local borra tu personalización y vuelve al del local.',
           'Si tocás un grupo (Operación, Cuentas, etc.), se abre una grilla con esos módulos. La flecha a la derecha abre o cierra la lista (empieza contraída). Ese estado se guarda en este usuario. En el menú estrecho, el ícono del grupo abre la misma grilla.',
           'Arriba de cada módulo hay Atrás: vuelve a la grilla del grupo. En la grilla, Atrás vuelve a Inicio.',
+          'En la barra lateral, Buscar módulo filtra por nombre (también por el del grupo). Esc limpia; al navegar se limpia solo.',
         ],
       },
       {
