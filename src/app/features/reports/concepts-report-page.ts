@@ -25,6 +25,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { conceptKindLabel } from '../../core/i18n/labels';
+import { conceptLabelForUi } from '../../shared/utils/soft-delete-label';
 import {
   ClosingsApiService,
   ConceptsReportFilters,
@@ -179,7 +180,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
             <mat-select formControlName="conceptId">
               <mat-option value="">Todos</mat-option>
               @for (c of conceptOptions(); track c.id ?? c.name) {
-                <mat-option [value]="c.id || '__none'">{{ c.name }}</mat-option>
+                <mat-option [value]="c.id || '__none'">{{ conceptDisplayName(c.name) }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -417,6 +418,7 @@ export class ConceptsReportPage {
   readonly never = () => false;
   readonly money = money;
   readonly percent = percent;
+  readonly conceptDisplayName = (name?: string | null) => conceptLabelForUi(name, { empty: 'Sin concepto' });
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(
@@ -451,7 +453,7 @@ export class ConceptsReportPage {
 
   readonly topConceptBars = computed<ChartSlice[]>(() =>
     (this.summary()?.byConcept ?? []).slice(0, 10).map((c) => ({
-      label: c.name,
+      label: conceptLabelForUi(c.name, { empty: 'Sin concepto' }),
       value: c.amount,
     })),
   );
@@ -469,7 +471,13 @@ export class ConceptsReportPage {
   );
 
   readonly conceptRows = computed(() =>
-    (this.summary()?.byConcept ?? []).map((c) => ({ ...c }) as Record<string, unknown>),
+    (this.summary()?.byConcept ?? []).map(
+      (c) =>
+        ({
+          ...c,
+          name: conceptLabelForUi(c.name, { empty: 'Sin concepto' }),
+        }) as Record<string, unknown>,
+    ),
   );
 
   readonly conceptTotal = computed(() =>
