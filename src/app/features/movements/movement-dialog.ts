@@ -221,7 +221,7 @@ function toDateString(value: Date | null): string {
                 <strong>Destino</strong>
                 <span>{{
                   isDividendOn()
-                    ? 'Cuenta Dividendos del local'
+                    ? 'Cuenta de división (config en Cuentas)'
                     : isTransfer
                       ? 'A dónde entra'
                       : 'Opcional · a dónde entra'
@@ -232,7 +232,11 @@ function toDateString(value: Date | null): string {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Cuenta</mat-label>
                 <mat-icon matPrefix>savings</mat-icon>
-                <input matInput readonly [value]="dividendsAccount()?.name ?? 'Dividendos'" />
+                <input
+                  matInput
+                  readonly
+                  [value]="dividendDestAccount()?.name ?? 'Egreso'"
+                />
               </mat-form-field>
             } @else {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -272,30 +276,31 @@ function toDateString(value: Date | null): string {
           </section>
         </div>
 
-        @if (!isTransfer) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Concepto</mat-label>
-            <mat-icon matPrefix>sell</mat-icon>
-            <mat-select
-              formControlName="conceptId"
-              panelClass="guy-select-search-panel"
-              (openedChange)="onSelectSearchOpened($event, conceptQuery)"
-            >
-              <mat-option disabled class="select-search-opt">
-                <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
-              </mat-option>
-              @for (c of filteredConcepts(); track c.id) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
-              }
-              @if (conceptQuery() && !filteredConcepts().length) {
-                <mat-option disabled>Sin resultados</mat-option>
-              }
-            </mat-select>
-            @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
-              <mat-error>Elegí un concepto</mat-error>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto{{ isTransfer ? ' (opcional)' : '' }}</mat-label>
+          <mat-icon matPrefix>sell</mat-icon>
+          <mat-select
+            formControlName="conceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+            </mat-option>
+            @if (isTransfer) {
+              <mat-option [value]="null">Sin concepto</mat-option>
             }
-          </mat-form-field>
-        }
+            @for (c of filteredConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+            @if (conceptQuery() && !filteredConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
+            <mat-error>Elegí un concepto</mat-error>
+          }
+        </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Descripción</mat-label>
@@ -305,11 +310,11 @@ function toDateString(value: Date | null): string {
 
         @if (isTransfer) {
           <mat-checkbox formControlName="isDividend" (change)="onDividendToggle()">
-            Es dividendo (va a Dividendos, no al saldo del otro socio)
+            Es dividendo (va a la cuenta de división, no al saldo del otro socio)
           </mat-checkbox>
           <p class="mov-dividend-hint">
-            Baja del socio origen y se acumula en Dividendos. Si es para otro socio, elegilo abajo:
-            no le suma saldo (no cuenta para Equilibrar).
+            Baja del socio origen y va a la cuenta configurada en Cuentas (por defecto Egreso, con
+            concepto División). Si es para otro socio, elegilo abajo: no le suma saldo.
           </p>
           @if (isDividendOn()) {
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -887,7 +892,7 @@ export class MovementDialogComponent implements OnInit {
       this.isTransfer || this.isIncome ? Validators.required : [],
     ],
     conceptId: this.fb.control<string | null>(
-      this.isTransfer ? null : (this.movement?.conceptId ?? null),
+      this.movement?.conceptId ?? null,
       this.isTransfer ? [] : [Validators.required],
     ),
     description: [this.movement?.description ?? ''],
@@ -993,6 +998,10 @@ export class MovementDialogComponent implements OnInit {
         }
         this.accounts.set(accounts);
         this.concepts.set(this.mergeEditConcept(concepts));
+        if (this.isEdit && this.movement?.conceptDeleted) {
+          this.form.controls.conceptId.setValue(null);
+          this.form.controls.conceptId.markAsDirty();
+        }
         this.employees.set(employees.map((e) => ({ id: e.id, fullName: e.fullName })));
         const keepIds = new Set(
           this.movement
@@ -1041,6 +1050,7 @@ export class MovementDialogComponent implements OnInit {
   private mergeEditConcept(list: Concept[]): Concept[] {
     const movement = this.movement;
     if (!movement?.conceptId || list.some((c) => c.id === movement.conceptId)) return list;
+    if (movement.conceptDeleted) return list;
     return [
       {
         id: movement.conceptId,
@@ -1075,9 +1085,20 @@ export class MovementDialogComponent implements OnInit {
     );
   }
 
-  readonly dividendsAccount = computed(() =>
-    this.accounts().find((a) => a.type === 'DIVIDENDS' || a.code === 'DIVIDENDOS') ?? null,
-  );
+  readonly dividendDestAccount = computed(() => {
+    const configuredId = this.shops.selectedShop()?.partnerDividendAccountId ?? null;
+    if (configuredId) {
+      const configured = this.accounts().find((a) => a.id === configuredId);
+      if (configured) return configured;
+    }
+    return (
+      this.accounts().find((a) => String(a.code ?? '').toUpperCase() === 'EGRESO') ??
+      this.accounts().find(
+        (a) => a.type === 'SYSTEM' && /egreso/i.test(String(a.name ?? '')),
+      ) ??
+      null
+    );
+  });
 
   private readonly isDividendValue = toSignal(
     this.form.controls.isDividend.valueChanges.pipe(
@@ -1091,7 +1112,7 @@ export class MovementDialogComponent implements OnInit {
   readonly localAccounts = computed(() =>
     this.selectableAccounts().filter(
       (a) =>
-        (this.listedForKind(a) || a.type === 'DIVIDENDS') &&
+        (this.listedForKind(a) || a.type === 'DIVIDENDS' || a.type === 'SYSTEM') &&
         (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'DIVIDENDS'),
     ),
   );
@@ -1238,7 +1259,7 @@ export class MovementDialogComponent implements OnInit {
     if (!this.isTransfer) return;
     const on = !!this.form.controls.isDividend.value;
     if (on) {
-      const dest = this.dividendsAccount();
+      const dest = this.dividendDestAccount();
       if (!dest) {
         this.form.controls.isDividend.setValue(false, { emitEvent: false });
         this.form.controls.toAccountId.enable({ emitEvent: false });
@@ -1247,7 +1268,7 @@ export class MovementDialogComponent implements OnInit {
         );
         this.form.controls.toAccountId.updateValueAndValidity({ emitEvent: false });
         this.snack.open(
-          'Falta la cuenta Dividendos del local. Recargá o pedile a un admin que abra Cuentas.',
+          'Falta la cuenta Egreso (o la cuenta de división configurada). Abrí Cuentas y guardá la config.',
           'OK',
           { duration: 4500 },
         );
@@ -1277,9 +1298,9 @@ export class MovementDialogComponent implements OnInit {
     let toAccountId = raw.toAccountId || null;
     const isDividend = this.isTransfer && !!raw.isDividend;
     if (isDividend) {
-      const dest = this.accounts().find((a) => a.type === 'DIVIDENDS' || a.code === 'DIVIDENDOS');
+      const dest = this.dividendDestAccount();
       if (!dest) {
-        this.snack.open('Falta la cuenta Dividendos del local', 'OK', { duration: 3500 });
+        this.snack.open('Falta la cuenta de división (Egreso)', 'OK', { duration: 3500 });
         return;
       }
       toAccountId = dest.id;
@@ -1345,7 +1366,7 @@ export class MovementDialogComponent implements OnInit {
       toUserId: beneficiaryId
         ? this.userIdForAccount(beneficiaryId)
         : this.userIdForAccount(toAccountId),
-      conceptId: this.isTransfer ? null : raw.conceptId,
+      conceptId: raw.conceptId || null,
       description: raw.description.trim() || null,
       amountUyu: parseLocaleNumber(raw.amountUyu),
       usdRate: raw.usdRate,

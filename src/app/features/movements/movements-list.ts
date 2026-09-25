@@ -179,17 +179,17 @@ import { shopHasMultipleShifts, shopShiftsOf } from '../../core/shop/shop-shifts
               </mat-form-field>
             }
 
-            @if (kind() !== 'transfer') {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Concepto</mat-label>
-                <mat-select formControlName="conceptId" (selectionChange)="applyFilter()">
-                  <mat-option value="">Todos</mat-option>
-                  @for (c of concepts(); track c.id) {
-                    <mat-option [value]="c.id">{{ c.name }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-            }
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Concepto</mat-label>
+              <mat-select formControlName="conceptId" (selectionChange)="applyFilter()">
+                <mat-option value="">Todos</mat-option>
+                <mat-option value="__none">Sin concepto</mat-option>
+                <mat-option value="__deleted">Concepto eliminado</mat-option>
+                @for (c of concepts(); track c.id) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Cuenta</mat-label>
@@ -475,13 +475,18 @@ export class MovementsListPage {
         },
       },
     );
-    if (this.kind() !== 'transfer') {
-      base.push({
-        key: 'conceptName',
-        label: 'Concepto',
-        format: (r) => r['conceptName'] ?? '—',
-      });
-    }
+    base.push({
+      key: 'conceptName',
+      label: 'Concepto',
+      format: (r) => {
+        const name = String(r['conceptName'] ?? '').trim();
+        if (!name && !r['conceptId']) return 'Sin concepto';
+        if (r['conceptDeleted']) {
+          return name ? `${name} · eliminado` : 'Concepto eliminado';
+        }
+        return name || '—';
+      },
+    });
     if (this.kind() === 'expense' || this.kind() === 'all') {
       base.push({
         key: 'paymentMethod',
@@ -971,7 +976,7 @@ export class MovementsListPage {
   private currentFilters(): MovementFilters {
     const f = this.filters.getRawValue();
     const expense = this.kind() === 'expense' || this.kind() === 'all';
-    const withConcept = this.kind() !== 'transfer';
+    const withConcept = true;
     const movementKind =
       this.kind() === 'all' && (f.movementKind === 'expense' || f.movementKind === 'income' || f.movementKind === 'transfer')
         ? f.movementKind
@@ -983,7 +988,7 @@ export class MovementsListPage {
       conceptId: withConcept ? f.conceptId || null : null,
       source: expense ? ((f.source || null) as MovementFilters['source']) : null,
       partyType: expense ? ((f.partyType || null) as MovementFilters['partyType']) : null,
-      invoiced: withConcept ? ((f.invoiced || null) as MovementFilters['invoiced']) : null,
+      invoiced: this.kind() !== 'transfer' ? ((f.invoiced || null) as MovementFilters['invoiced']) : null,
       paymentMethod: expense ? f.paymentMethod || null : null,
       employeeId: expense ? f.employeeId || null : null,
       hasReceipt: expense ? ((f.hasReceipt || null) as MovementFilters['hasReceipt']) : null,
