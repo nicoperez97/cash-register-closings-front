@@ -1064,9 +1064,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'monitor',
         tone: 'read',
         anyOf: ['customerOrders.read'],
-        body: 'Está en Operación → Monitor pedidos. Muestra los pedidos abiertos por estado y se actualiza solo.',
+        body: 'Está en Operación → Monitor pedidos. Muestra el resumen del turno vigente y las columnas con pedidos (solo las que tienen). Se actualiza solo.',
         items: [
-          'Las columnas son las mismas del tablero: pendientes, cocina, listos y en camino.',
+          'Arriba ves siempre el resumen del turno: abiertos, completados, cancelados, canales, acreditados y total en $.',
+          'Solo aparecen pedidos de este turno. Las columnas vacías no se muestran.',
           'No hay botones para avanzar ni acreditar: es para mirar. Para operar usá Pedidos clientes.',
           'Suena cuando entra un pedido nuevo (tocá una vez la pantalla si el navegador bloquea el audio).',
           'Tocá el código para copiarlo.',
@@ -1212,18 +1213,18 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'comanda-monitor',
     title: 'Monitor comanda',
-    summary: 'Mesas abiertas, últimos envíos y cambios de ítems ya emitidos.',
+    summary: 'Mesas, envíos y cambios del turno vigente.',
     blocks: [
       {
         title: 'Qué ves',
         icon: 'tv',
         tone: 'read',
         anyOf: ['comanda.manage', 'shops.manage'],
-        body: 'Está en Operación → Monitor comanda. Se actualiza solo. No reemplaza a Comanda ni a /mozo.',
+        body: 'Está en Operación → Monitor comanda. Solo el turno vigente. Se actualiza solo. No reemplaza a Comanda ni a /mozo.',
         items: [
-          'Mesas abiertas: mozo, comensales, ítems enviados y si ya salió el ticket cliente.',
-          'Últimos envíos: lo que acaba de ir a cocina.',
-          'Cambios del turno: si alguien quitó un ítem o cambió cantidad o precio después de emitir.',
+          'Arriba ves siempre el resumen: mesas abiertas, comensales, envíos, tickets, cambios y totales en $.',
+          'Solo aparecen las columnas con datos (mesas abiertas del turno, envíos del turno, cambios).',
+          'Mesas viejas de otros turnos no se listan.',
           'Para operar la mesa tocá Comanda arriba.',
         ],
         tip: 'Al entrar se ocultan la barra y el menú. Abajo a la izquierda: Menú y Barra.',

@@ -20,6 +20,8 @@ import {
 } from './waiter-api.service';
 import { comandaReasonLabel } from './comanda-line-reason-dialog';
 
+type MonitorColId = 'tables' | 'sends' | 'audits';
+
 @Component({
   selector: 'app-comanda-monitor-page',
   imports: [DatePipe, RouterLink, MatButtonModule, MatIconModule, MatSnackBarModule],
@@ -42,6 +44,34 @@ export class ComandaMonitorPage {
       this.now(),
     ),
   );
+
+  readonly summary = computed(() => {
+    const d = this.data();
+    const s = d?.summary;
+    if (s) return s;
+    const tables = d?.tables ?? [];
+    const sends = d?.recentOrders ?? [];
+    const audits = d?.recentAudits ?? [];
+    return {
+      openTables: tables.length,
+      openCovers: tables.reduce((n, t) => n + (Number(t.covers) || 0), 0),
+      openTotal: tables.reduce((n, t) => n + (Number(t.total) || 0), 0),
+      sends: sends.length,
+      sendsTotal: sends.reduce((n, o) => n + (Number(o.total) || 0), 0),
+      ticketsPrinted: tables.filter((t) => t.customerTicketPrinted).length,
+      audits: audits.length,
+    };
+  });
+
+  /** Solo columnas con datos del turno. */
+  readonly visibleColumns = computed((): MonitorColId[] => {
+    const d = this.data();
+    const cols: MonitorColId[] = [];
+    if (d?.tables?.length) cols.push('tables');
+    if (d?.recentOrders?.length) cols.push('sends');
+    if (d?.recentAudits?.length) cols.push('audits');
+    return cols;
+  });
 
   constructor() {
     usePageRefresh(() => this.reload());

@@ -57,6 +57,53 @@
   background: color-mix(in srgb, var(--guy-green, #2e7d32) 16%, #fff);
 }
 
+.mon-summary {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--guy-border, #d7e0d9) 18%, #fff);
+
+  h2 {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--guy-muted, #5f6f76);
+  }
+}
+
+.mon-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.45rem 0.65rem;
+}
+
+.mon-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+
+  strong {
+    font-size: 1.05rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+}
+
+.mon-summary__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.mon-summary__item--money strong {
+  font-size: 0.95rem;
+}
+
 .mon-top__actions {
   display: flex;
   align-items: center;
@@ -85,8 +132,9 @@
 }
 
 .mon-board {
+  --mon-cols: 4;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--mon-cols), minmax(0, 1fr));
   gap: 0.65rem;
   flex: 1;
   min-height: 0;
@@ -103,6 +151,14 @@
 
   &[data-col='pending'] {
     background: color-mix(in srgb, #e6a800 8%, #fff);
+  }
+
+  &[data-col='done'] {
+    background: color-mix(in srgb, var(--guy-green, #2e7d32) 7%, #fff);
+  }
+
+  &[data-col='cancelled'] {
+    background: color-mix(in srgb, #b42318 6%, #fff);
   }
 
   header {
@@ -157,6 +213,16 @@
 
 .mon-card--pending {
   border-color: color-mix(in srgb, #e6a800 45%, var(--guy-border, #d7e0d9));
+}
+
+.mon-card--done {
+  opacity: 0.92;
+  border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+}
+
+.mon-card--cancelled {
+  opacity: 0.85;
+  border-color: color-mix(in srgb, #b42318 30%, var(--guy-border, #d7e0d9));
 }
 
 .mon-card header {
@@ -241,7 +307,7 @@
 
 @media (max-width: 1100px) {
   .mon-board {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   }
 }
 
