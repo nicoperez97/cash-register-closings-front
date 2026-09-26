@@ -380,7 +380,13 @@ function saveMovementsBalancesOpen(open: boolean): void {
               [columns]="columns()"
               [rows]="rows()"
               [loading]="loading()"
-              [sortable]="true"
+              [sortable]="false"
+              [showSearch]="false"
+              [serverPaging]="true"
+              [total]="total()"
+              [pageIndex]="pageIndex()"
+              [pageSize]="pageSize()"
+              (page)="onPage($event)"
               [selectable]="canManage()"
               [selection]="selectedIds()"
               (selectionChange)="selectedIds.set($event)"
@@ -485,6 +491,10 @@ export class MovementsListPage {
   readonly shopId = this.shops.selectedShopId;
   readonly rows = signal<Movement[]>([]);
   readonly loading = signal(true);
+  // Paginación server-side.
+  readonly total = signal(0);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(50);
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
   readonly accounts = signal<LedgerAccount[]>([]);
   readonly concepts = signal<Concept[]>([]);
@@ -1060,7 +1070,14 @@ export class MovementsListPage {
 
   applyFilter(): void {
     this.clearSelection();
+    this.pageIndex.set(0);
     this.reloadToken.update((n) => n + 1);
+  }
+
+  onPage(ev: { pageIndex: number; pageSize: number }): void {
+    this.pageIndex.set(ev.pageIndex);
+    this.pageSize.set(ev.pageSize);
+    this.load();
   }
 
   toggleBalances(): void {
@@ -1193,9 +1210,13 @@ export class MovementsListPage {
       return;
     }
     this.loading.set(true);
-    this.api.list(shopId, this.currentFilters()).subscribe({
-      next: (rows) => {
-        this.rows.set(this.narrowBySource(rows));
+    this.api.listPage(shopId, this.currentFilters(), this.pageIndex() + 1, this.pageSize()).subscribe({
+      next: (res) => {
+        // Compatible con API vieja (array) y nueva (sobre paginado). El filtro
+        // `source` ya se aplica server-side; narrowBySource solo aplica al array.
+        const rows = Array.isArray(res) ? this.narrowBySource(res) : res.items;
+        this.rows.set(rows);
+        this.total.set(Array.isArray(res) ? rows.length : res.total);
         this.selectedIds.set([]);
         this.loading.set(false);
         const focusPay = this.focusPaymentId();
