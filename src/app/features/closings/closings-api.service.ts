@@ -211,6 +211,24 @@ export class ClosingsApiService {
     });
   }
 
+  /**
+   * Listado paginado server-side. El backend con soporte de paginación devuelve
+   * { items, total, page, pageSize }; una API vieja ignora page/pageSize y
+   * devuelve el array completo. El tipo unión permite manejar ambos casos.
+   */
+  listPage(shopId: string, filters: ClosingQueryFilters, page: number, pageSize: number) {
+    return this.http.get<
+      | CashClosing[]
+      | { items: CashClosing[]; total: number; page: number; pageSize: number }
+    >(`${this.base}/shops/${shopId}/closings`, {
+      params: {
+        ...closingFiltersToParams(filters),
+        page: String(page),
+        pageSize: String(pageSize),
+      },
+    });
+  }
+
   get(shopId: string, id: string) {
     return this.http.get<CashClosing>(`${this.base}/shops/${shopId}/closings/${id}`);
   }
