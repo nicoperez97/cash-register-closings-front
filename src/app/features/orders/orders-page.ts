@@ -10,6 +10,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -67,7 +68,7 @@ import { OrderDialogComponent } from './order-dialog';
     </section>
 
     @if (loading()) {
-      <app-loading-state label="Cargando pedidos" />
+      <app-loading-state [loading]="true" title="Cargando pedidos" message="Buscando pedidos del período" />
     } @else if (!rows().length) {
       <p class="text-muted">Todavía no hay pedidos en este período.</p>
     } @else {
@@ -191,9 +192,11 @@ export class OrdersPage {
         this.rows.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
-        this.snack.open('No se pudieron cargar los pedidos', 'OK', { duration: 3500 });
+        this.snack.open(apiErrorMessage(err, 'No se pudieron cargar los pedidos'), 'OK', {
+          duration: 3500,
+        });
       },
     });
   }

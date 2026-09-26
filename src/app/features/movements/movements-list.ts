@@ -11,6 +11,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import {
   BalanceAccountRow,
   BalancesTableComponent,
@@ -1199,17 +1200,15 @@ export class MovementsListPage {
           }
         }
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
-        this.snack.open(
+        const fallback =
           this.kind() === 'transfer'
             ? 'No se pudieron cargar las transferencias'
             : this.kind() === 'income'
               ? 'No se pudieron cargar los ingresos'
-              : 'No se pudieron cargar los gastos',
-          'OK',
-          { duration: 3000 },
-        );
+              : 'No se pudieron cargar los gastos';
+        this.snack.open(apiErrorMessage(err, fallback), 'OK', { duration: 3000 });
       },
     });
     this.api.balances(shopId).subscribe({

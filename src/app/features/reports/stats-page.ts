@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { LineChartComponent, ChartPoint, HBarChartComponent, DonutChartComponent, ChartSlice } from '../../shared/components/sales-charts';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
@@ -52,6 +53,7 @@ function formatDelta(pct: number | null | undefined): string {
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
+    LoadingStateComponent,
     LineChartComponent,
     HBarChartComponent,
     DonutChartComponent,
@@ -114,6 +116,21 @@ function formatDelta(pct: number | null | undefined): string {
       </div>
     </div>
 
+    @if (loading() && !dashboard()) {
+      <app-loading-state
+        [loading]="true"
+        [skeleton]="true"
+        title="Cargando estadísticas"
+        message="Calculando KPIs y gráficos del período"
+      />
+    } @else {
+      @if (loading()) {
+        <app-loading-state
+          [refreshing]="true"
+          refreshTitle="Actualizando estadísticas"
+          refreshMessage="Recalculando el período"
+        />
+      }
     <p class="hint mb-3">
       Las ventas POS vienen del import Restosoft/POS; no modifican cierres ni saldos.
       Los totales de caja salen de los cierres cargados por separado.
@@ -217,6 +234,7 @@ function formatDelta(pct: number | null | undefined): string {
         />
       </div>
     </div>
+    }
   `,
   styles: [
     `
@@ -264,6 +282,7 @@ export class StatsPage {
   });
 
   readonly dashboard = signal<ReportsDashboard | null>(null);
+  readonly loading = signal(true);
   readonly kpis = signal<KpiItem[]>([]);
 
   readonly reservationPartyPoints = computed<ChartPoint[]>(() =>
@@ -472,8 +491,12 @@ export class StatsPage {
     const shopId = this.shops.selectedShopId();
     const from = this.formatDate(this.range.controls.start.value);
     const to = this.formatDate(this.range.controls.end.value);
-    if (!shopId || !from || !to) return;
+    if (!shopId || !from || !to) {
+      this.loading.set(false);
+      return;
+    }
 
+    this.loading.set(true);
     this.api.reportsDashboard(shopId, { from, to }).subscribe({
       next: (data) => {
         this.dashboard.set(data);
@@ -548,10 +571,12 @@ export class StatsPage {
           );
         }
         this.kpis.set(items);
+        this.loading.set(false);
       },
       error: (err) => {
         this.dashboard.set(null);
         this.kpis.set([]);
+        this.loading.set(false);
         const msg = err?.error?.message ?? 'No se pudieron cargar las estadísticas';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 4000,

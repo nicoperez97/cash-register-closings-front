@@ -26,7 +26,10 @@ export type DataTableMobileView = 'compact' | 'detail';
 
 function loadMobileView(): DataTableMobileView {
   try {
-    localStorage.getItem(MOBILE_VIEW_KEY);
+    const saved = localStorage.getItem(MOBILE_VIEW_KEY);
+    if (saved === 'detail' || saved === 'compact') {
+      return saved;
+    }
   } catch {
     /* ignore */
   }
