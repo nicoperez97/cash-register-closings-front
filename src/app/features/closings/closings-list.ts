@@ -1,4 +1,6 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { startWith } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +14,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import { apiErrorMessage } from '../../core/http/api-error-message';
+import { countActiveFilters } from '../../shared/utils/active-filters';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -80,6 +83,7 @@ import { closingMoneyColumns } from './closing-list-columns';
             </button>
             <app-filters-collapse-btn
               [collapsed]="filtersCollapsed()"
+              [badgeCount]="activeFilterCount()"
               (toggle)="toggleFilters()"
             />
           </div>
@@ -282,6 +286,14 @@ export class ClosingsListPage {
     minTotal: new FormControl<number | null>(null),
     maxTotal: new FormControl<number | null>(null),
     q: new FormControl('', { nonNullable: true }),
+  });
+
+  private readonly filtersValue = toSignal(this.filters.valueChanges.pipe(startWith(null)), {
+    initialValue: null,
+  });
+  readonly activeFilterCount = computed(() => {
+    this.filtersValue();
+    return countActiveFilters(this.filters.getRawValue());
   });
 
   readonly columns: DataTableColumn[] = closingMoneyColumns();

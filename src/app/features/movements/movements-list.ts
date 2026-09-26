@@ -22,7 +22,8 @@ import {
   NotifyConfirmDialogComponent,
   NotifyConfirmDialogResult,
 } from '../../shared/components/notify-confirm-dialog';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, startWith } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { formatMoney } from '../../shared/utils/money';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -54,6 +55,7 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { countActiveFilters } from '../../shared/utils/active-filters';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import { PaymentFilePreviewDialogComponent } from '../payments/payment-file-preview-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
@@ -169,6 +171,7 @@ function saveMovementsBalancesOpen(open: boolean): void {
             </button>
             <app-filters-collapse-btn
               [collapsed]="filtersCollapsed()"
+              [badgeCount]="activeFilterCount()"
               (toggle)="toggleFilters()"
             />
           </div>
@@ -526,6 +529,14 @@ export class MovementsListPage {
     hasReceipt: new FormControl('', { nonNullable: true }),
     shiftId: new FormControl('', { nonNullable: true }),
     q: new FormControl('', { nonNullable: true }),
+  });
+
+  private readonly filtersValue = toSignal(this.filters.valueChanges.pipe(startWith(null)), {
+    initialValue: null,
+  });
+  readonly activeFilterCount = computed(() => {
+    this.filtersValue();
+    return countActiveFilters(this.filters.getRawValue());
   });
 
   readonly paymentMethodOptions = EXPENSE_PAYMENT_METHOD_OPTIONS;
