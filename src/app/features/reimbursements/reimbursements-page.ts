@@ -177,7 +177,7 @@ function statusLabel(status: ReimbursementStatus): string {
                   <div class="reimb-card__main">
                     <div class="reimb-card__title">{{ row.description }}</div>
                     <div class="reimb-card__meta">
-                      {{ row.expenseDate }}
+                      {{ fmtDate(row.expenseDate) }}
                       @if (canReadAll() && row.employeeName) {
                         · {{ row.employeeName }}
                       }
@@ -190,7 +190,7 @@ function statusLabel(status: ReimbursementStatus): string {
                     }
                     @if (row.status === 'PAID' && row.paidAt) {
                       <div class="reimb-card__meta">
-                        Pagado el {{ row.paidAt }}
+                        Pagado el {{ fmtDate(row.paidAt) }}
                         @if (row.paidByName) {
                           · {{ row.paidByName }}
                         }
@@ -376,6 +376,16 @@ export class ReimbursementsPage {
   readonly saveBusy = signal(false);
   readonly busyId = signal<string | null>(null);
   readonly rows = signal<ReimbursementRow[]>([]);
+
+  /** Fecha legible dd/MM/yyyy. Acepta 'YYYY-MM-DD' o ISO datetime (sin corrimiento de zona). */
+  fmtDate(value?: string | null): string {
+    const s = String(value ?? '').trim();
+    if (!s) return '';
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString('es-AR');
+  }
   readonly profileName = signal('');
   readonly producerLinked = signal(false);
   readonly statusFilter = new FormControl<ReimbursementStatus | ''>('PENDING', { nonNullable: true });
