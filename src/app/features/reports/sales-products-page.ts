@@ -16,6 +16,7 @@ import type { PdfDonutChart } from '../../shared/pdf/pdf-donut';
 import type { ExportFormat } from '../../shared/components/export-menu';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { LoadingStateComponent } from '../../shared/components/loading-state';
 import {
   DonutChartComponent,
   HBarChartComponent,
@@ -69,6 +70,7 @@ function formatDayLabelEs(isoDate: string): string {
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
+    LoadingStateComponent,
     HBarChartComponent,
     DonutChartComponent,
     LineChartComponent,
@@ -173,6 +175,21 @@ function formatDayLabelEs(isoDate: string): string {
       </div>
     </div>
 
+    @if (loading() && !summary()) {
+      <app-loading-state
+        [loading]="true"
+        [skeleton]="true"
+        title="Cargando ventas POS"
+        message="Procesando platos, rubros y tickets"
+      />
+    } @else {
+      @if (loading()) {
+        <app-loading-state
+          [refreshing]="true"
+          refreshTitle="Actualizando ventas POS"
+          refreshMessage="Recalculando el período"
+        />
+      }
     <app-kpi-strip class="mb-3" [items]="kpis()" />
 
     <div class="charts-grid mb-3">
@@ -276,6 +293,7 @@ function formatDayLabelEs(isoDate: string): string {
         </mat-tab>
       </mat-tab-group>
     </div>
+    }
   `,
   styles: `
     .sales-tabs {
@@ -329,6 +347,7 @@ export class SalesProductsPage {
 
   readonly summary = signal<SalesProductsSummary | null>(null);
   readonly kpis = signal<KpiItem[]>([]);
+  readonly loading = signal(true);
   readonly products = signal<Record<string, unknown>[]>([]);
   readonly categories = signal<Record<string, unknown>[]>([]);
   readonly subcategories = signal<Record<string, unknown>[]>([]);
@@ -629,7 +648,11 @@ export class SalesProductsPage {
   load(): void {
     const shopId = this.shops.selectedShopId();
     const filters = this.currentFilters();
-    if (!shopId || !filters) return;
+    if (!shopId || !filters) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.salesProductsSummary(shopId, filters).subscribe({
       next: (s) => {
         this.selectedCategory.set(filters.category ?? '');
@@ -695,8 +718,12 @@ export class SalesProductsPage {
             })}%`,
           },
         ]);
+        this.loading.set(false);
       },
-      error: () => this.snack.open('Error al cargar ventas por plato', 'OK', { duration: 3000 }),
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Error al cargar ventas por plato', 'OK', { duration: 3000 });
+      },
     });
   }
 
