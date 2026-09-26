@@ -28,11 +28,19 @@ export const EMPLOYEE_JOB_ROLE_LABELS: Record<EmployeeJobRole, string> = {
   PRODUCER: 'Productor',
 };
 
+/** Override de horario para un día puntual dentro de un turno. */
+export type ShiftDayHours = {
+  serviceCheckIn?: string | null;
+  serviceCheckOut?: string | null;
+};
+
 export type EmployeeShiftAssignment = {
   shiftId: string;
   type: EmployeeType;
   serviceCheckIn?: string | null;
   serviceCheckOut?: string | null;
+  /** Horario por día de la semana (clave '0'=Dom..'6'=Sáb). Vacío = usa el del turno. */
+  days?: Record<string, ShiftDayHours> | null;
 };
 
 export interface Employee {

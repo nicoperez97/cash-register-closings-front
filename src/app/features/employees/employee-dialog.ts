@@ -50,11 +50,28 @@ export type EmployeeDialogData = {
 
 type ShiftRoleValue = 'OFF' | EmployeeType;
 
+type ShiftDayForm = {
+  serviceCheckIn: string;
+  serviceCheckOut: string;
+};
+
 type ShiftRoleForm = {
   type: ShiftRoleValue;
   serviceCheckIn: string;
   serviceCheckOut: string;
+  days: Record<string, ShiftDayForm>;
 };
+
+/** Días de la semana (clave = getDay: 0=Dom..6=Sáb). Orden UI: lun→dom. */
+const WEEKDAY_OPTS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: '1', label: 'Lunes' },
+  { key: '2', label: 'Martes' },
+  { key: '3', label: 'Miércoles' },
+  { key: '4', label: 'Jueves' },
+  { key: '5', label: 'Viernes' },
+  { key: '6', label: 'Sábado' },
+  { key: '0', label: 'Domingo' },
+];
 
 function toDateInput(value?: string | null): Date | null {
   if (!value) return null;
@@ -225,6 +242,41 @@ function toDateString(value: Date | null): string | null {
                     <mat-icon aria-hidden="true">info_outline</mat-icon>
                     {{ shiftSummary(shift.id) }}
                   </p>
+
+                  <button
+                    mat-button
+                    type="button"
+                    class="emp-shift-block__days-toggle"
+                    (click)="toggleDays(shift.id)"
+                  >
+                    <mat-icon>{{ daysExpanded(shift.id) ? 'expand_less' : 'expand_more' }}</mat-icon>
+                    Horario por día
+                    @if (shiftDayOverrideCount(shift.id) > 0) {
+                      <span class="emp-shift-block__days-count">{{ shiftDayOverrideCount(shift.id) }}</span>
+                    }
+                  </button>
+
+                  @if (daysExpanded(shift.id)) {
+                    <div class="emp-shift-days" formGroupName="days">
+                      <p class="emp-dlg__section-hint">
+                        Dejá vacío para usar el horario del turno. Cargá solo los días con horario distinto.
+                      </p>
+                      @for (wd of weekdays; track wd.key) {
+                        <div class="emp-shift-day" [formGroupName]="wd.key">
+                          <span class="emp-shift-day__label">{{ wd.label }}</span>
+                          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                            <mat-label>Entrada</mat-label>
+                            <input matInput type="time" formControlName="serviceCheckIn" />
+                          </mat-form-field>
+                          <mat-icon class="emp-shift-block__arrow" aria-hidden="true">arrow_forward</mat-icon>
+                          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                            <mat-label>Retirada</mat-label>
+                            <input matInput type="time" formControlName="serviceCheckOut" />
+                          </mat-form-field>
+                        </div>
+                      }
+                    </div>
+                  }
                 }
               </div>
             }
@@ -477,6 +529,44 @@ function toDateString(value: Date | null): string | null {
       color: var(--guy-muted, #5f6f76);
       margin-top: -0.35rem;
     }
+    .emp-shift-block__days-toggle {
+      align-self: flex-start;
+      margin-top: 0.15rem;
+      font-size: 0.85rem;
+    }
+    .emp-shift-block__days-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.2rem;
+      height: 1.2rem;
+      margin-left: 0.35rem;
+      padding: 0 0.35rem;
+      border-radius: 999px;
+      background: var(--guy-accent, #2f7d32);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .emp-shift-days {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
+      padding: 0.5rem 0.6rem;
+      border: 1px dashed var(--guy-border, #d3dde0);
+      border-radius: 0.6rem;
+    }
+    .emp-shift-day {
+      display: grid;
+      grid-template-columns: 5.5rem 1fr auto 1fr;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .emp-shift-day__label {
+      font-size: 0.85rem;
+      color: var(--guy-muted, #5f6f76);
+    }
     @media (max-width: 520px) {
       .emp-shift-block__header {
         flex-direction: column;
@@ -490,6 +580,12 @@ function toDateString(value: Date | null): string | null {
       }
       .emp-shift-block__arrow {
         display: none;
+      }
+      .emp-shift-day {
+        grid-template-columns: 1fr 1fr;
+      }
+      .emp-shift-day__label {
+        grid-column: 1 / -1;
       }
     }
   `,
@@ -526,6 +622,32 @@ export class EmployeeDialogComponent implements OnInit {
     return this.employee?.producesFood ? ['PRODUCER'] : [];
   }
 
+  private emptyShiftDays(): Record<string, ShiftDayForm> {
+    const out: Record<string, ShiftDayForm> = {};
+    for (const w of WEEKDAY_OPTS) {
+      out[w.key] = { serviceCheckIn: '', serviceCheckOut: '' };
+    }
+    return out;
+  }
+
+  private initialShiftDays(
+    raw?: Record<string, { serviceCheckIn?: string | null; serviceCheckOut?: string | null }> | null,
+  ): Record<string, ShiftDayForm> {
+    const out = this.emptyShiftDays();
+    if (raw) {
+      for (const w of WEEKDAY_OPTS) {
+        const d = raw[w.key];
+        if (d) {
+          out[w.key] = {
+            serviceCheckIn: d.serviceCheckIn ?? '',
+            serviceCheckOut: d.serviceCheckOut ?? '',
+          };
+        }
+      }
+    }
+    return out;
+  }
+
   private initialShiftRole(shiftId: string): ShiftRoleForm {
     const assignments = this.employee?.shiftAssignments ?? [];
     const hit = assignments.find((a) => a.shiftId === shiftId);
@@ -534,10 +656,11 @@ export class EmployeeDialogComponent implements OnInit {
         type: hit.type,
         serviceCheckIn: hit.serviceCheckIn ?? this.employee?.serviceCheckIn ?? '',
         serviceCheckOut: hit.serviceCheckOut ?? this.employee?.serviceCheckOut ?? '',
+        days: this.initialShiftDays(hit.days),
       };
     }
     if (assignments.length) {
-      return { type: 'OFF', serviceCheckIn: '', serviceCheckOut: '' };
+      return { type: 'OFF', serviceCheckIn: '', serviceCheckOut: '', days: this.emptyShiftDays() };
     }
     const legacyType: ShiftRoleValue =
       this.employee?.type === 'ROTATING' ? 'ROTATING' : 'FIXED';
@@ -545,6 +668,7 @@ export class EmployeeDialogComponent implements OnInit {
       type: legacyType,
       serviceCheckIn: this.employee?.serviceCheckIn ?? '',
       serviceCheckOut: this.employee?.serviceCheckOut ?? '',
+      days: this.emptyShiftDays(),
     };
   }
 
@@ -565,6 +689,17 @@ export class EmployeeDialogComponent implements OnInit {
             type: this.fb.nonNullable.control<ShiftRoleValue>(this.initialShiftRole(s.id).type),
             serviceCheckIn: [this.initialShiftRole(s.id).serviceCheckIn],
             serviceCheckOut: [this.initialShiftRole(s.id).serviceCheckOut],
+            days: this.fb.nonNullable.group(
+              Object.fromEntries(
+                WEEKDAY_OPTS.map((w) => [
+                  w.key,
+                  this.fb.nonNullable.group({
+                    serviceCheckIn: [this.initialShiftRole(s.id).days[w.key].serviceCheckIn],
+                    serviceCheckOut: [this.initialShiftRole(s.id).days[w.key].serviceCheckOut],
+                  }),
+                ]),
+              ),
+            ),
           }),
         ]),
       ),
@@ -617,6 +752,31 @@ export class EmployeeDialogComponent implements OnInit {
     return usingDefault
       ? `Default del turno: ${from} → ${to} · ${hours}`
       : `Horario propio: ${from} → ${to} · ${hours}`;
+  }
+
+  readonly weekdays = WEEKDAY_OPTS;
+  private readonly expandedDayShifts = signal<Set<string>>(new Set<string>());
+
+  daysExpanded(shiftId: string): boolean {
+    return this.expandedDayShifts().has(shiftId);
+  }
+
+  toggleDays(shiftId: string): void {
+    const next = new Set(this.expandedDayShifts());
+    if (next.has(shiftId)) next.delete(shiftId);
+    else next.add(shiftId);
+    this.expandedDayShifts.set(next);
+  }
+
+  /** Cuántos días tienen horario propio en este turno (para el rótulo del botón). */
+  shiftDayOverrideCount(shiftId: string): number {
+    const roles = (this.shiftForm()?.shiftRoles ?? {}) as Record<string, ShiftRoleForm>;
+    const days = roles[shiftId]?.days ?? {};
+    return Object.values(days).filter(
+      (d) =>
+        !!String(d?.serviceCheckIn ?? '').trim() ||
+        !!String(d?.serviceCheckOut ?? '').trim(),
+    ).length;
   }
 
   ngOnInit(): void {
@@ -707,12 +867,22 @@ export class EmployeeDialogComponent implements OnInit {
     const shiftRoles = (raw.shiftRoles ?? {}) as Record<string, ShiftRoleForm>;
     const shiftAssignments = Object.entries(shiftRoles)
       .filter(([, role]) => role.type === 'FIXED' || role.type === 'ROTATING')
-      .map(([shiftId, role]) => ({
-        shiftId,
-        type: role.type as EmployeeType,
-        serviceCheckIn: role.serviceCheckIn || null,
-        serviceCheckOut: role.serviceCheckOut || null,
-      }));
+      .map(([shiftId, role]) => {
+        const days: Record<string, { serviceCheckIn: string | null; serviceCheckOut: string | null }> = {};
+        for (const w of WEEKDAY_OPTS) {
+          const d = role.days?.[w.key];
+          const ci = String(d?.serviceCheckIn ?? '').trim();
+          const co = String(d?.serviceCheckOut ?? '').trim();
+          if (ci || co) days[w.key] = { serviceCheckIn: ci || null, serviceCheckOut: co || null };
+        }
+        return {
+          shiftId,
+          type: role.type as EmployeeType,
+          serviceCheckIn: role.serviceCheckIn || null,
+          serviceCheckOut: role.serviceCheckOut || null,
+          days: Object.keys(days).length ? days : null,
+        };
+      });
     if (!shiftAssignments.length) {
       this.snack.open('Elegí al menos un turno donde trabaje', 'OK', { duration: 3000 });
       return;
