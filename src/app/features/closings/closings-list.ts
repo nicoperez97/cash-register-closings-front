@@ -11,6 +11,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -372,9 +373,11 @@ export class ClosingsListPage {
         this.rows.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
-        this.snack.open('No se pudieron cargar los cierres', 'OK', { duration: 3000 });
+        this.snack.open(apiErrorMessage(err, 'No se pudieron cargar los cierres'), 'OK', {
+          duration: 3000,
+        });
       },
     });
   }
