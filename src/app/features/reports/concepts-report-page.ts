@@ -14,6 +14,7 @@ import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import type { ExportFormat } from '../../shared/components/export-menu';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { LoadingStateComponent } from '../../shared/components/loading-state';
 import {
   DonutChartComponent,
   HBarChartComponent,
@@ -116,6 +117,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
     PageHeaderComponent,
     KpiStripComponent,
     DataTableComponent,
+    LoadingStateComponent,
     HBarChartComponent,
     DonutChartComponent,
     LineChartComponent,
@@ -209,6 +211,21 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
       }
     </p>
 
+    @if (loading() && !summary()) {
+      <app-loading-state
+        [loading]="true"
+        [skeleton]="true"
+        title="Cargando reporte de conceptos"
+        message="Sumando movimientos del período"
+      />
+    } @else {
+      @if (loading()) {
+        <app-loading-state
+          [refreshing]="true"
+          refreshTitle="Actualizando reporte"
+          refreshMessage="Recalculando el período"
+        />
+      }
     <div class="panel-card panel-card--flush concept-report mb-3">
       <div class="concept-report__banner">{{ tableTitle() }}</div>
       <div class="concept-report__wrap">
@@ -321,6 +338,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
         </mat-tab>
       </mat-tab-group>
     </div>
+    }
   `,
   styles: `
     .sales-tabs {
@@ -435,6 +453,7 @@ export class ConceptsReportPage {
   readonly summary = signal<ConceptsReportSummary | null>(null);
   readonly reportKind = signal('EXPENSE');
   readonly kpis = signal<KpiItem[]>([]);
+  readonly loading = signal(true);
 
   readonly conceptOptions = computed(() => this.summary()?.conceptOptions ?? []);
 
@@ -573,7 +592,11 @@ export class ConceptsReportPage {
   load(): void {
     const shopId = this.shops.selectedShopId();
     const filters = this.currentFilters();
-    if (!shopId || !filters) return;
+    if (!shopId || !filters) {
+      this.loading.set(false);
+      return;
+    }
+    this.loading.set(true);
     this.api.conceptsReport(shopId, filters).subscribe({
       next: (data) => {
         this.summary.set(data);
@@ -615,10 +638,12 @@ export class ConceptsReportPage {
             tone: t.withoutConceptCount > 0 ? 'warn' : 'muted',
           },
         ]);
+        this.loading.set(false);
       },
       error: (err) => {
         this.summary.set(null);
         this.kpis.set([]);
+        this.loading.set(false);
         const msg = err?.error?.message ?? 'No se pudieron cargar las estadísticas de conceptos';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },

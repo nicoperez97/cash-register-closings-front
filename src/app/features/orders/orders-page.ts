@@ -67,7 +67,7 @@ import { OrderDialogComponent } from './order-dialog';
     </section>
 
     @if (loading()) {
-      <app-loading-state label="Cargando pedidos" />
+      <app-loading-state [loading]="true" title="Cargando pedidos" message="Buscando pedidos del período" />
     } @else if (!rows().length) {
       <p class="text-muted">Todavía no hay pedidos en este período.</p>
     } @else {

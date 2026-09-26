@@ -65,7 +65,7 @@ type SplitsTab = 'equalize' | 'history';
       </div>
 
       @if (loading()) {
-        <app-loading-state label="Cargando divisiones" />
+        <app-loading-state [loading]="true" title="Cargando divisiones" message="Buscando el historial" />
       } @else if (!rows().length) {
         <div class="hist-empty panel-card">
           <mat-icon>history</mat-icon>

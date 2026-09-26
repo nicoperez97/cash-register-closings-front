@@ -74,7 +74,7 @@ function statusLabel(status: ReimbursementStatus): string {
     />
 
     @if (loading()) {
-      <app-loading-state label="Cargando reintegros" />
+      <app-loading-state [loading]="true" title="Cargando reintegros" message="Buscando gastos a reintegrar" />
     } @else {
       @if (canSelf() && producerLinked()) {
         <section class="panel-card mb-3">

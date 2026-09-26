@@ -70,7 +70,7 @@ function parseMoney(raw: number | string): number {
     />
 
     @if (loading() && !preview()) {
-      <app-loading-state label="Armando la división" />
+      <app-loading-state [loading]="true" title="Armando la división" message="Calculando montos por socio" />
     } @else if (preview(); as data) {
       <section class="panel-card mb-3">
         <div class="panel-card__body">
