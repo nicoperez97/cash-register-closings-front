@@ -15,6 +15,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SegmentTabsComponent } from '../../shared/components/filter-bar';
@@ -93,6 +94,7 @@ import {
     MatIconModule,
     MatDialogModule,
     MatMenuModule,
+    MatPaginatorModule,
     MatSnackBarModule,
     SpinnerComponent,
     PaymentCardComponent,
@@ -244,6 +246,17 @@ import {
       }
     </div>
 
+    @if (!loading() && total() > pageSize()) {
+      <mat-paginator
+        class="pay-paginator panel-card"
+        [length]="total()"
+        [pageIndex]="pageIndex()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 25, 50, 100]"
+        (page)="onPage($event)"
+      />
+    }
+
     <input
       #receiptPicker
       type="file"
@@ -369,6 +382,10 @@ export class PaymentsPage {
 
   readonly rows = signal<ShopPayment[]>([]);
   readonly loading = signal(true);
+  // Paginación server-side.
+  readonly total = signal(0);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(50);
   readonly actionBusyId = signal<string | null>(null);
   readonly viewMode = signal<PaymentsViewMode>(loadPaymentsViewMode());
   readonly mobileView = signal<PaymentsMobileView>(loadPaymentsMobileView());
@@ -637,6 +654,15 @@ export class PaymentsPage {
   onSort(key: PaymentSortKey): void {
     this.sortKey.set(key);
     savePaymentSort(key);
+    // El orden ahora es server-side: volver a la primera página y recargar.
+    this.pageIndex.set(0);
+    this.reload();
+  }
+
+  onPage(ev: { pageIndex: number; pageSize: number }): void {
+    this.pageIndex.set(ev.pageIndex);
+    this.pageSize.set(ev.pageSize);
+    this.reload({ keepPage: true, preserveScroll: true });
   }
 
   togglePaidExtra(kind: 'rejected' | 'cancelled'): void {
@@ -765,12 +791,14 @@ export class PaymentsPage {
     });
   }
 
-  reload(opts?: { preserveScroll?: boolean; showLoading?: boolean }): void {
+  reload(opts?: { preserveScroll?: boolean; showLoading?: boolean; keepPage?: boolean }): void {
     const shopId = this.shopId();
     if (!shopId) {
       this.loading.set(false);
       return;
     }
+    // Salvo navegación de páginas, cualquier recarga (filtros/orden/pestaña) vuelve a la 1ra.
+    if (!opts?.keepPage) this.pageIndex.set(0);
     if (opts?.preserveScroll) {
       this.pendingScrollY =
         typeof window !== 'undefined'
@@ -779,16 +807,23 @@ export class PaymentsPage {
     } else {
       this.pendingScrollY = null;
     }
-    const optsList = this.listFilterOpts();
+    const optsList = { ...this.listFilterOpts(), kind: this.kind(), sort: this.effectiveSort() };
     const gen = ++this.loadGen;
     // Si ya hay filas, no reemplazar la lista por el spinner (salta al top),
     // salvo cambio de pestaña Pendientes/Pagados (showLoading).
     const soft = !opts?.showLoading && untracked(() => this.rows().length > 0);
     if (!soft) this.loading.set(true);
-    this.api.list(shopId, optsList).subscribe({
-      next: (rows) => {
+    this.api.listPage(shopId, optsList, this.pageIndex() + 1, this.pageSize()).subscribe({
+      next: (res) => {
         if (gen !== this.loadGen) return;
-        this.rows.set(rows);
+        // Compatible con API vieja (array) y nueva (sobre paginado).
+        if (Array.isArray(res)) {
+          this.rows.set(res);
+          this.total.set(res.length);
+        } else {
+          this.rows.set(res.items);
+          this.total.set(res.total);
+        }
         this.loading.set(false);
         untracked(() => this.paymentsInbox.refresh());
         void this.afterListLoaded();
@@ -1004,13 +1039,18 @@ export class PaymentsPage {
 
   async onExport(format: ExportFormat): Promise<void> {
     if (format === 'pdf') {
+      const shopId = this.shopId();
       const shop = this.shops.selectedShop();
+      if (!shopId) return;
+      // Traer TODO el set (no sólo la página actual) para el PDF.
+      const opts = { ...this.listFilterOpts(), kind: this.kind(), sort: this.effectiveSort() };
+      const all = await firstValueFrom(this.api.list(shopId, opts));
       await downloadTablePdf({
         title: 'Pagos',
         subtitle: shop?.name ?? '',
         filename: `pagos-${shop?.slug ?? 'local'}.pdf`,
         headers: ['Título', 'Concepto', 'Monto', 'Vence', 'Estado'],
-        rows: this.rows().map((p) => [
+        rows: (all ?? []).map((p) => [
           p.title,
           p.conceptName ?? '—',
           formatMoney(p.amount, { spaced: true }),

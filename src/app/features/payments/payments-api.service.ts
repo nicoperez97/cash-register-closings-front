@@ -147,29 +147,51 @@ export interface ParsedInvoice {
   rawText: string;
 }
 
+export type PaymentListOpts = {
+  status?: string | string[];
+  payerUserId?: string | string[] | null;
+  validatorUserId?: string | string[] | null;
+  mine?: boolean;
+  dueFrom?: string | null;
+  dueTo?: string | null;
+  paidFrom?: string | null;
+  paidTo?: string | null;
+  supplierId?: string | string[] | null;
+  employeeId?: string | string[] | null;
+  serviceId?: string | string[] | null;
+  amountMin?: number | null;
+  amountMax?: number | null;
+  /** Bandeja: supplier|service|employee|partner. */
+  kind?: string;
+  /** Orden: updated|due|amountDesc|amountAsc|priority|created|paid. */
+  sort?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class PaymentsApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
 
-  list(
-    shopId: string,
-    opts?: {
-      status?: string | string[];
-      payerUserId?: string | string[] | null;
-      validatorUserId?: string | string[] | null;
-      mine?: boolean;
-      dueFrom?: string | null;
-      dueTo?: string | null;
-      paidFrom?: string | null;
-      paidTo?: string | null;
-      supplierId?: string | string[] | null;
-      employeeId?: string | string[] | null;
-      serviceId?: string | string[] | null;
-      amountMin?: number | null;
-      amountMax?: number | null;
-    },
-  ) {
+  list(shopId: string, opts?: PaymentListOpts) {
+    return this.http.get<ShopPayment[]>(`${this.base}/shops/${shopId}/payments`, {
+      params: this.buildListParams(opts),
+    });
+  }
+
+  /**
+   * Igual que list pero paginado (page/pageSize). Con soporte de paginación el
+   * backend devuelve { items, total, page, pageSize }; una API vieja ignora
+   * page/pageSize y devuelve el array. El tipo unión maneja ambos.
+   */
+  listPage(shopId: string, opts: PaymentListOpts, page: number, pageSize: number) {
+    return this.http.get<
+      ShopPayment[] | { items: ShopPayment[]; total: number; page: number; pageSize: number }
+    >(`${this.base}/shops/${shopId}/payments`, {
+      params: { ...this.buildListParams(opts), page: String(page), pageSize: String(pageSize) },
+    });
+  }
+
+  private buildListParams(opts?: PaymentListOpts): Record<string, string> {
     const params: Record<string, string> = {};
     const join = (v?: string | string[] | null) =>
       Array.isArray(v) ? v.filter(Boolean).join(',') : (v || '').trim();
@@ -199,9 +221,9 @@ export class PaymentsApiService {
     if (opts?.amountMax != null && Number.isFinite(opts.amountMax)) {
       params['amountMax'] = String(opts.amountMax);
     }
-    return this.http.get<ShopPayment[]>(`${this.base}/shops/${shopId}/payments`, {
-      params,
-    });
+    if (opts?.kind) params['kind'] = opts.kind;
+    if (opts?.sort) params['sort'] = opts.sort;
+    return params;
   }
 
   pendingCounts(shopId: string) {
