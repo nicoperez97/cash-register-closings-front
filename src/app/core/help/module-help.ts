@@ -1177,7 +1177,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Con Ver o Todo: Generar o Regenerar token, Copiar URL de la API, Copiar Token del local y Descargar. Los nombres son los mismos que en el exe → Conexión.',
           'Con Todo también podés Revocar el token.',
           'El token completo solo se muestra al generarlo: si lo perdiste, regeneralo.',
-          'Windows 10/11 de 64 bits (Intel/AMD o ARM). Preferí el Setup: trae x64 y ARM64. Si el .exe no abre, volvé a descargarlo desde acá.',
+          'Si el instalador es Link, Descargar abre ese link. Si es Archivo, baja el .exe. Windows 10/11 de 64 bits (Intel/AMD o ARM); preferí el Setup.',
         ],
         tip: 'Flujo típico: Descargar → instalar → Copiar URL de la API → Regenerar token → Copiar Token del local → pegar ambos en el exe (API y local).',
       },
@@ -1676,6 +1676,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Arriba de la lista cargás el instalador por sistema operativo (Windows, macOS, Linux), con su versión: archivo o link de descarga. Cierres-Comandas avisa en la app si hay una versión nueva y te deja bajarla e instalarla sin borrar la configuración.',
         items: [
           'Elegí Archivo o Link, el SO y la versión, y guardá.',
+          'Con Link, Descargar abre el link que guardaste. Con Archivo, baja el .exe desde acá.',
           'Reemplazá el mismo SO cuando haya una versión nueva.',
           'Cada local descarga el que necesite desde Configuración → Comanderas, o desde la misma app Cierres-Comandas.',
         ],
