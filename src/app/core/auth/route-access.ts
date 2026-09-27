@@ -105,6 +105,9 @@ export function canAccessAppRoute(
   if (path.startsWith('/reports/concepts')) {
     return hasShopPermission(user, shopId, 'reportsConcepts.read');
   }
+  if (path.startsWith('/reports/sales')) {
+    return hasShopPermission(user, shopId, 'reportsSales.read');
+  }
   if (path.startsWith('/reports/products')) {
     return hasShopPermission(user, shopId, 'reportsProducts.read');
   }

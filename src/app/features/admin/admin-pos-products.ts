@@ -27,6 +27,7 @@ import {
   AdminPosProductRow,
 } from './admin-pos-product-dialog';
 import { AdminPosCategoryDialogComponent } from './admin-pos-catalog-dialogs';
+import { PosMenuLinkDialogComponent } from './pos-menu-link-dialog';
 
 @Component({
   selector: 'app-admin-pos-products',
@@ -85,6 +86,12 @@ import { AdminPosCategoryDialogComponent } from './admin-pos-catalog-dialogs';
                 <mat-icon>search</mat-icon>
                 Filtrar
               </button>
+              @if (canManage()) {
+                <button mat-stroked-button type="button" (click)="openLinkDialog()">
+                  <mat-icon>link</mat-icon>
+                  Enlazar con carta
+                </button>
+              }
             </div>
           </form>
           </div>
@@ -160,6 +167,11 @@ export class AdminPosProductsPage implements OnInit {
     { key: 'productCode', label: 'Código' },
     { key: 'productName', label: 'Plato' },
     { key: 'category', label: 'Rubro', format: (r) => String(r['category'] || '—') },
+    {
+      key: 'menuItemId',
+      label: 'Carta',
+      format: (r) => (r['menuItemId'] ? 'Enlazado' : 'Sin enlace'),
+    },
     { key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) },
   ];
 
@@ -236,6 +248,25 @@ export class AdminPosProductsPage implements OnInit {
           this.reloadAll();
         },
         error: () => this.snack.open('No se pudo cargar el catálogo', 'OK', { duration: 3000 }),
+      });
+  }
+
+  openLinkDialog(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(PosMenuLinkDialogComponent, {
+          width: '820px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: { shopId },
+        }),
+        'Enlazar POS ↔ Carta',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.loadProducts();
       });
   }
 

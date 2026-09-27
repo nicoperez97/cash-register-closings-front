@@ -210,6 +210,13 @@ export const routes: Routes = [
         title: 'Conceptos',
       },
       {
+        path: 'reports/sales',
+        canActivate: [permissionGuard('reportsSales.read')],
+        loadComponent: () =>
+          import('./features/reports/sales-menu-page').then((m) => m.SalesMenuPage),
+        title: 'Ventas',
+      },
+      {
         path: 'reports/products',
         canActivate: [permissionGuard('reportsProducts.read')],
         loadComponent: () =>

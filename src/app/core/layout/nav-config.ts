@@ -78,6 +78,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'services', label: 'Servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/services' },
   { id: 'reports', label: 'Cierres', icon: 'insights', defaultGroup: 'reportes', route: '/reports' },
   { id: 'reportsConcepts', label: 'Conceptos', icon: 'category', defaultGroup: 'reportes', route: '/reports/concepts' },
+  { id: 'reportsSales', label: 'Ventas', icon: 'point_of_sale', defaultGroup: 'reportes', route: '/reports/sales' },
   { id: 'reportsProducts', label: 'Ventas POS', icon: 'restaurant_menu', defaultGroup: 'reportes', route: '/reports/products' },
   { id: 'reportsStats', label: 'Estadísticas', icon: 'analytics', defaultGroup: 'reportes', route: '/reports/stats' },
   { id: 'employees', label: 'Empleados', icon: 'badge', defaultGroup: 'personal', route: '/employees' },

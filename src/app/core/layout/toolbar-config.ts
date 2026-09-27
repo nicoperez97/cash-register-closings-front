@@ -85,6 +85,7 @@ const ADDABLE_NAV_IDS = [
   'payroll',
   'commissions',
   'reports',
+  'reportsSales',
   'reportsProducts',
   'cashWithdrawals',
   'settlements',

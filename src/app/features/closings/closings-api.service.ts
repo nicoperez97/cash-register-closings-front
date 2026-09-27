@@ -469,6 +469,22 @@ export class ClosingsApiService {
     );
   }
 
+  /** Ventas de carta (pedidos online + comanda), no Restosoft. */
+  salesMenuSummary(shopId: string, filters: SalesProductsFilters) {
+    return this.http.get<SalesProductsSummary>(
+      `${this.base}/shops/${shopId}/sales-reports/menu/summary`,
+      { params: salesProductsFiltersToParams(filters) },
+    );
+  }
+
+  /** Preview de platos enlazados + ventas POS del período (Traer a Ventas). */
+  salesMenuPosLinkedPreview(shopId: string, filters: SalesProductsFilters) {
+    return this.http.get<MenuPosLinkedPreview>(
+      `${this.base}/shops/${shopId}/sales-reports/menu/pos-linked-preview`,
+      { params: salesProductsFiltersToParams(filters) },
+    );
+  }
+
   salesProductsExport(shopId: string, filters: SalesProductsFilters) {
     return this.http.get(`${this.base}/shops/${shopId}/sales-reports/products/export.xlsx`, {
       params: salesProductsFiltersToParams(filters),
@@ -618,6 +634,34 @@ export interface SalesProductsFilters {
   subcategory?: string | null;
   paymentCode?: string | null;
   salesSystemId?: string | null;
+  /** Sumar ventas POS de platos enlazados (Ventas). */
+  includePosSales?: boolean;
+  /** menuItemIds seleccionados en Traer de ventas POS. */
+  posMenuItemIds?: string[] | null;
+}
+
+export interface MenuPosLinkedPreviewRow {
+  menuItemId: string;
+  menuItemName: string | null;
+  productCode: string;
+  productName: string | null;
+  category: string | null;
+  subcategory: string | null;
+  cartaQty: number;
+  cartaAmount: number;
+  posQty: number;
+  posAmount: number;
+  posTicketCount: number;
+}
+
+export interface MenuPosLinkedPreview {
+  shopId: string;
+  from: string;
+  to: string;
+  linkedCount: number;
+  withPosSalesCount: number;
+  totals: { posQty: number; posAmount: number; cartaAmount: number };
+  items: MenuPosLinkedPreviewRow[];
 }
 
 export interface ConceptsReportFilters {
@@ -754,6 +798,10 @@ function salesProductsFiltersToParams(filters: SalesProductsFilters): Record<str
   if (filters.subcategory) params['subcategory'] = filters.subcategory;
   if (filters.paymentCode) params['paymentCode'] = filters.paymentCode;
   if (filters.salesSystemId) params['salesSystemId'] = filters.salesSystemId;
+  if (filters.includePosSales) params['includePosSales'] = '1';
+  if (filters.posMenuItemIds?.length) {
+    params['posMenuItemIds'] = filters.posMenuItemIds.join(',');
+  }
   return params;
 }
 

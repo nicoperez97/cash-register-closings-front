@@ -45,6 +45,13 @@ import {
   ShopConfigVisibilityKey,
   normalizeShopConfigVisibility,
 } from '../../shared/shop-config-visibility';
+import {
+  REPORTS_PRODUCTS_AMOUNT_MODE_OPTIONS,
+  REPORTS_PRODUCTS_VISIBILITY_FLAGS,
+  ReportsProductsAmountMode,
+  defaultReportsProductsVisibility,
+  normalizeReportsProductsVisibility,
+} from '../../shared/reports-products-visibility';
 import { AdminUserRow } from './admin-user-dialog';
 
 function isAdminRole(role?: string): boolean {
@@ -182,6 +189,43 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                           }
                         </div>
                       </div>
+                      @if (mod.key === 'reportsProducts' && moduleLevel('reportsProducts') !== 'none') {
+                        <div class="module-row__extra">
+                          <button
+                            type="button"
+                            mat-stroked-button
+                            class="config-btn"
+                            (click)="reportsProductsConfigOpen.set(!reportsProductsConfigOpen())"
+                          >
+                            <mat-icon>tune</mat-icon>
+                            Configurar
+                          </button>
+                          @if (reportsProductsConfigOpen()) {
+                            <div class="rp-config" [formGroup]="form.controls.reportsProductsVisibility">
+                              <p class="section__hint">Qué ve en Ventas POS.</p>
+                              <div class="rp-flags">
+                                @for (opt of reportsProductsFlags; track opt.key) {
+                                  <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
+                                }
+                              </div>
+                              <p class="section__hint">Datos numéricos</p>
+                              <div class="level-pills">
+                                @for (opt of reportsProductsAmountModes; track opt.value) {
+                                  <button
+                                    type="button"
+                                    class="level-pill"
+                                    [class.level-pill--active]="reportsProductsAmountMode() === opt.value"
+                                    [class.level-pill--off]="opt.value === 'none'"
+                                    (click)="setReportsProductsAmountMode(opt.value)"
+                                  >
+                                    {{ opt.label }}
+                                  </button>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      }
                     </div>
                   }
                 </div>
@@ -486,6 +530,23 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       font-size: 0.72rem;
       color: var(--guy-muted, #5f6f76);
     }
+    .module-row__extra {
+      margin-top: 0.55rem;
+      padding-top: 0.45rem;
+      border-top: 1px dashed var(--guy-border, #d7e0d9);
+    }
+    .config-btn {
+      margin-bottom: 0.45rem;
+    }
+    .rp-config {
+      display: grid;
+      gap: 0.45rem;
+    }
+    .rp-flags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.85rem;
+    }
     .level-pills {
       display: inline-flex;
       flex-wrap: wrap;
@@ -673,6 +734,9 @@ export class AdminUserPermissionsPage implements OnInit {
   readonly orderingConfigLevels = ORDERING_CONFIG_LEVELS;
   readonly shopConfigOptions = SHOP_CONFIG_VISIBILITY_OPTIONS;
   readonly shopConfigLevels = SHOP_CONFIG_LEVELS;
+  readonly reportsProductsFlags = REPORTS_PRODUCTS_VISIBILITY_FLAGS;
+  readonly reportsProductsAmountModes = REPORTS_PRODUCTS_AMOUNT_MODE_OPTIONS;
+  readonly reportsProductsConfigOpen = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     accountType: 'EMPLOYEE',
@@ -705,6 +769,16 @@ export class AdminUserPermissionsPage implements OnInit {
       menu: 'manage',
       carta: 'manage',
       avanzado: 'manage',
+    }),
+    reportsProductsVisibility: this.fb.nonNullable.group({
+      kpis: true,
+      charts: true,
+      tabProducts: true,
+      tabCategories: true,
+      tabDays: true,
+      export: true,
+      import: true,
+      amountMode: 'both' as ReportsProductsAmountMode,
     }),
     isStockAdmin: false,
     isBeverageStockAdmin: false,
@@ -832,6 +906,7 @@ export class AdminUserPermissionsPage implements OnInit {
     });
     const ordering = normalizeOrderingConfigVisibility(user.orderingConfigVisibility);
     const shopConfig = normalizeShopConfigVisibility(user.shopConfigVisibility);
+    const reportsProducts = normalizeReportsProductsVisibility(user.reportsProductsVisibility);
     const levels = levelsFromUser(user);
     this.form.patchValue({
       accountType: accountTypeFromRole(user.globalRole),
@@ -846,8 +921,10 @@ export class AdminUserPermissionsPage implements OnInit {
       visibility: vis,
       orderingConfigVisibility: ordering,
       shopConfigVisibility: shopConfig,
+      reportsProductsVisibility: reportsProducts,
     });
     this.form.controls.modules.patchValue(levels);
+    this.reportsProductsConfigOpen.set((levels['reportsProducts'] ?? 'none') !== 'none');
     this.modulesTick.update((n) => n + 1);
     this.syncActivePreset();
   }
@@ -863,6 +940,14 @@ export class AdminUserPermissionsPage implements OnInit {
 
   setModuleLevel(key: ModuleKey, value: string): void {
     this.form.controls.modules.get(key)?.setValue(value);
+    if (key === 'reportsProducts') {
+      if (value === 'none') {
+        this.reportsProductsConfigOpen.set(false);
+        this.form.controls.reportsProductsVisibility.patchValue(defaultReportsProductsVisibility());
+      } else {
+        this.reportsProductsConfigOpen.set(true);
+      }
+    }
     this.modulesTick.update((n) => n + 1);
     this.syncActivePreset();
   }
@@ -884,6 +969,19 @@ export class AdminUserPermissionsPage implements OnInit {
 
   setShopConfigLevel(key: ShopConfigVisibilityKey, value: ShopConfigLevel): void {
     this.form.controls.shopConfigVisibility.get(key)?.setValue(value);
+    this.modulesTick.update((n) => n + 1);
+  }
+
+  reportsProductsAmountMode(): ReportsProductsAmountMode {
+    this.modulesTick();
+    return (
+      (this.form.controls.reportsProductsVisibility.get('amountMode')
+        ?.value as ReportsProductsAmountMode) ?? 'both'
+    );
+  }
+
+  setReportsProductsAmountMode(value: ReportsProductsAmountMode): void {
+    this.form.controls.reportsProductsVisibility.get('amountMode')?.setValue(value);
     this.modulesTick.update((n) => n + 1);
   }
 
@@ -939,7 +1037,7 @@ export class AdminUserPermissionsPage implements OnInit {
     const out: Record<string, string> = {};
     for (const d of MODULE_DEFS) {
       const v = raw[d.key] ?? 'none';
-      if (d.key === 'orders' || d.key === 'shopConfig') {
+      if (d.key === 'orders' || d.key === 'shopConfig' || d.key === 'reportsSales') {
         out[d.key] = v;
         continue;
       }
@@ -968,6 +1066,11 @@ export class AdminUserPermissionsPage implements OnInit {
         visibility: raw.visibility,
         orderingConfigVisibility: raw.orderingConfigVisibility,
         shopConfigVisibility: raw.shopConfigVisibility,
+        reportsProductsVisibility:
+          raw.accountType === 'EMPLOYEE' &&
+          (raw.modules as Record<string, string>)['reportsProducts'] !== 'none'
+            ? raw.reportsProductsVisibility
+            : defaultReportsProductsVisibility(),
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,

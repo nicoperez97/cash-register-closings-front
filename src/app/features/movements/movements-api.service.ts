@@ -145,6 +145,8 @@ export interface MovementFilters {
   shiftId?: string | null;
   /** panel (default) | all = todas las cuentas activas. */
   scope?: 'panel' | 'all';
+  sortBy?: string | null;
+  sortDir?: 'asc' | 'desc' | null;
 }
 
 function filtersToParams(filters: MovementFilters): HttpParams {
@@ -168,6 +170,8 @@ function filtersToParams(filters: MovementFilters): HttpParams {
   set('hasReceipt', filters.hasReceipt);
   set('shiftId', filters.shiftId);
   set('scope', filters.scope === 'all' ? 'all' : undefined);
+  set('sortBy', filters.sortBy);
+  set('sortDir', filters.sortDir);
   return params;
 }
 
@@ -188,11 +192,12 @@ export class MovementsApiService {
    * devuelve el array. El tipo unión permite manejar ambos casos.
    */
   listPage(shopId: string, filters: MovementFilters, page: number, pageSize: number) {
+    const params = filtersToParams(filters)
+      .set('page', String(page))
+      .set('pageSize', String(pageSize));
     return this.http.get<
       Movement[] | { items: Movement[]; total: number; page: number; pageSize: number }
-    >(`${this.base}/shops/${shopId}/movements`, {
-      params: { ...filtersToParams(filters), page: String(page), pageSize: String(pageSize) },
-    });
+    >(`${this.base}/shops/${shopId}/movements`, { params });
   }
 
   get(shopId: string, id: string) {
