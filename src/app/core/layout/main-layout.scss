@@ -114,9 +114,18 @@
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-  display: block;
+  width: 100%;
   max-width: 100%;
+  display: block;
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .layout-sidenav--rail .mat-drawer-inner-container > app-sidebar,
+:host ::ng-deep .layout-sidenav--rail app-sidebar .sidebar {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .layout-sidenav--mobile {

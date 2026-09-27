@@ -78,6 +78,57 @@ export type TipPayloadResult = {
   invalid: boolean;
 };
 
+function normSourceName(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** Suma Cuentas del local → columnas canal legacy (PVS, MP, DNI…). */
+function channelAmountsFromFormSources(
+  sources: ClosingFormRawValue['sourceAmounts'],
+): {
+  cardAmount: number;
+  mercadoPagoAmount: number;
+  accountDniAmount: number;
+  deliveryAppsAmount: number;
+  transferAmount: number;
+} {
+  const out = {
+    cardAmount: 0,
+    mercadoPagoAmount: 0,
+    accountDniAmount: 0,
+    deliveryAppsAmount: 0,
+    transferAmount: 0,
+  };
+  for (const s of sources ?? []) {
+    if (String((s as { role?: string }).role ?? '') === 'CASH') continue;
+    const amount = sourceRowTotal(s);
+    if (!(amount > 0)) continue;
+    const name = normSourceName(String(s.name ?? ''));
+    if (!name) continue;
+    if (name === 'pvs' || name.includes('pvs') || name.includes('tarjeta') || name === 'card') {
+      out.cardAmount += amount;
+    } else if (name.includes('mercado') || name === 'mp' || name === 'mercadopago') {
+      out.mercadoPagoAmount += amount;
+    } else if (name.includes('dni')) {
+      out.accountDniAmount += amount;
+    } else if (
+      name.includes('delivery') ||
+      name.includes('pedidos') ||
+      name.includes('rappi') ||
+      name.includes('deliberate')
+    ) {
+      out.deliveryAppsAmount += amount;
+    } else if (name.includes('transfer')) {
+      out.transferAmount += amount;
+    }
+  }
+  return out;
+}
+
 export function buildTipPayloadForClosing(input: {
   tipsEnabled: boolean;
   tipDraft: TipsEditorState | null;
@@ -169,6 +220,8 @@ export function prepareClosingSaveBody(
   const sourcesDeclared = sourcesRaw
     .filter((s) => !!s.includeInDeclared)
     .reduce((sum, s) => sum + sourceRowTotal(s), 0);
+  // Columnas canal legacy (lista/reportes): derivar desde Cuentas del local.
+  const channelFromSources = channelAmountsFromFormSources(sourcesRaw);
 
   const body: CashClosingInput & Record<string, unknown> = {
     ...raw,
@@ -180,13 +233,13 @@ export function prepareClosingSaveBody(
         ? String(raw.eventName ?? '').trim() || null
         : null,
     posSystemAmount: closingNum(raw.posSystemAmount),
-    cardAmount: 0,
+    cardAmount: channelFromSources.cardAmount,
     cashAmount,
     cashOpeningAmount: closingNum(raw.cashOpeningAmount),
-    mercadoPagoAmount: 0,
-    deliveryAppsAmount: 0,
-    transferAmount: 0,
-    accountDniAmount: 0,
+    mercadoPagoAmount: channelFromSources.mercadoPagoAmount,
+    deliveryAppsAmount: channelFromSources.deliveryAppsAmount,
+    transferAmount: channelFromSources.transferAmount,
+    accountDniAmount: channelFromSources.accountDniAmount,
     otherAmount: cobrosSum,
     cashLeftInRegister: closingNum(raw.cashLeftInRegister),
     cashWithdrawn: closingNum(raw.cashWithdrawn),
@@ -310,14 +363,39 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
   const expensesSum = expenses.reduce((sum, e) => sum + closingNum(e.amount), 0);
   const opening = closingNum(raw.cashOpeningAmount);
   const cashCollected = cashAmount - opening + expensesSum;
+  const sourcesForShare = (raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'];
+  const channels = channelAmountsFromFormSources(sourcesForShare);
   const declared =
-    closingNum(raw.cardAmount) +
+    channels.cardAmount +
     cashCollected +
-    closingNum(raw.mercadoPagoAmount) +
-    closingNum(raw.accountDniAmount) +
+    channels.mercadoPagoAmount +
+    channels.accountDniAmount +
+    channels.deliveryAppsAmount +
+    channels.transferAmount +
     cobrosSum +
-    ((raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'])
-      .filter((s) => !!s.includeInDeclared)
+    sourcesForShare
+      .filter((s) => {
+        if (!s.includeInDeclared) return false;
+        // Evitar doble conteo: canales ya sumados arriba.
+        const name = normSourceName(String(s.name ?? ''));
+        if (
+          name === 'pvs' ||
+          name.includes('pvs') ||
+          name.includes('tarjeta') ||
+          name === 'card' ||
+          name.includes('mercado') ||
+          name === 'mp' ||
+          name.includes('dni') ||
+          name.includes('delivery') ||
+          name.includes('pedidos') ||
+          name.includes('rappi') ||
+          name.includes('deliberate') ||
+          name.includes('transfer')
+        ) {
+          return false;
+        }
+        return true;
+      })
       .reduce((sum, s) => sum + sourceRowTotal(s), 0);
 
   return {
@@ -326,13 +404,13 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     businessDate: toDateString(raw.businessDate as Date | string | null),
     status: input.status ?? 'OPEN',
     posSystemAmount: pos,
-    cardAmount: closingNum(raw.cardAmount),
+    cardAmount: channels.cardAmount,
     cashAmount,
     cashOpeningAmount: closingNum(raw.cashOpeningAmount),
-    mercadoPagoAmount: closingNum(raw.mercadoPagoAmount),
-    deliveryAppsAmount: 0,
-    transferAmount: 0,
-    accountDniAmount: closingNum(raw.accountDniAmount),
+    mercadoPagoAmount: channels.mercadoPagoAmount,
+    deliveryAppsAmount: channels.deliveryAppsAmount,
+    transferAmount: channels.transferAmount,
+    accountDniAmount: channels.accountDniAmount,
     otherAmount: cobrosSum,
     tipsAmount: closingNum(raw.tipsAmount),
     cashLeftInRegister: closingNum(raw.cashLeftInRegister),
