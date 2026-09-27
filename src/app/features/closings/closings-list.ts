@@ -12,7 +12,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
-import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { DataTableComponent } from '../../shared/components/data-table';
 import { apiErrorMessage } from '../../core/http/api-error-message';
 import { countActiveFilters } from '../../shared/utils/active-filters';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
@@ -20,7 +20,12 @@ import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission, isClosingsCreateOnly } from '../../core/auth/auth.models';
-import { ClosingsApiService, CashClosing, ShopUserOption } from './closings-api.service';
+import {
+  ClosingsApiService,
+  CashClosing,
+  ShopClosingSource,
+  ShopUserOption,
+} from './closings-api.service';
 import { WhatsappImportDialogComponent } from './whatsapp-import-dialog';
 import { ExcelImportDialogComponent } from './excel-import-dialog';
 import { ReloadIncomesDialogComponent } from './reload-incomes-dialog';
@@ -37,7 +42,7 @@ import {
   CLOSING_STATUS_FILTERS,
   ClosingQueryFilters,
 } from './closing-filters';
-import { closingMoneyColumns } from './closing-list-columns';
+import { closingMoneyColumns, flattenClosingSourceAmounts } from './closing-list-columns';
 
 @Component({
   selector: 'app-closings-list',
@@ -227,7 +232,7 @@ import { closingMoneyColumns } from './closing-list-columns';
       <div class="panel-card panel-card--flush">
         <div class="panel-card__body">
           <app-data-table
-            [columns]="columns"
+            [columns]="columns()"
             [rows]="rows()"
             [loading]="loading()"
             [sortable]="false"
@@ -271,6 +276,7 @@ export class ClosingsListPage {
   readonly rows = signal<CashClosing[]>([]);
   readonly loading = signal(true);
   readonly users = signal<ShopUserOption[]>([]);
+  readonly closingSources = signal<ShopClosingSource[]>([]);
   // Paginación server-side.
   readonly total = signal(0);
   readonly pageIndex = signal(0);
@@ -306,7 +312,14 @@ export class ClosingsListPage {
     return countActiveFilters(this.filters.getRawValue());
   });
 
-  readonly columns: DataTableColumn[] = closingMoneyColumns();
+  readonly columns = computed(() => {
+    const extras = this.rows().flatMap((r) => r.sourceAmounts ?? []);
+    return closingMoneyColumns({
+      sources: this.closingSources(),
+      extraSources: extras,
+      unitsLabel: this.shops.selectedShop()?.unitsLabel,
+    });
+  });
 
   readonly canRemoveRow = () => this.auth.isAdmin();
   private reloadToken = signal(0);
@@ -324,6 +337,7 @@ export class ClosingsListPage {
       if (!id) {
         this.rows.set([]);
         this.users.set([]);
+        this.closingSources.set([]);
         this.loading.set(false);
         return;
       }
@@ -331,6 +345,10 @@ export class ClosingsListPage {
         next: (rows) =>
           this.users.set(rows.filter((u) => isUserVisible(u, 'closingsFilters'))),
         error: () => this.users.set([]),
+      });
+      this.api.listClosingSources(id, true).subscribe({
+        next: (rows) => this.closingSources.set(Array.isArray(rows) ? rows : []),
+        error: () => this.closingSources.set([]),
       });
       this.load();
     });
@@ -401,13 +419,9 @@ export class ClosingsListPage {
     this.api.listPage(id, filters, this.pageIndex() + 1, this.pageSize()).subscribe({
       next: (res) => {
         // Compatible con API vieja (array) y nueva (sobre paginado).
-        if (Array.isArray(res)) {
-          this.rows.set(res);
-          this.total.set(res.length);
-        } else {
-          this.rows.set(res.items);
-          this.total.set(res.total);
-        }
+        const items = Array.isArray(res) ? res : res.items;
+        this.rows.set(items.map((r) => flattenClosingSourceAmounts(r)));
+        this.total.set(Array.isArray(res) ? res.length : res.total);
         this.loading.set(false);
       },
       error: (err) => {

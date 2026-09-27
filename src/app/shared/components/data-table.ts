@@ -458,23 +458,24 @@ export interface DataTableColumn {
               </article>
             }
           </div>
-          @if (showTotals() && filteredRows().length) {
-            <div class="data-table__totals" aria-label="Totales">
-              <span class="data-table__totals-count">Total · {{ filteredRows().length }}</span>
-              <div class="data-table__totals-values">
-                @for (col of totalizeColumns(); track col.key) {
-                  <span class="data-table__totals-item">
-                    @if (totalizeColumns().length > 1) {
-                      <span class="data-table__totals-item-label">{{ col.label }}</span>
-                    }
-                    <strong>{{ formatColumnTotal(col) }}</strong>
-                  </span>
-                }
-              </div>
-            </div>
-          }
         }
       </div>
+
+      @if (!loading() && showTotals() && filteredRows().length) {
+        <div class="data-table__totals" aria-label="Totales">
+          <span class="data-table__totals-count">Total · {{ filteredRows().length }}</span>
+          <div class="data-table__totals-values">
+            @for (col of totalizeColumns(); track col.key) {
+              <span class="data-table__totals-item">
+                @if (totalizeColumns().length > 1) {
+                  <span class="data-table__totals-item-label">{{ col.label }}</span>
+                }
+                <strong>{{ formatColumnTotal(col) }}</strong>
+              </span>
+            }
+          </div>
+        </div>
+      }
 
       @if (pagedRows().length && showPaginator() && paginatorLength() > 0) {
         <mat-paginator
@@ -983,11 +984,12 @@ export interface DataTableColumn {
         justify-content: space-between;
         gap: 0.55rem 1rem;
         flex-wrap: wrap;
-        margin-top: 0.65rem;
-        padding: 0.7rem 0.95rem;
-        border-radius: 10px;
+        margin-top: 0.85rem;
+        padding: 0.75rem 1rem;
+        border-radius: var(--guy-radius, 12px);
         border: 1px solid var(--guy-border, #d7e0d9);
-        background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 85%, #fff);
+        background: var(--guy-card, #fff);
+        box-shadow: var(--guy-shadow, none);
       }
 
       .data-table__totals-count {

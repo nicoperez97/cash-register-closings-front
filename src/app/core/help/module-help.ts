@@ -135,7 +135,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'list',
         tone: 'read',
         anyOf: ['closings.read', 'closings.create'],
-        body: 'Cada fila es un cierre del día (y un turno, si el local tiene más de uno) o un cierre de evento. Primero ves caja sistema, total declarado y la diferencia en color (positiva en verde, negativa en rojo). Después el desglose: efectivo, PVS, Mercado Pago, DNI, transferencias, delivery, otros y egresos.',
+        body: 'Cada fila es un cierre del día (y un turno, si el local tiene más de uno) o un cierre de evento. Primero ves caja sistema, total declarado y la diferencia en color (positiva en verde, negativa en rojo). Después: efectivo, una columna por cada Cuenta del local (PVS, Rappi, Pedidos Ya…), las unidades del local si están configuradas (ej. paninos) y egresos.',
         items: [
           'Entrá al cierre para ver el detalle.',
           'En el celular la lista viene compacta. Con el botón de info de cada fila ves el detalle, o cambiá a vista detallada junto a Buscar.',
@@ -143,6 +143,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Cierre de evento carga un cierre aparte (cumpleaños, after, feria): no pisa el cierre del día ni el turno. En la lista aparece como Evento.',
           'Compartir de cada fila copia el texto del cierre para pegarlo en el grupo.',
         ],
+        tip: 'Las columnas de medios salen de Configuración → Cuentas del local. Las unidades usan la etiqueta del local (ej. paninos).',
       },
       {
         title: 'Volver a procesar',
@@ -340,7 +341,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'receipt_long',
         tone: 'read',
         anyOf: ['expenses.read', 'incomes.read', 'accountTransfers.read'],
-        body: 'Acá ves el libro completo: gastos, ingresos y movimientos entre cuentas. Filtrá por tipo, cuenta, forma de pago, empleado, comprobante y turno si el local tiene más de uno.',
+        body: 'Acá ves el libro completo: gastos, ingresos y movimientos entre cuentas. Filtrá por tipo, cuenta, forma de pago, empleado, comprobante y turno si el local tiene más de uno. Ves Fecha (del movimiento) y Creado (cuándo se cargó). La lista va de lo más nuevo a lo más viejo según Creado.',
         items: [
           'En Concepto podés filtrar Sin concepto o Concepto eliminado (archivado). Editá la fila para asignarle uno activo, o marcá varias y usá Asignar concepto.',
           'Para cargar a mano usá Gastos, Ingresos o Movimientos. Para un Excel, Importar Excel.',
@@ -355,7 +356,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Gemini lee el mismo archivo y te explica saldos raros; si una fila parece mal clasificada, la corrige.',
           'Las filas que ya existen (misma fecha, cuentas, monto y descripción) no se duplican.',
         ],
-        tip: 'Descargar plantilla es un ejemplo. El Excel de seguimiento de erogaciones e ingresos también entra.',
+        tip: 'Fecha = día del movimiento. Creado = cuándo se cargó (con eso se ordena la lista). Descargar plantilla es un ejemplo.',
       },
     ],
   },

@@ -563,6 +563,11 @@ export class MovementsListPage {
   readonly columns = computed((): DataTableColumn[] => {
     const base: DataTableColumn[] = [
       { key: 'businessDate', label: 'Fecha' },
+      {
+        key: 'createdAt',
+        label: 'Creado',
+        format: (r) => this.formatCreatedAt(r['createdAt']),
+      },
     ];
     if (this.kind() === 'all') {
       base.push({
@@ -1256,6 +1261,20 @@ export class MovementsListPage {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  private formatCreatedAt(iso: unknown): string {
+    const raw = String(iso ?? '').trim();
+    if (!raw) return '—';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return new Intl.DateTimeFormat('es-AR', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
   }
 
   openCreate(): void {

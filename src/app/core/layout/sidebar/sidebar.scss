@@ -1,9 +1,12 @@
 :host {
   display: block;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .sidebar {
@@ -48,6 +51,8 @@
   background-color: #fff;
   display: grid;
   place-items: center;
+  line-height: 0;
+  text-align: center;
   box-shadow:
     0 1px 2px rgba(27, 42, 51, 0.06),
     0 8px 18px rgba(27, 42, 51, 0.1);
@@ -86,9 +91,12 @@
   pointer-events: none;
 }
 
-.sidebar-logo-wrap--refreshing .sidebar-logo-img,
-.sidebar-logo-wrap--refreshing .sidebar-logo-fallback {
+.sidebar-logo-wrap--refreshing .sidebar-logo-img {
   animation: sidebar-logo-refresh 0.75s linear infinite;
+}
+
+.sidebar-logo-wrap--refreshing .sidebar-logo-fallback {
+  animation: sidebar-logo-refresh-fallback 0.75s linear infinite;
 }
 
 @keyframes sidebar-logo-refresh {
@@ -97,6 +105,15 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes sidebar-logo-refresh-fallback {
+  from {
+    transform: translateY(0.04em) rotate(0deg);
+  }
+  to {
+    transform: translateY(0.04em) rotate(360deg);
   }
 }
 
@@ -148,10 +165,20 @@
 }
 
 .sidebar-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: 0.02em;
+  line-height: 1;
   color: #fff;
+  /* Compensa el ojo óptico de mayúsculas (parecen subir en el círculo). */
+  transform: translateY(0.04em);
 }
 
 .sidebar-close {
@@ -295,6 +322,13 @@
 .shop-switcher__initials {
   position: relative;
   z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  line-height: 1;
+  transform: translateY(0.04em);
 }
 
 .shop-switcher__meta {
@@ -1015,23 +1049,47 @@
   outline-offset: 2px;
 }
 
-/* —— Rail (desktop colapsado): iconos circulares como toolbar-quick —— */
+/* —— Rail (desktop colapsado): iconos circulares centrados en la franja —— */
 .sidebar--rail {
-  padding: 0.4rem 0.4rem 0;
+  --rail-size: 40px;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.45rem 0 0;
+  align-items: center;
   background: #fff;
+  box-sizing: border-box;
+}
+
+.sidebar--rail .sidebar-brand-block,
+.sidebar--rail .sidebar-shop,
+.sidebar--rail .sidebar-search,
+.sidebar--rail .sidebar-footer {
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .sidebar--rail .sidebar-brand-block {
-  padding: 0.5rem 0.15rem 0.55rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.55rem;
   margin-bottom: 0.15rem;
   border-bottom-color: color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
 }
 
 .sidebar--rail .sidebar-logo-wrap {
-  width: 40px;
-  height: 40px;
-  max-width: 40px;
-  max-height: 40px;
+  width: var(--rail-size);
+  height: var(--rail-size);
+  max-width: var(--rail-size);
+  max-height: var(--rail-size);
+  margin-inline: 0;
   box-shadow:
     0 1px 2px rgba(27, 42, 51, 0.06),
     0 3px 8px rgba(27, 42, 51, 0.08);
@@ -1039,33 +1097,41 @@
 
 .sidebar--rail .sidebar-logo-img,
 .sidebar--rail .sidebar-logo-fallback {
-  width: 40px;
-  height: 40px;
+  width: var(--rail-size);
+  height: var(--rail-size);
   font-size: 0.9rem;
 }
 
 .sidebar--rail .sidebar-shop {
-  padding: 0 0 0.4rem;
-  display: flex;
-  justify-content: center;
+  padding-bottom: 0.4rem;
 }
 
 .sidebar--rail .shop-switcher,
 .sidebar--rail .shop-switcher--static {
   justify-content: center;
+  align-items: center;
   gap: 0;
-  width: 40px;
-  height: 40px;
+  width: var(--rail-size);
+  height: var(--rail-size);
+  min-width: var(--rail-size);
+  max-width: var(--rail-size);
   padding: 0;
+  margin: 0;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
   background: color-mix(in srgb, var(--guy-card, #fff) 88%, var(--guy-surface, #f3f6f4));
   box-shadow: 0 1px 2px rgba(27, 42, 51, 0.05);
+  overflow: hidden;
 }
 
 .sidebar--rail .shop-switcher__meta,
 .sidebar--rail .shop-switcher__chevron-wrap {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 .sidebar--rail .shop-switcher__avatar-wrap,
@@ -1077,23 +1143,42 @@
   max-height: none;
   min-width: 0;
   min-height: 0;
+  margin: 0;
   border-radius: 50%;
 }
 
+.sidebar--rail .sidebar-search--rail {
+  padding-bottom: 0.45rem;
+}
+
+.sidebar--rail .sidebar-search__rail-btn {
+  width: var(--rail-size);
+  height: var(--rail-size);
+  margin-inline: 0;
+}
+
 .sidebar--rail .sidebar-nav {
+  width: 100%;
   padding: 0.25rem 0 0.45rem;
   align-items: center;
   gap: 0.35rem;
   display: flex;
   flex-direction: column;
+  /* Sin gutter: en 76px reservar scrollbar desalineaba los círculos. */
   scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+.sidebar--rail .sidebar-nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .sidebar--rail .nav-group__title-row {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: auto;
+  width: 100%;
   flex: 0 0 auto;
 }
 
@@ -1103,7 +1188,6 @@
 
 .sidebar--rail .nav-link,
 .sidebar--rail .nav-group__title {
-  --rail-size: 40px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -1115,7 +1199,7 @@
   max-width: var(--rail-size);
   min-height: var(--rail-size);
   max-height: var(--rail-size);
-  margin: 0;
+  margin: 0 auto;
   padding: 0 !important;
   gap: 0;
   aspect-ratio: 1;
@@ -1152,7 +1236,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: auto;
+  width: 100%;
 }
 
 .sidebar--rail .nav-group__title {
@@ -1199,13 +1283,14 @@
 }
 
 .sidebar--rail .sidebar-footer {
-  padding: 0.4rem 0.2rem 0.55rem;
+  padding: 0.4rem 0 0.55rem;
   border-top: 1px solid var(--guy-border, #d7e0d9);
 }
 
 .sidebar--rail .sidebar-rail-toggle {
-  width: 40px;
-  height: 40px;
+  width: var(--rail-size);
+  height: var(--rail-size);
+  margin: 0;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
   background: color-mix(in srgb, var(--guy-card, #fff) 88%, var(--guy-surface, #f3f6f4));

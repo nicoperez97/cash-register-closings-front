@@ -31,6 +31,8 @@ export interface Movement {
   id: string;
   shopId: string;
   businessDate: string;
+  /** Alta en el sistema (ISO). */
+  createdAt?: string | null;
   fromAccountId?: string | null;
   toAccountId?: string | null;
   fromAccountName?: string | null;

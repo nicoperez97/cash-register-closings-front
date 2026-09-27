@@ -46,6 +46,8 @@
   </div>
 
   @if (shopContext.selectedShop(); as shop) {
+    <!-- En rail con un solo local el círculo del logo ya muestra el local: no duplicar AP. -->
+    @if (!rail() || shopContext.hasMultipleShops()) {
     <div class="sidebar-shop">
       @if (shopContext.hasMultipleShops()) {
         <button
@@ -198,6 +200,7 @@
         </div>
       }
     </div>
+    }
   }
 
   <div class="sidebar-search" [class.sidebar-search--rail]="rail()">
