@@ -1115,23 +1115,29 @@ export class MovementDialogComponent implements OnInit {
 
   readonly isDividendOn = computed(() => this.isTransfer && !!this.isDividendValue());
 
-  readonly localAccounts = computed(() =>
-    this.selectableAccounts().filter(
+  readonly localAccounts = computed(() => {
+    const selected = new Set(
+      [this.movement?.fromAccountId, this.movement?.toAccountId].filter(Boolean) as string[],
+    );
+    return this.selectableAccounts().filter(
       (a) =>
-        (this.listedForKind(a) || a.type === 'DIVIDENDS' || a.type === 'SYSTEM') &&
+        (this.listedForKind(a) || selected.has(a.id)) &&
         (a.type === 'CHANNEL' || a.type === 'SYSTEM' || a.type === 'DIVIDENDS'),
-    ),
-  );
+    );
+  });
 
-  readonly otherAccounts = computed(() =>
-    this.selectableAccounts().filter(
+  readonly otherAccounts = computed(() => {
+    const selected = new Set(
+      [this.movement?.fromAccountId, this.movement?.toAccountId].filter(Boolean) as string[],
+    );
+    return this.selectableAccounts().filter(
       (a) =>
-        this.listedForKind(a) &&
+        (this.listedForKind(a) || selected.has(a.id)) &&
         a.type !== 'CHANNEL' &&
         a.type !== 'SYSTEM' &&
         a.type !== 'DIVIDENDS',
-    ),
-  );
+    );
+  });
 
   readonly fromQuery = signal('');
   readonly toQuery = signal('');
