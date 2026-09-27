@@ -108,7 +108,7 @@ export class AccountBalancesPage {
 
   readonly visibleRows = computed(() => {
     const tab = this.typeTab();
-    const all = this.rows();
+    const all = this.rows().filter((r) => r.listInBalances !== false);
     if (tab === 'all') return all;
     return all.filter((r) => r.type === tab);
   });

@@ -1547,6 +1547,8 @@ export interface ShopSummary {
   partnerDividendAccountId?: string | null;
   /** Concepto de división de socios / dividendos. null = División. */
   partnerDividendConceptId?: string | null;
+  /** Concepto fijo de los movimientos entre cuentas. null = Transferencia e/ cuentas. */
+  transferConceptId?: string | null;
   posnets?: ShopPosnet[];
   paymentConceptCategories?: {
     supplier?: string[];
