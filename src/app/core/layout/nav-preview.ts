@@ -232,6 +232,7 @@ export function buildNavPreview(
   const reportes: NavPreviewLeaf[] = [];
   if (hasShopPermission(user, shopId, 'reports.view')) pushLeaf(reportes, 'reports');
   if (hasShopPermission(user, shopId, 'reportsConcepts.read')) pushLeaf(reportes, 'reportsConcepts');
+  if (hasShopPermission(user, shopId, 'reportsSales.read')) pushLeaf(reportes, 'reportsSales');
   if (hasShopPermission(user, shopId, 'reportsProducts.read')) pushLeaf(reportes, 'reportsProducts');
   if (hasShopPermission(user, shopId, 'reportsStats.read')) pushLeaf(reportes, 'reportsStats');
   if (reportes.length) {

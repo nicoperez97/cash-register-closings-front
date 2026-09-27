@@ -11,6 +11,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { PageHeaderComponent } from '../../shared/components/page-header';
+import {
+  MenuPosBringDialogComponent,
+  type MenuPosBringDialogResult,
+} from './menu-pos-bring-dialog';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import type { PdfDonutChart } from '../../shared/pdf/pdf-donut';
 import type { ExportFormat } from '../../shared/components/export-menu';
@@ -32,20 +36,11 @@ import {
   SalesProductsFilters,
   SalesProductsSummary,
 } from '../closings/closings-api.service';
-import { DialogTitleService } from '../../shared/services/dialog-title.service';
-import { PosSalesImportDialogComponent } from './pos-sales-import-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
 import { formatMoney, formatNumber } from '../../shared/utils/money';
-import {
-  canSeeReportsProductsAmount,
-  canSeeReportsProductsQty,
-  hasAnyReportsProductsBlock,
-  normalizeReportsProductsVisibility,
-  ReportsProductsVisibility,
-} from '../../shared/reports-products-visibility';
 
 /** Fecha corta es-AR: mié. 18 mar. */
 function formatDayLabelEs(isoDate: string): string {
@@ -61,7 +56,7 @@ function formatDayLabelEs(isoDate: string): string {
 }
 
 @Component({
-  selector: 'app-sales-products-page',
+  selector: 'app-sales-menu-page',
   imports: [
     ReactiveFormsModule,
     MatFormFieldModule,
@@ -85,7 +80,7 @@ function formatDayLabelEs(isoDate: string): string {
   ],
   template: `
     <app-page-header
-      title="Ventas POS"
+      title="Ventas"
       [subtitle]="shops.selectedShop()?.name ?? ''"
       [actionLabel]="canDownload() ? 'Descargar' : ''"
       [actionDisabled]="!canDownload() || !hasRange()"
@@ -102,7 +97,11 @@ function formatDayLabelEs(isoDate: string): string {
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">
-            Ventas POS: platos, rubros y evolución diaria
+            @if (includePosSales()) {
+              Pedidos online, mostrador y comanda · incluye ventas POS enlazadas
+            } @else {
+              Pedidos online, mostrador y comanda · platos enlazados a Restosoft
+            }
           </p>
         </div>
         <div class="guy-filters__tools">
@@ -140,7 +139,7 @@ function formatDayLabelEs(isoDate: string): string {
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Forma de pago POS</mat-label>
+          <mat-label>Forma de pago</mat-label>
           <mat-select formControlName="paymentCode">
             <mat-option value="">Todas</mat-option>
             @for (p of paymentOptions(); track p) {
@@ -167,157 +166,138 @@ function formatDayLabelEs(isoDate: string): string {
           <mat-icon>refresh</mat-icon>
           Actualizar
         </button>
-        @if (canImport()) {
-          <button
-            mat-stroked-button
-            type="button"
-            matTooltip="Solo estadísticas de platos y mesas. No afecta movimientos, cuentas ni cierres."
-            (click)="openPosSalesImport()"
-          >
-            <mat-icon>upload_file</mat-icon>
-            Importar Restosoft / POS
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="!hasRange() || loading()"
+          (click)="openBringFromPos()"
+          matTooltip="Sumar en este reporte las ventas Restosoft de platos enlazados a la carta"
+        >
+          <mat-icon>restaurant_menu</mat-icon>
+          Traer de ventas POS
+        </button>
+        @if (includePosSales()) {
+          <button mat-stroked-button type="button" (click)="clearPosMerge()" [disabled]="loading()">
+            <mat-icon>link_off</mat-icon>
+            Quitar POS
           </button>
         }
       </div>
       </div>
     </div>
 
-    @if (!hasVisibleBlocks()) {
-      <div class="panel-card">
-        <p class="muted">No tenés datos habilitados en este reporte. Pedile a un admin que active bloques en tus permisos de Ventas POS.</p>
-      </div>
-    } @else if (loading() && !summary()) {
+    @if (loading() && !summary()) {
       <app-loading-state
         [loading]="true"
         [skeleton]="true"
-        title="Cargando ventas POS"
-        message="Procesando platos, rubros y tickets"
+        title="Cargando ventas"
+        message="Pedidos online, mostrador y comanda"
       />
     } @else {
       @if (loading()) {
         <app-loading-state
           [refreshing]="true"
-          refreshTitle="Actualizando ventas POS"
+          refreshTitle="Actualizando ventas"
           refreshMessage="Recalculando el período"
         />
       }
-    @if (vis().kpis) {
       <app-kpi-strip class="mb-3" [items]="kpis()" />
-    }
 
-    @if (vis().charts) {
       <div class="charts-grid mb-3">
-        @if (seeAmount()) {
-          <app-line-chart
-            class="charts-grid__wide"
-            title="Importe por día"
-            subtitle="Evolución del período filtrado"
-            [points]="dayAmountPoints()"
-          />
-          <app-donut-chart
-            title="Mix por rubro"
-            subtitle="% del importe"
-            [items]="categorySlices()"
-          />
-          <app-hbar-chart
-            title="Top platos"
-            subtitle="Por importe"
-            [items]="topProductSlices()"
-            [maxItems]="10"
-          />
-          <app-donut-chart
-            title="Forma de pago"
-            subtitle="Importe POS"
-            [items]="paymentSlices()"
-          />
-          <app-hbar-chart
-            title="Pareto 80/20"
-            subtitle="Acumulado de platos por importe"
-            [items]="paretoSlices()"
-            [maxItems]="15"
-          />
-          <app-line-chart
-            class="charts-grid__wide"
-            title="Vs mismo día semana anterior"
-            subtitle="Δ % importe"
-            [points]="weekdayDeltaPoints()"
-          />
-        }
         <app-line-chart
-          title="Tickets por día"
-          subtitle="Cantidad de tickets"
+          class="charts-grid__wide"
+          title="Importe por día"
+          subtitle="Evolución del período filtrado"
+          [points]="dayAmountPoints()"
+        />
+        <app-donut-chart
+          title="Mix por rubro"
+          subtitle="% del importe (rubro Restosoft si está enlazado)"
+          [items]="categorySlices()"
+        />
+        <app-hbar-chart
+          title="Top platos"
+          subtitle="Por importe"
+          [items]="topProductSlices()"
+          [maxItems]="10"
+        />
+        <app-donut-chart
+          title="Forma de pago"
+          subtitle="Cobro del pedido / mesa"
+          [items]="paymentSlices()"
+        />
+        <app-hbar-chart
+          title="Pareto 80/20"
+          subtitle="Acumulado de platos por importe"
+          [items]="paretoSlices()"
+          [maxItems]="15"
+        />
+        <app-line-chart
+          title="Pedidos por día"
+          subtitle="Cantidad de pedidos / tickets"
           [points]="dayTicketPoints()"
         />
       </div>
-    }
 
-    @if (vis().tabProducts || vis().tabCategories || vis().tabDays) {
       <div class="panel-card panel-card--flush mb-3">
         <mat-tab-group animationDuration="0ms" class="sales-tabs">
-          @if (vis().tabProducts) {
-            <mat-tab label="Por plato">
-              <div class="panel-card__body">
-                <div class="guy-list-head">
-                  <div>
-                    <h2 class="guy-list-head__title">Ventas por plato</h2>
-                    <p class="guy-list-head__meta">
-                      {{ summary()?.totals?.productCount ?? 0 }} platos
-                    </p>
-                  </div>
+          <mat-tab label="Por plato">
+            <div class="panel-card__body">
+              <div class="guy-list-head">
+                <div>
+                  <h2 class="guy-list-head__title">Ventas por plato</h2>
+                  <p class="guy-list-head__meta">
+                    {{ summary()?.totals?.productCount ?? 0 }} platos · enlazados a Restosoft aparecen siempre
+                  </p>
                 </div>
-                <app-data-table
-                  [columns]="productColumns()"
-                  [rows]="products()"
-                  [sortable]="true"
-                  [showActions]="false"
-                  [canRemove]="never"
-                />
               </div>
-            </mat-tab>
-          }
-          @if (vis().tabCategories) {
-            <mat-tab label="Por rubro">
-              <div class="panel-card__body">
-                <div class="guy-list-head">
-                  <div>
-                    <h2 class="guy-list-head__title">Ventas por rubro</h2>
-                    <p class="guy-list-head__meta">
-                      Asigná rubros en Admin → Platos y rubros. Sin rubro aparecen como “Sin rubro”.
-                    </p>
-                  </div>
+              <app-data-table
+                [columns]="productColumns"
+                [rows]="products()"
+                [sortable]="true"
+                [showActions]="false"
+                [canRemove]="never"
+              />
+            </div>
+          </mat-tab>
+          <mat-tab label="Por rubro">
+            <div class="panel-card__body">
+              <div class="guy-list-head">
+                <div>
+                  <h2 class="guy-list-head__title">Ventas por rubro</h2>
+                  <p class="guy-list-head__meta">
+                    Rubro del catálogo POS cuando el plato está enlazado a la carta.
+                  </p>
                 </div>
-                <app-data-table
-                  [columns]="categoryColumns()"
-                  [rows]="categories()"
-                  [sortable]="true"
-                  [showActions]="false"
-                  [canRemove]="never"
-                />
               </div>
-            </mat-tab>
-          }
-          @if (vis().tabDays) {
-            <mat-tab label="Por día">
-              <div class="panel-card__body">
-                <div class="guy-list-head">
-                  <div>
-                    <h2 class="guy-list-head__title">Serie diaria</h2>
-                    <p class="guy-list-head__meta">Datos por fecha de negocio</p>
-                  </div>
+              <app-data-table
+                [columns]="categoryColumns"
+                [rows]="categories()"
+                [sortable]="true"
+                [showActions]="false"
+                [canRemove]="never"
+              />
+            </div>
+          </mat-tab>
+          <mat-tab label="Por día">
+            <div class="panel-card__body">
+              <div class="guy-list-head">
+                <div>
+                  <h2 class="guy-list-head__title">Serie diaria</h2>
+                  <p class="guy-list-head__meta">Datos por fecha de negocio del local</p>
                 </div>
-                <app-data-table
-                  [columns]="dayColumns()"
-                  [rows]="byDay()"
-                  [sortable]="true"
-                  [showActions]="false"
-                  [canRemove]="never"
-                />
               </div>
-            </mat-tab>
-          }
+              <app-data-table
+                [columns]="dayColumns"
+                [rows]="byDay()"
+                [sortable]="true"
+                [showActions]="false"
+                [canRemove]="never"
+              />
+            </div>
+          </mat-tab>
         </mat-tab-group>
       </div>
-    }
     }
   `,
   styles: `
@@ -342,8 +322,8 @@ function formatDayLabelEs(isoDate: string): string {
     }
   `,
 })
-export class SalesProductsPage {
-  private readonly filtersUi = createFiltersCollapsed('sales-products');
+export class SalesMenuPage {
+  private readonly filtersUi = createFiltersCollapsed('sales-menu');
   readonly filtersCollapsed = this.filtersUi.collapsed;
   readonly toggleFilters = this.filtersUi.toggleFilters;
 
@@ -352,17 +332,12 @@ export class SalesProductsPage {
   private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
-  private readonly dialogTitle = inject(DialogTitleService);
+
+  /** Merge de ventas POS enlazadas (sesión de esta pantalla). */
+  readonly includePosSales = signal(false);
+  readonly posMenuItemIds = signal<string[] | null>(null);
 
   readonly never = () => false;
-
-  readonly vis = computed<ReportsProductsVisibility>(() => {
-    const shop = this.shops.selectedShop();
-    return normalizeReportsProductsVisibility(shop?.reportsProductsVisibility);
-  });
-  readonly seeAmount = computed(() => canSeeReportsProductsAmount(this.vis()));
-  readonly seeQty = computed(() => canSeeReportsProductsQty(this.vis()));
-  readonly hasVisibleBlocks = computed(() => hasAnyReportsProductsBlock(this.vis()));
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(
@@ -461,126 +436,73 @@ export class SalesProductsPage {
     })),
   );
 
-  readonly weekdayDeltaPoints = computed<ChartPoint[]>(() =>
-    (this.summary()?.sameWeekdayCompare ?? []).map((d) => ({
-      label: formatDayLabelEs(d.date),
-      value: d.deltaPct ?? 0,
-    })),
-  );
+  readonly productColumns: DataTableColumn[] = [
+    { key: 'productCode', label: 'Código' },
+    { key: 'productName', label: 'Plato' },
+    {
+      key: 'category',
+      label: 'Rubro',
+      format: (r) => String(r['category'] || 'Sin rubro'),
+    },
+    {
+      key: 'qty',
+      label: 'Cantidad',
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
+    },
+    {
+      key: 'amount',
+      label: 'Importe',
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
+    },
+    { key: 'ticketCount', label: 'Pedidos' },
+    {
+      key: 'share',
+      label: '%',
+      format: (r) =>
+        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
+    },
+  ];
 
-  readonly productColumns = computed<DataTableColumn[]>(() => {
-    const cols: DataTableColumn[] = [
-      { key: 'productCode', label: 'Código' },
-      { key: 'productName', label: 'Plato' },
-      {
-        key: 'category',
-        label: 'Rubro',
-        format: (r) => String(r['category'] || 'Sin rubro'),
-      },
-      { key: 'menuItemName', label: 'Carta', format: (r) => String(r['menuItemName'] || '—') },
-    ];
-    if (this.seeQty()) {
-      cols.push({
-        key: 'qty',
-        label: 'Cantidad',
-        format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
-      });
-    }
-    if (this.seeAmount()) {
-      cols.push(
-        {
-          key: 'amount',
-          label: 'Importe',
-          format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
-        },
-        {
-          key: 'share',
-          label: '%',
-          format: (r) =>
-            `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
-        },
-        {
-          key: 'ticketContribution',
-          label: '$/ticket',
-          format: (r) =>
-            formatMoney(r['ticketContribution'] ?? 0, {
-              spaced: true,
-              maximumFractionDigits: 0,
-              minimumFractionDigits: 0,
-            }),
-        },
-        {
-          key: 'trendPct',
-          label: 'Tendencia',
-          format: (r) => {
-            const v = r['trendPct'];
-            if (v == null || !Number.isFinite(Number(v))) return '—';
-            const n = Number(v);
-            return `${n > 0 ? '+' : ''}${n.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
-          },
-        },
-      );
-    }
-    cols.push({ key: 'ticketCount', label: 'Tickets' });
-    return cols;
-  });
+  readonly categoryColumns: DataTableColumn[] = [
+    { key: 'category', label: 'Rubro' },
+    { key: 'productCount', label: 'Platos' },
+    {
+      key: 'qty',
+      label: 'Cantidad',
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
+    },
+    {
+      key: 'amount',
+      label: 'Importe',
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
+    },
+    { key: 'ticketCount', label: 'Pedidos' },
+    {
+      key: 'share',
+      label: '%',
+      format: (r) =>
+        `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
+    },
+  ];
 
-  readonly categoryColumns = computed<DataTableColumn[]>(() => {
-    const cols: DataTableColumn[] = [
-      { key: 'category', label: 'Rubro' },
-      { key: 'productCount', label: 'Platos' },
-    ];
-    if (this.seeQty()) {
-      cols.push({
-        key: 'qty',
-        label: 'Cantidad',
-        format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
-      });
-    }
-    if (this.seeAmount()) {
-      cols.push(
-        {
-          key: 'amount',
-          label: 'Importe',
-          format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
-        },
-        {
-          key: 'share',
-          label: '%',
-          format: (r) =>
-            `${(Number(r['share'] ?? 0) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`,
-        },
-      );
-    }
-    cols.push({ key: 'ticketCount', label: 'Tickets' });
-    return cols;
-  });
-
-  readonly dayColumns = computed<DataTableColumn[]>(() => {
-    const cols: DataTableColumn[] = [
-      {
-        key: 'date',
-        label: 'Fecha',
-        format: (r) => formatDayLabelEs(String(r['date'] ?? '')),
-      },
-    ];
-    if (this.seeQty()) {
-      cols.push({
-        key: 'qty',
-        label: 'Cantidad',
-        format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
-      });
-    }
-    if (this.seeAmount()) {
-      cols.push({
-        key: 'amount',
-        label: 'Importe',
-        format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
-      });
-    }
-    cols.push({ key: 'ticketCount', label: 'Tickets' });
-    return cols;
-  });
+  readonly dayColumns: DataTableColumn[] = [
+    {
+      key: 'date',
+      label: 'Fecha',
+      format: (r) => formatDayLabelEs(String(r['date'] ?? '')),
+    },
+    {
+      key: 'qty',
+      label: 'Cantidad',
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 3 }),
+    },
+    {
+      key: 'amount',
+      label: 'Importe',
+      format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
+    },
+    { key: 'ticketCount', label: 'Pedidos' },
+  ];
 
   constructor() {
     usePageRefresh(() => this.load());
@@ -597,63 +519,10 @@ export class SalesProductsPage {
   }
 
   canDownload(): boolean {
-    if (!this.vis().export) return false;
     return (
       hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reports.export') ||
-      hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reportsProducts.read')
+      hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reportsSales.read')
     );
-  }
-
-  canImport(): boolean {
-    if (!this.vis().import) return false;
-    return (
-      hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reports.export') ||
-      hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reportsProducts.read')
-    );
-  }
-
-  openPosSalesImport(): void {
-    const shopId = this.shops.selectedShopId();
-    if (!shopId) return;
-    const shop = this.shops.selectedShop();
-    if (!shop?.salesSystemId) {
-      this.snack.open(
-        'Configurá el sistema de ventas (Restosoft / WeMenu) en Configuración del local → Operación',
-        'OK',
-        { duration: 4500 },
-      );
-      return;
-    }
-    this.api.listSalesSystems().subscribe({
-      next: (systems) => {
-        const sys = systems.find((s) => s.id === shop.salesSystemId);
-        this.openImportDialog(shopId, shop.name ?? 'Local', sys?.name ?? null);
-      },
-      error: () => {
-        this.openImportDialog(shopId, shop.name ?? 'Local', null);
-      },
-    });
-  }
-
-  private openImportDialog(
-    shopId: string,
-    shopName: string,
-    salesSystemName: string | null,
-  ): void {
-    this.dialogTitle
-      .track(
-        this.dialog.open(PosSalesImportDialogComponent, {
-          width: '780px',
-          maxWidth: '96vw',
-          panelClass: 'guy-dialog',
-          data: { shopId, shopName, salesSystemName },
-        }),
-        'Importar ventas POS',
-      )
-      .afterClosed()
-      .subscribe((ok) => {
-        if (ok) this.load();
-      });
   }
 
   hasRange(): boolean {
@@ -667,7 +536,41 @@ export class SalesProductsPage {
     });
     this.filters.reset({ category: '', subcategory: '', paymentCode: '', q: '' });
     this.selectedCategory.set('');
+    this.includePosSales.set(false);
+    this.posMenuItemIds.set(null);
     this.load();
+  }
+
+  clearPosMerge(): void {
+    this.includePosSales.set(false);
+    this.posMenuItemIds.set(null);
+    this.load();
+  }
+
+  openBringFromPos(): void {
+    const shopId = this.shops.selectedShopId();
+    const filters = this.currentFilters();
+    if (!shopId || !filters) return;
+    const ref = this.dialog.open(MenuPosBringDialogComponent, {
+      width: 'min(640px, 96vw)',
+      maxHeight: '90vh',
+      data: {
+        shopId,
+        shopName: this.shops.selectedShop()?.name ?? '',
+        filters: { ...filters, includePosSales: false, posMenuItemIds: null },
+      },
+    });
+    ref.afterClosed().subscribe((result: MenuPosBringDialogResult | undefined) => {
+      if (!result?.menuItemIds?.length) return;
+      this.includePosSales.set(true);
+      this.posMenuItemIds.set(result.menuItemIds);
+      this.load();
+      this.snack.open(
+        `Se sumaron ${result.menuItemIds.length} platos desde Ventas POS`,
+        'OK',
+        { duration: 3000 },
+      );
+    });
   }
 
   private formatDate(d: Date | null): string | null {
@@ -690,6 +593,8 @@ export class SalesProductsPage {
       subcategory: null,
       paymentCode: f.paymentCode || null,
       q: f.q || null,
+      includePosSales: this.includePosSales() || undefined,
+      posMenuItemIds: this.includePosSales() ? this.posMenuItemIds() : null,
     };
   }
 
@@ -701,7 +606,7 @@ export class SalesProductsPage {
       return;
     }
     this.loading.set(true);
-    this.api.salesProductsSummary(shopId, filters).subscribe({
+    this.api.salesMenuSummary(shopId, filters).subscribe({
       next: (s) => {
         this.selectedCategory.set(filters.category ?? '');
         this.summary.set(s);
@@ -714,119 +619,68 @@ export class SalesProductsPage {
         this.allSubcategoryOptions.set(s.filterOptions?.subcategories ?? []);
         this.paymentOptions.set(s.filterOptions?.paymentCodes ?? []);
         const t = s.totals;
-        const seeAmount = this.seeAmount();
-        const seeQty = this.seeQty();
-        const delta =
-          seeAmount && t.amountDeltaPct != null && Number.isFinite(t.amountDeltaPct)
-            ? `${t.amountDeltaPct > 0 ? '+' : ''}${t.amountDeltaPct.toLocaleString('es-AR', {
-                maximumFractionDigits: 1,
-              })}%`
-            : undefined;
-        const kpiItems: KpiItem[] = [];
-        if (seeAmount) {
-          kpiItems.push({
+        this.kpis.set([
+          {
             label: 'Importe total',
             value: formatMoney(t.amount, { spaced: true }),
-            hint: delta,
-          });
-        }
-        if (seeQty) {
-          kpiItems.push({
+          },
+          {
             label: 'Unidades',
             value: formatNumber(t.qty, { maximumFractionDigits: 1 }),
-          });
-        }
-        kpiItems.push(
-          { label: 'Tickets', value: String(t.ticketCount) },
+          },
+          { label: 'Pedidos', value: String(t.ticketCount) },
           { label: 'Platos', value: String(t.productCount) },
           { label: 'Rubros', value: String(t.categoryCount) },
-        );
-        if (seeAmount) {
-          kpiItems.push(
-            {
-              label: 'Ticket prom.',
-              value: formatMoney(t.avgTicketAmount, {
-                spaced: true,
-                maximumFractionDigits: 0,
-                minimumFractionDigits: 0,
-              }),
-            },
-            {
-              label: 'Ticket máx / mín',
-              value: `${formatMoney(t.maxTicketAmount ?? 0, {
-                spaced: true,
-                maximumFractionDigits: 0,
-                minimumFractionDigits: 0,
-              })} / ${formatMoney(t.minTicketAmount ?? 0, {
-                spaced: true,
-                maximumFractionDigits: 0,
-                minimumFractionDigits: 0,
-              })}`,
-            },
-            {
-              label: '% top 10',
-              value: `${((t.top10Share ?? 0) * 100).toLocaleString('es-AR', {
-                maximumFractionDigits: 1,
-              })}%`,
-            },
-          );
-        }
-        if (seeQty) {
-          kpiItems.push({
-            label: 'Platos / ticket',
-            value: formatNumber(t.dishesPerTicket ?? 0, {
-              maximumFractionDigits: 2,
+          {
+            label: 'Ticket prom.',
+            value: formatMoney(t.avgTicketAmount, {
+              spaced: true,
+              maximumFractionDigits: 0,
+              minimumFractionDigits: 0,
             }),
-          });
-        }
-        this.kpis.set(kpiItems);
+          },
+          {
+            label: 'Platos / pedido',
+            value: formatNumber(t.dishesPerTicket ?? 0, { maximumFractionDigits: 2 }),
+          },
+          {
+            label: '% top 10',
+            value: `${((t.top10Share ?? 0) * 100).toLocaleString('es-AR', {
+              maximumFractionDigits: 1,
+            })}%`,
+          },
+        ]);
         this.loading.set(false);
       },
       error: () => {
         this.loading.set(false);
-        this.snack.open('Error al cargar ventas por plato', 'OK', { duration: 3000 });
+        this.snack.open('Error al cargar ventas', 'OK', { duration: 3000 });
       },
     });
   }
 
   async onExport(format: ExportFormat): Promise<void> {
     if (!this.canDownload()) return;
-    if (format === 'pdf') {
-      const shop = this.shops.selectedShop();
-      const filters = this.currentFilters();
-      const chart: PdfDonutChart = {
-        title: 'Mix por rubro',
-        subtitle: '% del importe en el período',
-        items: this.categorySlices(),
-      };
-      await downloadColumnsPdf({
-        title: 'Ventas POS',
-        subtitle: `${shop?.name ?? ''} · ${filters?.from ?? ''} a ${filters?.to ?? ''}`,
-        filename: `ventas-platos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${filters?.from}_${filters?.to}.pdf`,
-        columns: this.productColumns(),
-        rows: this.products(),
-        chart,
+    const shop = this.shops.selectedShop();
+    const filters = this.currentFilters();
+    if (format === 'xlsx') {
+      this.snack.open('Por ahora descargá PDF; Excel de Ventas llega en una próxima versión', 'OK', {
+        duration: 3500,
       });
       return;
     }
-    this.export();
-  }
-
-  export(): void {
-    const shopId = this.shops.selectedShopId();
-    const shop = this.shops.selectedShop();
-    const filters = this.currentFilters();
-    if (!shopId || !filters) return;
-    this.api.salesProductsExport(shopId, filters).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ventas-platos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${filters.from}_${filters.to}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
-      },
-      error: () => this.snack.open('No se pudo exportar', 'OK', { duration: 3000 }),
+    const chart: PdfDonutChart = {
+      title: 'Mix por rubro',
+      subtitle: '% del importe en el período',
+      items: this.categorySlices(),
+    };
+    await downloadColumnsPdf({
+      title: 'Ventas',
+      subtitle: `${shop?.name ?? ''} · ${filters?.from ?? ''} a ${filters?.to ?? ''}`,
+      filename: `ventas-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${filters?.from}_${filters?.to}.pdf`,
+      columns: this.productColumns,
+      rows: this.products(),
+      chart,
     });
   }
 

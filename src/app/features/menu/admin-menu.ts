@@ -43,6 +43,7 @@ import {
   type MenuBulkPriceDialogResult,
   type MenuBulkPriceItem,
 } from './menu-bulk-price-dialog';
+import { PosMenuLinkDialogComponent } from '../admin/pos-menu-link-dialog';
 import {
   MenuAssignSectorsDialogComponent,
   type MenuAssignSectorsDialogData,
@@ -467,6 +468,10 @@ function toPrice(value: unknown): number | null {
                           <mat-icon>sell</mat-icon>
                           Ajustar precios
                         </button>
+                        <button mat-stroked-button type="button" (click)="openPosLinkDialog()">
+                          <mat-icon>link</mat-icon>
+                          Enlazar con POS
+                        </button>
                         <button mat-stroked-button type="button" (click)="setAllSectionsOpen(true)">
                           Expandir secciones
                         </button>
@@ -571,6 +576,11 @@ function toPrice(value: unknown): number | null {
                                     }
                                   </button>
                                   <div class="menu-item__core">
+                                    @if (posLinkForMenuItem(item.id); as posLink) {
+                                      <span class="menu-item__pos-badge" title="Enlazado al POS">
+                                        POS {{ posLink }}
+                                      </span>
+                                    }
                                     <mat-form-field
                                       appearance="outline"
                                       subscriptSizing="dynamic"
@@ -1393,6 +1403,16 @@ function toPrice(value: unknown): number | null {
       gap: 0.4rem;
       min-width: 0;
     }
+    .menu-item__pos-badge {
+      grid-column: 1 / -1;
+      justify-self: start;
+      font-size: 0.72rem;
+      font-weight: 650;
+      color: #1b5e20;
+      background: #e8f5e9;
+      border-radius: 999px;
+      padding: 0.15rem 0.55rem;
+    }
     @media (max-width: 900px) {
       .menu-item__core {
         grid-template-columns: 1fr 1fr;
@@ -1561,6 +1581,8 @@ export class AdminMenuPage {
     canManageOrderingCatalog(this.auth.currentUser(), this.shopId()),
   );
   readonly loading = signal(false);
+  /** menuItemId → código POS */
+  readonly posCodeByMenuItemId = signal<Record<string, string>>({});
   readonly saving = signal(false);
   readonly savingSectors = signal(false);
   readonly savingExtras = signal(false);
@@ -1799,12 +1821,58 @@ export class AdminMenuPage {
         this.applyPayload(res);
         if (this.showCatalog()) this.loadExtras();
         this.loadStockProducts();
+        this.loadPosLinks();
       },
       error: () => {
         this.loading.set(false);
         this.snack.open('No se pudieron cargar las cartas', 'OK', { duration: 3000 });
       },
     });
+  }
+
+  private loadPosLinks(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.http
+      .get<Array<{ productCode: string; menuItemId?: string | null }>>(
+        `${environment.apiUrl}/shops/${shopId}/pos-products`,
+      )
+      .subscribe({
+        next: (rows) => {
+          const map: Record<string, string> = {};
+          for (const r of rows ?? []) {
+            const mid = String(r.menuItemId ?? '').trim();
+            if (mid) map[mid] = r.productCode;
+          }
+          this.posCodeByMenuItemId.set(map);
+        },
+        error: () => this.posCodeByMenuItemId.set({}),
+      });
+  }
+
+  posLinkForMenuItem(menuItemId?: string | null): string | null {
+    const id = String(menuItemId ?? '').trim();
+    if (!id) return null;
+    return this.posCodeByMenuItemId()[id] ?? null;
+  }
+
+  openPosLinkDialog(): void {
+    const shopId = this.shopId();
+    if (!shopId) return;
+    this.dialogTitle
+      .track(
+        this.dialog.open(PosMenuLinkDialogComponent, {
+          width: '820px',
+          maxWidth: '96vw',
+          panelClass: 'guy-dialog',
+          data: { shopId },
+        }),
+        'Enlazar POS ↔ Carta',
+      )
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.loadPosLinks();
+      });
   }
 
   private loadExtras(): void {

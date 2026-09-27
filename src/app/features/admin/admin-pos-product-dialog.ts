@@ -41,6 +41,7 @@ export interface AdminPosProductRow {
   subcategory?: string | null;
   categoryId?: string | null;
   subcategoryId?: string | null;
+  menuItemId?: string | null;
   active: boolean;
 }
 

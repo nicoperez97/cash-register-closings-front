@@ -380,13 +380,16 @@ function saveMovementsBalancesOpen(open: boolean): void {
               [columns]="columns()"
               [rows]="rows()"
               [loading]="loading()"
-              [sortable]="false"
+              [sortable]="true"
               [showSearch]="false"
               [serverPaging]="true"
               [total]="total()"
               [pageIndex]="pageIndex()"
               [pageSize]="pageSize()"
+              [sortActive]="sortBy()"
+              [sortDirection]="sortDir()"
               (page)="onPage($event)"
+              (sortChange)="onSort($event)"
               [selectable]="canManage()"
               [selection]="selectedIds()"
               (selectionChange)="selectedIds.set($event)"
@@ -491,10 +494,12 @@ export class MovementsListPage {
   readonly shopId = this.shops.selectedShopId;
   readonly rows = signal<Movement[]>([]);
   readonly loading = signal(true);
-  // Paginación server-side.
+  // Paginación + sort server-side.
   readonly total = signal(0);
   readonly pageIndex = signal(0);
   readonly pageSize = signal(50);
+  readonly sortBy = signal('');
+  readonly sortDir = signal<'asc' | 'desc' | ''>('');
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
   readonly accounts = signal<LedgerAccount[]>([]);
   readonly concepts = signal<Concept[]>([]);
@@ -1085,6 +1090,13 @@ export class MovementsListPage {
     this.load();
   }
 
+  onSort(ev: { active: string; direction: string }): void {
+    this.sortBy.set(ev.direction ? ev.active || '' : '');
+    this.sortDir.set(ev.direction === 'asc' || ev.direction === 'desc' ? ev.direction : '');
+    this.pageIndex.set(0);
+    this.load();
+  }
+
   toggleBalances(): void {
     this.balancesOpen.update((open) => {
       const next = !open;
@@ -1190,6 +1202,8 @@ export class MovementsListPage {
       q: f.q || null,
       kind: movementKind,
       paymentId: expense ? this.focusPaymentId() : null,
+      sortBy: this.sortBy() || null,
+      sortDir: this.sortDir() || null,
     };
   }
 

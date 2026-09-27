@@ -1,3 +1,5 @@
+import type { ReportsProductsVisibility } from '../../shared/reports-products-visibility';
+
 export type GlobalRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER' | 'VIEWER' | 'PARTNER';
 
 /** Compat: admin ≈ OWNER/ADMIN */
@@ -15,6 +17,7 @@ export type Permission =
   | 'reports.view'
   | 'reports.export'
   | 'reportsConcepts.read'
+  | 'reportsSales.read'
   | 'reportsProducts.read'
   | 'reportsStats.read'
   | 'shops.read'
@@ -127,6 +130,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'reports.view',
   'reports.export',
   'reportsConcepts.read',
+  'reportsSales.read',
   'reportsProducts.read',
   'reportsStats.read',
   'shops.read',
@@ -386,6 +390,7 @@ export type ModuleKey =
   | 'settlements'
   | 'reports'
   | 'reportsConcepts'
+  | 'reportsSales'
   | 'reportsProducts'
   | 'reportsStats'
   | 'expenses'
@@ -624,11 +629,22 @@ export const MODULE_DEFS: ModuleDef[] = [
     ],
   },
   {
+    key: 'reportsSales',
+    label: 'Reportes · Ventas',
+    icon: 'point_of_sale',
+    group: 'daily',
+    hint: 'Pedidos online y comanda (carta)',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
     key: 'reportsProducts',
     label: 'Reportes · Ventas POS',
     icon: 'restaurant_menu',
     group: 'daily',
-    hint: 'Ventas por producto',
+    hint: 'Importación Restosoft / WeMenu',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -1319,6 +1335,17 @@ export function migrateModuleLevels(
   ) {
     out.shopConfig = out.shop;
   }
+  // Módulo nuevo "Ventas" (carta): heredar de otros reportes si nunca se configuró.
+  if (
+    !Object.prototype.hasOwnProperty.call(raw, 'reportsSales') &&
+    (out.reports === 'read' ||
+      out.reports === 'export' ||
+      out.reportsProducts === 'read' ||
+      out.reportsConcepts === 'read' ||
+      out.reportsStats === 'read')
+  ) {
+    out.reportsSales = 'read';
+  }
   // Legacy: un solo módulo "salon" → Mesas / Diagrama / Reglas / Horarios.
   const legacySalon = raw['salon'];
   if (legacySalon && legacySalon !== 'none') {
@@ -1601,6 +1628,8 @@ export interface ShopSummary {
     carta?: string;
     avanzado?: string;
   } | null;
+  /** Visibilidad granular de Reportes · Ventas POS. */
+  reportsProductsVisibility?: ReportsProductsVisibility | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   /** En el cierre, si hay monto hay que adjuntar foto o archivo. */
@@ -1713,6 +1742,7 @@ export function expandModulePermissions(
       break;
   }
   if (levels.reportsConcepts === 'read') addPermission(set, 'reportsConcepts.read');
+  if (levels.reportsSales === 'read') addPermission(set, 'reportsSales.read');
   if (levels.reportsProducts === 'read') addPermission(set, 'reportsProducts.read');
   if (levels.reportsStats === 'read') addPermission(set, 'reportsStats.read');
 
@@ -1991,11 +2021,13 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.comanda = has('comanda.manage') ? 'manage' : 'none';
   base.integrations = level('integrations.read', 'integrations.manage');
   base.reportsConcepts = has('reportsConcepts.read') ? 'read' : 'none';
+  base.reportsSales = has('reportsSales.read') ? 'read' : 'none';
   base.reportsProducts = has('reportsProducts.read') ? 'read' : 'none';
   base.reportsStats = has('reportsStats.read') ? 'read' : 'none';
-  // Roles con reports.view (plantilla) → los tres reportes extra
+  // Roles con reports.view (plantilla) → reportes extra
   if (has('reports.view')) {
     if (base.reportsConcepts === 'none') base.reportsConcepts = 'read';
+    if (base.reportsSales === 'none') base.reportsSales = 'read';
     if (base.reportsProducts === 'none') base.reportsProducts = 'read';
     if (base.reportsStats === 'none') base.reportsStats = 'read';
   }

@@ -1060,6 +1060,12 @@ export class DataTableComponent {
   readonly showPaginator = input(true);
   /** When true, `rows` is already one page; parent owns paging via `total` + `page`. */
   readonly serverPaging = input(false);
+  /**
+   * Con `serverPaging`, el sort lo hace el padre (API). Emite `sortChange` y no
+   * reordena en cliente. Sin serverPaging, ordena en memoria.
+   */
+  readonly sortActiveInput = input('', { alias: 'sortActive' });
+  readonly sortDirectionInput = input<'asc' | 'desc' | ''>('', { alias: 'sortDirection' });
   readonly total = input(0);
   readonly pageIndexInput = input(0, { alias: 'pageIndex' });
   readonly pageSizeInput = input(DEFAULT_PAGE_SIZE, { alias: 'pageSize' });
@@ -1096,6 +1102,7 @@ export class DataTableComponent {
   readonly share = output<any>();
   readonly preview = output<any>();
   readonly page = output<PageEvent>();
+  readonly sortChange = output<Sort>();
   readonly selectionChange = output<string[]>();
 
   readonly search = signal('');
@@ -1117,6 +1124,8 @@ export class DataTableComponent {
 
   readonly sortedRows = computed(() => {
     const rows = this.filteredRows();
+    // Paginación server-side: el orden viene de la API; no reordenar la página.
+    if (this.serverPaging()) return rows;
     const active = this.sortActive();
     const dir = this.sortDirection();
     if (!this.sortable() || !active || !dir) return rows;
@@ -1199,6 +1208,10 @@ export class DataTableComponent {
       this.pageIndex.set(this.pageIndexInput());
       this.pageSize.set(this.pageSizeInput());
     });
+    effect(() => {
+      this.sortActive.set(this.sortActiveInput() || '');
+      this.sortDirection.set(this.sortDirectionInput() || '');
+    });
   }
 
   onPage(ev: PageEvent) {
@@ -1210,6 +1223,7 @@ export class DataTableComponent {
   onSort(ev: Sort) {
     this.sortActive.set(ev.active || '');
     this.sortDirection.set((ev.direction as 'asc' | 'desc' | '') || '');
+    this.sortChange.emit(ev);
     if (!this.serverPaging()) this.pageIndex.set(0);
   }
 

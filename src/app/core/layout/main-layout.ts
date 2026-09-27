@@ -437,6 +437,9 @@ export class MainLayoutComponent {
     if (shopId && hasShopPermission(user, shopId, 'reportsConcepts.read')) {
       reportes.push(leaf('reportsConcepts'));
     }
+    if (shopId && hasShopPermission(user, shopId, 'reportsSales.read')) {
+      reportes.push(leaf('reportsSales'));
+    }
     if (shopId && hasShopPermission(user, shopId, 'reportsProducts.read')) {
       reportes.push(leaf('reportsProducts'));
     }
