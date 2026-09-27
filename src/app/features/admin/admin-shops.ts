@@ -443,6 +443,10 @@ export class AdminShopsPage implements OnInit {
 
   downloadInstaller(os: PrintAgentInstallerOs, item: PrintAgentInstallerItem): void {
     if (this.installerBusy()) return;
+    if (item.source === 'url' && item.downloadUrl) {
+      window.open(item.downloadUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     this.installerBusy.set(true);
     this.http
       .get(`${environment.apiUrl}/admin/print-agent-installer/${os}/download`, {

@@ -1701,7 +1701,10 @@ export class AdminShopPage implements OnInit {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !os || this.installerBusy()) return;
     const item = this.installerItems().find((x) => x.os === os);
-    // Siempre vía API: en links de Drive el servidor resuelve el aviso de virus y entrega el .exe real.
+    if (item?.source === 'url' && item.downloadUrl) {
+      window.open(item.downloadUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     this.installerBusy.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/print-agent/installer/${os}`, {
