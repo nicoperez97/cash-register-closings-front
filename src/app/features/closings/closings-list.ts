@@ -1,4 +1,6 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { startWith } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +14,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import { apiErrorMessage } from '../../core/http/api-error-message';
+import { countActiveFilters } from '../../shared/utils/active-filters';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -80,6 +83,7 @@ import { closingMoneyColumns } from './closing-list-columns';
             </button>
             <app-filters-collapse-btn
               [collapsed]="filtersCollapsed()"
+              [badgeCount]="activeFilterCount()"
               (toggle)="toggleFilters()"
             />
           </div>
@@ -226,12 +230,18 @@ import { closingMoneyColumns } from './closing-list-columns';
             [columns]="columns"
             [rows]="rows()"
             [loading]="loading()"
-            [sortable]="true"
+            [sortable]="false"
+            [showSearch]="false"
+            [serverPaging]="true"
+            [total]="total()"
+            [pageIndex]="pageIndex()"
+            [pageSize]="pageSize()"
             [canShare]="canShareRow"
             [canRemove]="canRemoveRow"
             (edit)="goEdit($event)"
             (share)="shareClosing($event)"
             (remove)="onRemove($event)"
+            (page)="onPage($event)"
           />
         </div>
       </div>
@@ -261,6 +271,10 @@ export class ClosingsListPage {
   readonly rows = signal<CashClosing[]>([]);
   readonly loading = signal(true);
   readonly users = signal<ShopUserOption[]>([]);
+  // Paginación server-side.
+  readonly total = signal(0);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(50);
   readonly shopId = this.shops.selectedShopId;
   readonly shopLabel = () => this.shops.selectedShop()?.name ?? 'Sin local';
 
@@ -282,6 +296,14 @@ export class ClosingsListPage {
     minTotal: new FormControl<number | null>(null),
     maxTotal: new FormControl<number | null>(null),
     q: new FormControl('', { nonNullable: true }),
+  });
+
+  private readonly filtersValue = toSignal(this.filters.valueChanges.pipe(startWith(null)), {
+    initialValue: null,
+  });
+  readonly activeFilterCount = computed(() => {
+    this.filtersValue();
+    return countActiveFilters(this.filters.getRawValue());
   });
 
   readonly columns: DataTableColumn[] = closingMoneyColumns();
@@ -319,7 +341,15 @@ export class ClosingsListPage {
   }
 
   applyFilter(): void {
+    // Al (re)aplicar filtros volvemos a la primera página.
+    this.pageIndex.set(0);
     this.reloadToken.update((n) => n + 1);
+  }
+
+  onPage(ev: { pageIndex: number; pageSize: number }): void {
+    this.pageIndex.set(ev.pageIndex);
+    this.pageSize.set(ev.pageSize);
+    this.load();
   }
 
   clearFilters(): void {
@@ -368,9 +398,16 @@ export class ClosingsListPage {
       return;
     }
     this.loading.set(true);
-    this.api.list(id, filters).subscribe({
-      next: (rows) => {
-        this.rows.set(rows);
+    this.api.listPage(id, filters, this.pageIndex() + 1, this.pageSize()).subscribe({
+      next: (res) => {
+        // Compatible con API vieja (array) y nueva (sobre paginado).
+        if (Array.isArray(res)) {
+          this.rows.set(res);
+          this.total.set(res.length);
+        } else {
+          this.rows.set(res.items);
+          this.total.set(res.total);
+        }
         this.loading.set(false);
       },
       error: (err) => {

@@ -180,6 +180,19 @@ export class MovementsApiService {
     });
   }
 
+  /**
+   * Listado paginado server-side. Con soporte de paginación devuelve
+   * { items, total, page, pageSize }; una API vieja ignora page/pageSize y
+   * devuelve el array. El tipo unión permite manejar ambos casos.
+   */
+  listPage(shopId: string, filters: MovementFilters, page: number, pageSize: number) {
+    return this.http.get<
+      Movement[] | { items: Movement[]; total: number; page: number; pageSize: number }
+    >(`${this.base}/shops/${shopId}/movements`, {
+      params: { ...filtersToParams(filters), page: String(page), pageSize: String(pageSize) },
+    });
+  }
+
   get(shopId: string, id: string) {
     return this.http.get<Movement>(`${this.base}/shops/${shopId}/movements/${id}`);
   }
