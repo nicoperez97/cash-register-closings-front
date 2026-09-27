@@ -163,6 +163,53 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
       </form>
     </section>
 
+    <section class="panel-card split-cfg">
+      <header class="split-cfg__head">
+        <div>
+          <h2 class="split-cfg__title">Movimientos entre cuentas</h2>
+          <p class="split-cfg__lead">
+            Concepto fijo de las transferencias entre cuentas. Se aplica siempre al generar
+            un movimiento entre cuentas: el usuario solo lo ve, no lo elige. Por defecto:
+            Transferencia e/ cuentas.
+          </p>
+        </div>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="transferBusy() || transferForm.pristine"
+          (click)="saveTransferConfig()"
+        >
+          <app-busy-label [busy]="transferBusy()" busyLabel="Guardando…">Guardar</app-busy-label>
+        </button>
+      </header>
+      <form [formGroup]="transferForm" class="split-cfg__fields">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto</mat-label>
+          <mat-select
+            formControlName="transferConceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, transferConceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search
+                [(query)]="transferConceptQuery"
+                placeholder="Buscar concepto…"
+              />
+            </mat-option>
+            <mat-option [value]="null">Automático (Transferencia e/ cuentas)</mat-option>
+            @for (c of filteredTransferConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
+            }
+            @if (transferConceptQuery() && !filteredTransferConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Se muestra al crear una transferencia entre cuentas.</mat-hint>
+        </mat-form-field>
+      </form>
+    </section>
+
     <app-segment-tabs
       ariaLabel="Tipo de cuenta"
       [fill]="true"
@@ -261,13 +308,19 @@ export class AdminAccountsPage {
 
   readonly accountQuery = signal('');
   readonly conceptQuery = signal('');
+  readonly transferConceptQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly kindLabel = conceptKindLabel;
   readonly accountTypeLabel = accountTypeLabel;
+  readonly transferBusy = signal(false);
 
   readonly splitForm = this.fb.nonNullable.group({
     partnerDividendAccountId: this.fb.nonNullable.control(''),
     partnerDividendConceptId: this.fb.control<string | null>(null),
+  });
+
+  readonly transferForm = this.fb.nonNullable.group({
+    transferConceptId: this.fb.control<string | null>(null),
   });
 
   /** Egreso siempre visible arriba del listado (aunque el filtro de búsqueda lo oculte). */
@@ -315,6 +368,15 @@ export class AdminAccountsPage {
       this.conceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
       this.splitForm.controls.partnerDividendConceptId.value,
+    ),
+  );
+
+  readonly filteredTransferConcepts = computed(() =>
+    filterBySelectQuery(
+      this.concepts().filter((c) => c.kind === 'TRANSFER'),
+      this.transferConceptQuery(),
+      (c) => `${c.name} ${this.kindLabel(c.kind)}`,
+      this.transferForm.controls.transferConceptId.value,
     ),
   );
 
@@ -408,6 +470,7 @@ export class AdminAccountsPage {
           this.rows.set(rows);
           this.loading.set(false);
           this.syncSplitFormFromShop();
+          this.syncTransferFormFromShop();
         },
         error: () => {
           this.loading.set(false);
@@ -436,6 +499,52 @@ export class AdminAccountsPage {
       },
       { emitEvent: false },
     );
+  }
+
+  syncTransferFormFromShop(): void {
+    const shop = this.shops.selectedShop();
+    this.transferForm.reset(
+      { transferConceptId: shop?.transferConceptId ?? null },
+      { emitEvent: false },
+    );
+  }
+
+  saveTransferConfig(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const raw = this.transferForm.getRawValue();
+    this.transferBusy.set(true);
+    this.http
+      .put<{ transferConceptId?: string | null }>(
+        `${environment.apiUrl}/shops/${shopId}/accounts/transfer-concept-config`,
+        { transferConceptId: raw.transferConceptId || null },
+      )
+      .subscribe({
+        next: (cfg) => {
+          this.transferBusy.set(false);
+          const current = this.shops.selectedShop();
+          if (current) {
+            this.shops.upsertShop({
+              ...current,
+              transferConceptId: cfg.transferConceptId ?? null,
+            });
+          }
+          this.transferForm.patchValue(
+            { transferConceptId: cfg.transferConceptId ?? null },
+            { emitEvent: false },
+          );
+          this.transferForm.markAsPristine();
+          this.snack.open('Concepto de transferencias guardado', 'OK', { duration: 2500 });
+        },
+        error: (err) => {
+          this.transferBusy.set(false);
+          const msg =
+            err?.error?.message ||
+            (Array.isArray(err?.error?.message) ? err.error.message.join(' · ') : null) ||
+            'No se pudo guardar';
+          this.snack.open(String(msg), 'OK', { duration: 4000 });
+        },
+      });
   }
 
   saveSplitConfig(): void {
