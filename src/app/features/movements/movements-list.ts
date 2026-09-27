@@ -22,7 +22,8 @@ import {
   NotifyConfirmDialogComponent,
   NotifyConfirmDialogResult,
 } from '../../shared/components/notify-confirm-dialog';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, startWith } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { formatMoney } from '../../shared/utils/money';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -54,6 +55,7 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { ExportMenuComponent, ExportFormat } from '../../shared/components/export-menu';
 import { downloadColumnsPdf } from '../../shared/utils/table-pdf';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { countActiveFilters } from '../../shared/utils/active-filters';
 import { RecordSavedDialogComponent } from '../../shared/components/record-saved-dialog';
 import { PaymentFilePreviewDialogComponent } from '../payments/payment-file-preview-dialog';
 import { PaymentsApiService } from '../payments/payments-api.service';
@@ -169,6 +171,7 @@ function saveMovementsBalancesOpen(open: boolean): void {
             </button>
             <app-filters-collapse-btn
               [collapsed]="filtersCollapsed()"
+              [badgeCount]="activeFilterCount()"
               (toggle)="toggleFilters()"
             />
           </div>
@@ -377,7 +380,13 @@ function saveMovementsBalancesOpen(open: boolean): void {
               [columns]="columns()"
               [rows]="rows()"
               [loading]="loading()"
-              [sortable]="true"
+              [sortable]="false"
+              [showSearch]="false"
+              [serverPaging]="true"
+              [total]="total()"
+              [pageIndex]="pageIndex()"
+              [pageSize]="pageSize()"
+              (page)="onPage($event)"
               [selectable]="canManage()"
               [selection]="selectedIds()"
               (selectionChange)="selectedIds.set($event)"
@@ -482,6 +491,10 @@ export class MovementsListPage {
   readonly shopId = this.shops.selectedShopId;
   readonly rows = signal<Movement[]>([]);
   readonly loading = signal(true);
+  // Paginación server-side.
+  readonly total = signal(0);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(50);
   readonly balanceRows = signal<BalanceAccountRow[]>([]);
   readonly accounts = signal<LedgerAccount[]>([]);
   readonly concepts = signal<Concept[]>([]);
@@ -526,6 +539,14 @@ export class MovementsListPage {
     hasReceipt: new FormControl('', { nonNullable: true }),
     shiftId: new FormControl('', { nonNullable: true }),
     q: new FormControl('', { nonNullable: true }),
+  });
+
+  private readonly filtersValue = toSignal(this.filters.valueChanges.pipe(startWith(null)), {
+    initialValue: null,
+  });
+  readonly activeFilterCount = computed(() => {
+    this.filtersValue();
+    return countActiveFilters(this.filters.getRawValue());
   });
 
   readonly paymentMethodOptions = EXPENSE_PAYMENT_METHOD_OPTIONS;
@@ -1049,7 +1070,14 @@ export class MovementsListPage {
 
   applyFilter(): void {
     this.clearSelection();
+    this.pageIndex.set(0);
     this.reloadToken.update((n) => n + 1);
+  }
+
+  onPage(ev: { pageIndex: number; pageSize: number }): void {
+    this.pageIndex.set(ev.pageIndex);
+    this.pageSize.set(ev.pageSize);
+    this.load();
   }
 
   toggleBalances(): void {
@@ -1182,9 +1210,13 @@ export class MovementsListPage {
       return;
     }
     this.loading.set(true);
-    this.api.list(shopId, this.currentFilters()).subscribe({
-      next: (rows) => {
-        this.rows.set(this.narrowBySource(rows));
+    this.api.listPage(shopId, this.currentFilters(), this.pageIndex() + 1, this.pageSize()).subscribe({
+      next: (res) => {
+        // Compatible con API vieja (array) y nueva (sobre paginado). El filtro
+        // `source` ya se aplica server-side; narrowBySource solo aplica al array.
+        const rows = Array.isArray(res) ? this.narrowBySource(res) : res.items;
+        this.rows.set(rows);
+        this.total.set(Array.isArray(res) ? rows.length : res.total);
         this.selectedIds.set([]);
         this.loading.set(false);
         const focusPay = this.focusPaymentId();
