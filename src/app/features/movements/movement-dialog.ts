@@ -276,31 +276,37 @@ function toDateString(value: Date | null): string {
           </section>
         </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Concepto{{ isTransfer ? ' (opcional)' : '' }}</mat-label>
-          <mat-icon matPrefix>sell</mat-icon>
-          <mat-select
-            formControlName="conceptId"
-            panelClass="guy-select-search-panel"
-            (openedChange)="onSelectSearchOpened($event, conceptQuery)"
-          >
-            <mat-option disabled class="select-search-opt">
-              <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
-            </mat-option>
-            @if (isTransfer) {
-              <mat-option [value]="null">Sin concepto</mat-option>
+        @if (!isTransfer) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Concepto</mat-label>
+            <mat-icon matPrefix>sell</mat-icon>
+            <mat-select
+              formControlName="conceptId"
+              panelClass="guy-select-search-panel"
+              (openedChange)="onSelectSearchOpened($event, conceptQuery)"
+            >
+              <mat-option disabled class="select-search-opt">
+                <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
+              </mat-option>
+              @for (c of filteredConcepts(); track c.id) {
+                <mat-option [value]="c.id">{{ c.name }}</mat-option>
+              }
+              @if (conceptQuery() && !filteredConcepts().length) {
+                <mat-option disabled>Sin resultados</mat-option>
+              }
+            </mat-select>
+            @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
+              <mat-error>Elegí un concepto</mat-error>
             }
-            @for (c of filteredConcepts(); track c.id) {
-              <mat-option [value]="c.id">{{ c.name }}</mat-option>
-            }
-            @if (conceptQuery() && !filteredConcepts().length) {
-              <mat-option disabled>Sin resultados</mat-option>
-            }
-          </mat-select>
-          @if (form.controls.conceptId.touched && form.controls.conceptId.hasError('required')) {
-            <mat-error>Elegí un concepto</mat-error>
-          }
-        </mat-form-field>
+          </mat-form-field>
+        } @else if (!isDividendOn()) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Concepto</mat-label>
+            <mat-icon matPrefix>sell</mat-icon>
+            <input matInput [value]="fixedTransferConceptName()" readonly />
+            <mat-hint>Fijo. Se configura en Cuentas → Movimientos entre cuentas.</mat-hint>
+          </mat-form-field>
+        }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Descripción</mat-label>
@@ -957,7 +963,7 @@ export class MovementDialogComponent implements OnInit {
     this.loadingLists.set(true);
     this.listsFailed.set(false);
     const conceptOpts = this.isTransfer
-      ? null
+      ? { kind: 'TRANSFER' as const }
       : this.isIncome
         ? { kind: 'INCOME' as const }
         : { kind: 'EXPENSE' as const };
@@ -1182,6 +1188,25 @@ export class MovementDialogComponent implements OnInit {
       (c) => c.name,
       this.form.controls.conceptId.value,
     ),
+  );
+
+  /** Concepto fijo de las transferencias (config del local, solo se muestra). */
+  readonly fixedTransferConcept = computed(() => {
+    const list = this.concepts();
+    const configuredId = this.shops.selectedShop()?.transferConceptId ?? null;
+    if (configuredId) {
+      const configured = list.find((c) => c.id === configuredId);
+      if (configured) return configured;
+    }
+    return (
+      list.find((c) => c.name === 'Transferencia e/ cuentas') ??
+      list.find((c) => c.kind === 'TRANSFER') ??
+      null
+    );
+  });
+
+  readonly fixedTransferConceptName = computed(
+    () => this.fixedTransferConcept()?.name ?? 'Transferencia e/ cuentas',
   );
 
   readonly filteredLocalFrom = computed(() =>
