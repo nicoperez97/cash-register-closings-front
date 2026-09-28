@@ -6,7 +6,7 @@
 } @else if (loading()) {
   <div class="page page--loading"><p>Cargando menú…</p></div>
 } @else if (config(); as c) {
-  <div class="page" [class.page--cart]="cartCount() > 0">
+  <div class="page" [class.page--cart]="canOrder() && cartCount() > 0">
     <header class="top">
       <button type="button" class="back" (click)="back()" aria-label="Volver">‹</button>
       <div class="top__mid">
@@ -120,10 +120,9 @@
                     <button
                       type="button"
                       class="item__add ord-press"
-                      [disabled]="!canOrder()"
                       (click)="openItem(it)"
                     >
-                      Agregar
+                      {{ canOrder() ? 'Agregar' : 'Ver' }}
                     </button>
                   </div>
                   @if (itemPhoto(it); as photo) {
@@ -190,83 +189,82 @@
           <p class="detail__desc">{{ it.description }}</p>
         }
 
-        @if (it.removableIngredients?.length) {
-          <div class="extras">
-            <p class="extras__title">Retirar ingredientes</p>
-            <p class="extras__hint">Marcá en la lista lo que no querés</p>
-            <div class="remove-list">
-              @for (ing of it.removableIngredients; track ing) {
-                <label class="remove-row" [class.remove-row--on]="isIngredientRemoved(ing)">
+        @if (canOrder()) {
+          @if (it.removableIngredients?.length) {
+            <div class="extras">
+              <p class="extras__title">Retirar ingredientes</p>
+              <p class="extras__hint">Marcá en la lista lo que no querés</p>
+              <div class="remove-list">
+                @for (ing of it.removableIngredients; track ing) {
+                  <label class="remove-row" [class.remove-row--on]="isIngredientRemoved(ing)">
+                    <input
+                      type="checkbox"
+                      [checked]="isIngredientRemoved(ing)"
+                      (change)="toggleRemovedIngredient(ing)"
+                    />
+                    <span class="remove-row__name">{{ ing }}</span>
+                    @if (isIngredientRemoved(ing)) {
+                      <span class="remove-row__tag">Sin</span>
+                    }
+                  </label>
+                }
+              </div>
+            </div>
+          }
+
+          @if (itemExtras().length) {
+            <div class="extras">
+              <p class="extras__title">Extras</p>
+              @for (ex of itemExtras(); track ex.id) {
+                <label class="extras__row">
                   <input
                     type="checkbox"
-                    [checked]="isIngredientRemoved(ing)"
-                    (change)="toggleRemovedIngredient(ing)"
-                    [disabled]="!canOrder()"
+                    [checked]="isExtraSelected(ex.id)"
+                    (change)="toggleExtra(ex.id)"
                   />
-                  <span class="remove-row__name">{{ ing }}</span>
-                  @if (isIngredientRemoved(ing)) {
-                    <span class="remove-row__tag">Sin</span>
-                  }
+                  <span>{{ ex.name }}</span>
+                  <span class="price">{{ money(ex.price) }}</span>
                 </label>
               }
             </div>
-          </div>
-        }
-
-        @if (itemExtras().length) {
-          <div class="extras">
-            <p class="extras__title">Extras</p>
-            @for (ex of itemExtras(); track ex.id) {
-              <label class="extras__row">
-                <input
-                  type="checkbox"
-                  [checked]="isExtraSelected(ex.id)"
-                  (change)="toggleExtra(ex.id)"
-                />
-                <span>{{ ex.name }}</span>
-                <span class="price">{{ money(ex.price) }}</span>
-              </label>
-            }
-          </div>
-        }
-
-        <label class="field">
-          <span>Cantidad</span>
-          <div class="qty">
-            <button type="button" (click)="bumpQty(-1)" [disabled]="qty() <= 1">−</button>
-            <span>{{ qty() }}</span>
-            <button type="button" (click)="bumpQty(1)" [disabled]="qty() >= 99">+</button>
-          </div>
-        </label>
-
-        <label class="field">
-          <span>Notas (opcional)</span>
-          <textarea
-            rows="3"
-            maxlength="300"
-            [ngModel]="notes()"
-            (ngModelChange)="notes.set($event)"
-            placeholder="Otras notas (opcional)"
-            [disabled]="!canOrder()"
-          ></textarea>
-        </label>
-
-        <button
-          type="button"
-          class="btn btn--primary ord-press"
-          [disabled]="!canOrder()"
-          (click)="addToCart()"
-        >
-          @if (addedFlash()) {
-            Agregado
-          } @else {
-            Agregar · {{ money(it.price * qty()) }}
           }
-        </button>
+
+          <label class="field">
+            <span>Cantidad</span>
+            <div class="qty">
+              <button type="button" (click)="bumpQty(-1)" [disabled]="qty() <= 1">−</button>
+              <span>{{ qty() }}</span>
+              <button type="button" (click)="bumpQty(1)" [disabled]="qty() >= 99">+</button>
+            </div>
+          </label>
+
+          <label class="field">
+            <span>Notas (opcional)</span>
+            <textarea
+              rows="3"
+              maxlength="300"
+              [ngModel]="notes()"
+              (ngModelChange)="notes.set($event)"
+              placeholder="Otras notas (opcional)"
+            ></textarea>
+          </label>
+
+          <button
+            type="button"
+            class="btn btn--primary ord-press"
+            (click)="addToCart()"
+          >
+            @if (addedFlash()) {
+              Agregado
+            } @else {
+              Agregar · {{ money(it.price * qty()) }}
+            }
+          </button>
+        }
       </section>
     }
 
-    @if (cartCount() > 0) {
+    @if (canOrder() && cartCount() > 0) {
       <button type="button" class="cart-bar ord-press" [disabled]="sending()" (click)="goCheckout()">
         <span class="cart-bar__count">{{ cartCount() }}</span>
         <span class="cart-bar__label">

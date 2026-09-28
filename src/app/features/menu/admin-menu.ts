@@ -15,7 +15,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { canManageOrderingCatalog } from '../../core/auth/auth.models';
 import { environment } from '../../../environments/environment';
 import { usePageRefresh } from '../../core/page-refresh.service';
-import { takeInputFile, safeUploadFileName } from '../../shared/utils/input-file';
+import { takeInputFile, takeInputFiles, safeUploadFileName } from '../../shared/utils/input-file';
 import { copyText } from '../../shared/utils/share-text';
 import { LoadingStateComponent } from '../../shared/components/loading-state';
 import { downloadIframePdf } from '../../shared/pdf/html-pdf';
@@ -700,12 +700,17 @@ function toPrice(value: unknown): number | null {
                                               </button>
                                             </div>
                                           </div>
+                                        } @empty {
+                                          <div class="menu-item__shot menu-item__shot--empty">
+                                            <span>Sin fotos</span>
+                                          </div>
                                         }
                                       </div>
                                       <input
                                         #itemPhotoInput
                                         type="file"
                                         accept="image/*"
+                                        multiple
                                         hidden
                                         (change)="onItemPhoto(section.index, ii, $event)"
                                       />
@@ -713,21 +718,25 @@ function toPrice(value: unknown): number | null {
                                         <button
                                           mat-stroked-button
                                           type="button"
-                                          [disabled]="!item.id || uploadingItemPhoto()"
+                                          [disabled]="uploadingItemPhoto()"
                                           (click)="itemPhotoInput.click()"
                                         >
-                                          {{ itemImages(item).length ? 'Agregar foto' : 'Foto' }}
+                                          {{
+                                            uploadingItemPhoto()
+                                              ? 'Subiendo…'
+                                              : itemImages(item).length
+                                                ? 'Agregar fotos'
+                                                : 'Fotos'
+                                          }}
                                         </button>
-                                        @if (itemImages(item).length) {
-                                          <button
-                                            mat-button
-                                            type="button"
-                                            [disabled]="uploadingItemPhoto()"
-                                            (click)="clearItemPhoto(section.index, ii)"
-                                          >
-                                            Quitar todas
-                                          </button>
-                                        }
+                                        <button
+                                          mat-button
+                                          type="button"
+                                          [disabled]="!itemImages(item).length || uploadingItemPhoto()"
+                                          (click)="clearItemPhoto(section.index, ii)"
+                                        >
+                                          Quitar todas
+                                        </button>
                                       </div>
                                     </div>
                                     <mat-form-field
@@ -1534,6 +1543,8 @@ function toPrice(value: unknown): number | null {
       display: flex;
       flex-wrap: wrap;
       gap: 0.45rem;
+      min-height: 5.9rem;
+      align-content: flex-start;
     }
     .menu-item__shot {
       width: 5.5rem;
@@ -1541,6 +1552,15 @@ function toPrice(value: unknown): number | null {
       border: 1px solid var(--guy-border, #d7e0d9);
       background: #f6f8f6;
       overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .menu-item__shot--empty {
+      display: grid;
+      place-items: center;
+      height: 5.75rem;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.72rem;
+      border-style: dashed;
     }
     .menu-item__shot img {
       display: block;
@@ -1553,6 +1573,7 @@ function toPrice(value: unknown): number | null {
       justify-content: center;
       gap: 0;
       background: #fff;
+      min-height: 28px;
     }
     .menu-item__shot-actions button {
       width: 28px;
@@ -1570,6 +1591,7 @@ function toPrice(value: unknown): number | null {
       flex-wrap: wrap;
       gap: 0.35rem;
       align-items: center;
+      min-height: 2.25rem;
     }
     .menu-item__desc,
     .menu-item__ing {
@@ -2148,7 +2170,12 @@ export class AdminMenuPage {
     };
   }
 
-  private loadEditor(menu: ShopMenu): void {
+  private loadEditor(menu: ShopMenu, opts?: { keepExpanded?: boolean }): void {
+    const keep = !!opts?.keepExpanded;
+    const prevOpenItems = keep ? this.openItemKeys() : null;
+    const prevOpenSections = keep ? this.openSectionKeys() : null;
+    const prevSelected = keep ? this.selectedItemKeys() : null;
+    const prevQuery = keep ? this.itemQuery() : '';
     this.title = menu.title ?? '';
     this.menuSlug = menu.slug ?? '';
     this.note = menu.note ?? '';
@@ -2160,12 +2187,19 @@ export class AdminMenuPage {
     );
     this.sections.set(menu.sections.length ? menu.sections : emptySections());
     this.slugTouched = !!menu.slug;
-    this.itemQuery.set('');
-    this.selectedItemKeys.set(new Set());
-    this.openItemKeys.set(new Set());
+    this.itemQuery.set(prevQuery);
+    this.selectedItemKeys.set(prevSelected ?? new Set());
+    this.openItemKeys.set(prevOpenItems ?? new Set());
     this.openSectionKeys.set(
-      new Set(menu.sections.map((_, i) => `sec-${i}`)),
+      prevOpenSections ?? new Set(menu.sections.map((_, i) => `sec-${i}`)),
     );
+  }
+
+  /** Actualiza menús desde la API sin cerrar el detalle del ítem abierto. */
+  private applyMenusKeepExpanded(res: { menus?: ShopMenu[] | null }): void {
+    this.menus.set((res.menus ?? []).map(cloneMenu));
+    const active = this.menus().find((m) => m.id === this.activeId());
+    if (active) this.loadEditor(active, { keepExpanded: true });
   }
 
   private clearEditor(): void {
@@ -2682,8 +2716,8 @@ export class AdminMenuPage {
 
   async onItemPhoto(sectionIndex: number, itemIndex: number, ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
-    const file = await takeInputFile(input);
-    if (!file) return;
+    const files = await takeInputFiles(input);
+    if (!files.length) return;
     const shopId = this.shopId();
     if (!shopId) return;
     this.flushActive();
@@ -2694,49 +2728,77 @@ export class AdminMenuPage {
     }
     // Persist ids before upload so the API finds the item.
     this.flushActive();
-    await new Promise<void>((resolve, reject) => {
+    const savedOk = await new Promise<boolean>((resolve) => {
       this.http
         .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody())
         .subscribe({
           next: (res) => {
-            this.menus.set((res.menus ?? []).map(cloneMenu));
-            const active = this.menus().find((m) => m.id === this.activeId());
-            if (active) this.loadEditor(active);
-            resolve();
+            this.applyMenusKeepExpanded(res);
+            resolve(true);
           },
-          error: (err) => reject(err),
+          error: () => resolve(false),
         });
-    }).catch(() => {
+    });
+    if (!savedOk) {
       this.snack.open('Guardá la carta antes de subir la foto', 'OK', { duration: 3500 });
       return;
-    });
+    }
     const fresh = this.sections()[sectionIndex]?.items?.[itemIndex];
     const itemId = String(fresh?.id ?? item.id ?? '').trim();
     if (!itemId) {
       this.snack.open('Guardá la carta antes de subir la foto', 'OK', { duration: 3500 });
       return;
     }
+    const currentCount = this.itemImages(fresh ?? item).length;
+    const room = Math.max(0, 12 - currentCount);
+    if (room <= 0) {
+      this.snack.open('Máximo 12 fotos por ítem', 'OK', { duration: 3000 });
+      return;
+    }
+    const toUpload = files.slice(0, room);
+    if (files.length > room) {
+      this.snack.open(`Solo se suben ${room} (máx. 12 por ítem)`, 'OK', { duration: 3000 });
+    }
     this.uploadingItemPhoto.set(true);
-    const fd = new FormData();
-    fd.append('file', file, safeUploadFileName(file.name));
-    this.http
-      .post<MenuAdminResponse>(
-        `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/image`,
-        fd,
-      )
-      .subscribe({
-        next: (res) => {
-          this.uploadingItemPhoto.set(false);
-          this.menus.set((res.menus ?? []).map(cloneMenu));
-          const active = this.menus().find((m) => m.id === this.activeId());
-          if (active) this.loadEditor(active);
-          this.snack.open('Foto del ítem cargada', 'OK', { duration: 2500 });
-        },
-        error: (err: HttpErrorResponse) => {
-          this.uploadingItemPhoto.set(false);
-          this.snack.open(err.error?.message ?? 'No se pudo subir la foto', 'OK', { duration: 3500 });
-        },
+    let ok = 0;
+    let lastErr = '';
+    for (const file of toUpload) {
+      const fd = new FormData();
+      fd.append('file', file, safeUploadFileName(file.name));
+      const uploaded = await new Promise<boolean>((resolve) => {
+        this.http
+          .post<MenuAdminResponse>(
+            `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/image`,
+            fd,
+          )
+          .subscribe({
+            next: (res) => {
+              this.applyMenusKeepExpanded(res);
+              resolve(true);
+            },
+            error: (err: HttpErrorResponse) => {
+              lastErr = String(err.error?.message ?? 'No se pudo subir la foto');
+              resolve(false);
+            },
+          });
       });
+      if (uploaded) ok += 1;
+      else break;
+    }
+    this.uploadingItemPhoto.set(false);
+    if (ok === toUpload.length) {
+      this.snack.open(
+        ok === 1 ? 'Foto del ítem cargada' : `${ok} fotos cargadas`,
+        'OK',
+        { duration: 2500 },
+      );
+    } else if (ok > 0) {
+      this.snack.open(`Se cargaron ${ok} de ${toUpload.length}. ${lastErr}`, 'OK', {
+        duration: 4000,
+      });
+    } else {
+      this.snack.open(lastErr || 'No se pudo subir la foto', 'OK', { duration: 3500 });
+    }
   }
 
   clearItemPhoto(sectionIndex: number, itemIndex: number): void {
@@ -2749,11 +2811,7 @@ export class AdminMenuPage {
         `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/image`,
       )
       .subscribe({
-        next: (res) => {
-          this.menus.set((res.menus ?? []).map(cloneMenu));
-          const active = this.menus().find((m) => m.id === this.activeId());
-          if (active) this.loadEditor(active);
-        },
+        next: (res) => this.applyMenusKeepExpanded(res),
         error: (err: HttpErrorResponse) => {
           this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
         },
@@ -2774,11 +2832,7 @@ export class AdminMenuPage {
         `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/images/${encodeURIComponent(imgId)}`,
       )
       .subscribe({
-        next: (res) => {
-          this.menus.set((res.menus ?? []).map(cloneMenu));
-          const active = this.menus().find((m) => m.id === this.activeId());
-          if (active) this.loadEditor(active);
-        },
+        next: (res) => this.applyMenusKeepExpanded(res),
         error: (err: HttpErrorResponse) => {
           this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
         },
@@ -2803,11 +2857,7 @@ export class AdminMenuPage {
         { imageIds: images.map((img) => img.id) },
       )
       .subscribe({
-        next: (res) => {
-          this.menus.set((res.menus ?? []).map(cloneMenu));
-          const active = this.menus().find((m) => m.id === this.activeId());
-          if (active) this.loadEditor(active);
-        },
+        next: (res) => this.applyMenusKeepExpanded(res),
         error: (err: HttpErrorResponse) => {
           this.snack.open(err.error?.message ?? 'No se pudo reordenar', 'OK', { duration: 3500 });
         },
