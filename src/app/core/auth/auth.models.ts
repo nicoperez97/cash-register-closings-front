@@ -1576,6 +1576,8 @@ export interface ShopSummary {
   partnerDividendConceptId?: string | null;
   /** Concepto fijo de los movimientos entre cuentas. null = Transferencia e/ cuentas. */
   transferConceptId?: string | null;
+  /** Concepto de los cobros del cierre a cuentas del local. null = Cobro. */
+  closingIncomeConceptId?: string | null;
   posnets?: ShopPosnet[];
   paymentConceptCategories?: {
     supplier?: string[];
