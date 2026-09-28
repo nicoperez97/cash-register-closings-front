@@ -56,6 +56,11 @@ import {
   type PriceSlotMenuItem,
 } from './menu-price-slots-editor';
 
+export type ShopMenuItemImage = {
+  id: string;
+  url: string;
+};
+
 export type ShopMenuItem = {
   id?: string;
   name: string;
@@ -64,6 +69,7 @@ export type ShopMenuItem = {
   priceLabel?: string | null;
   available?: boolean;
   imageUrl?: string | null;
+  images?: ShopMenuItemImage[];
   /** Texto o lista: ingredientes que el cliente puede quitar. */
   removableIngredients?: string[] | string | null;
   /** Sectores (comanda). */
@@ -194,6 +200,16 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
         priceLabel: it.priceLabel ?? '',
         available: it.available !== false,
         imageUrl: it.imageUrl ?? null,
+        images: Array.isArray(it.images)
+          ? it.images
+              .map((img) => ({
+                id: String(img.id ?? '').trim(),
+                url: String(img.url ?? '').trim(),
+              }))
+              .filter((img) => img.id && img.url)
+          : it.imageUrl
+            ? [{ id: 'legacy', url: String(it.imageUrl) }]
+            : [],
         removableIngredients: Array.isArray(it.removableIngredients)
           ? it.removableIngredients.join(', ')
           : String(it.removableIngredients ?? ''),
@@ -645,6 +661,47 @@ function toPrice(value: unknown): number | null {
                                 @if (isItemOpen(section.index, ii)) {
                                   <div class="menu-item__detail">
                                     <div class="menu-item__photo">
+                                      <div class="menu-item__gallery">
+                                        @for (img of itemImages(item); track img.id; let gi = $index) {
+                                          <div class="menu-item__shot">
+                                            @if (itemImageSrc(item, img); as src) {
+                                              <img [src]="src" alt="" />
+                                            }
+                                            <div class="menu-item__shot-actions">
+                                              <button
+                                                mat-icon-button
+                                                type="button"
+                                                aria-label="Subir"
+                                                [disabled]="gi === 0 || uploadingItemPhoto()"
+                                                (click)="moveItemPhoto(section.index, ii, gi, -1)"
+                                              >
+                                                <mat-icon>arrow_upward</mat-icon>
+                                              </button>
+                                              <button
+                                                mat-icon-button
+                                                type="button"
+                                                aria-label="Bajar"
+                                                [disabled]="
+                                                  gi >= itemImages(item).length - 1 ||
+                                                  uploadingItemPhoto()
+                                                "
+                                                (click)="moveItemPhoto(section.index, ii, gi, 1)"
+                                              >
+                                                <mat-icon>arrow_downward</mat-icon>
+                                              </button>
+                                              <button
+                                                mat-icon-button
+                                                type="button"
+                                                aria-label="Quitar foto"
+                                                [disabled]="uploadingItemPhoto()"
+                                                (click)="removeItemPhoto(section.index, ii, img.id)"
+                                              >
+                                                <mat-icon>delete</mat-icon>
+                                              </button>
+                                            </div>
+                                          </div>
+                                        }
+                                      </div>
                                       <input
                                         #itemPhotoInput
                                         type="file"
@@ -652,23 +709,26 @@ function toPrice(value: unknown): number | null {
                                         hidden
                                         (change)="onItemPhoto(section.index, ii, $event)"
                                       />
-                                      <button
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="!item.id || uploadingItemPhoto()"
-                                        (click)="itemPhotoInput.click()"
-                                      >
-                                        Foto
-                                      </button>
-                                      @if (item.imageUrl) {
+                                      <div class="menu-item__photo-btns">
                                         <button
-                                          mat-button
+                                          mat-stroked-button
                                           type="button"
-                                          (click)="clearItemPhoto(section.index, ii)"
+                                          [disabled]="!item.id || uploadingItemPhoto()"
+                                          (click)="itemPhotoInput.click()"
                                         >
-                                          Quitar foto
+                                          {{ itemImages(item).length ? 'Agregar foto' : 'Foto' }}
                                         </button>
-                                      }
+                                        @if (itemImages(item).length) {
+                                          <button
+                                            mat-button
+                                            type="button"
+                                            [disabled]="uploadingItemPhoto()"
+                                            (click)="clearItemPhoto(section.index, ii)"
+                                          >
+                                            Quitar todas
+                                          </button>
+                                        }
+                                      </div>
                                     </div>
                                     <mat-form-field
                                       appearance="outline"
@@ -1467,6 +1527,45 @@ function toPrice(value: unknown): number | null {
       border-top: 1px dashed var(--guy-border, #d7e0d9);
     }
     .menu-item__photo {
+      display: grid;
+      gap: 0.45rem;
+    }
+    .menu-item__gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .menu-item__shot {
+      width: 5.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      background: #f6f8f6;
+      overflow: hidden;
+    }
+    .menu-item__shot img {
+      display: block;
+      width: 100%;
+      height: 4rem;
+      object-fit: cover;
+    }
+    .menu-item__shot-actions {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      background: #fff;
+    }
+    .menu-item__shot-actions button {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      --mdc-icon-button-state-layer-size: 28px;
+    }
+    .menu-item__shot-actions mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+    .menu-item__photo-btns {
       display: flex;
       flex-wrap: wrap;
       gap: 0.35rem;
@@ -2106,6 +2205,14 @@ export class AdminMenuPage {
             priceLabel: String(it.priceLabel ?? '').trim() || null,
             available: it.available !== false,
             imageUrl: String(it.imageUrl ?? '').trim() || null,
+            images: Array.isArray(it.images)
+              ? it.images
+                  .map((img) => ({
+                    id: String(img.id ?? '').trim(),
+                    url: String(img.url ?? '').trim(),
+                  }))
+                  .filter((img) => img.id && img.url)
+              : [],
             removableIngredients: String(it.removableIngredients ?? '')
               .split(/[,;\n|]/)
               .map((s) => s.trim())
@@ -2197,6 +2304,7 @@ export class AdminMenuPage {
             priceLabel: '',
             available: true,
             imageUrl: null,
+            images: [],
             removableIngredients: '',
             kitchenSectorIds: [],
           },
@@ -2227,6 +2335,7 @@ export class AdminMenuPage {
                   priceLabel: '',
                   available: true,
                   imageUrl: null,
+            images: [],
                   removableIngredients: '',
                   kitchenSectorIds: [],
                   recipe: [],
@@ -2548,13 +2657,25 @@ export class AdminMenuPage {
       });
   }
 
-  itemImageSrc(item: ShopMenuItem): string | null {
+  itemImages(item: ShopMenuItem): ShopMenuItemImage[] {
+    if (Array.isArray(item.images) && item.images.length) {
+      return item.images.filter((img) => !!img?.id && !!img?.url);
+    }
+    const legacy = String(item.imageUrl ?? '').trim();
+    return legacy ? [{ id: 'legacy', url: legacy }] : [];
+  }
+
+  itemImageSrc(item: ShopMenuItem, image?: ShopMenuItemImage | null): string | null {
     const slug = this.shopSlug();
     const id = String(item.id ?? '').trim();
-    if (!id || !item.imageUrl) return null;
-    if (/^https?:\/\//i.test(item.imageUrl)) return item.imageUrl;
+    const img = image ?? this.itemImages(item)[0] ?? null;
+    if (!id || !img?.url) return null;
+    if (/^https?:\/\//i.test(img.url)) return img.url;
+    if (slug && img.id && img.id !== 'legacy') {
+      return `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/images/${encodeURIComponent(img.id)}?v=${encodeURIComponent(img.url)}`;
+    }
     if (slug) {
-      return `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/image?v=${encodeURIComponent(item.imageUrl)}`;
+      return `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/image?v=${encodeURIComponent(img.url)}`;
     }
     return null;
   }
@@ -2635,6 +2756,60 @@ export class AdminMenuPage {
         },
         error: (err: HttpErrorResponse) => {
           this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  removeItemPhoto(sectionIndex: number, itemIndex: number, imageId: string): void {
+    const shopId = this.shopId();
+    const item = this.sections()[sectionIndex]?.items?.[itemIndex];
+    const itemId = String(item?.id ?? '').trim();
+    const imgId = String(imageId ?? '').trim();
+    if (!shopId || !itemId || !imgId || imgId === 'legacy') {
+      if (imgId === 'legacy') this.clearItemPhoto(sectionIndex, itemIndex);
+      return;
+    }
+    this.http
+      .delete<MenuAdminResponse>(
+        `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/images/${encodeURIComponent(imgId)}`,
+      )
+      .subscribe({
+        next: (res) => {
+          this.menus.set((res.menus ?? []).map(cloneMenu));
+          const active = this.menus().find((m) => m.id === this.activeId());
+          if (active) this.loadEditor(active);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
+        },
+      });
+  }
+
+  moveItemPhoto(sectionIndex: number, itemIndex: number, fromIndex: number, delta: number): void {
+    const shopId = this.shopId();
+    const item = this.sections()[sectionIndex]?.items?.[itemIndex];
+    const itemId = String(item?.id ?? '').trim();
+    if (!shopId || !itemId || !item) return;
+    const images = [...this.itemImages(item)];
+    const to = fromIndex + delta;
+    if (to < 0 || to >= images.length) return;
+    const [moved] = images.splice(fromIndex, 1);
+    images.splice(to, 0, moved);
+    item.images = images;
+    item.imageUrl = images[0]?.url ?? null;
+    this.http
+      .put<MenuAdminResponse>(
+        `${environment.apiUrl}/shops/${shopId}/menu/items/${encodeURIComponent(itemId)}/images/order`,
+        { imageIds: images.map((img) => img.id) },
+      )
+      .subscribe({
+        next: (res) => {
+          this.menus.set((res.menus ?? []).map(cloneMenu));
+          const active = this.menus().find((m) => m.id === this.activeId());
+          if (active) this.loadEditor(active);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.snack.open(err.error?.message ?? 'No se pudo reordenar', 'OK', { duration: 3500 });
         },
       });
   }
