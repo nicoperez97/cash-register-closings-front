@@ -1,5 +1,6 @@
 /** Reporte de movimientos agrupados por concepto. */
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -105,6 +106,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
 @Component({
   selector: 'app-concepts-report-page',
   imports: [
+    NgTemplateOutlet,
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
@@ -173,7 +175,6 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
               <mat-option value="">Todos</mat-option>
               <mat-option value="EXPENSE">Egreso</mat-option>
               <mat-option value="INCOME">Ingreso</mat-option>
-              <mat-option value="TRANSFER">Transferencia</mat-option>
             </mat-select>
           </mat-form-field>
 
@@ -226,55 +227,86 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
           refreshMessage="Recalculando el período"
         />
       }
-    <div class="panel-card panel-card--flush concept-report mb-3">
-      <div class="concept-report__banner">{{ tableTitle() }}</div>
-      <div class="concept-report__wrap">
-        @if (!conceptRows().length) {
-          <div class="guy-empty">
-            <mat-icon>inbox</mat-icon>
-            <div>
-              <strong>Sin movimientos en el período</strong>
-              <div class="small">Probá otro rango o tipo.</div>
+    @if (isAll()) {
+      <ng-container
+        *ngTemplateOutlet="
+          conceptTableTpl;
+          context: { $implicit: incomeConceptRows(), total: incomeTotal(), banner: incomeBanner() }
+        "
+      />
+      <ng-container
+        *ngTemplateOutlet="
+          conceptTableTpl;
+          context: { $implicit: expenseConceptRows(), total: expenseTotal(), banner: expenseBanner() }
+        "
+      />
+    } @else {
+      <ng-container
+        *ngTemplateOutlet="
+          conceptTableTpl;
+          context: { $implicit: conceptRows(), total: conceptTotal(), banner: tableTitle() }
+        "
+      />
+    }
+
+    <ng-template #conceptTableTpl let-rows let-total="total" let-banner="banner">
+      <div class="panel-card panel-card--flush concept-report mb-3">
+        <div class="concept-report__banner">{{ banner }}</div>
+        <div class="concept-report__wrap">
+          @if (!rows.length) {
+            <div class="guy-empty">
+              <mat-icon>inbox</mat-icon>
+              <div>
+                <strong>Sin movimientos en el período</strong>
+                <div class="small">Probá otro rango o tipo.</div>
+              </div>
             </div>
-          </div>
-        } @else {
-          <table class="concept-report__table">
-            <thead>
-              <tr>
-                <th>Concepto validado</th>
-                <th class="num">SUM de Importe $</th>
-                <th class="num">%</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of conceptRows(); track row['conceptId'] ?? row['name']) {
+          } @else {
+            <table class="concept-report__table">
+              <thead>
                 <tr>
-                  <td>{{ row['name'] }}</td>
-                  <td class="num">{{ money(row['amount'] ?? 0) }}</td>
-                  <td class="num">{{ percent(row['share'] ?? 0) }}</td>
+                  <th>Concepto validado</th>
+                  <th class="num">SUM de Importe $</th>
+                  <th class="num">%</th>
                 </tr>
-              }
-            </tbody>
-            <tfoot>
-              <tr>
-                <th>Suma total</th>
-                <th class="num">{{ money(conceptTotal()) }}</th>
-                <th class="num">100,00%</th>
-              </tr>
-            </tfoot>
-          </table>
-        }
+              </thead>
+              <tbody>
+                @for (row of rows; track row['conceptId'] ?? row['name']) {
+                  <tr>
+                    <td>{{ row['name'] }}</td>
+                    <td class="num">{{ money(row['amount'] ?? 0) }}</td>
+                    <td class="num">{{ percent(row['share'] ?? 0) }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>Suma total</th>
+                  <th class="num">{{ money(total) }}</th>
+                  <th class="num">100,00%</th>
+                </tr>
+              </tfoot>
+            </table>
+          }
+        </div>
       </div>
-    </div>
+    </ng-template>
 
     <app-kpi-strip class="mb-3" [items]="kpis()" />
 
     <div class="charts-grid mb-3">
       <app-donut-chart
-        title="Mix por tipo"
+        title="Mix por concepto"
         subtitle="% del importe"
-        [items]="kindSlices()"
+        [items]="conceptSlices()"
       />
+      @if (isAll()) {
+        <app-donut-chart
+          title="Ingresos vs Egresos"
+          subtitle="% del importe"
+          [items]="incomeVsExpenseSlices()"
+        />
+      }
       <app-hbar-chart
         title="Top conceptos"
         subtitle="Por importe"
@@ -324,7 +356,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
             <div class="guy-list-head">
               <div>
                 <h2 class="guy-list-head__title">Serie diaria</h2>
-                <p class="guy-list-head__meta">Ingresos, egresos y transferencias por fecha</p>
+                <p class="guy-list-head__meta">Ingresos y egresos por fecha</p>
               </div>
             </div>
             <app-data-table
@@ -463,12 +495,57 @@ export class ConceptsReportPage {
     return `Vs período anterior: ingresos ${formatDelta(c.incomeDeltaPct)} · egresos ${formatDelta(c.expenseDeltaPct)}`;
   });
 
-  readonly kindSlices = computed<ChartSlice[]>(() =>
-    (this.summary()?.byKind ?? []).map((k) => ({
-      label: conceptKindLabel(k.kind),
-      value: k.amount,
-    })),
-  );
+  readonly isAll = computed(() => this.reportKind() === '');
+
+  /** Torta principal: conceptos (no tipos). Top 8 + "Otros". */
+  readonly conceptSlices = computed<ChartSlice[]>(() => {
+    const rows = (this.summary()?.byConcept ?? [])
+      .map((c) => ({
+        label: conceptLabelForUi(c.name, { empty: 'Sin concepto' }),
+        value: Number(c.amount || 0),
+      }))
+      .filter((s) => s.value > 0);
+    if (rows.length <= 9) return rows;
+    const top = rows.slice(0, 8);
+    const rest = rows.slice(8).reduce((s, r) => s + r.value, 0);
+    return rest > 0 ? [...top, { label: 'Otros', value: rest }] : top;
+  });
+
+  /** Torta extra (solo "Todos"): ingresos vs egresos. */
+  readonly incomeVsExpenseSlices = computed<ChartSlice[]>(() => {
+    const t = this.summary()?.totals;
+    if (!t) return [];
+    return [
+      { label: 'Ingresos', value: Number(t.income || 0) },
+      { label: 'Egresos', value: Number(t.expense || 0) },
+    ].filter((s) => s.value > 0);
+  });
+
+  private conceptRowsByKind(kind: 'INCOME' | 'EXPENSE') {
+    const list = (this.summary()?.byConcept ?? []).filter((c) => c.kind === kind);
+    const total = list.reduce((s, c) => s + Number(c.amount || 0), 0);
+    return list.map(
+      (c) =>
+        ({
+          ...c,
+          name: conceptLabelForUi(c.name, { empty: 'Sin concepto' }),
+          share: total > 0 ? Number(c.amount || 0) / total : 0,
+        }) as Record<string, unknown>,
+    );
+  }
+
+  readonly incomeConceptRows = computed(() => this.conceptRowsByKind('INCOME'));
+  readonly expenseConceptRows = computed(() => this.conceptRowsByKind('EXPENSE'));
+  readonly incomeTotal = computed(() => Number(this.summary()?.totals?.income ?? 0));
+  readonly expenseTotal = computed(() => Number(this.summary()?.totals?.expense ?? 0));
+  readonly incomeBanner = computed(() => {
+    const s = this.summary();
+    return periodBanner('INCOME', s?.from ?? null, s?.to ?? null);
+  });
+  readonly expenseBanner = computed(() => {
+    const s = this.summary();
+    return periodBanner('EXPENSE', s?.from ?? null, s?.to ?? null);
+  });
 
   readonly topConceptBars = computed<ChartSlice[]>(() =>
     (this.summary()?.byConcept ?? []).slice(0, 10).map((c) => ({
@@ -534,11 +611,6 @@ export class ConceptsReportPage {
     { key: 'count', label: 'Mov.' },
     { key: 'income', label: 'Ingresos', format: (r) => money(Number(r['income'] ?? 0)) },
     { key: 'expense', label: 'Egresos', format: (r) => money(Number(r['expense'] ?? 0)) },
-    {
-      key: 'transfer',
-      label: 'Transferencias',
-      format: (r) => money(Number(r['transfer'] ?? 0)),
-    },
   ];
 
   constructor() {
@@ -626,10 +698,6 @@ export class ConceptsReportPage {
             label: 'Movimientos',
             value: formatNumber(t.movementCount, { maximumFractionDigits: 0 }),
             hint: cmp ? formatDelta(cmp.countDeltaPct) : `${money(t.avgAmount)} promedio`,
-          },
-          {
-            label: 'Transferencias',
-            value: money(t.transfer),
           },
           {
             label: 'Sin concepto',
