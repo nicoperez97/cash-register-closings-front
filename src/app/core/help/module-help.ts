@@ -1671,7 +1671,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'En Configuración del local ves el resumen y los submódulos. Guardá con el botón fijo al pie.',
         items: [
           'Identidad: nombre, mails, logo y colores.',
-          'Operación: turnos de caja (también dan la entrada/retirada de presentismo), multiplicador de feriado (liquidación), producción, POS, cambio por defecto (si no hay cuenta de efectivo con saldo), tope para pedir motivo de diferencia (0 = no pedir), concepto del retiro de efectivo y francos.',
+          'Operación: turnos de caja (también dan la entrada/retirada de presentismo), multiplicador de feriado (liquidación), producción, POS, cambio por defecto (si no hay cuenta de efectivo con saldo), tope para pedir motivo de diferencia (0 = no pedir), concepto del retiro de efectivo (también en Cuentas → Cobros del cierre) y francos.',
           'Pedidos: página /pedir, take away, delivery, horarios, zonas y pagos online. La bandeja está en Operación → Pedidos clientes. Independiente de Comanda y Salón: se pueden tener todos.',
           'Comandas: activar comanda mozos, link /mozo, medios de pago de mesa y permisos por canal. No reemplaza a Pedidos.',
           'Comanderas: token e instalador de Cierres-Comandas (Generar/Regenerar/Revocar). Pegá el token en el exe → Conexión. Tiene permiso propio (Off / Ver / Todo) en Usuarios.',
@@ -1813,6 +1813,8 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En cuentas Socio, % de división: la parte de ese socio al equilibrar en Divisiones. No es lo mismo que la comisión.',
           'Arriba hay pestañas por tipo: Todas, Canales, Socios, Sistema y Dividendos (legacy). Abajo filtrás por estado (activas/inactivas) y por retiro (visible/oculta).',
           'División de socios (arriba): cuenta destino y concepto. Por defecto Automático = Egreso + concepto División. Se usa en Equilibrar, Enviar división y Es dividendo. Si te quedó una cuenta Dividendos vieja, podés borrarla.',
+          'Movimientos entre cuentas (arriba): concepto fijo de las transferencias. Por defecto Automático = Transferencia e/ cuentas.',
+          'Cobros del cierre (arriba): concepto de canales (Cobro), Efectivo del día (EFECTIVO ingreso) y quién se lo lleva (Utilidades). El de retiro también está en Configuración → Operación.',
           'En cada cuenta tildá dónde se lista: Gastos, Ingresos, Movimientos entre cuentas, Saldos (panel lateral) y Cierres (quién se lo lleva).',
           'Cuentas → Saldos muestra el saldo de todas las cuentas activas del local, aunque no estén tildadas para el panel.',
         ],
