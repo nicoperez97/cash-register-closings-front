@@ -215,8 +215,9 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
         <div>
           <h2 class="split-cfg__title">Cobros del cierre</h2>
           <p class="split-cfg__lead">
-            Concepto de los cobros que genera el cierre al cargar montos en cuentas del local
-            (PVS, Mercado Pago, Cuenta DNI, etc.). Por defecto: Cobro.
+            Concepto de los cobros que genera el cierre. Las cuentas del local (PVS, Mercado
+            Pago, Cuenta DNI, etc.) usan un concepto y el Efectivo se configura aparte.
+            Por defecto: Cobro y EFECTIVO ingreso.
           </p>
         </div>
         <button
@@ -231,7 +232,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
       </header>
       <form [formGroup]="closingIncomeForm" class="split-cfg__fields">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Concepto</mat-label>
+          <mat-label>Concepto (cuentas del local)</mat-label>
           <mat-select
             formControlName="closingIncomeConceptId"
             panelClass="guy-select-search-panel"
@@ -251,7 +252,30 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
               <mat-option disabled>Sin resultados</mat-option>
             }
           </mat-select>
-          <mat-hint>Se aplica al guardar el cierre, en los cobros a cuentas del local.</mat-hint>
+          <mat-hint>Cobros a canales (PVS, MP, Cuenta DNI, etc.).</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto de Efectivo</mat-label>
+          <mat-select
+            formControlName="closingCashConceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, closingCashConceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search
+                [(query)]="closingCashConceptQuery"
+                placeholder="Buscar concepto…"
+              />
+            </mat-option>
+            <mat-option [value]="null">Automático (EFECTIVO ingreso)</mat-option>
+            @for (c of filteredClosingCashConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
+            }
+            @if (closingCashConceptQuery() && !filteredClosingCashConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Movimiento "Efectivo del día" del cierre.</mat-hint>
         </mat-form-field>
       </form>
     </section>
@@ -356,6 +380,7 @@ export class AdminAccountsPage {
   readonly conceptQuery = signal('');
   readonly transferConceptQuery = signal('');
   readonly closingIncomeConceptQuery = signal('');
+  readonly closingCashConceptQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly kindLabel = conceptKindLabel;
   readonly accountTypeLabel = accountTypeLabel;
@@ -373,6 +398,7 @@ export class AdminAccountsPage {
 
   readonly closingIncomeForm = this.fb.nonNullable.group({
     closingIncomeConceptId: this.fb.control<string | null>(null),
+    closingCashConceptId: this.fb.control<string | null>(null),
   });
 
   /** Egreso siempre visible arriba del listado (aunque el filtro de búsqueda lo oculte). */
@@ -438,6 +464,15 @@ export class AdminAccountsPage {
       this.closingIncomeConceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
       this.closingIncomeForm.controls.closingIncomeConceptId.value,
+    ),
+  );
+
+  readonly filteredClosingCashConcepts = computed(() =>
+    filterBySelectQuery(
+      this.concepts().filter((c) => c.kind === 'INCOME'),
+      this.closingCashConceptQuery(),
+      (c) => `${c.name} ${this.kindLabel(c.kind)}`,
+      this.closingIncomeForm.controls.closingCashConceptId.value,
     ),
   );
 
@@ -574,7 +609,10 @@ export class AdminAccountsPage {
   syncClosingIncomeFormFromShop(): void {
     const shop = this.shops.selectedShop();
     this.closingIncomeForm.reset(
-      { closingIncomeConceptId: shop?.closingIncomeConceptId ?? null },
+      {
+        closingIncomeConceptId: shop?.closingIncomeConceptId ?? null,
+        closingCashConceptId: shop?.closingCashConceptId ?? null,
+      },
       { emitEvent: false },
     );
   }
@@ -585,9 +623,12 @@ export class AdminAccountsPage {
     const raw = this.closingIncomeForm.getRawValue();
     this.closingIncomeBusy.set(true);
     this.http
-      .put<{ closingIncomeConceptId?: string | null }>(
+      .put<{ closingIncomeConceptId?: string | null; closingCashConceptId?: string | null }>(
         `${environment.apiUrl}/shops/${shopId}/accounts/closing-income-concept-config`,
-        { closingIncomeConceptId: raw.closingIncomeConceptId || null },
+        {
+          closingIncomeConceptId: raw.closingIncomeConceptId || null,
+          closingCashConceptId: raw.closingCashConceptId || null,
+        },
       )
       .subscribe({
         next: (cfg) => {
@@ -597,14 +638,18 @@ export class AdminAccountsPage {
             this.shops.upsertShop({
               ...current,
               closingIncomeConceptId: cfg.closingIncomeConceptId ?? null,
+              closingCashConceptId: cfg.closingCashConceptId ?? null,
             });
           }
           this.closingIncomeForm.patchValue(
-            { closingIncomeConceptId: cfg.closingIncomeConceptId ?? null },
+            {
+              closingIncomeConceptId: cfg.closingIncomeConceptId ?? null,
+              closingCashConceptId: cfg.closingCashConceptId ?? null,
+            },
             { emitEvent: false },
           );
           this.closingIncomeForm.markAsPristine();
-          this.snack.open('Concepto de cobros del cierre guardado', 'OK', { duration: 2500 });
+          this.snack.open('Conceptos de cobros del cierre guardados', 'OK', { duration: 2500 });
         },
         error: (err) => {
           this.closingIncomeBusy.set(false);
