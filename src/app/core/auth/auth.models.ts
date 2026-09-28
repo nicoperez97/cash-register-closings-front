@@ -1578,6 +1578,8 @@ export interface ShopSummary {
   transferConceptId?: string | null;
   /** Concepto de los cobros del cierre a cuentas del local. null = Cobro. */
   closingIncomeConceptId?: string | null;
+  /** Concepto del Efectivo del día del cierre. null = EFECTIVO ingreso. */
+  closingCashConceptId?: string | null;
   posnets?: ShopPosnet[];
   paymentConceptCategories?: {
     supplier?: string[];
