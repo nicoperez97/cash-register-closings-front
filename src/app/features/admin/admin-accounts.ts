@@ -19,11 +19,13 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { accountTypeLabel, activeLabel, conceptKindLabel } from '../../core/i18n/labels';
 import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-dialog';
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatMoney } from '../../shared/utils/money';
+import type { ShopSummary } from '../../core/auth/auth.models';
 
 type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM' | 'DIVIDENDS';
 type AccountStatusFilter = 'all' | 'active' | 'inactive';
@@ -378,6 +380,7 @@ export class AdminAccountsPage {
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly accountDelete = inject(AdminAccountDeleteService);
   private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
 
   readonly rows = signal<AdminAccountRow[]>([]);
@@ -611,15 +614,21 @@ export class AdminAccountsPage {
         next: (rows) => {
           this.rows.set(rows);
           this.loading.set(false);
-          this.syncSplitFormFromShop();
-          this.syncTransferFormFromShop();
-          this.syncClosingIncomeFormFromShop();
+          this.syncConfigFormsFromShop();
         },
         error: () => {
           this.loading.set(false);
           this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 });
         },
       });
+    // Los IDs de concepto viven en el shop; /auth/me a veces llega tarde o sin ellos.
+    this.http.get<Partial<ShopSummary>>(`${environment.apiUrl}/shops/${shopId}`).subscribe({
+      next: (s) => {
+        this.applyShopConceptConfig(s);
+        this.syncConfigFormsFromShop();
+      },
+      error: () => undefined,
+    });
     this.http.get<Array<ConceptOption & { active?: boolean }>>(
       `${environment.apiUrl}/shops/${shopId}/concepts`,
     ).subscribe({
@@ -629,12 +638,59 @@ export class AdminAccountsPage {
             .filter((c) => c.active !== false)
             .map((c) => ({ id: c.id, name: c.name, kind: c.kind })),
         );
-        this.syncSplitFormFromShop();
-        this.syncTransferFormFromShop();
-        this.syncClosingIncomeFormFromShop();
+        this.syncConfigFormsFromShop();
       },
       error: () => this.concepts.set([]),
     });
+  }
+
+  /** Trae al contexto los conceptos configurados del local (para hidratar selects). */
+  private applyShopConceptConfig(s: Partial<ShopSummary> | null | undefined): void {
+    const current = this.shops.selectedShop();
+    if (!current || !s) return;
+    this.persistShopConfig({
+      ...current,
+      partnerDividendAccountId:
+        s.partnerDividendAccountId !== undefined
+          ? (s.partnerDividendAccountId ?? null)
+          : (current.partnerDividendAccountId ?? null),
+      partnerDividendConceptId:
+        s.partnerDividendConceptId !== undefined
+          ? (s.partnerDividendConceptId ?? null)
+          : (current.partnerDividendConceptId ?? null),
+      transferConceptId:
+        s.transferConceptId !== undefined
+          ? (s.transferConceptId ?? null)
+          : (current.transferConceptId ?? null),
+      closingIncomeConceptId:
+        s.closingIncomeConceptId !== undefined
+          ? (s.closingIncomeConceptId ?? null)
+          : (current.closingIncomeConceptId ?? null),
+      closingCashConceptId:
+        s.closingCashConceptId !== undefined
+          ? (s.closingCashConceptId ?? null)
+          : (current.closingCashConceptId ?? null),
+      cashWithdrawalConceptId:
+        s.cashWithdrawalConceptId !== undefined
+          ? (s.cashWithdrawalConceptId ?? null)
+          : (current.cashWithdrawalConceptId ?? null),
+    });
+  }
+
+  /** Actualiza shop en memoria + user/localStorage para que sobreviva a refreshMe. */
+  private persistShopConfig(shop: ShopSummary): void {
+    this.shops.upsertShop(shop);
+    const user = this.auth.currentUser();
+    if (!user) return;
+    this.auth.patchCurrentUser({
+      shops: (user.shops ?? []).map((s) => (s.id === shop.id ? { ...s, ...shop } : s)),
+    });
+  }
+
+  private syncConfigFormsFromShop(): void {
+    this.syncSplitFormFromShop();
+    this.syncTransferFormFromShop();
+    this.syncClosingIncomeFormFromShop();
   }
 
   syncSplitFormFromShop(): void {
@@ -688,7 +744,7 @@ export class AdminAccountsPage {
           this.closingIncomeBusy.set(false);
           const current = this.shops.selectedShop();
           if (current) {
-            this.shops.upsertShop({
+            this.persistShopConfig({
               ...current,
               closingIncomeConceptId: cfg.closingIncomeConceptId ?? null,
               closingCashConceptId: cfg.closingCashConceptId ?? null,
@@ -732,7 +788,7 @@ export class AdminAccountsPage {
           this.transferBusy.set(false);
           const current = this.shops.selectedShop();
           if (current) {
-            this.shops.upsertShop({
+            this.persistShopConfig({
               ...current,
               transferConceptId: cfg.transferConceptId ?? null,
             });
@@ -773,7 +829,7 @@ export class AdminAccountsPage {
           this.splitBusy.set(false);
           const current = this.shops.selectedShop();
           if (current) {
-            this.shops.upsertShop({
+            this.persistShopConfig({
               ...current,
               partnerDividendAccountId: cfg.partnerDividendAccountId ?? null,
               partnerDividendConceptId: cfg.partnerDividendConceptId ?? null,
