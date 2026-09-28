@@ -210,6 +210,52 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
       </form>
     </section>
 
+    <section class="panel-card split-cfg">
+      <header class="split-cfg__head">
+        <div>
+          <h2 class="split-cfg__title">Cobros del cierre</h2>
+          <p class="split-cfg__lead">
+            Concepto de los cobros que genera el cierre al cargar montos en cuentas del local
+            (PVS, Mercado Pago, Cuenta DNI, etc.). Por defecto: Cobro.
+          </p>
+        </div>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="closingIncomeBusy() || closingIncomeForm.pristine"
+          (click)="saveClosingIncomeConfig()"
+        >
+          <app-busy-label [busy]="closingIncomeBusy()" busyLabel="Guardando…">Guardar</app-busy-label>
+        </button>
+      </header>
+      <form [formGroup]="closingIncomeForm" class="split-cfg__fields">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto</mat-label>
+          <mat-select
+            formControlName="closingIncomeConceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, closingIncomeConceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search
+                [(query)]="closingIncomeConceptQuery"
+                placeholder="Buscar concepto…"
+              />
+            </mat-option>
+            <mat-option [value]="null">Automático (Cobro)</mat-option>
+            @for (c of filteredClosingIncomeConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
+            }
+            @if (closingIncomeConceptQuery() && !filteredClosingIncomeConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Se aplica al guardar el cierre, en los cobros a cuentas del local.</mat-hint>
+        </mat-form-field>
+      </form>
+    </section>
+
     <app-segment-tabs
       ariaLabel="Tipo de cuenta"
       [fill]="true"
@@ -309,10 +355,12 @@ export class AdminAccountsPage {
   readonly accountQuery = signal('');
   readonly conceptQuery = signal('');
   readonly transferConceptQuery = signal('');
+  readonly closingIncomeConceptQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly kindLabel = conceptKindLabel;
   readonly accountTypeLabel = accountTypeLabel;
   readonly transferBusy = signal(false);
+  readonly closingIncomeBusy = signal(false);
 
   readonly splitForm = this.fb.nonNullable.group({
     partnerDividendAccountId: this.fb.nonNullable.control(''),
@@ -321,6 +369,10 @@ export class AdminAccountsPage {
 
   readonly transferForm = this.fb.nonNullable.group({
     transferConceptId: this.fb.control<string | null>(null),
+  });
+
+  readonly closingIncomeForm = this.fb.nonNullable.group({
+    closingIncomeConceptId: this.fb.control<string | null>(null),
   });
 
   /** Egreso siempre visible arriba del listado (aunque el filtro de búsqueda lo oculte). */
@@ -377,6 +429,15 @@ export class AdminAccountsPage {
       this.transferConceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
       this.transferForm.controls.transferConceptId.value,
+    ),
+  );
+
+  readonly filteredClosingIncomeConcepts = computed(() =>
+    filterBySelectQuery(
+      this.concepts().filter((c) => c.kind === 'INCOME'),
+      this.closingIncomeConceptQuery(),
+      (c) => `${c.name} ${this.kindLabel(c.kind)}`,
+      this.closingIncomeForm.controls.closingIncomeConceptId.value,
     ),
   );
 
@@ -471,6 +532,7 @@ export class AdminAccountsPage {
           this.loading.set(false);
           this.syncSplitFormFromShop();
           this.syncTransferFormFromShop();
+          this.syncClosingIncomeFormFromShop();
         },
         error: () => {
           this.loading.set(false);
@@ -507,6 +569,52 @@ export class AdminAccountsPage {
       { transferConceptId: shop?.transferConceptId ?? null },
       { emitEvent: false },
     );
+  }
+
+  syncClosingIncomeFormFromShop(): void {
+    const shop = this.shops.selectedShop();
+    this.closingIncomeForm.reset(
+      { closingIncomeConceptId: shop?.closingIncomeConceptId ?? null },
+      { emitEvent: false },
+    );
+  }
+
+  saveClosingIncomeConfig(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) return;
+    const raw = this.closingIncomeForm.getRawValue();
+    this.closingIncomeBusy.set(true);
+    this.http
+      .put<{ closingIncomeConceptId?: string | null }>(
+        `${environment.apiUrl}/shops/${shopId}/accounts/closing-income-concept-config`,
+        { closingIncomeConceptId: raw.closingIncomeConceptId || null },
+      )
+      .subscribe({
+        next: (cfg) => {
+          this.closingIncomeBusy.set(false);
+          const current = this.shops.selectedShop();
+          if (current) {
+            this.shops.upsertShop({
+              ...current,
+              closingIncomeConceptId: cfg.closingIncomeConceptId ?? null,
+            });
+          }
+          this.closingIncomeForm.patchValue(
+            { closingIncomeConceptId: cfg.closingIncomeConceptId ?? null },
+            { emitEvent: false },
+          );
+          this.closingIncomeForm.markAsPristine();
+          this.snack.open('Concepto de cobros del cierre guardado', 'OK', { duration: 2500 });
+        },
+        error: (err) => {
+          this.closingIncomeBusy.set(false);
+          const msg =
+            err?.error?.message ||
+            (Array.isArray(err?.error?.message) ? err.error.message.join(' · ') : null) ||
+            'No se pudo guardar';
+          this.snack.open(String(msg), 'OK', { duration: 4000 });
+        },
+      });
   }
 
   saveTransferConfig(): void {
