@@ -325,6 +325,24 @@ export function buildExpenseGroup(
   });
 }
 
+export function buildCashChangeContributionGroup(
+  fb: FormBuilder,
+  value: {
+    accountId?: string | null;
+    amount?: number | null;
+    userId?: string | null;
+    name?: string | null;
+  },
+  emptyNum: (v: unknown) => number | null,
+) {
+  return fb.nonNullable.group({
+    accountId: [String(value.accountId ?? '')],
+    amount: [emptyNum(value.amount)],
+    userId: [String(value.userId ?? '')],
+    name: [String(value.name ?? '')],
+  });
+}
+
 export type CobroPaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER';
 
 export const COBRO_PAYMENT_METHOD_OPTIONS: Array<{ value: CobroPaymentMethod; label: string }> = [
@@ -564,6 +582,7 @@ export function resetClosingFormForNext(opts: {
     notes: '',
     differenceReason: '',
     expenses: [] as unknown[],
+    cashChangeContributions: [] as unknown[],
     posnetAmounts: [] as unknown[],
     dniTransfers: [] as unknown[],
     sourceAmounts: [] as unknown[],

@@ -56,6 +56,12 @@ export type ClosingFormRawValue = {
   posnetAmounts: ClosingPosnetAmount[];
   dniTransfers: ClosingFormDniTransferRaw[];
   expenses: ClosingFormExpenseRaw[];
+  cashChangeContributions?: Array<{
+    accountId?: string | null;
+    amount?: unknown;
+    userId?: string | null;
+    name?: string | null;
+  }>;
   sourceAmounts: Array<{
     sourceId: string;
     name: string;
@@ -216,6 +222,22 @@ export function prepareClosingSaveBody(
   const fieldCash = roundMoney(raw.cashAmount);
   const cashAmount = fieldCash > 0 ? fieldCash : roundMoney(cashFromCobros);
 
+  const changeContributions = (
+    (raw.cashChangeContributions ?? []) as NonNullable<
+      ClosingFormRawValue['cashChangeContributions']
+    >
+  )
+    .map((row) => ({
+      accountId: String(row.accountId ?? '').trim(),
+      amount: closingNum(row.amount),
+      userId: String(row.userId ?? '').trim() || null,
+      name: String(row.name ?? '').trim() || null,
+    }))
+    .filter((row) => row.accountId && row.amount > 0);
+  const changeContributionsSum = changeContributions.reduce((sum, row) => sum + row.amount, 0);
+  const openingBase = closingNum(raw.cashOpeningAmount);
+  const cashOpeningAmount = roundMoney(openingBase + changeContributionsSum);
+
   const sourcesRaw = (raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'];
   const sourcesDeclared = sourcesRaw
     .filter((s) => !!s.includeInDeclared)
@@ -235,7 +257,7 @@ export function prepareClosingSaveBody(
     posSystemAmount: closingNum(raw.posSystemAmount),
     cardAmount: channelFromSources.cardAmount,
     cashAmount,
-    cashOpeningAmount: closingNum(raw.cashOpeningAmount),
+    cashOpeningAmount,
     mercadoPagoAmount: channelFromSources.mercadoPagoAmount,
     deliveryAppsAmount: channelFromSources.deliveryAppsAmount,
     transferAmount: channelFromSources.transferAmount,
@@ -250,6 +272,7 @@ export function prepareClosingSaveBody(
     cashWithdrawnByEmployeeId: null,
     cashWithdrawnByName: selected?.fullName ?? null,
     cashWithdrawnToAccountId: accountId,
+    cashChangeContributions: changeContributions.length ? changeContributions : null,
     cashPendingPickup: userId
       ? 0
       : (() => {
@@ -361,7 +384,16 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
   const fieldCash = roundMoney(raw.cashAmount);
   const cashAmount = fieldCash > 0 ? fieldCash : roundMoney(cashFromCobros);
   const expensesSum = expenses.reduce((sum, e) => sum + closingNum(e.amount), 0);
-  const opening = closingNum(raw.cashOpeningAmount);
+  const changeSum = (
+    (raw.cashChangeContributions ?? []) as NonNullable<
+      ClosingFormRawValue['cashChangeContributions']
+    >
+  ).reduce((sum, row) => {
+    const accountId = String(row.accountId ?? '').trim();
+    const amount = closingNum(row.amount);
+    return accountId && amount > 0 ? sum + amount : sum;
+  }, 0);
+  const opening = roundMoney(closingNum(raw.cashOpeningAmount) + changeSum);
   const cashCollected = cashAmount - opening + expensesSum;
   const sourcesForShare = (raw.sourceAmounts ?? []) as ClosingFormRawValue['sourceAmounts'];
   const channels = channelAmountsFromFormSources(sourcesForShare);
@@ -406,7 +438,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     posSystemAmount: pos,
     cardAmount: channels.cardAmount,
     cashAmount,
-    cashOpeningAmount: closingNum(raw.cashOpeningAmount),
+    cashOpeningAmount: opening,
     mercadoPagoAmount: channels.mercadoPagoAmount,
     deliveryAppsAmount: channels.deliveryAppsAmount,
     transferAmount: channels.transferAmount,

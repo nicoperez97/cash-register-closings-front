@@ -2,7 +2,7 @@ import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import type { TipsEditorState } from '../tips/tips-editor';
 import type { ClosingSourceAmount } from './closings-api.service';
 import { closingNum, roundMoney } from './closings-form.utils';
-import { buildExpenseGroup, normalizeCobroPaymentMethod, populateOtherCobros } from './closings-form-load';
+import { buildCashChangeContributionGroup, buildExpenseGroup, normalizeCobroPaymentMethod, populateOtherCobros } from './closings-form-load';
 import { buildDniTransferGroup } from './closings-form-payment-lines';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
 import { resolveCurrentShift } from '../../core/shop/shop-shifts';
@@ -250,6 +250,26 @@ export function applyClosingFormDraft(
       ),
       { emitEvent: false },
     );
+  }
+
+  const changeContributions = form.get('cashChangeContributions') as FormArray | null;
+  if (changeContributions) {
+    changeContributions.clear({ emitEvent: false });
+    for (const row of (raw['cashChangeContributions'] as Array<Record<string, unknown>>) ?? []) {
+      changeContributions.push(
+        buildCashChangeContributionGroup(
+          fb,
+          {
+            accountId: String(row['accountId'] ?? ''),
+            amount: emptyNum(row['amount']),
+            userId: String(row['userId'] ?? ''),
+            name: String(row['name'] ?? ''),
+          },
+          emptyNum,
+        ),
+        { emitEvent: false },
+      );
+    }
   }
 
   const posnets = form.get('posnetAmounts') as FormArray;

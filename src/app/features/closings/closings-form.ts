@@ -69,6 +69,7 @@ import {
 } from './closings-form-payment-lines';
 import {
   applyTipDayToForm,
+  buildCashChangeContributionGroup,
   buildExpenseGroup,
   buildSourceLineGroup,
   buildOtherCobroGroup,
@@ -257,8 +258,14 @@ import {
                   [withdrawAccounts]="withdrawAccounts()"
                   [pendingHint]="pendingWithdrawHint()"
                   [showNav]="false"
+                  [cashChangeContributions]="cashChangeContributions"
+                  [changeContributionsTotal]="changeContributionsTotal()"
+                  [effectiveOpening]="effectiveCashOpening()"
                   (countBills)="openBillCounter()"
                   (withdrawnAccountChange)="onWithdrawnAccountChange($event)"
+                  (addChange)="addCashChangeContribution()"
+                  (removeChange)="removeCashChangeContribution($event)"
+                  (changeAccountChange)="onChangeContributionAccount($event)"
                 />
                 @if (sourceCount() > 0) {
                   <app-closing-form-caja-otros-step
@@ -481,6 +488,7 @@ export class ClosingsFormPage implements OnInit {
     notes: [''],
     differenceReason: [''],
     expenses: this.fb.array([]),
+    cashChangeContributions: this.fb.array([]),
     posnetAmounts: this.fb.array([]),
     dniTransfers: this.fb.array([]),
     sourceAmounts: this.fb.array([]),
@@ -489,6 +497,10 @@ export class ClosingsFormPage implements OnInit {
 
   get expenses(): FormArray {
     return this.form.get('expenses') as FormArray;
+  }
+
+  get cashChangeContributions(): FormArray {
+    return this.form.get('cashChangeContributions') as FormArray;
   }
 
   get posnetAmounts(): FormArray {
@@ -624,11 +636,23 @@ export class ClosingsFormPage implements OnInit {
       .reduce((sum, s) => sum + sourceRowTotal(s), 0);
     const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
     const expensesTotal = expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
-    // Recaudación efectivo = contado − apertura + egresos.
+    // Recaudación efectivo = contado − apertura (base + aportes) + egresos.
     const cashCollected =
-      this.cashAmount() - this.n(v.cashOpeningAmount) + expensesTotal;
+      this.cashAmount() - this.effectiveCashOpening() + expensesTotal;
     return cashCollected + this.cobrosTotal() + fromSources;
   });
+
+  readonly changeContributionsTotal = computed(() => {
+    const rows = (this.formValue().cashChangeContributions ?? []) as Array<{
+      amount?: number | null;
+    }>;
+    return rows.reduce((sum, row) => sum + this.n(row.amount), 0);
+  });
+
+  /** Apertura usada en el declarado: base del formulario + aportes de cambio. */
+  readonly effectiveCashOpening = computed(
+    () => this.n(this.formValue().cashOpeningAmount) + this.changeContributionsTotal(),
+  );
 
   readonly cajaBreakdown = computed(() => {
     const v = this.formValue();
@@ -638,7 +662,7 @@ export class ClosingsFormPage implements OnInit {
     };
     const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
     const expensesTotal = expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
-    const opening = this.n(v.cashOpeningAmount);
+    const opening = this.effectiveCashOpening();
     // Contado − apertura + egresos (lo que suma al declarado).
     const cashCollected = this.cashAmount() - opening + expensesTotal;
     push('Efectivo', cashCollected);
@@ -897,6 +921,7 @@ export class ClosingsFormPage implements OnInit {
             ),
           );
         }
+        this.hydrateCashChangeContributions(c.cashChangeContributions, c.cashOpeningAmount);
         if (!event) this.loadTipDay(c.businessDate);
         this.savedSourceAmounts = c.sourceAmounts ?? [];
         this.savedLegacyPosnets = c.posnetAmounts ?? [];
@@ -1997,6 +2022,7 @@ export class ClosingsFormPage implements OnInit {
     this.isEvent.set(false);
     const today = this.currentBusinessDate();
     this.expenses.clear();
+    this.cashChangeContributions.clear();
     this.dniTransfers.clear();
     this.form.reset(
       resetClosingFormForNext({
@@ -2024,5 +2050,63 @@ export class ClosingsFormPage implements OnInit {
 
   removeExpense(index: number): void {
     this.expenses.removeAt(index);
+  }
+
+  addCashChangeContribution(): void {
+    this.cashChangeContributions.push(
+      buildCashChangeContributionGroup(this.fb, {}, (v) => this.emptyNum(v)),
+    );
+  }
+
+  removeCashChangeContribution(index: number): void {
+    this.cashChangeContributions.removeAt(index);
+  }
+
+  onChangeContributionAccount(ev: { index: number; accountId: string }): void {
+    const acc = this.withdrawAccounts().find((a) => a.id === ev.accountId);
+    this.cashChangeContributions.at(ev.index)?.patchValue({
+      accountId: ev.accountId || '',
+      userId: acc?.userId ?? '',
+      name: acc?.userName || acc?.name || '',
+    });
+  }
+
+  private hydrateCashChangeContributions(
+    rows:
+      | Array<{
+          accountId?: string | null;
+          amount?: number | null;
+          userId?: string | null;
+          name?: string | null;
+        }>
+      | null
+      | undefined,
+    openingTotal?: number | null,
+  ): void {
+    const list = rows ?? [];
+    const contribSum = list.reduce((sum, row) => sum + this.n(row.amount), 0);
+    const total = this.n(openingTotal);
+    const base = Math.max(0, total - contribSum);
+    this.form.patchValue(
+      { cashOpeningAmount: this.emptyNum(base) },
+      { emitEvent: false },
+    );
+    this.cashChangeContributions.clear({ emitEvent: false });
+    for (const row of list) {
+      this.cashChangeContributions.push(
+        buildCashChangeContributionGroup(
+          this.fb,
+          {
+            accountId: row.accountId ?? '',
+            amount: row.amount ?? 0,
+            userId: row.userId ?? '',
+            name: row.name ?? '',
+          },
+          (v) => this.emptyNum(v),
+        ),
+        { emitEvent: false },
+      );
+    }
+    this.touchFormValue();
   }
 }
