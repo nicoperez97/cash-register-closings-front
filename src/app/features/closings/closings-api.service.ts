@@ -40,6 +40,12 @@ export interface CashClosing {
   cashWithdrawnByEmployeeId?: string | null;
   cashWithdrawnByName?: string | null;
   cashWithdrawnToAccountId?: string | null;
+  cashChangeContributions?: Array<{
+    accountId: string;
+    amount: number;
+    userId?: string | null;
+    name?: string | null;
+  }> | null;
   tipsAmount: number;
   declaredTotal: number;
   calculatedTotal: number;
