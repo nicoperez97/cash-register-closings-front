@@ -150,7 +150,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
             <mat-option disabled class="select-search-opt">
               <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
             </mat-option>
-            <mat-option [value]="null">Automático (División)</mat-option>
+            <mat-option value="">Automático (División)</mat-option>
             @for (c of filteredConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
             }
@@ -197,7 +197,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
                 placeholder="Buscar concepto…"
               />
             </mat-option>
-            <mat-option [value]="null">Automático (Transferencia e/ cuentas)</mat-option>
+            <mat-option value="">Automático (Transferencia e/ cuentas)</mat-option>
             @for (c of filteredTransferConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
             }
@@ -215,9 +215,9 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
         <div>
           <h2 class="split-cfg__title">Cobros del cierre</h2>
           <p class="split-cfg__lead">
-            Concepto de los cobros que genera el cierre. Las cuentas del local (PVS, Mercado
-            Pago, Cuenta DNI, etc.) usan un concepto y el Efectivo se configura aparte.
-            Por defecto: Cobro y EFECTIVO ingreso.
+            Conceptos que genera el cierre: cobros a cuentas del local, Efectivo del día y el
+            retiro cuando elegís quién se lo lleva. Por defecto: Cobro, EFECTIVO ingreso y
+            Utilidades.
           </p>
         </div>
         <button
@@ -244,7 +244,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
                 placeholder="Buscar concepto…"
               />
             </mat-option>
-            <mat-option [value]="null">Automático (Cobro)</mat-option>
+            <mat-option value="">Automático (Cobro)</mat-option>
             @for (c of filteredClosingIncomeConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
             }
@@ -267,7 +267,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
                 placeholder="Buscar concepto…"
               />
             </mat-option>
-            <mat-option [value]="null">Automático (EFECTIVO ingreso)</mat-option>
+            <mat-option value="">Automático (EFECTIVO ingreso)</mat-option>
             @for (c of filteredClosingCashConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
             }
@@ -276,6 +276,29 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
             }
           </mat-select>
           <mat-hint>Movimiento "Efectivo del día" del cierre.</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Concepto (quién se lo lleva)</mat-label>
+          <mat-select
+            formControlName="cashWithdrawalConceptId"
+            panelClass="guy-select-search-panel"
+            (openedChange)="onSelectSearchOpened($event, cashWithdrawalConceptQuery)"
+          >
+            <mat-option disabled class="select-search-opt">
+              <app-select-search
+                [(query)]="cashWithdrawalConceptQuery"
+                placeholder="Buscar concepto…"
+              />
+            </mat-option>
+            <mat-option value="">Automático (Utilidades)</mat-option>
+            @for (c of filteredCashWithdrawalConcepts(); track c.id) {
+              <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
+            }
+            @if (cashWithdrawalConceptQuery() && !filteredCashWithdrawalConcepts().length) {
+              <mat-option disabled>Sin resultados</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Efectivo Caja → cuenta de quien se lleva el retiro.</mat-hint>
         </mat-form-field>
       </form>
     </section>
@@ -381,6 +404,7 @@ export class AdminAccountsPage {
   readonly transferConceptQuery = signal('');
   readonly closingIncomeConceptQuery = signal('');
   readonly closingCashConceptQuery = signal('');
+  readonly cashWithdrawalConceptQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly kindLabel = conceptKindLabel;
   readonly accountTypeLabel = accountTypeLabel;
@@ -389,16 +413,17 @@ export class AdminAccountsPage {
 
   readonly splitForm = this.fb.nonNullable.group({
     partnerDividendAccountId: this.fb.nonNullable.control(''),
-    partnerDividendConceptId: this.fb.control<string | null>(null),
+    partnerDividendConceptId: this.fb.nonNullable.control(''),
   });
 
   readonly transferForm = this.fb.nonNullable.group({
-    transferConceptId: this.fb.control<string | null>(null),
+    transferConceptId: this.fb.nonNullable.control(''),
   });
 
   readonly closingIncomeForm = this.fb.nonNullable.group({
-    closingIncomeConceptId: this.fb.control<string | null>(null),
-    closingCashConceptId: this.fb.control<string | null>(null),
+    closingIncomeConceptId: this.fb.nonNullable.control(''),
+    closingCashConceptId: this.fb.nonNullable.control(''),
+    cashWithdrawalConceptId: this.fb.nonNullable.control(''),
   });
 
   /** Egreso siempre visible arriba del listado (aunque el filtro de búsqueda lo oculte). */
@@ -445,34 +470,55 @@ export class AdminAccountsPage {
       this.concepts(),
       this.conceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
-      this.splitForm.controls.partnerDividendConceptId.value,
+      this.splitForm.controls.partnerDividendConceptId.value || null,
     ),
   );
 
-  readonly filteredTransferConcepts = computed(() =>
-    filterBySelectQuery(
-      this.concepts().filter((c) => c.kind === 'TRANSFER'),
+  readonly filteredTransferConcepts = computed(() => {
+    const selected = this.transferForm.controls.transferConceptId.value || null;
+    const base = this.concepts().filter(
+      (c) => c.kind === 'TRANSFER' || (selected && c.id === selected),
+    );
+    return filterBySelectQuery(
+      base,
       this.transferConceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
-      this.transferForm.controls.transferConceptId.value,
-    ),
-  );
+      selected,
+    );
+  });
 
-  readonly filteredClosingIncomeConcepts = computed(() =>
-    filterBySelectQuery(
-      this.concepts().filter((c) => c.kind === 'INCOME'),
+  readonly filteredClosingIncomeConcepts = computed(() => {
+    const selected = this.closingIncomeForm.controls.closingIncomeConceptId.value || null;
+    const base = this.concepts().filter(
+      (c) => c.kind === 'INCOME' || (selected && c.id === selected),
+    );
+    return filterBySelectQuery(
+      base,
       this.closingIncomeConceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
-      this.closingIncomeForm.controls.closingIncomeConceptId.value,
-    ),
-  );
+      selected,
+    );
+  });
 
-  readonly filteredClosingCashConcepts = computed(() =>
-    filterBySelectQuery(
-      this.concepts().filter((c) => c.kind === 'INCOME'),
+  readonly filteredClosingCashConcepts = computed(() => {
+    const selected = this.closingIncomeForm.controls.closingCashConceptId.value || null;
+    const base = this.concepts().filter(
+      (c) => c.kind === 'INCOME' || (selected && c.id === selected),
+    );
+    return filterBySelectQuery(
+      base,
       this.closingCashConceptQuery(),
       (c) => `${c.name} ${this.kindLabel(c.kind)}`,
-      this.closingIncomeForm.controls.closingCashConceptId.value,
+      selected,
+    );
+  });
+
+  readonly filteredCashWithdrawalConcepts = computed(() =>
+    filterBySelectQuery(
+      this.concepts(),
+      this.cashWithdrawalConceptQuery(),
+      (c) => `${c.name} ${this.kindLabel(c.kind)}`,
+      this.closingIncomeForm.controls.cashWithdrawalConceptId.value || null,
     ),
   );
 
@@ -577,12 +623,16 @@ export class AdminAccountsPage {
     this.http.get<Array<ConceptOption & { active?: boolean }>>(
       `${environment.apiUrl}/shops/${shopId}/concepts`,
     ).subscribe({
-      next: (rows) =>
+      next: (rows) => {
         this.concepts.set(
           (rows ?? [])
             .filter((c) => c.active !== false)
             .map((c) => ({ id: c.id, name: c.name, kind: c.kind })),
-        ),
+        );
+        this.syncSplitFormFromShop();
+        this.syncTransferFormFromShop();
+        this.syncClosingIncomeFormFromShop();
+      },
       error: () => this.concepts.set([]),
     });
   }
@@ -592,7 +642,7 @@ export class AdminAccountsPage {
     this.splitForm.reset(
       {
         partnerDividendAccountId: shop?.partnerDividendAccountId ?? '',
-        partnerDividendConceptId: shop?.partnerDividendConceptId ?? null,
+        partnerDividendConceptId: shop?.partnerDividendConceptId ?? '',
       },
       { emitEvent: false },
     );
@@ -601,7 +651,7 @@ export class AdminAccountsPage {
   syncTransferFormFromShop(): void {
     const shop = this.shops.selectedShop();
     this.transferForm.reset(
-      { transferConceptId: shop?.transferConceptId ?? null },
+      { transferConceptId: shop?.transferConceptId ?? '' },
       { emitEvent: false },
     );
   }
@@ -610,8 +660,9 @@ export class AdminAccountsPage {
     const shop = this.shops.selectedShop();
     this.closingIncomeForm.reset(
       {
-        closingIncomeConceptId: shop?.closingIncomeConceptId ?? null,
-        closingCashConceptId: shop?.closingCashConceptId ?? null,
+        closingIncomeConceptId: shop?.closingIncomeConceptId ?? '',
+        closingCashConceptId: shop?.closingCashConceptId ?? '',
+        cashWithdrawalConceptId: shop?.cashWithdrawalConceptId ?? '',
       },
       { emitEvent: false },
     );
@@ -623,13 +674,15 @@ export class AdminAccountsPage {
     const raw = this.closingIncomeForm.getRawValue();
     this.closingIncomeBusy.set(true);
     this.http
-      .put<{ closingIncomeConceptId?: string | null; closingCashConceptId?: string | null }>(
-        `${environment.apiUrl}/shops/${shopId}/accounts/closing-income-concept-config`,
-        {
-          closingIncomeConceptId: raw.closingIncomeConceptId || null,
-          closingCashConceptId: raw.closingCashConceptId || null,
-        },
-      )
+      .put<{
+        closingIncomeConceptId?: string | null;
+        closingCashConceptId?: string | null;
+        cashWithdrawalConceptId?: string | null;
+      }>(`${environment.apiUrl}/shops/${shopId}/accounts/closing-income-concept-config`, {
+        closingIncomeConceptId: raw.closingIncomeConceptId || null,
+        closingCashConceptId: raw.closingCashConceptId || null,
+        cashWithdrawalConceptId: raw.cashWithdrawalConceptId || null,
+      })
       .subscribe({
         next: (cfg) => {
           this.closingIncomeBusy.set(false);
@@ -639,12 +692,14 @@ export class AdminAccountsPage {
               ...current,
               closingIncomeConceptId: cfg.closingIncomeConceptId ?? null,
               closingCashConceptId: cfg.closingCashConceptId ?? null,
+              cashWithdrawalConceptId: cfg.cashWithdrawalConceptId ?? null,
             });
           }
           this.closingIncomeForm.patchValue(
             {
-              closingIncomeConceptId: cfg.closingIncomeConceptId ?? null,
-              closingCashConceptId: cfg.closingCashConceptId ?? null,
+              closingIncomeConceptId: cfg.closingIncomeConceptId ?? '',
+              closingCashConceptId: cfg.closingCashConceptId ?? '',
+              cashWithdrawalConceptId: cfg.cashWithdrawalConceptId ?? '',
             },
             { emitEvent: false },
           );
@@ -683,7 +738,7 @@ export class AdminAccountsPage {
             });
           }
           this.transferForm.patchValue(
-            { transferConceptId: cfg.transferConceptId ?? null },
+            { transferConceptId: cfg.transferConceptId ?? '' },
             { emitEvent: false },
           );
           this.transferForm.markAsPristine();
@@ -727,7 +782,7 @@ export class AdminAccountsPage {
           this.splitForm.patchValue(
             {
               partnerDividendAccountId: cfg.partnerDividendAccountId ?? '',
-              partnerDividendConceptId: cfg.partnerDividendConceptId ?? null,
+              partnerDividendConceptId: cfg.partnerDividendConceptId ?? '',
             },
             { emitEvent: false },
           );

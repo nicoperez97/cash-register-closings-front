@@ -144,7 +144,7 @@ export interface AdminShopConceptCategoryOption {
             <mat-option disabled class="select-search-opt">
               <app-select-search [(query)]="conceptQuery" placeholder="Buscar concepto…" />
             </mat-option>
-            <mat-option [value]="null">Automático (Utilidades)</mat-option>
+            <mat-option value="">Automático (Utilidades)</mat-option>
             @for (c of filteredConcepts(); track c.id) {
               <mat-option [value]="c.id">{{ c.name }} · {{ kindLabel(c.kind) }}</mat-option>
             }

@@ -291,7 +291,7 @@ export class AdminShopPage implements OnInit {
     deliveryHours: this.fb.array(this.emptyWeekdayHours()),
     active: [true],
     salesSystemId: this.fb.control<string | null>(null),
-    cashWithdrawalConceptId: this.fb.control<string | null>(null),
+    cashWithdrawalConceptId: this.fb.nonNullable.control(''),
     paymentConceptCategories: this.fb.nonNullable.group({
       supplier: this.fb.nonNullable.control<string[]>([
         ...DEFAULT_PAYMENT_CONCEPT_CATEGORIES.supplier,
@@ -999,7 +999,7 @@ export class AdminShopPage implements OnInit {
       orderingWhatsapp: s.orderingPayments?.whatsapp ?? '',
       active: s.active ?? true,
       salesSystemId: s.salesSystemId ?? null,
-      cashWithdrawalConceptId: s.cashWithdrawalConceptId ?? null,
+      cashWithdrawalConceptId: s.cashWithdrawalConceptId ?? '',
     });
     this.setHoursFromConfig(this.takeawayHours, s.orderingHours?.takeaway);
     this.setHoursFromConfig(this.deliveryHours, s.orderingHours?.delivery);
