@@ -30,7 +30,7 @@ import {
 import { OrderingCartService } from './ordering-cart.service';
 import { DineInApiService } from './dine-in-api.service';
 import { DineInSessionService } from './dine-in-session.service';
-import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
+import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingItemImageUrls, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
 
 type View = 'menu' | 'detail';
 
@@ -198,6 +198,12 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   itemPhoto(it: PublicOrderingMenuItem): string | null {
     return orderingItemImageUrl(this.slug(), it);
   }
+
+  itemPhotos(it: PublicOrderingMenuItem): string[] {
+    return orderingItemImageUrls(this.slug(), it);
+  }
+
+  readonly detailPhotoIndex = signal(0);
 
   sectionDomId(index: number): string {
     return `ord-sec-${index}`;
@@ -374,12 +380,36 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       return;
     }
     this.item.set(item);
+    this.detailPhotoIndex.set(0);
     this.qty.set(1);
     this.notes.set('');
     this.selectedExtraIds.set([]);
     this.removedIngredientIds.set([]);
     this.view.set('detail');
   }
+
+  shiftDetailPhoto(delta: number, it: PublicOrderingMenuItem): void {
+    const photos = this.itemPhotos(it);
+    if (photos.length < 2) return;
+    const next = (this.detailPhotoIndex() + delta + photos.length) % photos.length;
+    this.detailPhotoIndex.set(next);
+  }
+
+  onDetailPhotoSwipe(ev: TouchEvent, phase: 'start' | 'end', it: PublicOrderingMenuItem): void {
+    if (phase === 'start') {
+      this.detailSwipeX = ev.changedTouches?.[0]?.clientX ?? null;
+      return;
+    }
+    const start = this.detailSwipeX;
+    this.detailSwipeX = null;
+    if (start == null) return;
+    const end = ev.changedTouches?.[0]?.clientX ?? start;
+    const dx = end - start;
+    if (Math.abs(dx) < 40) return;
+    this.shiftDetailPhoto(dx < 0 ? 1 : -1, it);
+  }
+
+  private detailSwipeX: number | null = null;
 
   toggleExtra(extraId: string): void {
     this.selectedExtraIds.update((ids) =>

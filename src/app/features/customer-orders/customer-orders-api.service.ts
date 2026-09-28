@@ -33,6 +33,7 @@ export interface PublicOrderingMenuItem {
   price: number;
   priceLabel?: string | null;
   imageUrl?: string | null;
+  images?: Array<{ id: string; url: string }>;
   removableIngredients?: string[];
 }
 

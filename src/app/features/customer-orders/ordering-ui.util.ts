@@ -19,15 +19,37 @@ export function orderingLogoUrl(
 /** URL de foto de ítem del pedido online. */
 export function orderingItemImageUrl(
   slug: string,
-  item: { id?: string; imageUrl?: string | null },
+  item: { id?: string; imageUrl?: string | null; images?: Array<{ id?: string; url?: string }> },
 ): string | null {
+  const urls = orderingItemImageUrls(slug, item);
+  return urls[0] ?? null;
+}
+
+/** URLs de todas las fotos del ítem (ordenadas). */
+export function orderingItemImageUrls(
+  slug: string,
+  item: { id?: string; imageUrl?: string | null; images?: Array<{ id?: string; url?: string }> },
+): string[] {
   const id = String(item?.id ?? '').trim();
-  const raw = String(item?.imageUrl ?? '').trim();
-  if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith('/')) return `${environment.apiUrl}${raw}`;
-  if (!slug || !id) return null;
-  return `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/image`;
+  const out: string[] = [];
+  const push = (raw: string, imageId?: string) => {
+    const value = String(raw ?? '').trim();
+    if (!value) return;
+    let url = value;
+    if (/^https?:\/\//i.test(value)) url = value;
+    else if (value.startsWith('/')) url = `${environment.apiUrl}${value}`;
+    else if (slug && id && imageId) {
+      url = `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`;
+    } else if (slug && id) {
+      url = `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/menu-items/${encodeURIComponent(id)}/image`;
+    } else return;
+    if (!out.includes(url)) out.push(url);
+  };
+  for (const img of item?.images ?? []) {
+    push(String(img?.url ?? ''), String(img?.id ?? '').trim() || undefined);
+  }
+  push(String(item?.imageUrl ?? ''));
+  return out;
 }
 
 /** Hex #RGB / #RRGGBB → luminancia relativa 0–1 (sRGB). */

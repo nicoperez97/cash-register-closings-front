@@ -333,6 +333,69 @@ h1 {
   background: #e8ece8;
 }
 
+.detail__slider {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.detail__slider .detail__photo {
+  border-radius: 12px;
+  display: block;
+}
+
+.detail__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, #111 45%, transparent);
+  color: #fff;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.detail__nav--prev {
+  left: 0.45rem;
+}
+
+.detail__nav--next {
+  right: 0.45rem;
+}
+
+.detail__dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.55rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.detail__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, #fff 55%, transparent);
+  cursor: pointer;
+}
+
+.detail__dot--on {
+  background: #fff;
+  transform: scale(1.15);
+}
+
 .extras {
   display: grid;
   gap: 0.45rem;
