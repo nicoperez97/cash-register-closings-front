@@ -52,7 +52,9 @@ import {
 } from './menu-account-prices-dialog';
 import {
   removeAccountPrice,
+  removeAccountPriceGroup,
   removeAccountPriceRule,
+  syncAccountPriceRulesFromItems,
   upsertAccountPrice,
   upsertAccountPriceRule,
   type MenuAccountPriceRule,
@@ -2210,27 +2212,23 @@ export class AdminMenuPage {
     if (raw === '' || raw == null) {
       item.accountPrices = (item.accountPrices ?? []).filter((r) => r.accountId !== id);
       this.sections.update((list) => list.map((s) => ({ ...s, items: [...(s.items ?? [])] })));
-      this.pruneAccountPriceRuleIfUnused(id);
+      this.resyncAccountPriceRules();
       return;
     }
     const n = typeof raw === 'number' ? raw : Number(raw);
     if (!Number.isFinite(n) || n < 0) return;
-    item.accountPrices = upsertAccountPrice(item.accountPrices, id, n);
+    item.accountPrices = upsertAccountPrice(item.accountPrices, id, n, {
+      mode: 'fixed',
+      value: n,
+    });
     this.sections.update((list) => list.map((s) => ({ ...s, items: [...(s.items ?? [])] })));
+    this.resyncAccountPriceRules();
   }
 
-  /** Si ya no queda ningún ítem con precio de esa cuenta, saca la regla del listado. */
-  private pruneAccountPriceRuleIfUnused(accountId: string): void {
-    const id = String(accountId ?? '').trim();
-    if (!id) return;
-    const stillUsed = this.sections().some((s) =>
-      (s.items ?? []).some((it) =>
-        (it.accountPrices ?? []).some((r) => String(r.accountId ?? '').trim() === id),
-      ),
-    );
-    if (!stillUsed) {
-      this.accountPriceRules.update((rules) => removeAccountPriceRule(rules, id));
-    }
+  /** Regenera accountPriceRules desde los ítems (varios grupos por cuenta). */
+  private resyncAccountPriceRules(): void {
+    const items = this.sections().flatMap((s) => s.items ?? []);
+    this.accountPriceRules.set(syncAccountPriceRulesFromItems(items));
   }
 
   private loadPosLinks(): void {
@@ -2909,7 +2907,7 @@ export class AdminMenuPage {
       });
   }
 
-  openAccountPricesDialog(): void {
+  openAccountPricesDialog(opts?: { initialAccountId?: string | null }): void {
     const shopId = this.shopId();
     if (!shopId) {
       this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
@@ -2947,6 +2945,7 @@ export class AdminMenuPage {
         items,
         rules: this.accountPriceRules().map((r) => ({ ...r })),
         preselectedKeys: [...this.selectedItemKeys()],
+        initialAccountId: opts?.initialAccountId ?? null,
       };
       this.dialogTitle
         .track(
@@ -2970,19 +2969,39 @@ export class AdminMenuPage {
 
           if (result.action === 'delete') {
             const accountId = result.accountId;
+            const groupMode = result.mode ?? null;
+            const groupValue = result.value ?? null;
+            const partial = groupMode != null && groupValue != null;
             this.sections.update((list) =>
               list.map((s) => ({
                 ...s,
                 items: (s.items ?? []).map((it) => ({
                   ...it,
-                  accountPrices: removeAccountPrice(it.accountPrices, accountId),
+                  accountPrices: partial
+                    ? removeAccountPriceGroup(it.accountPrices, {
+                        accountId,
+                        mode: groupMode,
+                        value: groupValue,
+                      })
+                    : removeAccountPrice(it.accountPrices, accountId),
                 })),
               })),
             );
-            this.accountPriceRules.update((rules) => removeAccountPriceRule(rules, accountId));
+            if (partial) {
+              this.accountPriceRules.update((rules) =>
+                removeAccountPriceRule(rules, accountId, groupMode, groupValue),
+              );
+            } else {
+              this.accountPriceRules.update((rules) => removeAccountPriceRule(rules, accountId));
+            }
+            this.resyncAccountPriceRules();
             const accName = accountOptions.find((a) => a.id === accountId)?.name || 'cuenta';
-            this.snack.open(`Precios de ${accName} quitados`, 'OK', { duration: 2800 });
-            setTimeout(() => this.openAccountPricesDialog(), 0);
+            this.snack.open(
+              partial ? `Ajuste de ${accName} quitado` : `Precios de ${accName} quitados`,
+              'OK',
+              { duration: 2800 },
+            );
+            setTimeout(() => this.openAccountPricesDialog({ initialAccountId: accountId }), 0);
             return;
           }
 
@@ -2996,11 +3015,12 @@ export class AdminMenuPage {
               items: (s.items ?? []).map((it, ii) => {
                 const key = this.itemKey(si, ii);
                 if (!keySet.has(key)) return it;
-                const current =
-                  (it.accountPrices ?? []).find((r) => r.accountId === applied.accountId)
-                    ?.price ?? null;
-                const base = current ?? toPrice(it.price);
-                const nextPrice = applyMenuBulkPrice(base, applied.mode, applied.value);
+                // % / sumar / fijo: siempre desde el precio fijo de la carta (reemplazo).
+                const nextPrice = applyMenuBulkPrice(
+                  toPrice(it.price),
+                  applied.mode,
+                  applied.value,
+                );
                 if (nextPrice == null) return it;
                 changed += 1;
                 return {
@@ -3009,6 +3029,7 @@ export class AdminMenuPage {
                     it.accountPrices,
                     applied.accountId,
                     nextPrice,
+                    { mode: applied.mode, value: applied.value },
                   ),
                 };
               }),
@@ -3021,12 +3042,17 @@ export class AdminMenuPage {
               value: applied.value,
             }),
           );
-          this.selectedItemKeys.set(keySet);
+          this.resyncAccountPriceRules();
+          this.selectedItemKeys.set(new Set());
           const accName =
             accountOptions.find((a) => a.id === applied.accountId)?.name || 'cuenta';
           this.snack.open(`Precios de ${accName} en ${changed} ítem(s)`, 'OK', {
             duration: 2800,
           });
+          setTimeout(
+            () => this.openAccountPricesDialog({ initialAccountId: applied.accountId }),
+            0,
+          );
         });
     };
 
