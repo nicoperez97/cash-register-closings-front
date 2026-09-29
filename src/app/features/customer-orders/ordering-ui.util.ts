@@ -139,6 +139,8 @@ export type OrderingPayChoice = {
   id: string;
   name: string;
   kind: 'CASH' | 'TRANSFER' | 'CARD';
+  /** Cuenta ledger enlazada (precios por cuenta en mostrador / comanda). */
+  accountId?: string | null;
 };
 
 /** Medios activos para elegir en checkout / mostrador. */
@@ -146,7 +148,12 @@ export function orderingPayChoices(
   payments:
     | {
         methods?: CustomerOrderPaymentMethod[] | null;
-        items?: Array<{ id?: string; name?: string; active?: boolean }> | null;
+        items?: Array<{
+          id?: string;
+          name?: string;
+          accountId?: string | null;
+          active?: boolean;
+        }> | null;
       }
     | null
     | undefined,
@@ -156,7 +163,8 @@ export function orderingPayChoices(
     return items.map((i) => {
       const id = String(i.id ?? '').trim() || `op_${String(i.name).trim().toLowerCase()}`;
       const name = String(i.name ?? '').trim();
-      return { id, name, kind: classifyOrderingPayKind(id, name) };
+      const accountId = String(i.accountId ?? '').trim() || null;
+      return { id, name, kind: classifyOrderingPayKind(id, name), accountId };
     });
   }
   const methods = payments?.methods?.length ? payments.methods : (['CASH', 'TRANSFER'] as CustomerOrderPaymentMethod[]);
@@ -164,6 +172,7 @@ export function orderingPayChoices(
     id: m === 'TRANSFER' ? 'op_transfer' : 'op_cash',
     name: paymentLabel(m),
     kind: m === 'TRANSFER' ? ('TRANSFER' as const) : ('CASH' as const),
+    accountId: null as string | null,
   }));
 }
 

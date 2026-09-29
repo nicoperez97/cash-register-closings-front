@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -43,6 +44,21 @@ import {
   type MenuBulkPriceDialogResult,
   type MenuBulkPriceItem,
 } from './menu-bulk-price-dialog';
+import {
+  MenuAccountPricesDialogComponent,
+  type MenuAccountPricesDialogData,
+  type MenuAccountPricesDialogResult,
+  type MenuAccountPricesItem,
+} from './menu-account-prices-dialog';
+import {
+  removeAccountPrice,
+  removeAccountPriceRule,
+  upsertAccountPrice,
+  upsertAccountPriceRule,
+  type MenuAccountPriceRule,
+  type MenuItemAccountPrice,
+} from './menu-account-price.util';
+import { AdminAccountRow } from '../admin/admin-account-dialog';
 import { PosMenuLinkDialogComponent } from '../admin/pos-menu-link-dialog';
 import {
   MenuAssignSectorsDialogComponent,
@@ -67,6 +83,8 @@ export type ShopMenuItem = {
   description?: string | null;
   price?: number | null;
   priceLabel?: string | null;
+  /** Precios por cuenta ledger (mostrador / comanda). No se ven en /m ni /pedir. */
+  accountPrices?: MenuItemAccountPrice[];
   available?: boolean;
   imageUrl?: string | null;
   images?: ShopMenuItemImage[];
@@ -101,6 +119,8 @@ export type ShopMenu = {
   sourceFileName?: string | null;
   sourceMime?: string | null;
   priceSlots?: MenuPriceSlot[];
+  /** Último modo de carga masiva por cuenta (fijo / sumar / %). */
+  accountPriceRules?: MenuAccountPriceRule[];
   sections: ShopMenuSection[];
 };
 
@@ -190,6 +210,20 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
     priceSlots: Array.isArray(menu.priceSlots)
       ? menu.priceSlots.map((s) => ({ ...s }))
       : [],
+    accountPriceRules: Array.isArray(menu.accountPriceRules)
+      ? menu.accountPriceRules
+          .map((r) => ({
+            accountId: String(r.accountId ?? '').trim().slice(0, 36),
+            mode: r.mode,
+            value: Number(r.value),
+          }))
+          .filter(
+            (r) =>
+              r.accountId &&
+              (r.mode === 'fixed' || r.mode === 'add' || r.mode === 'percent') &&
+              Number.isFinite(r.value),
+          )
+      : [],
     sections: (menu.sections ?? []).map((s) => ({
       name: s.name ?? '',
       items: (s.items ?? []).map((it) => ({
@@ -198,6 +232,14 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
         description: it.description ?? '',
         price: it.price ?? null,
         priceLabel: it.priceLabel ?? '',
+        accountPrices: Array.isArray(it.accountPrices)
+          ? it.accountPrices
+              .map((r) => ({
+                accountId: String(r.accountId ?? '').trim(),
+                price: Math.max(0, Math.round(Number(r.price) || 0)),
+              }))
+              .filter((r) => r.accountId)
+          : [],
         available: it.available !== false,
         imageUrl: it.imageUrl ?? null,
         images: Array.isArray(it.images)
@@ -244,6 +286,7 @@ function toPrice(value: unknown): number | null {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatMenuModule,
     MatSelectModule,
     MatSnackBarModule,
     MatTabsModule,
@@ -308,8 +351,8 @@ function toPrice(value: unknown): number | null {
                   <div>
                     <h2>Cartas del local</h2>
                     <p class="menu-admin__hint menu-admin__hint--tight">
-                      Agregar / Reemplazar lee el PDF con Gemini. Editá ítems acá; la carta física y los precios
-                      sobre el PDF están en la pestaña <strong>Carta física</strong>.
+                      Editá platos y precios acá. Con <strong>Agregar carta</strong> subís un PDF y se cargan
+                      solos. Precios sobre el PDF → pestaña <strong>Carta física</strong>.
                     </p>
                   </div>
                   <div class="menu-admin__tab-actions">
@@ -367,13 +410,7 @@ function toPrice(value: unknown): number | null {
                 @if (activeId()) {
                   <div class="menu-editor menu-editor--in-tab">
                     <div class="menu-admin__editor-head">
-                      <div>
-                        <h2>Editar {{ title || 'carta' }}</h2>
-                        <p class="menu-admin__hint menu-admin__hint--tight">
-                          Filas compactas: expandí un ítem para foto, descripción e ingredientes. Usá
-                          <strong>Ajustar precios</strong> para cambiar varios de una vez.
-                        </p>
-                      </div>
+                      <h2>Editar {{ title || 'carta' }}</h2>
                       <div class="menu-admin__links">
                         @if (activePublicUrl()) {
                           <a
@@ -381,83 +418,91 @@ function toPrice(value: unknown): number | null {
                             [href]="activePublicUrl()"
                             target="_blank"
                             rel="noopener"
+                            title="Abrir la carta como la ve el cliente"
                           >
                             <mat-icon>open_in_new</mat-icon>
-                            Esta carta
+                            Ver web
                           </a>
                           <button
                             type="button"
                             class="menu-admin__btn menu-admin__btn--ghost"
-                            (click)="copyUrl(activePublicUrl(), 'Link de esta carta copiado')"
+                            title="Copiar el link para compartir"
+                            (click)="copyUrl(activePublicUrl(), 'Link de la carta copiado')"
                           >
                             <mat-icon>content_copy</mat-icon>
-                            Copiar
+                            Copiar link
                           </button>
                         }
                         <button
-                          type="button"
-                          class="menu-admin__btn menu-admin__btn--ghost"
-                          (click)="downloadStyledPdf()"
-                          title="PDF generado con el contenido de la carta"
-                        >
-                          <mat-icon>picture_as_pdf</mat-icon>
-                          PDF
-                        </button>
-                        <button
                           mat-stroked-button
                           type="button"
-                          [disabled]="parsing()"
-                          (click)="replaceInput.click()"
+                          [matMenuTriggerFor]="menuMore"
+                          aria-label="Más acciones de la carta"
                         >
-                          <mat-icon>sync</mat-icon>
-                          Reemplazar
+                          <mat-icon>more_horiz</mat-icon>
+                          Más
                         </button>
-                        <button
-                          mat-stroked-button
-                          type="button"
-                          [disabled]="analyzingIngredients() || parsing() || !sections().length"
-                          (click)="analyzeIngredients()"
-                        >
-                          <mat-icon>auto_awesome</mat-icon>
-                          {{ analyzingIngredients() ? 'Detectando…' : 'Ingredientes' }}
-                        </button>
-                        <button mat-stroked-button type="button" (click)="goToPhysicalTab()">
-                          <mat-icon>menu_book</mat-icon>
-                          Carta física
-                        </button>
-                        <button mat-stroked-button type="button" color="warn" (click)="removeActive()">
-                          <mat-icon>delete</mat-icon>
-                          Quitar
-                        </button>
+                        <mat-menu #menuMore="matMenu">
+                          <button mat-menu-item type="button" (click)="downloadStyledPdf()">
+                            <mat-icon>picture_as_pdf</mat-icon>
+                            <span>Descargar PDF</span>
+                          </button>
+                          <button
+                            mat-menu-item
+                            type="button"
+                            [disabled]="parsing()"
+                            (click)="replaceInput.click()"
+                          >
+                            <mat-icon>sync</mat-icon>
+                            <span>Reemplazar con PDF</span>
+                          </button>
+                          <button
+                            mat-menu-item
+                            type="button"
+                            [disabled]="analyzingIngredients() || parsing() || !sections().length"
+                            (click)="analyzeIngredients()"
+                          >
+                            <mat-icon>auto_awesome</mat-icon>
+                            <span>{{
+                              analyzingIngredients() ? 'Detectando ingredientes…' : 'Detectar ingredientes'
+                            }}</span>
+                          </button>
+                          <button mat-menu-item type="button" (click)="goToPhysicalTab()">
+                            <mat-icon>menu_book</mat-icon>
+                            <span>Ir a Carta física</span>
+                          </button>
+                          <button mat-menu-item type="button" class="menu-admin__menu-warn" (click)="removeActive()">
+                            <mat-icon color="warn">delete</mat-icon>
+                            <span>Quitar carta</span>
+                          </button>
+                        </mat-menu>
                       </div>
                     </div>
                     <div class="menu-admin__meta">
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-form-field
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                        class="menu-admin__meta-title"
+                      >
                         <mat-label>Nombre</mat-label>
                         <input
                           matInput
                           [(ngModel)]="title"
-                          placeholder="Carta"
+                          placeholder="Menú, Vinos, Postres…"
                           (ngModelChange)="onTitleChange()"
                         />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Link</mat-label>
-                        <input matInput [(ngModel)]="menuSlug" placeholder="vinos" />
-                        <span matPrefix>/m/{{ shopSlug() }}/&nbsp;</span>
                       </mat-form-field>
                       <mat-form-field
                         appearance="outline"
                         subscriptSizing="dynamic"
                         class="menu-admin__meta-note"
                       >
-                        <mat-label>Nota al pie</mat-label>
-                        <textarea
+                        <mat-label>Nota al pie (opcional)</mat-label>
+                        <input
                           matInput
-                          rows="2"
                           [(ngModel)]="note"
-                          placeholder="Precios sujetos a cambio, IVA incluido…"
-                        ></textarea>
+                          placeholder="Descuentos, IVA, avisos…"
+                        />
                       </mat-form-field>
                     </div>
 
@@ -484,15 +529,28 @@ function toPrice(value: unknown): number | null {
                           <mat-icon>sell</mat-icon>
                           Ajustar precios
                         </button>
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          [disabled]="!hasPricedItems()"
+                          (click)="openAccountPricesDialog()"
+                        >
+                          <mat-icon>account_balance_wallet</mat-icon>
+                          Precios por cuenta
+                        </button>
                         <button mat-stroked-button type="button" (click)="openPosLinkDialog()">
                           <mat-icon>link</mat-icon>
-                          Enlazar con POS
+                          POS
                         </button>
-                        <button mat-stroked-button type="button" (click)="setAllSectionsOpen(true)">
-                          Expandir secciones
-                        </button>
-                        <button mat-stroked-button type="button" (click)="setAllSectionsOpen(false)">
-                          Colapsar
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          (click)="toggleAllSections()"
+                        >
+                          <mat-icon>{{
+                            sectionsAllOpen() ? 'unfold_less' : 'unfold_more'
+                          }}</mat-icon>
+                          {{ sectionsAllOpen() ? 'Colapsar' : 'Expandir' }}
                         </button>
                       </div>
                       @if (selectedItemKeys().size) {
@@ -605,21 +663,37 @@ function toPrice(value: unknown): number | null {
                                       <mat-label>Ítem</mat-label>
                                       <input matInput [(ngModel)]="item.name" />
                                     </mat-form-field>
-                                    <mat-form-field
-                                      appearance="outline"
-                                      subscriptSizing="dynamic"
-                                      class="menu-item__price"
-                                    >
-                                      <mat-label>Precio</mat-label>
-                                      <input
-                                        matInput
-                                        type="number"
-                                        min="0"
-                                        step="1"
-                                        [(ngModel)]="item.price"
-                                        (ngModelChange)="onItemPriceChange(section.index, ii)"
-                                      />
-                                    </mat-form-field>
+                                    <div class="menu-item__prices">
+                                      <label class="menu-item__price-pill">
+                                        <span class="menu-item__price-pill-label">Precio</span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="1"
+                                          [(ngModel)]="item.price"
+                                          (ngModelChange)="onItemPriceChange(section.index, ii)"
+                                          name="itemPrice-{{ section.index }}-{{ ii }}"
+                                        />
+                                      </label>
+                                      @for (ap of itemAccountPriceEntries(item); track ap.accountId) {
+                                        <label
+                                          class="menu-item__price-pill menu-item__price-pill--acct"
+                                          [title]="'Precio para ' + ap.name"
+                                        >
+                                          <span class="menu-item__price-pill-label">{{ ap.name }}</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            [ngModel]="ap.price"
+                                            (ngModelChange)="
+                                              setItemAccountPrice(item, ap.accountId, $event)
+                                            "
+                                            name="acctPrice-{{ section.index }}-{{ ii }}-{{ ap.accountId }}"
+                                          />
+                                        </label>
+                                      }
+                                    </div>
                                     <mat-form-field
                                       appearance="outline"
                                       subscriptSizing="dynamic"
@@ -1324,18 +1398,25 @@ function toPrice(value: unknown): number | null {
     }
     .menu-admin__meta {
       display: grid;
-      grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr);
-      gap: 0.65rem;
-      margin-bottom: 1rem;
+      grid-template-columns: minmax(10rem, 0.55fr) minmax(14rem, 1.45fr);
+      gap: 0.65rem 0.85rem;
+      align-items: start;
+      margin: 0.35rem 0 0.85rem;
     }
+    .menu-admin__meta-title,
     .menu-admin__meta-note {
-      grid-column: 1 / -1;
+      width: 100%;
+    }
+    .menu-admin__menu-warn {
+      color: #b71c1c;
     }
     .menu-editor__toolbar {
-      display: grid;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 0.55rem;
-      margin: 0.25rem 0 0.85rem;
-      padding: 0.75rem;
+      margin: 0 0 0.85rem;
+      padding: 0.55rem 0.7rem;
       border-radius: 12px;
       border: 1px solid var(--guy-border, #d7e0d9);
       background: #f7faf7;
@@ -1347,6 +1428,8 @@ function toPrice(value: unknown): number | null {
       display: flex;
       align-items: center;
       gap: 0.35rem;
+      flex: 1 1 14rem;
+      min-width: 12rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 10px;
       padding: 0.1rem 0.55rem;
@@ -1372,6 +1455,7 @@ function toPrice(value: unknown): number | null {
       gap: 0.45rem;
     }
     .menu-editor__sel {
+      flex: 1 1 100%;
       margin: 0;
       font-size: 0.85rem;
       color: var(--guy-navy, #003366);
@@ -1427,7 +1511,7 @@ function toPrice(value: unknown): number | null {
     .menu-item {
       display: grid;
       gap: 0.45rem;
-      padding: 0.4rem 0.55rem;
+      padding: 0.5rem 0.6rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 12px;
       background: #fff;
@@ -1468,9 +1552,66 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__core {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 6.5rem minmax(7rem, 9rem);
-      gap: 0.4rem;
+      grid-template-columns: minmax(8rem, 1fr) auto minmax(7rem, 9rem);
+      gap: 0.4rem 0.45rem;
       min-width: 0;
+      align-items: center;
+    }
+    .menu-item__prices {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.35rem;
+      align-items: stretch;
+      min-width: 0;
+    }
+    .menu-item__price-pill {
+      display: grid;
+      gap: 0.12rem;
+      margin: 0;
+      width: 6.1rem;
+      flex: 0 0 auto;
+      padding: 0.22rem 0.4rem 0.28rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 10px;
+      background: #fff;
+      box-sizing: border-box;
+      align-content: center;
+      min-height: 3.1rem;
+    }
+    .menu-item__price-pill--acct {
+      background: #f3f7f3;
+      border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 22%, #d7e0d9);
+      width: 6.75rem;
+    }
+    .menu-item__price-pill-label {
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .menu-item__price-pill--acct .menu-item__price-pill-label {
+      color: var(--guy-navy, #003366);
+    }
+    .menu-item__price-pill input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--guy-ink, #1b2a33);
+      font-variant-numeric: tabular-nums;
+      padding: 0;
+      line-height: 1.2;
+    }
+    .menu-item__price-pill input:focus {
+      outline: none;
     }
     .menu-item__pos-badge {
       grid-column: 1 / -1;
@@ -1484,10 +1625,13 @@ function toPrice(value: unknown): number | null {
     }
     @media (max-width: 900px) {
       .menu-item__core {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) auto;
       }
       .menu-item__sector {
         grid-column: 1 / -1;
+      }
+      .menu-item__prices {
+        flex-wrap: wrap;
       }
     }
     .menu-sector-row {
@@ -1649,7 +1793,13 @@ function toPrice(value: unknown): number | null {
         display: none;
       }
       .menu-item__core {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .menu-item__sector {
+        grid-column: 1 / -1;
+      }
+      .menu-item__prices {
+        flex-wrap: wrap;
       }
       .menu-item__detail {
         padding-left: 0.15rem;
@@ -1704,6 +1854,8 @@ export class AdminMenuPage {
   readonly loading = signal(false);
   /** menuItemId → código POS */
   readonly posCodeByMenuItemId = signal<Record<string, string>>({});
+  /** Cuentas enlazadas a medios de pedido/comanda (para labels de precios por cuenta). */
+  readonly priceAccounts = signal<Array<{ id: string; name: string }>>([]);
   readonly saving = signal(false);
   readonly savingSectors = signal(false);
   readonly savingExtras = signal(false);
@@ -1733,6 +1885,7 @@ export class AdminMenuPage {
   private sourceFile: string | null = null;
   private sourceMime: string | null = null;
   readonly priceSlots = signal<MenuPriceSlot[]>([]);
+  readonly accountPriceRules = signal<MenuAccountPriceRule[]>([]);
   readonly downloadingPricedPdf = signal(false);
   readonly sections = signal<ShopMenuSection[]>([]);
   readonly itemQuery = signal('');
@@ -1943,12 +2096,101 @@ export class AdminMenuPage {
         if (this.showCatalog()) this.loadExtras();
         this.loadStockProducts();
         this.loadPosLinks();
+        this.loadPriceAccounts();
       },
       error: () => {
         this.loading.set(false);
         this.snack.open('No se pudieron cargar las cartas', 'OK', { duration: 3000 });
       },
     });
+  }
+
+  private loadPriceAccounts(): void {
+    const shopId = this.shopId();
+    if (!shopId) {
+      this.priceAccounts.set([]);
+      return;
+    }
+    type ShopPayCfg = {
+      orderingPayments?: {
+        items?: Array<{ accountId?: string | null; active?: boolean }>;
+      } | null;
+      tablePaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
+    };
+    forkJoin({
+      accounts: this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`),
+      shop: this.http.get<ShopPayCfg>(`${environment.apiUrl}/shops/${shopId}`),
+    }).subscribe({
+      next: ({ accounts, shop }) => {
+        const linkedIds = new Set<string>();
+        for (const m of shop.orderingPayments?.items ?? []) {
+          if (m.active === false) continue;
+          const id = String(m.accountId ?? '').trim();
+          if (id) linkedIds.add(id);
+        }
+        for (const m of shop.tablePaymentMethods ?? []) {
+          if (m.active === false) continue;
+          const id = String(m.accountId ?? '').trim();
+          if (id) linkedIds.add(id);
+        }
+        this.priceAccounts.set(
+          (accounts ?? [])
+            .filter((a) => a.active !== false && linkedIds.has(a.id))
+            .map((a) => ({ id: a.id, name: a.name }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+        );
+      },
+      error: () => this.priceAccounts.set([]),
+    });
+  }
+
+  /** Precios por cuenta ya cargados en el ítem (para mostrar al lado de Precio). */
+  itemAccountPriceEntries(
+    item: ShopMenuItem,
+  ): Array<{ accountId: string; name: string; price: number }> {
+    const names = new Map(this.priceAccounts().map((a) => [a.id, a.name]));
+    return (item.accountPrices ?? [])
+      .map((r) => {
+        const accountId = String(r.accountId ?? '').trim();
+        const price = Math.round(Number(r.price));
+        if (!accountId || !Number.isFinite(price) || price < 0) return null;
+        return {
+          accountId,
+          name: names.get(accountId) || 'Cuenta',
+          price,
+        };
+      })
+      .filter((r): r is { accountId: string; name: string; price: number } => !!r)
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+
+  setItemAccountPrice(item: ShopMenuItem, accountId: string, raw: unknown): void {
+    const id = String(accountId ?? '').trim();
+    if (!id) return;
+    if (raw === '' || raw == null) {
+      item.accountPrices = (item.accountPrices ?? []).filter((r) => r.accountId !== id);
+      this.sections.update((list) => list.map((s) => ({ ...s, items: [...(s.items ?? [])] })));
+      this.pruneAccountPriceRuleIfUnused(id);
+      return;
+    }
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(n) || n < 0) return;
+    item.accountPrices = upsertAccountPrice(item.accountPrices, id, n);
+    this.sections.update((list) => list.map((s) => ({ ...s, items: [...(s.items ?? [])] })));
+  }
+
+  /** Si ya no queda ningún ítem con precio de esa cuenta, saca la regla del listado. */
+  private pruneAccountPriceRuleIfUnused(accountId: string): void {
+    const id = String(accountId ?? '').trim();
+    if (!id) return;
+    const stillUsed = this.sections().some((s) =>
+      (s.items ?? []).some((it) =>
+        (it.accountPrices ?? []).some((r) => String(r.accountId ?? '').trim() === id),
+      ),
+    );
+    if (!stillUsed) {
+      this.accountPriceRules.update((rules) => removeAccountPriceRule(rules, id));
+    }
   }
 
   private loadPosLinks(): void {
@@ -2185,6 +2427,11 @@ export class AdminMenuPage {
     this.priceSlots.set(
       Array.isArray(menu.priceSlots) ? menu.priceSlots.map((s) => ({ ...s })) : [],
     );
+    this.accountPriceRules.set(
+      Array.isArray(menu.accountPriceRules)
+        ? menu.accountPriceRules.map((r) => ({ ...r }))
+        : [],
+    );
     this.sections.set(menu.sections.length ? menu.sections : emptySections());
     this.slugTouched = !!menu.slug;
     this.itemQuery.set(prevQuery);
@@ -2210,6 +2457,7 @@ export class AdminMenuPage {
     this.sourceFileName = '';
     this.sourceMime = null;
     this.priceSlots.set([]);
+    this.accountPriceRules.set([]);
     this.sections.set([]);
     this.slugTouched = false;
     this.itemQuery.set('');
@@ -2228,6 +2476,7 @@ export class AdminMenuPage {
       sourceFileName: this.sourceFileName || null,
       sourceMime: this.sourceMime,
       priceSlots: this.priceSlots().map((s) => ({ ...s })),
+      accountPriceRules: this.accountPriceRules().map((r) => ({ ...r })),
       sections: this.sections().map((s) => ({
         name: String(s.name ?? '').trim() || 'Carta',
         items: (s.items ?? [])
@@ -2237,6 +2486,14 @@ export class AdminMenuPage {
             description: String(it.description ?? '').trim() || null,
             price: toPrice(it.price),
             priceLabel: String(it.priceLabel ?? '').trim() || null,
+            accountPrices: Array.isArray(it.accountPrices)
+              ? it.accountPrices
+                  .map((r) => ({
+                    accountId: String(r.accountId ?? '').trim().slice(0, 36),
+                    price: Math.max(0, Math.round(Number(r.price) || 0)),
+                  }))
+                  .filter((r) => r.accountId)
+              : [],
             available: it.available !== false,
             imageUrl: String(it.imageUrl ?? '').trim() || null,
             images: Array.isArray(it.images)
@@ -2469,6 +2726,20 @@ export class AdminMenuPage {
     this.openSectionKeys.set(new Set(this.sections().map((_, i) => `sec-${i}`)));
   }
 
+  sectionsAllOpen(): boolean {
+    const total = this.sections().length;
+    if (!total) return false;
+    const open = this.openSectionKeys();
+    for (let i = 0; i < total; i++) {
+      if (!open.has(`sec-${i}`)) return false;
+    }
+    return true;
+  }
+
+  toggleAllSections(): void {
+    this.setAllSectionsOpen(!this.sectionsAllOpen());
+  }
+
   isItemOpen(sectionIndex: number, itemIndex: number): boolean {
     return this.openItemKeys().has(this.itemKey(sectionIndex, itemIndex));
   }
@@ -2596,6 +2867,162 @@ export class AdminMenuPage {
           { duration: 2800 },
         );
       });
+  }
+
+  openAccountPricesDialog(): void {
+    const shopId = this.shopId();
+    if (!shopId) {
+      this.snack.open('Seleccioná un local', 'OK', { duration: 2500 });
+      return;
+    }
+    const items: MenuAccountPricesItem[] = [];
+    this.sections().forEach((sec, si) => {
+      (sec.items ?? []).forEach((it, ii) => {
+        const name = String(it.name ?? '').trim();
+        if (!name) return;
+        items.push({
+          key: this.itemKey(si, ii),
+          sectionName: String(sec.name ?? '').trim() || 'Sin sección',
+          name,
+          basePrice: toPrice(it.price),
+          accountPrices: it.accountPrices ?? [],
+        });
+      });
+    });
+    if (!items.length) {
+      this.snack.open('Agregá ítems con nombre antes de cargar precios por cuenta', 'OK', {
+        duration: 3000,
+      });
+      return;
+    }
+    type ShopPayCfg = {
+      orderingPayments?: {
+        items?: Array<{ accountId?: string | null; active?: boolean }>;
+      } | null;
+      tablePaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
+    };
+    const openWithAccounts = (accountOptions: Array<{ id: string; name: string }>) => {
+      const data: MenuAccountPricesDialogData = {
+        accounts: accountOptions,
+        items,
+        rules: this.accountPriceRules().map((r) => ({ ...r })),
+        preselectedKeys: [...this.selectedItemKeys()],
+      };
+      this.dialogTitle
+        .track(
+          this.dialog.open<
+            MenuAccountPricesDialogComponent,
+            MenuAccountPricesDialogData,
+            MenuAccountPricesDialogResult | null
+          >(MenuAccountPricesDialogComponent, {
+            width: '620px',
+            maxWidth: '96vw',
+            maxHeight: '90vh',
+            autoFocus: 'dialog',
+            panelClass: 'guy-dialog',
+            data,
+          }),
+          'Precios por cuenta',
+        )
+        .afterClosed()
+        .subscribe((result) => {
+          if (!result) return;
+
+          if (result.action === 'delete') {
+            const accountId = result.accountId;
+            this.sections.update((list) =>
+              list.map((s) => ({
+                ...s,
+                items: (s.items ?? []).map((it) => ({
+                  ...it,
+                  accountPrices: removeAccountPrice(it.accountPrices, accountId),
+                })),
+              })),
+            );
+            this.accountPriceRules.update((rules) => removeAccountPriceRule(rules, accountId));
+            const accName = accountOptions.find((a) => a.id === accountId)?.name || 'cuenta';
+            this.snack.open(`Precios de ${accName} quitados`, 'OK', { duration: 2800 });
+            setTimeout(() => this.openAccountPricesDialog(), 0);
+            return;
+          }
+
+          if (result.action !== 'apply' || !result.keys.length || !result.accountId) return;
+          const applied = result;
+          const keySet = new Set<string>(applied.keys);
+          let changed = 0;
+          this.sections.update((list) =>
+            list.map((s, si) => ({
+              ...s,
+              items: (s.items ?? []).map((it, ii) => {
+                const key = this.itemKey(si, ii);
+                if (!keySet.has(key)) return it;
+                const current =
+                  (it.accountPrices ?? []).find((r) => r.accountId === applied.accountId)
+                    ?.price ?? null;
+                const base = current ?? toPrice(it.price);
+                const nextPrice = applyMenuBulkPrice(base, applied.mode, applied.value);
+                if (nextPrice == null) return it;
+                changed += 1;
+                return {
+                  ...it,
+                  accountPrices: upsertAccountPrice(
+                    it.accountPrices,
+                    applied.accountId,
+                    nextPrice,
+                  ),
+                };
+              }),
+            })),
+          );
+          this.accountPriceRules.update((rules) =>
+            upsertAccountPriceRule(rules, {
+              accountId: applied.accountId,
+              mode: applied.mode,
+              value: applied.value,
+            }),
+          );
+          this.selectedItemKeys.set(keySet);
+          const accName =
+            accountOptions.find((a) => a.id === applied.accountId)?.name || 'cuenta';
+          this.snack.open(`Precios de ${accName} en ${changed} ítem(s)`, 'OK', {
+            duration: 2800,
+          });
+        });
+    };
+
+    const cached = this.priceAccounts();
+    if (cached.length) {
+      openWithAccounts(cached);
+      return;
+    }
+
+    forkJoin({
+      accounts: this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`),
+      shop: this.http.get<ShopPayCfg>(`${environment.apiUrl}/shops/${shopId}`),
+    }).subscribe({
+      next: ({ accounts, shop }) => {
+        const linkedIds = new Set<string>();
+        for (const m of shop.orderingPayments?.items ?? []) {
+          if (m.active === false) continue;
+          const id = String(m.accountId ?? '').trim();
+          if (id) linkedIds.add(id);
+        }
+        for (const m of shop.tablePaymentMethods ?? []) {
+          if (m.active === false) continue;
+          const id = String(m.accountId ?? '').trim();
+          if (id) linkedIds.add(id);
+        }
+        const accountOptions = (accounts ?? [])
+          .filter((a) => a.active !== false && linkedIds.has(a.id))
+          .map((a) => ({ id: a.id, name: a.name }))
+          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        this.priceAccounts.set(accountOptions);
+        openWithAccounts(accountOptions);
+      },
+      error: () => {
+        this.snack.open('No se pudieron cargar las cuentas del local', 'OK', { duration: 3000 });
+      },
+    });
   }
 
   openAssignSectorsDialog(): void {

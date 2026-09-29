@@ -32,6 +32,8 @@ export interface PublicOrderingMenuItem {
   description?: string | null;
   price: number;
   priceLabel?: string | null;
+  /** Solo catálogo staff: precios por cuenta ledger. */
+  accountPrices?: Array<{ accountId: string; price: number }>;
   imageUrl?: string | null;
   images?: Array<{ id: string; url: string }>;
   removableIngredients?: string[];
@@ -109,6 +111,8 @@ export interface CreatePublicCustomerOrderBody {
   items: Array<{
     menuItemId: string;
     qty: number;
+    /** Solo staff/comanda: precio fijado al agregar. */
+    unitPrice?: number | null;
     notes?: string | null;
     removedIngredients?: string[];
   }>;
@@ -201,6 +205,13 @@ export class CustomerOrdersApiService {
   getPublicOrdering(slug: string) {
     return this.http.get<PublicOrderingConfig>(
       `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/ordering`,
+    );
+  }
+
+  /** Catálogo de mostrador (incluye precios por cuenta). */
+  getStaffOrderingCatalog(shopId: string) {
+    return this.http.get<PublicOrderingConfig>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/ordering-catalog`,
     );
   }
 
