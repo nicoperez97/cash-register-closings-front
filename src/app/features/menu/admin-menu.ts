@@ -707,30 +707,32 @@ function toPrice(value: unknown): number | null {
                                       </mat-select>
                                     </mat-form-field>
                                   </div>
-                                  <label class="menu-item__avail menu-item__avail--bar">
-                                    <input type="checkbox" [(ngModel)]="item.available" />
-                                    Online
-                                  </label>
-                                  <button
-                                    mat-icon-button
-                                    type="button"
-                                    [attr.aria-label]="
-                                      isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Más campos'
-                                    "
-                                    (click)="toggleItemOpen(section.index, ii)"
-                                  >
-                                    <mat-icon>{{
-                                      isItemOpen(section.index, ii) ? 'unfold_less' : 'unfold_more'
-                                    }}</mat-icon>
-                                  </button>
-                                  <button
-                                    mat-icon-button
-                                    type="button"
-                                    aria-label="Quitar ítem"
-                                    (click)="removeItem(section.index, ii)"
-                                  >
-                                    <mat-icon>close</mat-icon>
-                                  </button>
+                                  <div class="menu-item__actions">
+                                    <label class="menu-item__avail menu-item__avail--bar">
+                                      <input type="checkbox" [(ngModel)]="item.available" />
+                                      Online
+                                    </label>
+                                    <button
+                                      mat-icon-button
+                                      type="button"
+                                      [attr.aria-label]="
+                                        isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Más campos'
+                                      "
+                                      (click)="toggleItemOpen(section.index, ii)"
+                                    >
+                                      <mat-icon>{{
+                                        isItemOpen(section.index, ii) ? 'unfold_less' : 'unfold_more'
+                                      }}</mat-icon>
+                                    </button>
+                                    <button
+                                      mat-icon-button
+                                      type="button"
+                                      aria-label="Quitar ítem"
+                                      (click)="removeItem(section.index, ii)"
+                                    >
+                                      <mat-icon>close</mat-icon>
+                                    </button>
+                                  </div>
                                 </div>
                                 @if (isItemOpen(section.index, ii)) {
                                   <div class="menu-item__detail">
@@ -1522,14 +1524,15 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__bar {
       display: grid;
-      grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+      grid-template-columns: auto auto minmax(0, 1fr) auto;
       gap: 0.4rem;
-      align-items: center;
+      align-items: start;
     }
     .menu-item__check {
       display: grid;
       place-items: center;
       padding: 0.2rem;
+      margin-top: 0.65rem;
     }
     .menu-item__thumb {
       width: 2.75rem;
@@ -1544,6 +1547,8 @@ function toPrice(value: unknown): number | null {
       font-size: 0.62rem;
       display: grid;
       place-items: center;
+      margin-top: 0.45rem;
+      flex-shrink: 0;
     }
     .menu-item__thumb img {
       width: 100%;
@@ -1552,17 +1557,23 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__core {
       display: grid;
-      grid-template-columns: minmax(8rem, 1fr) auto minmax(7rem, 9rem);
+      grid-template-columns: minmax(7rem, 1.4fr) auto minmax(6.5rem, 9rem);
       gap: 0.4rem 0.45rem;
       min-width: 0;
-      align-items: center;
+      align-items: start;
+    }
+    .menu-item__name {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
     }
     .menu-item__prices {
       display: flex;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       gap: 0.35rem;
       align-items: stretch;
       min-width: 0;
+      max-width: 100%;
     }
     .menu-item__price-pill {
       display: grid;
@@ -1613,6 +1624,14 @@ function toPrice(value: unknown): number | null {
     .menu-item__price-pill input:focus {
       outline: none;
     }
+    .menu-item__actions {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0;
+      margin-top: 0.15rem;
+      flex-shrink: 0;
+    }
     .menu-item__pos-badge {
       grid-column: 1 / -1;
       justify-self: start;
@@ -1622,17 +1641,6 @@ function toPrice(value: unknown): number | null {
       background: #e8f5e9;
       border-radius: 999px;
       padding: 0.15rem 0.55rem;
-    }
-    @media (max-width: 900px) {
-      .menu-item__core {
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-      .menu-item__sector {
-        grid-column: 1 / -1;
-      }
-      .menu-item__prices {
-        flex-wrap: wrap;
-      }
     }
     .menu-sector-row {
       display: grid;
@@ -1782,27 +1790,59 @@ function toPrice(value: unknown): number | null {
       color: var(--guy-navy, #003366);
       white-space: nowrap;
     }
-    @media (max-width: 900px) {
-      .menu-admin__meta {
-        grid-template-columns: 1fr;
-      }
-      .menu-item__bar {
-        grid-template-columns: auto auto minmax(0, 1fr) auto;
-      }
-      .menu-item__avail--bar {
-        display: none;
-      }
+    @media (max-width: 1100px) {
       .menu-item__core {
         grid-template-columns: minmax(0, 1fr) auto;
       }
       .menu-item__sector {
         grid-column: 1 / -1;
       }
+    }
+    @media (max-width: 900px) {
+      .menu-admin__meta {
+        grid-template-columns: 1fr;
+      }
+      .menu-item__avail--bar {
+        display: none;
+      }
+      .menu-item__core {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.45rem;
+      }
+      .menu-item__name,
+      .menu-item__prices,
+      .menu-item__sector {
+        width: 100%;
+        max-width: 100%;
+        flex: none;
+      }
       .menu-item__prices {
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+        gap: 0.35rem;
+      }
+      .menu-item__price-pill,
+      .menu-item__price-pill--acct {
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        flex: none;
       }
       .menu-item__detail {
         padding-left: 0.15rem;
+      }
+    }
+    @media (max-width: 560px) {
+      .menu-item__bar {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+      .menu-item__thumb {
+        display: none;
+      }
+      .menu-item__prices {
+        grid-template-columns: 1fr 1fr;
       }
     }
     .menu-admin__save {
