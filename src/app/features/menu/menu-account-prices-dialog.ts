@@ -6,9 +6,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { formatMoney } from '../../shared/utils/money';
 import { applyMenuBulkPrice, type MenuBulkPriceMode } from './menu-bulk-price-dialog';
 import {
+  accountPriceEntryOf,
   accountPriceOf,
   formatAccountPriceRuleLabel,
+  summarizeAccountPriceGroups,
+  type MenuAccountPriceMode,
   type MenuAccountPriceRule,
+  type MenuItemAccountPrice,
 } from './menu-account-price.util';
 
 export type MenuAccountPriceAccount = {
@@ -21,13 +25,13 @@ export type MenuAccountPricesItem = {
   sectionName: string;
   name: string;
   basePrice: number | null;
-  accountPrices?: Array<{ accountId: string; price: number }> | null;
+  accountPrices?: MenuItemAccountPrice[] | null;
 };
 
 export type MenuAccountPricesDialogData = {
   accounts: MenuAccountPriceAccount[];
   items: MenuAccountPricesItem[];
-  /** Último ajuste masivo por cuenta (fijo / sumar / %). */
+  /** Ajustes masivos por cuenta (puede haber varios % en la misma). */
   rules?: MenuAccountPriceRule[];
   preselectedKeys?: string[];
   /** Cuenta preseleccionada si hay una sola o la última usada. */
@@ -42,7 +46,12 @@ export type MenuAccountPricesDialogResult =
       value: number;
       keys: string[];
     }
-  | { action: 'delete'; accountId: string };
+  | {
+      action: 'delete';
+      accountId: string;
+      mode?: MenuAccountPriceMode | null;
+      value?: number | null;
+    };
 
 function moneyLabel(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(Number(n))) return '—';
@@ -73,7 +82,7 @@ function moneyLabel(n: number | null | undefined): string {
         @if (pricedAccounts().length) {
           <div class="map__rules" role="list" aria-label="Cuentas con precio">
             <div class="map__rules-title">Cuentas con precio</div>
-            @for (row of pricedAccounts(); track row.accountId) {
+            @for (row of pricedAccounts(); track row.trackKey) {
               <div class="map__rule" role="listitem">
                 <div class="map__rule-main">
                   <strong>{{ row.name }}</strong>
@@ -84,9 +93,13 @@ function moneyLabel(n: number | null | undefined): string {
                   type="button"
                   mat-icon-button
                   class="map__rule-del"
-                  (click)="deleteAccount(row.accountId, row.name)"
-                  [attr.aria-label]="'Quitar precios de ' + row.name"
-                  title="Quitar precios de esta cuenta"
+                  (click)="deleteGroup(row)"
+                  [attr.aria-label]="'Quitar ' + row.label + ' de ' + row.name"
+                  [title]="
+                    row.mode
+                      ? 'Quitar este ajuste de la cuenta'
+                      : 'Quitar precios de esta cuenta'
+                  "
                 >
                   <mat-icon>delete</mat-icon>
                 </button>
@@ -204,9 +217,14 @@ function moneyLabel(n: number | null | undefined): string {
                   <span class="map__row-name">{{ it.name || 'Sin nombre' }}</span>
                   <span class="map__row-price">
                     <span class="map__muted" title="Precio fijo">{{ money(it.basePrice) }}</span>
-                    @if (currentAccountPrice(it); as cur) {
+                    @if (currentAccountEntry(it); as cur) {
                       <span class="map__arrow">·</span>
-                      <span title="Precio de esta cuenta">{{ money(cur) }}</span>
+                      <span title="Precio de esta cuenta">{{ money(cur.price) }}</span>
+                      @if (cur.mode != null && cur.value != null) {
+                        <span class="map__rule-chip" [title]="'Ajuste: ' + ruleLabel(cur)">
+                          {{ ruleLabel(cur) }}
+                        </span>
+                      }
                     }
                     @if (previewOf(it); as next) {
                       @if (next !== currentAccountPrice(it)) {
@@ -473,6 +491,15 @@ function moneyLabel(n: number | null | undefined): string {
     .map__arrow {
       opacity: 0.65;
     }
+    .map__rule-chip {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--guy-green, #2e7d32);
+      background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);
+      border-radius: 999px;
+      padding: 0.05rem 0.4rem;
+      line-height: 1.3;
+    }
     .map__row-price strong {
       color: var(--guy-green, #2e7d32);
     }
@@ -506,35 +533,16 @@ export class MenuAccountPricesDialogComponent {
   readonly selected = computed(() => this.selectedKeys());
   readonly selectedCount = computed(() => this.selectedKeys().size);
 
-  /** Cuentas que ya tienen precio en al menos un ítem (o regla guardada). */
-  readonly pricedAccounts = computed(() => {
-    const names = new Map(this.data.accounts.map((a) => [a.id, a.name]));
-    const rules = new Map(
-      (this.data.rules ?? []).map((r) => [String(r.accountId).trim(), r] as const),
-    );
-    const counts = new Map<string, number>();
-    for (const it of this.data.items) {
-      for (const row of it.accountPrices ?? []) {
-        const id = String(row.accountId ?? '').trim();
-        if (!id) continue;
-        counts.set(id, (counts.get(id) ?? 0) + 1);
-      }
-    }
-    const ids = new Set<string>([...counts.keys(), ...rules.keys()]);
-    return [...ids]
-      .map((accountId) => {
-        const rule = rules.get(accountId);
-        const itemCount = counts.get(accountId) ?? 0;
-        return {
-          accountId,
-          name: names.get(accountId) || 'Cuenta',
-          label: rule ? formatAccountPriceRuleLabel(rule) : 'Precio cargado',
-          itemCount,
-        };
-      })
-      .filter((r) => r.itemCount > 0 || rules.has(r.accountId))
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  });
+  /** Cuentas/grupos que ya tienen precio (varios % en la misma cuenta). */
+  readonly pricedAccounts = computed(() =>
+    summarizeAccountPriceGroups(this.data.items, this.data.accounts).map((row) => ({
+      ...row,
+      trackKey:
+        row.mode != null && row.value != null
+          ? `${row.accountId}|${row.mode}|${row.value}`
+          : `${row.accountId}|legacy`,
+    })),
+  );
 
   valueLabel(): string {
     if (this.mode() === 'fixed') return 'Nuevo precio de cuenta ($)';
@@ -553,9 +561,9 @@ export class MenuAccountPricesDialogComponent {
       return 'Se guarda solo para esta cuenta. El precio fijo de la carta no cambia.';
     }
     if (this.mode() === 'add') {
-      return 'Suma/resta sobre el precio de esta cuenta (si no hay, sobre el fijo).';
+      return 'Suma/resta sobre el precio fijo de la carta y reemplaza el de esta cuenta en los marcados. Podés aplicar otro monto a otro lote.';
     }
-    return 'Porcentaje sobre el precio de esta cuenta (si no hay, sobre el fijo).';
+    return 'Porcentaje sobre el precio fijo de la carta y reemplaza el de esta cuenta en los marcados. Ej.: sándwiches +20% y después bebidas +10%.';
   }
 
   readonly filtered = computed(() => {
@@ -582,13 +590,19 @@ export class MenuAccountPricesDialogComponent {
     return moneyLabel(n);
   }
 
+  ruleLabel(rule: { mode?: MenuAccountPriceMode | null; value?: number | null }): string {
+    if (rule.mode == null || rule.value == null || !Number.isFinite(Number(rule.value))) {
+      return '';
+    }
+    return formatAccountPriceRuleLabel({ mode: rule.mode, value: Number(rule.value) });
+  }
+
   currentAccountPrice(it: MenuAccountPricesItem): number | null {
     return accountPriceOf(it, this.accountId());
   }
 
-  /** Base para sumar/%: precio de cuenta si existe, si no el fijo. */
-  private baseForAdjust(it: MenuAccountPricesItem): number | null {
-    return this.currentAccountPrice(it) ?? it.basePrice;
+  currentAccountEntry(it: MenuAccountPricesItem): MenuItemAccountPrice | null {
+    return accountPriceEntryOf(it, this.accountId());
   }
 
   onAmountChange(raw: unknown): void {
@@ -603,7 +617,8 @@ export class MenuAccountPricesDialogComponent {
   previewOf(it: MenuAccountPricesItem): number | null {
     const v = Number(this.amount());
     if (!Number.isFinite(v) || !this.selectedKeys().has(it.key)) return null;
-    return applyMenuBulkPrice(this.baseForAdjust(it), this.mode(), v);
+    // % y sumar siempre sobre el fijo de la carta (reemplazo, no composición).
+    return applyMenuBulkPrice(it.basePrice, this.mode(), v);
   }
 
   sectionOpen(name: string): boolean {
@@ -676,10 +691,25 @@ export class MenuAccountPricesDialogComponent {
     });
   }
 
-  deleteAccount(accountId: string, name: string): void {
-    const id = String(accountId ?? '').trim();
+  deleteGroup(row: {
+    accountId: string;
+    name: string;
+    label: string;
+    mode: MenuAccountPriceMode | null;
+    value: number | null;
+  }): void {
+    const id = String(row.accountId ?? '').trim();
     if (!id) return;
-    if (!window.confirm(`¿Quitar todos los precios de «${name}» en esta carta?`)) return;
-    this.ref.close({ action: 'delete', accountId: id });
+    const partial = row.mode != null && row.value != null;
+    const msg = partial
+      ? `¿Quitar «${row.label}» de «${row.name}» en esta carta?`
+      : `¿Quitar todos los precios de «${row.name}» en esta carta?`;
+    if (!window.confirm(msg)) return;
+    this.ref.close({
+      action: 'delete',
+      accountId: id,
+      mode: row.mode,
+      value: row.value,
+    });
   }
 }
