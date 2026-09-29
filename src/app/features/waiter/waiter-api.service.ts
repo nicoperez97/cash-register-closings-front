@@ -300,6 +300,7 @@ export type WaiterCatalog = {
         name: string;
         description?: string | null;
         price: number;
+        accountPrices?: Array<{ accountId: string; price: number }>;
         removableIngredients?: string[];
         imageUrl?: string | null;
       }>;
@@ -416,6 +417,7 @@ export class WaiterApiService {
       items?: Array<{
         menuItemId: string;
         qty: number;
+        unitPrice?: number | null;
         notes?: string | null;
         removedIngredients?: string[];
         isEntrada?: boolean;

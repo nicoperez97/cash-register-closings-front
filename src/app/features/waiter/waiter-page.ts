@@ -28,6 +28,7 @@ import {
   WaiterSession,
   WaiterShiftTipsSummary,
   WaiterTable,
+  type TablePaymentMethod,
 } from './waiter-api.service';
 import {
   ComandaLineReasonDialogComponent,
@@ -42,6 +43,7 @@ import {
   resolveDiscountPresets,
   type DiscountPreset,
 } from '../../core/shop/discount-presets';
+import { resolveItemUnitPrice } from '../menu/menu-account-price.util';
 
 type PosLine = {
   key: string;
@@ -64,6 +66,7 @@ type CatalogItem = {
   name: string;
   description?: string | null;
   price: number;
+  accountPrices?: Array<{ accountId: string; price: number }>;
   section: string;
 };
 
@@ -158,6 +161,12 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly closePayAmounts = signal<Record<string, number | null>>({});
   /** Medio que absorbe el resto / último «Todo». */
   readonly closePayPrimaryId = signal<string | null>(null);
+
+  /**
+   * Medio de pago para fijar precio al agregar (solo staff).
+   * Cambiar el chip no recalcula líneas ya cargadas.
+   */
+  readonly pricingPaymentMethodId = signal<string | null>(null);
 
   /** Resumen de propinas del turno (vista mesas). */
   readonly tipsSummary = signal<WaiterShiftTipsSummary | null>(null);
@@ -1437,10 +1446,118 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       next: (cfg) => {
         this.catalog.set(cfg);
         if (cfg.capabilities) this.applyCapabilities(cfg.capabilities);
+        this.ensurePricingPaymentDefault(cfg.tablePaymentMethods);
       },
       error: (err) =>
         this.error.set(apiErrorMessage(err, 'No se pudo cargar la carta')),
     });
+  }
+
+  /** Medios activos para fijar precio al agregar (staff). */
+  pricingPaymentMethods(): TablePaymentMethod[] {
+    return (this.catalog()?.tablePaymentMethods ?? []).filter((m) => m.active !== false);
+  }
+
+  private ensurePricingPaymentDefault(
+    methods?: TablePaymentMethod[] | null,
+  ): void {
+    if (!this.staffMode) return;
+    if (this.pricingPaymentMethodId()) return;
+    const list = (methods ?? []).filter((m) => m.active !== false);
+    if (!list.length) return;
+    const cashLike =
+      list.find((m) => /efectivo|cash|contado|tp_cash/i.test(`${m.id} ${m.name}`)) ??
+      list.find((m) => !m.accountId) ??
+      list[0];
+    this.pricingPaymentMethodId.set(cashLike.id);
+  }
+
+  setPricingPayment(methodId: string): void {
+    this.pricingPaymentMethodId.set(methodId);
+    this.repriceCartForPricingPayment();
+  }
+
+  private repriceCartForPricingPayment(): void {
+    const accountId = this.pricingAccountId();
+    const byId = new Map(this.catalogItems().map((it) => [String(it.id), it]));
+    this.lines.update((list) => {
+      const next = list.map((l) => {
+        if (l.kind !== 'ITEM') {
+          if (l.kind === 'EXTRA' && l.extraId) {
+            return { ...l, key: `e:${l.extraId}:${l.menuItemId}` };
+          }
+          return l;
+        }
+        const cat = byId.get(String(l.menuItemId));
+        const unitPrice = cat ? resolveItemUnitPrice(cat, accountId) : l.unitPrice;
+        const baseKey = `i:${l.menuItemId}`;
+        return {
+          ...l,
+          unitPrice,
+          key: l.isEntrada ? `${baseKey}:entrada` : baseKey,
+        };
+      });
+      const merged: PosLine[] = [];
+      for (const l of next) {
+        if (l.kind !== 'ITEM') {
+          merged.push(l);
+          continue;
+        }
+        const idx = merged.findIndex(
+          (m) => m.kind === 'ITEM' && m.menuItemId === l.menuItemId && !!m.isEntrada === !!l.isEntrada,
+        );
+        if (idx >= 0) {
+          const prevKeys = new Set([merged[idx].key, l.key]);
+          merged[idx] = {
+            ...merged[idx],
+            qty: Math.min(99, merged[idx].qty + l.qty),
+            unitPrice: l.unitPrice,
+            key: l.key,
+          };
+          // Remap combines that pointed to old keys of this item
+          for (let i = 0; i < merged.length; i++) {
+            const cw = merged[i].combinesWithKeys;
+            if (!cw?.length) continue;
+            merged[i] = {
+              ...merged[i],
+              combinesWithKeys: cw.map((k) => (prevKeys.has(k) ? l.key : k)),
+            };
+          }
+        } else {
+          merged.push(l);
+        }
+      }
+      return merged;
+    });
+  }
+
+  private pricingAccountId(): string | null {
+    if (!this.staffMode) return null;
+    const id = this.pricingPaymentMethodId();
+    const m = this.pricingPaymentMethods().find((x) => x.id === id);
+    return String(m?.accountId ?? '').trim() || null;
+  }
+
+  priceForCatalogItem(it: {
+    price?: number | null;
+    accountPrices?: Array<{ accountId: string; price: number }> | null;
+  }): number {
+    return resolveItemUnitPrice(it, this.pricingAccountId());
+  }
+
+  baseUnitPrice(line: PosLine): number | null {
+    if (line.kind !== 'ITEM') return null;
+    const cat = this.catalogItems().find((it) => it.id === line.menuItemId);
+    if (!cat || cat.price == null || !Number.isFinite(Number(cat.price))) return null;
+    return Math.round(Number(cat.price));
+  }
+
+  linePriceChanged(line: PosLine): { base: number; charged: number } | null {
+    const base = this.baseUnitPrice(line);
+    if (base == null) return null;
+    const charged = Math.round(Number(line.unitPrice) || 0);
+    if (base === charged) return null;
+    return { base, charged };
   }
 
   setSection(sec: string | null): void {
@@ -1448,6 +1565,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   addItem(it: CatalogItem): void {
+    const unitPrice = this.priceForCatalogItem(it);
     const key = `i:${it.id}`;
     this.lines.update((list) => {
       const idx = list.findIndex((l) => l.key === key && !l.isEntrada);
@@ -1463,7 +1581,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           kind: 'ITEM',
           menuItemId: it.id,
           name: it.name,
-          unitPrice: Number(it.price) || 0,
+          unitPrice,
           qty: 1,
           isEntrada: false,
           combinesWithKeys: [],
@@ -1477,10 +1595,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     ev?.stopPropagation();
     if (line.kind !== 'ITEM') return;
     const oldKey = line.key;
+    const baseKey = `i:${line.menuItemId}`;
     this.lines.update((list) => {
-      const nextKey = !line.isEntrada
-        ? `i:${line.menuItemId}:entrada`
-        : `i:${line.menuItemId}`;
+      const nextKey = !line.isEntrada ? `${baseKey}:entrada` : baseKey;
       return list.map((l) => {
         if (l.key === oldKey) {
           return {
@@ -1499,9 +1616,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       });
     });
     if (this.combineOpenKey() === oldKey) {
-      this.combineOpenKey.set(
-        !line.isEntrada ? `i:${line.menuItemId}:entrada` : `i:${line.menuItemId}`,
-      );
+      this.combineOpenKey.set(!line.isEntrada ? `${baseKey}:entrada` : baseKey);
     }
   }
 
@@ -1586,13 +1701,16 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     ev?.preventDefault();
     if (!parent?.id) return;
     const itemId = String(parent.id);
+    const unitPrice = this.priceForCatalogItem(parent);
     const itemKey = `i:${itemId}`;
-    const itemKeyEntrada = `i:${itemId}:entrada`;
+    const itemKeyEntrada = `${itemKey}:entrada`;
     const extraKey = `e:${String(extra.id)}:${itemId}`;
     this.lines.update((list) => {
       let next = [...list];
       const itemIdx = next.findIndex(
-        (l) => l.key === itemKey || l.key === itemKeyEntrada,
+        (l) =>
+          (l.key === itemKey || l.key === itemKeyEntrada) ||
+          (l.menuItemId === itemId && l.kind === 'ITEM'),
       );
       const exIdx = next.findIndex((l) => l.key === extraKey);
 
@@ -1604,7 +1722,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
             kind: 'ITEM',
             menuItemId: itemId,
             name: parent.name,
-            unitPrice: Number(parent.price) || 0,
+            unitPrice,
             qty: 1,
             isEntrada: false,
             combinesWithKeys: [],
@@ -1714,6 +1832,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         return {
           menuItemId: l.menuItemId,
           qty: l.qty,
+          unitPrice: l.unitPrice,
           isEntrada: !!l.isEntrada,
           ...(combinesWithNames.length ? { combinesWithNames } : {}),
         };

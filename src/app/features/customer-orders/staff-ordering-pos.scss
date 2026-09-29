@@ -277,6 +277,34 @@
   gap: 0.5rem;
   font-size: 0.9rem;
   color: var(--guy-ink, #1a221c);
+  align-items: baseline;
+}
+
+.pos__line-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pos__line-price-base {
+  color: var(--guy-muted, #5f6f76);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  font-weight: 550;
+  font-size: 0.84em;
+}
+
+.pos__line-price-arrow {
+  color: var(--guy-muted, #5f6f76);
+  font-size: 0.8em;
+}
+
+.pos__line-price--changed strong {
+  color: var(--guy-navy, #003366);
+  font-weight: 800;
 }
 
 .pos__qty {

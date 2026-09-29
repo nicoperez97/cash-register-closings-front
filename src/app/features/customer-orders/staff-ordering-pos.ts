@@ -47,6 +47,7 @@ import {
   resolveDiscountPresets,
   type DiscountPreset,
 } from '../../core/shop/discount-presets';
+import { resolveItemUnitPrice } from '../menu/menu-account-price.util';
 
 type PosLine = {
   key: string;
@@ -238,15 +239,15 @@ export class StaffOrderingPosComponent implements OnInit {
   }
 
   load(): void {
-    const slug = this.slug();
-    if (!slug) {
+    const shopId = this.shopId();
+    if (!shopId) {
       this.loading.set(false);
       this.error.set('Seleccioná un local');
       return;
     }
     this.loading.set(true);
     this.error.set(null);
-    this.api.getPublicOrdering(slug).subscribe({
+    this.api.getStaffOrderingCatalog(shopId).subscribe({
       next: (cfg) => {
         this.config.set(cfg);
         this.loading.set(false);
@@ -264,6 +265,33 @@ export class StaffOrderingPosComponent implements OnInit {
         this.error.set(apiErrorMessage(err, 'No se pudo cargar la carta'));
       },
     });
+  }
+
+  priceForItem(it: {
+    price?: number | null;
+    accountPrices?: Array<{ accountId: string; price: number }> | null;
+  }): number {
+    return resolveItemUnitPrice(it, this.selectedPayment()?.accountId);
+  }
+
+  /** Precio fijo del catálogo para una línea del ticket. */
+  baseUnitPrice(line: PosLine): number | null {
+    if (line.kind === 'EXTRA') return null;
+    const cat = this.catalog().find((it) => it.id === line.menuItemId);
+    if (!cat || cat.price == null || !Number.isFinite(Number(cat.price))) return null;
+    return Math.round(Number(cat.price));
+  }
+
+  /**
+   * Si el pago cambió el precio vs el fijo, devuelve ambos (unitarios).
+   * En el listado de catálogo siempre se muestra el fijo.
+   */
+  linePriceChanged(line: PosLine): { base: number; charged: number } | null {
+    const base = this.baseUnitPrice(line);
+    if (base == null) return null;
+    const charged = Math.round(Number(line.unitPrice) || 0);
+    if (base === charged) return null;
+    return { base, charged };
   }
 
   money(n: number): string {
@@ -330,14 +358,48 @@ export class StaffOrderingPosComponent implements OnInit {
 
   setPayment(choice: OrderingPayChoice): void {
     this.paymentChoiceId.set(choice.id);
-    if (orderingPayNeedsCashTender(choice)) {
-      if (this.cashAmount == null || this.cashAmount < this.total()) {
-        this.cashAmount = this.total();
+    this.repriceLinesForAccount(choice.accountId);
+    this.syncCashIfNeeded();
+  }
+
+  /** Recalcula precios de ítems según la cuenta del medio (sin precio de cuenta → precio fijo). */
+  private repriceLinesForAccount(accountId?: string | null): void {
+    const byId = new Map(this.catalog().map((it) => [String(it.id), it]));
+    this.lines.update((list) => {
+      const repriced = list.map((l) => {
+        if (l.kind !== 'ITEM') return l;
+        const cat = byId.get(String(l.menuItemId));
+        if (!cat) return l;
+        const unitPrice = resolveItemUnitPrice(cat, accountId);
+        return { ...l, unitPrice, key: `i:${l.menuItemId}` };
+      });
+      const merged: PosLine[] = [];
+      for (const l of repriced) {
+        if (l.kind === 'EXTRA') {
+          merged.push({
+            ...l,
+            key: l.extraId ? `e:${l.extraId}:${l.menuItemId}` : l.key,
+          });
+          continue;
+        }
+        const idx = merged.findIndex((m) => m.kind === 'ITEM' && m.menuItemId === l.menuItemId);
+        if (idx >= 0) {
+          merged[idx] = {
+            ...merged[idx],
+            qty: Math.min(99, merged[idx].qty + l.qty),
+            unitPrice: l.unitPrice,
+            key: `i:${l.menuItemId}`,
+          };
+        } else {
+          merged.push(l);
+        }
       }
-    }
+      return merged;
+    });
   }
 
   addItem(it: CatalogItem): void {
+    const unitPrice = this.priceForItem(it);
     const key = `i:${it.id}`;
     this.lines.update((list) => {
       const idx = list.findIndex((l) => l.key === key);
@@ -353,7 +415,7 @@ export class StaffOrderingPosComponent implements OnInit {
           kind: 'ITEM',
           menuItemId: it.id,
           name: it.name,
-          unitPrice: Number(it.price) || 0,
+          unitPrice,
           qty: 1,
         },
       ];
@@ -371,6 +433,7 @@ export class StaffOrderingPosComponent implements OnInit {
   addExtra(extra: PublicOrderingExtra, itemId: string): void {
     const parent = this.catalog().find((it) => it.id === itemId);
     if (!parent) return;
+    const unitPrice = this.priceForItem(parent);
     const itemKey = `i:${itemId}`;
     const extraKey = `e:${extra.id}:${itemId}`;
     this.lines.update((list) => {
@@ -386,7 +449,7 @@ export class StaffOrderingPosComponent implements OnInit {
             kind: 'ITEM',
             menuItemId: parent.id,
             name: parent.name,
-            unitPrice: Number(parent.price) || 0,
+            unitPrice,
             qty: 1,
           },
           {
@@ -515,7 +578,7 @@ export class StaffOrderingPosComponent implements OnInit {
       fulfillment,
       items: lines
         .filter((l) => l.kind !== 'EXTRA')
-        .map((l) => ({ menuItemId: l.menuItemId, qty: l.qty })),
+        .map((l) => ({ menuItemId: l.menuItemId, qty: l.qty, unitPrice: l.unitPrice })),
       extras: lines
         .filter((l) => l.kind === 'EXTRA' && l.extraId)
         .map((l) => ({

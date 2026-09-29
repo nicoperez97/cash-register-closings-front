@@ -90,7 +90,15 @@
               <li>
                 <div class="pos__line-main">
                   <strong>{{ line.name }}</strong>
-                  <span>{{ money(line.unitPrice * line.qty) }}</span>
+                  @if (linePriceChanged(line); as prices) {
+                    <span class="pos__line-price pos__line-price--changed" title="Precio fijo → precio del pago">
+                      <span class="pos__line-price-base">{{ money(prices.base * line.qty) }}</span>
+                      <span class="pos__line-price-arrow" aria-hidden="true">→</span>
+                      <strong>{{ money(prices.charged * line.qty) }}</strong>
+                    </span>
+                  } @else {
+                    <span>{{ money(line.unitPrice * line.qty) }}</span>
+                  }
                 </div>
                 <div class="pos__qty">
                   <button type="button" (click)="bump(line, -1)">−</button>

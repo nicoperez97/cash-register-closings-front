@@ -1004,6 +1004,29 @@
   }
 }
 
+.pricing-pay {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.65rem;
+}
+
+.pricing-pay__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted, #5f6f76);
+}
+
+.pricing-pay__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted, #5f6f76);
+  line-height: 1.35;
+}
+
+.chips--pay {
+  margin-bottom: 0;
+}
+
 .items {
   list-style: none;
   margin: 0;
@@ -1400,6 +1423,26 @@
   vertical-align: middle;
   background: color-mix(in srgb, var(--accent, #007a14) 18%, #fff);
   color: var(--accent, #007a14);
+}
+
+.line-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.line-price__base {
+  color: var(--muted, #5f6f76);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  font-size: 0.85em;
+  font-weight: 550;
+}
+
+.line-price--changed strong {
+  font-weight: 800;
 }
 
 .entrada-toggle {

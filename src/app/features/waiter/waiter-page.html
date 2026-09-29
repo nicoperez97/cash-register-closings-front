@@ -702,7 +702,17 @@
                           }
                           {{ group.item.name }}
                         </strong>
-                        <span>{{ money(group.item.unitPrice * group.item.qty) }}</span>
+                        <span>
+                          @if (linePriceChanged(group.item); as prices) {
+                            <span class="line-price line-price--changed">
+                              <span class="line-price__base">{{ money(prices.base * group.item.qty) }}</span>
+                              <span aria-hidden="true">→</span>
+                              <strong>{{ money(prices.charged * group.item.qty) }}</strong>
+                            </span>
+                          } @else {
+                            {{ money(group.item.unitPrice * group.item.qty) }}
+                          }
+                        </span>
                       </div>
                       <div class="qty">
                         <button type="button" (click)="bump(group.item, -1)">−</button>
@@ -760,9 +770,17 @@
                           }
                           {{ group.item.name }}
                         </strong>
-                        <span class="lines__simple-price">{{
-                          money(group.item.unitPrice * group.item.qty)
-                        }}</span>
+                        <span class="lines__simple-price">
+                          @if (linePriceChanged(group.item); as prices) {
+                            <span class="line-price line-price--changed">
+                              <span class="line-price__base">{{ money(prices.base * group.item.qty) }}</span>
+                              <span aria-hidden="true">→</span>
+                              <strong>{{ money(prices.charged * group.item.qty) }}</strong>
+                            </span>
+                          } @else {
+                            {{ money(group.item.unitPrice * group.item.qty) }}
+                          }
+                        </span>
                       </div>
                       @if (group.item.kind === 'ITEM') {
                         <div class="cart-flags cart-flags--compact">
@@ -818,6 +836,27 @@
             <div class="cart-foot">
               @if (lines().length) {
                 <p class="total">Total {{ money(subtotal()) }}</p>
+              }
+
+              @if (staffMode && pricingPaymentMethods().length) {
+                <div class="pricing-pay">
+                  <span class="pricing-pay__label">Pago (precio)</span>
+                  <div class="chips chips--pay">
+                    @for (m of pricingPaymentMethods(); track m.id) {
+                      <button
+                        type="button"
+                        class="chip"
+                        [class.chip--on]="pricingPaymentMethodId() === m.id"
+                        (click)="setPricingPayment(m.id)"
+                      >
+                        {{ m.name }}
+                      </button>
+                    }
+                  </div>
+                  <p class="pricing-pay__hint">
+                    El total usa el precio de esa cuenta; si no hay, el precio fijo del ítem.
+                  </p>
+                </div>
               }
 
               @if (cartDetail()) {
