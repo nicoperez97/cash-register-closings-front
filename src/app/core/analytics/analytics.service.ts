@@ -114,7 +114,7 @@ export class AnalyticsService {
     });
   }
 
-  trackLoginSuccess(method: 'password' | 'google' = 'password'): void {
+  trackLoginSuccess(method: 'password' | 'google' | 'demo' = 'password'): void {
     this.syncFromApp();
     this.event(AnalyticsEvents.loginSuccess, { method });
   }

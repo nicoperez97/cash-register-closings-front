@@ -519,7 +519,7 @@ export class ShortagesPage {
 
   readonly filteredRows = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
-    let list = this.rows();
+    let list = Array.isArray(this.rows()) ? this.rows() : [];
     if (this.criticalOnly()) {
       list = list.filter((r) => isCriticalShortageLevel(r.level));
     }
@@ -581,9 +581,9 @@ export class ShortagesPage {
     this.loading.set(true);
     this.api.list(shopId).subscribe({
       next: (rows) => {
-        this.rows.set(rows);
+        this.rows.set(Array.isArray(rows) ? rows : []);
         this.loading.set(false);
-        this.openShortageFromQuery(rows ?? []);
+        this.openShortageFromQuery(Array.isArray(rows) ? rows : []);
       },
       error: () => {
         this.loading.set(false);

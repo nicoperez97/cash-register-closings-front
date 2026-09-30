@@ -20,7 +20,7 @@ import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { environment } from '../../../environments/environment';
 
 /** Color del tope del gradiente de login (barra de estado móvil). */
-const LOGIN_STATUS = '#070809';
+const LOGIN_STATUS = '#000000';
 const GSI_SCRIPT = 'https://accounts.google.com/gsi/client';
 
 declare global {
@@ -76,6 +76,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   error = '';
   hidePassword = true;
   readonly googleEnabled = signal(false);
+  readonly demoEnabled = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -95,6 +96,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
     void this.initGoogle();
+    void this.initDemo();
   }
 
   ngOnDestroy(): void {
@@ -140,6 +142,40 @@ export class LoginComponent implements OnInit, OnDestroy {
       this.error = this.readApiError(err, 'Email o contraseña incorrectos.');
       this.form.enable({ emitEvent: false });
       this.busy = false;
+    }
+  }
+
+  async submitDemo(): Promise<void> {
+    if (this.busy) return;
+    this.busy = true;
+    this.error = '';
+    this.form.disable({ emitEvent: false });
+    try {
+      await this.auth.loginDemo();
+      sessionStorage.setItem('crc_demo_tour', '1');
+      await this.router.navigateByUrl('/admin/shop');
+    } catch (err: unknown) {
+      this.error = this.readApiError(err, 'La demo no está disponible ahora.');
+      this.form.enable({ emitEvent: false });
+      this.busy = false;
+    }
+  }
+
+  private async initDemo(): Promise<void> {
+    // En local `demoLoginEnabled: true` muestra el botón sin esperar a la API.
+    if (environment.demoLoginEnabled === true) {
+      this.demoEnabled.set(true);
+      return;
+    }
+    if (environment.demoLoginEnabled === false) {
+      this.demoEnabled.set(false);
+      return;
+    }
+    try {
+      const ok = await this.auth.isDemoLoginAvailable();
+      if (!this.destroyed) this.demoEnabled.set(ok);
+    } catch {
+      if (!this.destroyed) this.demoEnabled.set(false);
     }
   }
 

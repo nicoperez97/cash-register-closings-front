@@ -673,7 +673,16 @@ export class ConceptsReportPage {
       next: (data) => {
         this.summary.set(data);
         this.reportKind.set(filters.kind || '');
-        const t = data.totals;
+        const t = data.totals ?? {
+          movementCount: 0,
+          income: 0,
+          expense: 0,
+          transfer: 0,
+          net: 0,
+          withoutConceptCount: 0,
+          withoutConceptAmount: 0,
+          avgAmount: 0,
+        };
         const cmp = data.comparison;
         this.kpis.set([
           {

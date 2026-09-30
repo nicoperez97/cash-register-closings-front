@@ -12,6 +12,7 @@ import { ADMIN_SHOP_SECTIONS } from './admin-shop-sections';
   selector: 'app-admin-shop-hub',
   imports: [RouterLink, MatButtonModule, MatIconModule, PageHeaderComponent],
   template: `
+    <div data-demo="page-shop-hub">
     <app-page-header
       title="Configuración del local"
       [subtitle]="
@@ -42,6 +43,7 @@ import { ADMIN_SHOP_SECTIONS } from './admin-shop-sections';
           </div>
         </a>
       }
+    </div>
     </div>
   `,
   styles: [
