@@ -111,6 +111,47 @@
   line-height: 1.35;
 }
 
+.closing-form__orders-hint {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid #8eb6d8;
+  background: #eef6fc;
+  color: #1e3a54;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.closing-form__orders-hint-text {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.closing-form__orders-hint-text mat-icon {
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+  color: #2a6f9e;
+}
+
+.closing-form__orders-hint-text p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.closing-form__orders-hint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
 .closing-form__fields .mat-mdc-form-field {
   width: 100%;
   margin-bottom: 0 !important;

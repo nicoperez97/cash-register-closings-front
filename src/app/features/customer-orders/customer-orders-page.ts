@@ -91,6 +91,7 @@ export class CustomerOrdersPage {
   private readonly closingsApi = inject(ClosingsApiService);
   readonly shops = inject(ShopContextService);
 
+  readonly pendingGenerateClosing = signal(false);
   readonly view = signal<ViewMode>('board');
   readonly orders = signal<StaffCustomerOrder[]>([]);
   readonly loading = signal(false);
@@ -176,6 +177,26 @@ export class CustomerOrdersPage {
 
   constructor() {
     usePageRefresh(() => this.reload());
+
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      if (params.get('generarCierre') !== '1') return;
+      if (!this.canCreateClosing()) {
+        this.snack.open('No tenés permiso para generar el cierre', 'OK', { duration: 3500 });
+      } else if (!this.canConfigure()) {
+        this.snack.open('Abrí Pedidos → Configurar para generar el cierre', 'OK', {
+          duration: 4000,
+        });
+      } else {
+        this.pendingGenerateClosing.set(true);
+        this.view.set('config');
+      }
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { generarCierre: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    });
 
     toObservable(this.shops.selectedShopId)
       .pipe(takeUntilDestroyed())

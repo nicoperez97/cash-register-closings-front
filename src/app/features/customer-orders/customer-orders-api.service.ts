@@ -298,4 +298,27 @@ export class CustomerOrdersApiService {
       {},
     );
   }
+
+  /** Totales del turno para armar el cierre (pedidos completados + mesas cobradas). */
+  closingSummary(
+    shopId: string,
+    opts?: { businessDate?: string; shiftId?: string },
+  ) {
+    let params = new HttpParams();
+    if (opts?.businessDate) params = params.set('businessDate', opts.businessDate);
+    if (opts?.shiftId) params = params.set('shiftId', opts.shiftId);
+    return this.http.get<{
+      businessDate: string;
+      shiftId: string;
+      shiftName: string;
+      orderCount: number;
+      openCount: number;
+      openTablesCount?: number;
+      completedCount: number;
+      tables?: { closedCount: number };
+    }>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/closing-summary`,
+      { params },
+    );
+  }
 }
