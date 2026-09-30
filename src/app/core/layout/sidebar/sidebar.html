@@ -292,6 +292,7 @@
                 [attr.aria-expanded]="isGroupOpen(item)"
                 [attr.aria-controls]="'nav-group-' + item.route"
                 [attr.aria-label]="item.label"
+                [attr.data-demo]="demoGroupAttr(item)"
                 [matTooltip]="item.label"
                 [matTooltipDisabled]="!rail()"
                 matTooltipPosition="right"
@@ -336,6 +337,7 @@
                       [routerLinkActiveOptions]="{
                         exact: child.exact === true || child.route === '/reports'
                       }"
+                      [attr.data-demo]="demoNavAttr(child.route)"
                       [attr.tabindex]="isGroupOpen(item) ? null : -1"
                       (click)="onNavClick()"
                     >

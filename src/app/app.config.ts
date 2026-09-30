@@ -26,6 +26,7 @@ import { authInterceptor } from './core/auth/auth.interceptor';
 import { unauthorizedInterceptor } from './core/http/unauthorized.interceptor';
 import { authRefreshInterceptor } from './core/http/auth-refresh.interceptor';
 import { notificationsRefreshInterceptor } from './core/http/notifications-refresh.interceptor';
+import { demoOverlayInterceptor } from './core/demo/demo-overlay.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { isPublicAppPath } from './core/routing/public-paths';
 import { BodyScrollLockService } from './shared/services/body-scroll-lock.service';
@@ -139,6 +140,13 @@ async function refreshSession(): Promise<void> {
   const push = inject(PushNotificationsService);
   if (!auth.isAuthenticated()) return;
 
+  // Demo offline: no /auth/me ni push contra API; solo inbox mock local.
+  if (auth.isDemoMode()) {
+    notifs.ensureStarted();
+    notifs.refresh();
+    return;
+  }
+
   const startInbox = (): void => {
     notifs.ensureStarted();
     notifs.refresh();
@@ -220,6 +228,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(
       withInterceptors([
+        // Primero: en demo corta la red antes que auth / refresh / notifs.
+        demoOverlayInterceptor,
         authInterceptor,
         unauthorizedInterceptor,
         authRefreshInterceptor,

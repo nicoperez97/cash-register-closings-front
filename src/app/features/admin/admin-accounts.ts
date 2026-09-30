@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -589,13 +589,16 @@ export class AdminAccountsPage {
     usePageRefresh(() => this.reload());
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      if (!shopId) {
-        this.rows.set([]);
-        this.concepts.set([]);
-        this.loading.set(false);
-        return;
-      }
-      this.reload();
+      // untracked: reload lee/escribe shop y no debe re-disparar este effect.
+      untracked(() => {
+        if (!shopId) {
+          this.rows.set([]);
+          this.concepts.set([]);
+          this.loading.set(false);
+          return;
+        }
+        this.reload();
+      });
     });
   }
 
@@ -679,6 +682,19 @@ export class AdminAccountsPage {
 
   /** Actualiza shop en memoria + user/localStorage para que sobreviva a refreshMe. */
   private persistShopConfig(shop: ShopSummary): void {
+    const current = this.shops.selectedShop();
+    if (
+      current &&
+      current.id === shop.id &&
+      current.partnerDividendAccountId === shop.partnerDividendAccountId &&
+      current.partnerDividendConceptId === shop.partnerDividendConceptId &&
+      current.transferConceptId === shop.transferConceptId &&
+      current.closingIncomeConceptId === shop.closingIncomeConceptId &&
+      current.closingCashConceptId === shop.closingCashConceptId &&
+      current.cashWithdrawalConceptId === shop.cashWithdrawalConceptId
+    ) {
+      return;
+    }
     this.shops.upsertShop(shop);
     const user = this.auth.currentUser();
     if (!user) return;

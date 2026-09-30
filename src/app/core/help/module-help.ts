@@ -24,6 +24,35 @@ export type HelpTopic = {
 
 export const HELP_TOPICS: HelpTopic[] = [
   {
+    id: 'login',
+    title: 'Ingresar',
+    summary: 'Accedé con tu cuenta o probá el sistema en modo demo.',
+    blocks: [
+      {
+        title: 'Tu cuenta',
+        icon: 'login',
+        tone: 'do',
+        body: 'Ingresá con el correo y la contraseña que te dio el administrador. Si tu correo ya está dado de alta, también podés usar Google.',
+        items: [
+          'Completá Correo y Contraseña y tocá Acceder.',
+          'Debajo del texto de la marca podés tocar Ver demo para recorrer el admin con datos de ejemplo.',
+        ],
+        tip: 'La demo no usa el servidor ni la API: todo (sesión, datos y cambios) vive en el navegador. El local de ejemplo tiene activados reservas, pedidos, comanda, propinas, liquidaciones y el resto de módulos. Al recargar se pierde lo que editaste. Usá Salir de la demo para volver al login.',
+      },
+      {
+        title: 'Modo demo',
+        icon: 'science',
+        tone: 'info',
+        body: 'La demo te deja como administrador de un local de ejemplo (con todas las opciones prendidas) y arranca un recorrido guiado por Configuración del local, Carta, Usuarios, Cuentas y más.',
+        items: [
+          'Vas a ver un banner celeste: Modo demo — los cambios no se guardan.',
+          'Podés crear, editar o borrar en la interfaz; no se llama a la API ni a la base de datos.',
+          'Al terminar, tocá Salir de la demo o cerrá sesión.',
+        ],
+      },
+    ],
+  },
+  {
     id: 'home',
     title: 'Inicio',
     summary: 'El día del local de un vistazo: atajos, quién vino y avisos.',
@@ -1683,7 +1712,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Avanzado: activar/desactivar el local y dump (super admin).',
           'Cuentas contables: Administración → Cuentas. El destino de cada ingreso del cierre se configura en Cuentas del local.',
         ],
-        tip: 'Arrastrá para ordenar menú y atajos. Solo administradores del local personalizan menú y atajos (en Perfil o acá); el resto usa lo del local. Si queda un solo atajo, la barra muestra un botón con el nombre. En Empleados podés overridear la entrada/retirada por turno.',
+        tip: 'Arrastrá para ordenar menú y atajos. Solo administradores del local personalizan menú y atajos (en Perfil o acá); el resto usa lo del local. Si queda un solo atajo, la barra muestra un botón con el nombre. En Empleados podés overridear la entrada/retirada por turno. En modo demo los cambios se ven en pantalla pero se pierden al recargar; usá Salir de la demo para volver al login.',
       },
       {
         title: 'Dump (super admin)',
@@ -2023,6 +2052,7 @@ export const HELP_TOPICS: HelpTopic[] = [
 ];
 
 const PATH_HELP: Array<{ test: (path: string) => boolean; id: string }> = [
+  { test: (p) => p.startsWith('/login'), id: 'login' },
   { test: (p) => p === '/' || p === '', id: 'home' },
   { test: (p) => p.startsWith('/g/'), id: 'nav-group' },
   { test: (p) => p.startsWith('/profile'), id: 'profile' },

@@ -12,6 +12,7 @@ import {
 } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
+import { isDemoSession } from '../demo/demo-offline';
 
 export type ShopLiveDomain =
   | 'reservations'
@@ -33,6 +34,7 @@ export class ShopLiveClient {
 
   /** Salón / presentismo públicos (por slug). */
   connect(slug: string): Observable<ShopLiveTick> {
+    if (isDemoSession() || this.auth.isDemoMode()) return EMPTY;
     const key = String(slug ?? '').trim();
     if (!key) return EMPTY;
     const url = `${environment.apiUrl}/public/shops/${encodeURIComponent(key)}/live`;
@@ -41,6 +43,7 @@ export class ShopLiveClient {
 
   /** Badges autenticados (JWT en query; EventSource no manda Authorization). */
   connectAuth(shopId: string): Observable<ShopLiveTick> {
+    if (isDemoSession() || this.auth.isDemoMode()) return EMPTY;
     const id = String(shopId ?? '').trim();
     const token = this.auth.getToken();
     if (!id || !token) return EMPTY;

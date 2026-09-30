@@ -39,6 +39,33 @@
   background: var(--guy-surface, #f3f6f4);
 }
 
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  padding: 0.55rem 1rem;
+  background: color-mix(in srgb, #1d7ac8 14%, #f3f8fc);
+  border-bottom: 1px solid color-mix(in srgb, #1d7ac8 28%, #dde8f2);
+  color: #0e4f8c;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.demo-banner__icon {
+  color: #1d7ac8;
+  flex-shrink: 0;
+}
+
+.demo-banner__text {
+  flex: 1 1 auto;
+  min-width: 12rem;
+}
+
+.demo-banner__exit {
+  flex-shrink: 0;
+}
+
 .layout-sidenav {
   width: var(--layout-sidenav-w, 300px) !important;
   min-width: 0 !important;

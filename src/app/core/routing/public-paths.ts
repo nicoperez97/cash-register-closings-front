@@ -47,5 +47,5 @@ export function isPublicAppPath(url: string): boolean {
 /** Endpoints de API públicos: no adjuntar Bearer. */
 export function isPublicApiUrl(url: string): boolean {
   const u = String(url || '');
-  return u.includes('/public/') || u.includes('/auth/login') || u.includes('/auth/google');
+  return u.includes('/public/') || u.includes('/auth/login') || u.includes('/auth/google') || u.includes('/auth/demo');
 }

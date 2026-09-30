@@ -3,13 +3,15 @@ import { Injector, inject } from '@angular/core';
 import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { NotificationsInboxService } from '../../features/payments/notifications-inbox.service';
+import { isDemoSession } from '../demo/demo-offline';
 
 function shouldRefreshNotifications(url: string, method: string): boolean {
+  if (isDemoSession()) return false;
   if (!url.startsWith(environment.apiUrl)) return false;
   // Evitar bucle: las propias llamadas de notificaciones no re-disparan refresh.
   if (url.includes('/notifications')) return false;
   // Auth / health no aportan contexto de inbox.
-  if (url.includes('/auth/login') || url.includes('/auth/google') || url.includes('/auth/refresh')) {
+  if (url.includes('/auth/login') || url.includes('/auth/google') || url.includes('/auth/demo') || url.includes('/auth/refresh')) {
     return false;
   }
   if (method === 'OPTIONS' || method === 'HEAD') return false;

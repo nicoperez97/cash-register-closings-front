@@ -42,6 +42,16 @@
         />
       }
 
+      @if (isDemo()) {
+        <div class="demo-banner" data-demo="banner" role="status">
+          <mat-icon class="demo-banner__icon" aria-hidden="true">science</mat-icon>
+          <span class="demo-banner__text">Modo demo — los cambios no se guardan</span>
+          <button mat-stroked-button type="button" class="demo-banner__exit" (click)="exitDemo()">
+            Salir de la demo
+          </button>
+        </div>
+      }
+
       <div
         class="layout-main-scroll"
         [class.layout-main-scroll--immersive]="isPublicPageViewer()"

@@ -3,8 +3,10 @@ import { Injector, inject } from '@angular/core';
 import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
+import { isDemoSession } from '../demo/demo-offline';
 
 function shouldRefreshAuth(url: string, method: string): boolean {
+  if (isDemoSession()) return false;
   if (!url.startsWith(environment.apiUrl)) return false;
   // Solo tras cambios: un GET que dispare /auth/me re-ejecuta effects y genera loops.
   const m = method.toUpperCase();
@@ -12,6 +14,7 @@ function shouldRefreshAuth(url: string, method: string): boolean {
   if (url.includes('/auth/me')) return false;
   if (url.includes('/auth/login')) return false;
   if (url.includes('/auth/google')) return false;
+  if (url.includes('/auth/demo')) return false;
   if (url.includes('/auth/refresh')) return false;
   if (url.includes('/auth/favorite-shop')) return false;
   return true;

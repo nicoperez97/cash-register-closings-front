@@ -13,4 +13,9 @@ export const environment = {
    * guest_name, guest_email, party_size, area, reservation_date, form_name, form_result.
    */
   gaMeasurementId: 'G-RY63B7T345',
+  /**
+   * Mostrar «Ver demo» en login. null = consultar GET /auth/demo.
+   * true fuerza el botón; false lo oculta aunque la API lo tenga.
+   */
+  demoLoginEnabled: true as boolean | null,
 };

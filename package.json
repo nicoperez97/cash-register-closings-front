@@ -24,6 +24,7 @@
     "@angular/service-worker": "^22.0.8",
     "@fontsource/roboto": "^5.3.0",
     "bootstrap": "^5.3.8",
+    "driver.js": "^1.8.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",

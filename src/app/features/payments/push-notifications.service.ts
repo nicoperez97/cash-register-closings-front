@@ -158,6 +158,10 @@ export class PushNotificationsService {
       this.lastError.set('Tenés que iniciar sesión');
       return false;
     }
+    if (this.auth.isDemoMode()) {
+      this.lastError.set('Las notificaciones push no están en la demo');
+      return false;
+    }
     if (this.isIos() && !this.isStandalone()) {
       this.lastError.set(
         'En iPhone/iPad: compartí → “Agregar a pantalla de inicio” y abrí la app desde el ícono.',

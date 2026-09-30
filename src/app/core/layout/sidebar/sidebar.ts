@@ -196,6 +196,32 @@ export class SidebarComponent {
     this.navigate.emit();
   }
 
+  /** Selectores estables para el recorrido guiado de la demo. */
+  demoNavAttr(route: string): string | null {
+    const map: Record<string, string> = {
+      '/admin/shop': 'nav-shop',
+      '/admin/shop/identidad': 'nav-identidad',
+      '/admin/shop/operacion': 'nav-operacion',
+      '/admin/menu': 'nav-menu',
+      '/admin/promos': 'nav-promos',
+      '/admin/users': 'nav-users',
+      '/admin/accounts': 'nav-accounts',
+      '/admin/concepts': 'nav-concepts',
+      '/admin/messages': 'nav-messages',
+      '/admin/qr': 'nav-qr',
+      '/admin/public-pages': 'nav-public-pages',
+    };
+    return map[route] ?? null;
+  }
+
+  demoGroupAttr(item: NavItem): string | null {
+    if (item.label === 'Configuración del local' || item.defaultRoute === '/admin/shop') {
+      return 'nav-local';
+    }
+    if (item.label === 'Administración') return 'nav-admin';
+    return null;
+  }
+
   onModuleQueryInput(value: string): void {
     this.moduleQuery.set(value);
   }

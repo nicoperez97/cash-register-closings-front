@@ -52,6 +52,9 @@ import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-
 import { MainPwaInstallService } from '../pwa/main-pwa-install.service';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatButtonModule } from '@angular/material/button';
+import { DemoModeService } from '../demo/demo-mode.service';
+import { DemoTourService } from '../demo/demo-tour.service';
 
 const SIDENAV_EXPANDED_KEY = 'crc.sidenav.expanded';
 
@@ -99,6 +102,7 @@ function saveSidenavExpanded(expanded: boolean): void {
     SidebarComponent,
     PullToRefreshComponent,
     MainPwaInstallBannerComponent,
+    MatButtonModule,
   ],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss',
@@ -119,10 +123,13 @@ export class MainLayoutComponent {
   private readonly customerOrdersInbox = inject(CustomerOrdersInboxService);
   private readonly mainPwa = inject(MainPwaInstallService);
   private readonly navMenu = inject(NavMenuService);
+  private readonly demoMode = inject(DemoModeService);
+  private readonly demoTour = inject(DemoTourService);
   readonly immersiveChrome = inject(ImmersiveChromeService);
   readonly pageRefresh = inject(PageRefreshService);
 
   readonly user = this.auth.currentUser;
+  readonly isDemo = this.demoMode.enabled;
 
   /** Lazy chunk / navegación en curso (con demora corta para no parpadear). */
   readonly routeLoading = signal(false);
@@ -635,6 +642,9 @@ export class MainLayoutComponent {
   constructor() {
     this.mainPwa.start();
 
+    // Recorrido guiado tras «Ver demo» (flag en sessionStorage).
+    queueMicrotask(() => this.demoTour.maybeStart());
+
     effect(() => {
       this.navMenu.items.set(this.navItems());
     });
@@ -883,6 +893,13 @@ export class MainLayoutComponent {
   }
 
   logout(): void {
+    this.demoMode.exit();
+    this.auth.logout();
+    void this.router.navigate(['/login']);
+  }
+
+  exitDemo(): void {
+    this.demoMode.exit();
     this.auth.logout();
     void this.router.navigate(['/login']);
   }

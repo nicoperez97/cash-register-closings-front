@@ -6,6 +6,9 @@ import { AuthUser, GlobalRole, toUiRole } from './auth.models';
 import { ShopContextService } from '../shop/shop-context.service';
 import { isPublicAppPath } from '../routing/public-paths';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { buildDemoAuthUser, DEMO_TOKEN } from '../demo/demo-fixtures';
+import { isDemoSession } from '../demo/demo-offline';
+import { DemoOverlayStore } from '../demo/demo-overlay.store';
 
 const TOKEN_KEY = 'crc_token';
 const USER_KEY = 'crc_user';
@@ -15,6 +18,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly shopContext = inject(ShopContextService);
   private readonly analytics = inject(AnalyticsService);
+  private readonly demoOverlay = inject(DemoOverlayStore);
 
   readonly currentUser = signal<AuthUser | null>(this.readUser());
 
@@ -54,6 +58,7 @@ export class AuthService {
    */
   scheduleRefreshMe(delayMs = 400): void {
     if (!this.getToken()) return;
+    if (this.isDemoMode()) return;
     if (typeof location !== 'undefined' && isPublicAppPath(location.pathname || '/')) {
       return;
     }
@@ -82,6 +87,29 @@ export class AuthService {
     return this.applySession(res.accessToken, 'password');
   }
 
+  async loginDemo(): Promise<boolean> {
+    // 100% local: sin HTTP. Datos de ejemplo en el interceptor / fixtures.
+    this.demoOverlay.clear();
+    const user = buildDemoAuthUser();
+    localStorage.setItem(TOKEN_KEY, DEMO_TOKEN);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUser.set(user);
+    this.shopContext.setShops(user.shops, user.favoriteShopId, true);
+    this.analytics.trackLoginSuccess('demo');
+    return true;
+  }
+
+  async isDemoLoginAvailable(): Promise<boolean> {
+    if (environment.demoLoginEnabled === false) return false;
+    // En builds locales/demo el botón siempre está; no consulta API.
+    if (environment.demoLoginEnabled === true || !environment.production) return true;
+    return false;
+  }
+
+  isDemoMode(): boolean {
+    return isDemoSession() || !!this.currentUser()?.isDemo || this.getToken() === DEMO_TOKEN;
+  }
+
   /** Login con ID token de Google (solo si el email ya existe en el sistema). */
   async loginWithGoogle(idToken: string): Promise<boolean> {
     const res = await firstValueFrom(
@@ -94,7 +122,7 @@ export class AuthService {
 
   private async applySession(
     accessToken: string,
-    method?: 'password' | 'google',
+    method?: 'password' | 'google' | 'demo',
   ): Promise<boolean> {
     localStorage.setItem(TOKEN_KEY, accessToken);
     const me = await firstValueFrom(
@@ -116,6 +144,7 @@ export class AuthService {
    */
   async refreshMe(): Promise<void> {
     if (!this.getToken()) return;
+    if (this.isDemoMode()) return;
     if (this.refreshInFlight) {
       this.refreshAgain = true;
       return this.refreshInFlight;
@@ -151,6 +180,15 @@ export class AuthService {
   }
 
   async setFavoriteShop(shopId: string | null): Promise<void> {
+    if (this.isDemoMode()) {
+      const user = this.currentUser();
+      if (!user) return;
+      const next =
+        shopId && user.shopIds.includes(shopId) ? shopId : null;
+      this.patchCurrentUser({ favoriteShopId: next });
+      this.shopContext.setFavoriteShopId(next);
+      return;
+    }
     const me = await firstValueFrom(
       this.http.patch<any>(`${environment.apiUrl}/auth/favorite-shop`, { shopId }),
     );
@@ -196,6 +234,7 @@ export class AuthService {
       shopModulePermissions: u.shopModulePermissions ?? {},
       shopAccountIds: u.shopAccountIds ?? {},
       favoriteShopId: u.favoriteShopId ?? null,
+      isDemo: !!u.isDemo,
       avatarUrl: u.avatarUrl ?? null,
       hasAvatar: !!u.hasAvatar,
       fullName: u.fullName ?? null,
@@ -287,6 +326,7 @@ export class AuthService {
       shopAccountIds: this.normalizeShopAccountIds(me.shopAccountIds),
       shops: me.shops ?? [],
       favoriteShopId: me.favoriteShopId ?? null,
+      isDemo: !!me.isDemo,
     };
   }
 
@@ -304,7 +344,10 @@ export class AuthService {
   private readUser(): AuthUser | null {
     try {
       const raw = localStorage.getItem(USER_KEY);
-      const user = raw ? (JSON.parse(raw) as AuthUser) : null;
+      let user = raw ? (JSON.parse(raw) as AuthUser) : null;
+      if (user && localStorage.getItem(TOKEN_KEY) === DEMO_TOKEN) {
+        user = { ...user, isDemo: true };
+      }
       if (user) {
         queueMicrotask(() =>
           this.shopContext.setShops(user.shops ?? [], user.favoriteShopId ?? null),

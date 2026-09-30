@@ -713,7 +713,20 @@ export class SalesProductsPage {
         this.categoryOptions.set(s.filterOptions?.categories ?? []);
         this.allSubcategoryOptions.set(s.filterOptions?.subcategories ?? []);
         this.paymentOptions.set(s.filterOptions?.paymentCodes ?? []);
-        const t = s.totals;
+        const t = s.totals ?? {
+          qty: 0,
+          amount: 0,
+          lineCount: 0,
+          productCount: 0,
+          categoryCount: 0,
+          ticketCount: 0,
+          avgTicketAmount: 0,
+          maxTicketAmount: 0,
+          minTicketAmount: 0,
+          dishesPerTicket: 0,
+          top10Share: 0,
+          amountDeltaPct: null,
+        };
         const seeAmount = this.seeAmount();
         const seeQty = this.seeQty();
         const delta =

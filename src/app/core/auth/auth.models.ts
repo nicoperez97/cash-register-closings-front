@@ -1661,6 +1661,8 @@ export interface AuthUser {
   shops: ShopSummary[];
   /** Local favorito al iniciar sesión. */
   favoriteShopId?: string | null;
+  /** Sesión demo: mutaciones solo en memoria del front (no llegan a la API). */
+  isDemo?: boolean;
 }
 
 export function userRoleLabel(role?: string): string {
