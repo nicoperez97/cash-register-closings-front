@@ -18,7 +18,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { defaultHomeRoute, isCashierOnly } from '../../core/auth/auth.models';
+import { defaultHomeRoute, hasShopPermission, isCashierOnly } from '../../core/auth/auth.models';
 import { AnalyticsService } from '../../core/analytics/analytics.service';
 import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import { newId } from '../../core/utils/id';
@@ -38,6 +38,7 @@ import {
 } from '../../core/shop/shop-shifts';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { ClosingsApiService, CashClosing, CashClosingInput, ClosingPosnetAmount, ClosingStepFile, ClosingStepFileSlot, ShopClosingSource, ShopUserOption } from './closings-api.service';
+import { CustomerOrdersApiService } from '../customer-orders/customer-orders-api.service';
 import { CashWithdrawalsInboxService } from '../cash-withdrawals/cash-withdrawals-inbox.service';
 import { SettlementsInboxService } from '../settlements/settlements-inbox.service';
 import { shareClosingText, shareClosingSnack } from './closing-pdf';
@@ -215,6 +216,29 @@ import {
           @if (pendingClosingHint()) {
             <p class="closing-form__pending" role="status">{{ pendingClosingHint() }}</p>
           }
+          @if (showOrdersClosingHint()) {
+            <div class="closing-form__orders-hint" role="status">
+              <div class="closing-form__orders-hint-text">
+                <mat-icon aria-hidden="true">info</mat-icon>
+                <p>{{ ordersClosingHintText() }}</p>
+              </div>
+              <div class="closing-form__orders-hint-actions">
+                @if (canGenerateClosingFromOrders()) {
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="goGenerateClosingFromOrders()"
+                  >
+                    Generar cierre
+                  </button>
+                }
+                <button mat-button type="button" (click)="dismissOrdersClosingHint()">
+                  Seguir a mano
+                </button>
+              </div>
+            </div>
+          }
 
           @if (isMobile()) {
             <nav class="closing-stepper__progress" aria-label="Pasos del cierre">
@@ -383,6 +407,7 @@ import {
 export class ClosingsFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ClosingsApiService);
+  private readonly customerOrdersApi = inject(CustomerOrdersApiService);
   private readonly cashWithdrawalsInbox = inject(CashWithdrawalsInboxService);
   private readonly settlementsInbox = inject(SettlementsInboxService);
   private readonly tipsApi = inject(TipsApiService);
@@ -429,6 +454,16 @@ export class ClosingsFormPage implements OnInit {
     if (!pending) return '';
     return `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}. Este formulario es del día y turno de ahora.`;
   });
+  /** Pedidos/mesas del turno cuando el formulario de ingresos está vacío. */
+  private readonly ordersClosingHint = signal<{
+    orderCount: number;
+    tablesCount: number;
+    shiftName: string;
+  } | null>(null);
+  private readonly ordersClosingHintDismissed = signal(false);
+  readonly canGenerateClosingFromOrders = computed(() =>
+    hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'closings.create'),
+  );
   readonly saving = signal(false);
   readonly status = signal<string | null>(null);
   readonly users = signal<ShopUserOption[]>([]);
@@ -550,6 +585,33 @@ export class ClosingsFormPage implements OnInit {
   private touchFormValue(): void {
     this.formRevision.update((n) => n + 1);
   }
+
+  private readonly incomesEmptyForOrdersHint = computed(() => {
+    this.formRevision();
+    return this.areOrderIncomesEmpty();
+  });
+  readonly showOrdersClosingHint = computed(() => {
+    if (this.isEdit() || this.isEvent() || this.ordersClosingHintDismissed()) return false;
+    if (!this.incomesEmptyForOrdersHint()) return false;
+    const hint = this.ordersClosingHint();
+    return !!hint && (hint.orderCount > 0 || hint.tablesCount > 0);
+  });
+  readonly ordersClosingHintText = computed(() => {
+    const hint = this.ordersClosingHint();
+    if (!hint) return '';
+    const bits: string[] = [];
+    if (hint.orderCount > 0) {
+      bits.push(
+        `${hint.orderCount} pedido${hint.orderCount === 1 ? '' : 's'} completado${hint.orderCount === 1 ? '' : 's'}`,
+      );
+    }
+    if (hint.tablesCount > 0) {
+      bits.push(
+        `${hint.tablesCount} mesa${hint.tablesCount === 1 ? '' : 's'} cobrada${hint.tablesCount === 1 ? '' : 's'}`,
+      );
+    }
+    return `Hay ${bits.join(' y ')} en el turno «${hint.shiftName}». Este cierre está vacío: si querés cargar esos totales, usá Generar cierre.`;
+  });
 
   readonly businessDayHint = computed(() => {
     const date = toDateString(this.formValue()?.businessDate as Date | string | null);
@@ -1089,6 +1151,70 @@ export class ClosingsFormPage implements OnInit {
       this.pendingApplyOpening = false;
       if (shopId) this.applySuggestedOpening(shopId);
     }
+    if (!this.isEdit() && !this.isEvent()) {
+      this.refreshOrdersClosingHint(shopId);
+    }
+  }
+
+  dismissOrdersClosingHint(): void {
+    this.ordersClosingHintDismissed.set(true);
+  }
+
+  goGenerateClosingFromOrders(): void {
+    void this.router.navigate(['/customer-orders'], {
+      queryParams: { generarCierre: '1' },
+    });
+  }
+
+  private areOrderIncomesEmpty(): boolean {
+    for (const ctrl of this.sourceAmounts.controls) {
+      const lines = ctrl.get('lines') as FormArray | null;
+      if (lines) {
+        for (const line of lines.controls) {
+          if (this.n(line.get('amount')?.value) > 0) return false;
+        }
+      }
+      const posnets = ctrl.get('posnetAmounts') as FormArray | null;
+      if (posnets) {
+        for (const p of posnets.controls) {
+          if (this.n(p.get('amount')?.value) > 0) return false;
+        }
+      }
+    }
+    for (const cobro of this.otherCobros.controls) {
+      if (this.n(cobro.get('amount')?.value) > 0) return false;
+    }
+    return true;
+  }
+
+  private refreshOrdersClosingHint(shopId: string | null): void {
+    if (!shopId || this.isEdit() || this.isEvent()) {
+      this.ordersClosingHint.set(null);
+      return;
+    }
+    const shop = this.shop();
+    const businessDate =
+      toDateString(this.form.controls.businessDate.value as Date | string | null) ||
+      this.currentBusinessDate();
+    const shiftId =
+      String(this.form.controls.shiftId.value ?? '').trim() ||
+      resolveCurrentShift(shop).id;
+    this.customerOrdersApi.closingSummary(shopId, { businessDate, shiftId }).subscribe({
+      next: (summary) => {
+        const orderCount = Number(summary.orderCount) || 0;
+        const tablesCount = Number(summary.tables?.closedCount) || 0;
+        if (orderCount <= 0 && tablesCount <= 0) {
+          this.ordersClosingHint.set(null);
+          return;
+        }
+        this.ordersClosingHint.set({
+          orderCount,
+          tablesCount,
+          shiftName: String(summary.shiftName || '').trim() || 'turno',
+        });
+      },
+      error: () => this.ordersClosingHint.set(null),
+    });
   }
 
   private syncSourceAmounts(): void {

@@ -387,6 +387,18 @@ export function resolveDemoGet(
     if (rest === 'reimbursements/pending-count') return { count: 0, amount: 0 };
     if (rest.startsWith('reimbursements')) return { items: [], total: 0 };
     if (rest === 'customer-orders/pending-count') return { count: 1 };
+    if (rest.startsWith('customer-orders/closing-summary')) {
+      return {
+        businessDate: new Date().toISOString().slice(0, 10),
+        shiftId: 'demo-shift',
+        shiftName: 'Noche',
+        orderCount: 0,
+        openCount: 1,
+        openTablesCount: 0,
+        completedCount: 0,
+        tables: { closedCount: 0 },
+      };
+    }
     if (rest.startsWith('customer-orders')) {
       return {
         items: [

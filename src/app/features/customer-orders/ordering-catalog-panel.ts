@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -648,6 +648,10 @@ export class OrderingCatalogPanelComponent {
   private readonly router = inject(Router);
   private readonly closingsApi = inject(ClosingsApiService);
 
+  /** Si viene en true (p. ej. desde Nuevo cierre), dispara Generar cierre al estar listo. */
+  readonly runGenerateClosing = input(false);
+  private autoGenerateTried = false;
+
   readonly loading = signal(true);
   readonly savingChannels = signal(false);
   readonly savingItems = signal(false);
@@ -728,6 +732,13 @@ export class OrderingCatalogPanelComponent {
   private readonly reloadShop$ = new Subject<string>();
 
   constructor() {
+    effect(() => {
+      if (!this.runGenerateClosing() || this.autoGenerateTried) return;
+      if (this.loading() || this.generatingClosing()) return;
+      this.autoGenerateTried = true;
+      queueMicrotask(() => this.generateClosing());
+    });
+
     this.reloadShop$
       .pipe(
         switchMap((shopId) => {

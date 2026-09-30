@@ -117,7 +117,7 @@
 
     @if (view() === 'config') {
       <div class="co-config">
-        <app-ordering-catalog-panel />
+        <app-ordering-catalog-panel [runGenerateClosing]="pendingGenerateClosing()" />
         <p class="co-config__hint">
           Para crear o editar ítems, fotos y extras usá
           <a routerLink="/admin/menu">Carta</a>.
