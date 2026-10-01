@@ -71,6 +71,7 @@ export interface AdminShopConceptCategoryOption {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Etiqueta de unidades</mat-label>
             <input matInput formControlName="unitsLabel" placeholder="ej. paninos, tickets" />
+            <mat-hint>En Carta marcás qué secciones e ítems suman</mat-hint>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Moneda</mat-label>

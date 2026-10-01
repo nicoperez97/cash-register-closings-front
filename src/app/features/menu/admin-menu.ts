@@ -88,6 +88,8 @@ export type ShopMenuItem = {
   /** Precios por cuenta ledger (mostrador / comanda). No se ven en /m ni /pedir. */
   accountPrices?: MenuItemAccountPrice[];
   available?: boolean;
+  /** Suma a las unidades del cierre (ej. paninos). Hereda de la sección si no se define. */
+  countsAsUnits?: boolean;
   imageUrl?: string | null;
   images?: ShopMenuItemImage[];
   /** Texto o lista: ingredientes que el cliente puede quitar. */
@@ -109,6 +111,8 @@ export type KitchenSector = {
 
 export type ShopMenuSection = {
   name: string;
+  /** Default de la sección para unidades del cierre. */
+  countsAsUnits?: boolean;
   items: ShopMenuItem[];
 };
 
@@ -228,6 +232,7 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
       : [],
     sections: (menu.sections ?? []).map((s) => ({
       name: s.name ?? '',
+      countsAsUnits: s.countsAsUnits !== false,
       items: (s.items ?? []).map((it) => ({
         id: it.id || newItemId(),
         name: it.name ?? '',
@@ -243,6 +248,10 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
               .filter((r) => r.accountId)
           : [],
         available: it.available !== false,
+        countsAsUnits:
+          it.countsAsUnits !== undefined && it.countsAsUnits !== null
+            ? !!it.countsAsUnits
+            : s.countsAsUnits !== false,
         imageUrl: it.imageUrl ?? null,
         images: Array.isArray(it.images)
           ? it.images
@@ -525,6 +534,15 @@ function toPrice(value: unknown): number | null {
                           mat-flat-button
                           color="primary"
                           type="button"
+                          [disabled]="saving()"
+                          (click)="save()"
+                        >
+                          <mat-icon>save</mat-icon>
+                          {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
+                        </button>
+                        <button
+                          mat-stroked-button
+                          type="button"
                           [disabled]="!hasPricedItems()"
                           (click)="openBulkPriceDialog()"
                         >
@@ -593,14 +611,37 @@ function toPrice(value: unknown): number | null {
                           <button
                             mat-icon-button
                             type="button"
+                            class="menu-section__delete"
                             aria-label="Quitar sección"
                             (click)="removeSection(section.index)"
                           >
                             <mat-icon>delete</mat-icon>
                           </button>
                         </div>
-                        @if (isSectionOpen(section.key) || itemQuery().trim()) {
-                          <div class="menu-section__tools">
+                        <div class="menu-section__tools">
+                          <label
+                            class="menu-flag menu-section__units"
+                            [class.menu-flag--on]="section.section.countsAsUnits !== false"
+                            title="Si los ítems de esta sección suman a las unidades del cierre"
+                          >
+                            <input
+                              type="checkbox"
+                              [checked]="section.section.countsAsUnits !== false"
+                              (change)="
+                                setSectionCountsAsUnits(
+                                  section.index,
+                                  $any($event.target).checked
+                                )
+                              "
+                            />
+                            <mat-icon>{{
+                              section.section.countsAsUnits !== false
+                                ? 'check_box'
+                                : 'check_box_outline_blank'
+                            }}</mat-icon>
+                            <span>Unidades</span>
+                          </label>
+                          @if (isSectionOpen(section.key) || itemQuery().trim()) {
                             <button
                               type="button"
                               class="menu-editor__link"
@@ -615,7 +656,9 @@ function toPrice(value: unknown): number | null {
                             >
                               Desmarcar
                             </button>
-                          </div>
+                          }
+                        </div>
+                        @if (isSectionOpen(section.key) || itemQuery().trim()) {
                           @for (item of section.section.items; track item.id || $index; let ii = $index) {
                             @if (itemMatchesQuery(section.section.name, item)) {
                               <div
@@ -710,9 +753,30 @@ function toPrice(value: unknown): number | null {
                                     </mat-form-field>
                                   </div>
                                   <div class="menu-item__actions">
-                                    <label class="menu-item__avail menu-item__avail--bar">
+                                    <label
+                                      class="menu-flag menu-flag--bar"
+                                      [class.menu-flag--on]="item.countsAsUnits !== false"
+                                      title="Suma a las unidades del cierre (ej. paninos)"
+                                    >
+                                      <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
+                                      <mat-icon>{{
+                                        item.countsAsUnits !== false
+                                          ? 'check_box'
+                                          : 'check_box_outline_blank'
+                                      }}</mat-icon>
+                                      <span>Unidades</span>
+                                    </label>
+                                    <label
+                                      class="menu-flag menu-flag--bar"
+                                      [class.menu-flag--on]="item.available !== false"
+                                    >
                                       <input type="checkbox" [(ngModel)]="item.available" />
-                                      Online
+                                      <mat-icon>{{
+                                        item.available !== false
+                                          ? 'check_box'
+                                          : 'check_box_outline_blank'
+                                      }}</mat-icon>
+                                      <span>Online</span>
                                     </label>
                                     <button
                                       mat-icon-button
@@ -816,6 +880,32 @@ function toPrice(value: unknown): number | null {
                                           Quitar todas
                                         </button>
                                       </div>
+                                    </div>
+                                    <div class="menu-item__flags">
+                                      <label
+                                        class="menu-flag"
+                                        [class.menu-flag--on]="item.countsAsUnits !== false"
+                                      >
+                                        <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
+                                        <mat-icon>{{
+                                          item.countsAsUnits !== false
+                                            ? 'check_box'
+                                            : 'check_box_outline_blank'
+                                        }}</mat-icon>
+                                        <span>Unidades</span>
+                                      </label>
+                                      <label
+                                        class="menu-flag"
+                                        [class.menu-flag--on]="item.available !== false"
+                                      >
+                                        <input type="checkbox" [(ngModel)]="item.available" />
+                                        <mat-icon>{{
+                                          item.available !== false
+                                            ? 'check_box'
+                                            : 'check_box_outline_blank'
+                                        }}</mat-icon>
+                                        <span>Online</span>
+                                      </label>
                                     </div>
                                     <mat-form-field
                                       appearance="outline"
@@ -927,19 +1017,6 @@ function toPrice(value: unknown): number | null {
                       <mat-icon>playlist_add</mat-icon>
                       Sección
                     </button>
-
-                    <div class="menu-admin__save">
-                      <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        [disabled]="saving()"
-                        (click)="save()"
-                      >
-                        <mat-icon>save</mat-icon>
-                        {{ saving() ? 'Guardando…' : 'Guardar cartas' }}
-                      </button>
-                    </div>
                   </div>
                 }
               </div>
@@ -1486,7 +1563,7 @@ function toPrice(value: unknown): number | null {
     .menu-section__head {
       display: flex;
       align-items: flex-start;
-      gap: 0.25rem;
+      gap: 0.35rem;
     }
     .menu-section__toggle {
       border: 0;
@@ -1496,21 +1573,91 @@ function toPrice(value: unknown): number | null {
       padding: 0.45rem 0.1rem 0;
       display: grid;
       place-items: center;
+      flex-shrink: 0;
     }
     .menu-section__name {
       flex: 1;
+      min-width: 0;
     }
     .menu-section__count {
       margin-top: 0.85rem;
       font-size: 0.8rem;
       color: var(--guy-muted, #5f6f76);
-      min-width: 1.5rem;
+      min-width: 1.25rem;
       text-align: center;
+      flex-shrink: 0;
+    }
+    .menu-section__delete {
+      flex-shrink: 0;
+      margin-top: 0.15rem;
+    }
+    .menu-flag {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.28rem;
+      margin: 0;
+      padding: 0.28rem 0.55rem 0.28rem 0.35rem;
+      border-radius: 999px;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      background: #f6f8f6;
+      color: var(--guy-muted, #5f6f76);
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.01em;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease;
+    }
+    .menu-flag input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      inset: 0;
+      margin: 0;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .menu-flag mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: inherit;
+      pointer-events: none;
+    }
+    .menu-flag span {
+      pointer-events: none;
+    }
+    .menu-flag:hover {
+      border-color: color-mix(in srgb, var(--guy-navy, #003366) 28%, #d7e0d9);
+      color: var(--guy-navy, #003366);
+    }
+    .menu-flag:focus-within {
+      outline: 2px solid color-mix(in srgb, var(--guy-green, #2e7d32) 45%, transparent);
+      outline-offset: 1px;
+    }
+    .menu-flag--on {
+      border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 45%, #d7e0d9);
+      background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);
+      color: var(--guy-green, #2e7d32);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--guy-green, #2e7d32) 12%, transparent);
     }
     .menu-section__tools {
       display: flex;
-      gap: 0.85rem;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 0.85rem;
       padding-left: 2rem;
+    }
+    .menu-section__units {
+      flex-shrink: 0;
     }
     .menu-item {
       display: grid;
@@ -1628,11 +1775,13 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__actions {
       display: flex;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 0;
-      margin-top: 0.15rem;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
       flex-shrink: 0;
+      justify-content: flex-end;
+      max-width: 13.5rem;
     }
     .menu-item__pos-badge {
       grid-column: 1 / -1;
@@ -1679,9 +1828,8 @@ function toPrice(value: unknown): number | null {
       gap: 0.45rem;
       margin-top: 0.35rem;
     }
-    .menu-item__avail--bar {
-      font-size: 0.78rem;
-      white-space: nowrap;
+    .menu-flag--bar {
+      flex: 0 0 auto;
     }
     .menu-item__detail {
       display: grid;
@@ -1792,6 +1940,12 @@ function toPrice(value: unknown): number | null {
       color: var(--guy-navy, #003366);
       white-space: nowrap;
     }
+    .menu-item__flags {
+      display: none;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
     @media (max-width: 1100px) {
       .menu-item__core {
         grid-template-columns: minmax(0, 1fr) auto;
@@ -1804,8 +1958,11 @@ function toPrice(value: unknown): number | null {
       .menu-admin__meta {
         grid-template-columns: 1fr;
       }
-      .menu-item__avail--bar {
+      .menu-flag--bar {
         display: none;
+      }
+      .menu-item__flags {
+        display: flex;
       }
       .menu-item__core {
         display: flex;
@@ -1846,13 +2003,6 @@ function toPrice(value: unknown): number | null {
       .menu-item__prices {
         grid-template-columns: 1fr 1fr;
       }
-    }
-    .menu-admin__save {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 1rem;
-      padding-top: 0.85rem;
-      border-top: 1px solid var(--guy-border, #d7e0d9);
     }
     .menu-admin__full {
       width: 100%;
@@ -2517,6 +2667,7 @@ export class AdminMenuPage {
       accountPriceRules: this.accountPriceRules().map((r) => ({ ...r })),
       sections: this.sections().map((s) => ({
         name: String(s.name ?? '').trim() || 'Carta',
+        countsAsUnits: s.countsAsUnits !== false,
         items: (s.items ?? [])
           .map((it) => ({
             id: String(it.id ?? '').trim() || newItemId(),
@@ -2533,6 +2684,7 @@ export class AdminMenuPage {
                   .filter((r) => r.accountId)
               : [],
             available: it.available !== false,
+            countsAsUnits: it.countsAsUnits !== false,
             imageUrl: String(it.imageUrl ?? '').trim() || null,
             images: Array.isArray(it.images)
               ? it.images
@@ -2624,6 +2776,7 @@ export class AdminMenuPage {
       ...list,
       {
         name: '',
+        countsAsUnits: true,
         items: [
           {
             id: newItemId(),
@@ -2632,6 +2785,7 @@ export class AdminMenuPage {
             price: null,
             priceLabel: '',
             available: true,
+            countsAsUnits: true,
             imageUrl: null,
             images: [],
             removableIngredients: '',
@@ -2646,6 +2800,20 @@ export class AdminMenuPage {
 
   removeSection(index: number): void {
     this.sections.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  setSectionCountsAsUnits(sectionIndex: number, value: boolean): void {
+    this.sections.update((list) =>
+      list.map((s, i) =>
+        i === sectionIndex
+          ? {
+              ...s,
+              countsAsUnits: value,
+              items: (s.items ?? []).map((it) => ({ ...it, countsAsUnits: value })),
+            }
+          : s,
+      ),
+    );
   }
 
   addItem(sectionIndex: number): void {
@@ -2663,8 +2831,9 @@ export class AdminMenuPage {
                   price: null,
                   priceLabel: '',
                   available: true,
+                  countsAsUnits: s.countsAsUnits !== false,
                   imageUrl: null,
-            images: [],
+                  images: [],
                   removableIngredients: '',
                   kitchenSectorIds: [],
                   recipe: [],
