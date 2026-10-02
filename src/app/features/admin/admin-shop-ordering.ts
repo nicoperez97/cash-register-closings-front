@@ -125,14 +125,34 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 
         <h3 class="op__subtitle">Medios de pago — web pública</h3>
         <p class="op__schedule-hint">
-          En /pedir el cliente elige uno. Podés vincular cada medio a una cuenta del local.
+          En /pedir el cliente elige uno. Definí el tipo, en qué entregas se muestra y la cuenta del
+          local.
         </p>
         <div class="op__pays" formArrayName="orderingPaymentMethods">
           @for (m of orderingPays.controls; track $index; let i = $index) {
-            <div class="op__pay" [formGroupName]="i">
+            <div class="op__pay op__pay--public" [formGroupName]="i">
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
                 <mat-label>Nombre</mat-label>
                 <input matInput formControlName="name" placeholder="ej. Efectivo" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-kind">
+                <mat-label>Tipo</mat-label>
+                <mat-select formControlName="kind">
+                  <mat-option value="CASH">Efectivo</mat-option>
+                  <mat-option value="TRANSFER">Transferencia</mat-option>
+                  <mat-option value="CARD">Tarjeta</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="op__pay-channels"
+              >
+                <mat-label>Se muestra en</mat-label>
+                <mat-select formControlName="fulfillments" multiple>
+                  <mat-option value="TAKEAWAY">Retiro</mat-option>
+                  <mat-option value="DELIVERY">Delivery</mat-option>
+                </mat-select>
               </mat-form-field>
               <mat-form-field
                 appearance="outline"
@@ -164,10 +184,16 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           <mat-icon>add</mat-icon>
           Agregar medio
         </button>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__full">
-          <mat-label>Datos de transferencia (CBU / alias)</mat-label>
-          <textarea matInput rows="2" formControlName="transferInstructions"></textarea>
-        </mat-form-field>
+        <div class="op__transfer-pair">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>CBU / CVU</mat-label>
+            <input matInput formControlName="transferCbu" placeholder="ej. 0000003100010000000001" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Alias</mat-label>
+            <input matInput formControlName="transferAlias" placeholder="ej. local.mp" />
+          </mat-form-field>
+        </div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__full">
           <mat-label>WhatsApp para comprobantes</mat-label>
           <input
@@ -626,6 +652,11 @@ export class AdminShopOrderingComponent {
       this.fb.nonNullable.group({
         id: [''],
         name: [''],
+        kind: this.fb.nonNullable.control<'CASH' | 'TRANSFER' | 'CARD'>('CASH'),
+        fulfillments: this.fb.nonNullable.control<Array<'TAKEAWAY' | 'DELIVERY'>>([
+          'TAKEAWAY',
+          'DELIVERY',
+        ]),
         accountId: this.fb.control<string | null>(null),
         active: [true],
       }),

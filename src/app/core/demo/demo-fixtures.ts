@@ -150,10 +150,25 @@ export function buildDemoShop(): ShopSummary {
     orderingPayments: {
       methods: ['CASH', 'TRANSFER'],
       items: [
-        { id: 'op_cash', name: 'Efectivo', accountId: null, active: true },
-        { id: 'op_transfer', name: 'Transferencia', accountId: null, active: true },
+        {
+          id: 'op_cash',
+          name: 'Efectivo',
+          accountId: null,
+          active: true,
+          kind: 'CASH',
+          fulfillments: ['TAKEAWAY', 'DELIVERY'],
+        },
+        {
+          id: 'op_transfer',
+          name: 'Transferencia',
+          accountId: null,
+          active: true,
+          kind: 'TRANSFER',
+          fulfillments: ['TAKEAWAY', 'DELIVERY'],
+        },
       ],
-      transferInstructions: 'Alias demo.ejemplo',
+      transferCbu: null,
+      transferAlias: 'demo.ejemplo',
       whatsapp: '5491100000000',
     },
     counterPaymentMethods: [

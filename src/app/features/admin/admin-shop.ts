@@ -62,6 +62,7 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
 import type { ShopNavConfig } from '../../core/layout/nav-config';
 import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
+import { classifyOrderingPayKind } from '../customer-orders/ordering-ui.util';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -276,7 +277,8 @@ export class AdminShopPage implements OnInit {
     deliveryEnabled: [false],
     orderingEtaTakeaway: [''],
     orderingEtaDelivery: [''],
-    transferInstructions: [''],
+    transferCbu: [''],
+    transferAlias: [''],
     orderingWhatsapp: [''],
     deliveryZones: this.fb.array([]),
     orderingExtras: this.fb.array([]),
@@ -929,7 +931,11 @@ export class AdminShopPage implements OnInit {
         name: string;
         accountId?: string | null;
         active?: boolean;
+        kind?: 'CASH' | 'TRANSFER' | 'CARD';
+        fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
       }>;
+      transferCbu?: string | null;
+      transferAlias?: string | null;
       transferInstructions?: string | null;
       whatsapp?: string | null;
     } | null;
@@ -1006,7 +1012,12 @@ export class AdminShopPage implements OnInit {
       deliveryEnabled: !!s.deliveryEnabled,
       orderingEtaTakeaway: s.orderingEta?.takeaway ?? '',
       orderingEtaDelivery: s.orderingEta?.delivery ?? '',
-      transferInstructions: s.orderingPayments?.transferInstructions ?? '',
+      transferCbu: s.orderingPayments?.transferCbu ?? '',
+      transferAlias:
+        s.orderingPayments?.transferAlias ??
+        (!s.orderingPayments?.transferCbu
+          ? (s.orderingPayments?.transferInstructions ?? '')
+          : ''),
       orderingWhatsapp: s.orderingPayments?.whatsapp ?? '',
       active: s.active ?? true,
       salesSystemId: s.salesSystemId ?? null,
@@ -1077,10 +1088,24 @@ export class AdminShopPage implements OnInit {
           ];
     for (const m of orderingPays) {
       if (m.active === false) continue;
+      const id = String(m.id ?? '').trim();
+      const name = String(m.name ?? '').trim();
+      const kindRaw = String(m.kind ?? '').trim().toUpperCase();
+      const kind =
+        kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
+          ? kindRaw
+          : classifyOrderingPayKind(id, name);
+      const fulfillments = Array.isArray(m.fulfillments)
+        ? m.fulfillments.filter((f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY')
+        : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>);
       this.orderingPaymentMethods.push(
         this.fb.nonNullable.group({
-          id: [String(m.id ?? '').trim()],
-          name: [String(m.name ?? '').trim()],
+          id: [id],
+          name: [name],
+          kind: this.fb.nonNullable.control<'CASH' | 'TRANSFER' | 'CARD'>(kind),
+          fulfillments: this.fb.nonNullable.control<Array<'TAKEAWAY' | 'DELIVERY'>>(
+            fulfillments.length ? fulfillments : ['TAKEAWAY', 'DELIVERY'],
+          ),
           accountId: this.fb.control<string | null>(String(m.accountId ?? '').trim() || null),
           active: [true],
         }),
@@ -1091,6 +1116,11 @@ export class AdminShopPage implements OnInit {
         this.fb.nonNullable.group({
           id: ['op_cash'],
           name: ['Efectivo'],
+          kind: this.fb.nonNullable.control<'CASH' | 'TRANSFER' | 'CARD'>('CASH'),
+          fulfillments: this.fb.nonNullable.control<Array<'TAKEAWAY' | 'DELIVERY'>>([
+            'TAKEAWAY',
+            'DELIVERY',
+          ]),
           accountId: this.fb.control<string | null>(null),
           active: [true],
         }),
@@ -1956,16 +1986,35 @@ export class AdminShopPage implements OnInit {
             name: string;
             accountId?: string | null;
             active?: boolean;
+            kind?: 'CASH' | 'TRANSFER' | 'CARD';
+            fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
           }>
         )
-          .map((m) => ({
-            id: String(m.id ?? '').trim() || undefined,
-            name: String(m.name ?? '').trim(),
-            accountId: String(m.accountId ?? '').trim() || null,
-            active: m.active !== false,
-          }))
+          .map((m) => {
+            const id = String(m.id ?? '').trim() || undefined;
+            const name = String(m.name ?? '').trim();
+            const kindRaw = String(m.kind ?? '').trim().toUpperCase();
+            const kind =
+              kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
+                ? kindRaw
+                : classifyOrderingPayKind(id ?? '', name);
+            const fulfillments = (
+              Array.isArray(m.fulfillments) ? m.fulfillments : ['TAKEAWAY', 'DELIVERY']
+            ).filter((f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY');
+            return {
+              id,
+              name,
+              accountId: String(m.accountId ?? '').trim() || null,
+              active: m.active !== false,
+              kind,
+              fulfillments: fulfillments.length
+                ? fulfillments
+                : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>),
+            };
+          })
           .filter((m) => !!m.name),
-        transferInstructions: String(raw.transferInstructions ?? '').trim() || null,
+        transferCbu: String(raw.transferCbu ?? '').trim() || null,
+        transferAlias: String(raw.transferAlias ?? '').trim() || null,
         whatsapp: String(raw.orderingWhatsapp ?? '').trim() || null,
       },
       counterPaymentMethods: (

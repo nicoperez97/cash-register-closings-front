@@ -29,6 +29,7 @@ import {
   orderingPayToApiMethod,
   type OrderingPayChoice,
 } from './ordering-ui.util';
+import { copyText } from '../../shared/utils/share-text';
 
 @Component({
   selector: 'app-public-ordering-checkout',
@@ -75,7 +76,12 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   readonly fulfillment = signal<CustomerOrderFulfillment | ''>('');
   readonly deliveryZoneId = signal('');
   readonly paymentChoiceId = signal<string>('');
-  readonly paymentChoices = computed(() => orderingPayChoices(this.config()?.payments));
+  readonly paymentChoices = computed(() => {
+    const f = this.fulfillment();
+    return orderingPayChoices(this.config()?.payments, {
+      fulfillment: f === 'TAKEAWAY' || f === 'DELIVERY' ? f : null,
+    });
+  });
   readonly selectedPayment = computed(() => {
     const id = this.paymentChoiceId();
     return this.paymentChoices().find((c) => c.id === id) ?? null;
@@ -257,12 +263,16 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
           this.fulfillment.set('');
           this.pickingFulfillment.set(true);
         }
-        const choices = orderingPayChoices(cfg.payments);
+        const channel = this.fulfillment();
+        const choices = orderingPayChoices(cfg.payments, {
+          fulfillment: channel === 'TAKEAWAY' || channel === 'DELIVERY' ? channel : null,
+        });
         const preferred =
           choices.find((c) => orderingPayNeedsCashTender(c)) ??
           choices.find((c) => c.kind === 'CASH') ??
           choices[0];
         if (preferred) this.paymentChoiceId.set(preferred.id);
+        else this.paymentChoiceId.set('');
         if (this.staffMode() && !this.phone.trim() && cfg.shop?.phone) {
           this.phone = String(cfg.shop.phone);
         }
@@ -293,6 +303,17 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       this.deliveryZoneId.set('');
       this.clearDeliveryAddress();
     }
+    const choices = orderingPayChoices(this.config()?.payments, {
+      fulfillment: f === 'TAKEAWAY' || f === 'DELIVERY' ? f : null,
+    });
+    const current = this.paymentChoiceId();
+    if (current && !choices.some((c) => c.id === current)) {
+      this.paymentChoiceId.set('');
+      this.cashAmount = null;
+    }
+    if (!this.paymentChoiceId() && choices.length === 1) {
+      this.setPayment(choices[0]);
+    }
   }
 
   changeFulfillment(): void {
@@ -306,6 +327,16 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         this.cashAmount = this.total();
       }
     }
+  }
+
+  hasTransferData(): boolean {
+    const p = this.config()?.payments;
+    return !!(p?.transferAlias?.trim() || p?.transferCbu?.trim());
+  }
+
+  async copyTransferValue(value: string, label: string): Promise<void> {
+    const ok = await copyText(String(value ?? '').trim());
+    this.snack.open(ok ? `${label} copiado` : 'No se pudo copiar', 'OK', { duration: 2200 });
   }
 
   onZoneChange(id: string): void {

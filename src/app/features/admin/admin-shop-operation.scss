@@ -437,8 +437,15 @@
   align-items: start;
 }
 
+.op__pay--public {
+  grid-template-columns:
+    minmax(0, 1.1fr) minmax(8.5rem, 0.7fr) minmax(9.5rem, 0.85fr) minmax(11rem, 1fr) auto;
+}
+
 .op__pay-name,
-.op__pay-account {
+.op__pay-account,
+.op__pay-kind,
+.op__pay-channels {
   width: 100%;
   min-width: 0;
 }
@@ -450,6 +457,34 @@
 .op__pay-add {
   align-self: flex-start;
   margin-bottom: 0.5rem;
+}
+
+.op__transfer-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin: 0.35rem 0 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .op__transfer-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .op__pay--public {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .op__pay--public .op__pay-name {
+    grid-column: 1 / -2;
+  }
+
+  .op__pay--public .op__pay-channels,
+  .op__pay--public .op__pay-account {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 560px) {
@@ -464,6 +499,17 @@
   .op__pay-del {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  .op__pay--public {
+    grid-template-columns: 1fr auto;
+  }
+
+  .op__pay--public .op__pay-name,
+  .op__pay--public .op__pay-kind,
+  .op__pay--public .op__pay-channels,
+  .op__pay--public .op__pay-account {
+    grid-column: 1 / -1;
   }
 }
 
