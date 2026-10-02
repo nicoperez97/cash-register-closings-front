@@ -123,9 +123,9 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           </mat-form-field>
         </div>
 
-        <h3 class="op__subtitle">Medios de pago</h3>
+        <h3 class="op__subtitle">Medios de pago — web pública</h3>
         <p class="op__schedule-hint">
-          Al pedir, el cliente elige uno. Podés vincular cada medio a una cuenta del local.
+          En /pedir el cliente elige uno. Podés vincular cada medio a una cuenta del local.
         </p>
         <div class="op__pays" formArrayName="orderingPaymentMethods">
           @for (m of orderingPays.controls; track $index; let i = $index) {
@@ -178,6 +178,48 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           />
           <mat-hint>Si está vacío, se usa el teléfono del local</mat-hint>
         </mat-form-field>
+
+        <h3 class="op__subtitle">Medios de pago — mostrador</h3>
+        <p class="op__schedule-hint">
+          En la caja de mostrador elegís uno. Lista aparte de la web pública.
+        </p>
+        <div class="op__pays" formArrayName="counterPaymentMethods">
+          @for (m of counterPays.controls; track $index; let i = $index) {
+            <div class="op__pay" [formGroupName]="i">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
+                <mat-label>Nombre</mat-label>
+                <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="op__pay-account"
+              >
+                <mat-label>Cuenta</mat-label>
+                <mat-select formControlName="accountId">
+                  <mat-option [value]="null">Sin vincular</mat-option>
+                  @for (a of ledgerAccounts(); track a.id) {
+                    <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <button
+                mat-icon-button
+                type="button"
+                class="op__pay-del"
+                (click)="removeCounterPay(i)"
+                aria-label="Quitar"
+                [disabled]="counterPays.length <= 1"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+        <button mat-stroked-button type="button" class="op__pay-add" (click)="addCounterPay()">
+          <mat-icon>add</mat-icon>
+          Agregar medio
+        </button>
 
         <h3 class="op__subtitle">Atajos de descuento</h3>
         <p class="op__schedule-hint">
@@ -563,6 +605,10 @@ export class AdminShopOrderingComponent {
     return this.host.form.get('orderingPaymentMethods') as FormArray;
   }
 
+  get counterPays(): FormArray {
+    return this.host.form.get('counterPaymentMethods') as FormArray;
+  }
+
   get discountPresets(): FormArray {
     return this.host.form.get('discountPresets') as FormArray;
   }
@@ -589,6 +635,22 @@ export class AdminShopOrderingComponent {
   removeOrderingPay(index: number): void {
     if (this.orderingPays.length <= 1) return;
     this.orderingPays.removeAt(index);
+  }
+
+  addCounterPay(): void {
+    this.counterPays.push(
+      this.fb.nonNullable.group({
+        id: [''],
+        name: [''],
+        accountId: this.fb.control<string | null>(null),
+        active: [true],
+      }),
+    );
+  }
+
+  removeCounterPay(index: number): void {
+    if (this.counterPays.length <= 1) return;
+    this.counterPays.removeAt(index);
   }
 
   orderingPublicUrl(): string {

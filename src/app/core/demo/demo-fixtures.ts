@@ -149,9 +149,18 @@ export function buildDemoShop(): ShopSummary {
     },
     orderingPayments: {
       methods: ['CASH', 'TRANSFER'],
+      items: [
+        { id: 'op_cash', name: 'Efectivo', accountId: null, active: true },
+        { id: 'op_transfer', name: 'Transferencia', accountId: null, active: true },
+      ],
       transferInstructions: 'Alias demo.ejemplo',
       whatsapp: '5491100000000',
     },
+    counterPaymentMethods: [
+      { id: 'cp_cash', name: 'Efectivo', accountId: null, active: true },
+      { id: 'cp_pedidosya', name: 'Pedidos Ya', accountId: null, active: true },
+      { id: 'cp_rappi', name: 'Rappi', accountId: null, active: true },
+    ],
     deliveryZones: [
       {
         id: 'demo-zone-1',
