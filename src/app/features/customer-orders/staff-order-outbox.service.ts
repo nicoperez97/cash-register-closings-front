@@ -22,6 +22,8 @@ const STORAGE_KEY = 'cierres.staff-order-outbox.v1';
 export type StaffOrderOutboxJob = {
   id: string;
   shopId: string;
+  /** Dueño de la cola: no flushear con otra cuenta activa. */
+  userId?: string;
   clientRequestId: string;
   body: CreatePublicCustomerOrderBody;
   queuedAt: string;
@@ -63,7 +65,12 @@ export class StaffOrderOutboxService {
   private readonly synced$ = new Subject<number>();
 
   readonly jobs = signal<StaffOrderOutboxJob[]>(readJobs());
-  readonly pendingCount = computed(() => this.jobs().filter((j) => !j.failed).length);
+  readonly pendingCount = computed(() => {
+    const userId = this.auth.currentUser()?.id;
+    return this.jobs().filter(
+      (j) => !j.failed && (!j.userId || !userId || j.userId === userId),
+    ).length;
+  });
   readonly synced = this.synced$.asObservable();
 
   constructor() {
@@ -88,12 +95,34 @@ export class StaffOrderOutboxService {
 
   countFor(shopId: string | null | undefined): number {
     const id = String(shopId ?? '').trim();
-    return this.jobs().filter((j) => !j.failed && (!id || j.shopId === id)).length;
+    const userId = this.auth.currentUser()?.id;
+    return this.jobs().filter(
+      (j) =>
+        !j.failed &&
+        (!id || j.shopId === id) &&
+        (!j.userId || !userId || j.userId === userId),
+    ).length;
   }
 
   failedCountFor(shopId: string | null | undefined): number {
     const id = String(shopId ?? '').trim();
-    return this.jobs().filter((j) => !!j.failed && (!id || j.shopId === id)).length;
+    const userId = this.auth.currentUser()?.id;
+    return this.jobs().filter(
+      (j) =>
+        !!j.failed &&
+        (!id || j.shopId === id) &&
+        (!j.userId || !userId || j.userId === userId),
+    ).length;
+  }
+
+  /** Tras cambio de cuenta: no enviar pedidos en cola de otra persona. */
+  onActiveUserChanged(_userId: string): void {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    // Relee jobs; flush solo los del user activo.
+    this.jobs.set(readJobs());
   }
 
   enqueue(shopId: string, body: CreatePublicCustomerOrderBody): void {
@@ -102,6 +131,7 @@ export class StaffOrderOutboxService {
     const job: StaffOrderOutboxJob = {
       id: newStaffOrderClientRequestId(),
       shopId,
+      userId: this.auth.currentUser()?.id,
       clientRequestId,
       body: { ...body, clientRequestId },
       queuedAt: new Date().toISOString(),
@@ -123,7 +153,11 @@ export class StaffOrderOutboxService {
   async flush(): Promise<void> {
     if (this.flushing || !this.offline.effectivelyOnline()) return;
     if (!this.auth.isAuthenticated()) return;
-    const pending = this.jobs().filter((j) => !j.failed);
+    const userId = this.auth.currentUser()?.id;
+    if (!userId) return;
+    const pending = this.jobs().filter(
+      (j) => !j.failed && j.userId === userId,
+    );
     if (!pending.length) return;
     this.flushing = true;
     let sent = 0;

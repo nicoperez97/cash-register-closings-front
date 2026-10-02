@@ -158,9 +158,10 @@ async function refreshSession(): Promise<void> {
     await withTimeout(auth.refreshMe(), 4_000);
     startInbox();
   } catch (err) {
-    // Solo token inválido → logout. Errores de red/timeout mantienen sesión cacheada.
+    // Solo token inválido → quitar esa cuenta. Errores de red/timeout mantienen sesión cacheada.
     if (isUnauthorizedError(err)) {
-      auth.logout();
+      const stillIn = auth.dropActiveAndSwitch();
+      if (stillIn) startInbox();
       return;
     }
     if (!auth.isAuthenticated()) return;
@@ -172,7 +173,13 @@ async function refreshSession(): Promise<void> {
         void push.refreshStatus();
       })
       .catch((retryErr) => {
-        if (isUnauthorizedError(retryErr)) auth.logout();
+        if (isUnauthorizedError(retryErr)) {
+          const stillIn = auth.dropActiveAndSwitch();
+          if (stillIn) {
+            notifs.refresh();
+            void push.refreshStatus();
+          }
+        }
       });
   }
 }

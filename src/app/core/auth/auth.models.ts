@@ -1723,6 +1723,71 @@ export function effectiveRoleForShop(
   return (user.shopRoles?.[shopId] ?? user.globalRole) as GlobalRole;
 }
 
+/**
+ * Rank para cambio de cuenta: OWNER > ADMIN > MANAGER > CASHIER/VIEWER/PARTNER.
+ * Cajero, visor y socio quedan al mismo nivel (el desempate es por cantidad de permisos).
+ */
+export function roleRank(role: GlobalRole | string | null | undefined): number {
+  switch (role) {
+    case 'OWNER':
+      return 40;
+    case 'ADMIN':
+      return 30;
+    case 'MANAGER':
+      return 20;
+    case 'CASHIER':
+    case 'VIEWER':
+    case 'PARTNER':
+      return 10;
+    default:
+      return 0;
+  }
+}
+
+/** Rol a usar al comparar privilegios entre dos cuentas (local activo si aplica). */
+export function compareRoleForShop(
+  user: AuthUser | null,
+  shopId: string | null,
+): GlobalRole | null {
+  if (!user) return null;
+  if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') {
+    return user.globalRole;
+  }
+  if (shopId && user.shopIds.includes(shopId)) {
+    return (user.shopRoles?.[shopId] ?? user.globalRole) as GlobalRole;
+  }
+  return user.globalRole;
+}
+
+function privilegePermCount(user: AuthUser, shopId: string | null): number {
+  if (
+    shopId &&
+    (user.globalRole === 'OWNER' ||
+      user.globalRole === 'ADMIN' ||
+      user.shopIds.includes(shopId))
+  ) {
+    return permissionsForShop(user, shopId).length;
+  }
+  return (user.permissions ?? []).length;
+}
+
+/**
+ * true si `target` es más privilegiado que `current` (pide re-auth al cambiar).
+ * Primero rol del local; si empatan, por cantidad de permisos efectivos.
+ */
+export function isMorePrivileged(
+  target: AuthUser | null,
+  current: AuthUser | null,
+  shopId: string | null,
+): boolean {
+  if (!target || !current) return true;
+  if (target.id === current.id) return false;
+  const tr = roleRank(compareRoleForShop(target, shopId));
+  const cr = roleRank(compareRoleForShop(current, shopId));
+  if (tr !== cr) return tr > cr;
+  return privilegePermCount(target, shopId) > privilegePermCount(current, shopId);
+}
+
 function addPermission(set: Set<Permission>, ...perms: Permission[]) {
   for (const p of perms) set.add(p);
 }
