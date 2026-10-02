@@ -2307,6 +2307,7 @@ export class AdminMenuPage {
       orderingPayments?: {
         items?: Array<{ accountId?: string | null; active?: boolean }>;
       } | null;
+      counterPaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
       tablePaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
     };
     forkJoin({
@@ -2316,6 +2317,11 @@ export class AdminMenuPage {
       next: ({ accounts, shop }) => {
         const linkedIds = new Set<string>();
         for (const m of shop.orderingPayments?.items ?? []) {
+          if (m.active === false) continue;
+          const id = String(m.accountId ?? '').trim();
+          if (id) linkedIds.add(id);
+        }
+        for (const m of shop.counterPaymentMethods ?? []) {
           if (m.active === false) continue;
           const id = String(m.accountId ?? '').trim();
           if (id) linkedIds.add(id);
@@ -3106,6 +3112,7 @@ export class AdminMenuPage {
       orderingPayments?: {
         items?: Array<{ accountId?: string | null; active?: boolean }>;
       } | null;
+      counterPaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
       tablePaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
     };
     const openWithAccounts = (accountOptions: Array<{ id: string; name: string }>) => {
@@ -3238,6 +3245,11 @@ export class AdminMenuPage {
       next: ({ accounts, shop }) => {
         const linkedIds = new Set<string>();
         for (const m of shop.orderingPayments?.items ?? []) {
+          if (m.active === false) continue;
+          const id = String(m.accountId ?? '').trim();
+          if (id) linkedIds.add(id);
+        }
+        for (const m of shop.counterPaymentMethods ?? []) {
           if (m.active === false) continue;
           const id = String(m.accountId ?? '').trim();
           if (id) linkedIds.add(id);

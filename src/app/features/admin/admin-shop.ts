@@ -282,6 +282,7 @@ export class AdminShopPage implements OnInit {
     orderingExtras: this.fb.array([]),
     discountPresets: this.fb.array([]),
     orderingPaymentMethods: this.fb.array([]),
+    counterPaymentMethods: this.fb.array([]),
     tablePaymentMethods: this.fb.array([]),
     waiterCapabilities: this.fb.nonNullable.group({
       public: this.waiterCapGroup(DEFAULT_WAITER_CAP_PUBLIC),
@@ -345,6 +346,10 @@ export class AdminShopPage implements OnInit {
 
   get orderingPaymentMethods(): FormArray {
     return this.form.get('orderingPaymentMethods') as FormArray;
+  }
+
+  get counterPaymentMethods(): FormArray {
+    return this.form.get('counterPaymentMethods') as FormArray;
   }
 
   get waiterCapabilities(): FormGroup {
@@ -928,6 +933,12 @@ export class AdminShopPage implements OnInit {
       transferInstructions?: string | null;
       whatsapp?: string | null;
     } | null;
+    counterPaymentMethods?: Array<{
+      id?: string;
+      name: string;
+      accountId?: string | null;
+      active?: boolean;
+    }> | null;
     deliveryZones?: Array<{
       id?: string;
       name: string;
@@ -1079,6 +1090,45 @@ export class AdminShopPage implements OnInit {
       this.orderingPaymentMethods.push(
         this.fb.nonNullable.group({
           id: ['op_cash'],
+          name: ['Efectivo'],
+          accountId: this.fb.control<string | null>(null),
+          active: [true],
+        }),
+      );
+    }
+    this.counterPaymentMethods.clear();
+    const counterPays =
+      s.counterPaymentMethods?.length
+        ? s.counterPaymentMethods
+        : [
+            {
+              id: 'cp_cash',
+              name: 'Efectivo',
+              accountId: null as string | null,
+              active: true,
+            },
+            {
+              id: 'cp_transfer',
+              name: 'Transferencia',
+              accountId: null as string | null,
+              active: true,
+            },
+          ];
+    for (const m of counterPays) {
+      if (m.active === false) continue;
+      this.counterPaymentMethods.push(
+        this.fb.nonNullable.group({
+          id: [String(m.id ?? '').trim()],
+          name: [String(m.name ?? '').trim()],
+          accountId: this.fb.control<string | null>(String(m.accountId ?? '').trim() || null),
+          active: [true],
+        }),
+      );
+    }
+    if (!this.counterPaymentMethods.length) {
+      this.counterPaymentMethods.push(
+        this.fb.nonNullable.group({
+          id: ['cp_cash'],
           name: ['Efectivo'],
           accountId: this.fb.control<string | null>(null),
           active: [true],
@@ -1918,6 +1968,21 @@ export class AdminShopPage implements OnInit {
         transferInstructions: String(raw.transferInstructions ?? '').trim() || null,
         whatsapp: String(raw.orderingWhatsapp ?? '').trim() || null,
       },
+      counterPaymentMethods: (
+        raw.counterPaymentMethods as Array<{
+          id?: string;
+          name: string;
+          accountId?: string | null;
+          active?: boolean;
+        }>
+      )
+        .map((m) => ({
+          id: String(m.id ?? '').trim() || undefined,
+          name: String(m.name ?? '').trim(),
+          accountId: String(m.accountId ?? '').trim() || null,
+          active: m.active !== false,
+        }))
+        .filter((m) => !!m.name),
       tablePaymentMethods: (
         raw.tablePaymentMethods as Array<{
           id?: string;
@@ -1999,6 +2064,7 @@ export class AdminShopPage implements OnInit {
           orderingEta: body['orderingEta'],
           deliveryZones: body['deliveryZones'],
           orderingPayments: body['orderingPayments'],
+          counterPaymentMethods: body['counterPaymentMethods'],
           tablePaymentMethods: body['tablePaymentMethods'],
           waiterCapabilities: body['waiterCapabilities'],
           discountPresets: body['discountPresets'],

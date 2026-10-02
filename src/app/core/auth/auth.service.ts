@@ -297,6 +297,9 @@ export class AuthService {
         deliveryEnabled: !!s.deliveryEnabled,
         orderingHours: s.orderingHours ?? null,
         orderingPayments: s.orderingPayments ?? null,
+        counterPaymentMethods: Array.isArray(s.counterPaymentMethods)
+          ? s.counterPaymentMethods
+          : null,
         deliveryZones: Array.isArray(s.deliveryZones) ? s.deliveryZones : [],
         orderingEta: s.orderingEta ?? null,
         timezone: s.timezone ?? null,

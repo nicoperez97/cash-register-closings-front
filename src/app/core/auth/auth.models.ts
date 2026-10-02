@@ -1508,9 +1508,22 @@ export interface ShopSummary {
   } | null;
   orderingPayments?: {
     methods?: Array<'CASH' | 'TRANSFER'>;
+    items?: Array<{
+      id?: string;
+      name: string;
+      accountId?: string | null;
+      active?: boolean;
+    }>;
     transferInstructions?: string | null;
     whatsapp?: string | null;
   } | null;
+  /** Medios de pago de mostrador (caja staff). */
+  counterPaymentMethods?: Array<{
+    id?: string;
+    name: string;
+    accountId?: string | null;
+    active?: boolean;
+  }> | null;
   deliveryZones?: Array<{
     id: string;
     name: string;
