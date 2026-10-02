@@ -7,6 +7,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (isPublicApiUrl(req.url)) {
     return next(req);
   }
+  // Respetar Bearer explícito (p.ej. /auth/me al agregar otra cuenta).
+  if (req.headers.has('Authorization')) {
+    return next(req);
+  }
   const auth = inject(AuthService);
   const token = auth.getToken();
   if (!token) return next(req);

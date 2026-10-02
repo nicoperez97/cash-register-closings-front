@@ -13,6 +13,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { ActiveAccountResetService } from '../auth/active-account-reset.service';
 import {
   canAccessShopAdmin,
   canAccessShopConfig,
@@ -641,6 +642,7 @@ export class MainLayoutComponent {
 
   constructor() {
     this.mainPwa.start();
+    inject(ActiveAccountResetService).start();
 
     // Recorrido guiado tras «Ver demo» (flag en sessionStorage).
     queueMicrotask(() => this.demoTour.maybeStart());
@@ -894,13 +896,29 @@ export class MainLayoutComponent {
 
   logout(): void {
     this.demoMode.exit();
-    this.auth.logout();
+    const stillIn = this.auth.logout();
+    if (!stillIn) {
+      void this.router.navigate(['/login']);
+      return;
+    }
+    const home = defaultHomeRoute(
+      this.auth.currentUser(),
+      this.shopContext.selectedShopId(),
+    );
+    void this.router.navigateByUrl(home).then(() => {
+      void this.pageRefresh.refresh();
+    });
+  }
+
+  logoutAll(): void {
+    this.demoMode.exit();
+    this.auth.logoutAll();
     void this.router.navigate(['/login']);
   }
 
   exitDemo(): void {
     this.demoMode.exit();
-    this.auth.logout();
+    this.auth.logoutAll();
     void this.router.navigate(['/login']);
   }
 }

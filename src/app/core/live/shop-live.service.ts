@@ -3,6 +3,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import {
   EMPTY,
   Observable,
+  combineLatest,
   debounceTime,
   distinctUntilChanged,
   filter,
@@ -51,6 +52,15 @@ export class ShopLiveClient {
     return this.shared(url);
   }
 
+  /** Cierra caches de SSE autenticados (cambio de cuenta / token). */
+  invalidateAuthStreams(): void {
+    for (const url of [...this.sharedStreams.keys()]) {
+      if (url.includes('/live?access_token=')) {
+        this.sharedStreams.delete(url);
+      }
+    }
+  }
+
   watch(
     slug: Signal<string | null | undefined>,
     domains: ShopLiveDomain[],
@@ -66,10 +76,12 @@ export class ShopLiveClient {
   }
 
   watchInbox(shopId: Signal<string | null | undefined>): Observable<ShopLiveTick> {
-    return toObservable(shopId).pipe(
-      map((id) => String(id ?? '').trim()),
-      distinctUntilChanged(),
-      switchMap((id) => (id ? this.connectAuth(id) : EMPTY)),
+    return combineLatest([
+      toObservable(shopId).pipe(map((id) => String(id ?? '').trim())),
+      toObservable(this.auth.currentUser).pipe(map((u) => u?.id ?? '')),
+    ]).pipe(
+      distinctUntilChanged((a, b) => a[0] === b[0] && a[1] === b[1]),
+      switchMap(([id]) => (id ? this.connectAuth(id) : EMPTY)),
       filter((tick) => tick.domain === 'inbox'),
       debounceTime(200),
     );

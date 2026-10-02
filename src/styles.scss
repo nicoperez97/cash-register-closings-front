@@ -1547,6 +1547,27 @@ button.mat-mdc-mini-fab mat-icon {
     0 2px 8px rgba(0, 51, 102, 0.06) !important;
 }
 
+.user-popover-panel.mat-mdc-menu-panel {
+  min-width: min(320px, 94vw) !important;
+  max-width: min(380px, 94vw) !important;
+  max-height: none !important;
+}
+
+@media (max-width: 720px) {
+  .user-popover-panel.mat-mdc-menu-panel {
+    min-width: min(100vw - 1.25rem, 360px) !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: calc(100dvh - 4.5rem) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  .user-popover-panel .mat-mdc-menu-content {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
 .toolbar-quick-menu.mat-mdc-menu-panel {
   min-width: 12.5rem !important;
 }

@@ -30,6 +30,7 @@ import {
 } from 'rxjs';
 import { APP_BRAND } from '../../config/app-brand';
 import { AuthService } from '../../auth/auth.service';
+import { ActiveAccountResetService } from '../../auth/active-account-reset.service';
 import {
   defaultHomeRoute,
   hasShopPermission,
@@ -69,6 +70,8 @@ import { notificationRouterLink } from '../../notifications/notification-deep-li
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PushNotificationsService } from '../../../features/payments/push-notifications.service';
 import { UserAvatarComponent } from '../../../shared/components/user-avatar';
+import { AccountSwitchDialogService } from '../../../shared/components/account-switch-dialog';
+import { ConfirmDialogService } from '../../../shared/components/confirm-dialog';
 
 export interface ToolbarUser {
   id?: string;
@@ -173,6 +176,7 @@ export class ToolbarComponent implements OnInit {
   readonly shopContext = inject(ShopContextService);
   readonly pageRefresh = inject(PageRefreshService);
   private readonly auth = inject(AuthService);
+  private readonly accountReset = inject(ActiveAccountResetService);
   private readonly notificationsApi = inject(NotificationsApiService);
   private readonly notifsInbox = inject(NotificationsInboxService);
   readonly push = inject(PushNotificationsService);
@@ -189,9 +193,31 @@ export class ToolbarComponent implements OnInit {
   readonly sidenavOpen = input(false);
   readonly menuToggle = output<void>();
   readonly logout = output<void>();
+  readonly logoutAll = output<void>();
 
   private readonly notifTrigger = viewChild<MatMenuTrigger>('notifTrigger');
   private readonly userTrigger = viewChild<MatMenuTrigger>('userTrigger');
+  private readonly accountSwitch = inject(AccountSwitchDialogService);
+  private readonly confirm = inject(ConfirmDialogService);
+
+  /** Siempre lee del AuthService actual (evita signal stale tras HMR). */
+  readonly sessionAccounts = computed(() => this.auth.sessions());
+  readonly hasMultipleAccounts = computed(() => this.sessionAccounts().length > 1);
+  readonly accountsExpanded = signal(false);
+  /** Activa primero, después las más usadas. */
+  readonly rankedAccounts = computed(() => {
+    this.auth.sessions();
+    this.auth.accountUsage();
+    return this.auth.sessionsRanked();
+  });
+  readonly visibleAccounts = computed(() => {
+    const all = this.rankedAccounts();
+    if (this.accountsExpanded() || all.length <= 2) return all;
+    return all.slice(0, 2);
+  });
+  readonly extraAccountsCount = computed(() =>
+    Math.max(0, this.rankedAccounts().length - 2),
+  );
 
   readonly unreadCount = this.notifsInbox.unreadCount;
   readonly staffOutboxCount = computed(() =>
@@ -466,6 +492,13 @@ export class ToolbarComponent implements OnInit {
         this.notifications.set(rows);
       });
 
+    this.accountReset.accountChanged$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.notifications.set([]);
+        this.loadNotifs$.next({ showSpinner: false });
+      });
+
     if (typeof document !== 'undefined') {
       const onVis = () => {
         if (document.visibilityState !== 'visible' || !this.auth.getToken()) return;
@@ -605,6 +638,80 @@ export class ToolbarComponent implements OnInit {
 
   closeUserMenu(): void {
     this.userTrigger()?.closeMenu();
+  }
+
+  onUserMenuClosed(): void {
+    this.accountsExpanded.set(false);
+  }
+
+  toggleAccountsExpanded(): void {
+    this.accountsExpanded.update((v) => !v);
+  }
+
+  isDemo(): boolean {
+    return this.auth.isDemoMode();
+  }
+
+  async onSelectAccount(userId: string): Promise<void> {
+    this.closeUserMenu();
+    if (!userId || userId === this.auth.currentUser()?.id) return;
+    if (this.auth.needsReauthToSwitch(userId)) {
+      const target = this.auth.sessionUser(userId);
+      if (!target) return;
+      const ok = await this.accountSwitch.open({
+        mode: 'elevate',
+        email: target.email,
+        userId: target.id,
+      });
+      if (ok) this.afterAccountChange();
+      return;
+    }
+    const switched = await this.auth.switchTo(userId);
+    if (switched) this.afterAccountChange();
+  }
+
+  async onAddAccount(): Promise<void> {
+    this.closeUserMenu();
+    const before = this.auth.sessions().length;
+    const ok = await this.accountSwitch.open({ mode: 'add' });
+    if (!ok) return;
+    const after = this.auth.sessions().length;
+    this.snack.open(
+      after > before
+        ? `Cuenta agregada (${after} abiertas). Elegila en «Cuenta activa».`
+        : after === 1
+          ? 'Sesión actualizada. Si era la misma cuenta, seguís con una sola abierta.'
+          : `${after} cuentas abiertas.`,
+      'OK',
+      { duration: 4500 },
+    );
+    this.afterAccountChange();
+  }
+
+  async onLogoutAll(): Promise<void> {
+    this.closeUserMenu();
+    const ok = await this.confirm.confirm(
+      'Salir de todas',
+      'Se van a cerrar todas las cuentas abiertas en este dispositivo. ¿Continuar?',
+      {
+        confirmLabel: 'Salir de todas',
+        cancelLabel: 'Cancelar',
+        confirmColor: 'warn',
+        icon: 'logout',
+      },
+    );
+    if (ok) this.logoutAll.emit();
+  }
+
+  private afterAccountChange(): void {
+    const home = defaultHomeRoute(
+      this.auth.currentUser(),
+      this.shopContext.selectedShopId(),
+    );
+    void this.router.navigateByUrl(home).then(() => {
+      // Si el home es la misma ruta, igual forzamos handlers de la pantalla.
+      void this.pageRefresh.refresh();
+    });
   }
 
   canCustomizeProfile(): boolean {

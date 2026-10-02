@@ -430,7 +430,13 @@
         }
       </button>
 
-      <mat-menu #userMenu="matMenu" class="user-popover-panel" xPosition="before" [hasBackdrop]="true">
+      <mat-menu
+        #userMenu="matMenu"
+        class="user-popover-panel"
+        xPosition="before"
+        [hasBackdrop]="true"
+        (closed)="onUserMenuClosed()"
+      >
         <div class="user-popover" role="presentation">
           <app-user-avatar
             class="user-popover__avatar"
@@ -445,6 +451,68 @@
             <span class="user-popover__role">{{ roleLabel(u) }}</span>
           </div>
         </div>
+
+        <div class="user-popover__switch" role="presentation">
+          <span class="user-popover__accounts-label">Cuenta activa</span>
+          <div class="user-popover__account-list" role="listbox" aria-label="Cuentas abiertas">
+            @for (acct of visibleAccounts(); track acct.id) {
+              <button
+                type="button"
+                role="option"
+                class="user-popover__account-btn"
+                [class.user-popover__account-btn--active]="acct.id === u.id"
+                [attr.aria-selected]="acct.id === u.id"
+                (click)="onSelectAccount(acct.id)"
+              >
+                <app-user-avatar
+                  [userId]="acct.id"
+                  [avatarUrl]="acct.avatarUrl ?? null"
+                  [hasAvatar]="!!acct.hasAvatar"
+                  size="sm"
+                />
+                <span class="user-popover__account-meta">
+                  <span class="user-popover__account-name">{{ displayName(acct) }}</span>
+                  <span class="user-popover__account-email">{{ acct.email }}</span>
+                </span>
+                @if (acct.id === u.id) {
+                  <mat-icon class="user-popover__account-check">check</mat-icon>
+                }
+              </button>
+            }
+          </div>
+          @if (extraAccountsCount() > 0) {
+            <button
+              type="button"
+              class="user-popover__expand"
+              (click)="toggleAccountsExpanded(); $event.stopPropagation()"
+            >
+              <mat-icon>{{ accountsExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <span>
+                {{
+                  accountsExpanded()
+                    ? 'Ver menos'
+                    : 'Ver ' + extraAccountsCount() + (extraAccountsCount() === 1 ? ' cuenta más' : ' cuentas más')
+                }}
+              </span>
+            </button>
+          }
+          @if (!hasMultipleAccounts() && !isDemo()) {
+            <p class="user-popover__switch-hint">Agregá otra cuenta para cambiar de usuario acá.</p>
+          }
+        </div>
+
+        @if (!isDemo()) {
+          <button
+            mat-menu-item
+            type="button"
+            class="user-popover__item"
+            (click)="onAddAccount()"
+          >
+            <mat-icon>person_add</mat-icon>
+            <span>Agregar cuenta</span>
+          </button>
+        }
+
         <a
           mat-menu-item
           class="user-popover__item"
@@ -491,6 +559,17 @@
           <button mat-menu-item type="button" class="user-popover__item user-popover__logout" (click)="logout.emit()">
             <mat-icon>logout</mat-icon>
             <span>Salir</span>
+          </button>
+        }
+        @if (hasMultipleAccounts()) {
+          <button
+            mat-menu-item
+            type="button"
+            class="user-popover__item user-popover__logout"
+            (click)="onLogoutAll()"
+          >
+            <mat-icon>logout</mat-icon>
+            <span>Salir de todas</span>
           </button>
         }
       </mat-menu>
