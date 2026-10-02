@@ -1083,7 +1083,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Guardá con el botón de cada bloque (canales, ítems o extras). Ítems y extras vienen contraídos: tocá para expandir.',
           'Generar cierre (si podés crear cierres): arma el cierre del día y turno de ahora con pedidos online completados y mesas cobradas de Comanda. Cada medio (efectivo, PVS, transferencia…) entra en su cuenta del local. Cierra pedidos online y abre el formulario. Si la caja abierta es de otro día o turno, te avisa que quedó un cierre pendiente. Te avisa si hay pedidos o mesas abiertas. Al guardar se confirma el cierre.',
         ],
-        tip: 'En Usuarios podés elegir qué bloques de Configurar ve cada persona (caja, canales, pagos, ítems, extras). CBU/alias y WhatsApp: Configuración del local → Pedidos.',
+        tip: 'En Usuarios podés elegir qué bloques de Configurar ve cada persona (caja, canales, pagos, ítems, extras). CBU, Alias y WhatsApp: Configuración del local → Pedidos.',
       },
       {
         title: 'Usuario solo de pedidos',
@@ -1197,10 +1197,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Activá Página pública /pedir, Take away y/o Delivery. No apaga las mesas: Comanda y Reservas se prenden aparte. Un restaurante puede tener mesas y también take away y delivery.',
           'Horarios: orientativos para el cliente; el abierto/cerrado real depende de la caja abierta en Pedidos clientes.',
-          'Medios de pago: dos listas — web pública (/pedir) y mostrador (caja). Cada una con nombre + cuenta opcional. CBU/alias y WhatsApp para comprobantes solo en la web pública (si WhatsApp está vacío, usa el teléfono del local).',
+          'Medios de pago: dos listas — web pública (/pedir) y mostrador (caja). En la web pública cada medio tiene tipo (Efectivo/Transferencia/Tarjeta) y en qué entregas se muestra (Retiro y/o Delivery). CBU, Alias y WhatsApp para comprobantes solo en la web pública (si WhatsApp está vacío, usa el teléfono del local).',
           'Atajos de descuento: botones rápidos (por defecto 10%) en la caja rápida de Pedidos clientes y en el ticket de mesa. También quedan No, % y $.',
-          'En Pedidos: Configuración del local → Pedidos → Medios de pago — web pública y Medios de pago — mostrador. Cada lista es independiente.',
-          'En Pedidos clientes → Configurar: abrir caja, take away, delivery e ítems/extras (CBU/WhatsApp siguen en Configuración del local → Pedidos).',
+          'En Pedidos: Configuración del local → Pedidos → Medios de pago — web pública (tipo + se muestra en) y Medios de pago — mostrador. Cada lista es independiente.',
+          'En Pedidos clientes → Configurar: abrir caja, take away, delivery e ítems/extras (CBU, Alias y WhatsApp siguen en Configuración del local → Pedidos).',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
           'En cada zona dibujá el área en el mapa (o pegá lat,lng por línea): así /pedir detecta la zona sola.',
           'Comanda de mesas (/mozo y Operación → Comanda): Configuración del local → Comandas. Independiente de esta pantalla.',
@@ -1380,7 +1380,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Si cerrás la pestaña, volvé con Consultar estado e ingresá celular + código.',
           'También podés abrir el link con el código si lo guardaste.',
-          'Si pagaste por transferencia, ves los datos de la cuenta y un botón para enviar el comprobante por WhatsApp.',
+          'Si pagaste por transferencia, ves Alias y CBU con botón para copiar, y otro para enviar el comprobante por WhatsApp.',
         ],
         tip: 'Si pediste recién, el celular queda en el navegador y no te lo vuelve a pedir.',
       },

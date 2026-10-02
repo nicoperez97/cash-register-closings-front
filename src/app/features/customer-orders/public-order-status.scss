@@ -331,6 +331,65 @@ li[data-state='todo'] {
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--ink);
+  flex: 1;
+  min-width: 0;
+}
+
+.receipt-wa__row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.receipt-wa__row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.receipt-wa__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.receipt-wa__row-text strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+}
+
+.receipt-wa__copy {
+  flex: 0 0 auto;
+  width: auto !important;
+  margin-top: 0 !important;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .receipt-wa__text {

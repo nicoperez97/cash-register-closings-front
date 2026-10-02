@@ -300,8 +300,40 @@
           </label>
         }
 
-        @if (paymentMethod() === 'TRANSFER' && c.payments.transferInstructions) {
-          <p class="hint">{{ c.payments.transferInstructions }}</p>
+        @if (paymentMethod() === 'TRANSFER' && hasTransferData()) {
+          <div class="transfer-box">
+            <p class="transfer-box__title">Datos para transferir</p>
+            @if (c.payments.transferAlias) {
+              <div class="transfer-row">
+                <div class="transfer-row__text">
+                  <span class="transfer-row__label">Alias</span>
+                  <strong>{{ c.payments.transferAlias }}</strong>
+                </div>
+                <button
+                  type="button"
+                  class="transfer-row__copy"
+                  (click)="copyTransferValue(c.payments.transferAlias!, 'Alias')"
+                >
+                  Copiar
+                </button>
+              </div>
+            }
+            @if (c.payments.transferCbu) {
+              <div class="transfer-row">
+                <div class="transfer-row__text">
+                  <span class="transfer-row__label">CBU / CVU</span>
+                  <strong>{{ c.payments.transferCbu }}</strong>
+                </div>
+                <button
+                  type="button"
+                  class="transfer-row__copy"
+                  (click)="copyTransferValue(c.payments.transferCbu!, 'CBU')"
+                >
+                  Copiar
+                </button>
+              </div>
+            }
+          </div>
         }
         @if (paymentMethod() === 'TRANSFER') {
           <p class="hint">Después de confirmar, te pedimos enviar el comprobante por WhatsApp.</p>

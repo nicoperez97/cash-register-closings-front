@@ -98,8 +98,48 @@
       @if (o.paymentMethod === 'TRANSFER') {
         <aside class="receipt-wa">
           <p class="receipt-wa__title">Transferí el pago</p>
-          @if (o.transferInstructions) {
-            <p class="receipt-wa__data">{{ o.transferInstructions }}</p>
+          @if (o.transferAlias || o.transferCbu) {
+            @if (o.transferAlias) {
+              <div class="receipt-wa__row">
+                <div class="receipt-wa__row-text">
+                  <span class="receipt-wa__label">Alias</span>
+                  <strong>{{ o.transferAlias }}</strong>
+                </div>
+                <button
+                  type="button"
+                  class="receipt-wa__copy"
+                  (click)="copyTransferValue(o.transferAlias!, 'Alias')"
+                >
+                  Copiar
+                </button>
+              </div>
+            }
+            @if (o.transferCbu) {
+              <div class="receipt-wa__row">
+                <div class="receipt-wa__row-text">
+                  <span class="receipt-wa__label">CBU / CVU</span>
+                  <strong>{{ o.transferCbu }}</strong>
+                </div>
+                <button
+                  type="button"
+                  class="receipt-wa__copy"
+                  (click)="copyTransferValue(o.transferCbu!, 'CBU')"
+                >
+                  Copiar
+                </button>
+              </div>
+            }
+          } @else if (o.transferInstructions) {
+            <div class="receipt-wa__row">
+              <p class="receipt-wa__data">{{ o.transferInstructions }}</p>
+              <button
+                type="button"
+                class="receipt-wa__copy"
+                (click)="copyTransferValue(o.transferInstructions!, 'Datos')"
+              >
+                Copiar
+              </button>
+            </div>
           } @else {
             <p class="receipt-wa__text">Pedí al local los datos de la cuenta para transferir.</p>
           }

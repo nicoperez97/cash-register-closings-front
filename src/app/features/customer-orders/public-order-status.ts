@@ -22,6 +22,8 @@ import {
   PublicCustomerOrder,
 } from './customer-orders-api.service';
 import { recallOrderPhone, rememberOrderPhone } from './public-order-session';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { copyText } from '../../shared/utils/share-text';
 import {
   apiErrorMessage,
   fulfillmentLabel,
@@ -41,7 +43,7 @@ type StatusStep = {
 
 @Component({
   selector: 'app-public-order-status',
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [FormsModule, RouterLink, DatePipe, MatSnackBarModule],
   templateUrl: './public-order-status.html',
   styleUrl: './public-order-status.scss',
 })
@@ -52,6 +54,7 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
   private readonly live = inject(ShopLiveClient);
   private readonly title = inject(Title);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly snack = inject(MatSnackBar);
 
   readonly slug = computed(() =>
     String(this.route.snapshot.paramMap.get('slug') ?? '').trim(),
@@ -235,6 +238,11 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
 
   money(n: number): string {
     return orderingMoney(n);
+  }
+
+  async copyTransferValue(value: string, label: string): Promise<void> {
+    const ok = await copyText(String(value ?? '').trim());
+    this.snack.open(ok ? `${label} copiado` : 'No se pudo copiar', 'OK', { duration: 2200 });
   }
 
   itemGroups(o: PublicCustomerOrder): OrderLineGroup[] {

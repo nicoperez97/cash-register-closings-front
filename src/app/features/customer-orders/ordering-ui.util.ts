@@ -141,7 +141,20 @@ export type OrderingPayChoice = {
   kind: 'CASH' | 'TRANSFER' | 'CARD';
   /** Cuenta ledger enlazada (precios por cuenta en mostrador / comanda). */
   accountId?: string | null;
+  /** Canales donde aplica (solo web pública). Ausente = ambos. */
+  fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
 };
+
+const DEFAULT_PAY_FULFILLMENTS: Array<'TAKEAWAY' | 'DELIVERY'> = ['TAKEAWAY', 'DELIVERY'];
+
+function normalizePayFulfillments(raw: unknown): Array<'TAKEAWAY' | 'DELIVERY'> {
+  if (!Array.isArray(raw)) return [...DEFAULT_PAY_FULFILLMENTS];
+  const out: Array<'TAKEAWAY' | 'DELIVERY'> = [];
+  for (const v of raw) {
+    if (v === 'TAKEAWAY' || v === 'DELIVERY') out.push(v);
+  }
+  return out.length ? out : [...DEFAULT_PAY_FULFILLMENTS];
+}
 
 /** Medios activos para elegir en checkout / mostrador. */
 export function orderingPayChoices(
@@ -153,26 +166,50 @@ export function orderingPayChoices(
           name?: string;
           accountId?: string | null;
           active?: boolean;
+          kind?: 'CASH' | 'TRANSFER' | 'CARD' | null;
+          fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'> | null;
         }> | null;
       }
     | null
     | undefined,
+  opts?: { fulfillment?: 'TAKEAWAY' | 'DELIVERY' | '' | null },
 ): OrderingPayChoice[] {
-  const items = (payments?.items ?? []).filter((i) => i && i.active !== false && String(i.name ?? '').trim());
+  const fulfillment = opts?.fulfillment || null;
+  const items = (payments?.items ?? []).filter(
+    (i) => i && i.active !== false && String(i.name ?? '').trim(),
+  );
   if (items.length) {
-    return items.map((i) => {
+    const choices: OrderingPayChoice[] = items.map((i) => {
       const id = String(i.id ?? '').trim() || `op_${String(i.name).trim().toLowerCase()}`;
       const name = String(i.name ?? '').trim();
       const accountId = String(i.accountId ?? '').trim() || null;
-      return { id, name, kind: classifyOrderingPayKind(id, name), accountId };
+      const kindRaw = String(i.kind ?? '').trim().toUpperCase();
+      const kind: OrderingPayChoice['kind'] =
+        kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
+          ? kindRaw
+          : classifyOrderingPayKind(id, name);
+      return {
+        id,
+        name,
+        kind,
+        accountId,
+        fulfillments: normalizePayFulfillments(i.fulfillments),
+      };
     });
+    if (!fulfillment) return choices;
+    return choices.filter((c) =>
+      (c.fulfillments ?? DEFAULT_PAY_FULFILLMENTS).includes(fulfillment),
+    );
   }
-  const methods = payments?.methods?.length ? payments.methods : (['CASH', 'TRANSFER'] as CustomerOrderPaymentMethod[]);
+  const methods = payments?.methods?.length
+    ? payments.methods
+    : (['CASH', 'TRANSFER'] as CustomerOrderPaymentMethod[]);
   return methods.map((m) => ({
     id: m === 'TRANSFER' ? 'op_transfer' : 'op_cash',
     name: paymentLabel(m),
-    kind: m === 'TRANSFER' ? ('TRANSFER' as const) : ('CASH' as const),
-    accountId: null as string | null,
+    kind: (m === 'TRANSFER' ? 'TRANSFER' : 'CASH') as OrderingPayChoice['kind'],
+    accountId: null,
+    fulfillments: [...DEFAULT_PAY_FULFILLMENTS],
   }));
 }
 

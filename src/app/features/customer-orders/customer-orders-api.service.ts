@@ -89,7 +89,11 @@ export interface PublicOrderingConfig {
       name: string;
       accountId?: string | null;
       active?: boolean;
+      kind?: 'CASH' | 'TRANSFER' | 'CARD';
+      fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
     }>;
+    transferCbu?: string | null;
+    transferAlias?: string | null;
     transferInstructions?: string | null;
     whatsapp?: string | null;
   };
@@ -169,7 +173,11 @@ export interface PublicCustomerOrder {
   address?: string | null;
   /** WhatsApp (solo dígitos) para enviar comprobante si pagó por transferencia. */
   receiptWhatsapp?: string | null;
-  /** Datos CBU/alias para transferir (si el pago es transferencia). */
+  /** CBU / CVU para transferir. */
+  transferCbu?: string | null;
+  /** Alias para transferir. */
+  transferAlias?: string | null;
+  /** Legacy: CBU/alias juntos. */
   transferInstructions?: string | null;
   createdAt?: string;
   acceptedAt?: string | null;
