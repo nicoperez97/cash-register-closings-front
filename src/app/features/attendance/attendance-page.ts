@@ -66,6 +66,7 @@ interface AttendanceDayCell {
 interface AttendanceEmployeeRow {
   employeeId: string;
   fullName: string;
+  active?: boolean;
   baseSalary: number;
   overtimeHourRate?: number;
   serviceCheckIn?: string | null;
@@ -81,6 +82,8 @@ interface AttendanceEmployeeRow {
   countsForAttendanceBonus?: boolean;
   days: Record<string, AttendanceDayCell>;
 }
+
+type EmployeesFilter = 'active' | 'inactive' | 'all';
 
 type AttendancePatch = {
   isPresent?: boolean;
@@ -112,6 +115,7 @@ interface AttendanceMonthResponse {
   year: number;
   month: number;
   daysInMonth: number;
+  employeesFilter?: EmployeesFilter;
   employees: AttendanceEmployeeRow[];
 }
 
@@ -194,6 +198,7 @@ export class AttendancePage {
 
   readonly year = signal(this.shopTodayParts().year);
   readonly month = signal(this.shopTodayParts().month);
+  readonly employeesFilter = signal<EmployeesFilter>('active');
   readonly data = signal<AttendanceMonthResponse | null>(null);
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -379,6 +384,7 @@ export class AttendancePage {
               year: String(key.year),
               month: String(key.month),
               shiftId: this.selectedShiftId(),
+              employees: this.employeesFilter(),
               _: String(Date.now()),
             },
             headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
@@ -429,6 +435,7 @@ export class AttendancePage {
       const shopId = this.shopId();
       this.year();
       this.month();
+      this.employeesFilter();
       if (!shopId) {
         this.data.set(null);
         return;
@@ -438,6 +445,7 @@ export class AttendancePage {
     effect(() => {
       const shopId = this.shopId();
       this.quickDayIso();
+      this.employeesFilter();
       if (!shopId) {
         this.todayMarks.set({});
         return;
@@ -536,7 +544,7 @@ export class AttendancePage {
     this.exporting.set(true);
     this.http
       .get(`${environment.apiUrl}/shops/${shopId}/attendance/export.xlsx`, {
-        params: { from, to },
+        params: { from, to, employees: this.employeesFilter() },
         responseType: 'blob',
       })
       .subscribe({
@@ -815,6 +823,7 @@ export class AttendancePage {
           year: String(y),
           month: String(m),
           shiftId: this.selectedShiftId(),
+          employees: this.employeesFilter(),
           _: String(Date.now()),
         },
         headers: {
@@ -958,6 +967,17 @@ export class AttendancePage {
     this.year.set(value);
   }
 
+  onEmployeesFilterChange(value: EmployeesFilter): void {
+    this.employeesFilter.set(value);
+  }
+
+  emptyEmployeesMessage(): string {
+    const filter = this.employeesFilter();
+    if (filter === 'inactive') return 'No hay empleados desactivados para mostrar.';
+    if (filter === 'all') return 'No hay empleados para mostrar.';
+    return 'No hay empleados activos para mostrar.';
+  }
+
   reload(): Promise<void> {
     const shopId = this.shopId();
     if (!shopId) {
@@ -974,6 +994,7 @@ export class AttendancePage {
           year: String(year),
           month: String(month),
           shiftId: this.selectedShiftId(),
+          employees: this.employeesFilter(),
           _: String(Date.now()),
         },
         headers: {

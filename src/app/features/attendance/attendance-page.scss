@@ -150,6 +150,12 @@ tbody td.att-table__day--today {
   background: var(--guy-card, #fff);
   z-index: 1;
 }
+.att-table__name-muted {
+  margin-left: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--guy-muted, #6b7280);
+}
 .att-cell {
   width: 2.35rem;
   height: 2.35rem;
