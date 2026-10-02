@@ -140,7 +140,12 @@
                         ? 'check_circle'
                         : 'radio_button_unchecked'
                   }}</mat-icon>
-                  <span class="today-chip__name">{{ emp.fullName }}</span>
+                  <span class="today-chip__name">
+                    {{ emp.fullName }}
+                    @if (emp.active === false) {
+                      <span class="att-table__name-muted">desactivado</span>
+                    }
+                  </span>
                   @if (shiftTimesEnabled() && overtimeToday(emp) > 0) {
                     <span class="today-ot-badge">+{{ overtimeToday(emp) }}h</span>
                   }
@@ -348,6 +353,17 @@
             }
           </mat-select>
         </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Empleados</mat-label>
+          <mat-select
+            [ngModel]="employeesFilter()"
+            (ngModelChange)="onEmployeesFilterChange($event)"
+          >
+            <mat-option value="active">Activos</mat-option>
+            <mat-option value="inactive">Desactivados</mat-option>
+            <mat-option value="all">Todos</mat-option>
+          </mat-select>
+        </mat-form-field>
         <button mat-stroked-button type="button" (click)="goToTodayMonth()">
           <mat-icon>today</mat-icon>
           Ver mes actual
@@ -380,7 +396,7 @@
         message="Obteniendo asistencia del mes"
       />
     } @else if (!employees().length) {
-      <div class="panel-card">No hay empleados activos para mostrar.</div>
+      <div class="panel-card">{{ emptyEmployeesMessage() }}</div>
     } @else {
       <div class="panel-card panel-card--flush">
         <div class="panel-card__body">
@@ -456,7 +472,12 @@
               <tbody>
                 @for (emp of employees(); track emp.employeeId) {
                   <tr>
-                    <td class="att-table__name">{{ emp.fullName }}</td>
+                    <td class="att-table__name">
+                      {{ emp.fullName }}
+                      @if (emp.active === false) {
+                        <span class="att-table__name-muted">desactivado</span>
+                      }
+                    </td>
                     @for (d of dayNumbers(); track d) {
                       <td
                         [class.att-table__day--today]="isTodayColumn(d)"

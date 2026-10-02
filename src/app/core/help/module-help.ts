@@ -1412,7 +1412,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'storefront',
         tone: 'read',
         anyOf: ['attendance.read'],
-        body: 'Mes, día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia. “Hoy” y el turno usan el mismo criterio que el cierre: el día y el turno siguen hasta que abre el siguiente.',
+        body: 'En Filtros elegís mes, año y si ves empleados activos, desactivados o todos (eso también aplica al Excel/PDF de Descargar). Día y extras en un rango de fechas (Descargar usa Excel o PDF, desde/hasta, no un mes cerrado). El tablero público /p se actualiza cuando marcás asistencia. “Hoy” y el turno usan el mismo criterio que el cierre: el día y el turno siguen hasta que abre el siguiente.',
         tip: 'Si el local apagó “Presentismo con entrada y salida”, solo se marca presente / ausente / feriado: no hay entrada, salida ni extra.',
       },
       {
