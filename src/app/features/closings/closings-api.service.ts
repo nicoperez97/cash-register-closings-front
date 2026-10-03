@@ -414,6 +414,13 @@ export class ClosingsApiService {
     );
   }
 
+  resyncMovements(shopId: string) {
+    return this.http.post<{ ok: boolean; total: number; resynced: number }>(
+      `${this.base}/shops/${shopId}/closings/resync-movements`,
+      {},
+    );
+  }
+
   commitReloadIncomes(
     shopId: string,
     selected?: Array<{
