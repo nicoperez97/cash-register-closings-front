@@ -220,6 +220,17 @@ import { closingMoneyColumns, flattenClosingSourceAmounts } from './closing-list
               <mat-icon>sync</mat-icon>
               Volver a procesar
             </button>
+            @if (canResync()) {
+              <button
+                mat-stroked-button
+                type="button"
+                [disabled]="resyncing()"
+                (click)="resyncMovements()"
+              >
+                <mat-icon>autorenew</mat-icon>
+                {{ resyncing() ? 'Re-sincronizando…' : 'Re-sincronizar movimientos' }}
+              </button>
+            }
           }
         </div>
         </div>
@@ -322,7 +333,9 @@ export class ClosingsListPage {
   });
 
   readonly canRemoveRow = () => this.auth.isAdmin();
+  readonly canResync = () => this.auth.isAdmin();
   private reloadToken = signal(0);
+  readonly resyncing = signal(false);
 
   constructor() {
     usePageRefresh(() => this.applyFilter());
@@ -490,6 +503,36 @@ export class ClosingsListPage {
       },
       error: (err) => {
         const msg = err?.error?.message ?? 'No se pudo eliminar el cierre';
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+      },
+    });
+  }
+
+  async resyncMovements(): Promise<void> {
+    if (!this.auth.isAdmin() || this.resyncing()) return;
+    const shopId = this.shopId();
+    if (!shopId) return;
+    const ok = await this.confirmDialog.confirm(
+      'Re-sincronizar movimientos',
+      'Vuelve a generar los movimientos de todos los cierres del local según la ' +
+        'configuración actual (cuentas y conceptos). Sirve para corregir montos que ' +
+        'quedaron en una cuenta equivocada. ¿Continuar?',
+    );
+    if (!ok) return;
+    this.resyncing.set(true);
+    this.api.resyncMovements(shopId).subscribe({
+      next: (res) => {
+        this.resyncing.set(false);
+        this.snack.open(
+          `Movimientos re-sincronizados (${res.resynced} cierre${res.resynced === 1 ? '' : 's'})`,
+          'OK',
+          { duration: 3000 },
+        );
+        this.reloadToken.update((n) => n + 1);
+      },
+      error: (err) => {
+        this.resyncing.set(false);
+        const msg = err?.error?.message ?? 'No se pudo re-sincronizar';
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
