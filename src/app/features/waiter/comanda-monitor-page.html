@@ -75,7 +75,7 @@
               @for (t of data()?.tables ?? []; track t.sessionId) {
                 <article class="mon-card">
                   <header>
-                    <strong>Mesa {{ t.tableLabel }}</strong>
+                    <strong>{{ placeHeading(t.tableLabel) }}</strong>
                     <time>{{ ageLabel(t.openedAt) }}</time>
                   </header>
                   <p class="mon-meta">
@@ -108,7 +108,7 @@
               @for (o of data()?.recentOrders ?? []; track o.id) {
                 <article class="mon-card">
                   <header>
-                    <strong>#{{ o.code }} · Mesa {{ o.tableLabel }}</strong>
+                    <strong>#{{ o.code }} · {{ placeHeading(o.tableLabel) }}</strong>
                     <time>{{ o.createdAt | date: 'HH:mm' }}</time>
                   </header>
                   <p class="mon-meta">{{ o.waiterName }}</p>
@@ -138,7 +138,7 @@
                   <header>
                     <strong>
                       @if (a.tableLabel) {
-                        Mesa {{ a.tableLabel }}
+                        {{ placeHeading(a.tableLabel) }}
                       } @else {
                         Envío #{{ a.orderCode }}
                       }

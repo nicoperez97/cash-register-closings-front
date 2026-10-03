@@ -2,6 +2,10 @@
   <div class="toast" role="status">{{ t }}</div>
 }
 
+@if (!staffMode) {
+  <app-public-page-install-banner kind="waiter" [accent]="accent()" />
+}
+
 <div class="page" [class.page--session]="view() === 'session'">
   @if (view() === 'login') {
     <header class="hero anim-in">
@@ -46,6 +50,14 @@
         <p class="muted">{{ waiterName() }}</p>
       </div>
       <div class="bar__actions">
+        <button
+          type="button"
+          class="btn btn--sm"
+          (click)="startCounterOrder()"
+          [disabled]="loading() || busy()"
+        >
+          Mostrador
+        </button>
         <button type="button" class="btn btn--ghost btn--sm" (click)="openHistory()" [disabled]="loading() || !capabilities().allowHistory">
           Historial
         </button>
@@ -65,6 +77,26 @@
     @if (loading()) {
       <p class="muted anim-in">Cargando mesas…</p>
     } @else {
+      @if (counterSessions().length) {
+        <section class="section anim-in">
+          <h2 class="section__title">Mostrador</h2>
+          <div class="tables">
+            @for (c of counterSessions(); track c.id; let i = $index) {
+              <button
+                type="button"
+                class="table table--busy table--counter anim-pop"
+                [style.animation-delay.ms]="i * 40"
+                (click)="resumeCounter(c)"
+                [disabled]="busy()"
+              >
+                <strong>{{ c.label || 'Mostrador' }}</strong>
+                <span>{{ c.orderCount || 0 }} envíos</span>
+              </button>
+            }
+          </div>
+        </section>
+      }
+
       @if (sectorTabs().length > 1) {
         <nav class="sector-tabs anim-in" aria-label="Sectores">
           <button
@@ -252,11 +284,15 @@
     <header class="bar bar--sticky anim-in">
       <div>
         <button type="button" class="link bar__back" (click)="backToTables()">← Mesas</button>
-        <h1>Mesa {{ s?.table?.label ?? '—' }}</h1>
+        <h1>{{ sessionPlaceLabel(s) }}</h1>
         <p class="muted">
-          {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos
-          @if (s?.waiter?.fullName) {
-            · {{ s.waiter.fullName }}
+          @if (isCounterSession(s)) {
+            {{ s?.orderCount || s?.orders?.length || 0 }} envíos
+          } @else {
+            {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos
+            @if (s?.waiter?.fullName) {
+              · {{ s.waiter.fullName }}
+            }
           }
         </p>
       </div>
@@ -697,7 +733,7 @@
                     @if (cartDetail()) {
                       <div class="lines__row">
                         <strong>
-                          @if (group.item.isEntrada) {
+                          @if (group.item.isEntrada && !isCounterSession()) {
                             <span class="entrada-tag">Entrada</span>
                           }
                           {{ group.item.name }}
@@ -719,7 +755,7 @@
                         <span>{{ group.item.qty }}</span>
                         <button type="button" (click)="bump(group.item, 1)">+</button>
                       </div>
-                      @if (group.item.kind === 'ITEM') {
+                      @if (group.item.kind === 'ITEM' && !isCounterSession()) {
                         <div class="cart-flags">
                           <button
                             type="button"
@@ -765,7 +801,7 @@
                       <div class="lines__simple">
                         <span class="lines__simple-qty">{{ group.item.qty }}×</span>
                         <strong>
-                          @if (group.item.isEntrada) {
+                          @if (group.item.isEntrada && !isCounterSession()) {
                             <span class="entrada-tag">E</span>
                           }
                           {{ group.item.name }}
@@ -782,7 +818,7 @@
                           }
                         </span>
                       </div>
-                      @if (group.item.kind === 'ITEM') {
+                      @if (group.item.kind === 'ITEM' && !isCounterSession()) {
                         <div class="cart-flags cart-flags--compact">
                           <button
                             type="button"
@@ -838,27 +874,6 @@
                 <p class="total">Total {{ money(subtotal()) }}</p>
               }
 
-              @if (staffMode && pricingPaymentMethods().length) {
-                <div class="pricing-pay">
-                  <span class="pricing-pay__label">Pago (precio)</span>
-                  <div class="chips chips--pay">
-                    @for (m of pricingPaymentMethods(); track m.id) {
-                      <button
-                        type="button"
-                        class="chip"
-                        [class.chip--on]="pricingPaymentMethodId() === m.id"
-                        (click)="setPricingPayment(m.id)"
-                      >
-                        {{ m.name }}
-                      </button>
-                    }
-                  </div>
-                  <p class="pricing-pay__hint">
-                    El total usa el precio de esa cuenta; si no hay, el precio fijo del ítem.
-                  </p>
-                </div>
-              }
-
               @if (cartDetail()) {
                 <label class="notes">
                   Nota
@@ -872,32 +887,22 @@
                 </label>
               }
 
-              <div class="checks">
-                @if (capabilities().allowPrintKitchen) {
-                  <label class="check">
-                    <input
-                      type="checkbox"
-                      [ngModel]="printKitchen()"
-                      (ngModelChange)="printKitchen.set($event)"
-                      name="kitchen"
-                      [disabled]="capabilities().lockPrintKitchen"
-                    />
-                    Cocina
-                  </label>
-                }
-                @if (capabilities().allowPrintCustomerTicket) {
-                  <label class="check">
-                    <input
-                      type="checkbox"
-                      [ngModel]="printCustomerTicket()"
-                      (ngModelChange)="printCustomerTicket.set($event)"
-                      name="ticket"
-                      [disabled]="capabilities().lockPrintCustomerTicket"
-                    />
-                    Ticket cliente
-                  </label>
-                }
-              </div>
+              @if (!isCounterSession()) {
+                <div class="checks">
+                  @if (capabilities().allowPrintKitchen) {
+                    <label class="check">
+                      <input
+                        type="checkbox"
+                        [ngModel]="printKitchen()"
+                        (ngModelChange)="printKitchen.set($event)"
+                        name="kitchen"
+                        [disabled]="capabilities().lockPrintKitchen"
+                      />
+                      Cocina
+                    </label>
+                  }
+                </div>
+              }
 
               <div class="dock__actions">
                 <button type="button" class="btn btn--ghost" [disabled]="!lines().length" (click)="clearCart()">
@@ -912,9 +917,11 @@
                   {{
                     busy()
                       ? 'Enviando…'
-                      : printKitchen() || printCustomerTicket()
-                        ? 'Enviar comanda'
-                        : 'Agregar sin imprimir'
+                      : isCounterSession()
+                        ? 'Enviar y cobrar'
+                        : printKitchen()
+                          ? 'Enviar comanda'
+                          : 'Agregar sin imprimir'
                   }}
                 </button>
               </div>
@@ -1002,7 +1009,7 @@
   <div class="sheet-backdrop anim-fade" (click)="cancelTicketSheet()"></div>
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="ticket-title">
     <div class="sheet__handle" aria-hidden="true"></div>
-    <h2 id="ticket-title">Ticket mesa {{ session()?.table?.label }}</h2>
+    <h2 id="ticket-title">Ticket {{ sessionPlaceLabel() }}</h2>
 
     <div class="sheet__body">
     <div class="ticket-bill">
@@ -1211,7 +1218,7 @@
   <div class="sheet-backdrop anim-fade" (click)="cancelClose()"></div>
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="close-title">
     <div class="sheet__handle" aria-hidden="true"></div>
-    <h2 id="close-title">Cerrar mesa {{ session()?.table?.label }}</h2>
+    <h2 id="close-title">Cerrar {{ sessionPlaceLabel() }}</h2>
     <div class="sheet__body">
     <p class="sheet__total sheet__total--sm">
       <span>Ticket</span><strong>{{ money(closeDueAmount()) }}</strong>
@@ -1309,7 +1316,7 @@
         [disabled]="busy() || !canConfirmClose()"
         (click)="confirmClose()"
       >
-        Cerrar mesa
+        {{ isCounterSession() ? 'Cerrar mostrador' : 'Cerrar mesa' }}
       </button>
       <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
     </div>
@@ -1322,7 +1329,7 @@
     <div class="sheet__handle" aria-hidden="true"></div>
     @if (historyDetail(); as detail) {
       <button type="button" class="link sheet__back-link" (click)="historyDetailId.set(null); historyOrderItems.set([]); historyLineAudits.set([])">← Volver</button>
-      <h2 id="history-title">Mesa {{ detail.tableLabel }}</h2>
+      <h2 id="history-title">{{ placeHeading(detail.tableLabel) }}</h2>
       <div class="sheet__body">
       <p class="muted">
         @if (detail.closedAt) {
@@ -1404,7 +1411,7 @@
           <li>
             <button type="button" class="history-list__btn" (click)="openHistoryDetail(row.sessionId)">
               <div class="history-list__main">
-                <strong>Mesa {{ row.tableLabel }}</strong>
+                <strong>{{ placeHeading(row.tableLabel) }}</strong>
                 <span class="muted">
                   @if (row.closedAt) {
                     {{ orderTime(row.closedAt) }}

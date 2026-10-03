@@ -138,6 +138,7 @@ export class AuthService {
     if (!target) return true;
     if (current.isDemo || target.isDemo) return true;
     const shopId = this.shopContext.selectedShopId();
+    // Pedir contraseña solo al elevar (más rol, o permisos/locales que el actual no tiene).
     return isMorePrivileged(target, current, shopId);
   }
 
@@ -573,6 +574,9 @@ export class AuthService {
         orderingPayments: s.orderingPayments ?? null,
         counterPaymentMethods: Array.isArray(s.counterPaymentMethods)
           ? s.counterPaymentMethods
+          : null,
+        tablePaymentMethods: Array.isArray(s.tablePaymentMethods)
+          ? s.tablePaymentMethods
           : null,
         deliveryZones: Array.isArray(s.deliveryZones) ? s.deliveryZones : [],
         orderingEta: s.orderingEta ?? null,

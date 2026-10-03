@@ -2,7 +2,8 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import { formatIsoDateWithWeekday } from '../../core/shop/business-date';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import {
@@ -14,7 +15,7 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 @Component({
   selector: 'app-public-reservation-lookup',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PublicPageInstallBannerComponent],
   template: `
     @if (error(); as err) {
       <div class="page page--error">
@@ -22,6 +23,7 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
       </div>
     } @else {
       <div class="page" [style.--accent]="accent()">
+        <app-public-page-install-banner kind="reservationLookup" [accent]="accent()" />
         <header class="hero">
           @if (logoUrl()) {
             <img
@@ -348,6 +350,7 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
   private readonly api = inject(ReservationsApiService);
   private readonly title = inject(Title);
   private readonly analytics = inject(AnalyticsService);
+  private readonly pagePwa = inject(PublicPagePwaService);
 
   readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
   readonly shopName = signal('');
@@ -360,17 +363,22 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
   email = '';
 
   ngOnInit(): void {
-    applyStatusBar('#0e0c0b', 'dark');
     this.title.setTitle('Consultar reserva');
     const slug = this.slug();
+    this.pagePwa.prime('reservationLookup', slug);
     if (slug) {
       this.analytics.setPublicShopContext({ slug });
       this.analytics.event(AnalyticsEvents.miReservaViewed, { shop_slug: slug });
+      this.pagePwa.apply({
+        kind: 'reservationLookup',
+        slug,
+        shopName: slug,
+      });
     }
   }
 
   ngOnDestroy(): void {
-    resetStatusBar();
+    this.pagePwa.release('reservationLookup', this.slug());
   }
 
   search(ev: Event): void {
@@ -392,6 +400,15 @@ export class PublicReservationLookupComponent implements OnInit, OnDestroy {
             null,
         );
         this.accent.set(res.shop?.accentColor?.trim() || '#3dba6e');
+        if (res.shop) {
+          this.pagePwa.apply({
+            kind: 'reservationLookup',
+            slug: res.shop.slug || slug,
+            shopName: res.shop.name,
+            accentColor: res.shop.accentColor,
+            logoUrl: this.logoUrl(),
+          });
+        }
         const list = (res.items ?? res.reservations ?? []) as PublicReservationLookupItem[];
         this.rows.set(
           list.map((r) => ({

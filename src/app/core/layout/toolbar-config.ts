@@ -97,6 +97,7 @@ const ADDABLE_NAV_IDS = [
   'customerOrdersHistory',
   'customerOrdersMonitor',
   'comandaMonitor',
+  'comandaReceiptsHistory',
 ] as const;
 
 /** Módulos del menú que se pueden sumar como atajo custom (desde el catálogo). */

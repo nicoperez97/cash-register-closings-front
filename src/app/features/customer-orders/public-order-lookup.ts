@@ -2,14 +2,15 @@ import { Component, HostBinding, OnDestroy, OnInit, computed, inject, signal } f
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import { CustomerOrdersApiService } from './customer-orders-api.service';
 import { rememberOrderPhone } from './public-order-session';
-import { apiErrorMessage, onAccentColor } from './ordering-ui.util';
+import { apiErrorMessage, onAccentColor, orderingLogoUrl } from './ordering-ui.util';
 
 @Component({
   selector: 'app-public-order-lookup',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PublicPageInstallBannerComponent],
   templateUrl: './public-order-lookup.html',
   styleUrl: './public-order-lookup.scss',
 })
@@ -18,6 +19,8 @@ export class PublicOrderLookupComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly api = inject(CustomerOrdersApiService);
   private readonly title = inject(Title);
+  private readonly pagePwa = inject(PublicPagePwaService);
+  private pwaApplied = false;
 
   readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
   readonly loading = signal(false);
@@ -40,9 +43,9 @@ export class PublicOrderLookupComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    applyStatusBar('#eef1ee', 'light');
     this.title.setTitle('Consultar pedido');
     const slug = this.slug();
+    this.pagePwa.prime('orderLookup', slug);
     if (!slug) {
       this.brandingLoading.set(false);
       return;
@@ -53,13 +56,23 @@ export class PublicOrderLookupComponent implements OnInit, OnDestroy {
         this.accent.set(color);
         this.title.setTitle(`Consultar pedido · ${cfg.shop?.name ?? slug}`);
         this.brandingLoading.set(false);
+        if (!this.pwaApplied && cfg.shop) {
+          this.pwaApplied = true;
+          this.pagePwa.apply({
+            kind: 'orderLookup',
+            slug: cfg.shop.slug || slug,
+            shopName: cfg.shop.name,
+            accentColor: cfg.shop.accentColor,
+            logoUrl: orderingLogoUrl(cfg.shop.logoUrl, cfg.shop.id),
+          });
+        }
       },
       error: () => this.brandingLoading.set(false),
     });
   }
 
   ngOnDestroy(): void {
-    resetStatusBar();
+    this.pagePwa.release('orderLookup', this.slug());
   }
 
   search(ev: Event): void {

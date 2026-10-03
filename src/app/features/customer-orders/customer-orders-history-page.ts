@@ -88,6 +88,16 @@ function formatDateTime(iso?: string | null): string {
           <p class="guy-filters__subtitle">Período, estado, canal y cobro</p>
         </div>
         <div class="guy-filters__tools">
+          <button
+            mat-stroked-button
+            type="button"
+            class="guy-filters__clear"
+            (click)="exportExcel()"
+            [disabled]="loading() || exporting()"
+          >
+            <mat-icon>download</mat-icon>
+            {{ exporting() ? 'Excel…' : 'Excel' }}
+          </button>
           <button mat-stroked-button type="button" class="guy-filters__clear" (click)="clearFilters()">
             <mat-icon>filter_alt_off</mat-icon>
             Limpiar
@@ -186,6 +196,7 @@ export class CustomerOrdersHistoryPage {
   readonly toggleFilters = () => this.filtersUi.toggleFilters();
 
   readonly loading = signal(false);
+  readonly exporting = signal(false);
   readonly rows = signal<StaffCustomerOrder[]>([]);
 
   readonly range = new FormGroup({
@@ -295,6 +306,53 @@ export class CustomerOrdersHistoryPage {
       accredited: '',
       q: '',
     });
+  }
+
+  exportExcel(): void {
+    const shopId = this.shops.selectedShopId();
+    const shop = this.shops.selectedShop();
+    const from = toIsoDate(this.range.controls.start.value);
+    const to = toIsoDate(this.range.controls.end.value);
+    if (!shopId || !from || !to || this.exporting()) return;
+    const f = this.filters.getRawValue();
+    this.exporting.set(true);
+    this.api
+      .exportStaffExcel(shopId, {
+        from,
+        to,
+        status: f.status || undefined,
+        fulfillment: (f.fulfillment || undefined) as CustomerOrderFulfillment | undefined,
+        paymentMethod: (f.paymentMethod || undefined) as CustomerOrderPaymentMethod | undefined,
+        accredited: f.accredited === 'yes' || f.accredited === 'no' ? f.accredited : undefined,
+        q: f.q.trim() || undefined,
+      })
+      .subscribe({
+        next: (blob) => {
+          this.exporting.set(false);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `pedidos-${this.shopFileSlug(shop?.name ?? shop?.slug)}-${from}_${to}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => {
+          this.exporting.set(false);
+          this.snack.open('No se pudo descargar el Excel', 'OK', { duration: 3000 });
+        },
+      });
+  }
+
+  private shopFileSlug(name?: string | null): string {
+    return (
+      String(name ?? 'local')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40) || 'local'
+    );
   }
 
   openOrder(order: StaffCustomerOrder): void {

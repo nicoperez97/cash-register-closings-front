@@ -6,6 +6,8 @@ import { environment } from '../../../environments/environment';
 import { debounceTime, filter, Subscription } from 'rxjs';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 
 type PublicShop = {
   id: string;
@@ -77,7 +79,7 @@ function storageKey(slug: string): string {
 
 @Component({
   selector: 'app-public-attendance-board',
-  imports: [FormsModule],
+  imports: [FormsModule, PublicPageInstallBannerComponent],
   template: `
     @if (error()) {
       <div class="board board--error" [style.--accent]="accent()">
@@ -86,6 +88,7 @@ function storageKey(slug: string): string {
       </div>
     } @else if (shop(); as s) {
       <div class="board" [style.--accent]="accent()">
+        <app-public-page-install-banner kind="attendance" [accent]="accent()" />
         <header class="board__hero">
           <div class="board__glow" aria-hidden="true"></div>
           <div class="board__identity">
@@ -483,12 +486,14 @@ export class PublicAttendanceBoardComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly live = inject(ShopLiveClient);
+  private readonly pagePwa = inject(PublicPagePwaService);
   readonly MONTH_LABELS = MONTH_LABELS;
   readonly WEEKDAYS = WEEKDAYS;
 
   private slug = '';
   private liveSub: Subscription | null = null;
   private onVisible: (() => void) | null = null;
+  private pwaApplied = false;
   readonly shop = signal<PublicShop | null>(null);
   readonly employees = signal<PublicEmployee[]>([]);
   readonly employeeId = signal<string | null>(null);
@@ -578,6 +583,7 @@ export class PublicAttendanceBoardComponent implements OnInit, OnDestroy {
       this.error.set('Local no encontrado');
       return;
     }
+    this.pagePwa.prime('attendance', this.slug);
     this.reloadList();
     this.liveSub = this.live
       .connect(this.slug)
@@ -601,6 +607,19 @@ export class PublicAttendanceBoardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.liveSub?.unsubscribe();
     if (this.onVisible) document.removeEventListener('visibilitychange', this.onVisible);
+    this.pagePwa.release('attendance', this.slug);
+  }
+
+  private applyAttendancePwa(shop: PublicShop): void {
+    if (this.pwaApplied) return;
+    this.pwaApplied = true;
+    this.pagePwa.apply({
+      kind: 'attendance',
+      slug: this.slug || shop.slug,
+      shopName: shop.name,
+      accentColor: shop.accentColor,
+      logoUrl: this.logoUrl(),
+    });
   }
 
   fmtNum(n: number): string {
@@ -616,6 +635,7 @@ export class PublicAttendanceBoardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.shop.set(res.shop);
+          this.applyAttendancePwa(res.shop);
           this.employees.set(res.employees ?? []);
           let saved = '';
           try {

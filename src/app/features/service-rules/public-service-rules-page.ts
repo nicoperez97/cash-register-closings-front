@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import {
   PublicServiceRulesBundle,
@@ -9,12 +9,15 @@ import {
   ServiceRulesApiService,
 } from './service-rules-api.service';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 import { AnalyticsService } from '../../core/analytics/analytics.service';
 import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 
 @Component({
   selector: 'app-public-service-rules-page',
+  imports: [PublicPageInstallBannerComponent],
   template: `
     @if (error()) {
       <div class="poster poster--error">
@@ -23,6 +26,7 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
       </div>
     } @else if (bundle(); as data) {
       <div class="poster" id="rules-pdf-root" [style.--accent]="accent()">
+        <app-public-page-install-banner kind="serviceRules" [accent]="accent()" />
         <header class="poster__hero">
           <div class="poster__identity">
             @if (logoUrl()) {
@@ -371,11 +375,14 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
     '[style.--page-accent]': 'accent()',
   },
 })
-export class PublicServiceRulesPageComponent implements OnInit {
+export class PublicServiceRulesPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(ServiceRulesApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly analytics = inject(AnalyticsService);
+  private readonly pagePwa = inject(PublicPagePwaService);
   private viewedTracked = false;
+  private pwaApplied = false;
+  private slug = '';
 
   readonly phases = SERVICE_RULE_PHASES;
   readonly bundle = signal<PublicServiceRulesBundle | null>(null);
@@ -395,12 +402,18 @@ export class PublicServiceRulesPageComponent implements OnInit {
     this.reload();
   }
 
+  ngOnDestroy(): void {
+    this.pagePwa.release('serviceRules', this.slug);
+  }
+
   reload(): void {
     const slug = this.route.snapshot.paramMap.get('slug') ?? '';
+    this.slug = slug;
     if (!slug) {
       this.error.set('Local no encontrado');
       return;
     }
+    this.pagePwa.prime('serviceRules', slug);
     this.error.set('');
     this.api.publicBySlug(slug).subscribe({
       next: (data) => {
@@ -414,6 +427,16 @@ export class PublicServiceRulesPageComponent implements OnInit {
           this.viewedTracked = true;
           this.analytics.event(AnalyticsEvents.serviceRulesViewed, {
             shop_slug: data.shop?.slug || slug,
+          });
+        }
+        if (!this.pwaApplied) {
+          this.pwaApplied = true;
+          this.pagePwa.apply({
+            kind: 'serviceRules',
+            slug: data.shop?.slug || slug,
+            shopName: data.shop.name,
+            accentColor: data.shop.accentColor,
+            logoUrl: this.logoUrl(),
           });
         }
       },

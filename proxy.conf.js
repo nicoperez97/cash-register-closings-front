@@ -1,7 +1,7 @@
 /**
  * Proxy local:
  * - /api → backend
- * - /pwa → manifests PWA de tableros
+ * - /pwa → manifests PWA de páginas públicas (legacy /r /w)
  *
  * El cliente ES5 vive en public/legacy (archivos estáticos).
  * No proxear /legacy ni /ipad: el rewrite del SPA rompería iOS 9.

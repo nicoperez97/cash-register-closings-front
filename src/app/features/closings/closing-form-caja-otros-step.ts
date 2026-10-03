@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import {
   ControlContainer,
   FormArray,
@@ -76,11 +76,60 @@ import { closingMoney, closingNum } from './closings-form.utils';
                             type="number"
                             inputmode="decimal"
                             formControlName="amount"
+                            (input)="onPosnetAmountInput(i)"
                           />
                         </mat-form-field>
                       </div>
                     }
                   </div>
+                  @if (heldSuma(i); as held) {
+                    <div class="closing-form__held-suma" role="status">
+                      <span class="closing-form__held-suma-label">Total previo</span>
+                      <strong class="closing-form__held-suma-amount">{{ money(held) }}</strong>
+                      <span class="closing-form__held-suma-sep" aria-hidden="true">·</span>
+                      <button
+                        mat-button
+                        type="button"
+                        class="closing-form__held-suma-action"
+                        (click)="useHeldSuma(i)"
+                      >
+                        Usar
+                      </button>
+                      <button
+                        mat-button
+                        type="button"
+                        class="closing-form__held-suma-action"
+                        (click)="addHeldSuma(i)"
+                      >
+                        Sumar
+                      </button>
+                    </div>
+                  }
+                  @if (sourcePosnets(i).length > 1) {
+                    <div class="closing-form__source-total closing-form__source-total--input">
+                      <mat-form-field
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                        floatLabel="always"
+                        class="closing-field--money"
+                      >
+                        <mat-label>{{ heldSuma(i) ? 'Suma de posnets' : 'Suma' }}</mat-label>
+                        <span matTextPrefix class="closing-field__prefix">$</span>
+                        <input
+                          matInput
+                          type="number"
+                          inputmode="decimal"
+                          formControlName="amount"
+                          (input)="onManualTotalInput(i)"
+                        />
+                      </mat-form-field>
+                    </div>
+                  } @else {
+                    <div class="closing-form__source-total">
+                      <span>Total</span>
+                      <strong>{{ money(rowTotal(i)) }}</strong>
+                    </div>
+                  }
                 } @else {
                   <div class="closing-form__source-lines" formArrayName="lines">
                     @for (line of sourceLines(i).controls; track line; let j = $index) {
@@ -114,11 +163,11 @@ import { closingMoney, closingNum } from './closings-form.utils';
                       </div>
                     }
                   </div>
+                  <div class="closing-form__source-total">
+                    <span>{{ filledLineCount(i) > 1 ? 'Suma' : 'Total' }}</span>
+                    <strong>{{ money(rowTotal(i)) }}</strong>
+                  </div>
                 }
-                <div class="closing-form__source-total">
-                  <span>{{ hasPosnets(i) && sourcePosnets(i).length > 1 ? 'Suma' : filledLineCount(i) > 1 ? 'Suma' : 'Total' }}</span>
-                  <strong>{{ money(rowTotal(i)) }}</strong>
-                </div>
                 @if (showSourceFiles(i)) {
                   <app-closing-form-step-files
                     [files]="sourceFiles()[rowSourceId(i)] ?? []"
@@ -156,6 +205,9 @@ export class ClosingFormCajaOtrosStepComponent {
   readonly fileView = output<ClosingStepFileView>();
   readonly fileRemove = output<{ sourceId: string; file: ClosingStepFileView }>();
 
+  /** Total que había en Suma (sin posnets) al empezar a cargar posnets. */
+  private readonly heldSumaBySource = signal<Record<string, number>>({});
+
   sourceLines(index: number): FormArray {
     return this.sourceAmounts().at(index)?.get('lines') as FormArray;
   }
@@ -168,17 +220,103 @@ export class ClosingFormCajaOtrosStepComponent {
     return (this.sourcePosnets(index)?.length ?? 0) > 0;
   }
 
+  heldSuma(index: number): number | null {
+    const id = this.rowSourceId(index);
+    if (!id) return null;
+    const n = this.heldSumaBySource()[id];
+    return n != null && n > 0 ? n : null;
+  }
+
   rowTotal(index: number): number {
     if (this.hasPosnets(index)) {
-      return this.sourcePosnets(index).controls.reduce(
+      const posnetSum = this.sourcePosnets(index).controls.reduce(
         (sum, line) => sum + closingNum(line.get('amount')?.value),
         0,
       );
+      if (posnetSum > 0) return posnetSum;
+      return closingNum(this.sourceAmounts().at(index)?.get('amount')?.value);
     }
     return this.sourceLines(index).controls.reduce(
       (sum, line) => sum + closingNum(line.get('amount')?.value),
       0,
     );
+  }
+
+  private posnetSumOf(sourceIndex: number): number {
+    return this.sourcePosnets(sourceIndex).controls.reduce(
+      (s, line) => s + closingNum(line.get('amount')?.value),
+      0,
+    );
+  }
+
+  private clearPosnetAmounts(sourceIndex: number): void {
+    for (const line of this.sourcePosnets(sourceIndex).controls) {
+      line.get('amount')?.setValue(null, { emitEvent: false });
+    }
+  }
+
+  private clearHeldSuma(sourceId: string): void {
+    this.heldSumaBySource.update((prev) => {
+      if (!(sourceId in prev)) return prev;
+      const next = { ...prev };
+      delete next[sourceId];
+      return next;
+    });
+  }
+
+  /** Al editar posnets: si había Suma sola, la guarda aparte; la Suma pasa a ser la de posnets. */
+  onPosnetAmountInput(sourceIndex: number): void {
+    if (!this.hasPosnets(sourceIndex) || this.sourcePosnets(sourceIndex).length < 2) return;
+    const ctrl = this.sourceAmounts().at(sourceIndex)?.get('amount');
+    if (!ctrl) return;
+    const sourceId = this.rowSourceId(sourceIndex);
+    const posnetSum = this.posnetSumOf(sourceIndex);
+    const currentSuma = closingNum(ctrl.value);
+    const held = sourceId ? this.heldSumaBySource()[sourceId] : undefined;
+
+    if (sourceId && posnetSum > 0 && held == null && currentSuma > 0 && currentSuma !== posnetSum) {
+      // Había un total en Suma (ej. del generar cierre) y recién se cargan posnets.
+      this.heldSumaBySource.update((prev) => ({ ...prev, [sourceId]: currentSuma }));
+    }
+
+    if (sourceId && posnetSum <= 0 && held != null) {
+      // Volvió a dejar los posnets vacíos: restaurar el total previo en Suma.
+      ctrl.setValue(held, { emitEvent: true });
+      this.clearHeldSuma(sourceId);
+      return;
+    }
+
+    ctrl.setValue(posnetSum > 0 ? posnetSum : null, { emitEvent: true });
+  }
+
+  /** Usar el total previo: vuelve a Suma y limpia los posnets. */
+  useHeldSuma(sourceIndex: number): void {
+    const sourceId = this.rowSourceId(sourceIndex);
+    const held = sourceId ? this.heldSumaBySource()[sourceId] : undefined;
+    if (!sourceId || held == null || !(held > 0)) return;
+    this.clearPosnetAmounts(sourceIndex);
+    this.sourceAmounts().at(sourceIndex)?.get('amount')?.setValue(held, { emitEvent: true });
+    this.clearHeldSuma(sourceId);
+  }
+
+  /** Sumar el total previo a lo cargado en posnets; el resultado queda en Suma. */
+  addHeldSuma(sourceIndex: number): void {
+    const sourceId = this.rowSourceId(sourceIndex);
+    const held = sourceId ? this.heldSumaBySource()[sourceId] : undefined;
+    if (!sourceId || held == null || !(held > 0)) return;
+    const posnetSum = this.posnetSumOf(sourceIndex);
+    const total = Math.round((held + posnetSum) * 100) / 100;
+    this.clearPosnetAmounts(sourceIndex);
+    this.sourceAmounts().at(sourceIndex)?.get('amount')?.setValue(total > 0 ? total : null, {
+      emitEvent: true,
+    });
+    this.clearHeldSuma(sourceId);
+  }
+
+  /** Suma a mano: si el usuario escribe el total, no hace falta llenar cada posnet. */
+  onManualTotalInput(sourceIndex: number): void {
+    const sourceId = this.rowSourceId(sourceIndex);
+    if (sourceId) this.clearHeldSuma(sourceId);
   }
 
   filledLineCount(index: number): number {

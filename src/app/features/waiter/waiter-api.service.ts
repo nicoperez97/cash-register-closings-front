@@ -45,8 +45,19 @@ export type WaiterMapObject = {
   mapY: number;
 };
 
+export type WaiterCounterSession = {
+  id: string;
+  label: string;
+  waiterEmployeeId: string | null;
+  openedAt: string;
+  covers: number;
+  orderCount: number;
+  customerTicketPrinted?: boolean;
+};
+
 export type WaiterFloor = {
   tables: WaiterTable[];
+  counterSessions?: WaiterCounterSession[];
   mapObjects: WaiterMapObject[];
 };
 
@@ -140,7 +151,7 @@ export type ComandaMonitorLine = { qty: number; name: string; extra?: boolean };
 
 export type ComandaMonitorTable = {
   sessionId: string;
-  tableId: string;
+  tableId: string | null;
   tableLabel: string;
   sectorName: string;
   covers: number;
@@ -180,6 +191,36 @@ export type ComandaMonitorPayload = {
     ticketsPrinted: number;
     audits: number;
   };
+};
+
+export type ComandaReceiptRow = {
+  sessionId: string;
+  channel: 'TABLE' | 'COUNTER';
+  tableLabel: string;
+  covers: number;
+  waiterEmployeeId?: string | null;
+  waiterName?: string | null;
+  openedAt: string;
+  closedAt: string | null;
+  ticketTotal: number;
+  tipAmount: number;
+  tipLabel?: string | null;
+  payments: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    kind?: 'CASH' | 'CARD' | 'TRANSFER' | null;
+    amount: number;
+  }>;
+  paymentLabel: string;
+};
+
+export type ComandaReceiptsPayload = {
+  from: string;
+  to: string;
+  count: number;
+  ticketTotal: number;
+  tipTotal: number;
+  rows: ComandaReceiptRow[];
 };
 
 export type WaiterSession = {
@@ -336,6 +377,67 @@ export class WaiterApiService {
     );
   }
 
+  private staffReceiptsQuery(params: {
+    from: string;
+    to: string;
+    q?: string;
+    channel?: 'TABLE' | 'COUNTER' | '';
+    paymentKind?: 'CASH' | 'CARD' | 'TRANSFER' | '';
+    waiterEmployeeId?: string;
+    hasTip?: 'yes' | 'no' | '';
+  }): string {
+    const qs = new URLSearchParams();
+    qs.set('from', params.from);
+    qs.set('to', params.to);
+    if (params.q) qs.set('q', params.q);
+    if (params.channel) qs.set('channel', params.channel);
+    if (params.paymentKind) qs.set('paymentKind', params.paymentKind);
+    if (params.waiterEmployeeId) qs.set('waiterEmployeeId', params.waiterEmployeeId);
+    if (params.hasTip) qs.set('hasTip', params.hasTip);
+    return qs.toString();
+  }
+
+  staffReceipts(
+    shopId: string,
+    params: {
+      from: string;
+      to: string;
+      q?: string;
+      channel?: 'TABLE' | 'COUNTER' | '';
+      paymentKind?: 'CASH' | 'CARD' | 'TRANSFER' | '';
+      waiterEmployeeId?: string;
+      hasTip?: 'yes' | 'no' | '';
+    },
+  ) {
+    return this.http.get<ComandaReceiptsPayload>(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/receipts?${this.staffReceiptsQuery(params)}`,
+    );
+  }
+
+  exportStaffReceiptsExcel(
+    shopId: string,
+    params: {
+      from: string;
+      to: string;
+      q?: string;
+      channel?: 'TABLE' | 'COUNTER' | '';
+      paymentKind?: 'CASH' | 'CARD' | 'TRANSFER' | '';
+      waiterEmployeeId?: string;
+      hasTip?: 'yes' | 'no' | '';
+    },
+  ) {
+    return this.http.get(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/receipts/export.xlsx?${this.staffReceiptsQuery(params)}`,
+      { responseType: 'blob' },
+    );
+  }
+
+  staffReceipt(shopId: string, sessionId: string) {
+    return this.http.get<WaiterSession>(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/receipts/${encodeURIComponent(sessionId)}`,
+    );
+  }
+
   login(slug: string, pin: string) {
     return this.http.post<WaiterLoginResult>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/login`,
@@ -379,14 +481,14 @@ export class WaiterApiService {
   openSession(
     slug: string,
     token: string,
-    salonTableId: string,
+    salonTableId: string | null,
     covers: number,
     waiterEmployeeId?: string | null,
   ) {
     return this.http.post<WaiterSession>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions`,
       {
-        salonTableId,
+        ...(salonTableId ? { salonTableId } : {}),
         covers,
         ...(waiterEmployeeId ? { waiterEmployeeId } : {}),
       },

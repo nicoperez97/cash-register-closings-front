@@ -48,6 +48,7 @@ export function buildSourceAmountGroup(
     includeInDeclared: boolean;
     kind: string;
     role?: string;
+    amount?: number | null;
     lines?: number[];
     posnets?: Array<{ id: string; name: string }>;
     posnetAmounts?: Array<{ posnetId: string; name: string; amount: number }>;
@@ -81,6 +82,9 @@ export function buildSourceAmountGroup(
   }
 
   if (posnetDefs.length) {
+    const posnetSum = posnetDefs.reduce((s, p) => s + closingNum(p.amount), 0);
+    const seedTotal =
+      closingNum(value.amount) > 0 ? closingNum(value.amount) : posnetSum > 0 ? posnetSum : null;
     const posnetAmounts = fb.array(
       posnetDefs.map((p) =>
         buildSourcePosnetAmountGroup(
@@ -96,6 +100,7 @@ export function buildSourceAmountGroup(
       includeInDeclared: [!!value.includeInDeclared],
       kind: [value.kind],
       role: [value.role || 'STANDARD'],
+      amount: [emptyNum(seedTotal)],
       lines: fb.array([]),
       posnetAmounts,
     });
@@ -110,6 +115,7 @@ export function buildSourceAmountGroup(
     includeInDeclared: [!!value.includeInDeclared],
     kind: [value.kind],
     role: [value.role || 'STANDARD'],
+    amount: [emptyNum(value.amount)],
     lines,
     posnetAmounts: fb.array([]),
   });
@@ -219,6 +225,7 @@ export function populateSourceAmounts(
           includeInDeclared: !!src.includeInDeclared,
           kind: src.kind,
           role: src.role,
+          amount: prev ? closingNum(prev.amount) : null,
           lines: catalogPosnets.length ? [] : sourceLineAmounts(prev),
           posnets: catalogPosnets,
           posnetAmounts,
@@ -240,6 +247,7 @@ export function populateSourceAmounts(
           includeInDeclared: !!s.includeInDeclared,
           kind: s.kind || 'RECORD_ONLY',
           role: s.role,
+          amount: closingNum(s.amount),
           lines: sourceLineAmounts(s),
           posnetAmounts: s.posnetAmounts ?? undefined,
         },
@@ -285,7 +293,11 @@ export function sourceLinesFromRaw(row: {
 }): number[] {
   const posnets = row.posnetAmounts;
   if (Array.isArray(posnets) && posnets.length) {
-    return posnets.map((p) => closingNum(p?.amount)).filter((v) => v > 0);
+    const fromPosnets = posnets.map((p) => closingNum(p?.amount)).filter((v) => v > 0);
+    if (fromPosnets.length) return fromPosnets;
+    // Varios posnets vacíos: usar Suma manual (amount).
+    const manual = closingNum(row.amount);
+    return manual > 0 ? [manual] : [];
   }
   const lines = row.lines;
   if (Array.isArray(lines) && lines.length) {

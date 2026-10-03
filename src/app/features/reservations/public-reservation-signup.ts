@@ -12,7 +12,8 @@ import { MatDatepicker, MatDatepickerModule } from '@angular/material/datepicker
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import { debounceTime, filter, finalize, Subscription } from 'rxjs';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { formatIsoDateWithWeekday, resolveShopCalendarDate } from '../../core/shop/business-date';
@@ -38,7 +39,7 @@ type MissingField = 'name' | 'email' | 'emailInvalid' | 'date' | 'time' | 'area'
 
 @Component({
   selector: 'app-public-reservation-signup',
-  imports: [FormsModule, MatDatepickerModule, RouterLink],
+  imports: [FormsModule, MatDatepickerModule, RouterLink, PublicPageInstallBannerComponent],
   template: `
     @if (error(); as err) {
       <div class="page page--error">
@@ -47,6 +48,7 @@ type MissingField = 'name' | 'email' | 'emailInvalid' | 'date' | 'time' | 'area'
       </div>
     } @else if (info(); as i) {
       <div class="page" [class.page--logo-only]="!shopSignupOpen()" [style.--accent]="accent()">
+        <app-public-page-install-banner kind="reservationSignup" [accent]="accent()" />
         <div class="glow" aria-hidden="true"></div>
         <header class="hero">
           @if (logoUrl()) {
@@ -418,7 +420,9 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   private readonly title = inject(Title);
   private readonly live = inject(ShopLiveClient);
   private readonly analytics = inject(AnalyticsService);
+  private readonly pagePwa = inject(PublicPagePwaService);
   private liveSub: Subscription | null = null;
+  private pwaApplied = false;
 
   readonly timeSlots = signal<string[]>([...TIME_SLOTS]);
   readonly timeRequired = signal(false);
@@ -505,14 +509,14 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    applyStatusBar('#0e0c0b', 'dark');
+    this.pagePwa.prime('reservationSignup', this.slug());
     this.load();
     this.bindLive();
   }
 
   ngOnDestroy(): void {
     this.unbindLive();
-    resetStatusBar();
+    this.pagePwa.release('reservationSignup', this.slug());
   }
 
   private bindLive(): void {
@@ -550,20 +554,28 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
         this.closedWeekdays.set(
           Array.isArray(info.closedWeekdays) ? info.closedWeekdays : [],
         );
+        if (!this.pwaApplied && info.shop) {
+          this.pwaApplied = true;
+          this.pagePwa.apply({
+            kind: 'reservationSignup',
+            slug: info.shop.slug || slug,
+            shopName: info.shop.name,
+            accentColor: info.shop.accentColor,
+            logoUrl: this.logoUrl(),
+          });
+        }
         if (info.closedDay || this.isIsoClosed(this.businessDate)) {
           const nextOpen = this.nextOpenIso(this.businessDate);
           if (nextOpen && nextOpen !== this.businessDate) {
             this.businessDate = nextOpen;
             this.refreshDateFlags();
             this.title.setTitle(`Reservar · ${info.shop.name}`);
-            applyStatusBar('#0e0c0b', 'dark');
             return;
           }
         }
         this.applyDateFlags(info);
         this.syncArea(this.insideEnabled(), this.outsideEnabled());
         this.title.setTitle(`Reservar · ${info.shop.name}`);
-        applyStatusBar('#0e0c0b', 'dark');
       },
       error: () => this.error.set('Este local no tiene reservas online por ahora.'),
     });

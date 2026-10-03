@@ -112,6 +112,7 @@ export function readClosingDraft(shopId: string, userId: string): ClosingFormDra
 export function clearClosingDraft(): void {
   try {
     localStorage.removeItem(DRAFT_KEY);
+    sessionStorage.removeItem(DRAFT_KEY);
   } catch {
     /* ignore */
   }
@@ -173,12 +174,17 @@ export function sourceAmountsFromDraft(draft: ClosingFormDraft): ClosingSourceAm
         : lines.length
           ? lines.reduce((s, n) => s + n, 0)
           : closingNum(row['amount']);
+      const manualAmount = closingNum(row['amount']);
       return {
         sourceId: String(row['sourceId'] ?? ''),
         name: String(row['name'] ?? ''),
         includeInDeclared: !!row['includeInDeclared'],
         kind: (row['kind'] as ClosingSourceAmount['kind']) || 'OTHER',
-        amount,
+        amount: posnetAmounts.length
+          ? amount > 0
+            ? amount
+            : manualAmount
+          : amount,
         lines: posnetAmounts.length
           ? null
           : lines.length

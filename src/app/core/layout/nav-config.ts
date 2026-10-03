@@ -65,6 +65,13 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
   { id: 'customerOrdersMonitor', label: 'Monitor pedidos', icon: 'monitor', defaultGroup: 'operacion', route: '/customer-orders/monitor' },
   { id: 'comanda', label: 'Comanda', icon: 'room_service', defaultGroup: 'operacion', route: '/comanda', exact: true },
   { id: 'comandaMonitor', label: 'Monitor comanda', icon: 'tv', defaultGroup: 'operacion', route: '/comanda/monitor' },
+  {
+    id: 'comandaReceiptsHistory',
+    label: 'Historial de comprobantes',
+    icon: 'receipt_long',
+    defaultGroup: 'operacion',
+    route: '/comanda/historial',
+  },
   { id: 'integrations', label: 'Integraciones', icon: 'hub', defaultGroup: 'local', route: '/integrations' },
   { id: 'attendance', label: 'Presentismo de salón', icon: 'storefront', defaultGroup: 'asistencia', route: '/attendance' },
   { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/production-attendance' },
