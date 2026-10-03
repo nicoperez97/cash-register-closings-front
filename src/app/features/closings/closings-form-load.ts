@@ -416,6 +416,11 @@ export function cobrosFromClosing(closing: CashClosing): OtherCobroRow[] {
       paymentMethod: cobroPaymentMethodFromMeta(e.meta),
     }));
   }
+  // Si el local usa Cuentas del local (sourceAmounts), las columnas canal legacy
+  // (deliveryAppsAmount, etc.) se derivan de esas fuentes al guardar: no las
+  // volvemos a sembrar como cobros o se duplican (p. ej. «PedidosYa / delivery»
+  // además de la fuente «Pedidos Ya»).
+  if ((closing.sourceAmounts ?? []).length) return [];
   const seeded: OtherCobroRow[] = [];
   if (closingNum(closing.deliveryAppsAmount) > 0) {
     seeded.push({
