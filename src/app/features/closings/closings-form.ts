@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { debounceTime, firstValueFrom, map, merge, catchError, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
+import { debounceTime, firstValueFrom, forkJoin, map, merge, catchError, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -109,6 +109,10 @@ import {
   type PendingClosingNotice,
 } from './closing-form-draft';
 import {
+  buildClosingDraftFromOrdersSummary,
+  type ClosingSummary,
+} from './closing-from-orders';
+import {
   POSNET_TYPE_LABEL,
   POSNET_TYPE_OPTIONS,
   cashSplitBalances,
@@ -186,7 +190,12 @@ import {
               }
             </mat-form-field>
             @if (showShiftSelect()) {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="closing-form__shift">
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="closing-form__shift"
+                #shiftField
+              >
                 <mat-label>Turno</mat-label>
                 <mat-select formControlName="shiftId">
                   @for (shift of shopShifts(); track shift.id) {
@@ -195,6 +204,9 @@ import {
                     </mat-option>
                   }
                 </mat-select>
+                @if (form.controls.shiftId.hasError('required')) {
+                  <mat-error>Seleccioná un turno</mat-error>
+                }
               </mat-form-field>
             }
           </div>
@@ -229,8 +241,9 @@ import {
                     color="primary"
                     type="button"
                     (click)="goGenerateClosingFromOrders()"
+                    [disabled]="generatingFromOrders()"
                   >
-                    Generar cierre
+                    {{ generatingFromOrders() ? 'Preparando…' : 'Generar cierre' }}
                   </button>
                 }
                 <button mat-button type="button" (click)="dismissOrdersClosingHint()">
@@ -292,18 +305,20 @@ import {
                   (changeAccountChange)="onChangeContributionAccount($event)"
                 />
                 @if (sourceCount() > 0) {
-                  <app-closing-form-caja-otros-step
-                    [sourceAmounts]="sourceAmounts"
-                    [sourceCount]="sourceCount()"
-                    [sourceFiles]="sourceFilesMap()"
-                    [filesBusyKey]="parsingKey()"
-                    [filesDisabled]="filesDisabled()"
-                    [requireClosingFiles]="requireClosingFiles()"
-                    (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
-                    (filePicked)="onStepFilesPicked('channel', $event.sourceId, $event.files)"
-                    (fileView)="onStepFileView($event)"
-                    (fileRemove)="onStepFileRemoved('channel', $event.sourceId, $event.file)"
-                  />
+                  @for (paint of [sourcesPaintEpoch()]; track paint) {
+                    <app-closing-form-caja-otros-step
+                      [sourceAmounts]="sourceAmounts"
+                      [sourceCount]="sourceCount()"
+                      [sourceFiles]="sourceFilesMap()"
+                      [filesBusyKey]="parsingKey()"
+                      [filesDisabled]="filesDisabled()"
+                      [requireClosingFiles]="requireClosingFiles()"
+                      (removeSourceLine)="removeSourceLine($event.sourceIndex, $event.lineIndex)"
+                      (filePicked)="onStepFilesPicked('channel', $event.sourceId, $event.files)"
+                      (fileView)="onStepFileView($event)"
+                      (fileRemove)="onStepFileRemoved('channel', $event.sourceId, $event.file)"
+                    />
+                  }
                 }
               </div>
             </mat-step>
@@ -439,7 +454,7 @@ export class ClosingsFormPage implements OnInit {
     }
     return list;
   });
-  readonly showShiftSelect = computed(() => this.shopShifts().length > 1);
+  readonly showShiftSelect = computed(() => !this.isEvent() && this.shopShifts().length > 1);
   private userPickedShift = false;
   readonly tipsEnabled = computed(() => !!this.shop()?.tipsEnabled);
   readonly tipEmployees = signal<Employee[]>([]);
@@ -461,6 +476,7 @@ export class ClosingsFormPage implements OnInit {
     shiftName: string;
   } | null>(null);
   private readonly ordersClosingHintDismissed = signal(false);
+  readonly generatingFromOrders = signal(false);
   readonly canGenerateClosingFromOrders = computed(() =>
     hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'closings.create'),
   );
@@ -487,6 +503,7 @@ export class ClosingsFormPage implements OnInit {
   });
   readonly isLastStep = computed(() => this.stepIndex() === this.stepLabels().length - 1);
   private readonly stepper = viewChild(MatStepper);
+  private readonly shiftField = viewChild('shiftField', { read: ElementRef });
   private closingId: string | null = null;
 
   /** IDs de posnets del local (para distinguir transferencias DNI ad-hoc al editar). */
@@ -560,7 +577,11 @@ export class ClosingsFormPage implements OnInit {
   /** Esperar catálogo antes de aplicar borrador / apertura sugerida. */
   private pendingDraftRestore = false;
   private pendingApplyOpening = false;
+  /** Evita que el autosave pise el borrador mientras el usuario decide recuperarlo. */
+  private suppressDraftPersist = false;
   readonly sourceCount = signal(0);
+  /** Remonta el paso de cuentas tras cargar montos (mat-input no pintaba Suma hasta el foco). */
+  readonly sourcesPaintEpoch = signal(0);
   readonly savedStepFiles = signal<ClosingStepFile[]>([]);
   readonly pendingStepFiles = signal<
     Array<{ pendingId: string; slot: ClosingStepFileSlot; sourceId: string | null; file: File }>
@@ -624,15 +645,25 @@ export class ClosingsFormPage implements OnInit {
   });
 
   private readonly autoSelectShift = effect(() => {
-    if (this.isEdit()) return;
-    const shop = this.shop();
+    if (this.isEdit() || this.isEvent()) return;
     const shifts = this.shopShifts();
     if (!shifts.length || this.userPickedShift) return;
-    const current = resolveCurrentShift(shop).id;
-    const next = shifts.some((s) => s.id === current) ? current : shifts[0].id;
+    // Un solo turno: completar. Varios: dejar vacío hasta que el usuario elija.
+    const next = shifts.length === 1 ? shifts[0].id : '';
     if (this.form.controls.shiftId.value !== next) {
       this.form.patchValue({ shiftId: next }, { emitEvent: false });
     }
+  });
+
+  /** Con varios turnos, shiftId es obligatorio (el error se muestra al llegar a Resumen o al guardar). */
+  private readonly syncShiftRequired = effect(() => {
+    const ctrl = this.form.controls.shiftId;
+    if (this.showShiftSelect()) {
+      ctrl.setValidators([Validators.required]);
+    } else {
+      ctrl.clearValidators();
+    }
+    ctrl.updateValueAndValidity({ emitEvent: false });
   });
 
   shiftHoursLabel(shift: ShopShift): string {
@@ -728,7 +759,17 @@ export class ClosingsFormPage implements OnInit {
     // Contado − apertura + egresos (lo que suma al declarado).
     const cashCollected = this.cashAmount() - opening + expensesTotal;
     push('Efectivo', cashCollected);
-    push('Cobros', this.cobrosTotal());
+    const cobros = (v.otherCobros ?? []) as Array<{
+      label?: string | null;
+      amount?: number | null;
+      paymentMethod?: string | null;
+    }>;
+    for (const cobro of cobros) {
+      if (String(cobro.paymentMethod ?? '').toUpperCase() === 'CASH') continue;
+      const amt = this.n(cobro.amount);
+      if (amt <= 0) continue;
+      push(String(cobro.label ?? '').trim() || 'Cobro', amt);
+    }
     const sources = (v.sourceAmounts ?? []) as Array<{
       name?: string;
       includeInDeclared?: boolean;
@@ -1001,7 +1042,10 @@ export class ClosingsFormPage implements OnInit {
       );
       this.form.patchValue(
         {
-          shiftId: resolveCurrentShift(this.shop()).id,
+          shiftId:
+            wantEvent || this.shopShifts().length > 1
+              ? ''
+              : resolveCurrentShift(this.shop()).id,
           kind: wantEvent ? 'EVENT' : 'REGULAR',
         },
         { emitEvent: false },
@@ -1013,6 +1057,7 @@ export class ClosingsFormPage implements OnInit {
       this.syncOtherCobros([]);
       this.pendingDraftRestore = !wantEvent;
       this.pendingApplyOpening = !wantEvent;
+      this.suppressDraftPersist = !wantEvent;
       // Si el catálogo ya llegó (carrera), armar ahora; si no, espera al listClosingSources.
       if (this.catalogSources.length) {
         this.onClosingSourcesCatalogReady(shopId);
@@ -1033,7 +1078,10 @@ export class ClosingsFormPage implements OnInit {
   onEventToggle(checked: boolean): void {
     this.isEvent.set(checked);
     this.form.patchValue(
-      { kind: checked ? 'EVENT' : 'REGULAR' },
+      {
+        kind: checked ? 'EVENT' : 'REGULAR',
+        ...(checked ? { shiftId: '' } : {}),
+      },
       { emitEvent: false },
     );
     if (checked) {
@@ -1137,15 +1185,81 @@ export class ClosingsFormPage implements OnInit {
   private onClosingSourcesCatalogReady(shopId: string | null): void {
     if (this.pendingDraftRestore) {
       this.pendingDraftRestore = false;
+      void this.offerClosingDraftRestore(shopId);
+      return;
+    }
+    this.finishClosingSourcesCatalogReady(shopId);
+  }
+
+  private async offerClosingDraftRestore(shopId: string | null): Promise<void> {
+    const userId = this.auth.currentUser()?.id;
+    const hasDraft = !!(shopId && userId && readClosingDraft(shopId, userId));
+    const fromGenerate = this.route.snapshot.queryParamMap.get('fromGenerate') === '1';
+    if (fromGenerate) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { fromGenerate: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+    if (!hasDraft) {
+      this.suppressDraftPersist = false;
+      this.finishClosingSourcesCatalogReady(shopId);
+      return;
+    }
+    // Generar cierre desde Pedidos: aplicar el borrador recién armado sin preguntar.
+    if (fromGenerate) {
       const restored = this.restoreClosingDraft();
       if (restored) {
         this.userPickedShift = true;
-        this.snack.open('Recuperamos el cierre que estabas cargando', 'OK', {
-          duration: 4000,
-        });
         this.pendingApplyOpening = false;
+        this.ordersClosingHintDismissed.set(true);
+        this.ordersClosingHint.set(null);
       }
+      this.suppressDraftPersist = false;
+      this.finishClosingSourcesCatalogReady(shopId);
+      return;
     }
+    const recover = await this.confirmDialog.confirm(
+      'Recuperar cierre',
+      'Hay un cierre que estabas cargando en este dispositivo. ¿Querés recuperarlo?',
+      {
+        confirmLabel: 'Recuperar',
+        cancelLabel: 'Empezar de nuevo',
+        confirmColor: 'primary',
+        icon: 'restore',
+      },
+    );
+    if (recover) {
+      const restored = this.restoreClosingDraft();
+      if (restored) {
+        // No reutilizar el turno del borrador: con varios turnos hay que elegirlo de nuevo.
+        if (this.shopShifts().length > 1) {
+          this.form.patchValue({ shiftId: '' }, { emitEvent: false });
+        }
+        this.userPickedShift = true;
+        this.pendingApplyOpening = false;
+        this.touchFormValue();
+      }
+      this.suppressDraftPersist = false;
+      this.finishClosingSourcesCatalogReady(shopId);
+      return;
+    }
+
+    clearClosingDraft();
+    this.tipDraft = null;
+    this.pendingClosing.set(null);
+    this.suppressDraftPersist = true;
+    this.finishClosingSourcesCatalogReady(shopId);
+    // La apertura sugerida pisa el form: al terminar, no dejar un borrador residual.
+    window.setTimeout(() => {
+      clearClosingDraft();
+      this.suppressDraftPersist = false;
+    }, 1000);
+  }
+
+  private finishClosingSourcesCatalogReady(shopId: string | null): void {
     this.syncSourceAmounts();
     if (this.pendingApplyOpening) {
       this.pendingApplyOpening = false;
@@ -1161,13 +1275,159 @@ export class ClosingsFormPage implements OnInit {
   }
 
   goGenerateClosingFromOrders(): void {
-    void this.router.navigate(['/customer-orders'], {
-      queryParams: { generarCierre: '1' },
-    });
+    void this.generateClosingInPlace();
+  }
+
+  /** Arma el cierre con pedidos/mesas del turno sin salir de Nuevo cierre. */
+  private async generateClosingInPlace(): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    const userId = this.auth.currentUser()?.id;
+    const shop = this.shop();
+    if (!shopId || !userId || !shop || this.generatingFromOrders()) return;
+
+    this.generatingFromOrders.set(true);
+    try {
+      let caja: CashClosing | null = null;
+      try {
+        caja = await firstValueFrom(this.api.getOpen(shopId));
+      } catch {
+        caja = null;
+      }
+      // Comandas / mesas no requieren caja de Pedidos abierta.
+
+      // Misma fecha del formulario; turno solo si el usuario eligió (si no, la API resuelve / cae al anterior).
+      const businessDate =
+        toDateString(this.form.controls.businessDate.value as Date | string | null) ||
+        resolveShopBusinessDate(new Date(), {
+          timezone: shop.timezone,
+          openingTime: shop.openingTime,
+        });
+      const formShiftId = String(this.form.controls.shiftId.value ?? '').trim();
+      const pending = pendingClosingFromOpenCaja(caja, shop);
+      const params = new URLSearchParams();
+      params.set('businessDate', businessDate);
+      if (formShiftId) params.set('shiftId', formShiftId);
+      const qs = params.toString();
+
+      const { summary, sources } = await firstValueFrom(
+        forkJoin({
+          summary: this.http.get<ClosingSummary>(
+            `${environment.apiUrl}/shops/${shopId}/customer-orders/closing-summary${qs ? `?${qs}` : ''}`,
+          ),
+          sources: this.api.listClosingSources(shopId, true).pipe(catchError(() => of([] as ShopClosingSource[]))),
+        }),
+      );
+
+      const warnings: string[] = [];
+      if (summary.openCount > 0) {
+        warnings.push(
+          `${summary.openCount} pedido(s) todavía abiertos del turno «${summary.shiftName}» (no entran hasta completarlos)`,
+        );
+      }
+      if ((summary.openTablesCount ?? 0) > 0) {
+        warnings.push(
+          `${summary.openTablesCount} mesa(s) abierta(s) (no se incluyen hasta cobrarlas)`,
+        );
+      }
+      if (!summary.orderCount && !summary.tables?.closedCount) {
+        warnings.push(
+          `Sin pedidos completados ni mesas cobradas en «${summary.shiftName}» (${summary.businessDate}). En Pedidos: Completar (acreditado no alcanza)`,
+        );
+      }
+      if (warnings.length) {
+        const cont = await this.confirmDialog.confirm(
+          'Generar cierre',
+          `${warnings.join('. ')}. ¿Generar el cierre igual?`,
+          {
+            confirmLabel: 'Generar igual',
+            cancelLabel: 'Cancelar',
+            confirmColor: 'primary',
+            icon: 'point_of_sale',
+          },
+        );
+        if (!cont) return;
+      }
+
+      const catalogSources = sources.length ? sources : this.catalogSources;
+      const draft = buildClosingDraftFromOrdersSummary({
+        shopId,
+        userId,
+        shop,
+        // Usar fecha/turno que devolvió el resumen (puede ser el anterior si no se fijó turno).
+        summary,
+        sources: catalogSources,
+        caja: pending ? null : caja,
+        pendingClosing: pending,
+      });
+      writeClosingDraft(draft);
+
+      // Cerrar pedidos online si aplica; con solo comandas no bloquea el armado del cierre.
+      try {
+        const updated = await firstValueFrom(
+          this.http.patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
+            orderingForceClosed: true,
+          }),
+        );
+        this.shops.upsertShop(updated as never);
+      } catch {
+        /* sin catálogo de pedidos / sin permiso: seguimos con mesas */
+      }
+
+      const restored = this.applyGeneratedClosingDraft(draft);
+      if (restored) {
+        this.userPickedShift = true;
+        this.pendingApplyOpening = false;
+        this.ordersClosingHintDismissed.set(true);
+        this.ordersClosingHint.set(null);
+      }
+
+      const mesas = summary.tables?.closedCount ?? 0;
+      const bits = [
+        `Cierre del turno «${summary.shiftName}» (${formatIsoDateDisplay(summary.businessDate)})`,
+        summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
+        mesas ? `${mesas} mesa(s)` : null,
+        pending ? `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}` : null,
+      ].filter(Boolean);
+      this.snack.open(
+        bits.length > 1 ? bits.join('. ') : `${bits[0]} (sin movimientos)`,
+        'OK',
+        { duration: pending ? 5200 : 3200 },
+      );
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'error' in err
+          ? (err as { error?: { message?: string } }).error?.message
+          : null;
+      this.snack.open(msg ?? 'No se pudo armar el resumen de pedidos', 'OK', { duration: 3500 });
+    } finally {
+      this.generatingFromOrders.set(false);
+    }
+  }
+
+  /** Aplica un borrador armado por Generar cierre (sin releer localStorage). */
+  private applyGeneratedClosingDraft(draft: {
+    form: Record<string, unknown>;
+    tipDraft: TipsEditorState | null;
+    pendingClosing?: PendingClosingNotice | null;
+  }): boolean {
+    applyClosingFormDraft(this.form, this.fb, draft as never, (v) => this.emptyNum(v), toDateInput);
+    this.syncCashWithdrawnFromTotal();
+    this.tipDraft = draft.tipDraft;
+    this.pendingClosing.set(draft.pendingClosing ?? null);
+    this.savedSourceAmounts = sourceAmountsFromDraft(draft as never);
+    this.syncSourceAmounts();
+    syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
+    this.touchFormValue();
+    const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
+    this.isEvent.set(String(this.form.controls.kind.value ?? '') === 'EVENT');
+    if (date && !this.isEvent()) this.loadTipDay(date);
+    return true;
   }
 
   private areOrderIncomesEmpty(): boolean {
     for (const ctrl of this.sourceAmounts.controls) {
+      // Multi-posnet: el total puede estar solo en amount (Suma), sin filas por posnet.
+      if (this.n(ctrl.get('amount')?.value) > 0) return false;
       const lines = ctrl.get('lines') as FormArray | null;
       if (lines) {
         for (const line of lines.controls) {
@@ -1192,29 +1452,31 @@ export class ClosingsFormPage implements OnInit {
       this.ordersClosingHint.set(null);
       return;
     }
-    const shop = this.shop();
     const businessDate =
       toDateString(this.form.controls.businessDate.value as Date | string | null) ||
       this.currentBusinessDate();
-    const shiftId =
-      String(this.form.controls.shiftId.value ?? '').trim() ||
-      resolveCurrentShift(shop).id;
-    this.customerOrdersApi.closingSummary(shopId, { businessDate, shiftId }).subscribe({
-      next: (summary) => {
-        const orderCount = Number(summary.orderCount) || 0;
-        const tablesCount = Number(summary.tables?.closedCount) || 0;
-        if (orderCount <= 0 && tablesCount <= 0) {
-          this.ordersClosingHint.set(null);
-          return;
-        }
-        this.ordersClosingHint.set({
-          orderCount,
-          tablesCount,
-          shiftName: String(summary.shiftName || '').trim() || 'turno',
-        });
-      },
-      error: () => this.ordersClosingHint.set(null),
-    });
+    const formShiftId = String(this.form.controls.shiftId.value ?? '').trim();
+    this.customerOrdersApi
+      .closingSummary(shopId, {
+        businessDate,
+        ...(formShiftId ? { shiftId: formShiftId } : {}),
+      })
+      .subscribe({
+        next: (summary) => {
+          const orderCount = Number(summary.orderCount) || 0;
+          const tablesCount = Number(summary.tables?.closedCount) || 0;
+          if (orderCount <= 0 && tablesCount <= 0) {
+            this.ordersClosingHint.set(null);
+            return;
+          }
+          this.ordersClosingHint.set({
+            orderCount,
+            tablesCount,
+            shiftName: String(summary.shiftName || '').trim() || 'turno',
+          });
+        },
+        error: () => this.ordersClosingHint.set(null),
+      });
   }
 
   private syncSourceAmounts(): void {
@@ -1229,6 +1491,15 @@ export class ClosingsFormPage implements OnInit {
     );
     this.sourceCount.set(this.sourceAmounts.length);
     this.sourceAmounts.updateValueAndValidity({ emitEvent: false });
+    // Forzar que mat-input tome el valor ya seteado (Suma multi-posnet).
+    for (const g of this.sourceAmounts.controls) {
+      const amount = g.get('amount');
+      if (!amount) continue;
+      const v = amount.value;
+      if (v == null || v === '') continue;
+      amount.setValue(v, { emitEvent: false });
+    }
+    this.sourcesPaintEpoch.update((n) => n + 1);
     this.touchFormValue();
   }
 
@@ -1777,6 +2048,10 @@ export class ClosingsFormPage implements OnInit {
 
   /** Arma el body de guardado o null si la validación falla (snacks en el componente). */
   private tryPrepareSaveBody(): { shopId: string; body: CashClosingInput } | null {
+    if (this.showShiftSelect() && !String(this.form.controls.shiftId.value ?? '').trim()) {
+      this.revealShiftRequiredError();
+      return null;
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return null;
@@ -2019,6 +2294,22 @@ export class ClosingsFormPage implements OnInit {
 
   onStepChange(index: number): void {
     this.stepIndex.set(index);
+    if (index === this.stepLabels().length - 1) {
+      this.revealShiftRequiredError();
+    }
+  }
+
+  /** Marca el select Turno y hace scroll si falta elegirlo (Resumen o Guardar). */
+  private revealShiftRequiredError(): void {
+    if (!this.showShiftSelect()) return;
+    const ctrl = this.form.controls.shiftId;
+    if (String(ctrl.value ?? '').trim()) return;
+    ctrl.markAsTouched();
+    ctrl.updateValueAndValidity({ emitEvent: false });
+    queueMicrotask(() => {
+      const el = this.shiftField()?.nativeElement as HTMLElement | undefined;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
 
   private cajaStepIndex(): number {
@@ -2066,7 +2357,7 @@ export class ClosingsFormPage implements OnInit {
   }
 
   private persistClosingDraft(): void {
-    if (this.isEdit()) return;
+    if (this.isEdit() || this.suppressDraftPersist) return;
     const shopId = this.shops.selectedShopId();
     const userId = this.auth.currentUser()?.id;
     if (!shopId || !userId) return;

@@ -506,7 +506,7 @@ export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
     this.refresh$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
     if (this.highlightTimer) clearTimeout(this.highlightTimer);
-    this.boardPwa.restore();
+    this.boardPwa.release('reservations', this.slug);
   }
 
   private applyBoardPwa(b: PublicReservationsBoard): void {

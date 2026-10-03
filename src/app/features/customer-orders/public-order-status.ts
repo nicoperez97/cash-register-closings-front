@@ -14,7 +14,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { debounceTime, filter } from 'rxjs';
-import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import {
   CustomerOrderStatus,
@@ -29,6 +29,7 @@ import {
   fulfillmentLabel,
   groupOrderLines,
   OrderLineGroup,
+  orderingLogoUrl,
   orderingMoney,
   onAccentColor,
   paymentLabel,
@@ -55,6 +56,8 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
   private readonly title = inject(Title);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snack = inject(MatSnackBar);
+  private readonly pagePwa = inject(PublicPagePwaService);
+  private pwaApplied = false;
 
   readonly slug = computed(() =>
     String(this.route.snapshot.paramMap.get('slug') ?? '').trim(),
@@ -134,7 +137,6 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    applyStatusBar('#eef1ee', 'light');
     const fromNav = this.router.getCurrentNavigation()?.extras?.state as
       | { justCreated?: boolean }
       | undefined;
@@ -146,6 +148,7 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     const code = this.code();
     this.title.setTitle(code ? `Pedido ${code}` : 'Tu pedido');
+    this.pagePwa.prime('orderLookup', slug);
 
     if (slug) {
       this.api.getPublicOrdering(slug).subscribe({
@@ -154,6 +157,16 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
           this.accent.set(color);
           if (!code) {
             this.title.setTitle(`Pedido · ${cfg.shop?.name ?? slug}`);
+          }
+          if (!this.pwaApplied && cfg.shop) {
+            this.pwaApplied = true;
+            this.pagePwa.apply({
+              kind: 'orderLookup',
+              slug: cfg.shop.slug || slug,
+              shopName: cfg.shop.name,
+              accentColor: cfg.shop.accentColor,
+              logoUrl: orderingLogoUrl(cfg.shop.logoUrl, cfg.shop.id),
+            });
           }
         },
       });
@@ -184,7 +197,7 @@ export class PublicOrderStatusComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    resetStatusBar();
+    this.pagePwa.release('orderLookup', this.slug());
   }
 
   unlock(ev: Event): void {

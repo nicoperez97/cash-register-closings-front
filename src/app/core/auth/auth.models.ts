@@ -1528,6 +1528,13 @@ export interface ShopSummary {
     accountId?: string | null;
     active?: boolean;
   }> | null;
+  /** Medios de pago de mesa (comanda). */
+  tablePaymentMethods?: Array<{
+    id?: string;
+    name: string;
+    accountId?: string | null;
+    active?: boolean;
+  }> | null;
   deliveryZones?: Array<{
     id: string;
     name: string;
@@ -1759,21 +1766,38 @@ export function compareRoleForShop(
   return user.globalRole;
 }
 
-function privilegePermCount(user: AuthUser, shopId: string | null): number {
+function privilegePerms(user: AuthUser, shopId: string | null): string[] {
   if (
     shopId &&
     (user.globalRole === 'OWNER' ||
       user.globalRole === 'ADMIN' ||
       user.shopIds.includes(shopId))
   ) {
-    return permissionsForShop(user, shopId).length;
+    return permissionsForShop(user, shopId);
   }
-  return (user.permissions ?? []).length;
+  return user.permissions ?? [];
+}
+
+/** true si `target` tiene al menos un permiso efectivo que `current` no tiene. */
+function hasExtraPermissions(
+  target: AuthUser,
+  current: AuthUser,
+  shopId: string | null,
+): boolean {
+  const currentPerms = new Set(privilegePerms(current, shopId));
+  return privilegePerms(target, shopId).some((p) => !currentPerms.has(p));
+}
+
+/** true si `target` tiene al menos un local que `current` no tiene. */
+function hasExtraShops(target: AuthUser, current: AuthUser): boolean {
+  const currentShops = new Set(current.shopIds ?? []);
+  return (target.shopIds ?? []).some((id) => !currentShops.has(id));
 }
 
 /**
  * true si `target` es más privilegiado que `current` (pide re-auth al cambiar).
- * Primero rol del local; si empatan, por cantidad de permisos efectivos.
+ * Primero rol del local; a mismo rol, si tiene permisos o locales que el actual no.
+ * Mismos o menos (subconjunto) → false, cambio sin contraseña.
  */
 export function isMorePrivileged(
   target: AuthUser | null,
@@ -1785,7 +1809,8 @@ export function isMorePrivileged(
   const tr = roleRank(compareRoleForShop(target, shopId));
   const cr = roleRank(compareRoleForShop(current, shopId));
   if (tr !== cr) return tr > cr;
-  return privilegePermCount(target, shopId) > privilegePermCount(current, shopId);
+  if (hasExtraPermissions(target, current, shopId)) return true;
+  return hasExtraShops(target, current);
 }
 
 function addPermission(set: Set<Permission>, ...perms: Permission[]) {

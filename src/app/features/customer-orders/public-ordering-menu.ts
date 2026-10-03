@@ -17,6 +17,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ImmersiveChromeService } from '../../core/layout/immersive-chrome.service';
 import { prettySection } from '../menu/menu-display';
@@ -63,6 +64,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private readonly shops = inject(ShopContextService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly immersiveChrome = inject(ImmersiveChromeService);
+  private readonly pagePwa = inject(PublicPagePwaService);
 
   private observer: IntersectionObserver | null = null;
   private jumping = false;
@@ -210,7 +212,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    applyStatusBar('#eef1ee', 'light');
+    if (this.staffMode()) {
+      applyStatusBar('#eef1ee', 'light');
+    } else {
+      this.pagePwa.prime('ordering', this.slug());
+    }
     this.cart.bindSlug(this.cartKey());
     if (!this.staffMode()) {
       this.dineIn.bindSlug(this.slug());
@@ -222,7 +228,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.immersiveChrome.setBottomBlocked('ordering-menu', false);
-    resetStatusBar();
+    if (this.staffMode()) {
+      resetStatusBar();
+    } else {
+      this.pagePwa.release('ordering', this.slug());
+    }
   }
 
   load(): void {
@@ -245,6 +255,15 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
             : `Menú · ${cfg.shop?.name ?? slug}`,
         );
         this.syncCartWithCatalog(cfg);
+        if (!this.staffMode() && cfg.shop) {
+          this.pagePwa.apply({
+            kind: 'ordering',
+            slug: cfg.shop.slug || slug,
+            shopName: cfg.shop.name,
+            accentColor: cfg.shop.accentColor,
+            logoUrl: this.logoUrl(),
+          });
+        }
       },
       error: (err) => {
         this.loading.set(false);

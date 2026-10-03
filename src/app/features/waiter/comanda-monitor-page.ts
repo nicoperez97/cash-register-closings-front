@@ -140,6 +140,12 @@ export class ComandaMonitorPage {
     return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}${reasonBit}`;
   }
 
+  placeHeading(label: string | null | undefined): string {
+    const t = String(label ?? '').trim();
+    if (!t || t.toLowerCase() === 'mostrador') return 'Mostrador';
+    return `Mesa ${t}`;
+  }
+
   openHelp(): void {
     const topic = topicById('comanda-monitor');
     if (!topic) return;

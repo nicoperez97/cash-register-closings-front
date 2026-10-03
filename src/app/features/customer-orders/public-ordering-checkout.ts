@@ -4,6 +4,7 @@ import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import {
   CreatePublicCustomerOrderBody,
@@ -45,6 +46,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   private readonly title = inject(Title);
   private readonly shops = inject(ShopContextService);
   private readonly snack = inject(MatSnackBar);
+  private readonly pagePwa = inject(PublicPagePwaService);
 
   readonly staffMode = computed(
     () => this.route.snapshot.data['staffOrdering'] === true,
@@ -221,13 +223,21 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    applyStatusBar('#eef1ee', 'light');
+    if (this.staffMode()) {
+      applyStatusBar('#eef1ee', 'light');
+    } else {
+      this.pagePwa.prime('ordering', this.slug());
+    }
     this.cart.bindSlug(this.cartKey());
     this.load();
   }
 
   ngOnDestroy(): void {
-    resetStatusBar();
+    if (this.staffMode()) {
+      resetStatusBar();
+    } else {
+      this.pagePwa.release('ordering', this.slug());
+    }
   }
 
   load(): void {
@@ -249,6 +259,15 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
             ? `Confirmar mostrador · ${cfg.shop?.name ?? slug}`
             : `Checkout · ${cfg.shop?.name ?? slug}`,
         );
+        if (!this.staffMode() && cfg.shop) {
+          this.pagePwa.apply({
+            kind: 'ordering',
+            slug: cfg.shop.slug || slug,
+            shopName: cfg.shop.name,
+            accentColor: cfg.shop.accentColor,
+            logoUrl: this.logoUrl(),
+          });
+        }
         this.pruneUnavailableCart(cfg);
         const channels: CustomerOrderFulfillment[] = [];
         if (this.staffMode()) {

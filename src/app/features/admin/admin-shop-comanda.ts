@@ -17,6 +17,7 @@ import { RouterLink } from '@angular/router';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
 import { copyText } from '../../shared/utils/share-text';
 import { WAITER_CAP_FIELDS, type WaiterCapProfile } from './waiter-capabilities';
+import { SelectSearchComponent } from '../../shared/components/select-search';
 
 @Component({
   selector: 'app-admin-shop-comanda',
@@ -31,6 +32,7 @@ import { WAITER_CAP_FIELDS, type WaiterCapProfile } from './waiter-capabilities'
     MatIconModule,
     MatSelectModule,
     MatSnackBarModule,
+    SelectSearchComponent,
   ],
   template: `
     <div [formGroup]="host.form">
@@ -136,12 +138,43 @@ import { WAITER_CAP_FIELDS, type WaiterCapProfile } from './waiter-capabilities'
                   class="op__pay-account"
                 >
                   <mat-label>Cuenta</mat-label>
-                  <mat-select formControlName="accountId">
-                    <mat-option [value]="null">Sin vincular</mat-option>
-                    @for (a of ledgerAccounts(); track a.id) {
-                      <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                  @if (host.payAccountSelectReady()) {
+                    @for (tick of [host.payAccountSelectEpoch()]; track tick) {
+                      <mat-select
+                        [value]="host.linkedAccountId('table', i)"
+                        [compareWith]="compareAccountId"
+                        panelClass="guy-select-search-panel"
+                        (openedChange)="host.onSelectSearchOpened($event, host.accountSearchQuery)"
+                        (selectionChange)="
+                          host.onPaymentAccountSelected('table', i, $event.value)
+                        "
+                      >
+                        <mat-option disabled class="select-search-opt">
+                          <app-select-search
+                            [(query)]="host.accountSearchQuery"
+                            placeholder="Buscar cuenta…"
+                          />
+                        </mat-option>
+                        <mat-option [value]="null">Sin vincular</mat-option>
+                        @for (
+                          a of host.filteredSourceAccounts(host.linkedAccountId('table', i));
+                          track a.id
+                        ) {
+                          <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                        }
+                        @if (
+                          host.accountSearchQuery() &&
+                          !host.filteredSourceAccounts(host.linkedAccountId('table', i)).length
+                        ) {
+                          <mat-option disabled>Sin resultados</mat-option>
+                        }
+                      </mat-select>
                     }
-                  </mat-select>
+                  } @else {
+                    <mat-select disabled [value]="null">
+                      <mat-option [value]="null">Cargando cuentas…</mat-option>
+                    </mat-select>
+                  }
                 </mat-form-field>
                 <button
                   mat-icon-button
@@ -229,6 +262,9 @@ export class AdminShopComandaComponent {
   readonly waiterOn = computed(() => !!this.host.formValue()?.waiterOrderingEnabled);
   readonly ledgerAccounts = computed(() => this.host.allLedgerAccounts());
 
+  compareAccountId = (a: string | null, b: string | null): boolean =>
+    (a == null || a === '' ? null : a) === (b == null || b === '' ? null : b);
+
   capParentOn(profile: 'public' | 'staff', key?: keyof WaiterCapProfile): boolean {
     if (!key) return true;
     return !!this.host.form.get(['waiterCapabilities', profile, key])?.value;
@@ -266,14 +302,16 @@ export class AdminShopComandaComponent {
   }
 
   addTablePay(): void {
+    const id = `tp_${Date.now().toString(36)}`;
     this.tablePays.push(
       this.fb.nonNullable.group({
-        id: [''],
+        id: [id],
         name: [''],
         accountId: this.fb.control<string | null>(null),
         active: [true],
       }),
     );
+    this.host.onPaymentAccountSelected('table', this.tablePays.length - 1, null);
   }
 
   removeTablePay(index: number): void {

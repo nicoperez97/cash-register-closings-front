@@ -782,7 +782,7 @@ export class PublicWaitingBoardComponent implements OnInit, OnDestroy {
     if (this.onVisible) document.removeEventListener('visibilitychange', this.onVisible);
     this.refresh$.complete();
     if (this.toastTimer) clearTimeout(this.toastTimer);
-    this.boardPwa.restore();
+    this.boardPwa.release('waiting', this.slug);
   }
 
   private applyBoardPwa(b: PublicWaitingBoard): void {

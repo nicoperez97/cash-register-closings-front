@@ -1,7 +1,8 @@
 import { Component, HostBinding, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import {
   CustomerOrdersApiService,
   PublicOrderingConfig,
@@ -11,7 +12,7 @@ import { apiErrorMessage, onAccentColor, orderingLogoUrl, orderingMoney } from '
 
 @Component({
   selector: 'app-public-ordering-landing',
-  imports: [RouterLink],
+  imports: [RouterLink, PublicPageInstallBannerComponent],
   templateUrl: './public-ordering-landing.html',
   styleUrl: './public-ordering-landing.scss',
 })
@@ -20,6 +21,8 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
   private readonly api = inject(CustomerOrdersApiService);
   private readonly cart = inject(OrderingCartService);
   private readonly title = inject(Title);
+  private readonly pagePwa = inject(PublicPagePwaService);
+  private pwaApplied = false;
 
   readonly slug = computed(() => String(this.route.snapshot.paramMap.get('slug') ?? '').trim());
   readonly loading = signal(true);
@@ -49,14 +52,14 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
   readonly cartCount = computed(() => this.cart.count());
 
   ngOnInit(): void {
-    applyStatusBar('#eef1ee', 'light');
     const slug = this.slug();
+    this.pagePwa.prime('ordering', slug);
     this.cart.bindSlug(slug);
     this.load();
   }
 
   ngOnDestroy(): void {
-    resetStatusBar();
+    this.pagePwa.release('ordering', this.slug());
   }
 
   load(): void {
@@ -73,6 +76,16 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
         this.config.set(cfg);
         this.loading.set(false);
         this.title.setTitle(`Pedir · ${cfg.shop?.name ?? slug}`);
+        if (!this.pwaApplied && cfg.shop) {
+          this.pwaApplied = true;
+          this.pagePwa.apply({
+            kind: 'ordering',
+            slug: cfg.shop.slug || slug,
+            shopName: cfg.shop.name,
+            accentColor: cfg.shop.accentColor,
+            logoUrl: this.logoUrl(),
+          });
+        }
       },
       error: (err) => {
         this.loading.set(false);

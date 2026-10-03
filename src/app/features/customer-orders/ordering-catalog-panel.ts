@@ -22,9 +22,12 @@ import {
   pendingClosingFromOpenCaja,
   persistClosingDraft,
   readClosingDraft,
-  type ClosingFormDraft,
   type PendingClosingNotice,
 } from '../closings/closing-form-draft';
+import {
+  buildClosingDraftFromOrdersSummary,
+  type ClosingSummary,
+} from '../closings/closing-from-orders';
 import { ClosingsApiService, type CashClosing, type ShopClosingSource } from '../closings/closings-api.service';
 import { formatSuggestedOpeningHint } from '../closings/closings-form.utils';
 import { catchError, forkJoin, of, Subject, switchMap } from 'rxjs';
@@ -43,74 +46,6 @@ type ToggleRow = {
   name: string;
   detail?: string;
   available: boolean;
-};
-
-type FulfillmentBucket = {
-  cashTotal: number;
-  transferTotal: number;
-  total: number;
-  orderCount: number;
-  unitsSold: number;
-};
-
-type ClosingPayMethodRow = {
-  paymentMethodId: string;
-  paymentMethodName: string;
-  accountId?: string | null;
-  amount: number;
-  kind: 'CASH' | 'TRANSFER' | 'CARD' | string;
-  orderCount?: number;
-};
-
-type ClosingSummary = {
-  businessDate: string;
-  shiftId: string;
-  shiftName: string;
-  opensAt: string;
-  closesAt: string;
-  orderCount: number;
-  openCount: number;
-  /** Mesas todavía abiertas (no entran al cierre hasta cobrarlas). */
-  openTablesCount?: number;
-  completedCount: number;
-  cashTotal: number;
-  transferTotal: number;
-  cardTotal?: number;
-  /** Pedidos + mesas en efectivo (listo para el campo Efectivo del cierre). */
-  cashDeclaredTotal?: number;
-  transferDeclaredTotal?: number;
-  cardDeclaredTotal?: number;
-  total: number;
-  unitsSold: number;
-  defaultChangeAmount?: number;
-  byFulfillment?: {
-    TAKEAWAY: FulfillmentBucket;
-    DELIVERY: FulfillmentBucket;
-    COUNTER: FulfillmentBucket;
-  };
-  paymentsByMethod?: ClosingPayMethodRow[];
-  deliverate?: {
-    closingSourceId: string | null;
-    paymentMethod: 'CASH' | 'TRANSFER';
-    includeInDeclared: boolean;
-    amount: number;
-    cashTotal: number;
-    transferTotal: number;
-    orderCount: number;
-    unitsSold: number;
-  } | null;
-  tables?: {
-    closedCount: number;
-    coversTotal: number;
-    coversFromReservations?: number;
-    coversSuggested?: number;
-    ticketTotal: number;
-    tipTotal: number;
-    cashTotal: number;
-    transferTotal: number;
-    cardTotal: number;
-    paymentsByMethod: ClosingPayMethodRow[];
-  };
 };
 
 @Component({
@@ -985,14 +920,7 @@ export class OrderingCatalogPanelComponent {
     const shopId = this.shops.selectedShopId();
     const userId = this.auth.currentUser()?.id;
     const shop = this.shops.selectedShop();
-    const caja = this.openClosing();
     if (!shopId || !userId || !shop) return;
-    if (!caja?.id) {
-      this.snack.open('Abrí la caja del turno antes de generar el cierre', 'OK', {
-        duration: 3500,
-      });
-      return;
-    }
 
     const existing = readClosingDraft(shopId, userId);
     if (existing) {
@@ -1005,11 +933,10 @@ export class OrderingCatalogPanelComponent {
     this.generatingClosing.set(true);
     this.closingsApi.getOpen(shopId).subscribe({
       next: (fresh) => {
-        const cajaNow = fresh ?? caja;
-        this.openClosing.set(cajaNow);
-        this.runClosingSummary(shopId, userId, shop, cajaNow);
+        this.openClosing.set(fresh);
+        this.runClosingSummary(shopId, userId, shop, fresh);
       },
-      error: () => this.runClosingSummary(shopId, userId, shop, caja),
+      error: () => this.runClosingSummary(shopId, userId, shop, this.openClosing()),
     });
   }
 
@@ -1017,7 +944,7 @@ export class OrderingCatalogPanelComponent {
     shopId: string,
     userId: string,
     shop: NonNullable<ReturnType<ShopContextService['selectedShop']>>,
-    caja: CashClosing,
+    caja: CashClosing | null,
   ): void {
     const todayBd = resolveShopBusinessDate(new Date(), {
       timezone: shop.timezone,
@@ -1025,9 +952,12 @@ export class OrderingCatalogPanelComponent {
     });
     const currentShift = resolveCurrentShift(shop);
     const pending = pendingClosingFromOpenCaja(caja, shop);
+    // Con caja abierta fijamos su día/turno; sin caja dejamos que la API resuelva (cae al turno con ventas).
+    const businessDate = String(caja?.businessDate ?? '').slice(0, 10) || todayBd;
+    const shiftId = String(caja?.shiftId ?? '').trim() || (caja ? currentShift.id : '');
     const params = new URLSearchParams();
-    params.set('businessDate', todayBd);
-    if (currentShift.id) params.set('shiftId', currentShift.id);
+    params.set('businessDate', businessDate);
+    if (shiftId) params.set('shiftId', shiftId);
     const qs = params.toString();
     forkJoin({
       summary: this.http.get<ClosingSummary>(
@@ -1065,55 +995,48 @@ export class OrderingCatalogPanelComponent {
           }
 
           clearClosingDraft();
-          const draft = this.buildClosingDraft(
+          const draft = buildClosingDraftFromOrdersSummary({
             shopId,
             userId,
-            {
-              ...summary,
-              businessDate: todayBd,
-              shiftId: currentShift.id,
-              shiftName: currentShift.name,
-            },
+            shop,
+            summary,
             sources,
-            pending ? null : caja,
-            pending,
-          );
+            caja: pending ? null : caja,
+            pendingClosing: pending,
+          });
           persistClosingDraft(draft);
+
+          const finishGenerate = (updatedShop?: unknown) => {
+            if (updatedShop) this.shops.upsertShop(updatedShop as never);
+            this.orderingOpen.set(false);
+            this.generatingClosing.set(false);
+            const mesas = summary.tables?.closedCount ?? 0;
+            const bits = [
+              `Cierre del turno «${summary.shiftName}» (${formatIsoDateDisplay(summary.businessDate)})`,
+              summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
+              mesas ? `${mesas} mesa(s)` : null,
+              pending
+                ? `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}`
+                : null,
+            ].filter(Boolean);
+            this.snack.open(
+              bits.length > 1 ? bits.join('. ') : `${bits[0]} (sin movimientos)`,
+              'OK',
+              { duration: pending ? 5200 : 3200 },
+            );
+            void this.router.navigate(['/closings/new'], {
+              queryParams: { fromGenerate: '1' },
+            });
+          };
 
           this.http
             .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
               orderingForceClosed: true,
             })
             .subscribe({
-              next: (updated: any) => {
-                this.shops.upsertShop(updated);
-                this.orderingOpen.set(false);
-                this.generatingClosing.set(false);
-                const mesas = summary.tables?.closedCount ?? 0;
-                const bits = [
-                  `Cierre del turno «${currentShift.name}» (${formatIsoDateDisplay(todayBd)})`,
-                  summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
-                  mesas ? `${mesas} mesa(s)` : null,
-                  pending
-                    ? `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}`
-                    : null,
-                ].filter(Boolean);
-                this.snack.open(
-                  bits.length > 1 ? bits.join('. ') : `${bits[0]} (sin movimientos)`,
-                  'OK',
-                  { duration: pending ? 5200 : 3200 },
-                );
-                void this.router.navigate(['/closings/new']);
-              },
-              error: () => {
-                clearClosingDraft();
-                this.generatingClosing.set(false);
-                this.snack.open(
-                  'No se pudo cerrar pedidos online. El borrador no se abrió para evitar pedidos nuevos durante el cierre.',
-                  'OK',
-                  { duration: 5000 },
-                );
-              },
+              next: (updated) => finishGenerate(updated),
+              // Solo comandas / sin catálogo de pedidos: igual abrimos el cierre armado.
+              error: () => finishGenerate(),
             });
       },
       error: (err: HttpErrorResponse) => {
@@ -1123,284 +1046,6 @@ export class OrderingCatalogPanelComponent {
         });
       },
     });
-  }
-
-  private buildClosingDraft(
-    shopId: string,
-    userId: string,
-    summary: ClosingSummary,
-    sources: ShopClosingSource[],
-    caja?: CashClosing | null,
-    pendingClosing?: PendingClosingNotice | null,
-  ): ClosingFormDraft {
-    const shop = this.shops.selectedShop();
-    const openingFromCaja =
-      caja?.cashOpeningAmount != null && Number(caja.cashOpeningAmount) >= 0
-        ? Number(caja.cashOpeningAmount)
-        : null;
-    const opening =
-      openingFromCaja ??
-      (summary.defaultChangeAmount != null && summary.defaultChangeAmount > 0
-        ? summary.defaultChangeAmount
-        : (shop?.defaultChangeAmount ?? null));
-    const openingAmt = Math.max(0, Number(opening) || 0);
-
-    const catalog = (sources ?? []).filter((s) => s.active !== false && s.role !== 'CASH');
-    const byAccount = new Map(
-      catalog.filter((s) => !!s.accountId).map((s) => [String(s.accountId), s] as const),
-    );
-    const nameKey = (n: string) =>
-      String(n ?? '')
-        .normalize('NFD')
-        .replace(/\p{M}/gu, '')
-        .toLowerCase()
-        .replace(/\s+/g, ' ')
-        .trim();
-    const findByNameHint = (...hints: RegExp[]) =>
-      catalog.find((s) => hints.some((h) => h.test(nameKey(s.name)))) ?? null;
-    const pvsSource =
-      catalog.find((s) => (s.posnets ?? []).length > 0 && /pvs|tarjeta|card|posnet/i.test(s.name)) ??
-      findByNameHint(/\bpvs\b/, /tarjeta/, /card/) ??
-      catalog.find((s) => (s.posnets ?? []).some((p) => /pvs/i.test(p.name))) ??
-      null;
-    const transferSource =
-      findByNameHint(/transfer/, /transf/) ??
-      catalog.find((s) => String(s.kind) === 'OWN_ACCOUNT' && /transfer|transf/i.test(s.name)) ??
-      null;
-    const mpSource = findByNameHint(/mercado\s*pago/, /\bmp\b/);
-
-    type SourceDraft = {
-      sourceId: string;
-      name: string;
-      includeInDeclared: boolean;
-      kind: 'OWN_ACCOUNT' | 'SETTLE_CASH' | 'SETTLE_ACCOUNT' | 'RECORD_ONLY';
-      amount: number;
-      lines: number[] | null;
-      posnetAmounts: Array<{ posnetId: string; name: string; amount: number }> | null;
-    };
-    const sourceMap = new Map<string, SourceDraft>();
-
-    const addToSource = (src: ShopClosingSource, amount: number) => {
-      if (!(amount > 0) || !src.id) return;
-      const prev = sourceMap.get(src.id);
-      const nextAmt = Math.round(((prev?.amount ?? 0) + amount) * 100) / 100;
-      const posnets = src.posnets ?? [];
-      if (posnets.length) {
-        const first = posnets[0];
-        const existing = prev?.posnetAmounts ?? [];
-        const byId = new Map(existing.map((p) => [p.posnetId, { ...p }]));
-        const row = byId.get(first.id) ?? {
-          posnetId: first.id,
-          name: first.name || 'Posnet',
-          amount: 0,
-        };
-        row.amount = Math.round((row.amount + amount) * 100) / 100;
-        byId.set(first.id, row);
-        sourceMap.set(src.id, {
-          sourceId: src.id,
-          name: src.name,
-          includeInDeclared: !!src.includeInDeclared,
-          kind: (src.kind as SourceDraft['kind']) || 'OWN_ACCOUNT',
-          amount: nextAmt,
-          lines: null,
-          posnetAmounts: [...byId.values()],
-        });
-      } else {
-        const lines = [...(prev?.lines ?? []), amount];
-        sourceMap.set(src.id, {
-          sourceId: src.id,
-          name: src.name,
-          includeInDeclared: !!src.includeInDeclared,
-          kind: (src.kind as SourceDraft['kind']) || 'OWN_ACCOUNT',
-          amount: nextAmt,
-          lines,
-          posnetAmounts: null,
-        });
-      }
-    };
-
-    const payRows: ClosingPayMethodRow[] = [
-      ...(summary.paymentsByMethod ?? []),
-      ...(summary.tables?.paymentsByMethod ?? []),
-    ].filter((p) => Number(p.amount) > 0);
-
-    // Compat pedidos viejos sin paymentsByMethod: armar desde buckets cash/transfer.
-    if (!payRows.length) {
-      const by = summary.byFulfillment;
-      const pushLegacy = (label: string, amount: number, kind: 'CASH' | 'TRANSFER') => {
-        if (!(amount > 0)) return;
-        payRows.push({
-          paymentMethodId: kind === 'TRANSFER' ? 'op_transfer' : 'op_cash',
-          paymentMethodName: label,
-          accountId: null,
-          amount,
-          kind,
-        });
-      };
-      if (by) {
-        pushLegacy('Pedidos take away (efectivo)', by.TAKEAWAY.cashTotal, 'CASH');
-        pushLegacy('Pedidos take away (transf.)', by.TAKEAWAY.transferTotal, 'TRANSFER');
-        pushLegacy('Pedidos delivery (efectivo)', by.DELIVERY.cashTotal, 'CASH');
-        pushLegacy('Pedidos delivery (transf.)', by.DELIVERY.transferTotal, 'TRANSFER');
-        pushLegacy('Pedidos mostrador (efectivo)', by.COUNTER.cashTotal, 'CASH');
-        pushLegacy('Pedidos mostrador (transf.)', by.COUNTER.transferTotal, 'TRANSFER');
-      } else {
-        pushLegacy('Pedidos online (efectivo)', summary.cashTotal, 'CASH');
-        pushLegacy('Pedidos online (transferencia)', summary.transferTotal, 'TRANSFER');
-      }
-      if (summary.tables?.cashTotal) {
-        pushLegacy('Mesas (efectivo)', summary.tables.cashTotal, 'CASH');
-      }
-      if (summary.tables?.transferTotal) {
-        pushLegacy('Mesas (transf.)', summary.tables.transferTotal, 'TRANSFER');
-      }
-      if (summary.tables?.cardTotal) {
-        payRows.push({
-          paymentMethodId: 'tp_card',
-          paymentMethodName: 'Tarjeta',
-          accountId: null,
-          amount: summary.tables.cardTotal,
-          kind: 'CARD',
-        });
-      }
-    }
-
-    let cashSales = 0;
-    let cardLegacy = 0;
-    let transferLegacy = 0;
-
-    const resolveSourceForPay = (pay: ClosingPayMethodRow): ShopClosingSource | null => {
-      if (pay.accountId) {
-        const byId = byAccount.get(String(pay.accountId));
-        if (byId) return byId;
-      }
-      const n = nameKey(pay.paymentMethodName);
-      if (!n) return null;
-      const exact = catalog.find((s) => nameKey(s.name) === n);
-      if (exact) return exact;
-      // Evitar que «Efectivo» matchee «Deliberate Efectivo» u otras cuentas.
-      if (/^(efectivo|cash|contado)$/.test(n)) return null;
-      return (
-        catalog.find((s) => {
-          const sn = nameKey(s.name);
-          if (sn.length < 3 || n.length < 3) return false;
-          return sn.includes(n) || n.includes(sn);
-        }) ?? null
-      );
-    };
-
-    for (const pay of payRows) {
-      const amount = Math.round(Number(pay.amount) * 100) / 100;
-      if (!(amount > 0)) continue;
-
-      // Primero la cuenta vinculada / nombre del medio → cuenta del local.
-      const linked = resolveSourceForPay(pay);
-      if (linked) {
-        addToSource(linked, amount);
-        continue;
-      }
-
-      const kind = String(pay.kind || '').toUpperCase();
-      const payName = String(pay.paymentMethodName ?? '');
-
-      if (kind === 'CARD' || /pvs|tarjeta|card|posnet/i.test(payName)) {
-        if (pvsSource) addToSource(pvsSource, amount);
-        else cardLegacy += amount;
-        continue;
-      }
-      if (kind === 'TRANSFER' || /transfer|transf/i.test(payName)) {
-        if (mpSource && /mercado|\bmp\b/i.test(payName)) {
-          addToSource(mpSource, amount);
-        } else if (transferSource) {
-          addToSource(transferSource, amount);
-        } else {
-          transferLegacy += amount;
-        }
-        continue;
-      }
-      // Sin vínculo: efectivo de caja (solo medios realmente cash).
-      cashSales += amount;
-    }
-
-    const deliverate = summary.deliverate;
-    if (deliverate?.closingSourceId && deliverate.amount > 0) {
-      const dSrc = catalog.find((s) => s.id === deliverate.closingSourceId);
-      if (dSrc) {
-        addToSource(dSrc, deliverate.amount);
-      } else {
-        sourceMap.set(deliverate.closingSourceId, {
-          sourceId: deliverate.closingSourceId,
-          name: 'Deliverate',
-          includeInDeclared: !!deliverate.includeInDeclared,
-          kind: 'OWN_ACCOUNT',
-          amount: deliverate.amount,
-          lines: [deliverate.amount],
-          posnetAmounts: null,
-        });
-      }
-    }
-
-    const sourceAmounts = [...sourceMap.values()];
-    // Contado = apertura + ventas en efectivo (si no hay ventas, queda = apertura → declarado sin resta fantasma).
-    const cashAmount = Math.round((openingAmt + cashSales) * 100) / 100;
-    const by = summary.byFulfillment;
-    const tables = summary.tables;
-
-    const notesParts = [
-      `Turno · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
-      summary.businessDate,
-      summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
-      summary.completedCount ? `${summary.completedCount} completado(s)` : null,
-      summary.openCount ? `${summary.openCount} abierto(s)` : null,
-      summary.openTablesCount ? `${summary.openTablesCount} mesa(s) abierta(s)` : null,
-      by?.COUNTER?.orderCount ? `${by.COUNTER.orderCount} mostrador` : null,
-      by?.TAKEAWAY?.orderCount ? `${by.TAKEAWAY.orderCount} take away` : null,
-      by?.DELIVERY?.orderCount ? `${by.DELIVERY.orderCount} delivery` : null,
-      deliverate?.orderCount
-        ? `${deliverate.orderCount} Deliverate (${deliverate.paymentMethod === 'TRANSFER' ? 'transf.' : 'efectivo'})`
-        : null,
-      tables?.closedCount ? `${tables.closedCount} mesa(s) cerrada(s)` : null,
-      tables?.tipTotal ? `propinas mesas ${this.money(tables.tipTotal)}` : null,
-    ].filter(Boolean);
-
-    return {
-      v: 1,
-      shopId,
-      userId,
-      savedAt: Date.now(),
-      tipDraft: null,
-      pendingClosing: pendingClosing ?? null,
-      form: {
-        businessDate: summary.businessDate,
-        shiftId: summary.shiftId,
-        cashOpeningAmount: openingAmt,
-        cashLeftInRegister: null,
-        cashAmount,
-        cardAmount: cardLegacy > 0 ? cardLegacy : null,
-        mercadoPagoAmount: null,
-        accountDniAmount: null,
-        deliveryAppsAmount: null,
-        transferAmount: transferLegacy > 0 ? transferLegacy : null,
-        posSystemAmount: null,
-        unitsSold: summary.unitsSold > 0 ? summary.unitsSold : null,
-        coversCount:
-          tables?.coversSuggested && tables.coversSuggested > 0
-            ? tables.coversSuggested
-            : tables?.coversTotal && tables.coversTotal > 0
-              ? tables.coversTotal
-              : null,
-        cashWithdrawn: cashAmount > 0 ? cashAmount : null,
-        cashWithdrawnByUserId: '',
-        cashWithdrawnToAccountId: '',
-        tipsAmount: tables?.tipTotal && tables.tipTotal > 0 ? tables.tipTotal : null,
-        notes: notesParts.join(' · '),
-        otherCobros: [],
-        expenses: [],
-        dniTransfers: [],
-        posnetAmounts: [],
-        sourceAmounts,
-      },
-    };
   }
 
   private patchCatalog(

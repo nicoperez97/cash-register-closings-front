@@ -7,6 +7,7 @@ import {
   hasShopPermission,
   isCashierOnly,
   isClosingsCreateOnly,
+  isMorePrivileged,
   isShopAdministrator,
   migrateModuleLevels,
   permissionsForShop,
@@ -192,5 +193,72 @@ describe('isClosingsCreateOnly', () => {
     user.shopPermissions = { s1: ['closings.read'] };
     expect(isClosingsCreateOnly(user, 's1')).toBe(false);
     expect(canViewClosingsList(user, 's1')).toBe(true);
+  });
+});
+
+describe('isMorePrivileged', () => {
+  function twinCashiers(opts?: {
+    targetExtraShops?: string[];
+    currentExtraShops?: string[];
+    targetPerms?: string[];
+    currentPerms?: string[];
+  }): { current: AuthUser; target: AuthUser } {
+    const basePerms = ['closings.create', 'closings.read'];
+    const current = cashierUser('s1');
+    current.id = 'current';
+    current.shopAccountIds = {};
+    current.shopPermissions = { s1: [...(opts?.currentPerms ?? basePerms)] };
+    const target = cashierUser('s1');
+    target.id = 'target';
+    target.shopAccountIds = {};
+    target.shopPermissions = { s1: [...(opts?.targetPerms ?? basePerms)] };
+    for (const id of opts?.currentExtraShops ?? []) {
+      current.shopIds = [...current.shopIds, id];
+      current.shopRoles = { ...current.shopRoles, [id]: 'CASHIER' };
+      current.shopPermissions = {
+        ...current.shopPermissions,
+        [id]: [...basePerms],
+      };
+    }
+    for (const id of opts?.targetExtraShops ?? []) {
+      target.shopIds = [...target.shopIds, id];
+      target.shopRoles = { ...target.shopRoles, [id]: 'CASHIER' };
+      target.shopPermissions = {
+        ...target.shopPermissions,
+        [id]: [...basePerms],
+      };
+    }
+    return { current, target };
+  }
+
+  it('mismos privilegios → no pide re-auth', () => {
+    const { current, target } = twinCashiers();
+    expect(isMorePrivileged(target, current, 's1')).toBe(false);
+  });
+
+  it('destino con un local más → pide re-auth', () => {
+    const { current, target } = twinCashiers({ targetExtraShops: ['s2'] });
+    expect(isMorePrivileged(target, current, 's1')).toBe(true);
+  });
+
+  it('destino con menos locales (subconjunto) → no pide re-auth', () => {
+    const { current, target } = twinCashiers({ currentExtraShops: ['s2'] });
+    expect(isMorePrivileged(target, current, 's1')).toBe(false);
+  });
+
+  it('destino con menos permisos (subconjunto) → no pide re-auth', () => {
+    const { current, target } = twinCashiers({
+      currentPerms: ['closings.create', 'closings.read', 'waitingList.read'],
+      targetPerms: ['closings.create', 'closings.read'],
+    });
+    expect(isMorePrivileged(target, current, 's1')).toBe(false);
+  });
+
+  it('destino con un permiso extra → pide re-auth', () => {
+    const { current, target } = twinCashiers({
+      currentPerms: ['closings.create', 'closings.read'],
+      targetPerms: ['closings.create', 'closings.read', 'waitingList.read'],
+    });
+    expect(isMorePrivileged(target, current, 's1')).toBe(true);
   });
 });

@@ -27,6 +27,7 @@ import {
   parsePolygonText,
   zoneColor,
 } from '../customer-orders/delivery-geo.util';
+import { SelectSearchComponent } from '../../shared/components/select-search';
 
 type HoursChannel = 'takeaway' | 'delivery';
 
@@ -46,6 +47,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     MatSelectModule,
     MatSnackBarModule,
     DeliveryZoneMapEditorComponent,
+    SelectSearchComponent,
   ],
   template: `
     <div class="op">
@@ -160,12 +162,43 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 class="op__pay-account"
               >
                 <mat-label>Cuenta</mat-label>
-                <mat-select formControlName="accountId">
-                  <mat-option [value]="null">Sin vincular</mat-option>
-                  @for (a of ledgerAccounts(); track a.id) {
-                    <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                  @if (host.payAccountSelectReady()) {
+                    @for (tick of [host.payAccountSelectEpoch()]; track tick) {
+                      <mat-select
+                        [value]="host.linkedAccountId('ordering', i)"
+                        [compareWith]="compareAccountId"
+                        panelClass="guy-select-search-panel"
+                        (openedChange)="host.onSelectSearchOpened($event, host.accountSearchQuery)"
+                        (selectionChange)="
+                          host.onPaymentAccountSelected('ordering', i, $event.value)
+                        "
+                      >
+                        <mat-option disabled class="select-search-opt">
+                          <app-select-search
+                            [(query)]="host.accountSearchQuery"
+                            placeholder="Buscar cuenta…"
+                          />
+                        </mat-option>
+                        <mat-option [value]="null">Sin vincular</mat-option>
+                        @for (
+                          a of host.filteredSourceAccounts(host.linkedAccountId('ordering', i));
+                          track a.id
+                        ) {
+                          <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                        }
+                        @if (
+                          host.accountSearchQuery() &&
+                          !host.filteredSourceAccounts(host.linkedAccountId('ordering', i)).length
+                        ) {
+                          <mat-option disabled>Sin resultados</mat-option>
+                        }
+                      </mat-select>
+                    }
+                  } @else {
+                    <mat-select disabled [value]="null">
+                      <mat-option [value]="null">Cargando cuentas…</mat-option>
+                    </mat-select>
                   }
-                </mat-select>
               </mat-form-field>
               <button
                 mat-icon-button
@@ -222,12 +255,43 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 class="op__pay-account"
               >
                 <mat-label>Cuenta</mat-label>
-                <mat-select formControlName="accountId">
-                  <mat-option [value]="null">Sin vincular</mat-option>
-                  @for (a of ledgerAccounts(); track a.id) {
-                    <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                  @if (host.payAccountSelectReady()) {
+                    @for (tick of [host.payAccountSelectEpoch()]; track tick) {
+                      <mat-select
+                        [value]="host.linkedAccountId('counter', i)"
+                        [compareWith]="compareAccountId"
+                        panelClass="guy-select-search-panel"
+                        (openedChange)="host.onSelectSearchOpened($event, host.accountSearchQuery)"
+                        (selectionChange)="
+                          host.onPaymentAccountSelected('counter', i, $event.value)
+                        "
+                      >
+                        <mat-option disabled class="select-search-opt">
+                          <app-select-search
+                            [(query)]="host.accountSearchQuery"
+                            placeholder="Buscar cuenta…"
+                          />
+                        </mat-option>
+                        <mat-option [value]="null">Sin vincular</mat-option>
+                        @for (
+                          a of host.filteredSourceAccounts(host.linkedAccountId('counter', i));
+                          track a.id
+                        ) {
+                          <mat-option [value]="a.id">{{ a.name }}</mat-option>
+                        }
+                        @if (
+                          host.accountSearchQuery() &&
+                          !host.filteredSourceAccounts(host.linkedAccountId('counter', i)).length
+                        ) {
+                          <mat-option disabled>Sin resultados</mat-option>
+                        }
+                      </mat-select>
+                    }
+                  } @else {
+                    <mat-select disabled [value]="null">
+                      <mat-option [value]="null">Cargando cuentas…</mat-option>
+                    </mat-select>
                   }
-                </mat-select>
               </mat-form-field>
               <button
                 mat-icon-button
@@ -619,6 +683,10 @@ export class AdminShopOrderingComponent {
   readonly deliveryOn = computed(() => !!this.host.formValue()?.deliveryEnabled);
   readonly ledgerAccounts = computed(() => this.host.allLedgerAccounts());
 
+  compareAccountId(a: string | null, b: string | null): boolean {
+    return (a == null || a === '' ? null : a) === (b == null || b === '' ? null : b);
+  }
+
   constructor() {
     // Tras cargar el local (o GET), si hay horarios distintos por día activar modo custom.
     merge(this.takeawayHours.valueChanges, this.deliveryHours.valueChanges)
@@ -648,9 +716,10 @@ export class AdminShopOrderingComponent {
   }
 
   addOrderingPay(): void {
+    const id = `op_${Date.now().toString(36)}`;
     this.orderingPays.push(
       this.fb.nonNullable.group({
-        id: [''],
+        id: [id],
         name: [''],
         kind: this.fb.nonNullable.control<'CASH' | 'TRANSFER' | 'CARD'>('CASH'),
         fulfillments: this.fb.nonNullable.control<Array<'TAKEAWAY' | 'DELIVERY'>>([
@@ -661,6 +730,7 @@ export class AdminShopOrderingComponent {
         active: [true],
       }),
     );
+    this.host.onPaymentAccountSelected('ordering', this.orderingPays.length - 1, null);
   }
 
   removeOrderingPay(index: number): void {
@@ -669,14 +739,16 @@ export class AdminShopOrderingComponent {
   }
 
   addCounterPay(): void {
+    const id = `cp_${Date.now().toString(36)}`;
     this.counterPays.push(
       this.fb.nonNullable.group({
-        id: [''],
+        id: [id],
         name: [''],
         accountId: this.fb.control<string | null>(null),
         active: [true],
       }),
     );
+    this.host.onPaymentAccountSelected('counter', this.counterPays.length - 1, null);
   }
 
   removeCounterPay(index: number): void {

@@ -15,14 +15,24 @@ import { MatSelectModule } from '@angular/material/select';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ImmersiveChromeService } from '../../core/layout/immersive-chrome.service';
 import { prettySection } from '../menu/menu-display';
-import { apiErrorMessage, formatOrderLinesInline, groupOrderLines, onAccentColor, orderingMoney } from '../customer-orders/ordering-ui.util';
+import {
+  apiErrorMessage,
+  formatOrderLinesInline,
+  groupOrderLines,
+  onAccentColor,
+  orderingLogoUrl,
+  orderingMoney,
+} from '../customer-orders/ordering-ui.util';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import {
   WaiterApiService,
   WaiterCatalog,
+  WaiterCounterSession,
   WaiterLineAudit,
   WaiterMapObject,
   WaiterSession,
@@ -78,7 +88,7 @@ function tokenKey(slug: string) {
 
 @Component({
   selector: 'app-waiter-page',
-  imports: [FormsModule, MatFormFieldModule, MatSelectModule],
+  imports: [FormsModule, MatFormFieldModule, MatSelectModule, PublicPageInstallBannerComponent],
   templateUrl: './waiter-page.html',
   styleUrl: './waiter-page.scss',
   host: {
@@ -99,6 +109,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly shopContext = inject(ShopContextService);
   private readonly theme = inject(ThemeService);
   private readonly immersiveChrome = inject(ImmersiveChromeService);
+  private readonly pagePwa = inject(PublicPagePwaService);
+  private pwaApplied = false;
 
   /** Operación → Comanda (JWT, sin PIN). */
   readonly staffMode = !!this.route.snapshot.data['staffComanda'];
@@ -122,6 +134,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly shopName = signal('');
   readonly accent = signal(this.theme.accent());
   readonly tables = signal<WaiterTable[]>([]);
+  readonly counterSessions = signal<WaiterCounterSession[]>([]);
   readonly mapObjects = signal<WaiterMapObject[]>([]);
   readonly session = signal<WaiterSession | null>(null);
   readonly catalog = signal<WaiterCatalog | null>(null);
@@ -147,7 +160,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   /** Borrador del cupo por promoId (vacío = ilimitado). */
   readonly promoCupoDrafts = signal<Record<string, string>>({});
 
-  /** Sheet: pedir comensales (y mozo en admin) antes de abrir. */
+  /** Sheet: pedir comensales (y mozo en admin) antes de abrir mesa. */
   readonly coversSheet = signal<WaiterTable | null>(null);
   readonly coversDraft = signal(2);
   readonly staffWaiters = signal<Array<{ id: string; fullName: string }>>([]);
@@ -522,12 +535,13 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    applyStatusBar('#eef1ee', 'light');
     if (this.staffMode) {
+      applyStatusBar('#eef1ee', 'light');
       this.enterAsStaff();
       return;
     }
     const slug = this.slug();
+    this.pagePwa.prime('waiter', slug);
     if (!slug) {
       this.loading.set(false);
       this.error.set('Local no encontrado');
@@ -627,6 +641,16 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.shopName.set(res.shop.name);
         this.accent.set(this.resolveAccent(res.shop.accentColor));
         this.title.setTitle(`Mozo · ${res.shop.name}`);
+        if (!this.staffMode && !this.pwaApplied) {
+          this.pwaApplied = true;
+          this.pagePwa.apply({
+            kind: 'waiter',
+            slug: res.shop.slug || slug,
+            shopName: res.shop.name,
+            accentColor: res.shop.accentColor,
+            logoUrl: orderingLogoUrl(res.shop.logoUrl, res.shop.id),
+          });
+        }
       },
       error: (err) => {
         if (!this.token()) {
@@ -638,7 +662,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.immersiveChrome.setBottomBlocked('comanda', false);
-    resetStatusBar();
+    if (this.staffMode) {
+      resetStatusBar();
+    } else {
+      this.pagePwa.release('waiter', this.slug());
+    }
   }
 
   bumpCovers(delta: number): void {
@@ -1017,6 +1045,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       next: (floor) => {
         const rows = floor?.tables ?? [];
         this.tables.set(rows);
+        this.counterSessions.set(floor?.counterSessions ?? []);
         this.mapObjects.set(floor?.mapObjects ?? []);
         const tab = this.sectorTab();
         if (tab) {
@@ -1136,7 +1165,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   tapTable(table: WaiterTable): void {
     if (this.busy()) return;
     if (table.openSession) {
-      this.resumeTable(table);
+      this.resumeSession(table.openSession.id);
       return;
     }
     this.coversDraft.set(Math.max(1, Math.min(30, table.seats || 2)));
@@ -1148,6 +1177,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       }
     }
     this.coversSheet.set(table);
+  }
+
+  /** Pedido de mostrador: va directo a la carta (sin mozo ni comensales). */
+  startCounterOrder(): void {
+    if (this.busy()) return;
+    this.openFresh(null, 1, null);
+  }
+
+  resumeCounter(session: WaiterCounterSession): void {
+    if (this.busy()) return;
+    this.resumeSession(session.id);
   }
 
   cancelCovers(): void {
@@ -1175,24 +1215,23 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.openFresh(table, covers, waiterEmployeeId);
   }
 
-  private resumeTable(table: WaiterTable): void {
+  private resumeSession(sessionId: string): void {
     const slug = this.slug();
     const token = this.token();
-    const sid = table.openSession?.id;
-    if (!slug || !token || !sid) return;
+    if (!slug || !token || !sessionId) return;
     this.busy.set(true);
     this.error.set(null);
-    this.api.getSession(slug, token, sid).subscribe({
+    this.api.getSession(slug, token, sessionId).subscribe({
       next: (session) => this.enterSession(session),
       error: (err) => {
         this.busy.set(false);
-        this.error.set(apiErrorMessage(err, 'No se pudo abrir la mesa'));
+        this.error.set(apiErrorMessage(err, 'No se pudo abrir el pedido'));
       },
     });
   }
 
   private openFresh(
-    table: WaiterTable,
+    table: WaiterTable | null,
     covers: number,
     waiterEmployeeId?: string | null,
   ): void {
@@ -1201,13 +1240,30 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (!slug || !token) return;
     this.busy.set(true);
     this.error.set(null);
-    this.api.openSession(slug, token, table.id, covers, waiterEmployeeId).subscribe({
+    this.api.openSession(slug, token, table?.id ?? null, covers, waiterEmployeeId).subscribe({
       next: (session) => this.enterSession(session),
       error: (err) => {
         this.busy.set(false);
-        this.error.set(apiErrorMessage(err, 'No se pudo abrir la mesa'));
+        this.error.set(
+          apiErrorMessage(err, table ? 'No se pudo abrir la mesa' : 'No se pudo abrir el mostrador'),
+        );
       },
     });
+  }
+
+  /** Título de lugar: mesa o Mostrador. */
+  placeHeading(label: string | null | undefined): string {
+    const t = String(label ?? '').trim();
+    if (!t || t.toLowerCase() === 'mostrador') return 'Mostrador';
+    return `Mesa ${t}`;
+  }
+
+  sessionPlaceLabel(session: WaiterSession | null | undefined = this.session()): string {
+    return this.placeHeading(session?.table?.label);
+  }
+
+  isCounterSession(session: WaiterSession | null | undefined = this.session()): boolean {
+    return !session?.table?.id;
   }
 
   private enterSession(session: WaiterSession): void {
@@ -1217,9 +1273,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.notes.set('');
     const caps = this.capabilities();
     this.printKitchen.set(caps.allowPrintKitchen && caps.defaultPrintKitchen);
-    this.printCustomerTicket.set(
-      caps.allowPrintCustomerTicket && caps.defaultPrintCustomerTicket,
-    );
+    // Ticket cliente y pago van al cerrar / ticket, no al enviar comanda.
+    this.printCustomerTicket.set(false);
     this.cartOpen.set(false);
     this.sessionEnviosOpen.set(false);
     this.sessionResumenOpen.set(false);
@@ -1819,21 +1874,25 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.error.set('No está permitido enviar comandas');
       return;
     }
-    let printKitchen = this.printKitchen();
-    let printCustomerTicket = this.printCustomerTicket();
+    const counter = this.isCounterSession(session);
+    let printKitchen = counter ? true : this.printKitchen();
+    // Mesa: ticket cliente al cerrar. Mostrador: cocina + ticket cliente y cobro.
+    let printCustomerTicket = false;
     if (!caps.allowPrintKitchen) printKitchen = false;
-    if (!caps.allowPrintCustomerTicket) printCustomerTicket = false;
-    if (caps.lockPrintKitchen) printKitchen = !!caps.defaultPrintKitchen;
-    if (caps.lockPrintCustomerTicket) printCustomerTicket = !!caps.defaultPrintCustomerTicket;
+    if (caps.lockPrintKitchen) {
+      printKitchen = counter
+        ? caps.allowPrintKitchen
+        : !!caps.defaultPrintKitchen;
+    }
     const items = lines
       .filter((l) => l.kind === 'ITEM')
       .map((l) => {
-        const combinesWithNames = this.combinesWithNamesFor(l, lines);
+        const combinesWithNames = counter ? [] : this.combinesWithNamesFor(l, lines);
         return {
           menuItemId: l.menuItemId,
           qty: l.qty,
           unitPrice: l.unitPrice,
-          isEntrada: !!l.isEntrada,
+          isEntrada: counter ? false : !!l.isEntrada,
           ...(combinesWithNames.length ? { combinesWithNames } : {}),
         };
       });
@@ -1860,19 +1919,21 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (res) => {
-          this.busy.set(false);
           this.lines.set([]);
           this.notes.set('');
           this.cartOpen.set(false);
           this.cartDetail.set(false);
           this.combineOpenKey.set(null);
           const warn = res?.print?.kitchenWarning;
+          if (counter) {
+            this.finishCounterSend(slug, token, session.id, printKitchen ? warn ?? null : null);
+            return;
+          }
+          this.busy.set(false);
           if (printKitchen && warn) {
             this.showToast(warn);
           } else {
-            this.showToast(
-              printKitchen || printCustomerTicket ? 'Comanda enviada' : 'Agregado a la mesa',
-            );
+            this.showToast(printKitchen ? 'Comanda enviada' : 'Agregado a la mesa');
           }
           this.session.set(null);
           this.view.set('tables');
@@ -1883,6 +1944,78 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.error.set(apiErrorMessage(err, 'No se pudo enviar la comanda'));
         },
       });
+  }
+
+  /** Mostrador: ticket cliente de sesión y abre cobro. */
+  private finishCounterSend(
+    slug: string,
+    token: string,
+    sessionId: string,
+    kitchenWarn: string | null,
+  ): void {
+    const afterSession = (updated: WaiterSession, toast: string) => {
+      this.busy.set(false);
+      this.session.set(updated);
+      this.showToast(toast);
+      this.openClosePaymentSheet();
+    };
+    if (!this.capabilities().allowPrintCustomerTicket) {
+      this.api.getSession(slug, token, sessionId).subscribe({
+        next: (updated) => afterSession(updated, kitchenWarn || 'Listo para cobrar'),
+        error: (err) => {
+          this.busy.set(false);
+          this.error.set(apiErrorMessage(err, 'No se pudo actualizar el pedido'));
+        },
+      });
+      return;
+    }
+    this.api
+      .printCustomerTicket(slug, token, sessionId, {
+        discountMode: 'none',
+        discountValue: null,
+      })
+      .subscribe({
+        next: (updated) =>
+          afterSession(updated, kitchenWarn || 'Comanda y ticket enviados'),
+        error: (err) => {
+          this.api.getSession(slug, token, sessionId).subscribe({
+            next: (updated) => {
+              this.busy.set(false);
+              this.session.set(updated);
+              this.error.set(apiErrorMessage(err, 'No se pudo imprimir el ticket'));
+              this.openClosePaymentSheet();
+            },
+            error: () => {
+              this.busy.set(false);
+              this.error.set(apiErrorMessage(err, 'No se pudo imprimir el ticket'));
+            },
+          });
+        },
+      });
+  }
+
+  /** Abre el sheet de pago (sin revalidar ticket: ya se imprimió o se intenta cobrar igual). */
+  private openClosePaymentSheet(): void {
+    const session = this.session();
+    if (!session) return;
+    if (!this.capabilities().allowCloseTable) {
+      this.error.set('No está permitido cerrar');
+      return;
+    }
+    const methods = this.paymentMethodsForClose();
+    const due = this.closeDueAmount();
+    const amounts: Record<string, number | null> = {};
+    for (const m of methods) amounts[m.id] = null;
+    if (methods[0]) {
+      amounts[methods[0].id] = due;
+      this.closePayPrimaryId.set(methods[0].id);
+    } else {
+      this.closePayPrimaryId.set(null);
+    }
+    this.closeTipMode.set('none');
+    this.closeTipValue.set(null);
+    this.closePayAmounts.set(amounts);
+    this.closeSheet.set(true);
   }
 
   reprintKitchen(orderId: string): void {
@@ -1949,20 +2082,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.openTicketSheet();
       return;
     }
-    const methods = this.paymentMethodsForClose();
-    const due = this.closeDueAmount();
-    const amounts: Record<string, number | null> = {};
-    for (const m of methods) amounts[m.id] = null;
-    if (methods[0]) {
-      amounts[methods[0].id] = due;
-      this.closePayPrimaryId.set(methods[0].id);
-    } else {
-      this.closePayPrimaryId.set(null);
-    }
-    this.closeTipMode.set('none');
-    this.closeTipValue.set(null);
-    this.closePayAmounts.set(amounts);
-    this.closeSheet.set(true);
+    this.openClosePaymentSheet();
   }
 
   cancelClose(): void {
@@ -2252,6 +2372,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const token = this.token();
     const session = this.session();
     if (!slug || !token || !session || this.busy()) return;
+    const counter = this.isCounterSession(session);
     if (!session.customerTicketPrinted) {
       this.error.set('Primero imprimí el ticket del cliente');
       return;
@@ -2277,7 +2398,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.busy.set(false);
-          this.showToast('Mesa cerrada');
+          this.showToast(counter ? 'Pedido cerrado' : 'Mesa cerrada');
           this.session.set(null);
           this.lines.set([]);
           this.view.set('tables');
@@ -2286,7 +2407,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.busy.set(false);
           this.closeSheet.set(true);
-          this.error.set(apiErrorMessage(err, 'No se pudo cerrar la mesa'));
+          this.error.set(
+            apiErrorMessage(err, counter ? 'No se pudo cerrar el pedido' : 'No se pudo cerrar la mesa'),
+          );
         },
       });
   }

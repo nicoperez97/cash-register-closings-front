@@ -6,6 +6,7 @@ import {
   effect,
   forwardRef,
   inject,
+  model,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
@@ -186,6 +187,16 @@ export class AdminShopPage implements OnInit {
   readonly toolbarConfigDraft = signal<ShopToolbarConfig | null>(null);
   readonly closingSourceKinds = CLOSING_SOURCE_KIND_OPTIONS;
   private removedClosingSourceIds: string[] = [];
+  /**
+   * accountId por medio (scope:id). Signal para que el template reaccione.
+   * El mat-select NO usa formControlName (lo vacía al remount); lee/escribe acá.
+   */
+  private readonly paymentAccountBindingsSig = signal<Record<string, string | null>>({});
+  /** Se incrementa cuando ya hay cuentas + bindings listos → remonta el mat-select. */
+  readonly payAccountSelectEpoch = signal(0);
+  readonly payAccountSelectReady = computed(
+    () => this.payAccountSelectEpoch() > 0 && this.allLedgerAccounts().length > 0,
+  );
   private readonly destroyRef = inject(DestroyRef);
   /** Fuerza un nuevo GET de fuentes (reintento / pull-to-refresh / post-guardado). */
   private readonly sourcesReloadTick = signal(0);
@@ -210,7 +221,7 @@ export class AdminShopPage implements OnInit {
     }[]
   >([]);
 
-  readonly accountSearchQuery = signal('');
+  readonly accountSearchQuery = model('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
 
   readonly isEmailTypeSelectedBound = (type: string) => this.isEmailTypeSelected(type);
@@ -1067,10 +1078,14 @@ export class AdminShopPage implements OnInit {
         }),
       );
     }
+    this.clearPaymentAccountBindings('ordering');
+    this.clearPaymentAccountBindings('counter');
+    this.clearPaymentAccountBindings('table');
     this.orderingPaymentMethods.clear();
+    const orderingItems = this.asPaymentMethodRows(s.orderingPayments?.items);
     const orderingPays =
-      s.orderingPayments?.items?.length
-        ? s.orderingPayments.items
+      orderingItems.length
+        ? orderingItems
         : [
             {
               id: 'op_cash',
@@ -1090,6 +1105,8 @@ export class AdminShopPage implements OnInit {
       if (m.active === false) continue;
       const id = String(m.id ?? '').trim();
       const name = String(m.name ?? '').trim();
+      const accountId = String(m.accountId ?? '').trim() || null;
+      this.rememberPaymentAccount('ordering', id, accountId);
       const kindRaw = String(m.kind ?? '').trim().toUpperCase();
       const kind =
         kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
@@ -1106,12 +1123,14 @@ export class AdminShopPage implements OnInit {
           fulfillments: this.fb.nonNullable.control<Array<'TAKEAWAY' | 'DELIVERY'>>(
             fulfillments.length ? fulfillments : ['TAKEAWAY', 'DELIVERY'],
           ),
-          accountId: this.fb.control<string | null>(String(m.accountId ?? '').trim() || null),
+          // accountId lo muestra el select vía signal; el control se sincroniza al guardar.
+          accountId: this.fb.control<string | null>(accountId),
           active: [true],
         }),
       );
     }
     if (!this.orderingPaymentMethods.length) {
+      this.rememberPaymentAccount('ordering', 'op_cash', null);
       this.orderingPaymentMethods.push(
         this.fb.nonNullable.group({
           id: ['op_cash'],
@@ -1127,9 +1146,10 @@ export class AdminShopPage implements OnInit {
       );
     }
     this.counterPaymentMethods.clear();
+    const counterRows = this.asPaymentMethodRows(s.counterPaymentMethods);
     const counterPays =
-      s.counterPaymentMethods?.length
-        ? s.counterPaymentMethods
+      counterRows.length
+        ? counterRows
         : [
             {
               id: 'cp_cash',
@@ -1146,16 +1166,20 @@ export class AdminShopPage implements OnInit {
           ];
     for (const m of counterPays) {
       if (m.active === false) continue;
+      const id = String(m.id ?? '').trim();
+      const accountId = String(m.accountId ?? '').trim() || null;
+      this.rememberPaymentAccount('counter', id, accountId);
       this.counterPaymentMethods.push(
         this.fb.nonNullable.group({
-          id: [String(m.id ?? '').trim()],
+          id: [id],
           name: [String(m.name ?? '').trim()],
-          accountId: this.fb.control<string | null>(String(m.accountId ?? '').trim() || null),
+          accountId: this.fb.control<string | null>(accountId),
           active: [true],
         }),
       );
     }
     if (!this.counterPaymentMethods.length) {
+      this.rememberPaymentAccount('counter', 'cp_cash', null);
       this.counterPaymentMethods.push(
         this.fb.nonNullable.group({
           id: ['cp_cash'],
@@ -1166,9 +1190,9 @@ export class AdminShopPage implements OnInit {
       );
     }
     this.tablePaymentMethods.clear();
-    const methods =
-      (s as { tablePaymentMethods?: Array<{ id?: string; name: string; accountId?: string | null; active?: boolean }> })
-        .tablePaymentMethods ?? [];
+    const methods = this.asPaymentMethodRows(
+      (s as { tablePaymentMethods?: unknown }).tablePaymentMethods,
+    );
     const seed = methods.length
       ? methods
       : [
@@ -1177,15 +1201,19 @@ export class AdminShopPage implements OnInit {
           { id: 'tp_transfer', name: 'Transferencia', accountId: null, active: true },
         ];
     for (const m of seed) {
+      const id = String(m.id ?? '').trim();
+      const accountId = String(m.accountId ?? '').trim() || null;
+      this.rememberPaymentAccount('table', id, accountId);
       this.tablePaymentMethods.push(
         this.fb.nonNullable.group({
-          id: [m.id ?? ''],
+          id: [id],
           name: [m.name ?? ''],
-          accountId: [m.accountId ?? null],
+          accountId: this.fb.control<string | null>(accountId),
           active: [m.active !== false],
         }),
       );
     }
+    this.refreshPayAccountSelects();
     this.patchWaiterCapabilities(
       (s as { waiterCapabilities?: unknown }).waiterCapabilities,
     );
@@ -1636,9 +1664,134 @@ export class AdminShopPage implements OnInit {
     const shopId = this.shops.selectedShopId();
     if (!shopId) return;
     this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
-      next: (rows) => this.allLedgerAccounts.set(rows),
+      next: (rows) => {
+        this.allLedgerAccounts.set(rows);
+        this.refreshPayAccountSelects();
+      },
       error: () => this.snack.open('No se pudieron cargar las cuentas', 'OK', { duration: 3000 }),
     });
+  }
+
+  /** Sincroniza controls y remonta selects (evita clear del mat-select sin opciones). */
+  private refreshPayAccountSelects(): void {
+    this.syncPaymentAccountControlsFromBindings();
+    if (this.allLedgerAccounts().length) {
+      this.payAccountSelectEpoch.update((n) => n + 1);
+    }
+  }
+
+  private asPaymentMethodRows(raw: unknown): Array<{
+    id?: string;
+    name: string;
+    accountId?: string | null;
+    active?: boolean;
+    kind?: string;
+    fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+  }> {
+    let value: unknown = raw;
+    if (typeof value === 'string') {
+      try {
+        value = JSON.parse(value) as unknown;
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(value) ? (value as Array<{ id?: string; name: string; accountId?: string | null; active?: boolean; kind?: string; fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'> }>) : [];
+  }
+
+  private paymentBindingKey(
+    scope: 'table' | 'counter' | 'ordering',
+    methodId: string,
+  ): string {
+    return `${scope}:${methodId || '_'}`;
+  }
+
+  private clearPaymentAccountBindings(scope: 'table' | 'counter' | 'ordering'): void {
+    const prefix = `${scope}:`;
+    const next = { ...this.paymentAccountBindingsSig() };
+    for (const key of Object.keys(next)) {
+      if (key.startsWith(prefix)) delete next[key];
+    }
+    this.paymentAccountBindingsSig.set(next);
+  }
+
+  private rememberPaymentAccount(
+    scope: 'table' | 'counter' | 'ordering',
+    methodId: string,
+    accountId: string | null,
+  ): void {
+    const key = this.paymentBindingKey(scope, methodId);
+    const normalized = accountId == null || accountId === '' ? null : String(accountId).trim();
+    this.paymentAccountBindingsSig.update((prev) => {
+      if (prev[key] === normalized) return prev;
+      return { ...prev, [key]: normalized };
+    });
+  }
+
+  /** Valor mostrado en el select (sin formControlName). */
+  linkedAccountId(scope: 'table' | 'counter' | 'ordering', index: number): string | null {
+    const bindings = this.paymentAccountBindingsSig();
+    const arr =
+      scope === 'table'
+        ? this.tablePaymentMethods
+        : scope === 'counter'
+          ? this.counterPaymentMethods
+          : this.orderingPaymentMethods;
+    const methodId = String(arr.at(index)?.get('id')?.value ?? '').trim() || `idx:${index}`;
+    const key = this.paymentBindingKey(scope, methodId);
+    return Object.prototype.hasOwnProperty.call(bindings, key) ? (bindings[key] ?? null) : null;
+  }
+
+  private resolvePaymentAccountId(
+    scope: 'table' | 'counter' | 'ordering',
+    methodId: string,
+    _formValue?: string | null,
+  ): string | null {
+    const key = this.paymentBindingKey(scope, methodId);
+    const bindings = this.paymentAccountBindingsSig();
+    if (Object.prototype.hasOwnProperty.call(bindings, key)) {
+      return bindings[key] ?? null;
+    }
+    return String(_formValue ?? '').trim() || null;
+  }
+
+  /** Click del usuario en el select. */
+  onPaymentAccountSelected(
+    scope: 'table' | 'counter' | 'ordering',
+    index: number,
+    value: string | null,
+  ): void {
+    const arr =
+      scope === 'table'
+        ? this.tablePaymentMethods
+        : scope === 'counter'
+          ? this.counterPaymentMethods
+          : this.orderingPaymentMethods;
+    const group = arr.at(index);
+    if (!group) return;
+    const methodId = String(group.get('id')?.value ?? '').trim() || `idx:${index}`;
+    const accountId = value == null || value === '' ? null : String(value).trim();
+    this.rememberPaymentAccount(scope, methodId, accountId);
+    group.get('accountId')?.setValue(accountId, { emitEvent: false });
+  }
+
+  /** Copia el signal → FormControl (para getRawValue / compat). */
+  private syncPaymentAccountControlsFromBindings(): void {
+    const bindings = this.paymentAccountBindingsSig();
+    const sync = (arr: FormArray, scope: 'table' | 'counter' | 'ordering') => {
+      arr.controls.forEach((group, index) => {
+        const ctrl = group.get('accountId');
+        if (!ctrl) return;
+        const methodId = String(group.get('id')?.value ?? '').trim() || `idx:${index}`;
+        const key = this.paymentBindingKey(scope, methodId);
+        if (!Object.prototype.hasOwnProperty.call(bindings, key)) return;
+        const next = bindings[key] ?? null;
+        if (ctrl.value !== next) ctrl.setValue(next, { emitEvent: false });
+      });
+    };
+    sync(this.tablePaymentMethods, 'table');
+    sync(this.counterPaymentMethods, 'counter');
+    sync(this.orderingPaymentMethods, 'ordering');
   }
 
   reloadConcepts(): void {
@@ -1922,6 +2075,8 @@ export class AdminShopPage implements OnInit {
     }
     const shopId = this.shops.selectedShopId();
     if (!shopId || this.form.invalid || this.saving()) return;
+    // Asegurar que los accountId del signal estén en el form antes de armar el body.
+    this.syncPaymentAccountControlsFromBindings();
     const raw = this.form.getRawValue();
     this.saving.set(true);
     const body: Record<string, unknown> = {
@@ -2004,7 +2159,7 @@ export class AdminShopPage implements OnInit {
             return {
               id,
               name,
-              accountId: String(m.accountId ?? '').trim() || null,
+              accountId: this.resolvePaymentAccountId('ordering', id ?? '', m.accountId),
               active: m.active !== false,
               kind,
               fulfillments: fulfillments.length
@@ -2025,12 +2180,15 @@ export class AdminShopPage implements OnInit {
           active?: boolean;
         }>
       )
-        .map((m) => ({
-          id: String(m.id ?? '').trim() || undefined,
-          name: String(m.name ?? '').trim(),
-          accountId: String(m.accountId ?? '').trim() || null,
-          active: m.active !== false,
-        }))
+        .map((m) => {
+          const id = String(m.id ?? '').trim() || undefined;
+          return {
+            id,
+            name: String(m.name ?? '').trim(),
+            accountId: this.resolvePaymentAccountId('counter', id ?? '', m.accountId),
+            active: m.active !== false,
+          };
+        })
         .filter((m) => !!m.name),
       tablePaymentMethods: (
         raw.tablePaymentMethods as Array<{
@@ -2040,12 +2198,15 @@ export class AdminShopPage implements OnInit {
           active?: boolean;
         }>
       )
-        .map((m) => ({
-          id: String(m.id ?? '').trim() || undefined,
-          name: String(m.name ?? '').trim(),
-          accountId: String(m.accountId ?? '').trim() || null,
-          active: m.active !== false,
-        }))
+        .map((m) => {
+          const id = String(m.id ?? '').trim() || undefined;
+          return {
+            id,
+            name: String(m.name ?? '').trim(),
+            accountId: this.resolvePaymentAccountId('table', id ?? '', m.accountId),
+            active: m.active !== false,
+          };
+        })
         .filter((m) => !!m.name),
       waiterCapabilities: normalizeWaiterCapabilities(raw.waiterCapabilities),
       deliveryZones: (raw.deliveryZones as Array<{
@@ -2131,6 +2292,10 @@ export class AdminShopPage implements OnInit {
           this.shops.setShops(this.shops.shops().filter((s) => s.id !== shop.id));
         } else {
           this.shops.upsertShop(shop);
+        }
+        // Reaplicar medios: el select lee el signal (no formControlName de accountId).
+        if (Array.isArray(shop.tablePaymentMethods) || Array.isArray(shop.counterPaymentMethods)) {
+          this.patchShopForm(shop);
         }
         void this.auth.refreshMe().finally(() => {
           requestAnimationFrame(() => {

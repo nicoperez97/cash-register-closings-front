@@ -171,7 +171,7 @@ export class MainLayoutComponent {
     }
     if (isComandaOnly(user, shopId)) {
       return this.shopFeature('waiterOrdering')
-        ? [leaf('comanda'), leaf('comandaMonitor')]
+        ? [leaf('comanda'), leaf('comandaMonitor'), leaf('comandaReceiptsHistory')]
         : [];
     }
     if (isProducerOnly(user, shopId)) {
@@ -263,6 +263,7 @@ export class MainLayoutComponent {
     ) {
       operacion.push(leaf('comanda'));
       operacion.push(leaf('comandaMonitor'));
+      operacion.push(leaf('comandaReceiptsHistory'));
     }
     if (operacion.length) {
       items.push({

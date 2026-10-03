@@ -118,7 +118,6 @@
            Si el href inicial es manifest.webmanifest, cachea "Cierres" + start_url /
            aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */
         var path = location.pathname || '';
-        var board = path.match(/^\/(r|w)\/([^/]+)\/?$/);
         var isLogin = path === '/login' || path.indexOf('/login?') === 0;
         var isPublicOrdering =
           path.indexOf('/pedir/') === 0 ||
@@ -127,39 +126,66 @@
           path === '/mi-pedido';
         var manifestHref = 'manifest.webmanifest';
 
-        if (board || isLogin) {
-          /* Barra de estado oscura antes del primer paint (login / tableros). */
-          var statusColor = isLogin ? '#08263f' : '#0e0c0b';
-          var themeMeta = document.getElementById('app-theme-color');
+        /* Prefijo de ruta → kind API + títulos + esquema de status bar. */
+        var PUBLIC_PAGES = [
+          { re: /^\/m\/([^/]+)/, kind: 'menu', short: 'Carta', full: 'Carta', dark: false, bg: '#ffffff' },
+          { re: /^\/pedir\/([^/]+)/, kind: 'ordering', short: 'Pedir', full: 'Pedir', dark: false, bg: '#eef1ee' },
+          { re: /^\/mi-pedido\/([^/]+)/, kind: 'orderLookup', short: 'Mi pedido', full: 'Consultar pedido', dark: false, bg: '#eef1ee' },
+          { re: /^\/mozo\/([^/]+)/, kind: 'waiter', short: 'Comanda', full: 'Comanda mozos', dark: false, bg: '#eef1ee' },
+          { re: /^\/r\/([^/]+)/, kind: 'reservations', short: 'Reservas', full: 'Reservas', dark: true, bg: '#0e0c0b' },
+          { re: /^\/reservar\/([^/]+)/, kind: 'reservationSignup', short: 'Reservar', full: 'Reservar', dark: true, bg: '#0e0c0b' },
+          { re: /^\/mi-reserva\/([^/]+)/, kind: 'reservationLookup', short: 'Mi reserva', full: 'Consultar reserva', dark: true, bg: '#0e0c0b' },
+          { re: /^\/w\/([^/]+)/, kind: 'waiting', short: 'Espera', full: 'Lista de espera', dark: true, bg: '#0e0c0b' },
+          { re: /^\/p\/([^/]+)/, kind: 'attendance', short: 'Presentismo', full: 'Presentismo', dark: false, bg: '#ffffff' },
+          { re: /^\/n\/([^/]+)/, kind: 'serviceRules', short: 'Normas', full: 'Normas de servicio', dark: false, bg: '#ffffff' },
+        ];
+
+        var publicPage = null;
+        for (var i = 0; i < PUBLIC_PAGES.length; i++) {
+          var m = path.match(PUBLIC_PAGES[i].re);
+          if (m) {
+            publicPage = {
+              kind: PUBLIC_PAGES[i].kind,
+              slug: m[1],
+              short: PUBLIC_PAGES[i].short,
+              full: PUBLIC_PAGES[i].full,
+              dark: PUBLIC_PAGES[i].dark,
+              bg: PUBLIC_PAGES[i].bg,
+            };
+            break;
+          }
+        }
+
+        var themeMeta = document.getElementById('app-theme-color');
+
+        if (publicPage || isLogin) {
+          var statusColor = isLogin ? '#08263f' : publicPage.bg;
           if (themeMeta) themeMeta.setAttribute('content', statusColor);
-          var scheme = document.getElementById('app-color-scheme');
-          if (scheme) scheme.setAttribute('content', 'dark');
-          var appleBar = document.getElementById('apple-status-bar');
-          if (appleBar) appleBar.setAttribute('content', 'black-translucent');
+          if (isLogin || (publicPage && publicPage.dark)) {
+            var scheme = document.getElementById('app-color-scheme');
+            if (scheme) scheme.setAttribute('content', 'dark');
+            var appleBar = document.getElementById('apple-status-bar');
+            if (appleBar) appleBar.setAttribute('content', 'black-translucent');
+            document.documentElement.style.colorScheme = 'dark';
+          }
           document.documentElement.style.backgroundColor = statusColor;
-          document.documentElement.style.colorScheme = 'dark';
           if (document.body) document.body.style.backgroundColor = statusColor;
         }
 
-        if (board) {
-          var kind = board[1];
-          var slug = board[2];
-          var shortTitle = kind === 'w' ? 'Espera' : 'Reservas';
-          var fullTitle = kind === 'w' ? 'Lista de espera' : 'Reservas';
-          document.title = fullTitle;
+        if (publicPage) {
+          document.title = publicPage.full;
           var appleTitle = document.getElementById('apple-app-title');
-          if (appleTitle) appleTitle.setAttribute('content', shortTitle);
+          if (appleTitle) appleTitle.setAttribute('content', publicPage.short);
           var appName = document.getElementById('app-name-meta');
-          if (appName) appName.setAttribute('content', shortTitle);
+          if (appName) appName.setAttribute('content', publicPage.short);
           var desc = document.getElementById('app-desc-meta');
-          if (desc) desc.setAttribute('content', fullTitle + ' en vivo');
+          if (desc) desc.setAttribute('content', publicPage.full);
           var qs = 'appOrigin=' + encodeURIComponent(location.origin);
-          var manifestKind = kind === 'w' ? 'waiting' : 'reservations';
           manifestHref =
             '/api/v1/public/shops/' +
-            encodeURIComponent(decodeURIComponent(slug)) +
+            encodeURIComponent(decodeURIComponent(publicPage.slug)) +
             '/manifests/' +
-            manifestKind +
+            publicPage.kind +
             '?' +
             qs;
           /* Prefetch logo del local → apple-touch-icon (iOS lo lee temprano). */
@@ -167,15 +193,20 @@
             .then(function (r) {
               return r.ok ? r.json() : null;
             })
-            .then(function (m) {
-              if (!m || !m.icons || !m.icons.length) return;
-              var src = m.icons[0].src;
+            .then(function (manifestJson) {
+              if (!manifestJson || !manifestJson.icons || !manifestJson.icons.length) return;
+              var icons = manifestJson.icons;
+              var preferred = null;
+              for (var i = 0; i < icons.length; i++) {
+                if (icons[i].sizes === '180x180' && icons[i].src) {
+                  preferred = icons[i].src;
+                  break;
+                }
+              }
+              var src = preferred || icons[0].src;
               if (!src) return;
               var apple = document.getElementById('apple-touch-icon');
               if (apple) apple.setAttribute('href', src);
-              if (m.theme_color) {
-                if (themeMeta) themeMeta.setAttribute('content', statusColor);
-              }
             })
             .catch(function () {});
         }

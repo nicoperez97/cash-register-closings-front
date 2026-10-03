@@ -7,6 +7,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { toDataURL } from 'qrcode';
 import { environment } from '../../../environments/environment';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
+import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
+import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import { menuPriceOf, normalizeMenuText, prettySection } from './menu-display';
 import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
 import { pdfFileSlug } from '../../shared/pdf/pdf-text';
@@ -64,7 +66,7 @@ type FilterOpt = { id: FilterId; label: string };
 
 @Component({
   selector: 'app-public-menu-page',
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, PublicPageInstallBannerComponent],
   template: `
     @if (error()) {
       <div class="menu menu--error" [style.--accent]="accent()">
@@ -73,6 +75,7 @@ type FilterOpt = { id: FilterId; label: string };
       </div>
     } @else if (shop(); as s) {
       <div class="menu" id="menu-pdf-root" [style.--accent]="accent()">
+        <app-public-page-install-banner kind="menu" [accent]="accent()" />
         <div class="menu__sheet">
           <header class="menu__hero">
             @if (logoUrl()) {
@@ -746,12 +749,14 @@ export class PublicMenuPageComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly analytics = inject(AnalyticsService);
+  private readonly pagePwa = inject(PublicPagePwaService);
   private shopSlug = '';
   private viewedTracked = false;
   private menuSlug = '';
   private observer: IntersectionObserver | null = null;
   private jumping = false;
   private sourceObjectUrl: string | null = null;
+  private pwaApplied = false;
 
   readonly data = signal<{
     shop: PublicShop;
@@ -825,10 +830,12 @@ export class PublicMenuPageComponent implements OnInit {
       this.filter.set('all');
       this.activeSection.set('');
       this.viewedTracked = false;
+      this.pwaApplied = false;
       if (!this.shopSlug) {
         this.error.set('Local no encontrado');
         return;
       }
+      this.pagePwa.prime('menu', this.shopSlug);
       this.load();
     });
     const onKey = (ev: KeyboardEvent) => {
@@ -842,6 +849,7 @@ export class PublicMenuPageComponent implements OnInit {
       window.removeEventListener('keydown', onKey);
       this.observer?.disconnect();
       this.revokeSourceUrl();
+      this.pagePwa.release('menu', this.shopSlug);
     });
   }
 
@@ -886,10 +894,23 @@ export class PublicMenuPageComponent implements OnInit {
             menu_slug: res.menu?.slug || this.menuSlug || undefined,
           });
         }
+        this.applyMenuPwa(res.shop);
         void this.renderQr();
         queueMicrotask(() => this.watchSections());
       },
       error: () => this.error.set('Carta no disponible en este local'),
+    });
+  }
+
+  private applyMenuPwa(shop: PublicShop): void {
+    if (this.pwaApplied) return;
+    this.pwaApplied = true;
+    this.pagePwa.apply({
+      kind: 'menu',
+      slug: this.shopSlug || shop.slug,
+      shopName: shop.name,
+      accentColor: shop.accentColor,
+      logoUrl: this.logoUrl(),
     });
   }
 

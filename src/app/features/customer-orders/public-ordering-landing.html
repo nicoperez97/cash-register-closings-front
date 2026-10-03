@@ -9,6 +9,7 @@
   </div>
 } @else if (config(); as c) {
   <div class="page">
+    <app-public-page-install-banner kind="ordering" [accent]="accent()" />
     <div class="sheet">
     <header class="hero">
       @if (logoUrl()) {

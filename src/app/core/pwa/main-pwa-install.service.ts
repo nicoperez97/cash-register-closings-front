@@ -9,7 +9,7 @@ const DISMISS_KEY = 'crc_main_pwa_dismiss';
 
 /**
  * Instalación de la PWA principal (Cierres).
- * Los tableros /r y /w usan BoardPwaService (no mostrar este banner ahí).
+ * Las páginas públicas usan PublicPagePwaService (no mostrar este banner ahí).
  */
 @Injectable({ providedIn: 'root' })
 export class MainPwaInstallService {
@@ -21,8 +21,10 @@ export class MainPwaInstallService {
   readonly isStandalone = signal(detectStandalone());
   readonly isIos = signal(detectIos());
   readonly showBanner = signal(false);
-  /** true en tableros públicos: el banner global no compite con el de reservas/espera */
-  readonly boardContext = signal(false);
+  /** true en páginas públicas: el banner global no compite con el de cada link */
+  readonly publicPageContext = signal(false);
+  /** @deprecated alias de publicPageContext */
+  readonly boardContext = this.publicPageContext;
 
   start(): void {
     if (this.started) return;
@@ -31,7 +33,7 @@ export class MainPwaInstallService {
     this.refreshBanner();
 
     this.bipHandler = (e: Event) => {
-      if (this.boardContext() || !isMobileViewport()) return;
+      if (this.publicPageContext() || !isMobileViewport()) return;
       e.preventDefault();
       this.deferredPrompt = e as BeforeInstallPromptEvent;
       this.canNativeInstall.set(true);
@@ -55,8 +57,8 @@ export class MainPwaInstallService {
     }
   }
 
-  setBoardContext(active: boolean): void {
-    this.boardContext.set(active);
+  setPublicPageContext(active: boolean): void {
+    this.publicPageContext.set(active);
     if (active) {
       this.showBanner.set(false);
       this.canNativeInstall.set(false);
@@ -64,6 +66,11 @@ export class MainPwaInstallService {
     } else {
       this.refreshBanner();
     }
+  }
+
+  /** @deprecated usá setPublicPageContext */
+  setBoardContext(active: boolean): void {
+    this.setPublicPageContext(active);
   }
 
   dismiss(): void {
@@ -101,7 +108,7 @@ export class MainPwaInstallService {
   }
 
   private refreshBanner(): void {
-    if (this.boardContext() || this.isStandalone() || isDismissed() || !isMobileViewport()) {
+    if (this.publicPageContext() || this.isStandalone() || isDismissed() || !isMobileViewport()) {
       this.showBanner.set(false);
       return;
     }

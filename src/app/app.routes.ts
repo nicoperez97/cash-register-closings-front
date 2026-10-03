@@ -440,6 +440,18 @@ export const routes: Routes = [
         title: 'Monitor comanda',
       },
       {
+        path: 'comanda/historial',
+        canActivate: [
+          anyPermissionGuard('comanda.manage', 'shops.manage'),
+          shopFeatureGuard('waiterOrdering'),
+        ],
+        loadComponent: () =>
+          import('./features/waiter/comanda-receipts-history-page').then(
+            (m) => m.ComandaReceiptsHistoryPage,
+          ),
+        title: 'Historial de comprobantes',
+      },
+      {
         path: 'comanda',
         canActivate: [
           anyPermissionGuard('comanda.manage', 'shops.manage'),

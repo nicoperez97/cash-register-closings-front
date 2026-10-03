@@ -245,6 +245,29 @@ export class CustomerOrdersApiService {
     );
   }
 
+  private staffListParams(opts?: {
+    status?: string;
+    scope?: 'current-shift';
+    from?: string;
+    to?: string;
+    q?: string;
+    fulfillment?: CustomerOrderFulfillment;
+    paymentMethod?: CustomerOrderPaymentMethod;
+    accredited?: 'yes' | 'no';
+  }): HttpParams {
+    let params = new HttpParams();
+    const status = opts?.status;
+    if (status) params = params.set('status', status);
+    if (opts?.scope) params = params.set('scope', opts.scope);
+    if (opts?.from) params = params.set('from', opts.from);
+    if (opts?.to) params = params.set('to', opts.to);
+    if (opts?.q) params = params.set('q', opts.q);
+    if (opts?.fulfillment) params = params.set('fulfillment', opts.fulfillment);
+    if (opts?.paymentMethod) params = params.set('paymentMethod', opts.paymentMethod);
+    if (opts?.accredited) params = params.set('accredited', opts.accredited);
+    return params;
+  }
+
   listStaff(
     shopId: string,
     opts?: {
@@ -258,19 +281,28 @@ export class CustomerOrdersApiService {
       accredited?: 'yes' | 'no';
     },
   ) {
-    let params = new HttpParams();
-    const status = opts?.status;
-    if (status) params = params.set('status', status);
-    if (opts?.scope) params = params.set('scope', opts.scope);
-    if (opts?.from) params = params.set('from', opts.from);
-    if (opts?.to) params = params.set('to', opts.to);
-    if (opts?.q) params = params.set('q', opts.q);
-    if (opts?.fulfillment) params = params.set('fulfillment', opts.fulfillment);
-    if (opts?.paymentMethod) params = params.set('paymentMethod', opts.paymentMethod);
-    if (opts?.accredited) params = params.set('accredited', opts.accredited);
     return this.http.get<StaffCustomerOrder[]>(
       `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders`,
-      { params },
+      { params: this.staffListParams(opts) },
+    );
+  }
+
+  exportStaffExcel(
+    shopId: string,
+    opts?: {
+      status?: string;
+      scope?: 'current-shift';
+      from?: string;
+      to?: string;
+      q?: string;
+      fulfillment?: CustomerOrderFulfillment;
+      paymentMethod?: CustomerOrderPaymentMethod;
+      accredited?: 'yes' | 'no';
+    },
+  ) {
+    return this.http.get(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/export.xlsx`,
+      { params: this.staffListParams(opts), responseType: 'blob' },
     );
   }
 
