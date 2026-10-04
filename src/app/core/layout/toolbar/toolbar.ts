@@ -218,6 +218,17 @@ export class ToolbarComponent implements OnInit {
   readonly extraAccountsCount = computed(() =>
     Math.max(0, this.rankedAccounts().length - 2),
   );
+  /** Otra cuenta abierta (no la activa) para el chip del toolbar. */
+  readonly otherOpenAccount = computed(() => {
+    const activeId = this.user()?.id;
+    return this.rankedAccounts().find((a) => a.id !== activeId) ?? null;
+  });
+  /** Cuentas abiertas que no son la activa ni la del chip (van en el menú +N). */
+  readonly moreOpenAccounts = computed(() => {
+    const activeId = this.user()?.id;
+    const otherId = this.otherOpenAccount()?.id;
+    return this.rankedAccounts().filter((a) => a.id !== activeId && a.id !== otherId);
+  });
 
   readonly unreadCount = this.notifsInbox.unreadCount;
   readonly staffOutboxCount = computed(() =>
@@ -634,6 +645,17 @@ export class ToolbarComponent implements OnInit {
   displayName(user: ToolbarUser): string {
     const name = user.fullName?.trim();
     return name || user.email;
+  }
+
+  userChipAriaLabel(user: ToolbarUser): string {
+    const name = this.displayName(user);
+    return user.email && user.email !== name
+      ? `Usuario: ${name} (${user.email})`
+      : `Usuario: ${name}`;
+  }
+
+  otherAccountAriaLabel(other: ToolbarUser): string {
+    return `Cambiar a ${this.displayName(other)}`;
   }
 
   closeUserMenu(): void {

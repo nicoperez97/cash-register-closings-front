@@ -411,24 +411,86 @@
     }
 
     @if (user(); as u) {
-      <button
-        type="button"
-        [class]="isMobile() ? 'tb-btn' : 'user-chip'"
-        [matMenuTriggerFor]="userMenu"
-        #userTrigger="matMenuTrigger"
-        [attr.aria-label]="'Usuario: ' + displayName(u)"
-        [matTooltip]="isMobile() ? displayName(u) : ''"
-      >
-        <app-user-avatar
-          [userId]="u.id ?? null"
-          [avatarUrl]="u.avatarUrl ?? null"
-          [hasAvatar]="!!u.hasAvatar"
-          size="sm"
-        />
+      <div class="user-chip-wrap" [class.user-chip-wrap--mobile]="isMobile()">
+        <button
+          type="button"
+          [class]="isMobile() ? 'tb-btn' : 'user-chip'"
+          [matMenuTriggerFor]="userMenu"
+          #userTrigger="matMenuTrigger"
+          [attr.aria-label]="userChipAriaLabel(u)"
+          [matTooltip]="isMobile() ? displayName(u) : u.email"
+        >
+          <app-user-avatar
+            [userId]="u.id ?? null"
+            [avatarUrl]="u.avatarUrl ?? null"
+            [hasAvatar]="!!u.hasAvatar"
+            [alt]="displayName(u)"
+            size="sm"
+          />
+          @if (!isMobile()) {
+            <span class="user-chip__name">{{ displayName(u) }}</span>
+          }
+        </button>
         @if (!isMobile()) {
-          <span class="user-email">{{ u.email }}</span>
+          @if (otherOpenAccount(); as other) {
+            <button
+              type="button"
+              class="user-chip user-chip--switch user-chip--avatar-only"
+              [attr.aria-label]="otherAccountAriaLabel(other)"
+              [matTooltip]="'Cambiar a ' + displayName(other)"
+              (click)="onSelectAccount(other.id)"
+            >
+              <app-user-avatar
+                [userId]="other.id"
+                [avatarUrl]="other.avatarUrl ?? null"
+                [hasAvatar]="!!other.hasAvatar"
+                [alt]="displayName(other)"
+                size="sm"
+              />
+            </button>
+          }
+          @if (moreOpenAccounts().length) {
+            <button
+              type="button"
+              class="user-chip user-chip--more"
+              [matMenuTriggerFor]="moreAccountsMenu"
+              [attr.aria-label]="
+                'Otras ' +
+                moreOpenAccounts().length +
+                (moreOpenAccounts().length === 1 ? ' cuenta abierta' : ' cuentas abiertas')
+              "
+              matTooltip="Otras cuentas abiertas"
+            >
+              +{{ moreOpenAccounts().length }}
+            </button>
+            <mat-menu #moreAccountsMenu="matMenu" class="user-more-accounts-panel" xPosition="before">
+              <div class="user-more-accounts" role="presentation">
+                <span class="user-more-accounts__label">Otras cuentas</span>
+                @for (acct of moreOpenAccounts(); track acct.id) {
+                  <button
+                    type="button"
+                    mat-menu-item
+                    class="user-more-accounts__item"
+                    (click)="onSelectAccount(acct.id)"
+                  >
+                    <app-user-avatar
+                      [userId]="acct.id"
+                      [avatarUrl]="acct.avatarUrl ?? null"
+                      [hasAvatar]="!!acct.hasAvatar"
+                      [alt]="displayName(acct)"
+                      size="sm"
+                    />
+                    <span class="user-more-accounts__meta">
+                      <span class="user-more-accounts__name">{{ displayName(acct) }}</span>
+                      <span class="user-more-accounts__email">{{ acct.email }}</span>
+                    </span>
+                  </button>
+                }
+              </div>
+            </mat-menu>
+          }
         }
-      </button>
+      </div>
 
       <mat-menu
         #userMenu="matMenu"
