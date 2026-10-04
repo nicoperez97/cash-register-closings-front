@@ -414,10 +414,17 @@ export class ClosingsApiService {
     );
   }
 
-  resyncMovements(shopId: string) {
-    return this.http.post<{ ok: boolean; total: number; resynced: number }>(
+  previewResyncMovements(shopId: string) {
+    return this.http.post<ResyncMovementsPreview>(
       `${this.base}/shops/${shopId}/closings/resync-movements`,
       {},
+    );
+  }
+
+  commitResyncMovements(shopId: string, closingIds?: string[]) {
+    return this.http.post<{ ok: boolean; total: number; resynced: number }>(
+      `${this.base}/shops/${shopId}/closings/resync-movements?commit=true`,
+      { closingIds: closingIds ?? [] },
     );
   }
 
@@ -982,6 +989,38 @@ export interface ReloadIncomesPreview {
     exists: number;
     mismatch: number;
     skipped: number;
+  };
+  balances: ReloadIncomeBalance[];
+}
+
+export type ResyncDiffStatus = 'unchanged' | 'added' | 'removed' | 'changed';
+
+export interface ResyncDiffItem {
+  closingId: string;
+  businessDate: string;
+  status: ResyncDiffStatus;
+  label: string;
+  currentFromAccountId: string | null;
+  currentFromAccountName: string | null;
+  currentToAccountId: string | null;
+  currentToAccountName: string | null;
+  currentAmount: number;
+  plannedFromAccountId: string | null;
+  plannedFromAccountName: string | null;
+  plannedToAccountId: string | null;
+  plannedToAccountName: string | null;
+  plannedAmount: number;
+}
+
+export interface ResyncMovementsPreview {
+  closingsCount: number;
+  changedClosingsCount: number;
+  items: ResyncDiffItem[];
+  counts: {
+    unchanged: number;
+    added: number;
+    removed: number;
+    changed: number;
   };
   balances: ReloadIncomeBalance[];
 }
