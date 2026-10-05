@@ -71,7 +71,8 @@
 .login-brand {
   text-align: center;
   color: #eef1f4;
-  animation: login-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Sin `both`: en iOS PWA WebKit a veces no corre la animación y deja opacity:0 → pantalla negra. */
+  animation: login-rise 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .login-logo {
@@ -84,7 +85,7 @@
   box-shadow:
     0 16px 36px rgba(0, 0, 0, 0.45),
     0 0 0 6px rgba(238, 241, 244, 0.04);
-  animation: login-logo-in 680ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: login-logo-in 680ms cubic-bezier(0.22, 1, 0.36, 1);
   background: #fff;
   object-fit: cover;
 }
@@ -178,7 +179,7 @@
   color: var(--login-ink);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  animation: login-rise 640ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+  animation: login-rise 640ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
 }
 
@@ -230,6 +231,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .login-brand,
+  .login-logo,
+  .login-panel,
+  .login-alert {
+    animation: none !important;
+  }
+
   .login-progress__bar {
     width: 100%;
     animation: login-progress-pulse 1.4s ease-in-out infinite;
@@ -243,6 +251,15 @@
     50% {
       opacity: 1;
     }
+  }
+}
+
+/* PWA instalada: sin fade de entrada. En iOS, animaciones opacity+fill a veces quedan en 0. */
+:host-context(html.guy-pwa) {
+  .login-brand,
+  .login-logo,
+  .login-panel {
+    animation: none;
   }
 }
 
@@ -282,7 +299,7 @@
   border-radius: 12px;
   background: #fdf2f0;
   border: 1px solid #f0c9c2;
-  animation: login-rise 280ms ease-out both;
+  animation: login-rise 280ms ease-out;
 }
 
 .login-alert__icon {
