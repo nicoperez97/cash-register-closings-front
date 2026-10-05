@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -138,6 +138,9 @@ export class PaymentDialogComponent implements OnInit {
   readonly isSupplierKind = this.data.kind === 'supplier';
   readonly isServiceKind = this.data.kind === 'service';
   readonly isPartnerKind = this.data.kind === 'partner';
+  readonly isEmployeeKind = this.data.kind === 'employee';
+  /** Crear/duplicar empleado: varias filas monto + empleado → un pago por fila. */
+  readonly employeeMultiCreate = !this.isEdit && this.isEmployeeKind;
   readonly isBilledKind = this.isSupplierKind || this.isServiceKind;
   readonly isPaidEdit =
     this.data.mode === 'edit' && this.data.payment?.status === 'PAID';
@@ -211,10 +214,16 @@ export class PaymentDialogComponent implements OnInit {
   readonly titleIcon = this.isEdit ? 'edit' : this.isDuplicate ? 'content_copy' : 'payments';
   get titleText(): string {
     if (this.isEdit) return this.isPaidEdit ? 'Editar pago abonado' : 'Editar pago';
+    if (this.employeeMultiCreate && this.employeeLines.length > 1) return 'Nuevos pagos';
     if (this.drafts().length > 1) return 'Nuevos pagos';
     return this.isDuplicate ? 'Duplicar pago' : 'Nuevo pago';
   }
   get saveLabel(): string {
+    if (this.employeeMultiCreate) {
+      const n = this.employeeLines.length;
+      if (n > 1) return `Crear ${n} pagos`;
+      return this.isDuplicate ? 'Duplicar' : 'Crear';
+    }
     const n = this.drafts().length;
     if (n > 1) return `Crear ${n} pagos`;
     return this.isDuplicate ? 'Duplicar' : 'Crear';
@@ -377,6 +386,34 @@ export class PaymentDialogComponent implements OnInit {
   readonly statusOptions = PAYMENT_STATUS_OPTIONS;
   readonly activeDraft = signal(0);
   readonly drafts = signal<PaymentDraft[]>([this.snapshot()]);
+
+  readonly employeeLines = this.fb.array([
+    this.newEmployeeLine(this.seed?.amount ?? null, this.seed?.employeeId ?? null),
+  ]);
+
+  private newEmployeeLine(
+    amount: number | null = null,
+    employeeId: string | null = null,
+  ): FormGroup {
+    return this.fb.group({
+      amount: [amount as number | null],
+      employeeId: [employeeId as string | null],
+    });
+  }
+
+  addEmployeeLine(): void {
+    if (this.busy()) return;
+    this.employeeLines.push(this.newEmployeeLine());
+  }
+
+  removeEmployeeLine(index: number): void {
+    if (this.busy() || this.employeeLines.length <= 1) return;
+    this.employeeLines.removeAt(index);
+  }
+
+  employeeLineAt(index: number): FormGroup {
+    return this.employeeLines.at(index) as FormGroup;
+  }
 
   isPaidStatus(): boolean {
     return !this.isEdit && this.form.controls.status.value === 'PAID';
@@ -1119,6 +1156,10 @@ export class PaymentDialogComponent implements OnInit {
   }
 
   private saveBatch(): void {
+    if (this.employeeMultiCreate) {
+      this.saveEmployeeLinesBatch();
+      return;
+    }
     this.persistActive();
     const list = this.drafts();
     for (let i = 0; i < list.length; i++) {
@@ -1167,31 +1208,96 @@ export class PaymentDialogComponent implements OnInit {
           });
         },
         complete: () => {
-          this.busy.set(false);
-          const n = created;
-          const msg = invoiceFail
-            ? `${n === 1 ? 'Pago creado' : `${n} pagos creados`}, pero no se pudo subir alguna factura.`
-            : n === 1
-              ? this.isDuplicate
-                ? 'Pago duplicado'
-                : 'Pago creado'
-              : `${n} pagos creados`;
-          this.snack.open(msg, 'OK', { duration: invoiceFail ? 5500 : 2500 });
-          if (n > 0) {
-            this.analytics.event(AnalyticsEvents.paymentCreated, {
-              count: n,
-              kind: this.data.kind,
-              duplicate: this.isDuplicate,
-            });
-          }
-          this.ref.close(true);
+          this.finishBatchCreated(created, invoiceFail);
         },
       });
   }
 
-  private createCurrent$() {
+  private saveEmployeeLinesBatch(): void {
+    const lines = this.employeeLines.getRawValue() as Array<{
+      amount: unknown;
+      employeeId: string | null;
+    }>;
+    const status = this.canChooseStatus
+      ? ((this.form.controls.status.value as PaymentStatus) || 'PENDING_VALIDATION')
+      : 'PENDING_VALIDATION';
+    if (status === 'PAID') {
+      const shared = this.form.getRawValue();
+      for (let i = 0; i < lines.length; i++) {
+        const msg = this.paidError({
+          amount: lines[i].amount,
+          accountId: shared.accountId,
+          paymentMethod: shared.paymentMethod,
+        });
+        if (msg) {
+          this.snack.open(`Fila ${i + 1}: ${msg}`, 'OK', { duration: 3500 });
+          return;
+        }
+      }
+    }
+
+    this.busy.set(true);
+    let created = 0;
+    from(lines)
+      .pipe(
+        concatMap((line) =>
+          this.createCurrent$({
+            amount: line.amount,
+            employeeId: line.employeeId || null,
+          }),
+        ),
+      )
+      .subscribe({
+        next: () => {
+          created += 1;
+        },
+        error: (err) => {
+          this.busy.set(false);
+          const done = created;
+          for (let i = 0; i < done; i++) {
+            if (this.employeeLines.length > 0) this.employeeLines.removeAt(0);
+          }
+          if (this.employeeLines.length === 0) {
+            this.employeeLines.push(this.newEmployeeLine());
+          }
+          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const prefix = done
+            ? `Se crearon ${done} pago${done === 1 ? '' : 's'}. El siguiente falló: `
+            : '';
+          this.snack.open(`${prefix}${Array.isArray(msg) ? msg.join(', ') : msg}`, 'OK', {
+            duration: 5000,
+          });
+        },
+        complete: () => {
+          this.finishBatchCreated(created, 0);
+        },
+      });
+  }
+
+  private finishBatchCreated(created: number, invoiceFail: number): void {
+    this.busy.set(false);
+    const n = created;
+    const msg = invoiceFail
+      ? `${n === 1 ? 'Pago creado' : `${n} pagos creados`}, pero no se pudo subir alguna factura.`
+      : n === 1
+        ? this.isDuplicate
+          ? 'Pago duplicado'
+          : 'Pago creado'
+        : `${n} pagos creados`;
+    this.snack.open(msg, 'OK', { duration: invoiceFail ? 5500 : 2500 });
+    if (n > 0) {
+      this.analytics.event(AnalyticsEvents.paymentCreated, {
+        count: n,
+        kind: this.data.kind,
+        duplicate: this.isDuplicate,
+      });
+    }
+    this.ref.close(true);
+  }
+
+  private createCurrent$(overrides?: { amount?: unknown; employeeId?: string | null }) {
     const raw = this.form.getRawValue();
-    const amountRaw = raw.amount;
+    const amountRaw = overrides?.amount !== undefined ? overrides.amount : raw.amount;
     const amount =
       amountRaw === null || amountRaw === undefined || (amountRaw as any) === ''
         ? null
@@ -1211,7 +1317,15 @@ export class PaymentDialogComponent implements OnInit {
     const status = this.canChooseStatus
       ? ((raw.status as PaymentStatus) || 'PENDING_VALIDATION')
       : 'PENDING_VALIDATION';
-    return this.resolveParty$().pipe(
+    const party$ =
+      overrides && 'employeeId' in overrides
+        ? of({
+            supplierId: null as string | null,
+            serviceId: null as string | null,
+            employeeId: overrides.employeeId || null,
+          })
+        : this.resolveParty$();
+    return party$.pipe(
       switchMap((party) =>
         this.api
           .create(this.data.shopId, {

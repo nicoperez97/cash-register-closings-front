@@ -115,6 +115,45 @@
   gap: 0.5rem;
   margin: 0.15rem 0 0.35rem;
 }
+.pay-emp-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.1rem 0 0.35rem;
+}
+.pay-emp-lines__label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--guy-navy, #003366);
+}
+.pay-emp-lines__hint {
+  margin: -0.15rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--guy-muted, #5f6f76);
+}
+.pay-emp-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+.pay-emp-line__remove {
+  margin-top: 0.2rem;
+}
+.pay-emp-lines__add {
+  align-self: flex-start;
+}
+@media (max-width: 560px) {
+  .pay-emp-line {
+    grid-template-columns: 1fr auto;
+  }
+  .pay-emp-line mat-form-field:first-child {
+    grid-column: 1 / -1;
+  }
+}
 .pay-desc {
   display: flex;
   flex-direction: column;

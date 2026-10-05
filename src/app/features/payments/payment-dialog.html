@@ -29,7 +29,7 @@
       </mat-dialog-actions>
     } @else {
     <mat-dialog-content>
-      @if (!isEdit && drafts().length > 1) {
+      @if (!isEdit && !employeeMultiCreate && drafts().length > 1) {
         <div class="pay-tabs">
           @for (d of drafts(); track $index) {
             <button
@@ -82,10 +82,56 @@
           ></textarea>
         </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Monto</mat-label>
-          <input matInput type="text" inputmode="decimal" appMoney formControlName="amount" />
-        </mat-form-field>
+        @if (employeeMultiCreate) {
+          <div class="pay-emp-lines">
+            <span class="pay-emp-lines__label">Montos y empleados</span>
+            <p class="pay-emp-lines__hint">Se crea un pago por cada fila; concepto, fecha y el resto se comparten.</p>
+            @for (line of employeeLines.controls; track $index) {
+              <div class="pay-emp-line" [formGroup]="employeeLineAt($index)">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Monto</mat-label>
+                  <input matInput type="text" inputmode="decimal" appMoney formControlName="amount" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Empleado</mat-label>
+                  <mat-select formControlName="employeeId">
+                    <mat-option [value]="null">Sin empleado</mat-option>
+                    @for (e of employees(); track e.id) {
+                      <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                @if (employeeLines.length > 1) {
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="pay-emp-line__remove"
+                    aria-label="Quitar fila"
+                    [disabled]="busy()"
+                    (click)="removeEmployeeLine($index)"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+            }
+            <button
+              mat-stroked-button
+              type="button"
+              class="pay-emp-lines__add"
+              [disabled]="busy()"
+              (click)="addEmployeeLine()"
+            >
+              <mat-icon>add</mat-icon>
+              Agregar monto y empleado
+            </button>
+          </div>
+        } @else {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Monto</mat-label>
+            <input matInput type="text" inputmode="decimal" appMoney formControlName="amount" />
+          </mat-form-field>
+        }
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Fecha tentativa</mat-label>
@@ -224,7 +270,7 @@
               </button>
             </div>
           }
-        } @else if (!isPartnerKind) {
+        } @else if (!isPartnerKind && !employeeMultiCreate) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Empleado</mat-label>
             <mat-select formControlName="employeeId">
@@ -440,7 +486,7 @@
           </mat-select>
         </mat-form-field>
 
-        @if (!isEdit) {
+        @if (!isEdit && !employeeMultiCreate) {
           <div class="pay-add-row">
             <button mat-stroked-button type="button" [disabled]="busy() || parsingInvoice()" (click)="duplicateActive()">
               <mat-icon>content_copy</mat-icon>
