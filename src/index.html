@@ -237,7 +237,7 @@
   </head>
   <body>
     <style>
-      /* Primer paint PWA: fondo claro + spinner mientras Angular bootea (evita flash negro). */
+      /* Primer paint PWA: spinner mientras Angular bootea (evita flash vacío). */
       html:not([style*='background']),
       body:not([style*='background']) {
         background-color: #f3f6f4;
@@ -250,16 +250,21 @@
         min-height: 100dvh;
         align-items: center;
         justify-content: center;
-        background: #f3f6f4;
+        background: transparent;
       }
       app-root:empty::after {
         content: '';
         width: 1.75rem;
         height: 1.75rem;
-        border: 2px solid #c5d0cc;
-        border-top-color: #0a3d5c;
+        border: 2px solid rgba(197, 208, 204, 0.85);
+        border-top-color: #3d9be0;
         border-radius: 50%;
         animation: guy-boot-spin 0.7s linear infinite;
+      }
+      /* Login / páginas oscuras: el spinner debe verse sobre fondo dark del head script. */
+      html[style*='background'] app-root:empty::after {
+        border-color: rgba(238, 241, 244, 0.28);
+        border-top-color: #7ec4f5;
       }
       @keyframes guy-boot-spin {
         to {
