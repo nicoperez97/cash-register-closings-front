@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { forkJoin, of, startWith } from 'rxjs';
+import { concatMap, forkJoin, from, map, of, startWith } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
@@ -82,36 +82,34 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
         <mat-icon>{{ saved() ? 'check_circle' : 'payments' }}</mat-icon>
       </span>
       <span class="guy-dialog__title-text">
-        <strong>{{
-          saved()
-            ? isIncome
-              ? 'Ingreso registrado'
-              : 'Gasto registrado'
-            : isIncome
-              ? 'Ingreso rápido'
-              : 'Gasto rápido'
-        }}</strong>
+        <strong>{{ titleText }}</strong>
         <span>{{ data.shopName }}</span>
       </span>
     </h2>
 
     @if (saved(); as movement) {
       <mat-dialog-content>
-        <p class="quick-exp__ok">Quedó registrado. Podés compartirlo o cerrar.</p>
-        <dl class="quick-exp__summary">
-          @for (f of savedFields(movement); track f.label) {
-            <div [class.quick-exp__total]="f.emphasize">
-              <dt>{{ f.label }}</dt>
-              <dd>{{ f.value }}</dd>
-            </div>
-          }
-        </dl>
+        @if (savedCount() > 1) {
+          <p class="quick-exp__ok">Se registraron {{ savedCount() }} gastos. Podés cerrar.</p>
+        } @else {
+          <p class="quick-exp__ok">Quedó registrado. Podés compartirlo o cerrar.</p>
+          <dl class="quick-exp__summary">
+            @for (f of savedFields(movement); track f.label) {
+              <div [class.quick-exp__total]="f.emphasize">
+                <dt>{{ f.label }}</dt>
+                <dd>{{ f.value }}</dd>
+              </div>
+            }
+          </dl>
+        }
       </mat-dialog-content>
       <mat-dialog-actions align="end">
-        <button mat-stroked-button type="button" (click)="share(movement)" [disabled]="sharing()">
-          <mat-icon>share</mat-icon>
-          Compartir
-        </button>
+        @if (savedCount() === 1) {
+          <button mat-stroked-button type="button" (click)="share(movement)" [disabled]="sharing()">
+            <mat-icon>share</mat-icon>
+            Compartir
+          </button>
+        }
         <button mat-flat-button color="primary" type="button" (click)="ref.close(movement)">
           Cerrar
         </button>
@@ -137,11 +135,55 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
     } @else {
       <mat-dialog-content>
         <form class="guy-dialog__form" [formGroup]="form" (ngSubmit)="save()">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Monto</mat-label>
-            <mat-icon matPrefix>attach_money</mat-icon>
-            <input matInput type="number" inputmode="decimal" formControlName="amountUyu" />
-          </mat-form-field>
+          @if (isIncome) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Monto</mat-label>
+              <mat-icon matPrefix>attach_money</mat-icon>
+              <input matInput type="number" inputmode="decimal" formControlName="amountUyu" />
+            </mat-form-field>
+          } @else {
+            <div class="quick-exp__amounts" formArrayName="amountLines">
+              <span class="quick-exp__amounts-label">Montos</span>
+              <p class="quick-exp__amounts-hint">
+                Se registra un gasto por cada monto; el resto del formulario se comparte.
+              </p>
+              @for (ctrl of amountLines.controls; track $index) {
+                <div class="quick-exp__amount-row">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Monto{{ amountLines.length > 1 ? ' ' + ($index + 1) : '' }}</mat-label>
+                    <mat-icon matPrefix>attach_money</mat-icon>
+                    <input
+                      matInput
+                      type="number"
+                      inputmode="decimal"
+                      [formControlName]="$index"
+                    />
+                  </mat-form-field>
+                  @if (amountLines.length > 1) {
+                    <button
+                      mat-icon-button
+                      type="button"
+                      aria-label="Quitar monto"
+                      [disabled]="busy()"
+                      (click)="removeAmountLine($index)"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
+              }
+              <button
+                mat-stroked-button
+                type="button"
+                class="quick-exp__amounts-add"
+                [disabled]="busy()"
+                (click)="addAmountLine()"
+              >
+                <mat-icon>add</mat-icon>
+                Agregar monto
+              </button>
+            </div>
+          }
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Concepto</mat-label>
@@ -410,7 +452,7 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
           color="primary"
           type="button"
           [disabled]="
-            form.invalid ||
+            !canSubmit() ||
             busy() ||
             !(isIncome ? ingresoAccountId() : egresoAccountId()) ||
             missingReceipt()
@@ -419,13 +461,41 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
         >
           <app-busy-label [busy]="busy()" busyLabel="Guardando…">
             <mat-icon>check</mat-icon>
-            {{ isIncome ? 'Registrar ingreso' : 'Registrar gasto' }}
+            {{ saveLabel }}
           </app-busy-label>
         </button>
       </mat-dialog-actions>
     }
   `,
   styles: `
+    .quick-exp__amounts {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-bottom: 0.15rem;
+    }
+    .quick-exp__amounts-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--guy-navy, #003366);
+    }
+    .quick-exp__amounts-hint {
+      margin: -0.1rem 0 0.1rem;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .quick-exp__amount-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.35rem;
+      align-items: start;
+    }
+    .quick-exp__amounts-add {
+      align-self: flex-start;
+    }
     .quick-exp__loading {
       display: flex;
       flex-direction: column;
@@ -557,6 +627,7 @@ export class QuickExpenseDialogComponent implements OnInit {
   readonly busy = signal(false);
   readonly sharing = signal(false);
   readonly saved = signal<Movement | null>(null);
+  readonly savedCount = signal(1);
   readonly receiptFile = signal<File | null>(null);
   readonly loadingLists = signal(true);
   readonly listsFailed = signal(false);
@@ -656,7 +727,13 @@ export class QuickExpenseDialogComponent implements OnInit {
   readonly paymentMethods = EXPENSE_PAYMENT_METHOD_OPTIONS;
 
   readonly form = this.fb.nonNullable.group({
-    amountUyu: [null as number | null, [Validators.required, Validators.min(0.01)]],
+    amountUyu: [
+      null as number | null,
+      this.isIncome ? [Validators.required, Validators.min(0.01)] : [],
+    ],
+    amountLines: this.fb.array(
+      this.isIncome ? [] : [this.newAmountLine()],
+    ),
     conceptId: ['', Validators.required],
     paymentMethod: [
       '' as ExpensePaymentMethod | '',
@@ -666,6 +743,53 @@ export class QuickExpenseDialogComponent implements OnInit {
     toAccountId: [''],
     description: [''],
   });
+
+  get amountLines(): FormArray<FormControl<number | null>> {
+    return this.form.controls.amountLines as FormArray<FormControl<number | null>>;
+  }
+
+  private newAmountLine(): FormControl<number | null> {
+    return this.fb.control<number | null>(null, {
+      nonNullable: false,
+      validators: [Validators.required, Validators.min(0.01)],
+    });
+  }
+
+  addAmountLine(): void {
+    if (this.busy()) return;
+    this.amountLines.push(this.newAmountLine());
+  }
+
+  removeAmountLine(index: number): void {
+    if (this.busy() || this.amountLines.length <= 1) return;
+    this.amountLines.removeAt(index);
+  }
+
+  private readAmountLines(): number[] {
+    return this.amountLines.getRawValue()
+      .map((v) => Number(v))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  }
+
+  get titleText(): string {
+    if (this.saved()) {
+      if (this.isIncome) return 'Ingreso registrado';
+      return this.savedCount() > 1 ? 'Gastos registrados' : 'Gasto registrado';
+    }
+    return this.isIncome ? 'Ingreso rápido' : 'Gasto rápido';
+  }
+
+  get saveLabel(): string {
+    if (this.isIncome) return 'Registrar ingreso';
+    const n = Math.max(this.amountLines.length, 1);
+    return n > 1 ? `Registrar ${n} gastos` : 'Registrar gasto';
+  }
+
+  canSubmit(): boolean {
+    if (this.form.invalid) return false;
+    if (this.isIncome) return true;
+    return this.readAmountLines().length === this.amountLines.length;
+  }
 
   private readonly conceptIdValue = toSignal(
     this.form.controls.conceptId.valueChanges.pipe(startWith(this.form.controls.conceptId.value)),
@@ -891,8 +1015,9 @@ export class QuickExpenseDialogComponent implements OnInit {
 
   save(): void {
     const systemId = this.isIncome ? this.ingresoAccountId() : this.egresoAccountId();
-    if (this.form.invalid || !systemId) {
+    if (!this.canSubmit() || !systemId) {
       this.form.markAllAsTouched();
+      if (!this.isIncome) this.amountLines.markAllAsTouched();
       if (!systemId) {
         this.snack.open(
           this.isIncome
@@ -921,49 +1046,100 @@ export class QuickExpenseDialogComponent implements OnInit {
     const description = [raw.description.trim() || null, dest.partyLabel]
       .filter(Boolean)
       .join(' · ');
+    const amounts = this.isIncome
+      ? [Number(raw.amountUyu)].filter((n) => Number.isFinite(n) && n > 0)
+      : this.readAmountLines();
+    if (!amounts.length) {
+      this.snack.open('Indicá al menos un monto mayor a 0', 'OK', { duration: 3500 });
+      return;
+    }
+    if (!this.isIncome && amounts.length !== this.amountLines.length) {
+      this.amountLines.markAllAsTouched();
+      this.snack.open('Completá todos los montos', 'OK', { duration: 3500 });
+      return;
+    }
+
     this.busy.set(true);
-    this.api
-      .create(this.data.shopId, {
-        businessDate: todayIso(tz),
-        fromAccountId: this.isIncome ? systemId : raw.fromAccountId,
-        toAccountId: this.isIncome ? raw.fromAccountId : dest.toAccountId!,
-        conceptId: raw.conceptId,
-        employeeId: null,
-        description: description || null,
-        amountUyu: Number(raw.amountUyu),
-        invoiced: false,
-        notifyAdmins: true,
-        kind: this.isIncome ? 'income' : 'expense',
-        paymentMethod: this.isIncome ? null : (raw.paymentMethod as ExpensePaymentMethod),
-      })
+    let created = 0;
+    let lastSaved: Movement | null = null;
+    let receiptFail = 0;
+
+    from(amounts)
+      .pipe(
+        concatMap((amountUyu) =>
+          this.api
+            .create(this.data.shopId, {
+              businessDate: todayIso(tz),
+              fromAccountId: this.isIncome ? systemId : raw.fromAccountId,
+              toAccountId: this.isIncome ? raw.fromAccountId : dest.toAccountId!,
+              conceptId: raw.conceptId,
+              employeeId: null,
+              description: description || null,
+              amountUyu,
+              invoiced: false,
+              notifyAdmins: true,
+              kind: this.isIncome ? 'income' : 'expense',
+              paymentMethod: this.isIncome ? null : (raw.paymentMethod as ExpensePaymentMethod),
+            })
+            .pipe(
+              concatMap((saved) => {
+                if (!receipt || this.isIncome) return of({ saved, receiptOk: true as const });
+                return this.api.uploadReceiptFile(this.data.shopId, saved.id, receipt).pipe(
+                  map((withFile) => ({ saved: withFile, receiptOk: true as const })),
+                  catchError(() => of({ saved, receiptOk: false as const })),
+                );
+              }),
+            ),
+        ),
+      )
       .subscribe({
-        next: (saved) => {
-          if (!receipt) {
-            this.finishSaved(saved);
-            return;
-          }
-          this.api.uploadReceiptFile(this.data.shopId, saved.id, receipt).subscribe({
-            next: (withFile) => this.finishSaved(withFile),
-            error: () => {
-              this.finishSaved(saved);
-              this.snack.open('El gasto se registró, pero el comprobante no se pudo subir', 'OK', {
-                duration: 4000,
-              });
-            },
-          });
+        next: ({ saved, receiptOk }) => {
+          created += 1;
+          lastSaved = saved;
+          if (!receiptOk) receiptFail += 1;
         },
         error: (err) => {
           this.busy.set(false);
+          if (!this.isIncome) {
+            const done = created;
+            for (let i = 0; i < done; i++) {
+              if (this.amountLines.length > 0) this.amountLines.removeAt(0);
+            }
+            if (this.amountLines.length === 0) {
+              this.amountLines.push(this.newAmountLine());
+            }
+          }
           const msg = err?.error?.message ?? 'No se pudo registrar el gasto';
-          this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
-            duration: 4000,
+          const prefix = created
+            ? `Se registraron ${created} gasto${created === 1 ? '' : 's'}. El siguiente falló: `
+            : '';
+          this.snack.open(`${prefix}${Array.isArray(msg) ? msg.join(', ') : msg}`, 'OK', {
+            duration: 5000,
           });
+          if (created > 0) this.cashWithdrawalsInbox.refresh();
+        },
+        complete: () => {
+          if (!lastSaved) {
+            this.busy.set(false);
+            return;
+          }
+          if (receiptFail > 0) {
+            this.snack.open(
+              created === 1
+                ? 'El gasto se registró, pero el comprobante no se pudo subir'
+                : 'Los gastos se registraron, pero algún comprobante no se pudo subir',
+              'OK',
+              { duration: 4000 },
+            );
+          }
+          this.finishSaved(lastSaved, created);
         },
       });
   }
 
-  private finishSaved(saved: Movement): void {
+  private finishSaved(saved: Movement, count = 1): void {
     this.busy.set(false);
+    this.savedCount.set(count);
     this.saved.set(saved);
     this.cashWithdrawalsInbox.refresh();
   }

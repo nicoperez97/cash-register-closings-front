@@ -211,7 +211,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'autorenew',
         tone: 'do',
         anyOf: ['closings.update'],
-        body: 'Regenera los movimientos de los cierres según la configuración actual de cuentas y conceptos. Sirve cuando un monto quedó en una cuenta equivocada. Primero ves el preview y después aplicás solo lo marcado.',
+        body: 'Regenera los movimientos de los cierres según la configuración actual de cuentas y conceptos. Sirve cuando un monto quedó en una cuenta equivocada. Primero ves el preview y después aplicás solo lo marcado. Los saldos de abajo arrancan del libro completo (cierres, gastos, ingresos y pases), no solo de los cierres.',
         items: [
           'Agregado: el libro no lo tiene y la config actual lo generaría.',
           'Distinto: misma línea, pero otra cuenta o importe.',
@@ -385,7 +385,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'payments',
         tone: 'do',
         anyOf: ['expenses.manage'],
-        body: 'Con Gasto rápido elegís concepto, forma de pago (efectivo, transferencia o tarjeta) y de qué cuenta sale. Si el concepto es de proveedores o servicios, podés (opcional) elegir o crear ese proveedor/servicio: el gasto suma en su saldo. Si no elegís, va a Egreso. El comprobante (foto o archivo) es opcional, también si pagás por transferencia. El aviso a administradores se envía siempre.',
+        body: 'Con Gasto rápido elegís concepto, forma de pago (efectivo, transferencia o tarjeta) y de qué cuenta sale. Podés cargar varios montos: se registra un gasto por cada uno, con el mismo concepto, forma de pago y cuenta. Si el concepto es de proveedores o servicios, podés (opcional) elegir o crear ese proveedor/servicio: el gasto suma en su saldo. Si no elegís, va a Egreso. El comprobante (foto o archivo) es opcional, también si pagás por transferencia. El aviso a administradores se envía siempre.',
         tip: 'Al abrir Gasto rápido se cargan de nuevo conceptos, cuentas, proveedores y servicios. Si fallan, usá Reintentar sin cerrar la app.',
       },
       {
@@ -629,6 +629,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Si tenés el permiso de editar y borrar pagos, al crear podés elegir el estado (pendiente, validado o pagado).',
           'En Proveedor podés buscar por nombre, CUIT o alias.',
+          'En pagos a empleados podés cargar varias filas de monto y empleado; al crear se genera un pago por cada fila, con el mismo concepto, descripción y demás datos.',
           'Validar: elegí la cuenta que paga. Ahí recién se pide, no al crear.',
           'Pagar: indicá cuánto se abona (Usar total carga el monto completo), cuenta y forma de pago. Si pagás menos, se crea el movimiento por ese monto y queda otro pago validado con la deuda.',
           'En proveedores o servicios el gasto va a la cuenta de ese proveedor/servicio (suma en Saldos). En empleados, a Egreso. En A socios se hace el pase de la cuenta emisora a la receptora.',
@@ -1604,8 +1605,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'request_quote',
         tone: 'do',
         anyOf: ['payroll.manage'],
-        body: 'Arriba ves el resumen (a pagar, presentismo, extras). En Período elegí el rango y el presentismo por semana, y tocá Generar. La liquidación suma precio hora × horas trabajadas + feriados (× mult) + extras + presentismo. La tabla muestra días y horas trabajadas por empleado. “Separar por turnos” arma una fila por empleado y turno.',
-        tip: 'Cambiá Presentismo $/semana o Separar por turnos y tocá Generar de nuevo. Descargar arma PDF o Excel con las líneas ya generadas.',
+        body: 'Arriba ves el resumen (a pagar, presentismo, extras). En Período elegí el rango y el presentismo por semana, y tocá Generar. La liquidación suma precio hora × horas trabajadas + feriados (× mult) + extras + presentismo. Por defecto incluye horas de producción (cocina); podés apagarlo o marcar Solo producción para liquidar solo esas horas. La tabla muestra días y horas trabajadas por empleado. “Separar por turnos” arma una fila por empleado y turno (no aplica con Solo producción).',
+        tip: 'Cambiá Presentismo $/semana, producción o Separar por turnos y tocá Generar de nuevo. Descargar arma PDF o Excel con las líneas ya generadas.',
       },
     ],
   },

@@ -72,6 +72,8 @@ interface PayrollPeriod {
   status: 'DRAFT' | 'LOCKED';
   attendanceBonusAmount?: number;
   splitByShift?: boolean;
+  includeProductionHours?: boolean;
+  productionOnly?: boolean;
   lines: PayrollLine[];
 }
 
@@ -332,7 +334,20 @@ const SOURCE_LABEL: Record<string, string> = {
                       Incluir ocultos
                     </mat-slide-toggle>
                     <mat-slide-toggle
+                      [ngModel]="includeProductionHours()"
+                      (ngModelChange)="onIncludeProductionHours($event)"
+                    >
+                      Incluye horas de producción
+                    </mat-slide-toggle>
+                    <mat-slide-toggle
+                      [ngModel]="productionOnly()"
+                      (ngModelChange)="onProductionOnly($event)"
+                    >
+                      Solo producción
+                    </mat-slide-toggle>
+                    <mat-slide-toggle
                       [ngModel]="splitByShift()"
+                      [disabled]="productionOnly()"
                       (ngModelChange)="splitByShift.set($event)"
                     >
                       Separar por turnos
@@ -370,6 +385,13 @@ const SOURCE_LABEL: Record<string, string> = {
                   <p class="guy-list-head__meta">
                     {{ periodLabel() }}
                     · Presentismo: {{ moneyAlways(attendanceBonusAmount()) }}/semana
+                    @if (productionOnly()) {
+                      · Solo producción
+                    } @else if (includeProductionHours()) {
+                      · Con horas de producción
+                    } @else {
+                      · Sin horas de producción
+                    }
                     @if (splitByShift()) {
                       · Separado por turnos
                     }
@@ -465,6 +487,8 @@ export class SalariesPage {
   readonly busy = signal(false);
   readonly payrollIncludeInactive = signal(false);
   readonly attendanceBonusAmount = signal(50000);
+  readonly includeProductionHours = signal(true);
+  readonly productionOnly = signal(false);
   readonly splitByShift = signal(false);
 
   readonly semester = signal<1 | 2>(new Date().getMonth() < 6 ? 1 : 2);
@@ -884,7 +908,22 @@ export class SalariesPage {
     if (data.attendanceBonusAmount != null) {
       this.attendanceBonusAmount.set(Number(data.attendanceBonusAmount) || 0);
     }
-    this.splitByShift.set(!!data.splitByShift);
+    this.includeProductionHours.set(data.includeProductionHours !== false);
+    this.productionOnly.set(!!data.productionOnly);
+    this.splitByShift.set(!!data.splitByShift && !data.productionOnly);
+  }
+
+  onIncludeProductionHours(value: boolean): void {
+    this.includeProductionHours.set(value);
+    if (!value) this.productionOnly.set(false);
+  }
+
+  onProductionOnly(value: boolean): void {
+    this.productionOnly.set(value);
+    if (value) {
+      this.includeProductionHours.set(true);
+      this.splitByShift.set(false);
+    }
   }
 
   asNumber(value: unknown): number {
@@ -919,6 +958,8 @@ export class SalariesPage {
           to,
           attendanceBonusAmount: this.attendanceBonusAmount(),
           splitByShift: this.splitByShift(),
+          includeProductionHours: this.includeProductionHours(),
+          productionOnly: this.productionOnly(),
         },
         {
           params: {

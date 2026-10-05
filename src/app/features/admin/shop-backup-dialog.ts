@@ -63,7 +63,7 @@ export interface ShopBackupDialogData {
       <p class="lead">
         Dump y restore dejan el local idéntico (datos y config). Los usuarios del dump deben
         existir ya en el sistema; los archivos en disco (comprobantes, fotos de cierre) pueden
-        faltar. El restore solo acepta Excel.
+        faltar. Podés descargar y cargar en Excel o SQL.
       </p>
 
       <section class="block">
@@ -114,12 +114,12 @@ export interface ShopBackupDialogData {
           <mat-icon>cloud_download</mat-icon>
           <div>
             <h3>Dump del sistema</h3>
-            <p>Descargá un backup o cargá un Excel previo.</p>
+            <p>Descargá o cargá un backup en el formato elegido.</p>
           </div>
         </div>
 
         <div class="format-row">
-          <span class="format-row__label">Formato al descargar</span>
+          <span class="format-row__label">Formato</span>
           <mat-button-toggle-group
             [value]="format()"
             (change)="format.set($event.value)"
@@ -147,13 +147,13 @@ export interface ShopBackupDialogData {
           <input
             #fileInput
             type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            [accept]="fileAccept()"
             hidden
             (change)="onFile($event)"
           />
           <button mat-stroked-button type="button" [disabled]="busy()" (click)="fileInput.click()">
             <mat-icon>upload_file</mat-icon>
-            Cargar dump (Excel)
+            Cargar dump ({{ format() === 'sql' ? 'SQL' : 'Excel' }})
           </button>
         </div>
       </section>
@@ -451,6 +451,11 @@ export class ShopBackupDialogComponent {
   readonly scopeMode = signal<'all' | 'modules'>('all');
   readonly selectedModules = signal<BackupModuleId[]>([]);
   readonly format = signal<BackupFormat>('xlsx');
+  readonly fileAccept = computed(() =>
+    this.format() === 'sql'
+      ? '.sql,text/plain,application/sql'
+      : '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
 
   readonly canReset = computed(() => this.confirmText().trim() === 'RESET');
   readonly canAct = computed(
@@ -525,8 +530,9 @@ export class ShopBackupDialogComponent {
     const input = ev.target as HTMLInputElement;
     const file = await takeInputFile(input);
     if (!file) return;
+    const kind = this.format() === 'sql' ? 'SQL' : 'Excel';
     const ok = window.confirm(
-      `¿Cargar dump en “${this.data.shopName}”? Se borrarán los datos del alcance del Excel (o todo si es dump completo) y se cargará el archivo.`,
+      `¿Cargar dump (${kind}) en “${this.data.shopName}”? Se borrarán los datos del alcance del archivo (o todo si es dump completo) y se cargará el dump.`,
     );
     if (!ok) return;
     this.runRestore(file, false);
