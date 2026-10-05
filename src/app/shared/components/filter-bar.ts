@@ -57,6 +57,14 @@ export type FilterOption<T extends string = string> = {
       font: inherit;
       font-weight: 700;
       cursor: pointer;
+      transition:
+        background-color var(--guy-dur-fast, 140ms) ease,
+        color var(--guy-dur-fast, 140ms) ease,
+        box-shadow var(--guy-dur, 240ms) ease,
+        transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1));
+    }
+    .seg-tabs__btn:active {
+      transform: scale(0.97);
     }
     .seg-tabs__btn--on {
       background: var(--guy-card, #fff);
@@ -116,11 +124,21 @@ export class SegmentTabsComponent<T extends string = string> {
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
+      transition:
+        background-color var(--guy-dur-fast, 140ms) ease,
+        border-color var(--guy-dur-fast, 140ms) ease,
+        color var(--guy-dur-fast, 140ms) ease,
+        transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+        box-shadow var(--guy-dur, 240ms) ease;
+    }
+    .filter-chips__chip:active {
+      transform: scale(0.96);
     }
     .filter-chips__chip--on {
       border-color: var(--guy-green, #2e7d32);
       color: var(--guy-green, #2e7d32);
       background: color-mix(in srgb, var(--guy-green, #2e7d32) 10%, #fff);
+      box-shadow: 0 1px 4px color-mix(in srgb, var(--guy-green, #2e7d32) 18%, transparent);
     }
   `,
 })

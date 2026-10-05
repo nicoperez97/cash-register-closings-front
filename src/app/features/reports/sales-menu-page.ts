@@ -201,7 +201,7 @@ function formatDayLabelEs(isoDate: string): string {
           refreshMessage="Recalculando el período"
         />
       }
-      <app-kpi-strip class="mb-3" [items]="kpis()" />
+      <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
 
       <div class="charts-grid mb-3">
         <app-line-chart
@@ -240,7 +240,7 @@ function formatDayLabelEs(isoDate: string): string {
       </div>
 
       <div class="panel-card panel-card--flush mb-3">
-        <mat-tab-group animationDuration="0ms" class="sales-tabs">
+        <mat-tab-group animationDuration="200ms" class="sales-tabs">
           <mat-tab label="Por plato">
             <div class="panel-card__body">
               <div class="guy-list-head">

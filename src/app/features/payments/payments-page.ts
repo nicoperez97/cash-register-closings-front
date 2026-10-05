@@ -57,7 +57,6 @@ import {
 } from '../../shared/components/record-share-builders';
 import { shareText } from '../../shared/utils/share-text';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
-import { SpinnerComponent } from '../../shared/components/spinner';
 import { firstValueFrom, map } from 'rxjs';
 import {
   buildPaymentsListFilterOpts,
@@ -96,7 +95,6 @@ import {
     MatMenuModule,
     MatPaginatorModule,
     MatSnackBarModule,
-    SpinnerComponent,
     PaymentCardComponent,
     PaymentsFiltersPanelComponent,
     SegmentTabsComponent,
@@ -206,12 +204,14 @@ import {
       [class.pay-list--compact]="displayMode() === 'compact'"
     >
       @if (loading()) {
-        <div class="panel-card guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
-          <app-spinner [size]="28" tone="accent" />
-          <div>
-            <strong>Cargando…</strong>
-            <div class="small">Obteniendo pagos</div>
-          </div>
+        <div class="pay-list__skeleton" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando pagos">
+          @for (_ of [0, 1, 2, 3]; track $index) {
+            <div class="panel-card pay-list__skeleton-card">
+              <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+              <div class="guy-skeleton-line"></div>
+              <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+            </div>
+          }
         </div>
       } @else {
         @for (p of visibleRows(); track p.id) {

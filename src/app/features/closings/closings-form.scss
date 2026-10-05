@@ -337,8 +337,24 @@
   background: #fff;
   color: var(--guy-navy, #003366);
   font-size: 0.72rem;
+  transition:
+    background-color var(--guy-dur-fast, 140ms) ease,
+    border-color var(--guy-dur-fast, 140ms) ease,
+    color var(--guy-dur-fast, 140ms) ease,
+    transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--guy-dur, 240ms) ease;
   font-weight: 750;
   line-height: 1;
+}
+
+.closing-stepper__rail {
+  flex: 0 0 0.55rem;
+  width: 0.55rem;
+  height: 1.5px;
+  margin-top: calc(0.15rem + 0.85rem - 0.75px);
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--guy-border, #d7e0d9) 90%, transparent);
+  transition: background-color var(--guy-dur, 240ms) ease;
 }
 
 .closing-stepper__name {
@@ -349,15 +365,7 @@
   text-align: center;
   text-wrap: balance;
   hyphens: auto;
-}
-
-.closing-stepper__rail {
-  flex: 0 0 0.55rem;
-  width: 0.55rem;
-  height: 1.5px;
-  margin-top: calc(0.15rem + 0.85rem - 0.75px);
-  align-self: flex-start;
-  background: color-mix(in srgb, var(--guy-border, #d7e0d9) 90%, transparent);
+  transition: color var(--guy-dur-fast, 140ms) ease;
 }
 
 .closing-stepper__rail.is-done {

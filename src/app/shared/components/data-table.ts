@@ -11,7 +11,6 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { SpinnerComponent } from './spinner';
 import { UserAvatarComponent } from './user-avatar';
 import {
   DEFAULT_PAGE_SIZE,
@@ -77,7 +76,6 @@ export interface DataTableColumn {
     MatButtonToggleModule,
     MatPaginatorModule,
     MatSortModule,
-    SpinnerComponent,
     UserAvatarComponent,
   ],
   template: `
@@ -123,12 +121,15 @@ export interface DataTableColumn {
 
       <div class="guy-table-wrap data-table" [class.data-table--dense]="dense()">
         @if (loading()) {
-          <div class="guy-empty guy-empty--loading" role="status" aria-live="polite" aria-busy="true">
-            <app-spinner [size]="28" tone="accent" />
-            <div>
-              <strong>Cargando…</strong>
-              <div class="small">{{ loadingMessage() }}</div>
-            </div>
+          <div class="data-table__skeleton" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando">
+            @for (_ of skeletonRows; track $index) {
+              <div class="data-table__skeleton-row">
+                <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+                <div class="guy-skeleton-line"></div>
+                <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+              </div>
+            }
+            <span class="visually-hidden">{{ loadingMessage() }}</span>
           </div>
         } @else if (!pagedRows().length) {
           <div class="guy-empty">
@@ -583,6 +584,41 @@ export interface DataTableColumn {
       .data-table__scroller {
         max-width: 100%;
         min-width: 0;
+      }
+
+      .data-table__skeleton {
+        display: grid;
+        gap: 0.55rem;
+        margin: 0.15rem 0 0.85rem;
+        animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      }
+
+      .data-table__skeleton-row {
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        background: var(--guy-card, #fff);
+        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.04);
+      }
+
+      .data-table__skeleton-row .guy-skeleton-line {
+        margin-bottom: 0.4rem;
+      }
+
+      .data-table__skeleton-row .guy-skeleton-line:last-child {
+        margin-bottom: 0;
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
 
       .data-table-search-wrap {
@@ -1046,9 +1082,10 @@ export interface DataTableColumn {
 export class DataTableComponent {
   readonly columns = input<DataTableColumn[]>([]);
   readonly rows = input<any[]>([]);
-  /** Mostrar spinner en lugar de vacío mientras llegan datos. */
+  /** Mostrar skeleton en lugar de vacío mientras llegan datos. */
   readonly loading = input(false);
   readonly loadingMessage = input('Obteniendo registros');
+  readonly skeletonRows = [0, 1, 2, 3, 4];
   readonly showActions = input(true);
   /** Compact row padding/typography (e.g. dual base list). */
   readonly dense = input(false);

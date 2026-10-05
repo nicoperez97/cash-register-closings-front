@@ -171,6 +171,15 @@
   font-weight: 650;
   cursor: pointer;
   color: var(--guy-muted, #5f6f76);
+  transition:
+    transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    background-color var(--guy-dur-fast, 140ms) ease,
+    border-color var(--guy-dur-fast, 140ms) ease,
+    color var(--guy-dur-fast, 140ms) ease;
+}
+
+.pos__chip:active {
+  transform: scale(0.96);
 }
 
 .pos__chip--on {
@@ -211,10 +220,21 @@
   cursor: pointer;
   font: inherit;
   color: var(--guy-ink, #1a221c);
+  animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  transition:
+    transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    border-color var(--guy-dur-fast, 140ms) ease,
+    box-shadow var(--guy-dur, 240ms) ease;
 }
 
 .pos__item:hover {
   border-color: var(--accent, #2e7d32);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(28, 40, 30, 0.07);
+}
+
+.pos__item:active {
+  transform: scale(0.985);
 }
 
 .pos__item-name {

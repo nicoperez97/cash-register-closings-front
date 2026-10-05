@@ -4,7 +4,15 @@
     <button type="button" class="btn" (click)="load()">Reintentar</button>
   </div>
 } @else if (loading()) {
-  <div class="page page--loading"><p>Cargando menú…</p></div>
+  <div class="page page--loading" role="status" aria-busy="true" aria-label="Cargando menú">
+    <div class="page__skeleton">
+      <div class="ord-skeleton page__skeleton-block"></div>
+      <div class="ord-skeleton page__skeleton-line"></div>
+      <div class="ord-skeleton page__skeleton-line page__skeleton-line--short"></div>
+      <div class="ord-skeleton page__skeleton-card"></div>
+      <div class="ord-skeleton page__skeleton-card"></div>
+    </div>
+  </div>
 } @else if (config(); as c) {
   <div class="page" [class.page--cart]="canOrder() && cartCount() > 0">
     <header class="top">
@@ -144,14 +152,33 @@
           @if (photos.length) {
             <div
               class="detail__slider"
+              [class.detail__slider--pending]="detailPhotoPending()"
               (touchstart)="onDetailPhotoSwipe($event, 'start', it)"
               (touchend)="onDetailPhotoSwipe($event, 'end', it)"
             >
-              <img
-                class="detail__photo"
-                [src]="photos[detailPhotoIndex() % photos.length]"
-                [alt]="it.name"
-              />
+              <div class="detail__photo-stack" aria-hidden="false">
+                @if (detailPhotoLayers().a.src) {
+                  <img
+                    class="detail__photo detail__photo--layer"
+                    [class.detail__photo--on]="detailPhotoLayers().a.on"
+                    [src]="detailPhotoLayers().a.src"
+                    [alt]="detailPhotoLayers().a.on ? it.name : ''"
+                    [attr.aria-hidden]="detailPhotoLayers().a.on ? null : 'true'"
+                  />
+                }
+                @if (detailPhotoLayers().b.src) {
+                  <img
+                    class="detail__photo detail__photo--layer"
+                    [class.detail__photo--on]="detailPhotoLayers().b.on"
+                    [src]="detailPhotoLayers().b.src"
+                    [alt]="detailPhotoLayers().b.on ? it.name : ''"
+                    [attr.aria-hidden]="detailPhotoLayers().b.on ? null : 'true'"
+                  />
+                }
+                @if (detailPhotoPending()) {
+                  <div class="detail__skeleton ord-skeleton" aria-hidden="true"></div>
+                }
+              </div>
               @if (photos.length > 1) {
                 <button
                   type="button"
@@ -176,7 +203,7 @@
                       class="detail__dot"
                       [class.detail__dot--on]="i === detailPhotoIndex() % photos.length"
                       [attr.aria-label]="'Foto ' + (i + 1)"
-                      (click)="detailPhotoIndex.set(i)"
+                      (click)="goToDetailPhoto(i, it)"
                     ></button>
                   }
                 </div>

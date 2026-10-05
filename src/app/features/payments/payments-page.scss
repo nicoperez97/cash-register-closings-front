@@ -3,6 +3,14 @@
   flex-direction: column;
   gap: 0.85rem;
 }
+.pay-list__skeleton {
+  display: grid;
+  gap: 0.85rem;
+  animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+.pay-list__skeleton-card {
+  padding: 1rem 1.05rem;
+}
 .pay-tabs-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -124,7 +132,8 @@
 .pay-list--cards app-payment-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto;
+  align-self: start;
   min-width: 0;
 }
 .pay-list--cards .pay-card__actions,

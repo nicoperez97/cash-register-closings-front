@@ -16,6 +16,7 @@
 
 .co-shell {
   padding: 0.9rem 1rem 1rem;
+  animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 
 .co-outbox {
@@ -28,6 +29,7 @@
   font-size: 0.9rem;
   font-weight: 650;
   box-shadow: 0 6px 18px color-mix(in srgb, #f0d78c 35%, transparent);
+  animation: guy-slide-down var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 
 .co-outbox p {
@@ -345,6 +347,11 @@
   border-radius: 10px;
   padding: 0.55rem 0.6rem;
   box-shadow: 0 4px 12px rgba(28, 40, 30, 0.04);
+  animation: guy-list-move var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  transition:
+    transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--guy-dur, 240ms) ease,
+    border-color var(--guy-dur, 240ms) ease;
 }
 
 .co-card--clickable {
@@ -353,6 +360,8 @@
 
 .co-card--clickable:hover {
   border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 35%, var(--guy-border, #d7e0d9));
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(28, 40, 30, 0.08);
 }
 
 .co-card--compact {

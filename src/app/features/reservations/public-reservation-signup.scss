@@ -67,6 +67,15 @@
         text-align: center;
       }
 
+      .page__skeleton {
+        width: min(100%, 20rem);
+        display: grid;
+        gap: 0.55rem;
+        text-align: left;
+        padding: 1rem;
+        animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      }
+
       .glow {
         pointer-events: none;
         position: absolute;

@@ -347,7 +347,7 @@ function toPrice(value: unknown): number | null {
 
         <div class="panel-card panel-card--flush">
           <mat-tab-group
-            animationDuration="0ms"
+            animationDuration="200ms"
             class="menu-admin-tabs"
             [selectedIndex]="mainTabIndex()"
             (selectedIndexChange)="mainTabIndex.set($event)"
@@ -803,7 +803,10 @@ function toPrice(value: unknown): number | null {
                                 @if (isItemOpen(section.index, ii)) {
                                   <div class="menu-item__detail">
                                     <div class="menu-item__photo">
-                                      <div class="menu-item__gallery">
+                                      <div
+                                        class="menu-item__gallery"
+                                        [class.menu-item__gallery--busy]="uploadingItemPhoto()"
+                                      >
                                         @for (img of itemImages(item); track img.id; let gi = $index) {
                                           <div class="menu-item__shot">
                                             @if (itemImageSrc(item, img); as src) {
@@ -1836,6 +1839,7 @@ function toPrice(value: unknown): number | null {
       gap: 0.45rem;
       padding: 0.45rem 0.15rem 0.25rem;
       border-top: 1px dashed var(--guy-border, #d7e0d9);
+      animation: guy-slide-down var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
     }
     .menu-item__photo {
       display: grid;
@@ -1847,6 +1851,25 @@ function toPrice(value: unknown): number | null {
       gap: 0.45rem;
       min-height: 5.9rem;
       align-content: flex-start;
+      transition: opacity var(--guy-dur, 240ms) ease;
+    }
+    .menu-item__gallery--busy {
+      opacity: 0.72;
+      pointer-events: none;
+    }
+    .menu-item__gallery--busy::after {
+      content: '';
+      flex: 0 0 5.5rem;
+      height: 5.75rem;
+      border-radius: 8px;
+      background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, #fff) 0%,
+        color-mix(in srgb, var(--guy-border, #d7e0d9) 35%, #fff) 45%,
+        color-mix(in srgb, var(--guy-border, #d7e0d9) 80%, #fff) 90%
+      );
+      background-size: 200% 100%;
+      animation: guy-shimmer 1.35s ease-in-out infinite;
     }
     .menu-item__shot {
       width: 5.5rem;
@@ -1855,6 +1878,17 @@ function toPrice(value: unknown): number | null {
       background: #f6f8f6;
       overflow: hidden;
       flex: 0 0 auto;
+      animation: guy-list-move var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      transition:
+        transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+        box-shadow var(--guy-dur, 240ms) ease,
+        border-color var(--guy-dur, 240ms) ease,
+        opacity var(--guy-crossfade, 300ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1));
+    }
+    .menu-item__shot:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(0, 51, 102, 0.1);
+      border-color: color-mix(in srgb, var(--guy-accent, #2e7d32) 28%, var(--guy-border, #d7e0d9));
     }
     .menu-item__shot--empty {
       display: grid;
@@ -1869,6 +1903,7 @@ function toPrice(value: unknown): number | null {
       width: 100%;
       height: 4rem;
       object-fit: cover;
+      transition: opacity var(--guy-crossfade, 300ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1));
     }
     .menu-item__shot-actions {
       display: flex;
@@ -1882,6 +1917,10 @@ function toPrice(value: unknown): number | null {
       height: 28px;
       padding: 0;
       --mdc-icon-button-state-layer-size: 28px;
+      transition: transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1));
+    }
+    .menu-item__shot-actions button:not(:disabled):active {
+      transform: scale(0.88);
     }
     .menu-item__shot-actions mat-icon {
       font-size: 16px;

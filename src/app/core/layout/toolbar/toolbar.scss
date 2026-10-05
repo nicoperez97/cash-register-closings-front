@@ -405,6 +405,13 @@
   font-size: 0.88rem;
 }
 
+.notif-panel__loading {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.35rem 0.15rem 0.55rem;
+  animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
 .notif-panel__sections {
   display: flex;
   flex-direction: column;

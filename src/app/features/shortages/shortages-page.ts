@@ -19,7 +19,6 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { PageHeaderComponent } from '../../shared/components/page-header';
-import { SpinnerComponent } from '../../shared/components/spinner';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import {
   isCriticalShortageLevel,
@@ -208,7 +207,6 @@ export class ShortageDialogComponent {
     MatSnackBarModule,
     MatTooltipModule,
     PageHeaderComponent,
-    SpinnerComponent,
   ],
   template: `
     <app-page-header
@@ -270,17 +268,14 @@ export class ShortageDialogComponent {
 
     <div class="shortage-list">
       @if (loading()) {
-        <div
-          class="panel-card guy-empty guy-empty--loading"
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <app-spinner [size]="28" tone="accent" />
-          <div>
-            <strong>Cargando…</strong>
-            <div class="small">Obteniendo faltantes</div>
-          </div>
+        <div class="shortage-skeleton" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando faltantes">
+          @for (_ of [0, 1, 2, 3]; track $index) {
+            <div class="panel-card shortage-skeleton__card">
+              <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+              <div class="guy-skeleton-line"></div>
+              <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+            </div>
+          }
         </div>
       } @else {
         @for (row of filteredRows(); track row.id) {
@@ -388,6 +383,14 @@ export class ShortageDialogComponent {
         display: flex;
         flex-direction: column;
         gap: 0.65rem;
+      }
+      .shortage-skeleton {
+        display: grid;
+        gap: 0.65rem;
+        animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      }
+      .shortage-skeleton__card {
+        padding: 0.95rem 1rem;
       }
       .shortage-card {
         display: flex;

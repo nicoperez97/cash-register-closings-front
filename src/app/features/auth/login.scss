@@ -396,6 +396,7 @@
 .login-submit:not(:disabled):hover {
   filter: brightness(1.06);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+  transform: translateY(-1px);
 }
 
 .login-submit:not(:disabled):active {

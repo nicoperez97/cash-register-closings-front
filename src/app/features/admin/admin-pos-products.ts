@@ -54,7 +54,7 @@ import { PosMenuLinkDialogComponent } from './pos-menu-link-dialog';
       (action)="seedFromReport()"
     />
 
-    <mat-tab-group animationDuration="0ms">
+    <mat-tab-group animationDuration="200ms">
       <mat-tab label="Platos">
         <div
           class="panel-card guy-filters mb-3 mt-3"

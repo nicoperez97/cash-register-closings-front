@@ -1,3 +1,5 @@
+@use './ordering-motion.scss' as *;
+
 :host {
   display: block;
   min-height: 100dvh;
@@ -13,6 +15,7 @@
   max-width: 40rem;
   margin: 0 auto;
   padding: 0.85rem 1rem 2.5rem;
+  animation: ord-fade-up var(--ord-dur-slow) var(--ord-ease) both;
 }
 
 .page--loading,
@@ -22,6 +25,7 @@
   gap: 0.75rem;
   min-height: 60dvh;
   text-align: center;
+  animation: ord-fade-in var(--ord-dur) var(--ord-ease) both;
 }
 
 .top {
@@ -273,6 +277,16 @@
   gap: 0.65rem;
 }
 
+.grid > * {
+  animation: ord-fade-up var(--ord-dur-slow) var(--ord-ease) both;
+}
+
+@for $i from 1 through 20 {
+  .grid > *:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 30}ms;
+  }
+}
+
 .tile {
   appearance: none;
   width: 100%;
@@ -287,6 +301,11 @@
   gap: 0.15rem;
   cursor: pointer;
   text-align: center;
+  transition:
+    transform var(--ord-dur-fast) var(--ord-ease),
+    box-shadow var(--ord-dur) ease,
+    border-color var(--ord-dur) ease,
+    background-color var(--ord-dur-fast) ease;
 
   strong {
     font-size: 1.15rem;
@@ -310,6 +329,15 @@
 
   &--mine {
     outline: 2px solid var(--accent);
+  }
+
+  &:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(28, 40, 30, 0.08);
+  }
+
+  &:not(:disabled):active {
+    transform: translateY(1px) scale(0.98);
   }
 
   &:disabled {
@@ -439,5 +467,21 @@
 
   .sheet {
     border-radius: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .page--loading,
+  .page--error,
+  .grid > *,
+  .tile {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .tile:not(:disabled):hover,
+  .tile:not(:disabled):active {
+    transform: none;
   }
 }

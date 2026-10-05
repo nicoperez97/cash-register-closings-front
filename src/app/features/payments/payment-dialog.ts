@@ -10,7 +10,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import { SpinnerComponent } from '../../shared/components/spinner';
 import { AuthService } from '../../core/auth/auth.service';
 import { canEditShopPayments } from '../../core/auth/auth.models';
 import { AnalyticsService } from '../../core/analytics/analytics.service';
@@ -104,7 +103,6 @@ type PaymentDraft = {
     MatSnackBarModule,
     MatExpansionModule,
     BusyLabelComponent,
-    SpinnerComponent,
     SelectSearchComponent,
     UserAvatarComponent,
     NotifyRecipientsFieldComponent,

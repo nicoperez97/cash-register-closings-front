@@ -209,6 +209,17 @@
   border: 1px solid var(--guy-border, #d7e0d9);
   border-radius: 10px;
   padding: 0.6rem 0.65rem;
+  animation: guy-list-move var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  transition:
+    transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--guy-dur, 240ms) ease,
+    border-color var(--guy-dur, 240ms) ease,
+    opacity var(--guy-dur, 240ms) ease;
+}
+
+.mon-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(28, 40, 30, 0.08);
 }
 
 .mon-card--pending {

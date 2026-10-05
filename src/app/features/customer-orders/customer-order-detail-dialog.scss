@@ -24,6 +24,7 @@
   gap: 0.85rem;
   min-width: min(28rem, 86vw);
   max-width: 36rem;
+  animation: guy-dialog-in var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 
 .cod__err {
