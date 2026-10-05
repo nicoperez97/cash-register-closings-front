@@ -96,7 +96,7 @@ import { VacationDialogComponent } from './vacation-dialog';
     </div>
 
     <mat-tab-group
-      animationDuration="0ms"
+      animationDuration="200ms"
       class="mb-3"
       [selectedIndex]="tabIndex()"
       (selectedIndexChange)="onTabChange($event)"

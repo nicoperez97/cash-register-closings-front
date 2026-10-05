@@ -13,7 +13,6 @@ import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
-import { SpinnerComponent } from '../../shared/components/spinner';
 import {
   SelectSearchComponent,
   filterBySelectQuery,
@@ -69,7 +68,6 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
     MatIconModule,
     MatSnackBarModule,
     BusyLabelComponent,
-    SpinnerComponent,
     SelectSearchComponent,
   ],
   template: `
@@ -116,8 +114,13 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
       </mat-dialog-actions>
     } @else if (loadingLists()) {
       <mat-dialog-content class="quick-exp__loading">
-        <app-spinner [size]="36" tone="accent" />
-        <p>Cargando conceptos y cuentas…</p>
+        <div class="quick-exp__skeleton" role="status" aria-busy="true" aria-label="Cargando conceptos y cuentas">
+          <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+          <div class="guy-skeleton-line"></div>
+          <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+          <div class="guy-skeleton-line"></div>
+          <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+        </div>
       </mat-dialog-content>
     } @else if (listsFailed()) {
       <mat-dialog-content>
@@ -497,17 +500,15 @@ function conceptHasCategory(c: Concept | undefined, cat: string): boolean {
       align-self: flex-start;
     }
     .quick-exp__loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.85rem;
+      display: block;
       min-height: 8rem;
-      color: var(--guy-muted, #5f6f76);
-      font-size: 0.9rem;
+      padding: 0.35rem 0 0.75rem;
+      animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
     }
-    .quick-exp__loading p {
-      margin: 0;
+    .quick-exp__skeleton {
+      display: grid;
+      gap: 0.55rem;
+      padding: 0.35rem 0;
     }
     .quick-exp__empty {
       margin: 0.5rem 0;

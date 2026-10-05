@@ -292,7 +292,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
       </div>
     </ng-template>
 
-    <app-kpi-strip class="mb-3" [items]="kpis()" />
+    <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
 
     <div class="charts-grid mb-3">
       <app-donut-chart
@@ -331,7 +331,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
     </div>
 
     <div class="panel-card panel-card--flush mb-3">
-      <mat-tab-group animationDuration="0ms" class="sales-tabs">
+      <mat-tab-group animationDuration="200ms" class="sales-tabs">
         <mat-tab label="Detalle por concepto">
           <div class="panel-card__body">
             <div class="guy-list-head">

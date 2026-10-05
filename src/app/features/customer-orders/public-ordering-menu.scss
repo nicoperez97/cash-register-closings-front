@@ -42,6 +42,33 @@
   color: var(--muted);
 }
 
+.page__skeleton {
+  width: min(100%, 22rem);
+  display: grid;
+  gap: 0.65rem;
+  text-align: left;
+  animation: ord-fade-in var(--ord-dur, 0.28s) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.page__skeleton-block {
+  height: 3.2rem;
+  border-radius: 14px;
+}
+
+.page__skeleton-line {
+  height: 0.75rem;
+  border-radius: 999px;
+}
+
+.page__skeleton-line--short {
+  width: 55%;
+}
+
+.page__skeleton-card {
+  height: 4.5rem;
+  border-radius: 14px;
+}
+
 .top {
   display: grid;
   grid-template-columns: 2.4rem minmax(0, 1fr) auto;
@@ -267,6 +294,16 @@ h1 {
   gap: 0.55rem;
 }
 
+.list > li {
+  animation: ord-fade-up var(--ord-dur-slow, 0.42s) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+@for $i from 1 through 14 {
+  .list > li:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 35}ms;
+  }
+}
+
 .item {
   display: flex;
   align-items: stretch;
@@ -277,10 +314,10 @@ h1 {
   background: var(--sheet);
   color: var(--ink);
   box-shadow: 0 6px 18px rgba(28, 40, 30, 0.04);
-  animation: ord-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform var(--ord-dur-fast, 0.16s) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--ord-dur, 0.28s) ease,
+    border-color var(--ord-dur, 0.28s) ease;
 }
 
 .item__main {
@@ -323,6 +360,11 @@ h1 {
   border-radius: 12px;
   background: #e8ece8;
   align-self: center;
+  transition: transform var(--ord-dur, 0.28s) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.item:hover .item__photo {
+  transform: scale(1.03);
 }
 
 .detail__photo {
@@ -340,9 +382,40 @@ h1 {
   touch-action: pan-y;
 }
 
-.detail__slider .detail__photo {
+.detail__photo-stack {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  background: #e8ece8;
+  overflow: hidden;
+}
+
+.detail__slider .detail__photo--layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
   border-radius: 12px;
   display: block;
+  opacity: 0;
+  transition: opacity var(--ord-crossfade, 320ms) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  z-index: 1;
+  pointer-events: none;
+}
+
+.detail__slider .detail__photo--layer.detail__photo--on {
+  opacity: 1;
+  z-index: 2;
+}
+
+.detail__skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 12px;
+  pointer-events: none;
 }
 
 .detail__nav {
@@ -361,6 +434,19 @@ h1 {
   display: grid;
   place-items: center;
   padding: 0;
+  z-index: 4;
+  transition:
+    transform var(--ord-dur-fast, 160ms) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    background-color var(--ord-dur-fast, 160ms) ease,
+    opacity var(--ord-dur-fast, 160ms) ease;
+}
+
+.detail__nav:hover {
+  background: color-mix(in srgb, #111 62%, transparent);
+}
+
+.detail__nav:active {
+  transform: translateY(-50%) scale(0.92);
 }
 
 .detail__nav--prev {
@@ -379,6 +465,7 @@ h1 {
   display: flex;
   justify-content: center;
   gap: 0.35rem;
+  z-index: 4;
 }
 
 .detail__dot {
@@ -389,11 +476,27 @@ h1 {
   padding: 0;
   background: color-mix(in srgb, #fff 55%, transparent);
   cursor: pointer;
+  transition:
+    transform var(--ord-dur-fast, 160ms) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    background-color var(--ord-dur, 280ms) ease,
+    width var(--ord-dur, 280ms) var(--ord-ease, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .detail__dot--on {
   background: #fff;
-  transform: scale(1.15);
+  transform: scale(1.2);
+  width: 0.85rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail__slider .detail__photo--layer {
+    transition: none !important;
+  }
+
+  .detail__nav,
+  .detail__dot {
+    transition: none !important;
+  }
 }
 
 .extras {
@@ -798,6 +901,7 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .top,
   .item,
+  .list > li,
   .detail,
   .empty,
   .cart-bar {
@@ -806,12 +910,15 @@ textarea:focus {
 
   .sheet,
   .detail,
-  .mask {
+  .mask,
+  .item__photo,
+  .detail__slider .detail__photo--layer {
     animation: none !important;
     transition: none !important;
   }
 
   .item:hover,
+  .item:hover .item__photo,
   .cart-bar:hover,
   .cart-bar:active {
     transform: none;

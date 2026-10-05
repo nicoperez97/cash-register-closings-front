@@ -62,12 +62,32 @@
   color: var(--guy-text);
 }
 
-/* Panel cards — hover sutil en desktop */
+/* Panel cards — hover sutil en desktop + tamaño suave */
 @media (hover: hover) and (pointer: fine) {
   .panel-card:not(.guy-filters):not(.guy-empty):not(.offline-banner):hover {
     border-color: color-mix(in srgb, var(--guy-primary) 18%, var(--guy-border));
     box-shadow: var(--guy-elev-3);
   }
+}
+
+/* Expansión de bloques internos (detalles, secciones) sin salto brusco */
+.guy-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--guy-dur-slow) var(--guy-ease),
+    opacity var(--guy-dur) var(--guy-ease);
+}
+
+.guy-expand > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.guy-expand--open {
+  grid-template-rows: 1fr;
+  opacity: 1;
 }
 
 /* Empty states */

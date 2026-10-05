@@ -1,6 +1,14 @@
 :host {
   position: relative;
   display: block;
+  animation: guy-list-move var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  transition:
+    transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    box-shadow var(--guy-dur, 240ms) ease;
+}
+
+:host:hover {
+  transform: translateY(-1px);
 }
 
 .pay-card__check {

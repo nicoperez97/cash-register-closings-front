@@ -409,7 +409,14 @@ type MissingField = 'name' | 'email' | 'emailInvalid' | 'date' | 'time' | 'area'
         }
       </div>
     } @else {
-      <div class="page page--loading"><p>Cargando…</p></div>
+      <div class="page page--loading" role="status" aria-busy="true" aria-label="Cargando">
+        <div class="page__skeleton">
+          <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+          <div class="guy-skeleton-line"></div>
+          <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+          <div class="guy-skeleton-line"></div>
+        </div>
+      </div>
     }
   `,
   styleUrl: './public-reservation-signup.scss',

@@ -660,7 +660,17 @@
   color: var(--ink);
   cursor: pointer;
   box-shadow: 0 6px 18px color-mix(in srgb, var(--accent, #2e7d32) 7%, transparent);
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  animation: fade-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.22s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px color-mix(in srgb, var(--accent, #2e7d32) 14%, transparent);
+  }
 
   &:active {
     transform: scale(0.96);

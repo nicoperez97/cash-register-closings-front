@@ -23,7 +23,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { PageHeaderComponent } from '../../shared/components/page-header';
-import { SpinnerComponent } from '../../shared/components/spinner';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { formatNumber } from '../../shared/utils/money';
@@ -119,7 +118,6 @@ function loadViewMode(kind: StockKind): ViewMode {
     MatFormFieldModule,
     MatInputModule,
     PageHeaderComponent,
-    SpinnerComponent,
     BusyLabelComponent,
   ],
   template: `
@@ -323,17 +321,14 @@ function loadViewMode(kind: StockKind): ViewMode {
     <div class="stock-body">
       <div class="stock-list">
         @if (loading()) {
-          <div
-            class="panel-card guy-empty guy-empty--loading"
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <app-spinner [size]="28" tone="accent" />
-            <div>
-              <strong>Cargando…</strong>
-              <div class="small">Obteniendo stock de {{ kindLabel() }}</div>
-            </div>
+          <div class="stock-skeleton" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando stock">
+            @for (_ of [0, 1, 2, 3, 4]; track $index) {
+              <div class="panel-card stock-skeleton__card">
+                <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+                <div class="guy-skeleton-line"></div>
+                <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+              </div>
+            }
           </div>
         } @else if (!products().length) {
           <div class="panel-card guy-empty">
@@ -730,6 +725,14 @@ function loadViewMode(kind: StockKind): ViewMode {
         flex-direction: column;
         gap: 0.85rem;
         min-width: 0;
+      }
+      .stock-skeleton {
+        display: grid;
+        gap: 0.65rem;
+        animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      }
+      .stock-skeleton__card {
+        padding: 0.95rem 1rem;
       }
       .stock-body:has(.stock-index) .stock-list {
         padding-right: 1.35rem;

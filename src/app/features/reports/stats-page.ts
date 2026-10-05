@@ -139,7 +139,7 @@ function formatDelta(pct: number | null | undefined): string {
       }
     </p>
 
-    <app-kpi-strip class="mb-3" [items]="kpis()" />
+    <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
 
     <div class="charts-grid mb-3">
       <app-line-chart

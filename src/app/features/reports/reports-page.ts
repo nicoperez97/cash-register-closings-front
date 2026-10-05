@@ -209,7 +209,7 @@ import { formatMoney } from '../../shared/utils/money';
       </div>
     </div>
 
-    <app-kpi-strip class="mb-3" [items]="kpis()" />
+    <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
 
     <div class="panel-card panel-card--flush mb-3">
       <div class="panel-card__body">

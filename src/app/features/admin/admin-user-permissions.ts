@@ -93,7 +93,13 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
     />
 
     @if (loading()) {
-      <div class="panel-card"><p class="muted">Cargando…</p></div>
+      <div class="panel-card" role="status" aria-busy="true" aria-label="Cargando permisos">
+        <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+        <div class="guy-skeleton-line"></div>
+        <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+        <div class="guy-skeleton-line"></div>
+        <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+      </div>
     } @else if (!user()) {
       <div class="panel-card">
         <p class="muted">No se encontró el usuario.</p>

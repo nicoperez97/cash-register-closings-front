@@ -24,6 +24,8 @@ import { SpinnerComponent } from './spinner';
           <div class="guy-skeleton-line guy-skeleton-line--title"></div>
           <div class="guy-skeleton-line"></div>
           <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+          <div class="guy-skeleton-line"></div>
+          <div class="guy-skeleton-line guy-skeleton-line--short"></div>
         </div>
       } @else {
         <div class="loading-card" role="status" aria-live="polite" aria-busy="true">
@@ -150,8 +152,8 @@ export class LoadingStateComponent {
   readonly loading = input(false);
   /** Refresh en segundo plano: barra + banner, sin vaciar la pantalla. */
   readonly refreshing = input(false);
-  /** Placeholder skeleton en lugar del spinner grande. */
-  readonly skeleton = input(false);
+  /** Placeholder skeleton en lugar del spinner grande (default: sí). */
+  readonly skeleton = input(true);
   readonly title = input('Cargando…');
   readonly message = input('Preparando la información');
   readonly refreshTitle = input('Actualizando…');

@@ -109,7 +109,7 @@ function breakdownSummary(b: UserActivityBreakdown): string {
       </div>
     </div>
 
-    <app-kpi-strip class="mb-3" [items]="kpis()" />
+    <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
 
     @if (loading()) {
       <p class="hint">Cargando ranking…</p>

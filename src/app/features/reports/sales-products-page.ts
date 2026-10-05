@@ -202,7 +202,7 @@ function formatDayLabelEs(isoDate: string): string {
         />
       }
     @if (vis().kpis) {
-      <app-kpi-strip class="mb-3" [items]="kpis()" />
+      <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
     }
 
     @if (vis().charts) {
@@ -253,7 +253,7 @@ function formatDayLabelEs(isoDate: string): string {
 
     @if (vis().tabProducts || vis().tabCategories || vis().tabDays) {
       <div class="panel-card panel-card--flush mb-3">
-        <mat-tab-group animationDuration="0ms" class="sales-tabs">
+        <mat-tab-group animationDuration="200ms" class="sales-tabs">
           @if (vis().tabProducts) {
             <mat-tab label="Por plato">
               <div class="panel-card__body">

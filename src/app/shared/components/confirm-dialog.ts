@@ -46,6 +46,24 @@ export type ConfirmDialogOptions = {
       </button>
     </mat-dialog-actions>
   `,
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      .guy-dialog__title-icon {
+        animation: guy-scale-in var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      }
+      .guy-dialog__title-text {
+        animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+        animation-delay: 40ms;
+      }
+      mat-dialog-actions {
+        animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+        animation-delay: 80ms;
+      }
+    `,
+  ],
 })
 export class ConfirmDialogComponent {
   readonly data = inject<

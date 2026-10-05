@@ -206,6 +206,103 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   }
 
   readonly detailPhotoIndex = signal(0);
+  /** Doble capa para crossfade premium entre fotos. */
+  readonly detailPhotoLayers = signal<{
+    a: { src: string; on: boolean };
+    b: { src: string; on: boolean };
+  }>({ a: { src: '', on: true }, b: { src: '', on: false } });
+  readonly detailPhotoPending = signal(false);
+
+  private activePhotoLayer: 'a' | 'b' = 'a';
+  private readonly photoCache = new Set<string>();
+  private detailSwipeX: number | null = null;
+
+  private prefersReducedMotion(): boolean {
+    return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  private preloadUrl(url: string): Promise<void> {
+    if (!url || this.photoCache.has(url)) return Promise.resolve();
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        this.photoCache.add(url);
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = url;
+    });
+  }
+
+  private preloadNeighbors(photos: string[], index: number): void {
+    if (photos.length < 2) return;
+    const len = photos.length;
+    void this.preloadUrl(photos[(index - 1 + len) % len]!);
+    void this.preloadUrl(photos[(index + 1) % len]!);
+  }
+
+  /** Muestra la foto en `index` con crossfade (o corte si reduced-motion / primera carga). */
+  showDetailPhoto(photos: string[], index: number, opts?: { instant?: boolean }): void {
+    if (!photos.length) return;
+    const len = photos.length;
+    const i = ((index % len) + len) % len;
+    const url = photos[i]!;
+    this.detailPhotoIndex.set(i);
+    this.preloadNeighbors(photos, i);
+
+    const instant = !!opts?.instant || this.prefersReducedMotion();
+    const layers = this.detailPhotoLayers();
+    const activeKey = this.activePhotoLayer;
+    const active = layers[activeKey];
+
+    if (active.src === url && active.on) {
+      this.detailPhotoPending.set(false);
+      return;
+    }
+
+    if (instant || !active.src) {
+      this.activePhotoLayer = 'a';
+      this.detailPhotoLayers.set({
+        a: { src: url, on: true },
+        b: { src: '', on: false },
+      });
+      const cached = this.photoCache.has(url);
+      this.detailPhotoPending.set(!cached);
+      void this.preloadUrl(url).then(() => {
+        if (this.detailPhotoIndex() === i) this.detailPhotoPending.set(false);
+      });
+      return;
+    }
+
+    const inactiveKey: 'a' | 'b' = activeKey === 'a' ? 'b' : 'a';
+    const cached = this.photoCache.has(url);
+    this.detailPhotoPending.set(!cached);
+
+    this.detailPhotoLayers.update((L) => ({
+      ...L,
+      [inactiveKey]: { src: url, on: false },
+    }));
+
+    const reveal = () => {
+      if (this.detailPhotoIndex() !== i) return;
+      // Un frame para que el browser registre opacity 0 antes del fade-in.
+      requestAnimationFrame(() => {
+        if (this.detailPhotoIndex() !== i) return;
+        this.detailPhotoLayers.update((L) => ({
+          a: { src: L.a.src, on: inactiveKey === 'a' },
+          b: { src: L.b.src, on: inactiveKey === 'b' },
+        }));
+        this.activePhotoLayer = inactiveKey;
+        this.detailPhotoPending.set(false);
+      });
+    };
+
+    void this.preloadUrl(url).then(reveal);
+  }
+
+  goToDetailPhoto(index: number, it: PublicOrderingMenuItem): void {
+    this.showDetailPhoto(this.itemPhotos(it), index);
+  }
 
   sectionDomId(index: number): string {
     return `ord-sec-${index}`;
@@ -405,13 +502,15 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     this.selectedExtraIds.set([]);
     this.removedIngredientIds.set([]);
     this.view.set('detail');
+    const photos = this.itemPhotos(item);
+    this.showDetailPhoto(photos, 0, { instant: true });
   }
 
   shiftDetailPhoto(delta: number, it: PublicOrderingMenuItem): void {
     const photos = this.itemPhotos(it);
     if (photos.length < 2) return;
     const next = (this.detailPhotoIndex() + delta + photos.length) % photos.length;
-    this.detailPhotoIndex.set(next);
+    this.showDetailPhoto(photos, next);
   }
 
   onDetailPhotoSwipe(ev: TouchEvent, phase: 'start' | 'end', it: PublicOrderingMenuItem): void {
@@ -427,8 +526,6 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     if (Math.abs(dx) < 40) return;
     this.shiftDetailPhoto(dx < 0 ? 1 : -1, it);
   }
-
-  private detailSwipeX: number | null = null;
 
   toggleExtra(extraId: string): void {
     this.selectedExtraIds.update((ids) =>

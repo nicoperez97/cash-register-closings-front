@@ -38,6 +38,10 @@ export class NotificationsInboxService {
   private started = false;
   /** -1 = todavía no hay baseline (login / cambio de local). */
   private lastShopUnread = -1;
+  /** Local al que corresponde lastShopUnread (evita comparar counts entre locales). */
+  private lastShopId: string | null = null;
+  /** Tras cambiar de local, no disparar refresh de pantalla un rato. */
+  private suppressPageRefreshUntil = 0;
 
   /** Arranca listeners una sola vez (evita trabajo antes del login). */
   ensureStarted(): void {
@@ -54,6 +58,7 @@ export class NotificationsInboxService {
           }
           const shopId = this.shops.selectedShopId();
           return forkJoin({
+            shopId: of(shopId),
             count: this.api.unseenCount(shopId).pipe(
               catchError(() => of({ count: 0 })),
             ),
@@ -69,19 +74,31 @@ export class NotificationsInboxService {
       )
       .subscribe((res) => {
         if (!res) return;
+        // Descartar respuesta vieja si el local ya cambió.
+        if (res.shopId !== this.shops.selectedShopId()) return;
         const next = Math.max(0, Number(res.count?.count) || 0);
         const prev = this.lastShopUnread;
+        const sameShop = this.lastShopId === res.shopId;
         this.unreadCount.set(next);
         this.unreadByShop.set(res.byShop?.counts ?? {});
         void syncAppBadge(Math.max(0, Number(res.total?.count) || 0));
-        if (prev >= 0 && next > prev) {
+        // Solo refrescar pantalla si subió el unseen del *mismo* local (no al cambiar de local).
+        if (
+          sameShop &&
+          prev >= 0 &&
+          next > prev &&
+          Date.now() >= this.suppressPageRefreshUntil
+        ) {
           this.pageRefresh.refreshFromInbox();
         }
         this.lastShopUnread = next;
+        this.lastShopId = res.shopId;
       });
 
     toObservable(this.shops.selectedShopId, { injector: this.injector }).subscribe(() => {
       this.lastShopUnread = -1;
+      this.lastShopId = null;
+      this.suppressPageRefreshUntil = Date.now() + 3000;
       this.refresh();
     });
 
@@ -112,6 +129,7 @@ export class NotificationsInboxService {
     this.lastShopUnread = 0;
     this.unreadCount.set(0);
     const shopId = this.shops.selectedShopId();
+    this.lastShopId = shopId;
     if (shopId) {
       this.unreadByShop.update((map) => {
         if (!(shopId in map)) return map;
@@ -124,6 +142,7 @@ export class NotificationsInboxService {
 
   clear(): void {
     this.lastShopUnread = -1;
+    this.lastShopId = null;
     this.unreadCount.set(0);
     this.unreadByShop.set({});
     void syncAppBadge(0);

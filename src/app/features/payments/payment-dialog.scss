@@ -190,17 +190,15 @@
   color: var(--guy-muted, #5f6f76);
 }
 .pay-dialog__loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.85rem;
+  display: block;
   min-height: 8rem;
-  color: var(--guy-muted, #5f6f76);
-  font-size: 0.9rem;
+  padding: 0.35rem 0 0.75rem;
+  animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
-.pay-dialog__loading p {
-  margin: 0;
+.pay-dialog__skeleton {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.35rem 0;
 }
 .pay-dialog__empty {
   margin: 0.5rem 0;

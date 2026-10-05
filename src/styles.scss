@@ -45,6 +45,7 @@
   --guy-dur-fast: 140ms;
   --guy-dur: 240ms;
   --guy-dur-slow: 380ms;
+  --guy-crossfade: 300ms;
 
   /* Slide toggles: on = acento de marca (no el primary oscuro del tema) */
   --mat-slide-toggle-selected-track-color: var(--guy-accent, #2e7d32);
@@ -497,6 +498,11 @@ select {
   border-radius: var(--guy-radius);
   box-shadow: var(--guy-shadow);
   padding: 1rem 1.25rem;
+  transition:
+    transform var(--guy-dur-fast) var(--guy-ease),
+    box-shadow var(--guy-dur) var(--guy-ease),
+    border-color var(--guy-dur) ease,
+    opacity var(--guy-dur) var(--guy-ease);
 }
 
 .panel-card + .panel-card {
@@ -626,10 +632,22 @@ select {
 }
 
 /* —— Dialogs —— */
+@keyframes guy-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .mat-mdc-dialog-container .mdc-dialog__surface {
   border-radius: 16px !important;
   border-top: 4px solid var(--guy-green);
   overflow: hidden;
+  animation: guy-dialog-in var(--guy-dur-slow) var(--guy-ease) both;
 }
 
 .mat-mdc-dialog-title {
@@ -816,6 +834,7 @@ html[data-theme='dark'] .cdk-overlay-pane.app-update-dialog-panel {
     border-radius: 0 !important;
     max-height: 100dvh !important;
     height: 100dvh !important;
+    animation: guy-sheet-up var(--guy-dur-slow) var(--guy-ease) both;
   }
 
   .guy-dialog .mat-mdc-dialog-container,
@@ -1825,6 +1844,28 @@ button.mat-mdc-mini-fab mat-icon {
   }
 }
 
+@keyframes guy-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes guy-list-move {
+  from {
+    opacity: 0.55;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .guy-enter,
 .guy-page-enter > *:not(router-outlet) {
   animation: guy-fade-in var(--guy-dur-slow) var(--guy-ease) both;
@@ -1840,6 +1881,52 @@ button.mat-mdc-mini-fab mat-icon {
 
 .guy-enter-down {
   animation: guy-slide-down var(--guy-dur) var(--guy-ease) both;
+}
+
+.guy-dialog-in {
+  animation: guy-dialog-in var(--guy-dur-slow) var(--guy-ease) both;
+}
+
+.guy-list-move {
+  animation: guy-list-move var(--guy-dur) var(--guy-ease) both;
+}
+
+.guy-crossfade {
+  transition: opacity var(--guy-crossfade) var(--guy-ease);
+}
+
+.guy-content-enter {
+  animation: guy-fade-up var(--guy-dur-slow) var(--guy-ease) both;
+}
+
+.guy-tab-panel {
+  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
+}
+
+/* Cards de listados admin: entrada + press */
+.guy-card-list > *,
+.payment-list > *,
+.stock-grid > *,
+.stock-letter__list > *,
+.shortage-list > *,
+.shop-hub__grid > * {
+  animation: guy-list-move var(--guy-dur) var(--guy-ease) both;
+}
+
+@for $i from 1 through 16 {
+  .guy-card-list > *:nth-child(#{$i}),
+  .payment-list > *:nth-child(#{$i}),
+  .stock-grid > *:nth-child(#{$i}),
+  .stock-letter__list > *:nth-child(#{$i}),
+  .shortage-list > *:nth-child(#{$i}),
+  .shop-hub__grid > *:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 40}ms;
+  }
+}
+
+/* Tabs Material: cuerpo con fade corto */
+.mat-mdc-tab-body.mat-mdc-tab-body-active .mat-mdc-tab-body-content {
+  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
 }
 
 .guy-stagger > *,
@@ -1870,6 +1957,10 @@ app-kpi-strip [class*='col-'] {
 }
 
 .guy-kpi {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  box-sizing: border-box;
   padding: 0.85rem 1rem;
   border-radius: var(--guy-radius);
   border: 1px solid var(--guy-border);
@@ -1880,7 +1971,8 @@ app-kpi-strip [class*='col-'] {
   transition:
     transform var(--guy-dur-fast) var(--guy-ease),
     box-shadow var(--guy-dur) var(--guy-ease),
-    border-color var(--guy-dur) ease;
+    border-color var(--guy-dur) ease,
+    opacity var(--guy-dur) var(--guy-ease);
 }
 
 .guy-kpi:hover {
@@ -1907,11 +1999,21 @@ app-kpi-strip [class*='col-'] {
 }
 
 .panel-card,
-.guy-entity-card {
+.guy-entity-card,
+.guy-empty,
+.pay-card,
+.stock-card,
+.shortage-card,
+.co-card,
+.mon-card,
+.data-card,
+.home-module-tile {
   transition:
     transform var(--guy-dur-fast) var(--guy-ease),
     box-shadow var(--guy-dur) var(--guy-ease),
-    border-color var(--guy-dur) ease;
+    border-color var(--guy-dur) ease,
+    opacity var(--guy-dur) var(--guy-ease),
+    background-color var(--guy-dur-fast) ease;
 }
 
 .guy-entity-card:hover {
@@ -1975,6 +2077,35 @@ button.mat-mdc-icon-button:not(:disabled):active {
   .guy-spinner {
     animation-duration: 1.2s !important;
     animation-iteration-count: infinite !important;
+  }
+
+  .guy-crossfade {
+    transition: none !important;
+  }
+
+  .guy-card-list > *,
+  .payment-list > *,
+  .stock-grid > *,
+  .stock-letter__list > *,
+  .shortage-list > *,
+  .shop-hub__grid > *,
+  .mat-mdc-dialog-container .mdc-dialog__surface,
+  .mat-mdc-tab-body.mat-mdc-tab-body-active .mat-mdc-tab-body-content {
+    animation: none !important;
+  }
+
+  .panel-card,
+  .guy-kpi,
+  .guy-entity-card,
+  .guy-empty,
+  .pay-card,
+  .stock-card,
+  .shortage-card,
+  .co-card,
+  .mon-card,
+  .data-card,
+  .home-module-tile {
+    transition: none !important;
   }
 }
 

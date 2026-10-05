@@ -348,7 +348,14 @@ export class SidebarComponent {
 
   onShopChange(shopId: string): void {
     if (!this.shopContext.selectShop(shopId)) return;
-    void this.router.navigateByUrl(defaultHomeRoute(this.auth.currentUser(), shopId));
+    const home = defaultHomeRoute(this.auth.currentUser(), shopId);
+    const path = this.currentUrl().split('?')[0];
+    const atHome =
+      path === home || ((home === '/' || home === '') && (path === '/' || path === ''));
+    // Si ya estamos en home, no re-navegar: evita remount y doble carga de KPIs.
+    if (!atHome) {
+      void this.router.navigateByUrl(home);
+    }
     this.navigate.emit();
   }
 

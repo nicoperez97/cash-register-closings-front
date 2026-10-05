@@ -289,7 +289,11 @@
         </div>
         <div class="notif-panel__body">
           @if (loadingNotifs() && !notifications().length) {
-            <p class="notif-panel__empty">Cargando…</p>
+            <div class="notif-panel__loading" role="status" aria-busy="true" aria-label="Cargando avisos">
+              <div class="guy-skeleton-line guy-skeleton-line--title"></div>
+              <div class="guy-skeleton-line"></div>
+              <div class="guy-skeleton-line guy-skeleton-line--short"></div>
+            </div>
           } @else if (!notifSections().length) {
             <p class="notif-panel__empty">{{
               notifFilter() === 'unread' ? 'No hay notificaciones sin leer' : 'No hay notificaciones'

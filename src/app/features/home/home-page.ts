@@ -1,5 +1,5 @@
 import { formatMoney as formatMoneyValue } from '../../shared/utils/money';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +9,18 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { catchError, filter, forkJoin, fromEvent, of, switchMap } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  catchError,
+  distinctUntilChanged,
+  filter,
+  forkJoin,
+  fromEvent,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { KpiStripComponent, KpiItem } from '../../shared/components/kpi-strip';
@@ -52,7 +63,7 @@ import {
 import { CashWithdrawalsApiService } from '../cash-withdrawals/cash-withdrawals-api.service';
 import { formatIsoDateDisplay } from '../../core/shop/business-date';
 import { environment } from '../../../environments/environment';
-import { usePageRefresh } from '../../core/page-refresh.service';
+import { PageRefreshService, usePageRefresh } from '../../core/page-refresh.service';
 import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
@@ -65,6 +76,10 @@ function accountNameKey(name: string | null | undefined): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** Gate global: sobrevive remounts del Home en el mismo tick / HMR. */
+let homeLoadGateShop: string | null = null;
+let homeLoadGateAt = 0;
 
 type CashCandidate = { id: string; name: string };
 
@@ -167,7 +182,7 @@ interface BalanceRowExt extends BalanceAccountRow {
     />
 
     @if (kpis().length) {
-      <app-kpi-strip [items]="kpis()" class="mb-3" />
+      <app-kpi-strip [items]="kpis()" [loading]="kpisLoading()" class="mb-3" />
     }
 
     @if (canViewSettlements() && channelReceivables()?.count) {
@@ -256,8 +271,8 @@ interface BalanceRowExt extends BalanceAccountRow {
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="today-panel__shift">
                 <mat-label>Turno</mat-label>
                 <mat-select
-                  [ngModel]="selectedShiftId()"
-                  (ngModelChange)="onShiftChange($event)"
+                  [value]="selectedShiftId()"
+                  (selectionChange)="onShiftChange($event.value)"
                 >
                   @for (shift of shopShifts(); track shift.id) {
                     <mat-option [value]="shift.id">
@@ -665,12 +680,47 @@ interface BalanceRowExt extends BalanceAccountRow {
         font: inherit;
         cursor: pointer;
         touch-action: manipulation;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
+          both;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease,
+          transform var(--guy-dur-fast, 140ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+          box-shadow var(--guy-dur, 240ms) ease;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(1) {
+        animation-delay: 0ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(2) {
+        animation-delay: 40ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(3) {
+        animation-delay: 80ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(4) {
+        animation-delay: 120ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(5) {
+        animation-delay: 160ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(6) {
+        animation-delay: 200ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(7) {
+        animation-delay: 240ms;
+      }
+      .home-modules__grid--tiles .home-module-tile:nth-child(8) {
+        animation-delay: 280ms;
       }
       .home-module-tile:hover,
       .home-module-tile:focus-visible {
         background: rgba(0, 51, 102, 0.04);
         border-color: rgba(0, 51, 102, 0.22);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 22px rgba(0, 51, 102, 0.08);
+      }
+      .home-module-tile:active {
+        transform: scale(0.97);
       }
       .home-module-tile__icon {
         font-size: 1.35rem;
@@ -732,7 +782,13 @@ export class HomePageComponent {
   private readonly navMenu = inject(NavMenuService);
 
   private readonly reportSummary = signal<any>(null);
-  private readonly refreshTick = signal(0);
+  private readonly reportLoading = signal(false);
+  private readonly paymentsLoading = signal(false);
+  private readonly cashLoading = signal(false);
+  private readonly settlementsLoading = signal(false);
+  private readonly attendanceLoading = signal(false);
+  private readonly homeLoad$ = new Subject<string>();
+  private readonly pageRefreshSvc = inject(PageRefreshService);
   readonly balanceRows = signal<BalanceRowExt[]>([]);
   /** Cuenta de caja física (Cuentas del local → Efectivo). */
   readonly cashDrawerAccount = signal<{ id: string; name: string } | null>(null);
@@ -824,9 +880,10 @@ export class HomePageComponent {
   }
 
   onShiftChange(shiftId: string): void {
+    if (!shiftId || shiftId === this.selectedShiftId()) return;
     this.selectedShiftId.set(shiftId);
     const shopId = this.shopContext.selectedShopId();
-    if (shopId) this.loadAttendanceToday(shopId);
+    if (shopId) this.loadAttendanceToday(shopId, shiftId);
   }
 
   readonly presentTodayCount = computed(() => {
@@ -835,6 +892,16 @@ export class HomePageComponent {
   });
 
   readonly cashInRegister = computed(() => this.cashInRegisterAmount());
+
+  readonly kpisLoading = computed(
+    () =>
+      this.reportLoading() ||
+      this.paymentsLoading() ||
+      this.cashLoading() ||
+      this.settlementsLoading() ||
+      this.attendanceLoading() ||
+      this.attendanceBusy(),
+  );
 
   readonly kpis = computed((): KpiItem[] => {
     const items: KpiItem[] = [];
@@ -976,7 +1043,7 @@ export class HomePageComponent {
         label: 'Canales nos deben',
         value: recv ? this.formatMoney(recv.totalNet) : '—',
         hint: !recv
-          ? 'Cargando…'
+          ? undefined
           : count === 0
             ? 'Sin pendientes'
             : earliest
@@ -991,161 +1058,220 @@ export class HomePageComponent {
     return items;
   });
 
+  /**
+   * Dispara la carga de KPIs.
+   * - `shop`: cambio de local (siempre, si el id cambió).
+   * - `user`: pull-to-refresh / acción explícita (siempre).
+   * - `auto`: inbox / resume — se ignora si el mismo local cargó hace <2s
+   *   (evita el doble/triple fetch al montar o al cambiar de local).
+   */
+  private requestHomeLoad(reason: 'shop' | 'user' | 'auto'): void {
+    const shopId = this.shopContext.selectedShopId();
+    if (!shopId) return;
+    const now = Date.now();
+    if (reason === 'auto') {
+      // Inbox / resume espurio: no releer el mismo local si acaba de cargar.
+      if (shopId === homeLoadGateShop && now - homeLoadGateAt < 2500) return;
+    } else if (reason === 'shop') {
+      // Doble emit del mismo shop en el mismo tick (toObservable / remount inmediato).
+      if (shopId === homeLoadGateShop && now - homeLoadGateAt < 100) return;
+    }
+    homeLoadGateShop = shopId;
+    homeLoadGateAt = now;
+    this.homeLoad$.next(shopId);
+  }
+
   constructor() {
+    this.homeLoad$
+      .pipe(
+        switchMap((shopId) => this.loadHomeBundle$(shopId)),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
+
+    toObservable(this.shopContext.selectedShopId)
+      .pipe(
+        filter((id): id is string => !!id),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.requestHomeLoad('shop'));
+
     usePageRefresh(() => {
-      this.refreshTick.update((n) => n + 1);
+      // refresh() pone refreshing=true; refreshFromInbox no → lo tratamos como auto.
+      const reason = this.pageRefreshSvc.refreshing() ? 'user' : 'auto';
+      this.requestHomeLoad(reason);
       if (this.canOpenReservations()) this.reservationsInbox.refresh();
     });
 
-    // PWA / tab resume: volver a pedir efectivo (sin esto queda el valor en memoria).
+    // Solo al volver a la pestaña tras haberla ocultado (no en el load inicial).
+    let pageWasHidden = document.visibilityState === 'hidden';
     fromEvent(document, 'visibilitychange')
-      .pipe(
-        filter(() => document.visibilityState === 'visible'),
-        takeUntilDestroyed(),
-      )
-      .subscribe(() => this.refreshTick.update((n) => n + 1));
-    // iOS Safari / PWA: restauración desde bfcache.
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (document.visibilityState === 'hidden') {
+          pageWasHidden = true;
+          return;
+        }
+        if (document.visibilityState === 'visible' && pageWasHidden) {
+          pageWasHidden = false;
+          this.requestHomeLoad('auto');
+        }
+      });
     fromEvent(window, 'pageshow')
       .pipe(
         filter((e) => !!(e as PageTransitionEvent).persisted),
         takeUntilDestroyed(),
       )
-      .subscribe(() => this.refreshTick.update((n) => n + 1));
+      .subscribe(() => this.requestHomeLoad('auto'));
+  }
 
-    // Efectivo en caja / saldos: cancelar request anterior al cambiar local o refrescar.
-    toObservable(
-      computed(() => ({
-        tick: this.refreshTick(),
-        shopId: this.shopContext.selectedShopId() ?? '',
-        userId: this.auth.currentUser()?.id ?? '',
-      })),
-    )
-      .pipe(
-        switchMap(({ shopId }) => {
-          const user = this.auth.currentUser();
-          const canBalances =
-            !!shopId &&
-            (hasShopPermission(user, shopId, 'expenses.read') ||
-              hasShopPermission(user, shopId, 'accountTransfers.read') ||
-              hasShopPermission(user, shopId, 'incomes.read'));
-          this.balanceRows.set([]);
-          this.cashDrawerAccount.set(null);
-          this.cashPendingToWithdraw.set(null);
-          this.cashInRegisterAmount.set(null);
-          if (!canBalances) return of(null);
-          return forkJoin({
-            shopId: of(shopId),
-            balances: this.movementsApi.balances(shopId),
-            sources: this.api
-              .listClosingSources(shopId, true)
-              .pipe(catchError(() => of([] as ShopClosingSource[]))),
-            accounts: this.movementsApi
-              .accounts(shopId)
-              .pipe(catchError(() => of([] as LedgerAccount[]))),
-            pending: this.cashWithdrawalsApi.listPending(shopId).pipe(
-              catchError(() => of({ availableTotal: null as number | null })),
-            ),
-            open: this.api.getOpen(shopId).pipe(catchError(() => of(null as CashClosing | null))),
-            suggested: this.api.suggestedOpening(shopId).pipe(
-              catchError(() => of(null as SuggestedOpening | null)),
-            ),
-          }).pipe(catchError(() => of(null)));
-        }),
-        takeUntilDestroyed(),
-      )
-      .subscribe((res) => {
-        if (!res) return;
-        // Descartar respuesta si el local ya cambió (carrera residual).
-        if (res.shopId !== (this.shopContext.selectedShopId() ?? '')) return;
-        const rows = (res.balances.accounts ?? []).map((a) => mapBalanceAccount(a));
-        this.balanceRows.set(rows);
-        this.cashDrawerAccount.set(resolveCashDrawerAccount(res.sources, res.accounts, rows));
-        const avail = res.pending.availableTotal;
-        this.cashPendingToWithdraw.set(
-          avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
-        );
-        // Misma cifra que Abrir caja: lo dejado en el último cierre (suggested).
-        // Con caja abierta: lo dejado en el draft (0 cuenta); si aún no hay valor, la apertura.
-        const leaveNum =
-          res.open != null && res.open.cashLeftInRegister != null
-            ? Math.max(0, Number(res.open.cashLeftInRegister))
-            : NaN;
-        const openNum =
-          res.open != null && res.open.cashOpeningAmount != null
-            ? Math.max(0, Number(res.open.cashOpeningAmount))
-            : NaN;
-        const fromOpen = !Number.isNaN(leaveNum)
-          ? leaveNum
-          : !Number.isNaN(openNum)
-            ? openNum
-            : NaN;
-        const fromSuggested =
-          res.suggested != null && Number.isFinite(Number(res.suggested.amount))
-            ? Math.max(0, Number(res.suggested.amount))
-            : NaN;
-        // 0 es un valor válido (caja vacía); solo null si no hay dato.
-        const inReg = !Number.isNaN(fromOpen)
-          ? fromOpen
-          : !Number.isNaN(fromSuggested)
-            ? fromSuggested
-            : null;
-        this.cashInRegisterAmount.set(inReg);
-      });
+  /** Carga KPIs + efectivo del local. switchMap cancela el forkJoin anterior. */
+  private loadHomeBundle$(shopId: string): Observable<unknown> {
+    const user = this.auth.currentUser();
+    const canReport =
+      !!shopId &&
+      (hasShopPermission(user, shopId, 'reports.view') || canViewClosingsList(user, shopId));
+    const canSettlements =
+      !!shopId &&
+      !!this.routeFeatures().settlementsEnabled &&
+      hasShopPermission(user, shopId, 'settlements.read');
+    const canAttendance =
+      !!shopId &&
+      (hasShopPermission(user, shopId, 'attendance.read') ||
+        hasShopPermission(user, shopId, 'attendance.manage'));
+    const canPayments = !!shopId && hasShopPermission(user, shopId, 'payments.read');
+    const canBalances =
+      !!shopId &&
+      (hasShopPermission(user, shopId, 'expenses.read') ||
+        hasShopPermission(user, shopId, 'accountTransfers.read') ||
+        hasShopPermission(user, shopId, 'incomes.read'));
 
-    effect(() => {
-      this.refreshTick();
-      const shopId = this.shopContext.selectedShopId();
-      const user = this.auth.currentUser();
-      const canViewReports = hasShopPermission(user, shopId, 'reports.view');
-      const canReadClosings = canViewClosingsList(user, shopId);
-      if (!shopId || (!canViewReports && !canReadClosings)) {
-        this.reportSummary.set(null);
-      } else {
-        const { from, to } = this.monthRange();
-        this.api.summary(shopId, { from, to }).subscribe({
-          next: (s) => this.reportSummary.set(s),
-          error: () => this.reportSummary.set(null),
-        });
+    // Reset visual inmediato al cambiar de local.
+    if (!canReport) {
+      this.reportSummary.set(null);
+      this.reportLoading.set(false);
+    } else {
+      this.reportLoading.set(true);
+    }
+    if (!canSettlements) {
+      this.channelReceivables.set(null);
+      this.settlementsLoading.set(false);
+    } else {
+      this.settlementsLoading.set(true);
+    }
+    if (!canAttendance) {
+      this.attendanceEmployees.set([]);
+      this.todayMarks.set({});
+      this.attendanceLoading.set(false);
+    } else {
+      this.attendanceLoading.set(true);
+    }
+    if (!canPayments) {
+      this.supplierPaymentsPending.set(null);
+      this.supplierPaymentsToValidateMine.set(null);
+      this.supplierPaymentsToPayMine.set(null);
+      this.servicePaymentsPending.set(null);
+      this.servicePaymentsToValidateMine.set(null);
+      this.servicePaymentsToPayMine.set(null);
+      this.employeePaymentsPending.set(null);
+      this.employeePaymentsToValidateMine.set(null);
+      this.employeePaymentsToPayMine.set(null);
+      this.paymentsLoading.set(false);
+    } else {
+      this.paymentsLoading.set(true);
+    }
+
+    this.balanceRows.set([]);
+    this.cashDrawerAccount.set(null);
+    this.cashPendingToWithdraw.set(null);
+    this.cashInRegisterAmount.set(null);
+    if (!canBalances) {
+      this.cashLoading.set(false);
+    } else {
+      this.cashLoading.set(true);
+    }
+
+    if (!shopId) {
+      return of(null);
+    }
+
+    const stillHere = () => shopId === (this.shopContext.selectedShopId() ?? '');
+
+    const report$ = canReport
+      ? (() => {
+          const { from, to } = this.monthRange();
+          return this.api.summary(shopId, { from, to }).pipe(
+            tap((s) => {
+              if (!stillHere()) return;
+              this.reportSummary.set(s);
+              this.reportLoading.set(false);
+            }),
+            catchError(() => {
+              if (stillHere()) {
+                this.reportSummary.set(null);
+                this.reportLoading.set(false);
+              }
+              return of(null);
+            }),
+          );
+        })()
+      : of(null);
+
+    const settlements$ = canSettlements
+      ? this.settlementsApi.receivablesSummary(shopId).pipe(
+          tap((s) => {
+            if (!stillHere()) return;
+            this.channelReceivables.set(s);
+            this.settlementsLoading.set(false);
+          }),
+          catchError(() => {
+            if (stillHere()) {
+              this.channelReceivables.set(null);
+              this.settlementsLoading.set(false);
+            }
+            return of(null);
+          }),
+        )
+      : of(null);
+
+    let attendanceShiftId = '';
+    if (canAttendance) {
+      const shop = this.shopContext.selectedShop();
+      const todayShifts = this.shopShifts();
+      const current = resolveCurrentShift(shop).id;
+      const next = todayShifts.some((s) => s.id === current)
+        ? current
+        : (todayShifts[0]?.id ?? current);
+      const cur = this.selectedShiftId();
+      attendanceShiftId = cur && todayShifts.some((s) => s.id === cur) ? cur : next;
+      if (attendanceShiftId !== cur) {
+        this.selectedShiftId.set(attendanceShiftId);
       }
+    }
 
-      if (!shopId || !this.canViewSettlements()) {
-        this.channelReceivables.set(null);
-      } else {
-        this.settlementsApi.receivablesSummary(shopId).subscribe({
-          next: (s) => this.channelReceivables.set(s),
-          error: () => this.channelReceivables.set(null),
-        });
-      }
+    const attendance$ = canAttendance
+      ? this.fetchAttendance$(shopId, attendanceShiftId).pipe(
+          tap((data) => {
+            if (!stillHere() || !data) return;
+            this.applyAttendanceData(data);
+            this.attendanceLoading.set(false);
+          }),
+          catchError(() => {
+            if (stillHere()) {
+              this.attendanceEmployees.set([]);
+              this.todayMarks.set({});
+              this.attendanceLoading.set(false);
+            }
+            return of(null);
+          }),
+        )
+      : of(null);
 
-      if (!shopId || !this.canViewAttendance()) {
-        this.attendanceEmployees.set([]);
-        this.todayMarks.set({});
-      } else {
-        const shop = this.shopContext.selectedShop();
-        const todayShifts = this.shopShifts();
-        const current = resolveCurrentShift(shop).id;
-        const next = todayShifts.some((s) => s.id === current)
-          ? current
-          : (todayShifts[0]?.id ?? current);
-        if (!this.selectedShiftId() || !todayShifts.some((s) => s.id === this.selectedShiftId())) {
-          this.selectedShiftId.set(next);
-        }
-        this.loadAttendanceToday(shopId);
-      }
-
-      if (!shopId || !this.canViewPayments()) {
-        this.supplierPaymentsPending.set(null);
-        this.supplierPaymentsToValidateMine.set(null);
-        this.supplierPaymentsToPayMine.set(null);
-        this.servicePaymentsPending.set(null);
-        this.servicePaymentsToValidateMine.set(null);
-        this.servicePaymentsToPayMine.set(null);
-        this.employeePaymentsPending.set(null);
-        this.employeePaymentsToValidateMine.set(null);
-        this.employeePaymentsToPayMine.set(null);
-      } else {
-        this.paymentsApi.list(shopId).subscribe({
-          next: (rows) => {
+    const payments$ = canPayments
+      ? this.paymentsApi.list(shopId).pipe(
+          tap((rows) => {
+            if (!stillHere()) return;
             const uid = this.auth.currentUser()?.id ?? null;
             const pending = rows.filter(
               (p) => p.status === 'PENDING_VALIDATION' || p.status === 'VALIDATED',
@@ -1163,8 +1289,7 @@ export class HomePageComponent {
                 : 0;
             const minePay = (list: typeof pending) =>
               uid
-                ? list.filter((p) => p.status === 'VALIDATED' && p.payerUserId === uid)
-                    .length
+                ? list.filter((p) => p.status === 'VALIDATED' && p.payerUserId === uid).length
                 : 0;
 
             this.supplierPaymentsPending.set(suppliers.length);
@@ -1176,21 +1301,129 @@ export class HomePageComponent {
             this.employeePaymentsPending.set(employees.length);
             this.employeePaymentsToValidateMine.set(mineValidate(employees));
             this.employeePaymentsToPayMine.set(minePay(employees));
-          },
-          error: () => {
-            this.supplierPaymentsPending.set(null);
-            this.supplierPaymentsToValidateMine.set(null);
-            this.supplierPaymentsToPayMine.set(null);
-            this.servicePaymentsPending.set(null);
-            this.servicePaymentsToValidateMine.set(null);
-            this.servicePaymentsToPayMine.set(null);
-            this.employeePaymentsPending.set(null);
-            this.employeePaymentsToValidateMine.set(null);
-            this.employeePaymentsToPayMine.set(null);
-          },
-        });
-      }
+            this.paymentsLoading.set(false);
+          }),
+          catchError(() => {
+            if (stillHere()) {
+              this.supplierPaymentsPending.set(null);
+              this.supplierPaymentsToValidateMine.set(null);
+              this.supplierPaymentsToPayMine.set(null);
+              this.servicePaymentsPending.set(null);
+              this.servicePaymentsToValidateMine.set(null);
+              this.servicePaymentsToPayMine.set(null);
+              this.employeePaymentsPending.set(null);
+              this.employeePaymentsToValidateMine.set(null);
+              this.employeePaymentsToPayMine.set(null);
+              this.paymentsLoading.set(false);
+            }
+            return of(null);
+          }),
+        )
+      : of(null);
+
+    const cash$ = canBalances
+      ? forkJoin({
+          balances: this.movementsApi.balances(shopId),
+          sources: this.api
+            .listClosingSources(shopId, true)
+            .pipe(catchError(() => of([] as ShopClosingSource[]))),
+          accounts: this.movementsApi
+            .accounts(shopId)
+            .pipe(catchError(() => of([] as LedgerAccount[]))),
+          pending: this.cashWithdrawalsApi.listPending(shopId).pipe(
+            catchError(() => of({ availableTotal: null as number | null })),
+          ),
+          open: this.api.getOpen(shopId).pipe(catchError(() => of(null as CashClosing | null))),
+          suggested: this.api
+            .suggestedOpening(shopId)
+            .pipe(catchError(() => of(null as SuggestedOpening | null))),
+        }).pipe(
+          tap((res) => {
+            if (!stillHere()) return;
+            const rows = (res.balances.accounts ?? []).map((a) => mapBalanceAccount(a));
+            this.balanceRows.set(rows);
+            this.cashDrawerAccount.set(resolveCashDrawerAccount(res.sources, res.accounts, rows));
+            const avail = res.pending.availableTotal;
+            this.cashPendingToWithdraw.set(
+              avail == null || Number.isNaN(Number(avail)) ? null : Math.max(0, Number(avail)),
+            );
+            const leaveNum =
+              res.open != null && res.open.cashLeftInRegister != null
+                ? Math.max(0, Number(res.open.cashLeftInRegister))
+                : NaN;
+            const openNum =
+              res.open != null && res.open.cashOpeningAmount != null
+                ? Math.max(0, Number(res.open.cashOpeningAmount))
+                : NaN;
+            const fromOpen = !Number.isNaN(leaveNum)
+              ? leaveNum
+              : !Number.isNaN(openNum)
+                ? openNum
+                : NaN;
+            const fromSuggested =
+              res.suggested != null && Number.isFinite(Number(res.suggested.amount))
+                ? Math.max(0, Number(res.suggested.amount))
+                : NaN;
+            const inReg = !Number.isNaN(fromOpen)
+              ? fromOpen
+              : !Number.isNaN(fromSuggested)
+                ? fromSuggested
+                : null;
+            this.cashInRegisterAmount.set(inReg);
+            this.cashLoading.set(false);
+          }),
+          catchError(() => {
+            if (stillHere()) this.cashLoading.set(false);
+            return of(null);
+          }),
+        )
+      : of(null);
+
+    return forkJoin({
+      report: report$,
+      settlements: settlements$,
+      attendance: attendance$,
+      payments: payments$,
+      cash: cash$,
     });
+  }
+
+  private fetchAttendance$(
+    shopId: string,
+    shiftId: string,
+  ): Observable<AttendanceMonthResponse> {
+    const iso = this.attendanceTodayIso();
+    const parts = parseIsoDateParts(iso);
+    return this.http.get<AttendanceMonthResponse>(
+      `${environment.apiUrl}/shops/${shopId}/attendance`,
+      {
+        params: {
+          year: String(parts?.year ?? new Date().getFullYear()),
+          month: String(parts?.month ?? new Date().getMonth() + 1),
+          ...(shiftId ? { shiftId } : {}),
+        },
+      },
+    );
+  }
+
+  private applyAttendanceData(data: AttendanceMonthResponse): void {
+    const iso = this.attendanceTodayIso();
+    const forShift = (data.employees ?? []).filter((e) => e.worksThisShift !== false);
+    const employees = forShift.map((e) => ({
+      employeeId: e.employeeId,
+      fullName: e.fullName,
+      type: e.type === 'ROTATING' ? ('ROTATING' as const) : ('FIXED' as const),
+    }));
+    this.attendanceEmployees.set(employees);
+    const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
+    for (const e of forShift) {
+      const cell = e.days?.[iso];
+      marks[e.employeeId] = {
+        isPresent: !!cell?.isPresent,
+        isHoliday: !!cell?.isHoliday,
+      };
+    }
+    this.todayMarks.set(marks);
   }
 
   headerSubtitle(): string {
@@ -1320,7 +1553,7 @@ export class HomePageComponent {
       )
       .afterClosed()
       .subscribe((saved) => {
-        if (saved) this.refreshTick.update((n) => n + 1);
+        if (saved) this.requestHomeLoad('user');
       });
   }
 
@@ -1571,41 +1804,22 @@ export class HomePageComponent {
     });
   }
 
-  private loadAttendanceToday(shopId: string): void {
-    const iso = this.attendanceTodayIso();
-    const parts = parseIsoDateParts(iso);
-    this.http
-      .get<AttendanceMonthResponse>(`${environment.apiUrl}/shops/${shopId}/attendance`, {
-        params: {
-          year: String(parts?.year ?? new Date().getFullYear()),
-          month: String(parts?.month ?? new Date().getMonth() + 1),
-          shiftId: this.selectedShiftId(),
-        },
-      })
-      .subscribe({
-        next: (data) => {
-          const forShift = (data.employees ?? []).filter((e) => e.worksThisShift !== false);
-          const employees = forShift.map((e) => ({
-            employeeId: e.employeeId,
-            fullName: e.fullName,
-            type: e.type === 'ROTATING' ? ('ROTATING' as const) : ('FIXED' as const),
-          }));
-          this.attendanceEmployees.set(employees);
-          const marks: Record<string, { isPresent: boolean; isHoliday: boolean }> = {};
-          for (const e of forShift) {
-            const cell = e.days?.[iso];
-            marks[e.employeeId] = {
-              isPresent: !!cell?.isPresent,
-              isHoliday: !!cell?.isHoliday,
-            };
-          }
-          this.todayMarks.set(marks);
-        },
-        error: () => {
-          this.attendanceEmployees.set([]);
-          this.todayMarks.set({});
-        },
-      });
+  private loadAttendanceToday(shopId: string, shiftId?: string): void {
+    const resolvedShift = shiftId || this.selectedShiftId();
+    this.attendanceLoading.set(true);
+    this.fetchAttendance$(shopId, resolvedShift).subscribe({
+      next: (data) => {
+        if (shopId !== (this.shopContext.selectedShopId() ?? '')) return;
+        this.applyAttendanceData(data);
+        this.attendanceLoading.set(false);
+      },
+      error: () => {
+        if (shopId !== (this.shopContext.selectedShopId() ?? '')) return;
+        this.attendanceEmployees.set([]);
+        this.todayMarks.set({});
+        this.attendanceLoading.set(false);
+      },
+    });
   }
 
   async onExportMonth(format: ExportFormat): Promise<void> {

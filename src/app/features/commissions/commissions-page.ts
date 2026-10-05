@@ -61,7 +61,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
       (exportPick)="onExport($event)"
     />
 
-    <mat-tab-group animationDuration="0ms" class="mb-3">
+    <mat-tab-group animationDuration="200ms" class="mb-3">
       <mat-tab label="Calcular">
         <div
           class="panel-card guy-filters mb-3 mt-3"
@@ -110,7 +110,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
           </div>
         </div>
 
-        <app-kpi-strip class="mb-3" [items]="kpis()" />
+        <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="busy()" />
 
         @if (unmatched().length) {
           <div class="panel-card mb-3">

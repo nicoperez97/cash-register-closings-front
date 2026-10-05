@@ -209,6 +209,13 @@ button:disabled {
   align-items: start;
   position: relative;
   padding: 0.45rem 0;
+  animation: ord-status-in var(--ord-dur-slow) var(--ord-ease) both;
+}
+
+@for $i from 1 through 8 {
+  .timeline li:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 70}ms;
+  }
 }
 
 .timeline li:not(:last-child)::before {
@@ -437,7 +444,8 @@ a {
 
 @media (prefers-reduced-motion: reduce) {
   .hero,
-  .card {
+  .card,
+  .timeline li {
     animation: none !important;
   }
 }

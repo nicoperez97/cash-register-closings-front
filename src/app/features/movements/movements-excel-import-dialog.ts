@@ -136,7 +136,7 @@ function isSystemLedgerName(name: string): boolean {
       }
 
       @if (items().length) {
-        <mat-tab-group animationDuration="0" class="xl-tabs" dynamicHeight mat-stretch-tabs>
+        <mat-tab-group animationDuration="200ms" class="xl-tabs" dynamicHeight mat-stretch-tabs>
           <mat-tab>
             <ng-template mat-tab-label>
               Cargar

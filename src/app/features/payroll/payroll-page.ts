@@ -185,7 +185,7 @@ const SOURCE_LABEL: Record<string, string> = {
       <div class="panel-card">Seleccioná un local en el menú lateral.</div>
     } @else {
       <mat-tab-group
-        animationDuration="0ms"
+        animationDuration="200ms"
         class="mb-3"
         [selectedIndex]="tabIndex()"
         (selectedIndexChange)="onTabChange($event)"
@@ -282,7 +282,7 @@ const SOURCE_LABEL: Record<string, string> = {
         </mat-tab>
 
         <mat-tab label="Liquidación">
-          <app-kpi-strip class="mt-3 mb-3" [items]="payrollKpis()" />
+          <app-kpi-strip class="mt-3 mb-3" [items]="payrollKpis()" [loading]="busy()" />
 
           <div
             class="panel-card guy-filters mb-3"
