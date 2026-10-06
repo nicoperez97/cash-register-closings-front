@@ -193,8 +193,8 @@ export function buildDemoShop(): ShopSummary {
       },
     ],
     orderingEta: {
-      takeaway: '20-30 min',
-      delivery: '40-55 min',
+      takeaway: { min: 20, max: 30 },
+      delivery: { min: 40, max: 55 },
     },
     discountPresets: [
       { id: 'demo-disc-10', label: '10%', mode: 'percent', value: 10 },

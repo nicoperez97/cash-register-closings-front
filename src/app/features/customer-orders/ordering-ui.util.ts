@@ -115,6 +115,60 @@ export function fulfillmentLabel(f: CustomerOrderFulfillment): string {
   return 'Retiro';
 }
 
+/** Rango ETA en minutos (landing /pedir). */
+export type OrderingEtaRange = { min: number; max: number };
+
+/** Acepta `{ min, max }`, número o texto legacy (`"20 - 30 min"`, `"10"`). */
+export function parseOrderingEtaRange(raw: unknown): OrderingEtaRange | null {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    const n = Math.min(999, Math.max(1, Math.round(raw)));
+    return { min: n, max: n };
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    const o = raw as { min?: unknown; max?: unknown };
+    const min = Number(o.min);
+    if (!Number.isFinite(min) || min <= 0) return null;
+    const maxRaw = Number(o.max);
+    const lo = Math.min(999, Math.max(1, Math.round(min)));
+    const hi =
+      Number.isFinite(maxRaw) && maxRaw > 0
+        ? Math.min(999, Math.max(1, Math.round(maxRaw)))
+        : lo;
+    return { min: Math.min(lo, hi), max: Math.max(lo, hi) };
+  }
+  if (typeof raw === 'string') {
+    const nums =
+      raw
+        .trim()
+        .match(/\d+/g)
+        ?.map((x) => Number(x))
+        .filter((n) => Number.isFinite(n) && n > 0) ?? [];
+    if (!nums.length) return null;
+    const lo = Math.min(999, Math.max(1, Math.round(nums[0])));
+    const hi = nums.length >= 2 ? Math.min(999, Math.max(1, Math.round(nums[1]))) : lo;
+    return { min: Math.min(lo, hi), max: Math.max(lo, hi) };
+  }
+  return null;
+}
+
+export function formatOrderingEtaRange(r: OrderingEtaRange | null | undefined): string | null {
+  if (!r) return null;
+  if (r.min === r.max) return `${r.min} min`;
+  return `${r.min} - ${r.max} min`;
+}
+
+/** Texto del chip en la landing (Take away / Delivery + rango). */
+export function formatOrderingEtaChip(
+  channel: 'takeaway' | 'delivery',
+  raw: unknown,
+): string | null {
+  const range = parseOrderingEtaRange(raw);
+  const mins = formatOrderingEtaRange(range);
+  if (!mins) return null;
+  return channel === 'delivery' ? `Delivery ${mins}` : `Take away ${mins}`;
+}
+
 export function paymentLabel(p: CustomerOrderPaymentMethod): string {
   if (p === 'TRANSFER') return 'Transferencia';
   if (p === 'CARD') return 'Tarjeta';
