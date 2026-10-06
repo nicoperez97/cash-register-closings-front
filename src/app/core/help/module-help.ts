@@ -1238,7 +1238,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Atajos de descuento: botones rápidos (por defecto 10%) en la caja rápida de Pedidos clientes y en el ticket de mesa. También quedan No, % y $.',
           'En Pedidos: Configuración del local → Pedidos → Medios de pago — web pública (tipo + se muestra en) y Medios de pago — mostrador. Cada lista es independiente.',
           'En Pedidos clientes → Configurar: abrir caja, take away, delivery e ítems/extras (CBU, Alias y WhatsApp siguen en Configuración del local → Pedidos).',
-          'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA: Configuración del local → Pedidos.',
+          'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA (rango en minutos, ej. Take away 20 - 30 min): Configuración del local → Pedidos.',
           'En cada zona dibujá el área en el mapa (o pegá lat,lng por línea): así /pedir detecta la zona sola.',
           'Comanda de mesas (/mozo y Operación → Comanda): Configuración del local → Comandas. Independiente de esta pantalla.',
         ],
@@ -1417,6 +1417,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'do',
         body: 'Entrá a /pedir/tu-local. Elegí productos, revisá el carrito y finalizá con entrega, pago y tus datos. La entrega no viene elegida: tenés que marcar retiro o delivery (si hay una sola opción, se elige sola).',
         items: [
+          'Arriba ves el tiempo estimado: Take away 20 - 30 min y Delivery 40 - 60 min (lo configura el local).',
           'Las categorías van con tabs arriba: tocá una y saltás a esa sección. Debajo ves todos los productos; en cada uno tocá Agregar. Después podés marcar ingredientes a retirar (si el local los cargó), notas y extras.',
           'En el resumen, el extra va debajo del plato. El +/− del plato suma o resta todo el conjunto; el extra solo se puede quitar.',
           'En delivery: domicilio, entre calles y detalles. Al abrir el mapa te pide la ubicación actual; también podés buscar o mover el pin. Si el local cargó el área de cada zona, se completa sola. Después confirmás calle y número.',
@@ -1444,6 +1445,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Si cerrás la pestaña, volvé con Consultar estado e ingresá celular + código.',
           'También podés abrir el link con el código si lo guardaste.',
+          'En delivery, debajo de los ítems ves el costo de envío (y la zona) antes del total.',
           'Si pagaste por transferencia, ves Alias y CBU con botón para copiar, y otro para enviar el comprobante por WhatsApp.',
         ],
         tip: 'Si pediste recién, el celular queda en el navegador y no te lo vuelve a pedir.',

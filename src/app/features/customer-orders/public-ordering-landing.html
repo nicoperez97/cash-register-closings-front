@@ -31,17 +31,17 @@
       }
 
       <div class="eta-row">
-        @if (c.takeawayEnabled && c.eta?.takeaway) {
+        @if (c.takeawayEnabled && etaChip('takeaway', c.eta?.takeaway); as takeawayEta) {
           <span class="eta" [class.eta--off]="!c.takeawayOpen">
-            Retiro · {{ c.eta.takeaway }}
+            {{ takeawayEta }}
             @if (!c.takeawayOpen) {
               <em>cerrado</em>
             }
           </span>
         }
-        @if (c.deliveryEnabled && c.eta?.delivery) {
+        @if (c.deliveryEnabled && etaChip('delivery', c.eta?.delivery); as deliveryEta) {
           <span class="eta" [class.eta--off]="!c.deliveryOpen">
-            Delivery · {{ c.eta.delivery }}
+            {{ deliveryEta }}
             @if (!c.deliveryOpen) {
               <em>cerrado</em>
             }

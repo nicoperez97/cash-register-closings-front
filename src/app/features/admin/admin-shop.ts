@@ -63,7 +63,10 @@ import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image'
 import type { ShopNavConfig } from '../../core/layout/nav-config';
 import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
 import { ADMIN_SHOP_HOST } from './admin-shop-host';
-import { classifyOrderingPayKind } from '../customer-orders/ordering-ui.util';
+import {
+  classifyOrderingPayKind,
+  parseOrderingEtaRange,
+} from '../customer-orders/ordering-ui.util';
 
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
@@ -286,8 +289,10 @@ export class AdminShopPage implements OnInit {
     waiterOrderingEnabled: [false],
     takeawayEnabled: [true],
     deliveryEnabled: [false],
-    orderingEtaTakeaway: [''],
-    orderingEtaDelivery: [''],
+    orderingEtaTakeawayMin: [null as number | null],
+    orderingEtaTakeawayMax: [null as number | null],
+    orderingEtaDeliveryMin: [null as number | null],
+    orderingEtaDeliveryMax: [null as number | null],
     transferCbu: [''],
     transferAlias: [''],
     orderingWhatsapp: [''],
@@ -978,13 +983,15 @@ export class AdminShopPage implements OnInit {
       value: number;
     }> | null;
     orderingEta?: {
-      takeaway?: string | null;
-      delivery?: string | null;
+      takeaway?: { min: number; max: number } | string | null;
+      delivery?: { min: number; max: number } | string | null;
     } | null;
     active?: boolean;
     salesSystemId?: string | null;
     cashWithdrawalConceptId?: string | null;
   }): void {
+    const etaTakeaway = parseOrderingEtaRange(s.orderingEta?.takeaway);
+    const etaDelivery = parseOrderingEtaRange(s.orderingEta?.delivery);
     this.form.patchValue({
       name: s.name ?? '',
       slug: s.slug ?? '',
@@ -1021,8 +1028,10 @@ export class AdminShopPage implements OnInit {
       waiterOrderingEnabled: !!s.waiterOrderingEnabled,
       takeawayEnabled: s.takeawayEnabled !== false,
       deliveryEnabled: !!s.deliveryEnabled,
-      orderingEtaTakeaway: s.orderingEta?.takeaway ?? '',
-      orderingEtaDelivery: s.orderingEta?.delivery ?? '',
+      orderingEtaTakeawayMin: etaTakeaway?.min ?? null,
+      orderingEtaTakeawayMax: etaTakeaway?.max ?? null,
+      orderingEtaDeliveryMin: etaDelivery?.min ?? null,
+      orderingEtaDeliveryMax: etaDelivery?.max ?? null,
       transferCbu: s.orderingPayments?.transferCbu ?? '',
       transferAlias:
         s.orderingPayments?.transferAlias ??
@@ -2227,8 +2236,14 @@ export class AdminShopPage implements OnInit {
         }))
         .filter((z) => !!z.name),
       orderingEta: {
-        takeaway: String(raw.orderingEtaTakeaway ?? '').trim() || null,
-        delivery: String(raw.orderingEtaDelivery ?? '').trim() || null,
+        takeaway: parseOrderingEtaRange({
+          min: raw.orderingEtaTakeawayMin,
+          max: raw.orderingEtaTakeawayMax,
+        }),
+        delivery: parseOrderingEtaRange({
+          min: raw.orderingEtaDeliveryMin,
+          max: raw.orderingEtaDeliveryMax,
+        }),
       },
       discountPresets: (
         raw.discountPresets as Array<{

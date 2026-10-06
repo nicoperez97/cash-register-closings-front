@@ -90,6 +90,18 @@
           }
         }
       </ul>
+      @if ((o.discountAmount ?? 0) > 0) {
+        <div class="fee">
+          <span>Desc. {{ o.discountLabel || '' }}</span>
+          <span>−{{ money(o.discountAmount ?? 0) }}</span>
+        </div>
+      }
+      @if ((o.deliveryFee ?? 0) > 0) {
+        <div class="fee">
+          <span>Envío{{ o.deliveryZoneName ? ' · ' + o.deliveryZoneName : '' }}</span>
+          <span>{{ money(o.deliveryFee) }}</span>
+        </div>
+      }
       <div class="total">
         <span>Total</span>
         <strong>{{ money(o.total) }}</strong>

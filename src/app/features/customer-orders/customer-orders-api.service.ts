@@ -98,7 +98,10 @@ export interface PublicOrderingConfig {
     whatsapp?: string | null;
   };
   deliveryZones: PublicDeliveryZone[];
-  eta: { takeaway?: string | null; delivery?: string | null } | null;
+  eta: {
+    takeaway?: { min: number; max: number } | string | null;
+    delivery?: { min: number; max: number } | string | null;
+  } | null;
   extras: PublicOrderingExtra[];
   /** Atajos de descuento de la caja rápida. */
   discountPresets?: Array<{

@@ -300,12 +300,21 @@ li[data-state='todo'] {
   font-size: 0.86rem;
 }
 
+.fee {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
 .total {
   display: flex;
   justify-content: space-between;
   border-top: 1px solid var(--line);
   padding-top: 0.55rem;
-  margin-top: 0.1rem;
+  margin-top: 0.45rem;
   font-size: 1.05rem;
 }
 

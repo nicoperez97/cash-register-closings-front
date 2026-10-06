@@ -8,7 +8,13 @@ import {
   PublicOrderingConfig,
 } from './customer-orders-api.service';
 import { OrderingCartService } from './ordering-cart.service';
-import { apiErrorMessage, onAccentColor, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
+import {
+  apiErrorMessage,
+  formatOrderingEtaChip,
+  onAccentColor,
+  orderingLogoUrl,
+  orderingMoney,
+} from './ordering-ui.util';
 
 @Component({
   selector: 'app-public-ordering-landing',
@@ -110,5 +116,9 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
 
   zoneFee(fee: number): string {
     return fee > 0 ? orderingMoney(fee) : 'Sin cargo';
+  }
+
+  etaChip(channel: 'takeaway' | 'delivery', raw: unknown): string | null {
+    return formatOrderingEtaChip(channel, raw);
   }
 }

@@ -110,18 +110,58 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
           activar take away o delivery.
         </p>
 
-        <div class="guy-form-grid guy-form-grid--2" style="margin-top: 1rem">
+        <p class="op__schedule-hint" style="margin-top: 1rem">
+          Tiempo estimado en la landing /pedir (rango en minutos). Ej.: Take away 20 - 30 min ·
+          Delivery 40 - 60 min.
+        </p>
+        <div class="guy-form-grid guy-form-grid--2">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>ETA take away</mat-label>
-            <input matInput formControlName="orderingEtaTakeaway" placeholder="ej. 40 min" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>ETA delivery</mat-label>
+            <mat-label>Take away desde</mat-label>
             <input
               matInput
-              formControlName="orderingEtaDelivery"
-              placeholder="ej. 40 a 70 min"
+              type="number"
+              min="1"
+              max="999"
+              formControlName="orderingEtaTakeawayMin"
+              placeholder="20"
             />
+            <span matTextSuffix>min</span>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Take away hasta</mat-label>
+            <input
+              matInput
+              type="number"
+              min="1"
+              max="999"
+              formControlName="orderingEtaTakeawayMax"
+              placeholder="30"
+            />
+            <span matTextSuffix>min</span>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Delivery desde</mat-label>
+            <input
+              matInput
+              type="number"
+              min="1"
+              max="999"
+              formControlName="orderingEtaDeliveryMin"
+              placeholder="40"
+            />
+            <span matTextSuffix>min</span>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Delivery hasta</mat-label>
+            <input
+              matInput
+              type="number"
+              min="1"
+              max="999"
+              formControlName="orderingEtaDeliveryMax"
+              placeholder="60"
+            />
+            <span matTextSuffix>min</span>
           </mat-form-field>
         </div>
 

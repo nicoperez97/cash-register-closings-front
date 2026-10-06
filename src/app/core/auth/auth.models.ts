@@ -1544,8 +1544,8 @@ export interface ShopSummary {
     color?: string | null;
   }> | null;
   orderingEta?: {
-    takeaway?: string | null;
-    delivery?: string | null;
+    takeaway?: { min: number; max: number } | string | null;
+    delivery?: { min: number; max: number } | string | null;
   } | null;
   /** Atajos de descuento (ticket + caja rápida). null/omitido = default 10%. */
   discountPresets?: Array<{
