@@ -127,6 +127,29 @@ export function differenceReasonIsRequired(
   return Math.abs(Number(difference)) >= min;
 }
 
+/**
+ * Parte del hueco positivo declarado−POS que explican los egresos
+ * (vuelven al declarado; no son desvío de caja).
+ */
+export function expenseExplainedPosGap(
+  rawDifference: number,
+  expensesTotal: number,
+): number {
+  const raw = Number(rawDifference) || 0;
+  const expenses = Math.max(0, Number(expensesTotal) || 0);
+  return Math.min(expenses, Math.max(0, raw));
+}
+
+/** Diferencia vs POS sin contar egresos que solo inflan el declarado. */
+export function posDifferenceAfterExpenses(
+  declaredTotal: number,
+  posSystemAmount: number,
+  expensesTotal: number,
+): number {
+  const raw = (Number(declaredTotal) || 0) - (Number(posSystemAmount) || 0);
+  return raw - expenseExplainedPosGap(raw, expensesTotal);
+}
+
 export function formatSuggestedOpeningHint(s: {
   source?: 'previous' | 'default' | 'account' | string | null;
   accountName?: string | null;

@@ -35,6 +35,12 @@ import { MatStepperModule } from '@angular/material/stepper';
           <span>Cuenta DNI</span>
           <strong>{{ accountDniAmount() }}</strong>
         </div>
+        @if (expensesAmount()) {
+          <div class="closing-totals__item">
+            <span>Egresos</span>
+            <strong>{{ expensesAmount() }}</strong>
+          </div>
+        }
         <div class="closing-totals__item">
           <span>Caja sistema</span>
           <strong>{{ posAmount() }}</strong>
@@ -99,6 +105,7 @@ export class ClosingFormSummaryComponent {
   readonly cardAmount = input('');
   readonly cashAmount = input('');
   readonly accountDniAmount = input('');
+  readonly expensesAmount = input('');
   readonly posAmount = input('');
   readonly declaredTotal = input('');
   readonly difference = input('');

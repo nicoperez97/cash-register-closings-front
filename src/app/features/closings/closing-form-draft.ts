@@ -1,7 +1,7 @@
 import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
 import type { TipsEditorState } from '../tips/tips-editor';
 import type { ClosingSourceAmount } from './closings-api.service';
-import { closingNum, roundMoney } from './closings-form.utils';
+import { closingNum, moneyOrNull, roundMoney } from './closings-form.utils';
 import { buildCashChangeContributionGroup, buildExpenseGroup, normalizeCobroPaymentMethod, populateOtherCobros } from './closings-form-load';
 import { buildDniTransferGroup } from './closings-form-payment-lines';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
@@ -219,7 +219,8 @@ export function applyClosingFormDraft(
     {
       businessDate: dateStr ? toDateInput(dateStr) : form.controls['businessDate'].value,
       shiftId: raw['shiftId'] != null ? String(raw['shiftId']) : form.controls['shiftId']?.value,
-      cashOpeningAmount: emptyNum(raw['cashOpeningAmount']),
+      // 0 de apertura es válido (caja abierta en 0); emptyNum lo borraba.
+      cashOpeningAmount: moneyOrNull(raw['cashOpeningAmount']),
       posSystemAmount: emptyNum(raw['posSystemAmount']),
       cardAmount: emptyNum(raw['cardAmount']),
       cashAmount: emptyNum(raw['cashAmount']),

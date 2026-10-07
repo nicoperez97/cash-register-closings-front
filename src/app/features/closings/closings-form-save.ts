@@ -13,7 +13,13 @@ import {
   cobroPaymentMethodToMeta,
   normalizeCobroPaymentMethod,
 } from './closings-form-load';
-import { POSNET_TYPE_LABEL, closingNum, roundMoney, toDateString } from './closings-form.utils';
+import {
+  POSNET_TYPE_LABEL,
+  closingNum,
+  posDifferenceAfterExpenses,
+  roundMoney,
+  toDateString,
+} from './closings-form.utils';
 import { userIdForWithdrawAccount } from './withdraw-account-options';
 
 export type ClosingFormExpenseRaw = {
@@ -453,7 +459,7 @@ export function buildClosingShareSnapshot(input: BuildClosingShareSnapshotInput)
     coversCount: raw.coversCount || null,
     declaredTotal: declared,
     calculatedTotal: declared,
-    difference: declared - pos,
+    difference: posDifferenceAfterExpenses(declared, pos, expensesSum),
     differenceReason: String(raw.differenceReason ?? '').trim() || null,
     notes: String(raw.notes ?? '').trim() || null,
     posnetAmounts,

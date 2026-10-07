@@ -120,7 +120,9 @@ import {
   closingNum,
   differenceReasonIsRequired,
   emptyNum as toEmptyNum,
+  expenseExplainedPosGap,
   moneyOrNull,
+  posDifferenceAfterExpenses,
   roundMoney,
   toDateInput,
   toDateString,
@@ -351,10 +353,11 @@ import { apiErrorMessage } from '../../core/http/api-error-message';
 
             <mat-step label="Caja">
               <app-closing-form-caja-step
-                [calculated]="money(declaredTotal())"
+                [calculated]="money(cajaComparableTotal())"
                 [breakdown]="cajaBreakdown()"
                 [difference]="cajaDifference()"
                 [differenceLabel]="cajaDifferenceLabel()"
+                [differenceExpenseHint]="cajaDifferenceExpenseHint()"
                 [reasonRequired]="differenceReasonRequired()"
                 [reasonHint]="differenceReasonHint()"
                 [files]="posSystemFiles()"
@@ -374,6 +377,7 @@ import { apiErrorMessage } from '../../core/http/api-error-message';
                 [cardAmount]="money(cardAmount())"
                 [cashAmount]="money(cashAmount())"
                 [accountDniAmount]="money(accountDniAmount())"
+                [expensesAmount]="expensesTotal() > 0 ? money(expensesTotal()) : ''"
                 [posAmount]="money(posAmount())"
                 [declaredTotal]="money(declaredTotal())"
                 [difference]="cajaDifferenceLabel()"
@@ -757,9 +761,15 @@ export class ClosingsFormPage implements OnInit {
     const expenses = (v.expenses ?? []) as Array<{ amount?: number | null }>;
     const expensesTotal = expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
     const opening = this.effectiveCashOpening();
-    // Contado − apertura + egresos (lo que suma al declarado).
-    const cashCollected = this.cashAmount() - opening + expensesTotal;
-    push('Efectivo', cashCollected);
+    // Contado − apertura (ventas en efectivo). Los egresos se listan aparte:
+    // salieron de la caja, así que se suman al declarado para reconstruir la recaudación.
+    const cashSales = this.cashAmount() - opening;
+    push('Efectivo', cashSales);
+    const expenseLabel =
+      this.cajaExpenseExplained() > 0.005
+        ? 'Egresos (aparte, no van a la diferencia)'
+        : 'Egresos (vuelven al declarado)';
+    push(expenseLabel, expensesTotal);
     const cobros = (v.otherCobros ?? []) as Array<{
       label?: string | null;
       amount?: number | null;
@@ -793,8 +803,33 @@ export class ClosingsFormPage implements OnInit {
     return value != null && String(value).trim() !== '';
   });
 
+  readonly expensesTotal = computed(() => {
+    const expenses = (this.formValue().expenses ?? []) as Array<{ amount?: number | null }>;
+    return expenses.reduce((sum, e) => sum + this.n(e.amount), 0);
+  });
+
+  /** Parte del hueco declarado−POS explicada por egresos (no es desvío). */
+  readonly cajaExpenseExplained = computed(() => {
+    if (!this.cajaEntered()) return 0;
+    return expenseExplainedPosGap(
+      this.declaredTotal() - this.posAmount(),
+      this.expensesTotal(),
+    );
+  });
+
+  /** Total a comparar con Caja (sistema): sin la parte de egresos que no es desvío. */
+  readonly cajaComparableTotal = computed(
+    () => this.declaredTotal() - this.cajaExpenseExplained(),
+  );
+
   readonly cajaDifference = computed(() =>
-    this.cajaEntered() ? this.declaredTotal() - this.posAmount() : null,
+    this.cajaEntered()
+      ? posDifferenceAfterExpenses(
+          this.declaredTotal(),
+          this.posAmount(),
+          this.expensesTotal(),
+        )
+      : null,
   );
 
   readonly cajaDifferenceLabel = computed(() => {
@@ -802,11 +837,22 @@ export class ClosingsFormPage implements OnInit {
     return difference == null ? '—' : this.money(difference);
   });
 
+  readonly cajaDifferenceExpenseHint = computed(() => {
+    if (!(this.cajaExpenseExplained() > 0.005)) return '';
+    return 'Los egresos se muestran aparte y no cuentan como diferencia contra la caja del sistema.';
+  });
+
   readonly differenceReasonMinAmount = computed(
     () => Number(this.shop()?.differenceReasonMinAmount ?? 0) || 0,
   );
 
-  readonly saveDifference = computed(() => this.declaredTotal() - this.posAmount());
+  readonly saveDifference = computed(() =>
+    posDifferenceAfterExpenses(
+      this.declaredTotal(),
+      this.posAmount(),
+      this.expensesTotal(),
+    ),
+  );
 
   readonly differenceReasonRequired = computed(() =>
     differenceReasonIsRequired(this.differenceReasonMinAmount(), this.saveDifference()),
@@ -1419,6 +1465,7 @@ export class ClosingsFormPage implements OnInit {
     this.syncSourceAmounts();
     syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
     this.touchFormValue();
+    this.prefillPosSystemFromDeclared();
     const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
     this.isEvent.set(String(this.form.controls.kind.value ?? '') === 'EVENT');
     if (date && !this.isEvent()) this.loadTipDay(date);
@@ -2381,10 +2428,28 @@ export class ClosingsFormPage implements OnInit {
     this.syncSourceAmounts();
     syncDerivedTotals(this.form, this.posnetAmounts, this.dniTransfers);
     this.touchFormValue();
+    // Desde Generar cierre: si el borrador trae sistema, o el calculado, completar Caja (sistema).
+    const draftPos = Number(draft.form?.['posSystemAmount']);
+    if (Number.isFinite(draftPos) && draftPos > 0) {
+      this.form.patchValue({ posSystemAmount: draftPos }, { emitEvent: false });
+      this.touchFormValue();
+    } else {
+      this.prefillPosSystemFromDeclared();
+    }
     const date = toDateString(this.form.controls.businessDate.value as Date | string | null);
     this.isEvent.set(String(this.form.controls.kind.value ?? '') === 'EVENT');
     if (date && !this.isEvent()) this.loadTipDay(date);
     return true;
+  }
+
+  /** Prefill Caja (sistema) con el total calculado de lo generado. */
+  private prefillPosSystemFromDeclared(): void {
+    const current = this.form.controls.posSystemAmount.value;
+    if (current != null && String(current).trim() !== '' && Number(current) > 0) return;
+    const declared = this.declaredTotal();
+    if (!(declared > 0)) return;
+    this.form.patchValue({ posSystemAmount: declared }, { emitEvent: false });
+    this.touchFormValue();
   }
 
   private refreshPendingClosingNotice(): void {
@@ -2506,7 +2571,7 @@ export class ClosingsFormPage implements OnInit {
     const total = this.n(openingTotal);
     const base = Math.max(0, total - contribSum);
     this.form.patchValue(
-      { cashOpeningAmount: this.emptyNum(base) },
+      { cashOpeningAmount: moneyOrNull(base) },
       { emitEvent: false },
     );
     this.cashChangeContributions.clear({ emitEvent: false });

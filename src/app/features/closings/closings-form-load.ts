@@ -7,7 +7,7 @@ import type {
   ClosingSourceAmount,
   ShopClosingSource,
 } from './closings-api.service';
-import { closingNum } from './closings-form.utils';
+import { closingNum, moneyOrNull } from './closings-form.utils';
 
 export function buildSourceLineGroup(
   fb: FormBuilder,
@@ -495,7 +495,7 @@ export function patchClosingFormValues(
     posSystemAmount: emptyNum(closing.posSystemAmount),
     cardAmount: emptyNum(closing.cardAmount),
     cashAmount: emptyNum(closing.cashAmount),
-    cashOpeningAmount: emptyNum(closing.cashOpeningAmount),
+    cashOpeningAmount: moneyOrNull(closing.cashOpeningAmount),
     mercadoPagoAmount: emptyNum(closing.mercadoPagoAmount),
     deliveryAppsAmount: emptyNum(closing.deliveryAppsAmount),
     transferAmount: emptyNum(closing.transferAmount),
