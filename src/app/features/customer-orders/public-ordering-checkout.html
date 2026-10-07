@@ -9,12 +9,14 @@
   <div class="page">
     <header class="top">
       <a class="back" [routerLink]="menuLink()" aria-label="Volver al menú">‹</a>
-      <div>
+      <div class="top__mid">
         @if (logoUrl()) {
           <img class="logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
         }
-        <h1>{{ staffMode() ? 'Confirmar pedido' : 'Tu pedido' }}</h1>
-        <p class="muted">{{ c.shop.name }}</p>
+        <div class="top__copy">
+          <h1>{{ staffMode() ? 'Confirmar pedido' : 'Tu pedido' }}</h1>
+          <p class="muted">{{ c.shop.name }}</p>
+        </div>
       </div>
     </header>
 
@@ -39,7 +41,8 @@
         }
       </div>
     } @else {
-      <section class="card">
+      <div class="checkout-grid">
+      <section class="card card--summary">
         <h2>Resumen</h2>
         <ul class="lines">
           @for (group of summaryGroups(); track group.item ? ('i|' + group.item.menuItemId + '|' + group.item.notes + '|' + (group.item.removedIngredients || []).join(',')) : ('o|' + group.extras[0].line.extraId + '|' + (group.extras[0].line.attachedToMenuItemId || ''))) {
@@ -94,6 +97,7 @@
         </div>
       </section>
 
+      <div class="checkout-main">
       @if (pickingFulfillment() || !fulfillment()) {
         <section class="card">
           <h2>Entrega</h2>
@@ -384,6 +388,8 @@
           </button>
         </div>
       </form>
+      </div>
+      </div>
     }
   </div>
 }

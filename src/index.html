@@ -188,25 +188,37 @@
             publicPage.kind +
             '?' +
             qs;
-          /* Prefetch logo del local → apple-touch-icon (iOS lo lee temprano). */
+          /* Favicon = logo del local (shop_logo). apple-touch puede usar el mismo. */
           fetch(manifestHref, { credentials: 'omit', cache: 'no-store' })
             .then(function (r) {
               return r.ok ? r.json() : null;
             })
             .then(function (manifestJson) {
-              if (!manifestJson || !manifestJson.icons || !manifestJson.icons.length) return;
-              var icons = manifestJson.icons;
-              var preferred = null;
+              if (!manifestJson) return;
+              var shopLogo = manifestJson.shop_logo || '';
+              var icons = manifestJson.icons || [];
+              var pwaIcon = null;
               for (var i = 0; i < icons.length; i++) {
                 if (icons[i].sizes === '180x180' && icons[i].src) {
-                  preferred = icons[i].src;
+                  pwaIcon = icons[i].src;
                   break;
                 }
               }
-              var src = preferred || icons[0].src;
-              if (!src) return;
+              if (!pwaIcon && icons.length && icons[0].src) pwaIcon = icons[0].src;
+              var favSrc = shopLogo || pwaIcon;
+              if (!favSrc) return;
               var apple = document.getElementById('apple-touch-icon');
-              if (apple) apple.setAttribute('href', src);
+              if (apple) apple.setAttribute('href', favSrc);
+              var iconsLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+              for (var k = 0; k < iconsLinks.length; k++) {
+                iconsLinks[k].parentNode.removeChild(iconsLinks[k]);
+              }
+              var fav = document.createElement('link');
+              fav.id = 'app-favicon';
+              fav.rel = 'icon';
+              fav.type = shopLogo ? 'image/jpeg' : 'image/png';
+              fav.href = favSrc;
+              document.head.appendChild(fav);
             })
             .catch(function () {});
         }

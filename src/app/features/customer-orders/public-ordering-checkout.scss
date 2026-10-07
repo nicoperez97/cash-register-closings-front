@@ -46,7 +46,7 @@
 .top {
   display: flex;
   gap: 0.75rem;
-  align-items: flex-start;
+  align-items: center;
   background: var(--sheet);
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -69,14 +69,28 @@
   border: 1px solid var(--line);
 }
 
+.top__mid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.top__copy {
+  min-width: 0;
+}
+
 .logo {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.4rem;
+  height: 2.4rem;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
-  margin-bottom: 0.35rem;
+  margin: 0;
   border: 1px solid var(--line);
+  flex-shrink: 0;
 }
 
 h1 {
@@ -116,19 +130,28 @@ h2 {
   overflow: hidden;
 }
 
-.page > .card:nth-of-type(1) {
+.checkout-grid {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.checkout-main {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.checkout-grid .card:nth-of-type(1) {
   animation-delay: 0.05s;
 }
-.page > .card:nth-of-type(2) {
+.checkout-main > .card:nth-of-type(1) {
   animation-delay: 0.1s;
 }
-.page > .card:nth-of-type(3) {
+.checkout-main > .card:nth-of-type(2) {
   animation-delay: 0.15s;
 }
-.page > .card:nth-of-type(4) {
-  animation-delay: 0.2s;
-}
-.page > form.card {
+.checkout-main > form.card {
   animation-delay: 0.22s;
 }
 
@@ -669,19 +692,62 @@ textarea:focus {
     border-radius: 1.15rem;
   }
 
+  .checkout-grid {
+    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+    gap: 1.15rem 1.35rem;
+    align-items: start;
+  }
+
+  .checkout-main {
+    gap: 1rem;
+  }
+
+  .card--summary {
+    position: sticky;
+    top: calc(0.85rem + var(--guy-safe-top));
+    align-self: start;
+  }
+
   .card {
     padding: 1.05rem 1.15rem;
     border-radius: 1.15rem;
   }
 
+  .choices {
+    gap: 0.65rem;
+  }
+
+  .choices:has(> :nth-child(2)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .choice {
+    text-align: center;
+  }
+
   .line__extra {
     margin-left: 0.85rem;
+  }
+
+  .checkout-cta {
+    margin: 1rem 0 0;
+    padding: 0.75rem 0 0;
+    background: transparent;
   }
 }
 
 @media (min-width: 1100px) {
   .page {
     max-width: min(68rem, 92vw);
+  }
+
+  .checkout-grid {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+    gap: 1.25rem 1.75rem;
+  }
+
+  .choices:has(> :nth-child(3)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

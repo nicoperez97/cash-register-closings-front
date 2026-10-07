@@ -12,97 +12,105 @@
     <app-public-page-install-banner kind="ordering" [accent]="accent()" />
     <div class="sheet">
     <header class="hero">
-      @if (logoUrl()) {
-        <img class="hero__logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
-      }
-      <p class="hero__eyebrow">Pedidos online</p>
-      <h1>{{ c.shop.name }}</h1>
+      <div class="hero__brand">
+        @if (logoUrl()) {
+          <img class="hero__logo" [src]="logoUrl()!" [alt]="c.shop.name" (error)="onLogoError()" />
+        }
+        <div class="hero__titles">
+          <p class="hero__eyebrow">Pedidos online</p>
+          <h1>{{ c.shop.name }}</h1>
+        </div>
+      </div>
 
-      @if (closed()) {
-        <div class="closed-banner" role="status">
-          @if (closedByForce()) {
-            <strong>PEDIDOS CERRADOS POR EL LOCAL</strong>
-            <p>Ahora no están tomando pedidos. Podés mirar el menú y las zonas.</p>
-          } @else {
-            <strong>ESTAMOS CERRADOS</strong>
-            <p>Podés mirar el menú y las zonas. Los pedidos se habilitan cuando el local abra.</p>
+      <div class="hero__status">
+        @if (closed()) {
+          <div class="closed-banner" role="status">
+            @if (closedByForce()) {
+              <strong>PEDIDOS CERRADOS POR EL LOCAL</strong>
+              <p>Ahora no están tomando pedidos. Podés mirar el menú y las zonas.</p>
+            } @else {
+              <strong>ESTAMOS CERRADOS</strong>
+              <p>Podés mirar el menú y las zonas. Los pedidos se habilitan cuando el local abra.</p>
+            }
+          </div>
+        }
+
+        <div class="eta-row">
+          @if (c.takeawayEnabled && etaChip('takeaway', c.eta?.takeaway); as takeawayEta) {
+            <span class="eta" [class.eta--off]="!c.takeawayOpen">
+              {{ takeawayEta }}
+              @if (!c.takeawayOpen) {
+                <em>cerrado</em>
+              }
+            </span>
+          }
+          @if (c.deliveryEnabled && etaChip('delivery', c.eta?.delivery); as deliveryEta) {
+            <span class="eta" [class.eta--off]="!c.deliveryOpen">
+              {{ deliveryEta }}
+              @if (!c.deliveryOpen) {
+                <em>cerrado</em>
+              }
+            </span>
           }
         </div>
-      }
-
-      <div class="eta-row">
-        @if (c.takeawayEnabled && etaChip('takeaway', c.eta?.takeaway); as takeawayEta) {
-          <span class="eta" [class.eta--off]="!c.takeawayOpen">
-            {{ takeawayEta }}
-            @if (!c.takeawayOpen) {
-              <em>cerrado</em>
-            }
-          </span>
-        }
-        @if (c.deliveryEnabled && etaChip('delivery', c.eta?.delivery); as deliveryEta) {
-          <span class="eta" [class.eta--off]="!c.deliveryOpen">
-            {{ deliveryEta }}
-            @if (!c.deliveryOpen) {
-              <em>cerrado</em>
-            }
-          </span>
-        }
       </div>
     </header>
 
-    <nav class="actions">
-      @if (c.takeawayOpen || c.deliveryOpen) {
-        <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
-          Elegí lo que quieras
-        </a>
-      } @else {
-        <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
-          Ver el menú
-        </a>
+    <div class="sheet__body">
+      <nav class="actions">
+        @if (c.takeawayOpen || c.deliveryOpen) {
+          <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
+            Elegí lo que quieras
+          </a>
+        } @else {
+          <a class="btn btn--primary ord-press" [routerLink]="['/pedir', slug(), 'menu']">
+            Ver el menú
+          </a>
+        }
+
+        @if (c.deliveryEnabled && c.deliveryZones.length) {
+          <button type="button" class="btn btn--ghost ord-press" (click)="openZones()">
+            Zonas de entrega
+          </button>
+        }
+
+        <a class="btn btn--link ord-press" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
+
+        @if (cartCount() > 0 && (c.takeawayOpen || c.deliveryOpen)) {
+          <a class="btn btn--soft ord-press" [routerLink]="['/pedir', slug(), 'checkout']">
+            Seguir con el pedido ({{ cartCount() }})
+          </a>
+        }
+      </nav>
+
+      @if (c.takeawayHoursSummary.length || c.deliveryHoursSummary.length) {
+        <section class="hours" aria-label="Días y horarios de atención">
+          <p class="hours__title">
+            Nuestros <strong>días y horarios</strong> de atención
+          </p>
+          <div class="hours__body">
+            @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
+              <div class="hours__channel">
+                <p class="hours__name">Take Away</p>
+                @for (row of hoursRows(c.takeawayHoursSummary); track $index) {
+                  <p class="hours__days">{{ row.days }}</p>
+                  <p class="hours__times">{{ row.times }}</p>
+                }
+              </div>
+            }
+            @if (c.deliveryEnabled && c.deliveryHoursSummary.length) {
+              <div class="hours__channel">
+                <p class="hours__name">Delivery</p>
+                @for (row of hoursRows(c.deliveryHoursSummary); track $index) {
+                  <p class="hours__days">{{ row.days }}</p>
+                  <p class="hours__times">{{ row.times }}</p>
+                }
+              </div>
+            }
+          </div>
+        </section>
       }
-
-      @if (c.deliveryEnabled && c.deliveryZones.length) {
-        <button type="button" class="btn btn--ghost ord-press" (click)="openZones()">
-          Zonas de entrega
-        </button>
-      }
-
-      <a class="btn btn--link ord-press" [routerLink]="['/mi-pedido', slug()]">Consultar estado</a>
-
-      @if (cartCount() > 0 && (c.takeawayOpen || c.deliveryOpen)) {
-        <a class="btn btn--soft ord-press" [routerLink]="['/pedir', slug(), 'checkout']">
-          Seguir con el pedido ({{ cartCount() }})
-        </a>
-      }
-    </nav>
-
-    @if (closed() && (c.takeawayHoursSummary.length || c.deliveryHoursSummary.length)) {
-      <section class="hours" aria-label="Días y horarios de atención">
-        <p class="hours__title">
-          Nuestros <strong>días y horarios</strong> de atención
-        </p>
-        <div class="hours__body">
-          @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
-            <div class="hours__channel">
-              <p class="hours__name">Take Away</p>
-              @for (row of hoursRows(c.takeawayHoursSummary); track $index) {
-                <p class="hours__days">{{ row.days }}</p>
-                <p class="hours__times">{{ row.times }}</p>
-              }
-            </div>
-          }
-          @if (c.deliveryEnabled && c.deliveryHoursSummary.length) {
-            <div class="hours__channel">
-              <p class="hours__name">Delivery</p>
-              @for (row of hoursRows(c.deliveryHoursSummary); track $index) {
-                <p class="hours__days">{{ row.days }}</p>
-                <p class="hours__times">{{ row.times }}</p>
-              }
-            </div>
-          }
-        </div>
-      </section>
-    }
+    </div>
     </div>
 
     @if (zonesOpen()) {
