@@ -437,9 +437,15 @@
   align-items: start;
 }
 
+.op__pay--counter {
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 1.1fr) auto auto;
+  align-items: center;
+}
+
 .op__pay--public {
   grid-template-columns:
-    minmax(0, 1.1fr) minmax(8.5rem, 0.7fr) minmax(9.5rem, 0.85fr) minmax(11rem, 1fr) auto;
+    minmax(0, 1.1fr) minmax(8.5rem, 0.7fr) minmax(9.5rem, 0.85fr) minmax(11rem, 1fr) auto auto;
+  align-items: center;
 }
 
 .op__pay-name,
@@ -448,6 +454,12 @@
 .op__pay-channels {
   width: 100%;
   min-width: 0;
+}
+
+.op__pay-tender {
+  margin: 0.15rem 0 0;
+  white-space: nowrap;
+  font-size: 0.82rem;
 }
 
 .op__pay-del {
@@ -482,7 +494,17 @@
   }
 
   .op__pay--public .op__pay-channels,
-  .op__pay--public .op__pay-account {
+  .op__pay--public .op__pay-account,
+  .op__pay--public .op__pay-tender {
+    grid-column: 1 / -1;
+  }
+
+  .op__pay--counter {
+    grid-template-columns: 1fr auto;
+  }
+
+  .op__pay--counter .op__pay-account,
+  .op__pay--counter .op__pay-tender {
     grid-column: 1 / -1;
   }
 }
@@ -508,7 +530,12 @@
   .op__pay--public .op__pay-name,
   .op__pay--public .op__pay-kind,
   .op__pay--public .op__pay-channels,
-  .op__pay--public .op__pay-account {
+  .op__pay--public .op__pay-account,
+  .op__pay--public .op__pay-tender {
+    grid-column: 1 / -1;
+  }
+
+  .op__pay--counter .op__pay-tender {
     grid-column: 1 / -1;
   }
 }

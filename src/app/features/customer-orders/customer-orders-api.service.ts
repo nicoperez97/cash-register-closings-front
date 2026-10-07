@@ -91,6 +91,7 @@ export interface PublicOrderingConfig {
       active?: boolean;
       kind?: 'CASH' | 'TRANSFER' | 'CARD';
       fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+      askCashTender?: boolean;
     }>;
     transferCbu?: string | null;
     transferAlias?: string | null;

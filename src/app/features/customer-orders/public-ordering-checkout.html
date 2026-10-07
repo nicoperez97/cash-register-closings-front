@@ -307,6 +307,9 @@
               [placeholder]="money(total())"
             />
           </label>
+          @if (cashChange(); as change) {
+            <p class="cash-change" role="status">Cambio {{ money(change) }}</p>
+          }
         }
 
         @if (paymentMethod() === 'TRANSFER' && hasTransferData()) {

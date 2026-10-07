@@ -176,163 +176,194 @@
           <div class="pos__total"><span>Total</span><strong>{{ money(total()) }}</strong></div>
         </div>
 
-        <div class="pos__fields">
-          @if (deliveryEnabled()) {
+        <form class="pos__ticket-form" (submit)="onTicketSubmit($event)">
+          <div class="pos__fields">
+            @if (deliveryEnabled()) {
+              <div class="pos__pay">
+                <span class="pos__label">Entrega</span>
+                <div class="pos__chips">
+                  <button
+                    type="button"
+                    class="pos__chip"
+                    [class.pos__chip--on]="fulfillment() === 'COUNTER'"
+                    (click)="setFulfillment('COUNTER')"
+                  >
+                    Mostrador
+                  </button>
+                  <button
+                    type="button"
+                    class="pos__chip"
+                    [class.pos__chip--on]="fulfillment() === 'DELIVERY'"
+                    (click)="setFulfillment('DELIVERY')"
+                  >
+                    Delivery
+                  </button>
+                </div>
+              </div>
+            }
+
+            <label>
+              Nombre {{ fulfillment() === 'DELIVERY' ? '' : '(opcional)' }}
+              <input
+                type="text"
+                [(ngModel)]="guestName"
+                name="guestName"
+                [placeholder]="fulfillment() === 'DELIVERY' ? 'Nombre del cliente' : 'Cliente Mostrador'"
+                autocomplete="name"
+              />
+            </label>
+            <label>
+              Celular {{ fulfillment() === 'DELIVERY' ? '' : '(opcional)' }}
+              <input
+                type="tel"
+                [(ngModel)]="phone"
+                name="phone"
+                inputmode="tel"
+                autocomplete="tel"
+                [placeholder]="fulfillment() === 'DELIVERY' ? 'Celular del cliente' : 'Sin celular'"
+              />
+            </label>
+
+            @if (fulfillment() === 'DELIVERY') {
+              <div class="pos__delivery">
+                <label>
+                  Zona
+                  <select
+                    [ngModel]="deliveryZoneId()"
+                    (ngModelChange)="setDeliveryZone($event || null)"
+                    name="deliveryZoneId"
+                  >
+                    <option [ngValue]="null">Elegí zona…</option>
+                    @for (z of deliveryZones(); track z.id) {
+                      <option [ngValue]="z.id">
+                        {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'sin cargo' }}
+                      </option>
+                    }
+                  </select>
+                </label>
+                <label>
+                  Calle
+                  <input
+                    type="text"
+                    [(ngModel)]="addressStreet"
+                    name="addressStreet"
+                    maxlength="160"
+                    placeholder="Calle"
+                  />
+                </label>
+                <label>
+                  Número
+                  <input
+                    type="text"
+                    [(ngModel)]="addressNumber"
+                    name="addressNumber"
+                    maxlength="20"
+                    inputmode="numeric"
+                    placeholder="Altura"
+                  />
+                </label>
+                <label>
+                  Entre calles (opcional)
+                  <input
+                    type="text"
+                    [(ngModel)]="addressBetween"
+                    name="addressBetween"
+                    maxlength="80"
+                  />
+                </label>
+                <label>
+                  Piso / depto / ref. (opcional)
+                  <input
+                    type="text"
+                    [(ngModel)]="addressDetails"
+                    name="addressDetails"
+                    maxlength="80"
+                  />
+                </label>
+                <button type="button" class="pos__map-btn" (click)="openMapPicker()">
+                  Buscar en el mapa
+                </button>
+                @if (mapPoint(); as p) {
+                  <p class="pos__muted">
+                    Punto: {{ p.lat | number: '1.5-5' }}, {{ p.lng | number: '1.5-5' }}
+                  </p>
+                }
+                @if (mapOpen()) {
+                  <app-delivery-map-picker
+                    [zones]="deliveryZones()"
+                    [accent]="accent()"
+                    [initial]="mapPoint()"
+                    (closed)="closeMapPicker()"
+                    (selected)="onMapSelected($event)"
+                  />
+                }
+              </div>
+            }
+
+            <label class="pos__check">
+              <input type="checkbox" [(ngModel)]="printCustomerTicket" name="printCustomerTicket" />
+              Imprimir ticket del cliente
+            </label>
             <div class="pos__pay">
-              <span class="pos__label">Entrega</span>
+              <span class="pos__label">Pago</span>
               <div class="pos__chips">
-                <button
-                  type="button"
-                  class="pos__chip"
-                  [class.pos__chip--on]="fulfillment() === 'COUNTER'"
-                  (click)="setFulfillment('COUNTER')"
-                >
-                  Mostrador
-                </button>
-                <button
-                  type="button"
-                  class="pos__chip"
-                  [class.pos__chip--on]="fulfillment() === 'DELIVERY'"
-                  (click)="setFulfillment('DELIVERY')"
-                >
-                  Delivery
-                </button>
+                @for (m of paymentChoices(); track m.id) {
+                  <button
+                    type="button"
+                    class="pos__chip"
+                    [class.pos__chip--on]="paymentChoiceId() === m.id"
+                    (click)="setPayment(m)"
+                  >
+                    {{ m.name }}
+                  </button>
+                }
               </div>
             </div>
-          }
-
-          <label>
-            Nombre {{ fulfillment() === 'DELIVERY' ? '' : '(opcional)' }}
-            <input
-              type="text"
-              [(ngModel)]="guestName"
-              [placeholder]="fulfillment() === 'DELIVERY' ? 'Nombre del cliente' : 'Cliente Mostrador'"
-              autocomplete="name"
-            />
-          </label>
-          <label>
-            Celular {{ fulfillment() === 'DELIVERY' ? '' : '(opcional)' }}
-            <input
-              type="tel"
-              [(ngModel)]="phone"
-              inputmode="tel"
-              autocomplete="tel"
-              [placeholder]="fulfillment() === 'DELIVERY' ? 'Celular del cliente' : 'Sin celular'"
-            />
-          </label>
-
-          @if (fulfillment() === 'DELIVERY') {
-            <div class="pos__delivery">
+            @if (needsCashTender()) {
               <label>
-                Zona
-                <select
-                  [ngModel]="deliveryZoneId()"
-                  (ngModelChange)="setDeliveryZone($event || null)"
-                >
-                  <option [ngValue]="null">Elegí zona…</option>
-                  @for (z of deliveryZones(); track z.id) {
-                    <option [ngValue]="z.id">
-                      {{ z.name }} · {{ z.fee > 0 ? money(z.fee) : 'sin cargo' }}
-                    </option>
-                  }
-                </select>
-              </label>
-              <label>
-                Calle
-                <input type="text" [(ngModel)]="addressStreet" maxlength="160" placeholder="Calle" />
-              </label>
-              <label>
-                Número
+                Con cuánto abona
                 <input
-                  type="text"
-                  [(ngModel)]="addressNumber"
-                  maxlength="20"
-                  inputmode="numeric"
-                  placeholder="Altura"
+                  type="number"
+                  min="0"
+                  step="1"
+                  [(ngModel)]="cashAmount"
+                  name="cashAmount"
+                  [placeholder]="money(total())"
                 />
               </label>
-              <label>
-                Entre calles (opcional)
-                <input type="text" [(ngModel)]="addressBetween" maxlength="80" />
-              </label>
-              <label>
-                Piso / depto / ref. (opcional)
-                <input type="text" [(ngModel)]="addressDetails" maxlength="80" />
-              </label>
-              <button type="button" class="pos__map-btn" (click)="openMapPicker()">
-                Buscar en el mapa
-              </button>
-              @if (mapPoint(); as p) {
-                <p class="pos__muted">
-                  Punto: {{ p.lat | number: '1.5-5' }}, {{ p.lng | number: '1.5-5' }}
-                </p>
+              @if (cashChange(); as change) {
+                <p class="pos__change">Cambio {{ money(change) }}</p>
               }
-              @if (mapOpen()) {
-                <app-delivery-map-picker
-                  [zones]="deliveryZones()"
-                  [accent]="accent()"
-                  [initial]="mapPoint()"
-                  (closed)="closeMapPicker()"
-                  (selected)="onMapSelected($event)"
-                />
-              }
-            </div>
-          }
-
-          <label class="pos__check">
-            <input type="checkbox" [(ngModel)]="printCustomerTicket" name="printCustomerTicket" />
-            Imprimir ticket del cliente
-          </label>
-          <div class="pos__pay">
-            <span class="pos__label">Pago</span>
-            <div class="pos__chips">
-              @for (m of paymentChoices(); track m.id) {
-                <button
-                  type="button"
-                  class="pos__chip"
-                  [class.pos__chip--on]="paymentChoiceId() === m.id"
-                  (click)="setPayment(m)"
-                >
-                  {{ m.name }}
-                </button>
-              }
-            </div>
-          </div>
-          @if (needsCashTender()) {
+            }
             <label>
-              Con cuánto abona
-              <input type="number" min="0" step="1" [(ngModel)]="cashAmount" />
+              Nota (opcional)
+              <input type="text" [(ngModel)]="notes" name="notes" maxlength="200" />
             </label>
-          }
-          <label>
-            Nota (opcional)
-            <input type="text" [(ngModel)]="notes" maxlength="200" />
-          </label>
-        </div>
+          </div>
 
-        <button
-          type="button"
-          class="pos__btn pos__btn--primary"
-          [disabled]="submitting() || !lines().length"
-          (click)="submit()"
-        >
-          {{
-            submitting()
-              ? 'Creando…'
-              : !online()
-                ? fulfillment() === 'DELIVERY'
-                  ? 'Cobrar delivery (sin red)'
-                  : 'Cobrar (sin red)'
-                : fulfillment() === 'DELIVERY'
-                  ? 'Crear delivery'
-                  : 'Crear pedido'
-          }}
-        </button>
-        @if (!online()) {
-          <p class="pos__muted">
-            Sin red: cobrás igual. El pedido se manda al volver; cocina y ticket salen entonces.
-          </p>
-        }
+          <button
+            type="submit"
+            class="pos__btn pos__btn--primary"
+            [disabled]="submitting() || !lines().length"
+          >
+            {{
+              submitting()
+                ? 'Creando…'
+                : !online()
+                  ? fulfillment() === 'DELIVERY'
+                    ? 'Cobrar delivery (sin red)'
+                    : 'Cobrar (sin red)'
+                  : fulfillment() === 'DELIVERY'
+                    ? 'Crear delivery'
+                    : 'Crear pedido'
+            }}
+          </button>
+          @if (!online()) {
+            <p class="pos__muted">
+              Sin red: cobrás igual. El pedido se manda al volver; cocina y ticket salen entonces.
+            </p>
+          }
+        </form>
       </aside>
     </div>
   }

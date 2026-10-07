@@ -372,6 +372,18 @@ h2 {
   min-width: 0;
 }
 
+.cash-change {
+  margin: 0.45rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 10%, #fff);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
