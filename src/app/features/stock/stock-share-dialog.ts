@@ -14,6 +14,7 @@ import {
   stockKindLabel,
 } from './stock-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type StockShareDialogData = {
   shopId: string;
   shopName: string;
@@ -206,7 +207,7 @@ export class StockShareDialogComponent implements OnInit {
       },
       error: (err) => {
         this.sending.set(false);
-        const msg = err?.error?.message ?? 'No se pudo compartir el stock';
+        const msg = apiErrorMessage(err, 'No se pudo compartir el stock');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 4000,
         });

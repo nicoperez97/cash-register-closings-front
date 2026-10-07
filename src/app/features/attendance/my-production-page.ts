@@ -18,6 +18,7 @@ import { forkJoin, firstValueFrom } from 'rxjs';
 import { shareText } from '../../shared/utils/share-text';
 import { productionHoursSharePayload } from '../../shared/utils/attendance-share';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 type ViewMode = 'day' | 'week' | 'month';
 type ScopeMode = 'self' | 'team';
 
@@ -692,7 +693,7 @@ export class MyProductionPage {
         error: (err) => {
           this.loading.set(false);
           this.data.set(null);
-          const msg = err?.error?.message ?? 'No se pudieron cargar tus horas';
+          const msg = apiErrorMessage(err, 'No se pudieron cargar tus horas');
           this.error.set(Array.isArray(msg) ? msg.join(', ') : String(msg));
         },
       });
@@ -729,7 +730,7 @@ export class MyProductionPage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudieron guardar las horas';
+          const msg = apiErrorMessage(err, 'No se pudieron guardar las horas');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });

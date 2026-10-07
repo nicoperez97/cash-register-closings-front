@@ -34,6 +34,7 @@ import {
   normalizeServiceRulePhase,
 } from './service-rules-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 type CategoryDialogData = {
   shopId: string;
   shopName: string;
@@ -131,7 +132,7 @@ export class ServiceRuleCategoryDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message || 'No se pudo guardar';
+        const msg = apiErrorMessage(err, 'No se pudo guardar');
         this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 3500 });
       },
     });
@@ -358,7 +359,7 @@ export class ServiceRuleDialogComponent implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message || 'No se pudo guardar';
+        const msg = apiErrorMessage(err, 'No se pudo guardar');
         this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 3500 });
       },
     });
@@ -583,7 +584,7 @@ export class ServiceRulesImportPreviewDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message || 'No se pudo importar';
+        const msg = apiErrorMessage(err, 'No se pudo importar');
         this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
       },
     });
@@ -1095,7 +1096,7 @@ export class ServiceRulesPage {
       },
       error: (err) => {
         this.parsing.set(false);
-        const msg = err?.error?.message || 'No se pudo interpretar el archivo';
+        const msg = apiErrorMessage(err, 'No se pudo interpretar el archivo');
         this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4500 });
       },
     });

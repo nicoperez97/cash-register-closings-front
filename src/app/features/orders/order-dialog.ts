@@ -25,6 +25,7 @@ import {
   OrdersApiService,
 } from './orders-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type OrderDialogData = {
   shopId: string;
 };
@@ -416,7 +417,7 @@ export class OrderDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar el pedido';
+          const msg = apiErrorMessage(err, 'No se pudo guardar el pedido');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });

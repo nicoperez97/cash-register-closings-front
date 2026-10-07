@@ -26,6 +26,7 @@ import {
   suggestedRuleSizes,
 } from './salon-combine.util';
 import { SalonArea, SalonAreaRule, SalonRuleSlot, SalonSector, SalonTable } from './salon.models';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 type SalonView = 'diagrama' | 'reglas';
 type RuleRow = { key: string; partySize: number | ''; maxCount: number | '' };
@@ -587,9 +588,7 @@ export class SalonPage {
     return `r${this.rowSeq}`;
   }
 
-  private fail(err: { error?: { message?: string | string[] } }, fallback: string): void {
-    const raw = err?.error?.message;
-    const msg = Array.isArray(raw) ? raw[0] : raw;
-    this.snack.open(msg || fallback, 'OK', { duration: 3600 });
+  private fail(err: unknown, fallback: string): void {
+    this.snack.open(apiErrorMessage(err, fallback), 'OK', { duration: 3600 });
   }
 }

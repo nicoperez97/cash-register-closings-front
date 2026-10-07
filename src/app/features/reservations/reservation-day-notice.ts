@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ReservationsApiService, ReservationDaySettings } from './reservations-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type DayFormMode = 'normal' | 'closed' | 'no-inside' | 'no-outside';
 export type DayTimeMode = 'inherit' | 'optional' | 'required';
 
@@ -364,7 +365,7 @@ export class ReservationDayNoticeComponent {
         },
         error: (err) => {
           this.savingNotice.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar el aviso';
+          const msg = apiErrorMessage(err, 'No se pudo guardar el aviso');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -509,7 +510,7 @@ export class ReservationDayNoticeComponent {
       },
       error: (err) => {
         this.savingDaySettings.set(false);
-        const msg = err?.error?.message ?? 'No se pudo guardar el formulario';
+        const msg = apiErrorMessage(err, 'No se pudo guardar el formulario');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

@@ -12,6 +12,7 @@ import { MatDatepicker, MatDatepickerModule } from '@angular/material/datepicker
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
 import { debounceTime, filter, finalize, Subscription } from 'rxjs';
@@ -921,10 +922,7 @@ export class PublicReservationSignupComponent implements OnInit, OnDestroy {
           });
         },
         error: (err: HttpErrorResponse) => {
-          const msg =
-            (err.error?.message as string | string[] | undefined) ??
-            'No se pudo enviar. Probá de nuevo.';
-          this.formError.set(Array.isArray(msg) ? msg[0] : String(msg));
+          this.formError.set(apiErrorMessage(err, 'No se pudo enviar. Probá de nuevo.'));
           this.analytics.event(AnalyticsEvents.publicReservationSubmitError, {
             ...this.formAnalyticsParams(),
             form_result: 'api_error',

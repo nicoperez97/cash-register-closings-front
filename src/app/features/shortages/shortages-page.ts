@@ -28,6 +28,7 @@ import {
   ShortagesApiService,
   shortageLevelLabel,
 } from './shortages-api.service';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 export type ShortageDialogData = {
   shopId: string;
@@ -184,9 +185,11 @@ export class ShortageDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg =
-          err?.error?.message || (this.isEdit ? 'No se pudo guardar' : 'No se pudo crear');
-        this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 3500 });
+        this.snack.open(
+          apiErrorMessage(err, this.isEdit ? 'No se pudo guardar' : 'No se pudo crear'),
+          'OK',
+          { duration: 3500 },
+        );
       },
     });
   }

@@ -15,6 +15,7 @@ import {
 } from './reservations-api.service';
 import { emailFromNotes } from './reservation-messaging.util';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type ReservationEditDialogData = {
   shopId: string;
   reservation: ReservationRow;
@@ -214,7 +215,7 @@ export class ReservationEditDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const msg = apiErrorMessage(err, 'No se pudo guardar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -234,7 +235,7 @@ export class ReservationEditDialogComponent {
         },
         error: (err) => {
           this.mailBusy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo enviar el mail';
+          const msg = apiErrorMessage(err, 'No se pudo enviar el mail');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -245,7 +246,7 @@ export class ReservationEditDialogComponent {
           next: () => send(),
           error: (err) => {
             this.mailBusy.set(false);
-            const msg = err?.error?.message ?? 'No se pudo guardar el mail';
+            const msg = apiErrorMessage(err, 'No se pudo guardar el mail');
             this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
           },
         });

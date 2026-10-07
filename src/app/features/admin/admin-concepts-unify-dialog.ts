@@ -12,6 +12,7 @@ import { environment } from '../../../environments/environment';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { AdminConceptRow, CONCEPT_KIND_OPTIONS } from './admin-concept-dialog';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type AdminConceptsUnifyData = {
   shopId: string;
   selected: AdminConceptRow[];
@@ -189,7 +190,7 @@ export class AdminConceptsUnifyDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo unificar';
+          const msg = apiErrorMessage(err, 'No se pudo unificar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });

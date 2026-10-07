@@ -21,6 +21,7 @@ import { TipsApiService } from './tips-api.service';
 import { CashBillCounterDialogComponent } from '../closings/cash-bill-counter-dialog';
 import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface TipsEditorState {
   cashAmount: number;
   /** Montos de recibos (sin filas vacías). */
@@ -518,8 +519,7 @@ export class TipsEditorComponent {
       },
       error: (err) => {
         this.deliveryBusy.set(null);
-        this.snack.open(
-          err?.error?.message ?? 'No se pudo actualizar la entrega',
+        this.snack.open(apiErrorMessage(err, 'No se pudo actualizar la entrega'),
           'OK',
           { duration: 3500 },
         );
@@ -562,8 +562,7 @@ export class TipsEditorComponent {
         },
         error: (err) => {
           this.deliveryBusy.set(null);
-          this.snack.open(
-            err?.error?.message ?? 'No se pudo actualizar la entrega',
+          this.snack.open(apiErrorMessage(err, 'No se pudo actualizar la entrega'),
             'OK',
             { duration: 3500 },
           );

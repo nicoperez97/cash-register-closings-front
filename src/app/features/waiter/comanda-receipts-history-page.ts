@@ -24,6 +24,7 @@ import {
   WaiterSession,
 } from './waiter-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
@@ -194,7 +195,7 @@ export class ComandaReceiptDetailDialog {
       },
       error: (err) => {
         this.loading.set(false);
-        const msg = err?.error?.message ?? 'No se pudo cargar el comprobante';
+        const msg = apiErrorMessage(err, 'No se pudo cargar el comprobante');
         this.error.set(Array.isArray(msg) ? msg.join(', ') : msg);
       },
     });
@@ -588,7 +589,7 @@ export class ComandaReceiptsHistoryPage {
         error: (err) => {
           if (gen !== this.loadGen) return;
           this.loading.set(false);
-          const msg = err?.error?.message ?? 'No se pudo cargar el historial';
+          const msg = apiErrorMessage(err, 'No se pudo cargar el historial');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
             duration: 3500,
           });

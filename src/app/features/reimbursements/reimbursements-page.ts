@@ -26,6 +26,7 @@ import { RecordSavedDialogComponent } from '../../shared/components/record-saved
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function isoToday(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -464,7 +465,7 @@ export class ReimbursementsPage {
       error: (err) => {
         this.rows.set([]);
         this.loading.set(false);
-        const msg = err?.error?.message ?? 'No se pudieron cargar los reintegros';
+        const msg = apiErrorMessage(err, 'No se pudieron cargar los reintegros');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -520,7 +521,7 @@ export class ReimbursementsPage {
       },
       error: (err) => {
         this.aliasBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo guardar el alias';
+        const msg = apiErrorMessage(err, 'No se pudo guardar el alias');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
@@ -559,7 +560,7 @@ export class ReimbursementsPage {
         },
         error: (err) => {
           this.saveBusy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo cargar el gasto';
+          const msg = apiErrorMessage(err, 'No se pudo cargar el gasto');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -585,7 +586,7 @@ export class ReimbursementsPage {
       },
       error: (err) => {
         this.busyId.set(null);
-        const msg = err?.error?.message ?? 'No se pudo marcar como pagado';
+        const msg = apiErrorMessage(err, 'No se pudo marcar como pagado');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

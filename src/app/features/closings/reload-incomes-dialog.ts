@@ -20,6 +20,7 @@ import { hasShopPermission, Permission } from '../../core/auth/auth.models';
 import { topicById } from '../../core/help/module-help';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface ReloadIncomesDialogData {
   shopId: string;
   shopName: string;
@@ -513,7 +514,7 @@ export class ReloadIncomesDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'No se pudieron procesar los cierres';
+        const msg = apiErrorMessage(err, 'No se pudieron procesar los cierres');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -549,7 +550,7 @@ export class ReloadIncomesDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudieron cargar los ingresos';
+          const msg = apiErrorMessage(err, 'No se pudieron cargar los ingresos');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });

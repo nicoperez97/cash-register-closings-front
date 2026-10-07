@@ -38,6 +38,7 @@ import {
 } from './cash-withdrawals-api.service';
 import { CashWithdrawalsInboxService } from './cash-withdrawals-inbox.service';
 import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 function formatMoney(value: number): string {
   return formatMoneyShared(value, {
@@ -733,11 +734,9 @@ export class CashWithdrawalsPage {
         },
         error: (err) => {
           this.picking.set(false);
-          const msg =
-            err?.error?.message ||
-            (Array.isArray(err?.error?.message) ? err.error.message[0] : null) ||
-            'No se pudo confirmar el retiro';
-          this.snack.open(String(msg), 'OK', { duration: 4000 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo confirmar el retiro'), 'OK', {
+            duration: 4000,
+          });
         },
       });
   }

@@ -127,6 +127,7 @@ import {
   type PosnetType,
 } from './closings-form.utils';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 @Component({
   selector: 'app-closings-form',
   imports: [
@@ -1572,7 +1573,7 @@ export class ClosingsFormPage implements OnInit {
     this.api.downloadStepFile(shopId, this.closingId, file.savedId).subscribe({
       next: (blob) => this.openStepFilePreview(file.name, blob),
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo abrir el archivo';
+        const msg = apiErrorMessage(err, 'No se pudo abrir el archivo');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
@@ -1658,7 +1659,7 @@ export class ClosingsFormPage implements OnInit {
         this.savedStepFiles.update((list) => list.filter((f) => f.id !== file.savedId));
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo quitar el archivo';
+        const msg = apiErrorMessage(err, 'No se pudo quitar el archivo');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
@@ -1867,7 +1868,7 @@ export class ClosingsFormPage implements OnInit {
         this.pendingStepFiles.set([]);
       }),
       catchError((err) => {
-        const msg = err?.error?.message ?? 'No se pudieron adjuntar los archivos';
+        const msg = apiErrorMessage(err, 'No se pudieron adjuntar los archivos');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : String(msg), 'OK', { duration: 4000 });
         return of(null);
       }),
@@ -2040,7 +2041,7 @@ export class ClosingsFormPage implements OnInit {
         void this.doShare();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo guardar';
+        const msg = apiErrorMessage(err, 'No se pudo guardar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -2202,7 +2203,7 @@ export class ClosingsFormPage implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        const msg = err?.error?.message ?? 'No se pudo guardar';
+        const msg = apiErrorMessage(err, 'No se pudo guardar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -2350,7 +2351,7 @@ export class ClosingsFormPage implements OnInit {
         this.snack.open('Cierre desbloqueado', 'OK', { duration: 2500 });
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo desbloquear';
+        const msg = apiErrorMessage(err, 'No se pudo desbloquear');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

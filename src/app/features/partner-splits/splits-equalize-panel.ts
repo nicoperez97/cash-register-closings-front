@@ -22,6 +22,7 @@ import {
 } from './partner-splits-api.service';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function money(value: number): string {
   return formatMoney(value);
 }
@@ -932,7 +933,7 @@ export class SplitsEqualizePanelComponent {
       },
       error: (err) => {
         this.savingPct.set(false);
-        const msg = err?.error?.message ?? 'No se pudieron guardar los %';
+        const msg = apiErrorMessage(err, 'No se pudieron guardar los %');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -998,7 +999,7 @@ export class SplitsEqualizePanelComponent {
             },
             error: (err) => {
               this.applying.set(false);
-              const msg = err?.error?.message ?? 'No se pudo aplicar';
+              const msg = apiErrorMessage(err, 'No se pudo aplicar');
               this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
             },
           });
@@ -1044,7 +1045,7 @@ export class SplitsEqualizePanelComponent {
         },
         error: (err) => {
           this.applying.set(false);
-          const msg = err?.error?.message ?? 'No se pudo enviar';
+          const msg = apiErrorMessage(err, 'No se pudo enviar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -1117,7 +1118,7 @@ export class SplitsEqualizePanelComponent {
         },
         error: (err) => {
           this.applying.set(false);
-          const msg = err?.error?.message ?? 'No se pudo enviar';
+          const msg = apiErrorMessage(err, 'No se pudo enviar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -1164,7 +1165,7 @@ export class SplitsEqualizePanelComponent {
       },
       error: (err) => {
         this.loading.set(false);
-        const msg = err?.error?.message ?? 'No se pudo calcular';
+        const msg = apiErrorMessage(err, 'No se pudo calcular');
         this.percentSumError.set(Array.isArray(msg) ? msg.join(', ') : String(msg));
         this.preview.set(null);
       },

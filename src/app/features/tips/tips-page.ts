@@ -29,6 +29,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { firstValueFrom } from 'rxjs';
 import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function toDateInput(value?: string | null): Date {
   if (!value) return new Date();
   const d = new Date(`${value}T12:00:00`);
@@ -386,8 +387,7 @@ export class TipsPage {
       },
       error: (err) => {
         this.saving.set(false);
-        this.snack.open(
-          err?.error?.message ?? 'No se pudo guardar',
+        this.snack.open(apiErrorMessage(err, 'No se pudo guardar'),
           'OK',
           { duration: 3500 },
         );

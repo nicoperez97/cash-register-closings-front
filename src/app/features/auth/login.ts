@@ -18,6 +18,7 @@ import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-
 import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { environment } from '../../../environments/environment';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 /** Color del tope del gradiente de login (barra de estado móvil). */
 const LOGIN_STATUS = '#000000';
@@ -139,7 +140,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       await this.auth.login(email, password);
       await this.router.navigateByUrl(this.afterLoginUrl());
     } catch (err: unknown) {
-      this.error = this.readApiError(err, 'Email o contraseña incorrectos.');
+      this.error = apiErrorMessage(err, 'Email o contraseña incorrectos.');
       this.form.enable({ emitEvent: false });
       this.busy = false;
     }
@@ -155,7 +156,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       sessionStorage.setItem('crc_demo_tour', '1');
       await this.router.navigateByUrl('/admin/shop');
     } catch (err: unknown) {
-      this.error = this.readApiError(err, 'La demo no está disponible ahora.');
+      this.error = apiErrorMessage(err, 'La demo no está disponible ahora.');
       this.form.enable({ emitEvent: false });
       this.busy = false;
     }
@@ -235,7 +236,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       await this.auth.loginWithGoogle(credential);
       await this.router.navigateByUrl(this.afterLoginUrl());
     } catch (err: unknown) {
-      this.error = this.readApiError(
+      this.error = apiErrorMessage(
         err,
         'No se pudo ingresar con Google. El correo tiene que existir en el sistema.',
       );
@@ -262,12 +263,6 @@ export class LoginComponent implements OnInit, OnDestroy {
       script.onerror = () => reject(new Error('GSI'));
       document.head.appendChild(script);
     });
-  }
-
-  private readApiError(err: unknown, fallback: string): string {
-    const apiMsg = (err as { error?: { message?: string | string[] } })?.error?.message;
-    const msg = Array.isArray(apiMsg) ? apiMsg.join(', ') : apiMsg;
-    return typeof msg === 'string' && msg.trim() ? msg : fallback;
   }
 
   private afterLoginUrl(): string {

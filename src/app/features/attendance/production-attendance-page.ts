@@ -40,6 +40,7 @@ import {
   zonedDateParts,
 } from '../../core/shop/business-date';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 interface ProdDayCell {
   id?: string;
   hours: number;
@@ -1380,7 +1381,7 @@ export class ProductionAttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo marcar la producción';
+          const msg = apiErrorMessage(err, 'No se pudo marcar la producción');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -1420,7 +1421,7 @@ export class ProductionAttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const msg = apiErrorMessage(err, 'No se pudo guardar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -1449,7 +1450,7 @@ export class ProductionAttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const msg = apiErrorMessage(err, 'No se pudo guardar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });

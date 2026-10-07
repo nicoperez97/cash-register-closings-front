@@ -18,6 +18,7 @@ import { AdminConceptsExcelDialogComponent } from './admin-concepts-excel-dialog
 import { AdminConceptsUnifyDialogComponent } from './admin-concepts-unify-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 @Component({
   selector: 'app-admin-concepts',
   imports: [
@@ -325,7 +326,7 @@ export class AdminConceptsPage {
         this.reload();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar el concepto';
+        const msg = apiErrorMessage(err, 'No se pudo eliminar el concepto');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

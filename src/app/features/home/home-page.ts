@@ -68,6 +68,7 @@ import { attendanceDaySharePayload } from '../../shared/utils/attendance-share';
 import { shareText } from '../../shared/utils/share-text';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function accountNameKey(name: string | null | undefined): string {
   return String(name ?? '')
     .normalize('NFD')
@@ -1710,7 +1711,7 @@ export class HomePageComponent {
         },
         error: (err) => {
           this.attendanceBusy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar la asistencia';
+          const msg = apiErrorMessage(err, 'No se pudo guardar la asistencia');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -1758,7 +1759,7 @@ export class HomePageComponent {
       },
       error: (err) => {
         this.attendanceBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo marcar el presentismo';
+        const msg = apiErrorMessage(err, 'No se pudo marcar el presentismo');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });
@@ -1798,7 +1799,7 @@ export class HomePageComponent {
       },
       error: (err) => {
         this.attendanceBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo marcar el feriado';
+        const msg = apiErrorMessage(err, 'No se pudo marcar el feriado');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

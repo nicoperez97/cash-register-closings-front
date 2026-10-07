@@ -121,4 +121,29 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
   etaChip(channel: 'takeaway' | 'delivery', raw: unknown): string | null {
     return formatOrderingEtaChip(channel, raw);
   }
+
+  hoursRows(
+    lines: Array<{ days: string; times: string } | string> | null | undefined,
+  ): Array<{ days: string; times: string }> {
+    const out: Array<{ days: string; times: string }> = [];
+    for (const line of lines ?? []) {
+      if (!line) continue;
+      if (typeof line === 'object' && line.days) {
+        out.push({ days: line.days, times: line.times || '' });
+        continue;
+      }
+      // Legacy: "Lunes a Sábado 10:00 a 16:00hs, 19:30 a 23:30hs"
+      const text = String(line).trim();
+      const m = text.match(/^(.+?)\s+(\d{1,2}:\d{2}\b.*)$/);
+      if (m) {
+        out.push({
+          days: m[1].trim(),
+          times: m[2].replace(/\s*,\s*/g, ' · ').replace(/hs\b/gi, '').trim(),
+        });
+      } else {
+        out.push({ days: text, times: '' });
+      }
+    }
+    return out;
+  }
 }

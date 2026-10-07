@@ -19,6 +19,7 @@ import { ShopBackupDialogComponent } from './shop-backup-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { MatIconModule } from '@angular/material/icon';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type PrintAgentInstallerOs = 'windows' | 'macos' | 'linux';
 
 export type PrintAgentInstallerItem = {
@@ -403,7 +404,7 @@ export class AdminShopsPage implements OnInit {
         },
         error: (err) => {
           this.installerBusy.set(false);
-          const msg = err?.error?.message || 'No se pudo cargar el instalador';
+          const msg = apiErrorMessage(err, 'No se pudo cargar el instalador');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });
@@ -435,7 +436,7 @@ export class AdminShopsPage implements OnInit {
         },
         error: (err) => {
           this.installerBusy.set(false);
-          const msg = err?.error?.message || 'No se pudo guardar el link';
+          const msg = apiErrorMessage(err, 'No se pudo guardar el link');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });
@@ -494,7 +495,7 @@ export class AdminShopsPage implements OnInit {
         },
         error: (err) => {
           this.installerBusy.set(false);
-          const msg = err?.error?.message || 'No se pudo quitar el instalador';
+          const msg = apiErrorMessage(err, 'No se pudo quitar el instalador');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -551,7 +552,7 @@ export class AdminShopsPage implements OnInit {
         void this.auth.refreshMe();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo cambiar el estado';
+        const msg = apiErrorMessage(err, 'No se pudo cambiar el estado');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

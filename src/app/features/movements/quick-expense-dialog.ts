@@ -37,6 +37,7 @@ import {
   expenseReceiptRequired,
 } from './movements-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type QuickExpenseDialogData = {
   shopId: string;
   shopName: string;
@@ -921,7 +922,7 @@ export class QuickExpenseDialogComponent implements OnInit {
         },
         error: (err) => {
           this.creatingSupplier.set(false);
-          const msg = err?.error?.message ?? 'No se pudo crear el proveedor';
+          const msg = apiErrorMessage(err, 'No se pudo crear el proveedor');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -951,7 +952,7 @@ export class QuickExpenseDialogComponent implements OnInit {
         },
         error: (err) => {
           this.creatingService.set(false);
-          const msg = err?.error?.message ?? 'No se pudo crear el servicio';
+          const msg = apiErrorMessage(err, 'No se pudo crear el servicio');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -1110,7 +1111,7 @@ export class QuickExpenseDialogComponent implements OnInit {
               this.amountLines.push(this.newAmountLine());
             }
           }
-          const msg = err?.error?.message ?? 'No se pudo registrar el gasto';
+          const msg = apiErrorMessage(err, 'No se pudo registrar el gasto');
           const prefix = created
             ? `Se registraron ${created} gasto${created === 1 ? '' : 's'}. El siguiente falló: `
             : '';

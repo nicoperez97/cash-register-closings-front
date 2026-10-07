@@ -33,6 +33,7 @@ import {
 } from './partner-split-apply-dialog';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function money(value: number): string {
   return formatMoney(value);
 }
@@ -1045,7 +1046,7 @@ export class PartnerSplitsPage {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo aplicar la división';
+        const msg = apiErrorMessage(err, 'No se pudo aplicar la división');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

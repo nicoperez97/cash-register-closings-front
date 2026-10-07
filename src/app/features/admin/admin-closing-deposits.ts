@@ -19,6 +19,7 @@ import {
   LINKED_PAYMENT_METHOD_OPTIONS,
 } from './admin-account-dialog';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export const CLOSING_DEPOSIT_FIELDS = [
   { value: 'cash', label: 'Efectivo' },
   { value: 'card', label: 'PVS / Tarjeta' },
@@ -254,7 +255,7 @@ export class AdminClosingDepositsComponent {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudieron guardar los depósitos';
+          const msg = apiErrorMessage(err, 'No se pudieron guardar los depósitos');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });

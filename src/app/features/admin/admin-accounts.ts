@@ -26,6 +26,7 @@ import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatMoney } from '../../shared/utils/money';
 import type { ShopSummary } from '../../core/auth/auth.models';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM' | 'DIVIDENDS';
 type AccountStatusFilter = 'all' | 'active' | 'inactive';
@@ -780,11 +781,7 @@ export class AdminAccountsPage {
         },
         error: (err) => {
           this.closingIncomeBusy.set(false);
-          const msg =
-            err?.error?.message ||
-            (Array.isArray(err?.error?.message) ? err.error.message.join(' · ') : null) ||
-            'No se pudo guardar';
-          this.snack.open(String(msg), 'OK', { duration: 4000 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', { duration: 4000 });
         },
       });
   }
@@ -818,11 +815,7 @@ export class AdminAccountsPage {
         },
         error: (err) => {
           this.transferBusy.set(false);
-          const msg =
-            err?.error?.message ||
-            (Array.isArray(err?.error?.message) ? err.error.message.join(' · ') : null) ||
-            'No se pudo guardar';
-          this.snack.open(String(msg), 'OK', { duration: 4000 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', { duration: 4000 });
         },
       });
   }
@@ -863,11 +856,7 @@ export class AdminAccountsPage {
         },
         error: (err) => {
           this.splitBusy.set(false);
-          const msg =
-            err?.error?.message ||
-            (Array.isArray(err?.error?.message) ? err.error.message.join(' · ') : null) ||
-            'No se pudo guardar';
-          this.snack.open(String(msg), 'OK', { duration: 4000 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', { duration: 4000 });
         },
       });
   }

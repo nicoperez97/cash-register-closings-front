@@ -48,6 +48,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber } from '../../shared/utils/money';
 import { Observable, catchError, concatMap, forkJoin, from, map, of, switchMap } from 'rxjs';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type PaymentDialogKind = 'supplier' | 'employee' | 'service' | 'partner';
 
 export type PaymentDialogUser = {
@@ -732,7 +733,7 @@ export class PaymentDialogComponent implements OnInit {
       },
       error: (err) => {
         this.parsingInvoice.set(false);
-        const msg = err?.error?.message ?? 'No se pudo leer la factura';
+        const msg = apiErrorMessage(err, 'No se pudo leer la factura');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -755,7 +756,7 @@ export class PaymentDialogComponent implements OnInit {
         });
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo abrir la factura';
+        const msg = apiErrorMessage(err, 'No se pudo abrir la factura');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -774,7 +775,7 @@ export class PaymentDialogComponent implements OnInit {
       },
       error: (err) => {
         this.creatingSupplier.set(false);
-        const msg = err?.error?.message ?? 'No se pudo crear el proveedor';
+        const msg = apiErrorMessage(err, 'No se pudo crear el proveedor');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -793,7 +794,7 @@ export class PaymentDialogComponent implements OnInit {
       },
       error: (err) => {
         this.creatingService.set(false);
-        const msg = err?.error?.message ?? 'No se pudo crear el servicio';
+        const msg = apiErrorMessage(err, 'No se pudo crear el servicio');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -1127,7 +1128,7 @@ export class PaymentDialogComponent implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const msg = apiErrorMessage(err, 'No se pudo guardar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });
@@ -1197,7 +1198,7 @@ export class PaymentDialogComponent implements OnInit {
         error: (err) => {
           this.busy.set(false);
           this.dropCreatedPrefix(created);
-          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const msg = apiErrorMessage(err, 'No se pudo guardar');
           const prefix = created
             ? `Se crearon ${created} pago${created === 1 ? '' : 's'}. El siguiente falló: `
             : '';
@@ -1258,7 +1259,7 @@ export class PaymentDialogComponent implements OnInit {
           if (this.employeeLines.length === 0) {
             this.employeeLines.push(this.newEmployeeLine());
           }
-          const msg = err?.error?.message ?? 'No se pudo guardar';
+          const msg = apiErrorMessage(err, 'No se pudo guardar');
           const prefix = done
             ? `Se crearon ${done} pago${done === 1 ? '' : 's'}. El siguiente falló: `
             : '';

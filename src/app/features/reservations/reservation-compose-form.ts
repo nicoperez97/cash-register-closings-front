@@ -18,6 +18,7 @@ import {
 import { toTimeString } from './reservation-date.util';
 import { partyOutsideHint, effectivePartyRules } from './reservation-party-rules.util';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type ReservationComposeSaved = {
   id: string;
   guestName: string;
@@ -243,7 +244,7 @@ export class ReservationComposeFormComponent {
             requestAnimationFrame(() => this.focusGuestName());
           },
           error: (err) => {
-            const msg = err?.error?.message ?? 'No se pudo guardar';
+            const msg = apiErrorMessage(err, 'No se pudo guardar');
             this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
           },
         });

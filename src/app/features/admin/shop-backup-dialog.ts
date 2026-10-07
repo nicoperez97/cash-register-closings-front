@@ -21,6 +21,7 @@ import {
 } from './shop-backup-modules';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { takeInputFile } from '../../shared/utils/input-file';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 export interface ShopBackupDialogData {
   shopId: string;
@@ -552,14 +553,14 @@ export class ShopBackupDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = String(
+        const raw = String(
           Array.isArray(err?.error?.message)
             ? err.error.message[0]
             : (err?.error?.message ?? ''),
         );
-        if (!force && /force=1/i.test(msg)) {
+        if (!force && /force=1/i.test(raw)) {
           const forceOk = window.confirm(
-            `${msg}\n\n¿Forzar la carga en “${this.data.shopName}”? Los datos del dump se mapearán a este local.`,
+            `El dump parece ser de otro local.\n\n¿Forzar la carga en “${this.data.shopName}”? Los datos se mapearán a este local.`,
           );
           if (forceOk) {
             this.runRestore(file, true);
@@ -596,8 +597,7 @@ export class ShopBackupDialogComponent {
     });
   }
 
-  private showErr(err: any, fallback: string): void {
-    const msg = err?.error?.message ?? fallback;
-    this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
+  private showErr(err: unknown, fallback: string): void {
+    this.snack.open(apiErrorMessage(err, fallback), 'OK', { duration: 4500 });
   }
 }

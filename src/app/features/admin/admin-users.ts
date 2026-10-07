@@ -18,6 +18,7 @@ import { AdminUserNotificationsDialogComponent } from './admin-user-notification
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { isUserVisible } from '../../shared/user-visibility';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function accountTypeLabel(row: Record<string, unknown>): string {
   const role = String(row['globalRole'] ?? '');
   if (role === 'OWNER') return userRoleLabel(role);
@@ -285,7 +286,7 @@ export class AdminUsersPage implements OnInit {
         this.reload();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar';
+        const msg = apiErrorMessage(err, 'No se pudo eliminar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -309,7 +310,7 @@ export class AdminUsersPage implements OnInit {
         this.reload();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo cambiar el estado';
+        const msg = apiErrorMessage(err, 'No se pudo cambiar el estado');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

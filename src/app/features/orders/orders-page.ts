@@ -259,7 +259,7 @@ export class OrdersPage {
         this.reload();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo borrar';
+        const msg = apiErrorMessage(err, 'No se pudo borrar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

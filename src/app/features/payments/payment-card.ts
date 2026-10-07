@@ -39,6 +39,7 @@ import {
 } from './payments-display.util';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 @Component({
   selector: 'app-payment-card',
   imports: [
@@ -810,7 +811,7 @@ export class PaymentCardComponent {
   }
 
   private showErr(err: any): void {
-    const msg = err?.error?.message ?? 'No se pudo completar la acción';
+    const msg = apiErrorMessage(err, 'No se pudo completar la acción');
     this.snack.open(msg, 'OK', { duration: 4000 });
   }
 }

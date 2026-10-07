@@ -19,6 +19,7 @@ import {
   ReservationsApiService,
 } from '../reservations/reservations-api.service';
 import { SalonHoursDayDialogComponent } from './salon-hours-day-dialog';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 const WEEKDAYS: Array<{ day: number; label: string }> = [
   { day: 0, label: 'Domingo' },
@@ -310,9 +311,7 @@ export class SalonHoursPage {
     };
   }
 
-  private fail(err: { error?: { message?: string | string[] } }, fallback: string): void {
-    const raw = err?.error?.message;
-    const msg = Array.isArray(raw) ? raw[0] : raw;
-    this.snack.open(msg || fallback, 'OK', { duration: 3600 });
+  private fail(err: unknown, fallback: string): void {
+    this.snack.open(apiErrorMessage(err, fallback), 'OK', { duration: 3600 });
   }
 }

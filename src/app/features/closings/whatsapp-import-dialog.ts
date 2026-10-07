@@ -11,6 +11,7 @@ import {
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface WhatsappImportDialogData {
   shopId: string;
   shopName: string;
@@ -224,7 +225,7 @@ export class WhatsappImportDialogComponent {
       error: (err) => {
         this.busy.set(false);
         this.items.set([]);
-        const msg = err?.error?.message ?? 'No se pudo analizar el ZIP';
+        const msg = apiErrorMessage(err, 'No se pudo analizar el ZIP');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -250,7 +251,7 @@ export class WhatsappImportDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo importar';
+        const msg = apiErrorMessage(err, 'No se pudo importar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });

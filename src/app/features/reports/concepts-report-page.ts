@@ -39,6 +39,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
 import { formatMoney, formatNumber } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function formatDayLabelEs(isoDate: string): string {
   const p = parseIsoDateParts(String(isoDate ?? ''));
   if (!p) return String(isoDate ?? '');
@@ -721,7 +722,7 @@ export class ConceptsReportPage {
         this.summary.set(null);
         this.kpis.set([]);
         this.loading.set(false);
-        const msg = err?.error?.message ?? 'No se pudieron cargar las estadísticas de conceptos';
+        const msg = apiErrorMessage(err, 'No se pudieron cargar las estadísticas de conceptos');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

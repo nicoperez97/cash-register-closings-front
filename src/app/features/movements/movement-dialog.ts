@@ -46,6 +46,7 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { ClosingsApiService } from '../closings/closings-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function formatBalance(value: number): string {
   return formatMoney(value);
 }
@@ -1447,7 +1448,7 @@ export class MovementDialogComponent implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'Error al guardar';
+        const msg = apiErrorMessage(err, 'Error al guardar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

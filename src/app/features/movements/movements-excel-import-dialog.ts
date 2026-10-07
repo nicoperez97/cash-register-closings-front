@@ -24,6 +24,7 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { takeInputFile } from '../../shared/utils/input-file';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type LedgerImportKind = 'expense' | 'income' | 'transfer';
 
 export interface MovementsExcelImportDialogData {
@@ -1043,7 +1044,7 @@ export class MovementsExcelImportDialogComponent {
         this.gemini.set(null);
         this.accountChoices.set([]);
         this.conceptChoices.set([]);
-        const msg = err?.error?.message ?? 'No se pudo analizar el Excel';
+        const msg = apiErrorMessage(err, 'No se pudo analizar el Excel');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -1150,7 +1151,7 @@ export class MovementsExcelImportDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo importar';
+          const msg = apiErrorMessage(err, 'No se pudo importar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });
