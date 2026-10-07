@@ -952,9 +952,15 @@ export class OrderingCatalogPanelComponent {
     });
     const currentShift = resolveCurrentShift(shop);
     const pending = pendingClosingFromOpenCaja(caja, shop);
-    // Con caja abierta fijamos su día/turno; sin caja dejamos que la API resuelva (cae al turno con ventas).
-    const businessDate = String(caja?.businessDate ?? '').slice(0, 10) || todayBd;
-    const shiftId = String(caja?.shiftId ?? '').trim() || (caja ? currentShift.id : '');
+    // Caja del turno actual: usamos su día/turno y su apertura.
+    // Si la caja abierta es de otro día/turno (pendiente), Generar cierre arma el de ahora
+    // (como en Nuevo cierre) y solo avisa el pendiente; no reutiliza esa apertura.
+    const businessDate = pending
+      ? todayBd
+      : String(caja?.businessDate ?? '').slice(0, 10) || todayBd;
+    const shiftId = pending
+      ? currentShift.id
+      : String(caja?.shiftId ?? '').trim() || (caja ? currentShift.id : '');
     const params = new URLSearchParams();
     params.set('businessDate', businessDate);
     if (shiftId) params.set('shiftId', shiftId);

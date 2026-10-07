@@ -110,6 +110,23 @@
   color: var(--guy-muted, #5f6f76);
 }
 
+.closing-caja__diff--expense {
+  border-color: color-mix(in srgb, var(--guy-navy, #003366) 18%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, var(--guy-navy, #003366) 6%, #fff);
+}
+
+.closing-caja__diff--expense strong {
+  color: var(--guy-navy, #003366);
+}
+
+.closing-caja__expense-hint {
+  margin: 0.45rem 0 0;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--guy-muted, #5f6f76);
+}
+
 .closing-form__caja-reason {
   width: 100%;
   margin: 0.35rem 0 0 !important;

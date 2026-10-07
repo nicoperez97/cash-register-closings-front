@@ -70,8 +70,9 @@ import {
           class="closing-caja__diff"
           [class.closing-caja__diff--pending]="difference() === null"
           [class.closing-caja__diff--ok]="difference() === 0"
-          [class.closing-caja__diff--plus]="(difference() ?? 0) > 0"
+          [class.closing-caja__diff--plus]="(difference() ?? 0) > 0 && !differenceExpenseHint()"
           [class.closing-caja__diff--minus]="(difference() ?? 0) < 0"
+          [class.closing-caja__diff--expense]="!!differenceExpenseHint()"
         >
           <div>
             <span>Diferencia</span>
@@ -79,6 +80,9 @@ import {
           </div>
           <strong>{{ differenceLabel() }}</strong>
         </div>
+        @if (differenceExpenseHint()) {
+          <p class="closing-caja__expense-hint">{{ differenceExpenseHint() }}</p>
+        }
         <mat-form-field
           appearance="outline"
           subscriptSizing="dynamic"
@@ -104,6 +108,7 @@ export class ClosingFormCajaStepComponent {
   readonly breakdown = input<Array<{ name: string; amount: string }>>([]);
   readonly difference = input<number | null>(null);
   readonly differenceLabel = input('—');
+  readonly differenceExpenseHint = input('');
   readonly reasonRequired = input(false);
   readonly reasonHint = input('Opcional. Explicá si hay diferencia.');
   readonly files = input<ClosingStepFileView[]>([]);

@@ -1,6 +1,7 @@
 import { formatMoney } from '../../shared/utils/money';
 import type { CashClosing, ShopClosingSource } from './closings-api.service';
 import type { ClosingFormDraft, PendingClosingNotice } from './closing-form-draft';
+import { sourceRowTotal } from './closings-form-load';
 
 export type FulfillmentBucket = {
   cashTotal: number;
@@ -329,6 +330,14 @@ export function buildClosingDraftFromOrdersSummary(opts: {
     });
   }
 
+  // Mismo criterio que declaredTotal del formulario: precarga Caja (sistema).
+  const sourcesDeclared = sourceAmounts
+    .filter((s) => s.includeInDeclared)
+    .reduce((sum, s) => sum + sourceRowTotal(s), 0);
+  const cobrosTotal = otherCobros.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const cashCollected = Math.round((cashAmount - openingAmt) * 100) / 100;
+  const declaredTotal = Math.round((cashCollected + cobrosTotal + sourcesDeclared) * 100) / 100;
+
   const notesParts = [
     `Turno · ${summary.shiftName} (${summary.opensAt}–${summary.closesAt})`,
     summary.businessDate,
@@ -364,7 +373,7 @@ export function buildClosingDraftFromOrdersSummary(opts: {
       accountDniAmount: null,
       deliveryAppsAmount: null,
       transferAmount: null,
-      posSystemAmount: null,
+      posSystemAmount: declaredTotal > 0 ? declaredTotal : null,
       unitsSold: summary.unitsSold > 0 ? summary.unitsSold : null,
       coversCount:
         tables?.coversSuggested && tables.coversSuggested > 0
