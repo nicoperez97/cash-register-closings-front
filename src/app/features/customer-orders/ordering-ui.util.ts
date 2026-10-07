@@ -197,7 +197,33 @@ export type OrderingPayChoice = {
   accountId?: string | null;
   /** Canales donde aplica (solo web pública). Ausente = ambos. */
   fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+  /** Si true, pide “con cuánto abona”. Ausente = heurística legacy. */
+  askCashTender?: boolean;
 };
+
+/** Heurística legacy cuando el medio aún no tiene askCashTender guardado. */
+export function inferAskCashTender(
+  id: string,
+  name: string,
+  kind?: 'CASH' | 'TRANSFER' | 'CARD' | null,
+): boolean {
+  const resolved =
+    kind === 'CASH' || kind === 'TRANSFER' || kind === 'CARD'
+      ? kind
+      : classifyOrderingPayKind(id, name);
+  if (resolved !== 'CASH') return false;
+  return /efectivo|cash|contado|op_cash|tp_cash|cp_cash/.test(`${id} ${name}`.toLowerCase());
+}
+
+export function resolveAskCashTender(opts: {
+  id: string;
+  name: string;
+  kind?: 'CASH' | 'TRANSFER' | 'CARD' | null;
+  askCashTender?: boolean | null;
+}): boolean {
+  if (typeof opts.askCashTender === 'boolean') return opts.askCashTender;
+  return inferAskCashTender(opts.id, opts.name, opts.kind);
+}
 
 const DEFAULT_PAY_FULFILLMENTS: Array<'TAKEAWAY' | 'DELIVERY'> = ['TAKEAWAY', 'DELIVERY'];
 
@@ -222,6 +248,7 @@ export function orderingPayChoices(
           active?: boolean;
           kind?: 'CASH' | 'TRANSFER' | 'CARD' | null;
           fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'> | null;
+          askCashTender?: boolean | null;
         }> | null;
       }
     | null
@@ -248,6 +275,12 @@ export function orderingPayChoices(
         kind,
         accountId,
         fulfillments: normalizePayFulfillments(i.fulfillments),
+        askCashTender: resolveAskCashTender({
+          id,
+          name,
+          kind,
+          askCashTender: i.askCashTender,
+        }),
       };
     });
     if (!fulfillment) return choices;
@@ -264,13 +297,14 @@ export function orderingPayChoices(
     kind: (m === 'TRANSFER' ? 'TRANSFER' : 'CASH') as OrderingPayChoice['kind'],
     accountId: null,
     fulfillments: [...DEFAULT_PAY_FULFILLMENTS],
+    askCashTender: m !== 'TRANSFER',
   }));
 }
 
-/** Pedir “con cuánto abona” solo en efectivo real. */
+/** Pedir “con cuánto abona” según config del medio (o heurística legacy). */
 export function orderingPayNeedsCashTender(choice: OrderingPayChoice | null | undefined): boolean {
-  if (!choice || choice.kind !== 'CASH') return false;
-  return /efectivo|cash|contado|op_cash|tp_cash/.test(`${choice.id} ${choice.name}`.toLowerCase());
+  if (!choice) return false;
+  return resolveAskCashTender(choice);
 }
 
 /** Enum CASH|TRANSFER|CARD que acepta el API al crear el pedido. */

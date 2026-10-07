@@ -101,6 +101,15 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   addressDetails = '';
   addressLabel = '';
   cashAmount: number | null = null;
+
+  /** Vuelto cuando abona más que el total. */
+  cashChange(): number | null {
+    if (!this.needsCashTender()) return null;
+    const cash = Number(this.cashAmount);
+    const tot = this.total();
+    if (!Number.isFinite(cash) || cash <= tot) return null;
+    return Math.round((cash - tot) * 100) / 100;
+  }
   firstName = '';
   lastName = '';
   phone = '';
@@ -330,8 +339,11 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         if (this.staffMode() && !this.phone.trim() && cfg.shop?.phone) {
           this.phone = String(cfg.shop.phone);
         }
-        if (this.staffMode() && this.cashAmount == null) {
-          this.cashAmount = this.total();
+        if (this.needsCashTender()) {
+          const tot = this.total();
+          if (tot > 0 && (this.cashAmount == null || Number(this.cashAmount) < tot)) {
+            this.cashAmount = tot;
+          }
         }
       },
       error: (err) => {
@@ -376,10 +388,17 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
 
   setPayment(choice: OrderingPayChoice): void {
     this.paymentChoiceId.set(choice.id);
-    if (orderingPayNeedsCashTender(choice)) {
-      if (this.cashAmount == null || Number(this.cashAmount) < this.total()) {
-        this.cashAmount = this.total();
-      }
+    if (!orderingPayNeedsCashTender(choice)) {
+      this.cashAmount = null;
+      return;
+    }
+    const tot = this.total();
+    if (!(tot > 0)) {
+      this.cashAmount = null;
+      return;
+    }
+    if (this.cashAmount == null || Number(this.cashAmount) < tot) {
+      this.cashAmount = tot;
     }
   }
 

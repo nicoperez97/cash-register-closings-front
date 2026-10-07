@@ -1515,6 +1515,7 @@ export interface ShopSummary {
       active?: boolean;
       kind?: 'CASH' | 'TRANSFER' | 'CARD';
       fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+      askCashTender?: boolean;
     }>;
     transferCbu?: string | null;
     transferAlias?: string | null;
@@ -1527,6 +1528,7 @@ export interface ShopSummary {
     name: string;
     accountId?: string | null;
     active?: boolean;
+    askCashTender?: boolean;
   }> | null;
   /** Medios de pago de mesa (comanda). */
   tablePaymentMethods?: Array<{

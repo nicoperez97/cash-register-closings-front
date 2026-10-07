@@ -210,6 +210,15 @@ export class StaffOrderingPosComponent implements OnInit {
     return this.paymentChoices().find((c) => c.id === id) ?? null;
   });
   readonly needsCashTender = computed(() => orderingPayNeedsCashTender(this.selectedPayment()));
+
+  /** Vuelto cuando abona más que el total. */
+  cashChange(): number | null {
+    if (!this.needsCashTender()) return null;
+    const cash = Number(this.cashAmount);
+    const tot = this.total();
+    if (!Number.isFinite(cash) || cash <= tot) return null;
+    return Math.round((cash - tot) * 100) / 100;
+  }
   readonly paymentMethod = computed(() => {
     const choice = this.selectedPayment();
     return choice ? orderingPayToApiMethod(choice) : ('' as const);
@@ -258,7 +267,7 @@ export class StaffOrderingPosComponent implements OnInit {
           choices.find((c) => c.kind === 'CASH') ??
           choices[0];
         if (cashLike) this.paymentChoiceId.set(cashLike.id);
-        this.cashAmount = this.total();
+        this.syncCashIfNeeded();
       },
       error: (err) => {
         this.loading.set(false);
@@ -299,7 +308,20 @@ export class StaffOrderingPosComponent implements OnInit {
   }
 
   syncCashIfNeeded(): void {
-    if (this.needsCashTender()) this.cashAmount = this.total();
+    if (!this.needsCashTender()) {
+      this.cashAmount = null;
+      return;
+    }
+    const tot = this.total();
+    // Sin ítems: vacío (no mostrar 0). Con ítems: completar con el total.
+    if (!(tot > 0)) {
+      this.cashAmount = null;
+      return;
+    }
+    const current = Number(this.cashAmount);
+    if (!Number.isFinite(current) || current < tot) {
+      this.cashAmount = tot;
+    }
   }
 
   setFulfillment(f: CustomerOrderFulfillment): void {
@@ -507,6 +529,13 @@ export class StaffOrderingPosComponent implements OnInit {
     this.discountMode.set('none');
     this.discountValue.set(null);
     this.discountPresetId.set(null);
+  }
+
+  /** Enter en nombre, celular, “con cuánto abona”, etc. crea el pedido. */
+  onTicketSubmit(ev: Event): void {
+    ev.preventDefault();
+    if (this.submitting() || !this.lines().length) return;
+    this.submit();
   }
 
   submit(): void {

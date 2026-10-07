@@ -12,6 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -43,6 +44,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     MatInputModule,
     MatButtonModule,
     MatSlideToggleModule,
+    MatCheckboxModule,
     MatIconModule,
     MatSelectModule,
     MatSnackBarModule,
@@ -167,8 +169,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 
         <h3 class="op__subtitle">Medios de pago — web pública</h3>
         <p class="op__schedule-hint">
-          En /pedir el cliente elige uno. Definí el tipo, en qué entregas se muestra y la cuenta del
-          local.
+          En /pedir el cliente elige uno. Definí el tipo, en qué entregas se muestra, si pide “con
+          cuánto abona” y la cuenta del local.
         </p>
         <div class="op__pays" formArrayName="orderingPaymentMethods">
           @for (m of orderingPays.controls; track $index; let i = $index) {
@@ -240,6 +242,9 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                     </mat-select>
                   }
               </mat-form-field>
+              <mat-checkbox formControlName="askCashTender" class="op__pay-tender">
+                Con cuánto abona
+              </mat-checkbox>
               <button
                 mat-icon-button
                 type="button"
@@ -280,11 +285,12 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 
         <h3 class="op__subtitle">Medios de pago — mostrador</h3>
         <p class="op__schedule-hint">
-          En la caja de mostrador elegís uno. Lista aparte de la web pública.
+          En la caja de mostrador elegís uno. Marcá “Con cuánto abona” en los que pidan el monto
+          con el que paga el cliente. Lista aparte de la web pública.
         </p>
         <div class="op__pays" formArrayName="counterPaymentMethods">
           @for (m of counterPays.controls; track $index; let i = $index) {
-            <div class="op__pay" [formGroupName]="i">
+            <div class="op__pay op__pay--counter" [formGroupName]="i">
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
                 <mat-label>Nombre</mat-label>
                 <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
@@ -333,6 +339,9 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                     </mat-select>
                   }
               </mat-form-field>
+              <mat-checkbox formControlName="askCashTender" class="op__pay-tender">
+                Con cuánto abona
+              </mat-checkbox>
               <button
                 mat-icon-button
                 type="button"
@@ -767,6 +776,7 @@ export class AdminShopOrderingComponent {
           'DELIVERY',
         ]),
         accountId: this.fb.control<string | null>(null),
+        askCashTender: [false],
         active: [true],
       }),
     );
@@ -785,6 +795,7 @@ export class AdminShopOrderingComponent {
         id: [id],
         name: [''],
         accountId: this.fb.control<string | null>(null),
+        askCashTender: [false],
         active: [true],
       }),
     );

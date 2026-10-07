@@ -66,6 +66,7 @@ import { ADMIN_SHOP_HOST } from './admin-shop-host';
 import {
   classifyOrderingPayKind,
   parseOrderingEtaRange,
+  resolveAskCashTender,
 } from '../customer-orders/ordering-ui.util';
 
 import { apiErrorMessage } from '../../core/http/api-error-message';
@@ -999,6 +1000,7 @@ export class AdminShopPage implements OnInit {
       name: string;
       accountId?: string | null;
       active?: boolean;
+      askCashTender?: boolean;
     }> | null;
     deliveryZones?: Array<{
       id?: string;
@@ -1165,6 +1167,12 @@ export class AdminShopPage implements OnInit {
       const fulfillments = Array.isArray(m.fulfillments)
         ? m.fulfillments.filter((f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY')
         : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>);
+      const askCashTender = resolveAskCashTender({
+        id,
+        name,
+        kind,
+        askCashTender: (m as { askCashTender?: boolean }).askCashTender,
+      });
       this.orderingPaymentMethods.push(
         this.fb.nonNullable.group({
           id: [id],
@@ -1175,6 +1183,7 @@ export class AdminShopPage implements OnInit {
           ),
           // accountId lo muestra el select vía signal; el control se sincroniza al guardar.
           accountId: this.fb.control<string | null>(accountId),
+          askCashTender: [askCashTender],
           active: [true],
         }),
       );
@@ -1191,6 +1200,7 @@ export class AdminShopPage implements OnInit {
             'DELIVERY',
           ]),
           accountId: this.fb.control<string | null>(null),
+          askCashTender: [true],
           active: [true],
         }),
       );
@@ -1217,13 +1227,21 @@ export class AdminShopPage implements OnInit {
     for (const m of counterPays) {
       if (m.active === false) continue;
       const id = String(m.id ?? '').trim();
+      const name = String(m.name ?? '').trim();
       const accountId = String(m.accountId ?? '').trim() || null;
       this.rememberPaymentAccount('counter', id, accountId);
       this.counterPaymentMethods.push(
         this.fb.nonNullable.group({
           id: [id],
-          name: [String(m.name ?? '').trim()],
+          name: [name],
           accountId: this.fb.control<string | null>(accountId),
+          askCashTender: [
+            resolveAskCashTender({
+              id,
+              name,
+              askCashTender: (m as { askCashTender?: boolean }).askCashTender,
+            }),
+          ],
           active: [true],
         }),
       );
@@ -1235,6 +1253,7 @@ export class AdminShopPage implements OnInit {
           id: ['cp_cash'],
           name: ['Efectivo'],
           accountId: this.fb.control<string | null>(null),
+          askCashTender: [true],
           active: [true],
         }),
       );
@@ -1737,6 +1756,7 @@ export class AdminShopPage implements OnInit {
     active?: boolean;
     kind?: string;
     fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+    askCashTender?: boolean;
   }> {
     let value: unknown = raw;
     if (typeof value === 'string') {
@@ -1746,7 +1766,17 @@ export class AdminShopPage implements OnInit {
         return [];
       }
     }
-    return Array.isArray(value) ? (value as Array<{ id?: string; name: string; accountId?: string | null; active?: boolean; kind?: string; fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'> }>) : [];
+    return Array.isArray(value)
+      ? (value as Array<{
+          id?: string;
+          name: string;
+          accountId?: string | null;
+          active?: boolean;
+          kind?: string;
+          fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+          askCashTender?: boolean;
+        }>)
+      : [];
   }
 
   private paymentBindingKey(
@@ -2193,6 +2223,7 @@ export class AdminShopPage implements OnInit {
             active?: boolean;
             kind?: 'CASH' | 'TRANSFER' | 'CARD';
             fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+            askCashTender?: boolean;
           }>
         )
           .map((m) => {
@@ -2215,6 +2246,7 @@ export class AdminShopPage implements OnInit {
               fulfillments: fulfillments.length
                 ? fulfillments
                 : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>),
+              askCashTender: !!m.askCashTender,
             };
           })
           .filter((m) => !!m.name),
@@ -2228,6 +2260,7 @@ export class AdminShopPage implements OnInit {
           name: string;
           accountId?: string | null;
           active?: boolean;
+          askCashTender?: boolean;
         }>
       )
         .map((m) => {
@@ -2237,6 +2270,7 @@ export class AdminShopPage implements OnInit {
             name: String(m.name ?? '').trim(),
             accountId: this.resolvePaymentAccountId('counter', id ?? '', m.accountId),
             active: m.active !== false,
+            askCashTender: !!m.askCashTender,
           };
         })
         .filter((m) => !!m.name),
