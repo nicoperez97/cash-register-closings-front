@@ -450,6 +450,17 @@ body.auth-login {
   background: #000;
   color: #ffffff;
   color-scheme: dark;
+  /* La landing puede ser más alta que el viewport: solo scrollea el body. */
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.auth-login app-root {
+  min-height: 0;
+  height: auto;
+  overflow: visible;
 }
 
 body.guy-status-dark:not(.auth-login) {

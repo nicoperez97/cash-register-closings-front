@@ -4,9 +4,7 @@
     <span class="landing__beam"></span>
     <span class="landing__orb landing__orb--a"></span>
     <span class="landing__orb landing__orb--b"></span>
-    <span class="landing__ring"></span>
     <span class="landing__grid"></span>
-    <span class="landing__grain"></span>
   </div>
 
   <div class="landing__frame">
@@ -16,18 +14,13 @@
           [src]="brand.defaultLogoUrl + '?v=2'"
           [alt]="brand.productName"
           class="landing__mark"
-          width="96"
-          height="96"
+          width="88"
+          height="88"
         />
 
-        <p class="landing__kicker">
-          <span class="landing__kicker-line"></span>
-          Para locales que viven del turno
-        </p>
+        <p class="landing__kicker">Para locales que viven del turno</p>
 
-        <h1 class="landing__brand">
-          <span class="landing__brand-word">{{ brand.productName }}</span>
-        </h1>
+        <h1 class="landing__brand">{{ brand.productName }}</h1>
 
         <p class="landing__lead">
           Caja, salón, pedidos y comanda en un solo lugar.
@@ -86,69 +79,51 @@
 
       <div class="landing__stage" aria-hidden="true">
         <div class="landing__desk">
-          <div class="landing__rail">
-            <i></i><i></i><i class="is-on"></i><i></i><i></i>
+          <div class="landing__device-bar">
+            <span></span><span></span><span></span>
+            <em>Hoy · Turno noche</em>
+            <b class="landing__live"><i></i> En vivo</b>
           </div>
 
-          <div class="landing__device">
-            <div class="landing__device-bar">
-              <span></span><span></span><span></span>
-              <em>Hoy · Turno noche</em>
-              <b class="landing__live"><i></i> En vivo</b>
+          <div class="landing__device-body">
+            <div class="landing__kpi landing__kpi--wide">
+              <div class="landing__kpi-top">
+                <small>Efectivo en caja</small>
+                <u>+12%</u>
+              </div>
+              <strong>{{ cashLabel() }}</strong>
             </div>
-
-            <div class="landing__device-body">
-              <div class="landing__kpi landing__kpi--wide">
-                <div class="landing__kpi-top">
-                  <small>Efectivo en caja</small>
-                  <u>+12%</u>
-                </div>
-                <strong>{{ cashLabel() }}</strong>
-                <svg class="landing__chart" viewBox="0 0 240 48" preserveAspectRatio="none">
-                  <path
-                    d="M0 36 C28 34, 40 18, 60 22 S100 40, 120 28 S160 8, 180 16 S220 30, 240 12"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <i class="landing__spark"></i>
+            <div class="landing__kpi">
+              <small>Cierres del mes</small>
+              <strong>{{ closingsLabel() }}</strong>
+            </div>
+            <div class="landing__kpi">
+              <small>Presentes</small>
+              <strong>{{ presentLabel() }}</strong>
+            </div>
+            <div class="landing__row">
+              <span class="landing__dot"></span>
+              <div>
+                <b>Pedido #184</b>
+                <i>Delivery · en cocina</i>
               </div>
-
-              <div class="landing__kpi">
-                <small>Cierres del mes</small>
-                <strong>{{ closingsLabel() }}</strong>
+              <em>12 min</em>
+            </div>
+            <div class="landing__row">
+              <span class="landing__dot landing__dot--sky"></span>
+              <div>
+                <b>Mesa 7</b>
+                <i>Reservada · 21:30</i>
               </div>
-              <div class="landing__kpi">
-                <small>Presentes</small>
-                <strong>{{ presentLabel() }}</strong>
+              <em>4 pers.</em>
+            </div>
+            <div class="landing__row">
+              <span class="landing__dot landing__dot--mint"></span>
+              <div>
+                <b>Cierre listo</b>
+                <i>Noche · sin diferencia</i>
               </div>
-
-              <div class="landing__row landing__row--1">
-                <span class="landing__dot"></span>
-                <div>
-                  <b>Pedido #184</b>
-                  <i>Delivery · en cocina</i>
-                </div>
-                <em>12 min</em>
-              </div>
-              <div class="landing__row landing__row--2">
-                <span class="landing__dot landing__dot--sky"></span>
-                <div>
-                  <b>Mesa 7</b>
-                  <i>Reservada · 21:30</i>
-                </div>
-                <em>4 pers.</em>
-              </div>
-              <div class="landing__row landing__row--3">
-                <span class="landing__dot landing__dot--mint"></span>
-                <div>
-                  <b>Cierre listo</b>
-                  <i>Noche · sin diferencia</i>
-                </div>
-                <em>OK</em>
-              </div>
+              <em>OK</em>
             </div>
           </div>
         </div>
@@ -156,7 +131,6 @@
     </section>
 
     <section class="landing__modules" aria-labelledby="landing-modules-title">
-      <div class="landing__modules-band" aria-hidden="true"></div>
       <div class="landing__modules-head">
         <p class="landing__modules-kicker">Un solo sistema</p>
         <h2 id="landing-modules-title">Todo el local, conectado</h2>
@@ -165,46 +139,34 @@
         </p>
       </div>
 
-      <ul class="landing__modules-grid">
-        <li class="landing__mod landing__mod--1">
-          <div class="landing__mod-icon" aria-hidden="true">
-            <mat-icon>point_of_sale</mat-icon>
+      <ul class="landing__modules-list">
+        <li>
+          <mat-icon aria-hidden="true">point_of_sale</mat-icon>
+          <div>
+            <strong>Cierres de caja</strong>
+            <span>Turnos, diferencias y exportes.</span>
           </div>
-          <p class="landing__mod-num">01</p>
-          <h3>Cierres de caja</h3>
-          <p>
-            Turnos, diferencias y exportes listos para el día a día del local.
-          </p>
         </li>
-        <li class="landing__mod landing__mod--2">
-          <div class="landing__mod-icon" aria-hidden="true">
-            <mat-icon>table_restaurant</mat-icon>
+        <li>
+          <mat-icon aria-hidden="true">table_restaurant</mat-icon>
+          <div>
+            <strong>Salón y reservas</strong>
+            <span>Mesas, espera y pantallas.</span>
           </div>
-          <p class="landing__mod-num">02</p>
-          <h3>Salón y reservas</h3>
-          <p>
-            Mesas, lista de espera y pantallas para que el público no se pierda.
-          </p>
         </li>
-        <li class="landing__mod landing__mod--3">
-          <div class="landing__mod-icon" aria-hidden="true">
-            <mat-icon>shopping_bag</mat-icon>
+        <li>
+          <mat-icon aria-hidden="true">shopping_bag</mat-icon>
+          <div>
+            <strong>Pedidos y comanda</strong>
+            <span>Take away, delivery y cocina.</span>
           </div>
-          <p class="landing__mod-num">03</p>
-          <h3>Pedidos y comanda</h3>
-          <p>
-            Take away, delivery y cocina en el mismo flujo, sin papeles sueltos.
-          </p>
         </li>
-        <li class="landing__mod landing__mod--4">
-          <div class="landing__mod-icon" aria-hidden="true">
-            <mat-icon>menu_book</mat-icon>
+        <li>
+          <mat-icon aria-hidden="true">menu_book</mat-icon>
+          <div>
+            <strong>Carta pública</strong>
+            <span>Menú, pedir y reservar.</span>
           </div>
-          <p class="landing__mod-num">04</p>
-          <h3>Carta pública</h3>
-          <p>
-            Links para menú, pedir y reservar que tus clientes abren al toque.
-          </p>
         </li>
       </ul>
     </section>
