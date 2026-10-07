@@ -37,7 +37,7 @@ export type NavItemDef = {
 };
 
 export const NAV_ITEM_DEFS: NavItemDef[] = [
-  { id: 'home', label: 'Inicio', icon: 'home', defaultGroup: null, route: '/' },
+  { id: 'home', label: 'Inicio', icon: 'home', defaultGroup: null, route: '/inicio' },
   { id: 'closings', label: 'Cierres', icon: 'point_of_sale', defaultGroup: 'operacion', route: '/closings', pathPrefixes: ['/closings'] },
   { id: 'cashWithdrawals', label: 'A retirar', icon: 'payments', defaultGroup: 'operacion', route: '/cash-withdrawals' },
   { id: 'settlements', label: 'Rendiciones', icon: 'account_balance_wallet', defaultGroup: 'operacion', route: '/settlements' },
@@ -198,7 +198,7 @@ export function navGroupPagePath(groupId: string): string {
 
 export function navItemIdForRoute(route: string): string | null {
   const path = route.split('?')[0] || route;
-  if (path === '/' || path === '') return 'home';
+  if (path === '/' || path === '' || path === '/inicio') return 'home';
   let best: { id: string; len: number } | null = null;
   for (const def of NAV_ITEM_DEFS) {
     if (def.id === 'home') continue;
@@ -245,7 +245,7 @@ function leafFromChild(child: NavChild, groupId: string | null): Leaf | null {
 
 /**
  * Aplica orden de grupos, `itemGroup`, `itemOrder` y `hidden` del local.
- * Home (`/`) queda fijo primero y no se oculta ni mueve.
+ * Home (`/inicio`) queda fijo primero y no se oculta ni mueve.
  */
 /** Click del grupo = grilla `/g/:id`, no el primer hijo (así vale con o sin menú del local). */
 export function assignGroupHubRoutes(items: NavItem[]): NavItem[] {
@@ -260,22 +260,31 @@ export function assignGroupHubRoutes(items: NavItem[]): NavItem[] {
 export function navBackTarget(
   path: string,
   items: NavItem[],
-  homeRoute = '/',
+  homeRoute = '/inicio',
 ): { route: string; label: string } | null {
   const p = (path.split('?')[0] || path).trim();
-  if (!p || p === '/' || p === homeRoute || p === '/login' || p === '/profile') return null;
+  if (
+    !p ||
+    p === '/' ||
+    p === '/inicio' ||
+    p === homeRoute ||
+    p === '/login' ||
+    p === '/profile'
+  ) {
+    return null;
+  }
   if (p === '/forbidden' || p.startsWith('/forbidden')) {
-    return { route: homeRoute || '/', label: 'Inicio' };
+    return { route: homeRoute || '/inicio', label: 'Inicio' };
   }
   if (p.startsWith('/g/')) {
-    return { route: homeRoute || '/', label: 'Inicio' };
+    return { route: homeRoute || '/inicio', label: 'Inicio' };
   }
   for (const item of items) {
     if (!item.children?.length) continue;
     const gid = groupIdFromRoute(item.route);
     if (!gid) continue;
     const onChild = item.children.some(
-      (c) => p === c.route || (c.route !== '/' && p.startsWith(`${c.route}/`)),
+      (c) => p === c.route || (c.route !== '/' && c.route !== '/inicio' && p.startsWith(`${c.route}/`)),
     );
     if (onChild) {
       return { route: navGroupPagePath(gid), label: item.label };
@@ -294,8 +303,8 @@ export function applyNavConfig(
   const sourced = assignGroupHubRoutes(builtItems);
   if (!config) return sourced;
 
-  const home = sourced.find((i) => i.route === '/' && i.exact);
-  const rest = sourced.filter((i) => !(i.route === '/' && i.exact));
+  const home = sourced.find((i) => (i.route === '/inicio' || i.route === '/') && i.exact);
+  const rest = sourced.filter((i) => !((i.route === '/inicio' || i.route === '/') && i.exact));
 
   const leaves: Leaf[] = [];
   const groupMeta = new Map<

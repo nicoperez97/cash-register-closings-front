@@ -342,7 +342,9 @@ export class SidebarComponent {
   }
 
   private routeMatches(path: string, route: string): boolean {
-    if (route === '/') return path === '/' || path === '';
+    if (route === '/' || route === '/inicio') {
+      return path === '/' || path === '' || path === '/inicio';
+    }
     return path === route || path.startsWith(route + '/');
   }
 
@@ -351,7 +353,9 @@ export class SidebarComponent {
     const home = defaultHomeRoute(this.auth.currentUser(), shopId);
     const path = this.currentUrl().split('?')[0];
     const atHome =
-      path === home || ((home === '/' || home === '') && (path === '/' || path === ''));
+      path === home ||
+      ((home === '/inicio' || home === '/' || home === '') &&
+        (path === '/inicio' || path === '/' || path === ''));
     // Si ya estamos en home, no re-navegar: evita remount y doble carga de KPIs.
     if (!atHome) {
       void this.router.navigateByUrl(home);
@@ -401,7 +405,9 @@ export class SidebarComponent {
     const home = defaultHomeRoute(this.auth.currentUser(), this.shopContext.selectedShopId());
     const path = this.currentUrl().split('?')[0];
     const atHome =
-      path === home || ((home === '/' || home === '') && (path === '/' || path === ''));
+      path === home ||
+      ((home === '/inicio' || home === '/' || home === '') &&
+        (path === '/inicio' || path === '/' || path === ''));
     if (!atHome) {
       void this.router.navigateByUrl(home);
       this.navigate.emit();

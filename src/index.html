@@ -105,6 +105,13 @@
       id="app-desc-meta"
     />
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,450;0,9..40,650;0,9..40,700;1,9..40,450&family=Fraunces:opsz,wght@9..144,700&display=swap"
+      rel="stylesheet"
+    />
+
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png" />
@@ -119,6 +126,7 @@
            aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */
         var path = location.pathname || '';
         var isLogin = path === '/login' || path.indexOf('/login?') === 0;
+        var isLanding = path === '/' || path === '';
         var isPublicOrdering =
           path.indexOf('/pedir/') === 0 ||
           path === '/pedir' ||
@@ -158,10 +166,10 @@
 
         var themeMeta = document.getElementById('app-theme-color');
 
-        if (publicPage || isLogin) {
-          var statusColor = isLogin ? '#08263f' : publicPage.bg;
+        if (publicPage || isLogin || isLanding) {
+          var statusColor = isLanding ? '#000000' : isLogin ? '#08263f' : publicPage.bg;
           if (themeMeta) themeMeta.setAttribute('content', statusColor);
-          if (isLogin || (publicPage && publicPage.dark)) {
+          if (isLogin || isLanding || (publicPage && publicPage.dark)) {
             var scheme = document.getElementById('app-color-scheme');
             if (scheme) scheme.setAttribute('content', 'dark');
             var appleBar = document.getElementById('apple-status-bar');

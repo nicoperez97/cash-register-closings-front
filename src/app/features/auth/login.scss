@@ -122,49 +122,18 @@
   color: #7ec4f5;
 }
 
-.login-brand-demo {
-  margin: 1.15rem auto 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.65rem;
-  max-width: 22rem;
+.login-brand__back {
+  display: inline-block;
+  margin-top: 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(238, 241, 244, 0.72);
+  text-decoration: none;
+  transition: color 160ms ease;
 }
 
-.login-brand-demo__text {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 450;
-  line-height: 1.4;
-  color: rgba(238, 241, 244, 0.78);
-  text-align: center;
-}
-
-.login-brand-demo__btn {
-  min-height: 42px;
-  padding: 0 1.15rem !important;
-  border-radius: 999px !important;
-  font-family: Outfit, sans-serif !important;
-  font-weight: 650 !important;
-  letter-spacing: 0.01em;
-  color: #fff !important;
-  border-color: rgba(61, 155, 224, 0.65) !important;
-  background: rgba(61, 155, 224, 0.12) !important;
-  display: inline-flex !important;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.login-brand-demo__btn:not(:disabled):hover {
-  background: rgba(61, 155, 224, 0.22) !important;
-  border-color: #7ec4f5 !important;
-}
-
-.login-brand-demo__btn mat-icon {
-  font-size: 22px;
-  width: 22px;
-  height: 22px;
-  color: #3d9be0;
+.login-brand__back:hover {
+  color: #7ec4f5;
 }
 
 .login-panel {
@@ -508,14 +477,8 @@
     font-size: 1.12rem;
   }
 
-  .login-brand-demo {
-    margin: 1.25rem 0 0;
-    align-items: flex-start;
-    max-width: 22rem;
-  }
-
-  .login-brand-demo__text {
-    text-align: left;
+  .login-brand__back {
+    margin-top: 1.25rem;
   }
 
   .login-panel {

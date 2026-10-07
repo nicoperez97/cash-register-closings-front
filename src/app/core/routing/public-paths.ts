@@ -18,6 +18,7 @@ const PUBLIC_PREFIXES = [
 ] as const;
 
 const PUBLIC_EXACT = new Set([
+  '/',
   '/login',
   '/r',
   '/w',
@@ -35,6 +36,11 @@ export function normalizeAppPath(url: string): string {
   if (!raw.startsWith('/')) return `/${raw}`;
   if (raw.length > 1 && raw.endsWith('/')) return raw.slice(0, -1);
   return raw;
+}
+
+/** Pantalla de ingreso del panel. */
+export function isAppLoginPath(url: string): boolean {
+  return normalizeAppPath(url) === '/login';
 }
 
 /** True si la URL del SPA es (o debería ser) accesible sin login. */

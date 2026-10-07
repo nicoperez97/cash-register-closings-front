@@ -207,7 +207,7 @@ export class AdminUsersPage implements OnInit {
         () => this.auth.isAdmin() || canManageShopUsers(this.auth.currentUser(), shopId),
       );
       if (!canManage) {
-        void this.router.navigate(['/']);
+        void this.router.navigate(['/inicio']);
         return;
       }
       if (!shopId && !untracked(() => this.auth.isAdmin())) return;
@@ -222,7 +222,7 @@ export class AdminUsersPage implements OnInit {
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
     if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
-      void this.router.navigate(['/']);
+      void this.router.navigate(['/inicio']);
       return;
     }
     if (this.auth.isAdmin()) {

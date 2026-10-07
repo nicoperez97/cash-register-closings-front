@@ -709,6 +709,7 @@ export class MainLayoutComponent {
       const home = defaultHomeRoute(user, shopId);
       if (!shopId) {
         const allowedWithoutShop =
+          path === '/inicio' ||
           path === '/' ||
           path === '' ||
           (path.startsWith('/admin/shops') && this.auth.isSuperAdmin()) ||
@@ -776,7 +777,7 @@ export class MainLayoutComponent {
           return;
         }
       }
-      if (path === '/' || path === '' || path === '/forbidden') return;
+      if (path === '/inicio' || path === '/' || path === '' || path === '/forbidden') return;
       if (!this.isPathAllowed(path, user, shopId)) {
         void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
       }
@@ -920,6 +921,6 @@ export class MainLayoutComponent {
   exitDemo(): void {
     this.demoMode.exit();
     this.auth.logoutAll();
-    void this.router.navigate(['/login']);
+    void this.router.navigateByUrl('/');
   }
 }

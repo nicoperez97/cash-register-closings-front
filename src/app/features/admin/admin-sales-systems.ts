@@ -81,7 +81,7 @@ export class AdminSalesSystemsPage implements OnInit {
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
     if (!canManageShop(this.auth.currentUser(), shopId)) {
-      void this.router.navigate(['/']);
+      void this.router.navigate(['/inicio']);
       return;
     }
     this.http.get<ParserOption[]>(`${environment.apiUrl}/sales-systems/parsers`).subscribe({

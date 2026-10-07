@@ -23,22 +23,7 @@
         </a>
       </p>
 
-      @if (demoEnabled()) {
-        <div class="login-brand-demo">
-          <p class="login-brand-demo__text">Podés hacer una recorrida por el sistema</p>
-          <button
-            mat-stroked-button
-            type="button"
-            class="login-brand-demo__btn"
-            [disabled]="busy"
-            (click)="submitDemo()"
-            data-demo="login-demo-btn"
-          >
-            <mat-icon aria-hidden="true">play_circle</mat-icon>
-            Ver demo
-          </button>
-        </div>
-      }
+      <a class="login-brand__back" routerLink="/">← Volver al inicio</a>
     </header>
 
     <section class="login-panel" [class.login-panel--busy]="busy" aria-labelledby="login-title">

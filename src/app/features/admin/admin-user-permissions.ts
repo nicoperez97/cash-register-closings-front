@@ -871,7 +871,7 @@ export class AdminUserPermissionsPage implements OnInit {
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
     if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
-      void this.router.navigate(['/']);
+      void this.router.navigate(['/inicio']);
       return;
     }
     const userId = this.route.snapshot.paramMap.get('userId');

@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,6 +19,7 @@ import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { environment } from '../../../environments/environment';
 import { apiErrorMessage } from '../../core/http/api-error-message';
+import { isAppLoginPath } from '../../core/routing/public-paths';
 
 /** Color del tope del gradiente de login (barra de estado móvil). */
 const LOGIN_STATUS = '#000000';
@@ -50,6 +51,7 @@ declare global {
   selector: 'app-login',
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
@@ -77,7 +79,6 @@ export class LoginComponent implements OnInit, OnDestroy {
   error = '';
   hidePassword = true;
   readonly googleEnabled = signal(false);
-  readonly demoEnabled = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -97,7 +98,6 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
     void this.initGoogle();
-    void this.initDemo();
   }
 
   ngOnDestroy(): void {
@@ -143,40 +143,6 @@ export class LoginComponent implements OnInit, OnDestroy {
       this.error = apiErrorMessage(err, 'Email o contraseña incorrectos.');
       this.form.enable({ emitEvent: false });
       this.busy = false;
-    }
-  }
-
-  async submitDemo(): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
-    this.error = '';
-    this.form.disable({ emitEvent: false });
-    try {
-      await this.auth.loginDemo();
-      sessionStorage.setItem('crc_demo_tour', '1');
-      await this.router.navigateByUrl('/admin/shop');
-    } catch (err: unknown) {
-      this.error = apiErrorMessage(err, 'La demo no está disponible ahora.');
-      this.form.enable({ emitEvent: false });
-      this.busy = false;
-    }
-  }
-
-  private async initDemo(): Promise<void> {
-    // En local `demoLoginEnabled: true` muestra el botón sin esperar a la API.
-    if (environment.demoLoginEnabled === true) {
-      this.demoEnabled.set(true);
-      return;
-    }
-    if (environment.demoLoginEnabled === false) {
-      this.demoEnabled.set(false);
-      return;
-    }
-    try {
-      const ok = await this.auth.isDemoLoginAvailable();
-      if (!this.destroyed) this.demoEnabled.set(ok);
-    } catch {
-      if (!this.destroyed) this.demoEnabled.set(false);
     }
   }
 
@@ -269,7 +235,12 @@ export class LoginComponent implements OnInit, OnDestroy {
     const fromQuery = this.route.snapshot.queryParamMap.get('returnUrl');
     const stored = consumeReturnUrl();
     const raw = fromQuery || stored;
-    if (raw?.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/login')) {
+    if (
+      raw?.startsWith('/') &&
+      !raw.startsWith('//') &&
+      !isAppLoginPath(raw) &&
+      raw !== '/'
+    ) {
       return raw;
     }
     return defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
