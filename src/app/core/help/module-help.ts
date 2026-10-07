@@ -43,7 +43,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Qué incluye',
         icon: 'view_module',
         tone: 'read',
-        body: 'Más abajo ves cuatro bloques: cierres, salón, pedidos y carta pública. Es un resumen del sistema, no pantallas del local.',
+        body: 'Más abajo ves un resumen de módulos: cierres, salón, pedidos y carta pública. No son pantallas del local.',
       },
       {
         title: 'Modo demo',
