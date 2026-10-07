@@ -6,6 +6,7 @@ import { buildCashChangeContributionGroup, buildExpenseGroup, normalizeCobroPaym
 import { buildDniTransferGroup } from './closings-form-payment-lines';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
 import { resolveCurrentShift } from '../../core/shop/shop-shifts';
+import { isAppLoginPath } from '../../core/routing/public-paths';
 
 const DRAFT_KEY = 'crc.closing-draft.v1';
 const RETURN_URL_KEY = 'crc.return-url';
@@ -66,7 +67,7 @@ export function formatPendingClosingLabel(pending: PendingClosingNotice): string
 export function persistReturnUrl(url: string): void {
   try {
     const path = String(url || '').trim();
-    if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login')) return;
+    if (!path.startsWith('/') || path.startsWith('//') || isAppLoginPath(path)) return;
     sessionStorage.setItem(RETURN_URL_KEY, path);
   } catch {
     /* ignore */
@@ -77,7 +78,7 @@ export function consumeReturnUrl(): string | null {
   try {
     const raw = sessionStorage.getItem(RETURN_URL_KEY);
     if (raw) sessionStorage.removeItem(RETURN_URL_KEY);
-    if (!raw?.startsWith('/') || raw.startsWith('//') || raw.startsWith('/login')) return null;
+    if (!raw?.startsWith('/') || raw.startsWith('//') || isAppLoginPath(raw)) return null;
     return raw;
   } catch {
     return null;

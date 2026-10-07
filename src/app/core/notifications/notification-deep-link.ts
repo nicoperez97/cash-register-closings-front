@@ -65,7 +65,7 @@ export function notificationRouterLink(n: NotificationLinkInput): NotificationRo
     if (n.targetId) q['reimbursement'] = n.targetId;
     return { commands: ['/reimbursements'], queryParams: q };
   }
-  return { commands: ['/'], queryParams: q };
+  return { commands: ['/inicio'], queryParams: q };
 }
 
 export function notificationUrl(n: NotificationLinkInput): string {
@@ -84,12 +84,12 @@ export function pathFromPushData(data?: {
   closingId?: string | null;
   targetId?: string | null;
 } | null): string {
-  if (!data) return '/';
+  if (!data) return '/inicio';
   const raw = String(data.url || '').trim();
-  if (raw && raw !== '/') {
+  if (raw && raw !== '/' && raw !== '/inicio') {
     try {
       const u = new URL(raw, 'https://local.invalid');
-      return `${u.pathname}${u.search}${u.hash}` || '/';
+      return `${u.pathname}${u.search}${u.hash}` || '/inicio';
     } catch {
       return raw.startsWith('/') ? raw : `/${raw}`;
     }
@@ -103,5 +103,5 @@ export function pathFromPushData(data?: {
       targetId: data.targetId,
     });
   }
-  return '/';
+  return '/inicio';
 }

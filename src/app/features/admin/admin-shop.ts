@@ -892,7 +892,7 @@ export class AdminShopPage implements OnInit {
       !canAccessShopConfig(user, shopId) &&
       !canManageOrderingCatalog(user, shopId)
     ) {
-      void this.router.navigate(['/']);
+      void this.router.navigate(['/inicio']);
       return;
     }
     this.api.listSalesSystems().subscribe({

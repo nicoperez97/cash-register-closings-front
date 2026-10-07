@@ -766,7 +766,9 @@ export class ToolbarComponent implements OnInit {
     const home = defaultHomeRoute(this.auth.currentUser(), this.shopContext.selectedShopId());
     const path = this.router.url.split('?')[0];
     const atHome =
-      path === home || ((home === '/' || home === '') && (path === '/' || path === ''));
+      path === home ||
+      ((home === '/inicio' || home === '/' || home === '') &&
+        (path === '/inicio' || path === '/' || path === ''));
     if (!atHome) {
       void this.router.navigateByUrl(home);
       return;

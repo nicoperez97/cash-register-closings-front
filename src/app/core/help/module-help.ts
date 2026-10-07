@@ -24,9 +24,45 @@ export type HelpTopic = {
 
 export const HELP_TOPICS: HelpTopic[] = [
   {
+    id: 'landing',
+    title: 'Inicio público',
+    summary: 'La portada del producto: qué es Cierres, demo e ingreso al panel.',
+    blocks: [
+      {
+        title: 'Desde el dominio',
+        icon: 'home',
+        tone: 'read',
+        body: 'Si abrís solo el dominio ves esta portada. No es el panel del local: es la presentación del sistema.',
+        items: [
+          'Probar demo abre un local de ejemplo en el navegador, sin servidor.',
+          'Ingresar te lleva a la pantalla de acceso con correo y contraseña.',
+        ],
+        tip: 'Si ya tenés sesión, al abrir el dominio la portada te manda al inicio del panel.',
+      },
+      {
+        title: 'Qué incluye',
+        icon: 'view_module',
+        tone: 'read',
+        body: 'Más abajo ves cuatro bloques: cierres, salón, pedidos y carta pública. Es un resumen del sistema, no pantallas del local.',
+      },
+      {
+        title: 'Modo demo',
+        icon: 'science',
+        tone: 'info',
+        body: 'La demo te deja como administrador de un local de ejemplo (con todas las opciones prendidas) y arranca un recorrido guiado por Configuración del local, Carta, Usuarios, Cuentas y más.',
+        items: [
+          'Vas a ver un banner celeste: Modo demo — los cambios no se guardan.',
+          'Podés crear, editar o borrar en la interfaz; no se llama a la API ni a la base de datos.',
+          'Al terminar, tocá Salir de la demo para volver a la portada.',
+        ],
+        tip: 'La demo vive solo en el navegador. Al recargar se pierde lo que editaste.',
+      },
+    ],
+  },
+  {
     id: 'login',
     title: 'Ingresar',
-    summary: 'Accedé con tu cuenta o probá el sistema en modo demo.',
+    summary: 'Accedé al panel con tu cuenta.',
     blocks: [
       {
         title: 'Tu cuenta',
@@ -35,9 +71,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'Ingresá con el correo y la contraseña que te dio el administrador. Si tu correo ya está dado de alta, también podés usar Google.',
         items: [
           'Completá Correo y Contraseña y tocá Acceder.',
-          'Debajo del texto de la marca podés tocar Ver demo para recorrer el admin con datos de ejemplo.',
+          'Si querés recorrer el sistema sin cuenta, volvé al inicio y tocá Probar demo.',
         ],
-        tip: 'La demo no usa el servidor ni la API: todo (sesión, datos y cambios) vive en el navegador. El local de ejemplo tiene activados reservas, pedidos, comanda, propinas, liquidaciones y el resto de módulos. Al recargar se pierde lo que editaste. Usá Salir de la demo para volver al login.',
+        tip: 'El link Volver al inicio te lleva a la portada del dominio.',
       },
       {
         title: 'Varias cuentas (cambio de turno)',
@@ -53,17 +89,6 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Salir cierra solo la cuenta activa y pasa a otra si hay. Salir de todas cierra la sesión completa.',
         ],
         tip: 'En modo demo no se pueden agregar otras cuentas.',
-      },
-      {
-        title: 'Modo demo',
-        icon: 'science',
-        tone: 'info',
-        body: 'La demo te deja como administrador de un local de ejemplo (con todas las opciones prendidas) y arranca un recorrido guiado por Configuración del local, Carta, Usuarios, Cuentas y más.',
-        items: [
-          'Vas a ver un banner celeste: Modo demo — los cambios no se guardan.',
-          'Podés crear, editar o borrar en la interfaz; no se llama a la API ni a la base de datos.',
-          'Al terminar, tocá Salir de la demo o cerrá sesión.',
-        ],
       },
     ],
   },
@@ -1781,7 +1806,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Avanzado: activar/desactivar el local y dump (super admin).',
           'Cuentas contables: Administración → Cuentas. El destino de cada ingreso del cierre se configura en Cuentas del local.',
         ],
-        tip: 'Arrastrá para ordenar menú y atajos. Solo administradores del local personalizan menú y atajos (en Perfil o acá); el resto usa lo del local. Si queda un solo atajo, la barra muestra un botón con el nombre. En Empleados podés overridear la entrada/retirada por turno. En modo demo los cambios se ven en pantalla pero se pierden al recargar; usá Salir de la demo para volver al login.',
+        tip: 'Arrastrá para ordenar menú y atajos. Solo administradores del local personalizan menú y atajos (en Perfil o acá); el resto usa lo del local. Si queda un solo atajo, la barra muestra un botón con el nombre. En Empleados podés overridear la entrada/retirada por turno. En modo demo los cambios se ven en pantalla pero se pierden al recargar; usá Salir de la demo para volver a la portada.',
       },
       {
         title: 'Dump (super admin)',
@@ -2146,8 +2171,9 @@ export const HELP_TOPICS: HelpTopic[] = [
 ];
 
 const PATH_HELP: Array<{ test: (path: string) => boolean; id: string }> = [
-  { test: (p) => p.startsWith('/login'), id: 'login' },
-  { test: (p) => p === '/' || p === '', id: 'home' },
+  { test: (p) => p === '/login' || p.startsWith('/login?'), id: 'login' },
+  { test: (p) => p === '/' || p === '', id: 'landing' },
+  { test: (p) => p === '/inicio' || p.startsWith('/inicio?'), id: 'home' },
   { test: (p) => p.startsWith('/g/'), id: 'nav-group' },
   { test: (p) => p.startsWith('/profile'), id: 'profile' },
   { test: (p) => p.startsWith('/closings/new') || /\/closings\/[^/]+$/.test(p), id: 'closings-new' },

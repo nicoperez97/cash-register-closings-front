@@ -2465,7 +2465,7 @@ export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): 
   if (isProducerOnly(user, shopId)) return '/my-production';
   if (isCustomerOrdersOnly(user, shopId)) return '/customer-orders';
   if (isComandaOnly(user, shopId)) return '/comanda';
-  return '/';
+  return '/inicio';
 }
 
 /** Solo puede cargar cierres (sin editar/bloquear/listar). */

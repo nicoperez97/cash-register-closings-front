@@ -14,7 +14,7 @@ export const environment = {
    */
   gaMeasurementId: 'G-RY63B7T345',
   /**
-   * Mostrar «Ver demo» en login. La demo es 100% front (sin API).
+   * Mostrar «Probar demo» en la landing (`/`). La demo es 100% front (sin API).
    * true = siempre visible; false = oculto.
    */
   demoLoginEnabled: true as boolean | null,

@@ -15,7 +15,15 @@ import { MainLayoutComponent } from './core/layout/main-layout';
 import { LoginComponent } from './features/auth/login';
 
 export const routes: Routes = [
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./features/landing/marketing-landing').then((m) => m.MarketingLandingPage),
+    title: 'Cierres',
+  },
   { path: 'login', component: LoginComponent, title: 'Ingresar' },
+  { path: 'admin/login', redirectTo: 'login', pathMatch: 'full' },
   {
     path: 'r/:slug',
     loadComponent: () =>
@@ -133,7 +141,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       {
-        path: '',
+        path: 'inicio',
         loadComponent: () =>
           import('./features/home/home-page').then((m) => m.HomePageComponent),
         title: 'Inicio',

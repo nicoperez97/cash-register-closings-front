@@ -347,7 +347,7 @@ export function canAccessAppRoute(
   if (path.startsWith('/service-rules')) {
     return hasShopPermission(user, shopId, 'serviceRules.read');
   }
-  if (path === '/' || path === '') {
+  if (path === '/' || path === '' || path === '/inicio') {
     return true;
   }
   if (path === '/profile') {
