@@ -32,6 +32,8 @@ export class PublicPagePwaService {
   private readonly mainPwa = inject(MainPwaInstallService);
   private previousManifestHref: string | null = null;
   private previousAppleTouchHref: string | null = null;
+  /** Snapshot de <link rel="icon"> para restaurar al salir de la página pública. */
+  private previousFaviconHtml: string | null = null;
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private bipHandler: ((e: Event) => void) | null = null;
   private activeKey: string | null = null;
@@ -91,11 +93,13 @@ export class PublicPagePwaService {
     setMeta('application-name', short);
     setMeta('description', full);
     applyStatusBar(statusBarColor(opts.kind, accent), meta.statusScheme);
-    this.applyInstallIcon(opts.logoUrl);
+    // Favicon de la pestaña = logo del local (sin la “P” del ícono PWA).
+    if (opts.logoUrl) this.applyFavicon(opts.logoUrl);
+    this.applyAppleTouchIcon(opts.logoUrl);
 
     const href = this.resolveManifestHref(opts.kind, slug);
     this.setManifestHref(href);
-    void this.prefetchManifest(href);
+    void this.prefetchManifest(href, opts.logoUrl);
     this.listenInstallPrompt();
     this.refreshBannerVisibility();
   }
@@ -178,29 +182,38 @@ export class PublicPagePwaService {
     return `/api/v1/public/shops/${enc}/manifests/${kind}?${qs}`;
   }
 
-  private async prefetchManifest(href: string): Promise<void> {
+  private async prefetchManifest(href: string, shopLogoUrl?: string | null): Promise<void> {
     try {
       const res = await fetch(href, { credentials: 'omit', cache: 'no-store' });
       if (!res.ok) return;
       const json = (await res.json()) as {
         short_name?: string;
         name?: string;
+        shop_logo?: string | null;
         icons?: Array<{ src?: string; sizes?: string }>;
       };
       if (json.short_name) this.installLabel.set(json.short_name);
       if (json.name) document.title = json.name;
+
+      const faviconSrc =
+        String(shopLogoUrl || '').trim() ||
+        String(json.shop_logo || '').trim() ||
+        '';
+      if (faviconSrc) this.applyFavicon(faviconSrc);
+
+      // apple-touch / instalación: logo del local si hay; si no, ícono PWA compuesto.
       const icons = json.icons ?? [];
-      const iconSrc =
+      const pwaIcon =
         icons.find((i) => i.sizes === '180x180' && i.src)?.src ||
         icons.find((i) => i.src)?.src;
-      if (iconSrc) this.applyInstallIcon(iconSrc);
+      this.applyAppleTouchIcon(faviconSrc || pwaIcon || null);
     } catch {
       // El link del manifest igual queda; iOS puede usar apple-mobile-web-app-title
     }
   }
 
-  private applyInstallIcon(logoUrl?: string | null): void {
-    const src = String(logoUrl || '').trim();
+  private applyAppleTouchIcon(iconUrl?: string | null): void {
+    const src = String(iconUrl || '').trim();
     if (!src) return;
     const apple = document.getElementById('apple-touch-icon') as HTMLLinkElement | null;
     if (apple) {
@@ -211,12 +224,51 @@ export class PublicPagePwaService {
     }
   }
 
+  /** Favicon de la pestaña del navegador = logo / ícono del local. */
+  private applyFavicon(src: string): void {
+    if (this.previousFaviconHtml === null) {
+      const existing = Array.from(
+        document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]'),
+      );
+      this.previousFaviconHtml = existing.map((n) => (n as HTMLLinkElement).outerHTML).join('');
+      existing.forEach((n) => n.parentNode?.removeChild(n));
+    } else {
+      document
+        .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]')
+        .forEach((n) => n.parentNode?.removeChild(n));
+    }
+
+    const png = document.createElement('link');
+    png.id = 'app-favicon';
+    png.rel = 'icon';
+    png.type = guessIconMime(src);
+    png.href = src;
+    document.head.appendChild(png);
+
+    const shortcut = document.createElement('link');
+    shortcut.rel = 'shortcut icon';
+    shortcut.href = src;
+    document.head.appendChild(shortcut);
+  }
+
   private restoreInstallIcon(): void {
     const apple = document.getElementById('apple-touch-icon') as HTMLLinkElement | null;
     if (apple && this.previousAppleTouchHref) {
       apple.setAttribute('href', this.previousAppleTouchHref);
     }
     this.previousAppleTouchHref = null;
+
+    document
+      .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]')
+      .forEach((n) => n.parentNode?.removeChild(n));
+    if (this.previousFaviconHtml) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = this.previousFaviconHtml;
+      Array.from(wrap.children).forEach((child) => {
+        document.head.appendChild(child);
+      });
+    }
+    this.previousFaviconHtml = null;
   }
 
   private setManifestHref(href: string, restoring = false): void {
@@ -367,4 +419,13 @@ function setMeta(name: string, content: string): void {
     document.head.appendChild(el);
   }
   el.setAttribute('content', content);
+}
+
+function guessIconMime(src: string): string {
+  const path = String(src).split('?')[0].toLowerCase();
+  if (path.endsWith('.svg')) return 'image/svg+xml';
+  if (path.endsWith('.webp')) return 'image/webp';
+  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
+  if (path.endsWith('.ico')) return 'image/x-icon';
+  return 'image/png';
 }

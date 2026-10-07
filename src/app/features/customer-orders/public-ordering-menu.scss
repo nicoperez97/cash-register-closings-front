@@ -627,6 +627,17 @@ h1 {
   animation: ord-sheet-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.detail:not(.detail--media) .detail__media {
+  display: none;
+}
+
+.detail__body {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+  align-content: start;
+}
+
 .detail__price {
   margin: 0;
   font-size: 1.35rem;
@@ -768,7 +779,7 @@ textarea:focus {
   font-size: 0.85rem;
 }
 
-/* Escritorio / web: más ancho; categorías visibles sin flechas si entran. */
+/* Escritorio / web: grid de ítems; categorías sticky al ancho del page. */
 @media (min-width: 720px) {
   .page {
     max-width: min(56rem, 94vw);
@@ -812,7 +823,6 @@ textarea:focus {
     }
 
     &__track {
-      /* Mantener scroll horizontal: el wrap tapaba los ítems con sticky. */
       flex-wrap: nowrap;
       overflow-x: auto;
     }
@@ -837,28 +847,50 @@ textarea:focus {
   }
 
   .list {
-    gap: 0.7rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
   }
 
   .item {
-    gap: 0.95rem;
+    flex-direction: column;
+    gap: 0.75rem;
     border-radius: 16px;
     padding: 0.9rem 1rem;
+    overflow: hidden;
+    height: 100%;
   }
 
-  .item__name {
-    font-size: 1.05rem;
-  }
-
-  .item__desc {
-    font-size: 0.92rem;
+  .item--photo {
+    padding: 0;
   }
 
   .item__photo {
-    flex-basis: 8.5rem;
-    width: 8.5rem;
-    height: 6.15rem;
-    border-radius: 14px;
+    order: -1;
+    flex: none;
+    width: 100%;
+    height: 9.5rem;
+    border-radius: 0;
+    align-self: stretch;
+    object-fit: cover;
+  }
+
+  .item__main {
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .item--photo .item__main {
+    padding: 0 0.9rem 0.9rem;
+  }
+
+  .item__name {
+    font-size: 1.02rem;
+  }
+
+  .item__desc {
+    font-size: 0.88rem;
+    -webkit-line-clamp: 3;
   }
 
   .item__add {
@@ -866,6 +898,50 @@ textarea:focus {
     padding: 0.5rem 1.05rem;
     font-size: 0.92rem;
     border-radius: 14px;
+  }
+
+  .detail {
+    max-width: none;
+    margin: 0;
+    padding: 1.25rem 1.35rem 1.4rem;
+    border-radius: 1.25rem;
+    gap: 1.25rem 1.75rem;
+  }
+
+  .detail--media {
+    grid-template-columns: minmax(16rem, 1.05fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+
+  .detail__media {
+    position: sticky;
+    top: calc(4.5rem + var(--guy-safe-top));
+  }
+
+  .detail__photo-stack,
+  .detail__slider .detail__photo--layer {
+    border-radius: 14px;
+  }
+
+  .detail__photo-stack {
+    aspect-ratio: 1 / 1;
+  }
+
+  .detail__body {
+    gap: 1rem;
+  }
+
+  .detail__price {
+    font-size: 1.55rem;
+  }
+
+  .detail__desc {
+    font-size: 0.98rem;
+  }
+
+  .remove-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
   }
 
   .cart-bar {
@@ -886,6 +962,25 @@ textarea:focus {
 @media (min-width: 1100px) {
   .page {
     max-width: min(68rem, 92vw);
+  }
+
+  .list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .item__photo {
+    height: 10.5rem;
+  }
+
+  .detail--media {
+    grid-template-columns: minmax(20rem, 1fr) minmax(0, 1.2fr);
+    gap: 1.5rem 2.25rem;
+    padding: 1.5rem 1.6rem 1.65rem;
+  }
+
+  .detail__photo-stack {
+    aspect-ratio: 4 / 3;
   }
 
   .cart-bar {

@@ -40,131 +40,137 @@
 
   @if (order(); as o) {
     <section class="card card--result">
-      <div class="row-top">
-        <span class="badge" [attr.data-status]="o.status">{{ statusText(o.status) }}</span>
-        <span class="code-pill">{{ o.code }}</span>
-      </div>
-      <p class="meta">
-        {{ fulfillmentText(o.fulfillment) }}
-        @if (o.deliveryZoneName) {
-          · {{ o.deliveryZoneName }}
-        }
-        · {{ paymentText(o) }}
-      </p>
-      @if (o.address) {
-        <p class="meta">{{ o.address }}</p>
-      }
-
-      <ol class="timeline" aria-label="Progreso del pedido">
-        @for (step of steps(); track step.status) {
-          <li [attr.data-state]="step.state">
-            <span class="timeline__dot" aria-hidden="true"></span>
-            <div class="timeline__body">
-              <strong>{{ step.label }}</strong>
-              @if (step.at) {
-                <time>{{ step.at | date: 'HH:mm' }}</time>
-              }
-            </div>
-          </li>
-        }
-      </ol>
-
-      <ul class="items">
-        @for (g of itemGroups(o); track $index) {
-          @if (g.item; as it) {
-            <li>
-              <span>
-                {{ it.qty }}× {{ it.name }}
-                @if (it.removedIngredients?.length) {
-                  <small> · Sin {{ it.removedIngredients.join(', ') }}</small>
-                }
-              </span>
-              <span>{{ money(lineAmount(it)) }}</span>
-            </li>
-          }
-          @for (ex of g.extras; track $index) {
-            <li class="items__extra">
-              <span>+ {{ ex.name }}</span>
-              <span>{{ money(lineAmount(ex)) }}</span>
-            </li>
-          }
-        }
-      </ul>
-      @if ((o.discountAmount ?? 0) > 0) {
-        <div class="fee">
-          <span>Desc. {{ o.discountLabel || '' }}</span>
-          <span>−{{ money(o.discountAmount ?? 0) }}</span>
-        </div>
-      }
-      @if ((o.deliveryFee ?? 0) > 0) {
-        <div class="fee">
-          <span>Envío{{ o.deliveryZoneName ? ' · ' + o.deliveryZoneName : '' }}</span>
-          <span>{{ money(o.deliveryFee) }}</span>
-        </div>
-      }
-      <div class="total">
-        <span>Total</span>
-        <strong>{{ money(o.total) }}</strong>
-      </div>
-
-      @if (o.paymentMethod === 'TRANSFER') {
-        <aside class="receipt-wa">
-          <p class="receipt-wa__title">Transferí el pago</p>
-          @if (o.transferAlias || o.transferCbu) {
-            @if (o.transferAlias) {
-              <div class="receipt-wa__row">
-                <div class="receipt-wa__row-text">
-                  <span class="receipt-wa__label">Alias</span>
-                  <strong>{{ o.transferAlias }}</strong>
-                </div>
-                <button
-                  type="button"
-                  class="receipt-wa__copy"
-                  (click)="copyTransferValue(o.transferAlias!, 'Alias')"
-                >
-                  Copiar
-                </button>
-              </div>
+      <div class="status-grid">
+        <div class="status-col status-col--progress">
+          <div class="row-top">
+            <span class="badge" [attr.data-status]="o.status">{{ statusText(o.status) }}</span>
+            <span class="code-pill">{{ o.code }}</span>
+          </div>
+          <p class="meta">
+            {{ fulfillmentText(o.fulfillment) }}
+            @if (o.deliveryZoneName) {
+              · {{ o.deliveryZoneName }}
             }
-            @if (o.transferCbu) {
-              <div class="receipt-wa__row">
-                <div class="receipt-wa__row-text">
-                  <span class="receipt-wa__label">CBU / CVU</span>
-                  <strong>{{ o.transferCbu }}</strong>
-                </div>
-                <button
-                  type="button"
-                  class="receipt-wa__copy"
-                  (click)="copyTransferValue(o.transferCbu!, 'CBU')"
-                >
-                  Copiar
-                </button>
-              </div>
-            }
-          } @else if (o.transferInstructions) {
-            <div class="receipt-wa__row">
-              <p class="receipt-wa__data">{{ o.transferInstructions }}</p>
-              <button
-                type="button"
-                class="receipt-wa__copy"
-                (click)="copyTransferValue(o.transferInstructions!, 'Datos')"
-              >
-                Copiar
-              </button>
-            </div>
-          } @else {
-            <p class="receipt-wa__text">Pedí al local los datos de la cuenta para transferir.</p>
-          }
-          <p class="receipt-wa__text">
-            Después mandá el comprobante por WhatsApp para que el local lo confirme.
+            · {{ paymentText(o) }}
           </p>
-          @if (receiptWhatsappHref(); as wa) {
-            <a class="receipt-wa__btn" [href]="wa" target="_blank" rel="noopener">
-              Enviar comprobante por WhatsApp
-            </a>
+          @if (o.address) {
+            <p class="meta">{{ o.address }}</p>
           }
-        </aside>
-      }
+
+          <ol class="timeline" aria-label="Progreso del pedido">
+            @for (step of steps(); track step.status) {
+              <li [attr.data-state]="step.state">
+                <span class="timeline__dot" aria-hidden="true"></span>
+                <div class="timeline__body">
+                  <strong>{{ step.label }}</strong>
+                  @if (step.at) {
+                    <time>{{ step.at | date: 'HH:mm' }}</time>
+                  }
+                </div>
+              </li>
+            }
+          </ol>
+        </div>
+
+        <div class="status-col status-col--ticket">
+          <ul class="items">
+            @for (g of itemGroups(o); track $index) {
+              @if (g.item; as it) {
+                <li>
+                  <span>
+                    {{ it.qty }}× {{ it.name }}
+                    @if (it.removedIngredients?.length) {
+                      <small> · Sin {{ it.removedIngredients.join(', ') }}</small>
+                    }
+                  </span>
+                  <span>{{ money(lineAmount(it)) }}</span>
+                </li>
+              }
+              @for (ex of g.extras; track $index) {
+                <li class="items__extra">
+                  <span>+ {{ ex.name }}</span>
+                  <span>{{ money(lineAmount(ex)) }}</span>
+                </li>
+              }
+            }
+          </ul>
+          @if ((o.discountAmount ?? 0) > 0) {
+            <div class="fee">
+              <span>Desc. {{ o.discountLabel || '' }}</span>
+              <span>−{{ money(o.discountAmount ?? 0) }}</span>
+            </div>
+          }
+          @if ((o.deliveryFee ?? 0) > 0) {
+            <div class="fee">
+              <span>Envío{{ o.deliveryZoneName ? ' · ' + o.deliveryZoneName : '' }}</span>
+              <span>{{ money(o.deliveryFee) }}</span>
+            </div>
+          }
+          <div class="total">
+            <span>Total</span>
+            <strong>{{ money(o.total) }}</strong>
+          </div>
+
+          @if (o.paymentMethod === 'TRANSFER') {
+            <aside class="receipt-wa">
+              <p class="receipt-wa__title">Transferí el pago</p>
+              @if (o.transferAlias || o.transferCbu) {
+                @if (o.transferAlias) {
+                  <div class="receipt-wa__row">
+                    <div class="receipt-wa__row-text">
+                      <span class="receipt-wa__label">Alias</span>
+                      <strong>{{ o.transferAlias }}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      class="receipt-wa__copy"
+                      (click)="copyTransferValue(o.transferAlias!, 'Alias')"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                }
+                @if (o.transferCbu) {
+                  <div class="receipt-wa__row">
+                    <div class="receipt-wa__row-text">
+                      <span class="receipt-wa__label">CBU / CVU</span>
+                      <strong>{{ o.transferCbu }}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      class="receipt-wa__copy"
+                      (click)="copyTransferValue(o.transferCbu!, 'CBU')"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                }
+              } @else if (o.transferInstructions) {
+                <div class="receipt-wa__row">
+                  <p class="receipt-wa__data">{{ o.transferInstructions }}</p>
+                  <button
+                    type="button"
+                    class="receipt-wa__copy"
+                    (click)="copyTransferValue(o.transferInstructions!, 'Datos')"
+                  >
+                    Copiar
+                  </button>
+                </div>
+              } @else {
+                <p class="receipt-wa__text">Pedí al local los datos de la cuenta para transferir.</p>
+              }
+              <p class="receipt-wa__text">
+                Después mandá el comprobante por WhatsApp para que el local lo confirme.
+              </p>
+              @if (receiptWhatsappHref(); as wa) {
+                <a class="receipt-wa__btn" [href]="wa" target="_blank" rel="noopener">
+                  Enviar comprobante por WhatsApp
+                </a>
+              }
+            </aside>
+          }
+        </div>
+      </div>
     </section>
 
     <p class="live-hint">Se actualiza solo cuando el local avanza el pedido.</p>

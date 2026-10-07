@@ -147,147 +147,152 @@
     }
 
     @if (view() === 'detail' && item(); as it) {
-      <section class="detail">
-        @if (itemPhotos(it); as photos) {
-          @if (photos.length) {
-            <div
-              class="detail__slider"
-              [class.detail__slider--pending]="detailPhotoPending()"
-              (touchstart)="onDetailPhotoSwipe($event, 'start', it)"
-              (touchend)="onDetailPhotoSwipe($event, 'end', it)"
-            >
-              <div class="detail__photo-stack" aria-hidden="false">
-                @if (detailPhotoLayers().a.src) {
-                  <img
-                    class="detail__photo detail__photo--layer"
-                    [class.detail__photo--on]="detailPhotoLayers().a.on"
-                    [src]="detailPhotoLayers().a.src"
-                    [alt]="detailPhotoLayers().a.on ? it.name : ''"
-                    [attr.aria-hidden]="detailPhotoLayers().a.on ? null : 'true'"
-                  />
-                }
-                @if (detailPhotoLayers().b.src) {
-                  <img
-                    class="detail__photo detail__photo--layer"
-                    [class.detail__photo--on]="detailPhotoLayers().b.on"
-                    [src]="detailPhotoLayers().b.src"
-                    [alt]="detailPhotoLayers().b.on ? it.name : ''"
-                    [attr.aria-hidden]="detailPhotoLayers().b.on ? null : 'true'"
-                  />
-                }
-                @if (detailPhotoPending()) {
-                  <div class="detail__skeleton ord-skeleton" aria-hidden="true"></div>
-                }
-              </div>
-              @if (photos.length > 1) {
-                <button
-                  type="button"
-                  class="detail__nav detail__nav--prev"
-                  aria-label="Foto anterior"
-                  (click)="shiftDetailPhoto(-1, it)"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  class="detail__nav detail__nav--next"
-                  aria-label="Foto siguiente"
-                  (click)="shiftDetailPhoto(1, it)"
-                >
-                  ›
-                </button>
-                <div class="detail__dots" role="tablist" aria-label="Fotos">
-                  @for (p of photos; track p; let i = $index) {
-                    <button
-                      type="button"
-                      class="detail__dot"
-                      [class.detail__dot--on]="i === detailPhotoIndex() % photos.length"
-                      [attr.aria-label]="'Foto ' + (i + 1)"
-                      (click)="goToDetailPhoto(i, it)"
-                    ></button>
+      <section class="detail" [class.detail--media]="!!itemPhotos(it)?.length">
+        <div class="detail__media">
+          @if (itemPhotos(it); as photos) {
+            @if (photos.length) {
+              <div
+                class="detail__slider"
+                [class.detail__slider--pending]="detailPhotoPending()"
+                (touchstart)="onDetailPhotoSwipe($event, 'start', it)"
+                (touchend)="onDetailPhotoSwipe($event, 'end', it)"
+              >
+                <div class="detail__photo-stack" aria-hidden="false">
+                  @if (detailPhotoLayers().a.src) {
+                    <img
+                      class="detail__photo detail__photo--layer"
+                      [class.detail__photo--on]="detailPhotoLayers().a.on"
+                      [src]="detailPhotoLayers().a.src"
+                      [alt]="detailPhotoLayers().a.on ? it.name : ''"
+                      [attr.aria-hidden]="detailPhotoLayers().a.on ? null : 'true'"
+                    />
+                  }
+                  @if (detailPhotoLayers().b.src) {
+                    <img
+                      class="detail__photo detail__photo--layer"
+                      [class.detail__photo--on]="detailPhotoLayers().b.on"
+                      [src]="detailPhotoLayers().b.src"
+                      [alt]="detailPhotoLayers().b.on ? it.name : ''"
+                      [attr.aria-hidden]="detailPhotoLayers().b.on ? null : 'true'"
+                    />
+                  }
+                  @if (detailPhotoPending()) {
+                    <div class="detail__skeleton ord-skeleton" aria-hidden="true"></div>
                   }
                 </div>
-              }
-            </div>
+                @if (photos.length > 1) {
+                  <button
+                    type="button"
+                    class="detail__nav detail__nav--prev"
+                    aria-label="Foto anterior"
+                    (click)="shiftDetailPhoto(-1, it)"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    class="detail__nav detail__nav--next"
+                    aria-label="Foto siguiente"
+                    (click)="shiftDetailPhoto(1, it)"
+                  >
+                    ›
+                  </button>
+                  <div class="detail__dots" role="tablist" aria-label="Fotos">
+                    @for (p of photos; track p; let i = $index) {
+                      <button
+                        type="button"
+                        class="detail__dot"
+                        [class.detail__dot--on]="i === detailPhotoIndex() % photos.length"
+                        [attr.aria-label]="'Foto ' + (i + 1)"
+                        (click)="goToDetailPhoto(i, it)"
+                      ></button>
+                    }
+                  </div>
+                }
+              </div>
+            }
           }
-        }
-        <p class="detail__price">{{ priceOf(it) }}</p>
-        @if (it.description) {
-          <p class="detail__desc">{{ it.description }}</p>
-        }
+        </div>
 
-        @if (canOrder()) {
-          @if (it.removableIngredients?.length) {
-            <div class="extras">
-              <p class="extras__title">Retirar ingredientes</p>
-              <p class="extras__hint">Marcá en la lista lo que no querés</p>
-              <div class="remove-list">
-                @for (ing of it.removableIngredients; track ing) {
-                  <label class="remove-row" [class.remove-row--on]="isIngredientRemoved(ing)">
+        <div class="detail__body">
+          <p class="detail__price">{{ priceOf(it) }}</p>
+          @if (it.description) {
+            <p class="detail__desc">{{ it.description }}</p>
+          }
+
+          @if (canOrder()) {
+            @if (it.removableIngredients?.length) {
+              <div class="extras">
+                <p class="extras__title">Retirar ingredientes</p>
+                <p class="extras__hint">Marcá en la lista lo que no querés</p>
+                <div class="remove-list">
+                  @for (ing of it.removableIngredients; track ing) {
+                    <label class="remove-row" [class.remove-row--on]="isIngredientRemoved(ing)">
+                      <input
+                        type="checkbox"
+                        [checked]="isIngredientRemoved(ing)"
+                        (change)="toggleRemovedIngredient(ing)"
+                      />
+                      <span class="remove-row__name">{{ ing }}</span>
+                      @if (isIngredientRemoved(ing)) {
+                        <span class="remove-row__tag">Sin</span>
+                      }
+                    </label>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (itemExtras().length) {
+              <div class="extras">
+                <p class="extras__title">Extras</p>
+                @for (ex of itemExtras(); track ex.id) {
+                  <label class="extras__row">
                     <input
                       type="checkbox"
-                      [checked]="isIngredientRemoved(ing)"
-                      (change)="toggleRemovedIngredient(ing)"
+                      [checked]="isExtraSelected(ex.id)"
+                      (change)="toggleExtra(ex.id)"
                     />
-                    <span class="remove-row__name">{{ ing }}</span>
-                    @if (isIngredientRemoved(ing)) {
-                      <span class="remove-row__tag">Sin</span>
-                    }
+                    <span>{{ ex.name }}</span>
+                    <span class="price">{{ money(ex.price) }}</span>
                   </label>
                 }
               </div>
-            </div>
-          }
-
-          @if (itemExtras().length) {
-            <div class="extras">
-              <p class="extras__title">Extras</p>
-              @for (ex of itemExtras(); track ex.id) {
-                <label class="extras__row">
-                  <input
-                    type="checkbox"
-                    [checked]="isExtraSelected(ex.id)"
-                    (change)="toggleExtra(ex.id)"
-                  />
-                  <span>{{ ex.name }}</span>
-                  <span class="price">{{ money(ex.price) }}</span>
-                </label>
-              }
-            </div>
-          }
-
-          <label class="field">
-            <span>Cantidad</span>
-            <div class="qty">
-              <button type="button" (click)="bumpQty(-1)" [disabled]="qty() <= 1">−</button>
-              <span>{{ qty() }}</span>
-              <button type="button" (click)="bumpQty(1)" [disabled]="qty() >= 99">+</button>
-            </div>
-          </label>
-
-          <label class="field">
-            <span>Notas (opcional)</span>
-            <textarea
-              rows="3"
-              maxlength="300"
-              [ngModel]="notes()"
-              (ngModelChange)="notes.set($event)"
-              placeholder="Otras notas (opcional)"
-            ></textarea>
-          </label>
-
-          <button
-            type="button"
-            class="btn btn--primary ord-press"
-            (click)="addToCart()"
-          >
-            @if (addedFlash()) {
-              Agregado
-            } @else {
-              Agregar · {{ money(it.price * qty()) }}
             }
-          </button>
-        }
+
+            <label class="field">
+              <span>Cantidad</span>
+              <div class="qty">
+                <button type="button" (click)="bumpQty(-1)" [disabled]="qty() <= 1">−</button>
+                <span>{{ qty() }}</span>
+                <button type="button" (click)="bumpQty(1)" [disabled]="qty() >= 99">+</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>Notas (opcional)</span>
+              <textarea
+                rows="3"
+                maxlength="300"
+                [ngModel]="notes()"
+                (ngModelChange)="notes.set($event)"
+                placeholder="Otras notas (opcional)"
+              ></textarea>
+            </label>
+
+            <button
+              type="button"
+              class="btn btn--primary ord-press"
+              (click)="addToCart()"
+            >
+              @if (addedFlash()) {
+                Agregado
+              } @else {
+                Agregar · {{ money(it.price * qty()) }}
+              }
+            </button>
+          }
+        </div>
       </section>
     }
 
