@@ -68,9 +68,33 @@ function watchAppUpdates(): void {
 
   let prompting = false;
 
+  const activateAndReload = async (): Promise<void> => {
+    // Limpiar locks de dialog antes del reload (PWA iOS a veces conserva estilos).
+    document.documentElement.classList.remove(
+      'guy-body-scroll-lock',
+      'guy-dialog-scroll-lock',
+    );
+    document.body.classList.remove('guy-body-scroll-lock', 'guy-dialog-scroll-lock');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.overflow = '';
+    await updates.activateUpdate();
+    // Hard reload: evita viewport/fixed “pegados” del ciclo anterior en standalone.
+    const url = new URL(window.location.href);
+    url.searchParams.set('_sw', String(Date.now()));
+    window.location.replace(url.toString());
+  };
+
   const promptReload = (): void => {
     if (prompting) return;
     prompting = true;
+    // Páginas públicas (/pedir, /m, reservas, etc.): sin aviso, recarga al toque.
+    if (isPublicAppPath(location.pathname || '/')) {
+      void activateAndReload().catch(() => {
+        prompting = false;
+      });
+      return;
+    }
     dialog.open(AppUpdateDialogComponent, {
       width: '440px',
       maxWidth: '94vw',
@@ -82,22 +106,7 @@ function watchAppUpdates(): void {
       panelClass: ['guy-dialog', 'app-update-dialog-panel'],
       backdropClass: 'app-update-dialog-backdrop',
       data: {
-        activate: async () => {
-          // Limpiar locks de dialog antes del reload (PWA iOS a veces conserva estilos).
-          document.documentElement.classList.remove(
-            'guy-body-scroll-lock',
-            'guy-dialog-scroll-lock',
-          );
-          document.body.classList.remove('guy-body-scroll-lock', 'guy-dialog-scroll-lock');
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.overflow = '';
-          await updates.activateUpdate();
-          // Hard reload: evita viewport/fixed “pegados” del ciclo anterior en standalone.
-          const url = new URL(window.location.href);
-          url.searchParams.set('_sw', String(Date.now()));
-          window.location.replace(url.toString());
-        },
+        activate: activateAndReload,
       },
     });
   };

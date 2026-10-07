@@ -1258,7 +1258,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: 'En Configuración del local → Pedidos armás la página pública de pedidos. Guardá con el botón al pie. Pedidos no reemplaza a Comanda ni a Salón: se pueden tener los tres.',
         items: [
           'Activá Página pública /pedir, Take away y/o Delivery. No apaga las mesas: Comanda y Reservas se prenden aparte. Un restaurante puede tener mesas y también take away y delivery.',
-          'Horarios: orientativos para el cliente; el abierto/cerrado real depende de la caja abierta en Pedidos clientes.',
+          'Horarios: en /pedir cada canal (take away o delivery) se muestra fuera de horario según su franja. Además hace falta caja abierta en Pedidos clientes.',
           'Medios de pago: dos listas — web pública (/pedir) y mostrador (caja). En la web pública cada medio tiene tipo (Efectivo/Transferencia/Tarjeta) y en qué entregas se muestra (Retiro y/o Delivery). CBU, Alias y WhatsApp para comprobantes solo en la web pública (si WhatsApp está vacío, usa el teléfono del local).',
           'Atajos de descuento: botones rápidos (por defecto 10%) en la caja rápida de Pedidos clientes y en el ticket de mesa. También quedan No, % y $.',
           'En Pedidos: Configuración del local → Pedidos → Medios de pago — web pública (tipo + se muestra en) y Medios de pago — mostrador. Cada lista es independiente.',
@@ -1446,7 +1446,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Las categorías van con tabs arriba: tocá una y saltás a esa sección. Debajo ves todos los productos; en cada uno tocá Agregar. Después podés marcar ingredientes a retirar (si el local los cargó), notas y extras.',
           'En el resumen, el extra va debajo del plato. El +/− del plato suma o resta todo el conjunto; el extra solo se puede quitar.',
           'En delivery: domicilio, entre calles y detalles. Al abrir el mapa te pide la ubicación actual; también podés buscar o mover el pin. Si el local cargó el área de cada zona, se completa sola. Después confirmás calle y número.',
-          'Debajo de los botones ves “Nuestros días y horarios de atención” (Take Away y Delivery). Si el local está cerrado, en el menú cada ítem dice Ver (fotos y ficha) y no se pueden armar pedidos.',
+          'Debajo de los botones ves “Nuestros días y horarios de atención” (Take Away y Delivery). Si un canal está fuera de horario, queda deshabilitado con un aviso leve; el otro puede seguir disponible. Si el local está cerrado del todo, en el menú cada ítem dice Ver (fotos y ficha) y no se pueden armar pedidos.',
           'Al abrir el menú o el checkout se actualiza la carta: si algo ya no está disponible, se saca del carrito.',
           'En el detalle del producto, las fotos cambian con un fundido suave (flechas, puntos o deslizar).',
           'Efectivo pide con cuánto abonás. Transferencia muestra los datos del local.',

@@ -136,6 +136,17 @@ h2 {
   min-width: 0;
 }
 
+.hours-hint {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 7%, #fff);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
 .checkout-main {
   display: grid;
   gap: 0.85rem;
