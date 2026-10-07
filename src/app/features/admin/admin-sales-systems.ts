@@ -20,6 +20,7 @@ import {
 } from './admin-sales-system-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 @Component({
   selector: 'app-admin-sales-systems',
   imports: [MatButtonModule, MatDialogModule, MatSnackBarModule, PageHeaderComponent, DataTableComponent],
@@ -132,7 +133,7 @@ export class AdminSalesSystemsPage implements OnInit {
         this.reload();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar el sistema';
+        const msg = apiErrorMessage(err, 'No se pudo eliminar el sistema');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

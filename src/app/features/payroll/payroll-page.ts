@@ -45,6 +45,7 @@ import {
 } from './salaries-api.service';
 import { SalaryEditDialogComponent } from './salary-edit-dialog';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 interface PayrollLine {
   id: string;
   employeeId: string;
@@ -975,7 +976,7 @@ export class SalariesPage {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo generar la liquidación';
+          const msg = apiErrorMessage(err, 'No se pudo generar la liquidación');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });

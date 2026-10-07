@@ -15,6 +15,7 @@ import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { canManageOrderingCatalog } from '../../core/auth/auth.models';
 import { environment } from '../../../environments/environment';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { takeInputFile, takeInputFiles, safeUploadFileName } from '../../shared/utils/input-file';
 import { copyText } from '../../shared/utils/share-text';
@@ -2565,7 +2566,7 @@ export class AdminMenuPage {
         },
         error: (err: HttpErrorResponse) => {
           this.savingExtras.set(false);
-          this.snack.open(err.error?.message ?? 'No se pudieron guardar los extras', 'OK', {
+          this.snack.open(apiErrorMessage(err, 'No se pudieron guardar los extras'), 'OK', {
             duration: 3500,
           });
         },
@@ -3490,7 +3491,7 @@ export class AdminMenuPage {
               resolve(true);
             },
             error: (err: HttpErrorResponse) => {
-              lastErr = String(err.error?.message ?? 'No se pudo subir la foto');
+              lastErr = apiErrorMessage(err, 'No se pudo subir la foto');
               resolve(false);
             },
           });
@@ -3526,7 +3527,7 @@ export class AdminMenuPage {
       .subscribe({
         next: (res) => this.applyMenusKeepExpanded(res),
         error: (err: HttpErrorResponse) => {
-          this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo quitar la foto'), 'OK', { duration: 3500 });
         },
       });
   }
@@ -3547,7 +3548,7 @@ export class AdminMenuPage {
       .subscribe({
         next: (res) => this.applyMenusKeepExpanded(res),
         error: (err: HttpErrorResponse) => {
-          this.snack.open(err.error?.message ?? 'No se pudo quitar la foto', 'OK', { duration: 3500 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo quitar la foto'), 'OK', { duration: 3500 });
         },
       });
   }
@@ -3572,7 +3573,7 @@ export class AdminMenuPage {
       .subscribe({
         next: (res) => this.applyMenusKeepExpanded(res),
         error: (err: HttpErrorResponse) => {
-          this.snack.open(err.error?.message ?? 'No se pudo reordenar', 'OK', { duration: 3500 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo reordenar'), 'OK', { duration: 3500 });
         },
       });
   }
@@ -3723,9 +3724,7 @@ export class AdminMenuPage {
         },
         error: (err: HttpErrorResponse) => {
           this.parsing.set(false);
-          const msg =
-            (err.error && typeof err.error === 'object' && (err.error.message as string)) ||
-            'No se pudo leer el archivo';
+          const msg = apiErrorMessage(err, 'No se pudo leer el archivo');
           this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
         },
       });
@@ -3796,7 +3795,7 @@ export class AdminMenuPage {
         },
         error: (err: HttpErrorResponse) => {
           this.analyzingIngredients.set(false);
-          this.snack.open(err.error?.message ?? 'No se pudieron detectar ingredientes', 'OK', {
+          this.snack.open(apiErrorMessage(err, 'No se pudieron detectar ingredientes'), 'OK', {
             duration: 4000,
           });
         },
@@ -3835,9 +3834,7 @@ export class AdminMenuPage {
             },
             error: (err: HttpErrorResponse) => {
               this.uploadingSource.set(false);
-              const msg =
-                (err.error && typeof err.error === 'object' && (err.error.message as string)) ||
-                'No se pudo cargar la carta física';
+              const msg = apiErrorMessage(err, 'No se pudo cargar la carta física');
               this.snack.open(Array.isArray(msg) ? msg[0] : msg, 'OK', { duration: 4000 });
             },
           });

@@ -226,50 +226,70 @@ h1 {
 }
 
 .hours {
-  margin-top: 1.15rem;
+  margin-top: 1.1rem;
+  padding: 1rem 0.9rem 1.05rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 6%, #f6f7f6);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.85rem;
   animation: ord-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.32s both;
 }
 
-.hours__notice {
+.hours__title {
   margin: 0;
-  padding: 0.65rem 0.8rem;
-  border-radius: 12px;
-  border: 1px solid #f0d6a8;
-  background: #fff8eb;
-  color: #8a5a00;
-  font-size: 0.86rem;
-}
-
-.hours__block {
-  background: color-mix(in srgb, var(--accent, #2e7d32) 6%, #fff);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0.95rem 1rem;
-  transition: transform 0.2s ease;
-}
-
-.hours__block:hover {
-  transform: translateY(-1px);
-}
-
-.hours__block h2 {
-  margin: 0 0 0.45rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent, #2e7d32);
-}
-
-.hours__block ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 0.25rem;
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 450;
+  line-height: 1.35;
   color: var(--muted);
+}
+
+.hours__title strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.hours__body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hours__channel {
+  display: grid;
+  gap: 0.1rem;
+  justify-items: center;
+  text-align: center;
+  padding-top: 0.7rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.hours__channel:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.hours__name {
+  margin: 0 0 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--accent, #2e7d32) 70%, var(--ink));
+}
+
+.hours__days {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.hours__times {
+  margin: 0;
   font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .mask {
@@ -411,7 +431,6 @@ h1 {
   }
 
   .eta:hover,
-  .hours__block:hover,
   .zones li:hover,
   .btn--primary:hover {
     transform: none;

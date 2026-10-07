@@ -501,7 +501,7 @@ export class ClosingsListPage {
         this.applyFilter();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? 'No se pudo eliminar el cierre';
+        const msg = apiErrorMessage(err, 'No se pudo eliminar el cierre');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

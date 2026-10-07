@@ -30,6 +30,7 @@ import {
 } from './settlements-api.service';
 import { SettlementsInboxService } from './settlements-inbox.service';
 import { formatMoney as formatMoneyShared } from '../../shared/utils/money';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 function formatMoney(value: number): string {
   return formatMoneyShared(value, {
@@ -698,11 +699,9 @@ export class SettlementsPage {
       },
       error: (err) => {
         this.settling.set(false);
-        const msg =
-          err?.error?.message ||
-          (Array.isArray(err?.error?.message) ? err.error.message[0] : null) ||
-          'No se pudo registrar la rendición';
-        this.snack.open(String(msg), 'OK', { duration: 4000 });
+        this.snack.open(apiErrorMessage(err, 'No se pudo registrar la rendición'), 'OK', {
+          duration: 4000,
+        });
       },
     });
   }

@@ -39,6 +39,7 @@ import {
   ReservationDecideDialogData,
 } from './reservation-decide-dialog';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type ReservationRequestAccepted = {
   reservationId: string | null;
   businessDate: string;
@@ -451,8 +452,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.signupBusy.set(false);
         const msg =
-          (err?.error?.message as string | string[] | undefined) ??
-          'No se pudo cambiar el sector';
+          apiErrorMessage(err, 'No se pudo cambiar el sector');
         this.snack.open(Array.isArray(msg) ? msg[0] : String(msg), 'OK', { duration: 3000 });
       },
     });
@@ -585,8 +585,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.partyRulesBusy.set(false);
           const msg =
-            (err?.error?.message as string | string[] | undefined) ??
-            'No se pudo guardar';
+            apiErrorMessage(err, 'No se pudo guardar');
           this.snack.open(Array.isArray(msg) ? msg[0] : String(msg), 'OK', { duration: 3000 });
         },
       });
@@ -670,7 +669,7 @@ export class ReservationRequestsPanelComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.busyRequestId.set(null);
         this.busyAction.set(null);
-        const msg = err?.error?.message ?? 'No se pudo aceptar';
+        const msg = apiErrorMessage(err, 'No se pudo aceptar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

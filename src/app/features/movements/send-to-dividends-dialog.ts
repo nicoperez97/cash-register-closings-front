@@ -14,6 +14,7 @@ import { MoneyInputDirective } from '../../shared/directives/money-input';
 import { parseLocaleNumber } from '../../shared/utils/money';
 import { LedgerAccount, MovementsApiService } from './movements-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type SendToDividendsDialogData = {
   shopId: string;
   accounts: LedgerAccount[];
@@ -182,7 +183,7 @@ export class SendToDividendsDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo enviar';
+          const msg = apiErrorMessage(err, 'No se pudo enviar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });

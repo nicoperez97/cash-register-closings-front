@@ -10,6 +10,7 @@ import { shareText } from '../../shared/utils/share-text';
 import { shareClosingText, shareClosingSnack } from './closing-pdf';
 import type { CashClosing } from './closings-api.service';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type ClosingSaveSummary = {
   shopName: string;
   date: string;
@@ -233,7 +234,7 @@ export class ClosingSaveDialogComponent {
             'Tu sesión venció. Entrá de nuevo: el cierre queda guardado en este dispositivo.',
           );
         } else {
-          const msg = err?.error?.message ?? 'No se pudo guardar el cierre';
+          const msg = apiErrorMessage(err, 'No se pudo guardar el cierre');
           this.errorMsg.set(Array.isArray(msg) ? msg.join(', ') : String(msg));
         }
         this.phase.set('error');

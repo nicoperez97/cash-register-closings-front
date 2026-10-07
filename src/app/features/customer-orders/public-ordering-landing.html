@@ -76,33 +76,31 @@
       }
     </nav>
 
-    @if (closed()) {
-      <section class="hours">
-        @if (closedByForce()) {
-          <p class="hours__notice">
-            El local está cerrado. Estos son los horarios orientativos:
-          </p>
-        }
-        @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
-          <div class="hours__block">
-            <h2>Horario retiro</h2>
-            <ul>
-              @for (line of c.takeawayHoursSummary; track line) {
-                <li>{{ line }}</li>
+    @if (closed() && (c.takeawayHoursSummary.length || c.deliveryHoursSummary.length)) {
+      <section class="hours" aria-label="Días y horarios de atención">
+        <p class="hours__title">
+          Nuestros <strong>días y horarios</strong> de atención
+        </p>
+        <div class="hours__body">
+          @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
+            <div class="hours__channel">
+              <p class="hours__name">Take Away</p>
+              @for (row of hoursRows(c.takeawayHoursSummary); track $index) {
+                <p class="hours__days">{{ row.days }}</p>
+                <p class="hours__times">{{ row.times }}</p>
               }
-            </ul>
-          </div>
-        }
-        @if (c.deliveryEnabled && c.deliveryHoursSummary.length) {
-          <div class="hours__block">
-            <h2>Horario delivery</h2>
-            <ul>
-              @for (line of c.deliveryHoursSummary; track line) {
-                <li>{{ line }}</li>
+            </div>
+          }
+          @if (c.deliveryEnabled && c.deliveryHoursSummary.length) {
+            <div class="hours__channel">
+              <p class="hours__name">Delivery</p>
+              @for (row of hoursRows(c.deliveryHoursSummary); track $index) {
+                <p class="hours__days">{{ row.days }}</p>
+                <p class="hours__times">{{ row.times }}</p>
               }
-            </ul>
-          </div>
-        }
+            </div>
+          }
+        </div>
       </section>
     }
     </div>

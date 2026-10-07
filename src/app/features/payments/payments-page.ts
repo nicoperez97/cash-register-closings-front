@@ -85,6 +85,7 @@ import {
   type PaymentsViewMode,
 } from './payments-page-actions';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 @Component({
   selector: 'app-payments-page',
   imports: [
@@ -1205,12 +1206,7 @@ export class PaymentsPage {
       },
       error: (err) => {
         this.actionBusyId.set(null);
-        const msg = err?.error?.message;
-        this.snack.open(
-          Array.isArray(msg) ? msg.join(', ') : msg || 'No se pudo validar',
-          'OK',
-          { duration: 4000 },
-        );
+        this.snack.open(apiErrorMessage(err, 'No se pudo validar'), 'OK', { duration: 4000 });
       },
     });
   }
@@ -1306,7 +1302,7 @@ export class PaymentsPage {
   }
 
   private showErr(err: any): void {
-    const msg = err?.error?.message ?? 'No se pudo completar la acción';
+    const msg = apiErrorMessage(err, 'No se pudo completar la acción');
     this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
   }
 }

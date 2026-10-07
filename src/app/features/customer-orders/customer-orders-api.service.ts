@@ -79,8 +79,8 @@ export interface PublicOrderingConfig {
   deliveryOpen: boolean;
   tableOrderingOpen?: boolean;
   anyChannelOpen: boolean;
-  takeawayHoursSummary: string[];
-  deliveryHoursSummary: string[];
+  takeawayHoursSummary: Array<{ days: string; times: string } | string>;
+  deliveryHoursSummary: Array<{ days: string; times: string } | string>;
   payments: {
     methods: CustomerOrderPaymentMethod[];
     /** Medios configurados (nombre + cuenta); si hay, el POS/checkout los muestra. */

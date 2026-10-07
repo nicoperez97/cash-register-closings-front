@@ -54,6 +54,7 @@ import {
 } from '../../shared/reports-products-visibility';
 import { AdminUserRow } from './admin-user-dialog';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 function isAdminRole(role?: string): boolean {
   return role === 'OWNER' || role === 'ADMIN';
 }
@@ -1094,7 +1095,7 @@ export class AdminUserPermissionsPage implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'Error al guardar permisos';
+          const msg = apiErrorMessage(err, 'Error al guardar permisos');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });

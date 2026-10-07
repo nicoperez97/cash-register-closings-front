@@ -11,6 +11,7 @@ import { FormDialogShellComponent } from '../../shared/components/form-dialog-sh
 import { ShopSupplier, SuppliersApiService } from './suppliers-api.service';
 import { asBool } from '../../core/utils/as-bool';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type SupplierDialogData = {
   shopId: string;
   shopName: string;
@@ -134,7 +135,7 @@ export class SupplierDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo guardar';
+        const msg = apiErrorMessage(err, 'No se pudo guardar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

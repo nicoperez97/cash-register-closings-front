@@ -19,6 +19,7 @@ import {
 } from './stock-api.service';
 import { asBool } from '../../core/utils/as-bool';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type StockProductDialogData = {
   shopId: string;
   shopName: string;
@@ -293,7 +294,7 @@ export class StockProductDialogComponent implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'Error al guardar';
+        const msg = apiErrorMessage(err, 'Error al guardar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

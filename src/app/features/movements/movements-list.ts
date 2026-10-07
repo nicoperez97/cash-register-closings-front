@@ -1151,7 +1151,7 @@ export class MovementsListPage {
       },
       error: (err) => {
         this.bulkBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo asignar el concepto';
+        const msg = apiErrorMessage(err, 'No se pudo asignar el concepto');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -1458,8 +1458,9 @@ export class MovementsListPage {
         this.applyFilter();
       },
       error: (err) => {
-        const msg = err?.error?.message ?? `No se pudo eliminar el ${noun}`;
-        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
+        this.snack.open(apiErrorMessage(err, `No se pudo eliminar el ${noun}`), 'OK', {
+          duration: 3500,
+        });
       },
     });
   }

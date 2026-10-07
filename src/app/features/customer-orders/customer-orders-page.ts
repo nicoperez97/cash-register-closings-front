@@ -47,6 +47,7 @@ import {
 } from './customer-orders-status.util';
 import { groupOrderLines, OrderLineGroup } from './ordering-ui.util';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery';
 type ViewMode = 'board' | 'COMPLETED' | 'CANCELLED' | 'config' | 'nuevo';
 
@@ -404,7 +405,7 @@ export class CustomerOrdersPage {
       },
       error: (err) => {
         this.loading.set(false);
-        const msg = err?.error?.message ?? 'No se pudieron cargar los pedidos';
+        const msg = apiErrorMessage(err, 'No se pudieron cargar los pedidos');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 3500,
         });
@@ -510,7 +511,7 @@ export class CustomerOrdersPage {
       },
       error: (err) => {
         this.busyId.set(null);
-        const msg = err?.error?.message ?? 'No se pudo actualizar';
+        const msg = apiErrorMessage(err, 'No se pudo actualizar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 3500,
         });
@@ -534,7 +535,7 @@ export class CustomerOrdersPage {
       },
       error: (err) => {
         this.busyId.set(null);
-        const msg = err?.error?.message ?? 'No se pudo acreditar';
+        const msg = apiErrorMessage(err, 'No se pudo acreditar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 3500,
         });
@@ -558,7 +559,7 @@ export class CustomerOrdersPage {
       },
       error: (err) => {
         this.busyId.set(null);
-        const msg = err?.error?.message ?? 'No se pudo desacreditar';
+        const msg = apiErrorMessage(err, 'No se pudo desacreditar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
           duration: 3500,
         });

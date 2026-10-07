@@ -32,6 +32,7 @@ import {
 import { takeInputFile } from '../../shared/utils/input-file';
 import { normalizeLogoImageFile } from '../../shared/utils/normalize-logo-image';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type ProfileSection = 'perfil' | 'notificaciones' | 'menu' | 'accesos';
 
 function parseProfileSection(raw: string | null | undefined): ProfileSection {
@@ -1143,7 +1144,7 @@ export class ProfilePage {
       error: (err) => {
         this.busy.set(false);
         this.avatarBusy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo subir la foto';
+        const msg = apiErrorMessage(err, 'No se pudo subir la foto');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : String(msg), 'OK', {
           duration: 4000,
         });

@@ -25,6 +25,7 @@ import {
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { takeInputFiles } from '../../shared/utils/input-file';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type CandidateDialogData = {
   shopId: string;
   shopName: string;
@@ -775,7 +776,7 @@ export class CandidateDialogComponent implements OnDestroy {
       },
       error: (err) => {
         this.step.set('pick');
-        const msg = err?.error?.message ?? 'No se pudo leer el CV';
+        const msg = apiErrorMessage(err, 'No se pudo leer el CV');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -947,7 +948,7 @@ export class CandidateDialogComponent implements OnDestroy {
 
   private fail(err: { error?: { message?: string | string[] } }): void {
     this.busy.set(false);
-    const msg = err?.error?.message ?? 'No se pudo guardar';
+    const msg = apiErrorMessage(err, 'No se pudo guardar');
     this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
   }
 }

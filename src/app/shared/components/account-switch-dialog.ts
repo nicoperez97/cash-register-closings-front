@@ -25,6 +25,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { DialogTitleService } from '../services/dialog-title.service';
 import { FormDialogShellComponent } from './form-dialog-shell';
 import { environment } from '../../../environments/environment';
+import { apiErrorMessage } from '../../core/http/api-error-message';
 
 const GSI_SCRIPT = 'https://accounts.google.com/gsi/client';
 
@@ -257,7 +258,7 @@ export class AccountSwitchDialogComponent implements AfterViewInit, OnDestroy {
       }
       this.ref.close(true);
     } catch (err: unknown) {
-      this.error.set(this.readApiError(err, 'Email o contraseña incorrectos.'));
+      this.error.set(apiErrorMessage(err, 'Email o contraseña incorrectos.'));
       this.form.enable({ emitEvent: false });
       if (this.data.mode === 'elevate') {
         this.form.controls.email.disable({ emitEvent: false });
@@ -341,7 +342,7 @@ export class AccountSwitchDialogComponent implements AfterViewInit, OnDestroy {
       this.ref.close(true);
     } catch (err: unknown) {
       this.error.set(
-        this.readApiError(
+        apiErrorMessage(
           err,
           'No se pudo ingresar con Google. El correo tiene que existir en el sistema.',
         ),
@@ -374,14 +375,6 @@ export class AccountSwitchDialogComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private readApiError(err: unknown, fallback: string): string {
-    if (err instanceof Error && err.message && !('error' in err)) {
-      return err.message;
-    }
-    const apiMsg = (err as { error?: { message?: string | string[] } })?.error?.message;
-    const msg = Array.isArray(apiMsg) ? apiMsg.join(', ') : apiMsg;
-    return typeof msg === 'string' && msg.trim() ? msg : fallback;
-  }
 }
 
 @Injectable({ providedIn: 'root' })

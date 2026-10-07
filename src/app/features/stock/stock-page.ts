@@ -48,6 +48,7 @@ import {
 import { shareText } from '../../shared/utils/share-text';
 import { firstValueFrom } from 'rxjs';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 const TAB_ALL = '__all__';
 const TAB_UNCATEGORIZED = '__none__';
 
@@ -1242,7 +1243,7 @@ export class StockPage {
       },
       error: (err) => {
         this.restocking.set(false);
-        const msg = err?.error?.message ?? 'No se pudo reponer';
+        const msg = apiErrorMessage(err, 'No se pudo reponer');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -1393,7 +1394,7 @@ export class StockPage {
       },
       error: (err) => {
         this.adjustingId.set(null);
-        const msg = err?.error?.message ?? 'No se pudo ajustar la cantidad';
+        const msg = apiErrorMessage(err, 'No se pudo ajustar la cantidad');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
       },
     });

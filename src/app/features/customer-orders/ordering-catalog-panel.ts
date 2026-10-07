@@ -1041,7 +1041,7 @@ export class OrderingCatalogPanelComponent {
       },
       error: (err: HttpErrorResponse) => {
         this.generatingClosing.set(false);
-        this.snack.open(err.error?.message ?? 'No se pudo armar el resumen de pedidos', 'OK', {
+        this.snack.open(apiErrorMessage(err, 'No se pudo armar el resumen de pedidos'), 'OK', {
           duration: 3500,
         });
       },
@@ -1068,7 +1068,7 @@ export class OrderingCatalogPanelComponent {
         },
         error: (err: HttpErrorResponse) => {
           saving.set(false);
-          this.snack.open(err.error?.message ?? 'No se pudo guardar', 'OK', { duration: 3500 });
+          this.snack.open(apiErrorMessage(err, 'No se pudo guardar'), 'OK', { duration: 3500 });
         },
       });
   }

@@ -51,6 +51,7 @@ import {
 import type { ReportsProductsVisibility } from '../../shared/reports-products-visibility';
 import { asBool } from '../../core/utils/as-bool';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface AdminUserRow {
   id: string;
   fullName: string;
@@ -1342,7 +1343,7 @@ export class AdminUserDialogComponent implements OnInit {
       .subscribe({
         next: () => done(true),
         error: (err) => {
-          const msg = err?.error?.message ?? 'No se pudieron guardar los % de división';
+          const msg = apiErrorMessage(err, 'No se pudieron guardar los % de división');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
           done(false);
         },
@@ -1511,7 +1512,7 @@ export class AdminUserDialogComponent implements OnInit {
           },
           error: (err) => {
             this.busy.set(false);
-            const msg = err?.error?.message ?? 'Error al guardar roles';
+            const msg = apiErrorMessage(err, 'Error al guardar roles');
             this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
           },
         });
@@ -1555,7 +1556,7 @@ export class AdminUserDialogComponent implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'Error al guardar';
+          const msg = apiErrorMessage(err, 'Error al guardar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -1604,7 +1605,7 @@ export class AdminUserDialogComponent implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'Error al crear';
+          const msg = apiErrorMessage(err, 'Error al crear');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });

@@ -68,6 +68,45 @@ import {
   parseOrderingEtaRange,
 } from '../customer-orders/ordering-ui.util';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
+
+/** Zonas La Plata por defecto (mismo set que la API). */
+const DEFAULT_DELIVERY_ZONES: Array<{
+  id: string;
+  name: string;
+  fee: number;
+  note?: string | null;
+  color?: string | null;
+  polygon?: Array<{ lat: number; lng: number }> | null;
+}> = [
+  {
+    id: 'z_default_casco_urbano',
+    name: 'Casco Urbano',
+    fee: 4500,
+    note: null,
+    color: '#C62828',
+    polygon: [
+      { lat: -34.923148, lng: -57.994172 },
+      { lat: -34.888939, lng: -57.956575 },
+      { lat: -34.920614, lng: -57.9152 },
+      { lat: -34.953729, lng: -57.95258 },
+    ],
+  },
+  {
+    id: 'z_default_casco_corto',
+    name: 'Casco Urbano Corto',
+    fee: 3500,
+    note: null,
+    color: '#2E7D32',
+    polygon: [
+      { lat: -34.922378, lng: -57.974402 },
+      { lat: -34.905273, lng: -57.955603 },
+      { lat: -34.921111, lng: -57.934916 },
+      { lat: -34.937668, lng: -57.953606 },
+    ],
+  },
+];
+
 const POSNET_TYPE_OPTIONS = [
   { value: 'PVS', label: 'PVS' },
   { value: 'MERCADO_PAGO', label: 'Mercado Pago' },
@@ -1046,7 +1085,9 @@ export class AdminShopPage implements OnInit {
     this.setHoursFromConfig(this.takeawayHours, s.orderingHours?.takeaway);
     this.setHoursFromConfig(this.deliveryHours, s.orderingHours?.delivery);
     this.deliveryZones.clear();
-    for (const z of s.deliveryZones ?? []) {
+    const zones =
+      s.deliveryZones?.length ? s.deliveryZones : DEFAULT_DELIVERY_ZONES;
+    for (const z of zones) {
       this.deliveryZones.push(
         this.fb.nonNullable.group({
           id: [z.id ?? ''],
@@ -2003,7 +2044,7 @@ export class AdminShopPage implements OnInit {
         },
         error: (err) => {
           this.printAgentBusy.set(false);
-          const msg = err?.error?.message || 'No se pudo generar el token';
+          const msg = apiErrorMessage(err, 'No se pudo generar el token');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });
@@ -2028,7 +2069,7 @@ export class AdminShopPage implements OnInit {
       },
       error: (err) => {
         this.printAgentBusy.set(false);
-        const msg = err?.error?.message || 'No se pudo revocar el token';
+        const msg = apiErrorMessage(err, 'No se pudo revocar el token');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -2321,7 +2362,7 @@ export class AdminShopPage implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        const msg = err?.error?.message ?? 'No se pudo guardar';
+        const msg = apiErrorMessage(err, 'No se pudo guardar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });
@@ -2373,7 +2414,7 @@ export class AdminShopPage implements OnInit {
       },
       error: (err) => {
         this.logoUploading.set(false);
-        const msg = err?.error?.message ?? 'No se pudo subir el logo';
+        const msg = apiErrorMessage(err, 'No se pudo subir el logo');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
       },
     });

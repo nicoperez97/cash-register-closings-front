@@ -17,6 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { environment } from '../../../environments/environment';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export type PosMenuLinkDialogData = {
   shopId: string;
 };
@@ -370,7 +371,7 @@ export class PosMenuLinkDialogComponent implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudieron guardar los enlaces';
+          const msg = apiErrorMessage(err, 'No se pudieron guardar los enlaces');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4000 });
         },
       });

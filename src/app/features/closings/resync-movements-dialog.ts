@@ -20,6 +20,7 @@ import { hasShopPermission, Permission } from '../../core/auth/auth.models';
 import { topicById } from '../../core/help/module-help';
 import { formatMoney } from '../../shared/utils/money';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface ResyncMovementsDialogData {
   shopId: string;
   shopName: string;
@@ -591,7 +592,7 @@ export class ResyncMovementsDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo armar el preview';
+        const msg = apiErrorMessage(err, 'No se pudo armar el preview');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });
@@ -613,7 +614,7 @@ export class ResyncMovementsDialogComponent {
       },
       error: (err) => {
         this.busy.set(false);
-        const msg = err?.error?.message ?? 'No se pudo re-sincronizar';
+        const msg = apiErrorMessage(err, 'No se pudo re-sincronizar');
         this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
       },
     });

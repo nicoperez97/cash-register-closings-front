@@ -7,6 +7,7 @@ import { conceptKindLabel, yesNoLabel } from '../../core/i18n/labels';
 import { formatConceptCategories } from '../../shared/concept-categories';
 import { ExcelImportShellComponent } from '../../shared/components/excel-import-shell';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface ConceptsExcelImportDialogData {
   shopId: string;
   shopName: string;
@@ -187,7 +188,7 @@ export class AdminConceptsExcelDialogComponent {
         error: (err) => {
           this.busy.set(false);
           this.items.set([]);
-          const msg = err?.error?.message ?? 'No se pudo analizar el Excel';
+          const msg = apiErrorMessage(err, 'No se pudo analizar el Excel');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });
@@ -217,7 +218,7 @@ export class AdminConceptsExcelDialogComponent {
         },
         error: (err) => {
           this.busy.set(false);
-          const msg = err?.error?.message ?? 'No se pudo importar';
+          const msg = apiErrorMessage(err, 'No se pudo importar');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 4500 });
         },
       });

@@ -54,6 +54,7 @@ import {
   shiftHoursLabel,
 } from '../../core/shop/shop-shifts';
 
+import { apiErrorMessage } from '../../core/http/api-error-message';
 interface AttendanceDayCell {
   id?: string;
   isPresent: boolean;
@@ -677,7 +678,7 @@ export class AttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo marcar el presentismo';
+          const msg = apiErrorMessage(err, 'No se pudo marcar el presentismo');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -721,7 +722,7 @@ export class AttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo marcar el feriado';
+          const msg = apiErrorMessage(err, 'No se pudo marcar el feriado');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -804,7 +805,7 @@ export class AttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo marcar el feriado';
+          const msg = apiErrorMessage(err, 'No se pudo marcar el feriado');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -894,7 +895,7 @@ export class AttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar la asistencia';
+          const msg = apiErrorMessage(err, 'No se pudo guardar la asistencia');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
@@ -1431,7 +1432,7 @@ export class AttendancePage {
         },
         error: (err) => {
           this.saving.set(false);
-          const msg = err?.error?.message ?? 'No se pudo guardar la asistencia';
+          const msg = apiErrorMessage(err, 'No se pudo guardar la asistencia');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', { duration: 3500 });
         },
       });
