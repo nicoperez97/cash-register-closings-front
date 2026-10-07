@@ -147,6 +147,41 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     return out;
   });
 
+  /** Aviso leve si un canal habilitado está fuera de horario y el otro sigue disponible. */
+  readonly channelHoursHint = computed(() => {
+    if (this.staffMode()) return null;
+    const c = this.config();
+    if (!c || c.orderingForceClosed || !c.anyChannelOpen) return null;
+    const takeawayOffHours =
+      c.takeawayEnabled && !c.takeawayOpen && (c.takeawayHoursSummary?.length ?? 0) > 0;
+    const deliveryOffHours =
+      c.deliveryEnabled &&
+      !c.deliveryOpen &&
+      (c.deliveryZones?.length ?? 0) > 0 &&
+      (c.deliveryHoursSummary?.length ?? 0) > 0;
+    if (takeawayOffHours && c.deliveryOpen) {
+      return 'Take away fuera de horario por ahora.';
+    }
+    if (deliveryOffHours && c.takeawayOpen) {
+      return 'Delivery fuera de horario por ahora.';
+    }
+    return null;
+  });
+
+  readonly closedByHoursOnly = computed(() => {
+    if (this.staffMode()) return false;
+    const c = this.config();
+    if (!c || c.orderingForceClosed || c.anyChannelOpen) return false;
+    const takeawayOffHours =
+      c.takeawayEnabled && !c.takeawayOpen && (c.takeawayHoursSummary?.length ?? 0) > 0;
+    const deliveryOffHours =
+      c.deliveryEnabled &&
+      !c.deliveryOpen &&
+      (c.deliveryZones?.length ?? 0) > 0 &&
+      (c.deliveryHoursSummary?.length ?? 0) > 0;
+    return takeawayOffHours || deliveryOffHours;
+  });
+
   readonly menuLink = computed(() =>
     this.staffMode() ? ['/customer-orders/nuevo'] : ['/pedir', this.slug(), 'menu'],
   );

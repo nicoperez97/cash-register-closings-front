@@ -33,6 +33,8 @@
               <p>Podés mirar el menú y las zonas. Los pedidos se habilitan cuando el local abra.</p>
             }
           </div>
+        } @else if (channelHoursHint(); as hint) {
+          <p class="hours-hint" role="status">{{ hint }}</p>
         }
 
         <div class="eta-row">
@@ -40,7 +42,7 @@
             <span class="eta" [class.eta--off]="!c.takeawayOpen">
               {{ takeawayEta }}
               @if (!c.takeawayOpen) {
-                <em>cerrado</em>
+                <em>{{ channelClosedLabel('takeaway') }}</em>
               }
             </span>
           }
@@ -48,7 +50,7 @@
             <span class="eta" [class.eta--off]="!c.deliveryOpen">
               {{ deliveryEta }}
               @if (!c.deliveryOpen) {
-                <em>cerrado</em>
+                <em>{{ channelClosedLabel('delivery') }}</em>
               }
             </span>
           }
@@ -90,8 +92,13 @@
           </p>
           <div class="hours__body">
             @if (c.takeawayEnabled && c.takeawayHoursSummary.length) {
-              <div class="hours__channel">
-                <p class="hours__name">Take Away</p>
+              <div class="hours__channel" [class.hours__channel--off]="!c.takeawayOpen">
+                <p class="hours__name">
+                  Take Away
+                  @if (!c.takeawayOpen && !c.orderingForceClosed) {
+                    <span class="hours__badge">Fuera de horario</span>
+                  }
+                </p>
                 @for (row of hoursRows(c.takeawayHoursSummary); track $index) {
                   <p class="hours__days">{{ row.days }}</p>
                   <p class="hours__times">{{ row.times }}</p>
@@ -99,8 +106,13 @@
               </div>
             }
             @if (c.deliveryEnabled && c.deliveryHoursSummary.length) {
-              <div class="hours__channel">
-                <p class="hours__name">Delivery</p>
+              <div class="hours__channel" [class.hours__channel--off]="!c.deliveryOpen">
+                <p class="hours__name">
+                  Delivery
+                  @if (!c.deliveryOpen && !c.orderingForceClosed && c.deliveryZones.length) {
+                    <span class="hours__badge">Fuera de horario</span>
+                  }
+                </p>
                 @for (row of hoursRows(c.deliveryHoursSummary); track $index) {
                   <p class="hours__days">{{ row.days }}</p>
                   <p class="hours__times">{{ row.times }}</p>

@@ -144,6 +144,19 @@ h1 {
   line-height: 1.4;
 }
 
+.hours-hint {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 7%, #fff);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  text-align: left;
+  animation: ord-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+
 .eta-row {
   display: flex;
   flex-wrap: wrap;
@@ -176,14 +189,15 @@ h1 {
 
 .eta em {
   font-style: normal;
-  color: #b42318;
+  color: #8a6a2b;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .eta--off {
-  opacity: 0.75;
+  opacity: 0.72;
+  background: color-mix(in srgb, var(--muted) 8%, #fff);
 }
 
 .actions {
@@ -291,6 +305,31 @@ h1 {
   font-size: 0.8rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--accent, #2e7d32) 70%, var(--ink));
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.hours__badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+}
+
+.hours__channel--off {
+  opacity: 0.72;
+}
+
+.hours__channel--off .hours__name {
+  color: var(--muted);
 }
 
 .hours__days {
@@ -585,6 +624,7 @@ h1 {
   .hero__status,
   h1,
   .closed-banner,
+  .hours-hint,
   .eta-row,
   .actions,
   .hours,

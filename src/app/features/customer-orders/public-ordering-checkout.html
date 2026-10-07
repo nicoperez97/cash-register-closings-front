@@ -31,7 +31,9 @@
           {{
             staffMode()
               ? 'No hay take away ni delivery habilitados para este local.'
-              : 'Estamos cerrados. No se pueden enviar pedidos ahora.'
+              : closedByHoursOnly()
+                ? 'Fuera de horario. No se pueden enviar pedidos ahora.'
+                : 'Estamos cerrados. No se pueden enviar pedidos ahora.'
           }}
         </p>
         @if (staffMode()) {
@@ -98,6 +100,9 @@
       </section>
 
       <div class="checkout-main">
+      @if (channelHoursHint(); as hint) {
+        <p class="hours-hint" role="status">{{ hint }}</p>
+      }
       @if (pickingFulfillment() || !fulfillment()) {
         <section class="card">
           <h2>Entrega</h2>

@@ -55,7 +55,37 @@ export class PublicOrderingLandingComponent implements OnInit, OnDestroy {
     return !!c && !c.anyChannelOpen;
   });
   readonly closedByForce = computed(() => !!this.config()?.orderingForceClosed);
+  /** Aviso leve cuando un canal habilitado está fuera de horario y el otro sigue abierto. */
+  readonly channelHoursHint = computed(() => {
+    const c = this.config();
+    if (!c || c.orderingForceClosed || !c.anyChannelOpen) return null;
+    const takeawayOffHours =
+      c.takeawayEnabled && !c.takeawayOpen && (c.takeawayHoursSummary?.length ?? 0) > 0;
+    const deliveryOffHours =
+      c.deliveryEnabled &&
+      !c.deliveryOpen &&
+      (c.deliveryZones?.length ?? 0) > 0 &&
+      (c.deliveryHoursSummary?.length ?? 0) > 0;
+    if (takeawayOffHours && !deliveryOffHours && c.deliveryOpen) {
+      return 'Take away fuera de horario por ahora. Podés pedir delivery.';
+    }
+    if (deliveryOffHours && !takeawayOffHours && c.takeawayOpen) {
+      return 'Delivery fuera de horario por ahora. Podés pedir take away.';
+    }
+    return null;
+  });
   readonly cartCount = computed(() => this.cart.count());
+
+  channelClosedLabel(channel: 'takeaway' | 'delivery'): string {
+    const c = this.config();
+    if (!c || c.orderingForceClosed) return 'cerrado';
+    if (channel === 'takeaway') {
+      return (c.takeawayHoursSummary?.length ?? 0) > 0 ? 'fuera de horario' : 'cerrado';
+    }
+    return (c.deliveryHoursSummary?.length ?? 0) > 0 && (c.deliveryZones?.length ?? 0) > 0
+      ? 'fuera de horario'
+      : 'cerrado';
+  }
 
   ngOnInit(): void {
     const slug = this.slug();
