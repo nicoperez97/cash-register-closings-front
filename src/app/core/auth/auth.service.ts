@@ -328,10 +328,11 @@ export class AuthService {
       return;
     }
     const prevActiveId = this.currentUser()?.id;
+    const switchedAccount = !!prevActiveId && prevActiveId !== active.userId;
     this.sessionSlots = sessions;
     this.currentUser.set(active.user);
     this.sessions.set(sessions.map((s) => s.user));
-    if (prevActiveId !== active.userId) {
+    if (switchedAccount) {
       this.touchUsage(active.userId);
     }
 
@@ -348,7 +349,13 @@ export class AuthService {
     } catch {
       // Lista queda en memoria.
     }
-    this.shopContext.setShops(active.user.shops ?? [], active.user.favoriteShopId ?? null, true);
+    // Solo forzar el favorito al cambiar de cuenta. Si no, un refreshMe tras guardar
+    // te sacaba del local activo y te mandaba al favorito.
+    this.shopContext.setShops(
+      active.user.shops ?? [],
+      active.user.favoriteShopId ?? null,
+      switchedAccount || !prevActiveId,
+    );
   }
 
   private touchUsage(userId: string): void {
