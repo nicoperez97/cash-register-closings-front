@@ -303,8 +303,26 @@ export class ClosingsApiService {
     );
   }
 
-  openRegister(shopId: string, body: { cashOpeningAmount: number; shiftId?: string | null }) {
+  openRegister(
+    shopId: string,
+    body: {
+      cashOpeningAmount: number;
+      businessDate?: string | null;
+      shiftId?: string | null;
+    },
+  ) {
     return this.http.post<CashClosing>(`${this.base}/shops/${shopId}/closings/open`, body);
+  }
+
+  updateOpenRegister(
+    shopId: string,
+    body: {
+      cashOpeningAmount?: number;
+      businessDate?: string | null;
+      shiftId?: string | null;
+    },
+  ) {
+    return this.http.patch<CashClosing>(`${this.base}/shops/${shopId}/closings/open`, body);
   }
 
   update(shopId: string, id: string, body: CashClosingInput) {
