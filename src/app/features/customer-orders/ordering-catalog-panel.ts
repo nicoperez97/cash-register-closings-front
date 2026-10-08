@@ -39,7 +39,12 @@ import {
 import { formatMoney } from '../../shared/utils/money';
 import { apiErrorMessage } from './ordering-ui.util';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
-import { resolveCurrentShift } from '../../core/shop/shop-shifts';
+import {
+  resolveCurrentShift,
+  shiftHoursLabel,
+  shiftsOnIsoDate,
+  type ShopShift,
+} from '../../core/shop/shop-shifts';
 
 type ToggleRow = {
   id: string;
@@ -85,8 +90,8 @@ type ToggleRow = {
         @if (showCaja()) {
         @if (pendingCaja(); as pending) {
           <div class="ocp__alert" role="status">
-            Hay un cierre pendiente para el {{ formatPendingLabel(pending) }}. Generar cierre arma el del
-            día y turno de ahora.
+            La caja abierta es del {{ formatPendingLabel(pending) }} (no el de ahora). Generar cierre arma
+            ese día y turno. Si era un error, cambiá día/turno abajo.
           </div>
         }
         <div class="ocp__caja">
@@ -105,7 +110,7 @@ type ToggleRow = {
                   mat-flat-button
                   color="primary"
                   type="button"
-                  [disabled]="generatingClosing()"
+                  [disabled]="generatingClosing() || savingOpenCaja()"
                   (click)="generateClosing()"
                 >
                   <mat-icon>point_of_sale</mat-icon>
@@ -113,6 +118,44 @@ type ToggleRow = {
                 </button>
               }
             </div>
+            @if (canEditCaja()) {
+              <div class="ocp__caja-open-form ocp__caja-open-form--edit">
+                <label class="ocp__caja-amount">
+                  <span>Día</span>
+                  <input
+                    type="date"
+                    [ngModel]="openingBusinessDate()"
+                    (ngModelChange)="onOpeningDateChange($event)"
+                    name="openCajaDate"
+                    [disabled]="savingOpenCaja()"
+                  />
+                </label>
+                @if (openingShiftOptions().length > 1) {
+                  <label class="ocp__caja-amount">
+                    <span>Turno</span>
+                    <select
+                      [ngModel]="openingShiftId()"
+                      (ngModelChange)="openingShiftId.set($event)"
+                      name="openCajaShift"
+                      [disabled]="savingOpenCaja()"
+                    >
+                      @for (s of openingShiftOptions(); track s.id) {
+                        <option [value]="s.id">{{ s.name }} · {{ shiftHours(s) }}</option>
+                      }
+                    </select>
+                  </label>
+                }
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [disabled]="savingOpenCaja() || !openCajaDirty()"
+                  (click)="saveOpenCajaMeta()"
+                >
+                  <mat-icon>edit_calendar</mat-icon>
+                  {{ savingOpenCaja() ? 'Guardando…' : 'Cambiar día/turno' }}
+                </button>
+              </div>
+            }
             <div class="ocp__caja-local">
               <div>
                 <strong>{{ orderingOpen() ? 'Local abierto' : 'Local cerrado' }}</strong>
@@ -143,16 +186,42 @@ type ToggleRow = {
               }
             </div>
             <p class="ocp__hint">
-              Generar cierre arma el formulario con los pedidos de esta caja y cierra pedidos online.
-              Al guardar el cierre se confirma.
+              Generar cierre arma el formulario con los pedidos de esta caja (ese día y turno) y cierra
+              pedidos online. Al guardar el cierre se confirma. No se puede abrir otra caja del mismo
+              día/turno si ya hay un cierre enviado.
             </p>
           } @else if (canOpenCaja() && canEditCaja()) {
             <div class="ocp__caja-closed">
               <div>
                 <strong>Sin caja abierta</strong>
-                <span>Antes de recibir pedidos online abrí la caja del turno con el efectivo de apertura.</span>
+                <span>Antes de recibir pedidos online abrí la caja con día, turno y efectivo de apertura.</span>
               </div>
               <div class="ocp__caja-open-form">
+                <label class="ocp__caja-amount">
+                  <span>Día</span>
+                  <input
+                    type="date"
+                    [ngModel]="openingBusinessDate()"
+                    (ngModelChange)="onOpeningDateChange($event)"
+                    name="openingBusinessDate"
+                    [disabled]="openingCaja() || openingAmountLoading()"
+                  />
+                </label>
+                @if (openingShiftOptions().length > 1) {
+                  <label class="ocp__caja-amount">
+                    <span>Turno</span>
+                    <select
+                      [ngModel]="openingShiftId()"
+                      (ngModelChange)="openingShiftId.set($event)"
+                      name="openingShiftId"
+                      [disabled]="openingCaja() || openingAmountLoading()"
+                    >
+                      @for (s of openingShiftOptions(); track s.id) {
+                        <option [value]="s.id">{{ s.name }} · {{ shiftHours(s) }}</option>
+                      }
+                    </select>
+                  </label>
+                }
                 <label class="ocp__caja-amount">
                   <span>Efectivo de apertura</span>
                   <input
@@ -547,18 +616,31 @@ type ToggleRow = {
       gap: 0.55rem;
       align-items: end;
     }
+    .ocp__caja-open-form--edit {
+      padding-top: 0.35rem;
+      border-top: 1px dashed var(--guy-border, #d7e0d9);
+    }
     .ocp__caja-amount {
       display: grid;
       gap: 0.2rem;
       font-size: 0.8rem;
       color: var(--guy-muted, #5f6f76);
     }
-    .ocp__caja-amount input {
+    .ocp__caja-amount input,
+    .ocp__caja-amount select {
       width: 8.5rem;
+      min-height: 2.35rem;
       padding: 0.45rem 0.55rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 8px;
       font: inherit;
+      background: #fff;
+    }
+    .ocp__caja-amount input[type='date'] {
+      width: 10.5rem;
+    }
+    .ocp__caja-amount select {
+      width: min(16rem, 100%);
     }
     .ocp__caja-amount small {
       max-width: 14rem;
@@ -611,10 +693,27 @@ export class OrderingCatalogPanelComponent {
   readonly openingAmount = signal<number | null>(null);
   readonly openingHint = signal('');
   readonly openingAmountLoading = signal(false);
+  readonly openingBusinessDate = signal('');
+  readonly openingShiftId = signal('');
+  readonly savingOpenCaja = signal(false);
   takeawayEnabled = true;
   deliveryEnabled = false;
   payCash = true;
   payTransfer = true;
+
+  readonly openingShiftOptions = computed(() =>
+    shiftsOnIsoDate(this.shops.selectedShop(), this.openingBusinessDate()),
+  );
+
+  readonly openCajaDirty = computed(() => {
+    const caja = this.openClosing();
+    if (!caja) return false;
+    const date = this.openingBusinessDate();
+    const shiftId = this.openingShiftId();
+    const cajaDate = String(caja.businessDate ?? '').slice(0, 10);
+    const cajaShift = String(caja.shiftId ?? '').trim();
+    return date !== cajaDate || (!!shiftId && shiftId !== cajaShift);
+  });
 
   readonly filteredItems = computed(() =>
     filterBySelectQuery(this.items(), this.itemQuery(), (it) => `${it.name} ${it.detail ?? ''}`),
@@ -743,6 +842,7 @@ export class OrderingCatalogPanelComponent {
           } else {
             this.openingHint.set('');
           }
+          this.syncOpeningDayShift(caja);
           this.openingAmountLoading.set(false);
 
           if (shop) {
@@ -848,6 +948,42 @@ export class OrderingCatalogPanelComponent {
     this.extras.update((list) => list.map((ex) => (ex.id === id ? { ...ex, available } : ex)));
   }
 
+  syncOpeningDayShift(caja?: CashClosing | null): void {
+    const shop = this.shops.selectedShop();
+    const today = resolveShopBusinessDate(new Date(), {
+      timezone: shop?.timezone,
+      openingTime: shop?.openingTime,
+    });
+    const date = String(caja?.businessDate ?? '').slice(0, 10) || today;
+    this.openingBusinessDate.set(date);
+    const options = shiftsOnIsoDate(shop, date);
+    const preferred =
+      String(caja?.shiftId ?? '').trim() ||
+      resolveCurrentShift(shop).id ||
+      options[0]?.id ||
+      '';
+    this.openingShiftId.set(
+      options.some((s) => s.id === preferred) ? preferred : options[0]?.id || '',
+    );
+  }
+
+  onOpeningDateChange(raw: string): void {
+    const date = String(raw ?? '').slice(0, 10);
+    this.openingBusinessDate.set(date);
+    const options = shiftsOnIsoDate(this.shops.selectedShop(), date);
+    const current = this.openingShiftId();
+    if (!options.some((s) => s.id === current)) {
+      const preferred = resolveCurrentShift(this.shops.selectedShop()).id;
+      this.openingShiftId.set(
+        options.some((s) => s.id === preferred) ? preferred : options[0]?.id || '',
+      );
+    }
+  }
+
+  shiftHours(shift: ShopShift): string {
+    return shiftHoursLabel(shift);
+  }
+
   openCaja(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId || !this.canOpenCaja()) return;
@@ -857,11 +993,20 @@ export class OrderingCatalogPanelComponent {
       this.snack.open('Ingresá el efectivo de apertura', 'OK', { duration: 3000 });
       return;
     }
+    const businessDate = this.openingBusinessDate() || undefined;
+    const shiftId = this.openingShiftId() || undefined;
+    if (!businessDate) {
+      this.snack.open('Elegí el día de apertura', 'OK', { duration: 3000 });
+      return;
+    }
     this.openingCaja.set(true);
-    this.closingsApi.openRegister(shopId, { cashOpeningAmount: amount }).subscribe({
+    this.closingsApi
+      .openRegister(shopId, { cashOpeningAmount: amount, businessDate, shiftId })
+      .subscribe({
       next: (caja) => {
         this.openingCaja.set(false);
         this.openClosing.set(caja);
+        this.syncOpeningDayShift(caja);
         this.orderingOpen.set(true);
         this.shiftActiveClosed.set(false);
         this.justAutoClosed.set(false);
@@ -873,14 +1018,44 @@ export class OrderingCatalogPanelComponent {
           });
         }
         this.snack.open(
-          `Caja abierta · ${caja.shiftName || 'turno'} · cambio ${this.money(caja.cashOpeningAmount ?? 0)}`,
+          `Caja abierta · ${this.cajaDateLabel(caja.businessDate)} · ${caja.shiftName || 'turno'} · cambio ${this.money(caja.cashOpeningAmount ?? 0)}`,
           'OK',
-          { duration: 2800 },
+          { duration: 3200 },
         );
       },
       error: (err: HttpErrorResponse) => {
         this.openingCaja.set(false);
         this.snack.open(apiErrorMessage(err, 'No se pudo abrir la caja'), 'OK', {
+          duration: 4500,
+        });
+      },
+    });
+  }
+
+  saveOpenCajaMeta(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.openClosing() || !this.canEditCaja()) return;
+    const businessDate = this.openingBusinessDate();
+    const shiftId = this.openingShiftId();
+    if (!businessDate) {
+      this.snack.open('Elegí el día', 'OK', { duration: 2800 });
+      return;
+    }
+    this.savingOpenCaja.set(true);
+    this.closingsApi.updateOpenRegister(shopId, { businessDate, shiftId }).subscribe({
+      next: (caja) => {
+        this.savingOpenCaja.set(false);
+        this.openClosing.set(caja);
+        this.syncOpeningDayShift(caja);
+        this.snack.open(
+          `Caja actualizada · ${this.cajaDateLabel(caja.businessDate)} · ${caja.shiftName || 'turno'}`,
+          'OK',
+          { duration: 2800 },
+        );
+      },
+      error: (err: HttpErrorResponse) => {
+        this.savingOpenCaja.set(false);
+        this.snack.open(apiErrorMessage(err, 'No se pudo cambiar día/turno'), 'OK', {
           duration: 4500,
         });
       },
@@ -952,15 +1127,19 @@ export class OrderingCatalogPanelComponent {
     });
     const currentShift = resolveCurrentShift(shop);
     const pending = pendingClosingFromOpenCaja(caja, shop);
-    // Caja del turno actual: usamos su día/turno y su apertura.
-    // Si la caja abierta es de otro día/turno (pendiente), Generar cierre arma el de ahora
-    // (como en Nuevo cierre) y solo avisa el pendiente; no reutiliza esa apertura.
-    const businessDate = pending
-      ? todayBd
-      : String(caja?.businessDate ?? '').slice(0, 10) || todayBd;
-    const shiftId = pending
-      ? currentShift.id
-      : String(caja?.shiftId ?? '').trim() || (caja ? currentShift.id : '');
+    // Siempre el día/turno de la caja abierta (evita un segundo cierre “de ahora”
+    // dejando el draft viejo colgado).
+    const businessDate = String(caja?.businessDate ?? '').slice(0, 10) || todayBd;
+    const shiftId = String(caja?.shiftId ?? '').trim() || currentShift.id;
+    if (pending) {
+      const cont = window.confirm(
+        `La caja abierta es del ${formatPendingClosingLabel(pending)} (no el de ahora). ¿Generar ese cierre?`,
+      );
+      if (!cont) {
+        this.generatingClosing.set(false);
+        return;
+      }
+    }
     const params = new URLSearchParams();
     params.set('businessDate', businessDate);
     if (shiftId) params.set('shiftId', shiftId);
@@ -1007,7 +1186,7 @@ export class OrderingCatalogPanelComponent {
             shop,
             summary,
             sources,
-            caja: pending ? null : caja,
+            caja,
             pendingClosing: pending,
           });
           persistClosingDraft(draft);
@@ -1021,9 +1200,7 @@ export class OrderingCatalogPanelComponent {
               `Cierre del turno «${summary.shiftName}» (${formatIsoDateDisplay(summary.businessDate)})`,
               summary.orderCount ? `${summary.orderCount} pedido(s)` : null,
               mesas ? `${mesas} mesa(s)` : null,
-              pending
-                ? `Hay un cierre pendiente para el ${formatPendingClosingLabel(pending)}`
-                : null,
+              pending ? 'La caja era de otro día/turno respecto de ahora' : null,
             ].filter(Boolean);
             this.snack.open(
               bits.length > 1 ? bits.join('. ') : `${bits[0]} (sin movimientos)`,
