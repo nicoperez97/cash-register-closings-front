@@ -55,6 +55,10 @@
           <span class="mon-summary__label">Acreditados</span>
           <strong>{{ summary().accredited }}</strong>
         </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">{{ unitsLabel() }}</span>
+          <strong>{{ summary().unitsSold }}</strong>
+        </div>
         <div class="mon-summary__item mon-summary__item--money">
           <span class="mon-summary__label">Total</span>
           <strong>{{ money(summary().total) }}</strong>

@@ -84,6 +84,11 @@ export class CustomerOrdersMonitorPage {
     })).filter((col) => col.orders.length > 0);
   });
 
+  readonly unitsLabel = computed(() => {
+    const label = String(this.shops.selectedShop()?.unitsLabel ?? '').trim();
+    return label || 'Unidades';
+  });
+
   readonly summary = computed(() => {
     const rows = this.orders();
     const count = (pred: (o: StaffCustomerOrder) => boolean) => rows.filter(pred).length;
@@ -99,6 +104,16 @@ export class CustomerOrdersMonitorPage {
     const counter = count((o) => o.fulfillment === 'COUNTER');
     const accredited = count((o) => isOrderAccredited(o));
     const total = rows.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    // Misma idea que el cierre: unidades de pedidos completados (ítems, no extras).
+    const unitsSold = rows
+      .filter((o) => o.status === 'COMPLETED')
+      .reduce((sum, o) => {
+        for (const line of o.items ?? []) {
+          if (String(line.kind || 'ITEM').toUpperCase() === 'EXTRA') continue;
+          sum += Math.max(0, Number(line.qty) || 0);
+        }
+        return sum;
+      }, 0);
     return {
       totalCount: rows.length,
       open,
@@ -110,6 +125,7 @@ export class CustomerOrdersMonitorPage {
       accredited,
       pendingPay: Math.max(0, rows.length - accredited),
       total,
+      unitsSold,
     };
   });
 
