@@ -1199,20 +1199,21 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'customer-orders-monitor',
     title: 'Monitor pedidos',
-    summary: 'Tablero en vivo de take away y delivery, para cocina o un televisor.',
+    summary: 'Tablero de take away y delivery: en vivo por defecto, o por día/turno para revisar.',
     blocks: [
       {
         title: 'Qué ves',
         icon: 'monitor',
         tone: 'read',
         anyOf: ['customerOrders.read'],
-        body: 'Está en Operación → Monitor pedidos. Muestra el resumen del turno vigente y las columnas con pedidos (solo las que tienen). Se actualiza solo. Usa la barra y el menú normales (no es pantalla completa como Pedidos clientes).',
+        body: 'Está en Operación → Monitor pedidos. Por defecto muestra el día y turno actuales (en vivo), con el resumen y las columnas con pedidos (solo las que tienen). Se actualiza solo. Usa la barra y el menú normales (no es pantalla completa como Pedidos clientes).',
         items: [
-          'Arriba ves siempre el resumen del turno: abiertos, completados, cancelados, canales, acreditados, unidades vendidas (con la etiqueta del local, ej. paninos) y total en $.',
-          'Las unidades suman los ítems de los pedidos completados del turno (no los extras ni los cancelados).',
-          'Solo aparecen pedidos de este turno. Las columnas vacías no se muestran.',
+          'Arriba a la derecha: el día (o rango) y los turnos. Si no estás en el turno actual, En vivo te vuelve al día y turno de ahora.',
+          'El resumen muestra abiertos, completados, cancelados, canales, acreditados, unidades vendidas (con la etiqueta del local, ej. paninos) y total en $.',
+          'Las unidades suman los ítems de los pedidos completados del filtro (no los extras ni los cancelados).',
+          'Las columnas vacías no se muestran.',
           'No hay botones para avanzar ni acreditar: es para mirar. Para operar usá Pedidos clientes.',
-          'Suena cuando entra un pedido nuevo (tocá una vez la pantalla si el navegador bloquea el audio).',
+          'En vivo suena cuando entra un pedido nuevo (tocá una vez la pantalla si el navegador bloquea el audio).',
           'Tocá el código para copiarlo.',
         ],
         tip: 'Para operar el turno usá Pedidos clientes; el monitor es solo para mirar.',

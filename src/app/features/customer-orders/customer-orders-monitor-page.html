@@ -3,17 +3,90 @@
     <div class="mon-top__title">
       <div>
         <h1>Monitor pedidos</h1>
-        <p>{{ shops.selectedShop()?.name || '' }} · en vivo</p>
+        <p>{{ shops.selectedShop()?.name || '' }}</p>
       </div>
       <span class="mon-clock">{{ clockLabel() }}</span>
+      @if (isLiveView()) {
+        <span class="mon-pill mon-pill--live">En vivo</span>
+      }
       @if (!loading()) {
-        <span class="mon-pill">{{ summary().totalCount }} del turno</span>
+        <span class="mon-pill">{{ countPill() }}</span>
       }
       <button type="button" class="mon-icon" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
         <mat-icon>info_outline</mat-icon>
       </button>
     </div>
     <div class="mon-top__actions">
+      <div class="mon-date-trigger">
+        <button
+          type="button"
+          class="mon-tool"
+          (click)="openDatePicker()"
+          [attr.aria-label]="'Día o período: ' + periodLabel()"
+          title="Elegir día o período"
+        >
+          <mat-icon>calendar_today</mat-icon>
+          <span>{{ periodLabel() }}</span>
+        </button>
+        <mat-date-range-input class="mon-date-input" [formGroup]="range" [rangePicker]="picker">
+          <input matStartDate formControlName="start" tabindex="-1" />
+          <input matEndDate formControlName="end" tabindex="-1" />
+        </mat-date-range-input>
+        <mat-date-range-picker #picker xPosition="end" />
+      </div>
+
+      <div class="mon-shift" [class.mon-shift--open]="shiftMenuOpen()">
+        <button
+          type="button"
+          class="mon-tool"
+          (click)="toggleShiftMenu($event)"
+          [attr.aria-expanded]="shiftMenuOpen()"
+          [attr.aria-label]="'Turnos: ' + selectedShiftLabel()"
+          title="Elegir turnos"
+        >
+          <mat-icon>schedule</mat-icon>
+          <span>{{ selectedShiftLabel() }}</span>
+          <mat-icon class="mon-tool__caret">expand_more</mat-icon>
+        </button>
+        @if (shiftMenuOpen()) {
+          <div class="mon-shift__panel" role="listbox" aria-multiselectable="true" (click)="$event.stopPropagation()">
+            <div class="mon-shift__head">Elegí uno o más</div>
+            @for (s of shiftOptions(); track s.id) {
+              <button
+                type="button"
+                class="mon-shift__option"
+                role="option"
+                [attr.aria-selected]="isShiftSelected(s.id)"
+                [class.mon-shift__option--on]="isShiftSelected(s.id)"
+                (click)="toggleShift(s.id, $event)"
+              >
+                <span class="mon-shift__check" aria-hidden="true">
+                  @if (isShiftSelected(s.id)) {
+                    <mat-icon>check</mat-icon>
+                  }
+                </span>
+                <span class="mon-shift__label">
+                  <strong>{{ s.name }}</strong>
+                  <small>{{ shiftHours(s) }}</small>
+                </span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (!isLiveView()) {
+        <button
+          type="button"
+          class="mon-tool mon-tool--live"
+          (click)="goLive()"
+          title="Volver al día y turno actuales"
+        >
+          <mat-icon>bolt</mat-icon>
+          En vivo
+        </button>
+      }
+
       <a class="mon-tool" routerLink="/customer-orders">Tablero</a>
       <button type="button" class="mon-tool" (click)="reload()" [disabled]="loading()" title="Actualizar">
         <mat-icon>refresh</mat-icon>
@@ -24,8 +97,8 @@
   @if (loading() && !orders().length) {
     <p class="mon-empty">Cargando…</p>
   } @else {
-    <section class="mon-summary" aria-label="Resumen del turno">
-      <h2>Resumen del turno</h2>
+    <section class="mon-summary" [attr.aria-label]="summaryTitle()">
+      <h2>{{ summaryTitle() }}</h2>
       <div class="mon-summary__grid">
         <div class="mon-summary__item">
           <span class="mon-summary__label">Abiertos</span>
@@ -122,7 +195,7 @@
         }
       </div>
     } @else if (!loading()) {
-      <p class="mon-empty">No hay pedidos en este turno. Cuando confirmen en /pedir, aparecen acá.</p>
+      <p class="mon-empty">{{ emptyMessage() }}</p>
     }
   }
 </div>

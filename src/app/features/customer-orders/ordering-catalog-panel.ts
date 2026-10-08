@@ -3,7 +3,11 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -58,7 +62,11 @@ type ToggleRow = {
   imports: [
     FormsModule,
     MatButtonModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
+    MatSelectModule,
     MatSlideToggleModule,
     MatSnackBarModule,
     SelectSearchComponent,
@@ -120,40 +128,46 @@ type ToggleRow = {
             </div>
             @if (canEditCaja()) {
               <div class="ocp__caja-open-form ocp__caja-open-form--edit">
-                <label class="ocp__caja-amount">
-                  <span>Día</span>
-                  <input
-                    type="date"
-                    [ngModel]="openingBusinessDate()"
-                    (ngModelChange)="onOpeningDateChange($event)"
-                    name="openCajaDate"
-                    [disabled]="savingOpenCaja()"
-                  />
-                </label>
-                @if (openingShiftOptions().length > 1) {
-                  <label class="ocp__caja-amount">
-                    <span>Turno</span>
-                    <select
-                      [ngModel]="openingShiftId()"
-                      (ngModelChange)="openingShiftId.set($event)"
-                      name="openCajaShift"
+                <div class="ocp__caja-open-form__row ocp__caja-open-form__row--action">
+                  <mat-form-field appearance="outline" class="ocp__caja-field" subscriptSizing="dynamic">
+                    <mat-label>Día</mat-label>
+                    <input
+                      matInput
+                      [matDatepicker]="editCajaDatePicker"
+                      [ngModel]="openingDateValue()"
+                      (ngModelChange)="onOpeningDateObjChange($event)"
+                      name="openCajaDate"
                       [disabled]="savingOpenCaja()"
-                    >
-                      @for (s of openingShiftOptions(); track s.id) {
-                        <option [value]="s.id">{{ s.name }} · {{ shiftHours(s) }}</option>
-                      }
-                    </select>
-                  </label>
-                }
-                <button
-                  mat-stroked-button
-                  type="button"
-                  [disabled]="savingOpenCaja() || !openCajaDirty()"
-                  (click)="saveOpenCajaMeta()"
-                >
-                  <mat-icon>edit_calendar</mat-icon>
-                  {{ savingOpenCaja() ? 'Guardando…' : 'Cambiar día/turno' }}
-                </button>
+                    />
+                    <mat-datepicker-toggle matIconSuffix [for]="editCajaDatePicker" />
+                    <mat-datepicker #editCajaDatePicker touchUi />
+                  </mat-form-field>
+                  @if (openingShiftOptions().length > 1) {
+                    <mat-form-field appearance="outline" class="ocp__caja-field ocp__caja-field--shift" subscriptSizing="dynamic">
+                      <mat-label>Turno</mat-label>
+                      <mat-select
+                        [ngModel]="openingShiftId()"
+                        (ngModelChange)="openingShiftId.set($event)"
+                        name="openCajaShift"
+                        [disabled]="savingOpenCaja()"
+                      >
+                        @for (s of openingShiftOptions(); track s.id) {
+                          <mat-option [value]="s.id">{{ s.name }} · {{ shiftHours(s) }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  }
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="ocp__caja-open-btn"
+                    [disabled]="savingOpenCaja() || !openCajaDirty()"
+                    (click)="saveOpenCajaMeta()"
+                  >
+                    <mat-icon>edit_calendar</mat-icon>
+                    {{ savingOpenCaja() ? 'Guardando…' : 'Cambiar día/turno' }}
+                  </button>
+                </div>
               </div>
             }
             <div class="ocp__caja-local">
@@ -197,56 +211,67 @@ type ToggleRow = {
                 <span>Antes de recibir pedidos online abrí la caja con día, turno y efectivo de apertura.</span>
               </div>
               <div class="ocp__caja-open-form">
-                <label class="ocp__caja-amount">
-                  <span>Día</span>
-                  <input
-                    type="date"
-                    [ngModel]="openingBusinessDate()"
-                    (ngModelChange)="onOpeningDateChange($event)"
-                    name="openingBusinessDate"
-                    [disabled]="openingCaja() || openingAmountLoading()"
-                  />
-                </label>
-                @if (openingShiftOptions().length > 1) {
-                  <label class="ocp__caja-amount">
-                    <span>Turno</span>
-                    <select
-                      [ngModel]="openingShiftId()"
-                      (ngModelChange)="openingShiftId.set($event)"
-                      name="openingShiftId"
+                <div class="ocp__caja-open-form__row">
+                  <mat-form-field appearance="outline" class="ocp__caja-field" subscriptSizing="dynamic">
+                    <mat-label>Día</mat-label>
+                    <input
+                      matInput
+                      [matDatepicker]="openCajaDatePicker"
+                      [ngModel]="openingDateValue()"
+                      (ngModelChange)="onOpeningDateObjChange($event)"
+                      name="openingBusinessDate"
                       [disabled]="openingCaja() || openingAmountLoading()"
-                    >
-                      @for (s of openingShiftOptions(); track s.id) {
-                        <option [value]="s.id">{{ s.name }} · {{ shiftHours(s) }}</option>
-                      }
-                    </select>
-                  </label>
-                }
-                <label class="ocp__caja-amount">
-                  <span>Efectivo de apertura</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    [ngModel]="openingAmount()"
-                    (ngModelChange)="onOpeningAmountChange($event)"
-                    name="openingAmount"
-                    [disabled]="openingCaja() || openingAmountLoading()"
-                  />
-                  @if (openingHint()) {
-                    <small>{{ openingHint() }}</small>
+                    />
+                    <mat-datepicker-toggle matIconSuffix [for]="openCajaDatePicker" />
+                    <mat-datepicker #openCajaDatePicker touchUi />
+                  </mat-form-field>
+                  @if (openingShiftOptions().length > 1) {
+                    <mat-form-field appearance="outline" class="ocp__caja-field ocp__caja-field--shift" subscriptSizing="dynamic">
+                      <mat-label>Turno</mat-label>
+                      <mat-select
+                        [ngModel]="openingShiftId()"
+                        (ngModelChange)="openingShiftId.set($event)"
+                        name="openingShiftId"
+                        [disabled]="openingCaja() || openingAmountLoading()"
+                      >
+                        @for (s of openingShiftOptions(); track s.id) {
+                          <mat-option [value]="s.id">{{ s.name }} · {{ shiftHours(s) }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
                   }
-                </label>
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="button"
-                  [disabled]="openingCaja() || openingAmountLoading()"
-                  (click)="openCaja()"
-                >
-                  <mat-icon>lock_open</mat-icon>
-                  {{ openingCaja() ? 'Abriendo…' : 'Abrir caja' }}
-                </button>
+                </div>
+                <div class="ocp__caja-open-form__row ocp__caja-open-form__row--action">
+                  <div class="ocp__caja-cash">
+                    <mat-form-field appearance="outline" class="ocp__caja-field ocp__caja-field--cash" subscriptSizing="dynamic">
+                      <mat-label>Efectivo de apertura</mat-label>
+                      <input
+                        matInput
+                        type="number"
+                        min="0"
+                        step="100"
+                        [ngModel]="openingAmount()"
+                        (ngModelChange)="onOpeningAmountChange($event)"
+                        name="openingAmount"
+                        [disabled]="openingCaja() || openingAmountLoading()"
+                      />
+                    </mat-form-field>
+                    @if (openingHint()) {
+                      <p class="ocp__caja-hint">{{ openingHint() }}</p>
+                    }
+                  </div>
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    class="ocp__caja-open-btn"
+                    [disabled]="openingCaja() || openingAmountLoading()"
+                    (click)="openCaja()"
+                  >
+                    <mat-icon>lock_open</mat-icon>
+                    {{ openingCaja() ? 'Abriendo…' : 'Abrir caja' }}
+                  </button>
+                </div>
               </div>
             </div>
           } @else {
@@ -611,40 +636,51 @@ type ToggleRow = {
       }
     }
     .ocp__caja-open-form {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.55rem;
-      align-items: end;
+      display: grid;
+      gap: 0.65rem;
     }
     .ocp__caja-open-form--edit {
-      padding-top: 0.35rem;
+      padding-top: 0.55rem;
       border-top: 1px dashed var(--guy-border, #d7e0d9);
     }
-    .ocp__caja-amount {
+    .ocp__caja-open-form__row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem 0.65rem;
+      align-items: flex-start;
+    }
+    .ocp__caja-open-form__row--action {
+      align-items: flex-start;
+    }
+    .ocp__caja-field {
+      width: 11rem;
+      margin: 0;
+    }
+    .ocp__caja-field--shift {
+      flex: 1 1 14rem;
+      width: auto;
+      min-width: min(100%, 14rem);
+      max-width: 18rem;
+    }
+    .ocp__caja-field--cash {
+      width: 12rem;
+    }
+    .ocp__caja-cash {
       display: grid;
       gap: 0.2rem;
-      font-size: 0.8rem;
+    }
+    .ocp__caja-hint {
+      margin: 0;
+      max-width: 14rem;
+      font-size: 0.75rem;
+      line-height: 1.3;
       color: var(--guy-muted, #5f6f76);
     }
-    .ocp__caja-amount input,
-    .ocp__caja-amount select {
-      width: 8.5rem;
-      min-height: 2.35rem;
-      padding: 0.45rem 0.55rem;
-      border: 1px solid var(--guy-border, #d7e0d9);
-      border-radius: 8px;
-      font: inherit;
-      background: #fff;
-    }
-    .ocp__caja-amount input[type='date'] {
-      width: 10.5rem;
-    }
-    .ocp__caja-amount select {
-      width: min(16rem, 100%);
-    }
-    .ocp__caja-amount small {
-      max-width: 14rem;
-      line-height: 1.25;
+    .ocp__caja-open-btn {
+      flex: 0 0 auto;
+      min-height: 3.25rem;
+      margin-top: 0.15rem;
+      padding-inline: 1rem;
     }
     .ocp__save {
       display: flex;
@@ -704,6 +740,13 @@ export class OrderingCatalogPanelComponent {
   readonly openingShiftOptions = computed(() =>
     shiftsOnIsoDate(this.shops.selectedShop(), this.openingBusinessDate()),
   );
+
+  readonly openingDateValue = computed(() => {
+    const iso = this.openingBusinessDate();
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  });
 
   readonly openCajaDirty = computed(() => {
     const caja = this.openClosing();
@@ -978,6 +1021,14 @@ export class OrderingCatalogPanelComponent {
         options.some((s) => s.id === preferred) ? preferred : options[0]?.id || '',
       );
     }
+  }
+
+  onOpeningDateObjChange(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    this.onOpeningDateChange(`${y}-${m}-${d}`);
   }
 
   shiftHours(shift: ShopShift): string {

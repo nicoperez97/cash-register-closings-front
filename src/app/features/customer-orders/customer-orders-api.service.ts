@@ -254,6 +254,7 @@ export class CustomerOrdersApiService {
     scope?: 'current-shift';
     from?: string;
     to?: string;
+    shiftIds?: string[];
     q?: string;
     fulfillment?: CustomerOrderFulfillment;
     paymentMethod?: CustomerOrderPaymentMethod;
@@ -265,6 +266,8 @@ export class CustomerOrdersApiService {
     if (opts?.scope) params = params.set('scope', opts.scope);
     if (opts?.from) params = params.set('from', opts.from);
     if (opts?.to) params = params.set('to', opts.to);
+    const shiftIds = (opts?.shiftIds ?? []).map((id) => String(id ?? '').trim()).filter(Boolean);
+    if (shiftIds.length) params = params.set('shiftIds', shiftIds.join(','));
     if (opts?.q) params = params.set('q', opts.q);
     if (opts?.fulfillment) params = params.set('fulfillment', opts.fulfillment);
     if (opts?.paymentMethod) params = params.set('paymentMethod', opts.paymentMethod);
@@ -279,6 +282,7 @@ export class CustomerOrdersApiService {
       scope?: 'current-shift';
       from?: string;
       to?: string;
+      shiftIds?: string[];
       q?: string;
       fulfillment?: CustomerOrderFulfillment;
       paymentMethod?: CustomerOrderPaymentMethod;
@@ -298,6 +302,7 @@ export class CustomerOrdersApiService {
       scope?: 'current-shift';
       from?: string;
       to?: string;
+      shiftIds?: string[];
       q?: string;
       fulfillment?: CustomerOrderFulfillment;
       paymentMethod?: CustomerOrderPaymentMethod;
