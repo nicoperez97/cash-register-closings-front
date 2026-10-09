@@ -107,6 +107,11 @@ label {
   color: var(--muted);
 }
 
+.optional {
+  font-weight: 500;
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
+}
+
 input {
   border: 1px solid var(--line);
   border-radius: 12px;

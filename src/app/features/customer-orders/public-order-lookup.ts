@@ -80,10 +80,10 @@ export class PublicOrderLookupComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     const phone = this.phone.trim();
     const code = this.code.trim().toUpperCase();
-    if (!slug || !phone || !code) return;
+    if (!slug || !phone) return;
     this.loading.set(true);
     this.error.set(null);
-    this.api.lookupPublicOrder(slug, phone, code).subscribe({
+    this.api.lookupPublicOrder(slug, phone, code || undefined).subscribe({
       next: (res) => {
         this.loading.set(false);
         rememberOrderPhone(slug, res.code, phone);
