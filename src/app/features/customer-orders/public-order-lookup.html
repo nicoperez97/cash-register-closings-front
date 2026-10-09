@@ -3,7 +3,7 @@
   <header class="hero">
     <p class="brand">Pedidos online</p>
     <h1>¿Cómo va tu pedido?</h1>
-    <p class="lead">Ingresá el celular y el código que te dimos al confirmar.</p>
+    <p class="lead">Ingresá el celular. El código es opcional si lo tenés a mano.</p>
   </header>
 
   <form class="card" (submit)="search($event)">
@@ -20,12 +20,11 @@
       />
     </label>
     <label>
-      Código
+      Código <span class="optional">(opcional)</span>
       <input
         type="text"
         [(ngModel)]="code"
         name="code"
-        required
         autocomplete="off"
         maxlength="12"
         placeholder="Ej: A3K9"
@@ -35,7 +34,7 @@
     @if (error()) {
       <p class="form-error">{{ error() }}</p>
     }
-    <button type="submit" [disabled]="loading() || !phone.trim() || !code.trim()">
+    <button type="submit" [disabled]="loading() || !phone.trim()">
       {{ loading() ? 'Buscando…' : 'Ver pedido' }}
     </button>
   </form>

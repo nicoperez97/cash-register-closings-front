@@ -1464,7 +1464,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'public-order-lookup',
     title: 'Consultar pedido',
-    summary: 'Mirás el estado de tu pedido en una página con el código.',
+    summary: 'Mirás el estado de tu pedido con el celular (el código es opcional).',
     blocks: [
       {
         title: 'Tu pedido',
@@ -1472,7 +1472,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         tone: 'read',
         body: 'Al confirmar, vas a /mi-pedido/tu-local/CODIGO. Ahí se actualiza el estado solo (recibido, preparación, listo…).',
         items: [
-          'Si cerrás la pestaña, volvé con Consultar estado e ingresá celular + código.',
+          'Si cerrás la pestaña, volvé con Consultar estado e ingresá el celular: te muestra el pedido más reciente.',
+          'Si tenés el código, lo podés poner para acotar (útil si hiciste más de un pedido).',
           'También podés abrir el link con el código si lo guardaste.',
           'En delivery, debajo de los ítems ves el costo de envío (y la zona) antes del total.',
           'Si pagaste por transferencia, ves Alias y CBU con botón para copiar, y otro para enviar el comprobante por WhatsApp.',

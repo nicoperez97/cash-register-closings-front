@@ -241,8 +241,10 @@ export class CustomerOrdersApiService {
     );
   }
 
-  lookupPublicOrder(slug: string, phone: string, code: string) {
-    const params = new HttpParams().set('phone', phone).set('code', code);
+  lookupPublicOrder(slug: string, phone: string, code?: string) {
+    let params = new HttpParams().set('phone', phone);
+    const normalizedCode = String(code ?? '').trim().toUpperCase();
+    if (normalizedCode) params = params.set('code', normalizedCode);
     return this.http.get<PublicCustomerOrder>(
       `${environment.apiUrl}/public/shops/${encodeURIComponent(slug)}/customer-orders/lookup`,
       { params },
