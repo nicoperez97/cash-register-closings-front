@@ -66,8 +66,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private readonly immersiveChrome = inject(ImmersiveChromeService);
   private readonly pagePwa = inject(PublicPagePwaService);
 
+  private readonly hostEl = inject(ElementRef).nativeElement as HTMLElement;
   private observer: IntersectionObserver | null = null;
   private jumping = false;
+  private tabScrollTimer: number | null = null;
   private readonly tabsTrack = viewChild<ElementRef<HTMLDivElement>>('tabsTrack');
 
   readonly canScrollLeft = signal(false);
@@ -188,6 +190,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     window.addEventListener('resize', onResize);
     this.destroyRef.onDestroy(() => {
       this.observer?.disconnect();
+      if (this.tabScrollTimer != null) window.clearTimeout(this.tabScrollTimer);
       window.removeEventListener('resize', onResize);
     });
 
@@ -416,7 +419,11 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   private watchSections(): void {
     this.observer?.disconnect();
     if (this.view() !== 'menu') return;
-    const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-sec]'));
+    // Solo secciones del menú: los botones de pills también tienen data-sec y, al ser
+    // sticky, entraban al observer y hacían saltar la pill activa + el scroll horizontal.
+    const nodes = Array.from(
+      this.hostEl.querySelectorAll<HTMLElement>('.menu-sec[data-sec]'),
+    );
     if (!nodes.length) return;
     if (!this.activeSectionId()) {
       this.activeSectionId.set(nodes[0].dataset['sec'] || this.sectionDomId(0));
@@ -428,10 +435,9 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         const id = (visible[0]?.target as HTMLElement | undefined)?.dataset['sec'];
-        if (id) {
-          this.activeSectionId.set(id);
-          this.scrollActiveTabIntoView(id);
-        }
+        if (!id || id === this.activeSectionId()) return;
+        this.activeSectionId.set(id);
+        this.scrollActiveTabIntoView(id);
       },
       { rootMargin: '-22% 0px -62% 0px', threshold: [0.05, 0.25, 0.5] },
     );
@@ -439,9 +445,24 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   }
 
   private scrollActiveTabIntoView(id: string): void {
-    const btn = document.querySelector<HTMLElement>(`.sec-tabs__btn[data-sec="${id}"]`);
-    btn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    window.setTimeout(() => this.syncTabsOverflow(), 320);
+    const track = this.tabsTrack()?.nativeElement;
+    const btn = track?.querySelector<HTMLElement>(`.sec-tabs__btn[data-sec="${id}"]`);
+    if (!track || !btn) return;
+    // scrollIntoView mueve también la página (iOS / sticky) y pelea con las flechas.
+    const btnRect = btn.getBoundingClientRect();
+    const trackRect = track.getBoundingClientRect();
+    const delta =
+      btnRect.left - trackRect.left - (trackRect.width - btnRect.width) / 2;
+    if (Math.abs(delta) < 2) {
+      this.syncTabsOverflow();
+      return;
+    }
+    track.scrollBy({ left: delta, behavior: 'smooth' });
+    if (this.tabScrollTimer != null) window.clearTimeout(this.tabScrollTimer);
+    this.tabScrollTimer = window.setTimeout(() => {
+      this.tabScrollTimer = null;
+      this.syncTabsOverflow();
+    }, 320);
   }
 
   onTabsScroll(): void {
@@ -473,7 +494,9 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     const id = this.sectionDomId(index);
     this.jumping = true;
     this.activeSectionId.set(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.hostEl
+      .querySelector<HTMLElement>(`#${CSS.escape(id)}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     this.scrollActiveTabIntoView(id);
     window.setTimeout(() => {
       this.jumping = false;
