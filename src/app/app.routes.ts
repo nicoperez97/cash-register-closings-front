@@ -65,6 +65,14 @@ export const routes: Routes = [
     title: 'Presentismo',
   },
   {
+    path: 'fichar/:slug',
+    loadComponent: () =>
+      import('./features/attendance/public-attendance-check-in').then(
+        (m) => m.PublicAttendanceCheckInComponent,
+      ),
+    title: 'Fichar',
+  },
+  {
     path: 'm/:slug',
     loadComponent: () =>
       import('./features/menu/public-menu-page').then((m) => m.PublicMenuPageComponent),

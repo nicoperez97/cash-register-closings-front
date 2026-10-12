@@ -50,6 +50,7 @@ import {
 } from '../../shared/shop-config-visibility';
 import type { ReportsProductsVisibility } from '../../shared/reports-products-visibility';
 import { asBool } from '../../core/utils/as-bool';
+import type { ShopProfilePreferences } from '../profile/profile-api.service';
 
 import { apiErrorMessage } from '../../core/http/api-error-message';
 export interface AdminUserRow {
@@ -346,6 +347,32 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         color: var(--guy-muted, #5f6f76);
         margin: 0 0 0.75rem;
       }
+      .salon-monitor {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.85rem;
+        margin: 0 0 1rem;
+        padding: 0.85rem 0.9rem;
+        border: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 90%, transparent);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--guy-navy, #003366) 3.5%, #fff);
+      }
+      .salon-monitor__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        min-width: 0;
+      }
+      .salon-monitor__copy strong {
+        font-size: 0.95rem;
+        color: var(--guy-navy, #003366);
+      }
+      .salon-monitor__copy span {
+        font-size: 0.82rem;
+        color: var(--guy-muted, #5f6f76);
+        line-height: 1.35;
+      }
       .module-group {
         margin-bottom: 0.85rem;
       }
@@ -590,6 +617,24 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             }
           </div>
         </div>
+
+        @if (isEdit && user) {
+          <div class="salon-monitor">
+            <div class="salon-monitor__copy">
+              <strong>Monitor de salón</strong>
+              <span>
+                Chip flotante de reservas y lista de espera en toda la app (también en comanda),
+                con sonido al llegar una nueva.
+              </span>
+            </div>
+            <mat-slide-toggle
+              [checked]="salonFloorMonitorEnabled()"
+              [disabled]="busy() || salonFloorBusy() || !salonFloorLoaded()"
+              aria-label="Monitor de salón"
+              (change)="setSalonFloorMonitor($event.checked)"
+            />
+          </div>
+        }
 
         @if (isEmployee()) {
           <div class="section">
@@ -1116,6 +1161,9 @@ export class AdminUserDialogComponent implements OnInit {
       : 'Crear';
 
   readonly busy = signal(false);
+  readonly salonFloorMonitorEnabled = signal(false);
+  readonly salonFloorLoaded = signal(false);
+  readonly salonFloorBusy = signal(false);
   readonly accounts = signal<AccountOption[]>([]);
   readonly accountQuery = signal('');
   readonly onSelectSearchOpened = onSelectSearchOpened;
@@ -1302,8 +1350,57 @@ export class AdminUserDialogComponent implements OnInit {
         this.ledgerTick.update((n) => n + 1);
       });
     }
+    if (this.isEdit && this.user) {
+      this.loadSalonFloorMonitor();
+    }
     this.syncActivePreset();
     this.syncRequireClosingFilesEnabled();
+  }
+
+  private loadSalonFloorMonitor(): void {
+    if (!this.user) return;
+    this.http
+      .get<ShopProfilePreferences>(
+        `${environment.apiUrl}/users/${this.user.id}/notification-preferences`,
+        { params: { shopId: this.data.shopId } },
+      )
+      .subscribe({
+        next: (p) => {
+          this.salonFloorMonitorEnabled.set(!!p.salonFloorMonitorEnabled);
+          this.salonFloorLoaded.set(true);
+        },
+        error: () => {
+          this.salonFloorLoaded.set(true);
+        },
+      });
+  }
+
+  setSalonFloorMonitor(enabled: boolean): void {
+    if (!this.user) return;
+    this.salonFloorBusy.set(true);
+    this.http
+      .patch<ShopProfilePreferences>(
+        `${environment.apiUrl}/users/${this.user.id}/notification-preferences`,
+        { salonFloorMonitorEnabled: enabled },
+        { params: { shopId: this.data.shopId } },
+      )
+      .subscribe({
+        next: (p) => {
+          this.salonFloorMonitorEnabled.set(!!p.salonFloorMonitorEnabled);
+          this.salonFloorBusy.set(false);
+          this.snack.open(
+            enabled
+              ? 'Monitor de salón activado para este usuario'
+              : 'Monitor de salón apagado para este usuario',
+            'OK',
+            { duration: 2600 },
+          );
+        },
+        error: () => {
+          this.salonFloorBusy.set(false);
+          this.snack.open('No se pudo actualizar el monitor', 'OK', { duration: 3500 });
+        },
+      });
   }
 
   partnerPctOf(accountId: string): number {

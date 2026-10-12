@@ -9,6 +9,7 @@ export type PublicPagePwaKind =
   | 'reservationLookup'
   | 'waiting'
   | 'attendance'
+  | 'attendanceCheckIn'
   | 'serviceRules';
 
 export type PublicPagePwaMeta = {
@@ -101,6 +102,15 @@ export const PUBLIC_PAGE_PWA_META: Record<PublicPagePwaKind, PublicPagePwaMeta> 
     fullLabel: 'Presentismo',
     shortLabel: 'Presentismo',
     bannerTitle: 'App Presentismo',
+    defaultAccent: '#1D65A0',
+    statusScheme: 'light',
+    statusFallback: '#ffffff',
+  },
+  attendanceCheckIn: {
+    pathPrefix: 'fichar',
+    fullLabel: 'Fichar',
+    shortLabel: 'Fichar',
+    bannerTitle: 'App Fichar',
     defaultAccent: '#1D65A0',
     statusScheme: 'light',
     statusFallback: '#ffffff',

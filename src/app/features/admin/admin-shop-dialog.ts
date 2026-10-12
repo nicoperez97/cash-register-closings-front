@@ -30,6 +30,7 @@ export interface AdminShopRow {
   waitingListEnabled?: boolean;
   tipsEnabled?: boolean;
   publicAttendanceEnabled?: boolean;
+  publicAttendanceCheckInEnabled?: boolean;
   menuEnabled?: boolean;
   defaultChangeAmount?: number;
   differenceReasonMinAmount?: number;
@@ -192,6 +193,7 @@ function slugify(raw: string): string {
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
         <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>
         <mat-slide-toggle formControlName="publicAttendanceEnabled">Presentismo público</mat-slide-toggle>
+        <mat-slide-toggle formControlName="publicAttendanceCheckInEnabled">Fichar</mat-slide-toggle>
         <mat-slide-toggle formControlName="menuEnabled">Carta pública</mat-slide-toggle>
 
         @if (isEdit) {
@@ -267,6 +269,9 @@ export class AdminShopDialogComponent {
     waitingListEnabled: [this.shop ? !!this.shop.waitingListEnabled : true],
     tipsEnabled: [this.shop ? !!this.shop.tipsEnabled : false],
     publicAttendanceEnabled: [this.shop ? !!this.shop.publicAttendanceEnabled : false],
+    publicAttendanceCheckInEnabled: [
+      this.shop ? !!this.shop.publicAttendanceCheckInEnabled : false,
+    ],
     menuEnabled: [this.shop ? !!this.shop.menuEnabled : false],
     active: [asBool(this.shop?.active, true)],
   });
@@ -312,6 +317,7 @@ export class AdminShopDialogComponent {
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
       publicAttendanceEnabled: raw.publicAttendanceEnabled,
+      publicAttendanceCheckInEnabled: raw.publicAttendanceCheckInEnabled,
       menuEnabled: raw.menuEnabled,
     };
     this.busy.set(true);

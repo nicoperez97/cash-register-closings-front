@@ -435,6 +435,16 @@ export interface AdminShopConceptCategoryOption {
           </div>
           <div class="op__row-toggle">
             <div>
+              <strong>Fichar</strong>
+              <span>Marca presente con PIN; sin historial ni listados</span>
+            </div>
+            <mat-slide-toggle
+              formControlName="publicAttendanceCheckInEnabled"
+              aria-label="Fichar"
+            />
+          </div>
+          <div class="op__row-toggle">
+            <div>
               <strong>Normas públicas</strong>
               <span>Página para imprimir</span>
             </div>

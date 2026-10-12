@@ -19,7 +19,7 @@ import { userAvatarSrc } from '../../core/utils/drive-url';
 import { ShopNavEditorComponent } from '../admin/shop-nav-editor';
 import { ShopToolbarEditorComponent } from '../admin/shop-toolbar-editor';
 import { AuthService } from '../../core/auth/auth.service';
-import { canCustomizeLayout, hasShopPermission } from '../../core/auth/auth.models';
+import { canCustomizeLayout } from '../../core/auth/auth.models';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
 import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
@@ -313,23 +313,21 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
             }
           </ul>
         }
-        @if (canUseSalonFloorMonitor()) {
-          <div class="salon-monitor">
-            <div class="salon-monitor__copy">
-              <strong>Monitor de salón</strong>
-              <span>
-                Chip flotante de reservas y lista de espera en toda la app (también en comanda),
-                con sonido al llegar una nueva.
-              </span>
-            </div>
-            <mat-slide-toggle
-              [checked]="!!prefs()?.salonFloorMonitorEnabled"
-              [disabled]="busy() || !prefs()"
-              aria-label="Monitor de salón"
-              (change)="setSalonFloorMonitor($event.checked)"
-            />
+        <div class="salon-monitor">
+          <div class="salon-monitor__copy">
+            <strong>Monitor de salón</strong>
+            <span>
+              Chip flotante de reservas y lista de espera en toda la app (también en comanda),
+              con sonido al llegar una nueva.
+            </span>
           </div>
-        }
+          <mat-slide-toggle
+            [checked]="!!prefs()?.salonFloorMonitorEnabled"
+            [disabled]="busy() || !prefs()"
+            aria-label="Monitor de salón"
+            (change)="setSalonFloorMonitor($event.checked)"
+          />
+        </div>
       </section>
       }
 
@@ -1009,17 +1007,6 @@ export class ProfilePage {
   });
 
   readonly eligible = computed(() => this.prefs()?.eligibleNotifications ?? []);
-  readonly canUseSalonFloorMonitor = computed(() => {
-    const shopId = this.shopId();
-    const shop = this.shops.selectedShop();
-    const user = this.auth.currentUser();
-    if (!shopId || !shop || !user) return false;
-    const reservations =
-      !!shop.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read');
-    const waiting =
-      !!shop.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read');
-    return reservations || waiting;
-  });
   readonly usingShopMenu = computed(() => {
     const p = this.prefs();
     if (!p) return true;

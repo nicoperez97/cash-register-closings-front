@@ -78,6 +78,7 @@ export function buildDemoShop(): ShopSummary {
     tipsEnabled: true,
     settlementsEnabled: true,
     publicAttendanceEnabled: true,
+    publicAttendanceCheckInEnabled: true,
     publicServiceRulesEnabled: true,
     serviceAttendanceWithHours: true,
     holidayPayMultiplier: 1.5,

@@ -565,6 +565,7 @@ export class AuthService {
         tipsEnabled: s.tipsEnabled,
         settlementsEnabled: !!s.settlementsEnabled,
         publicAttendanceEnabled: !!s.publicAttendanceEnabled,
+        publicAttendanceCheckInEnabled: !!s.publicAttendanceCheckInEnabled,
         publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
         serviceDefaultCheckIn: s.serviceDefaultCheckIn || '18:00',
         serviceDefaultCheckOut: s.serviceDefaultCheckOut || '00:00',

@@ -359,7 +359,7 @@ function toDateString(value: Date | null): string | null {
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Código mozo (PIN)</mat-label>
+            <mat-label>Código de empleado (PIN)</mat-label>
             <mat-icon matPrefix>pin</mat-icon>
             <input
               matInput
@@ -367,25 +367,24 @@ function toDateString(value: Date | null): string | null {
               inputmode="numeric"
               maxlength="6"
               autocomplete="off"
-              [placeholder]="
-                hasWaiterPin
-                  ? '••••' + (waiterPinPrefix ?? '')
-                  : '4 a 6 dígitos'
-              "
+              [placeholder]="waiterPinCurrent || (hasWaiterPin ? '••••' + (waiterPinPrefix ?? '') : '4 a 6 dígitos')"
             />
             <mat-hint>
-              @if (hasWaiterPin) {
-                Ya tiene PIN (termina en {{ waiterPinPrefix }}). Dejá vacío para no
-                cambiar; escribí uno nuevo para reemplazar; “borrar” para quitarlo.
+              @if (waiterPinCurrent) {
+                Código actual: {{ waiterPinCurrent }}. Dejá vacío para no cambiar; escribí
+                uno nuevo para reemplazar; “borrar” para quitarlo.
+              } @else if (hasWaiterPin) {
+                Ya tiene PIN (termina en {{ waiterPinPrefix }}), pero el código completo no
+                se guardó. Escribí uno nuevo para poder verlo después.
               } @else {
-                Para la comanda pública /mozo. Vacío = sin PIN.
+                Para fichar (/fichar) y comanda (/mozo). Vacío = sin PIN.
               }
             </mat-hint>
           </mat-form-field>
 
           @if (hasWaiterPin) {
             <mat-checkbox formControlName="clearWaiterPin">
-              Quitar código mozo
+              Quitar código de empleado
             </mat-checkbox>
           }
 
@@ -602,6 +601,7 @@ export class EmployeeDialogComponent implements OnInit {
   private readonly employee = this.data.mode === 'edit' ? this.data.employee : null;
   readonly hasWaiterPin = !!this.employee?.hasWaiterPin;
   readonly waiterPinPrefix = this.employee?.waiterPinPrefix ?? null;
+  readonly waiterPinCurrent = this.employee?.waiterPinCurrent?.trim() || null;
   readonly shopShifts = this.data.shopShifts ?? [];
   readonly shiftHoursLabel = shiftHoursLabel;
   readonly jobRoleOptions = EMPLOYEE_JOB_ROLE_OPTIONS;

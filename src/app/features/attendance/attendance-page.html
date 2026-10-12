@@ -8,16 +8,36 @@
       (action)="openExcelImport()"
     />
 
-    @if (publicAttendanceUrl()) {
+    @if (publicAttendanceUrl() || publicCheckInUrl()) {
       <div class="att-public">
-        <a class="att-public__btn" [href]="publicAttendanceUrl()" target="_blank" rel="noopener">
-          <mat-icon>open_in_new</mat-icon>
-          Pantalla pública
-        </a>
-        <button type="button" class="att-public__btn att-public__btn--ghost" (click)="copyPublicAttendanceUrl()">
-          <mat-icon>content_copy</mat-icon>
-          Copiar link
-        </button>
+        @if (publicAttendanceUrl()) {
+          <a class="att-public__btn" [href]="publicAttendanceUrl()" target="_blank" rel="noopener">
+            <mat-icon>open_in_new</mat-icon>
+            Pantalla pública
+          </a>
+          <button
+            type="button"
+            class="att-public__btn att-public__btn--ghost"
+            (click)="copyPublicAttendanceUrl()"
+          >
+            <mat-icon>content_copy</mat-icon>
+            Copiar link
+          </button>
+        }
+        @if (publicCheckInUrl()) {
+          <a class="att-public__btn" [href]="publicCheckInUrl()" target="_blank" rel="noopener">
+            <mat-icon>pin</mat-icon>
+            Fichar
+          </a>
+          <button
+            type="button"
+            class="att-public__btn att-public__btn--ghost"
+            (click)="copyPublicCheckInUrl()"
+          >
+            <mat-icon>content_copy</mat-icon>
+            Copiar fichar
+          </button>
+        }
       </div>
     }
 
