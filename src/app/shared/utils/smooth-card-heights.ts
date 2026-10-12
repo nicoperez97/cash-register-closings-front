@@ -13,7 +13,11 @@ const CARD_SELECTOR = [
 ].join(',');
 
 const SKIP_SELECTOR =
-  '.closing-form-shell, .mat-mdc-dialog-container, [data-guy-no-smooth-height], .guy-kpi';
+  // .guy-filters: ya anima Mostrar/Ocultar con CSS; el smooth-height peleaba y estiraba 2 veces.
+  '.closing-form-shell, .mat-mdc-dialog-container, [data-guy-no-smooth-height], .guy-kpi, .guy-filters';
+
+/** Tras montar / navegar: solo sincronizar altura, sin animar (evita “desplegar 2 veces”). */
+const ENTER_GRACE_MS = 800;
 
 type CardState = {
   lastHeight: number;
@@ -22,6 +26,9 @@ type CardState = {
   frame: number;
   debounce: number;
   endTimer: number;
+  bornAt: number;
+  /** Ya hizo al menos una animación real (no sync de gracia). */
+  hasAnimated: boolean;
 };
 
 /**
@@ -45,6 +52,14 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
     const card = el.closest(CARD_SELECTOR) as HTMLElement | null;
     if (!card) return null;
     if (card.closest(SKIP_SELECTOR)) return null;
+    // Listas: el alto lo define la tabla; animarlo al entrar = “desplegar 2 veces”.
+    // Esas pantallas usan fade de opacidad en app-data-table.
+    if (
+      card.matches('.panel-card--flush') ||
+      card.querySelector('app-data-table, .guy-table-wrap')
+    ) {
+      return null;
+    }
     // No pelear con loadings / busy: el contenido aún no estabilizó.
     if (card.matches('[aria-busy="true"], .guy-kpi--loading') || card.querySelector('[aria-busy="true"]')) {
       return null;
@@ -82,14 +97,36 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
         frame: 0,
         debounce: 0,
         endTimer: 0,
+        bornAt: Date.now(),
+        hasAnimated: false,
       };
       states.set(el, s);
     }
     return s;
   };
 
+  const syncHeight = (el: HTMLElement, s: CardState): void => {
+    s.lastHeight = measureAuto(el);
+    s.pending = false;
+    if (s.animating) {
+      clearInline(el);
+      s.animating = false;
+      if (s.endTimer) {
+        window.clearTimeout(s.endTimer);
+        s.endTimer = 0;
+      }
+    }
+  };
+
   const animate = (el: HTMLElement): void => {
     const s = ensureState(el);
+
+    // Entrada a la pantalla / primer pintado de datos: sin animación de altura.
+    if (Date.now() - s.bornAt < ENTER_GRACE_MS) {
+      syncHeight(el, s);
+      return;
+    }
+
     if (s.animating) {
       s.pending = true;
       return;
@@ -102,8 +139,15 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
       return;
     }
 
+    // Primer llenado grande (barra de carga → tabla): snap, no “desplegar”.
+    if (!s.hasAnimated && from < 120 && to > from + 80) {
+      syncHeight(el, s);
+      return;
+    }
+
     s.animating = true;
     s.pending = false;
+    s.hasAnimated = true;
     el.style.overflow = 'hidden';
     el.style.height = `${from}px`;
     void el.offsetHeight;
@@ -111,21 +155,17 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
     el.style.height = `${to}px`;
 
     const finish = () => {
-      // Marcar lastHeight ANTES de limpiar, sin re-medir (evita otro salto).
       s.lastHeight = to;
       clearInline(el);
       s.animating = false;
-      if (s.pending) {
-        s.pending = false;
-        // Re-medir solo si hubo más cambios durante la animación.
+      if (!s.pending) return;
+      s.pending = false;
+      requestAnimationFrame(() => {
         const next = measureAuto(el);
-        if (Math.abs(next - s.lastHeight) >= 2) {
-          s.lastHeight = Math.round(el.getBoundingClientRect().height) || s.lastHeight;
-          queue(el);
-        } else {
-          s.lastHeight = next;
-        }
-      }
+        s.lastHeight = next;
+        // Solo re-encadenar cambios grandes (paginator/totales menores se ignoran).
+        if (Math.abs(next - to) >= 24) queue(el);
+      });
     };
 
     const onEnd = (ev: TransitionEvent) => {
@@ -190,8 +230,8 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
     subtree: true,
     characterData: true,
     attributes: true,
-    // Sin `style`: al setear height inline re-entraba y animaba 2–3 veces.
-    attributeFilter: ['class', 'hidden', 'aria-busy'],
+    // Sin `style` ni `aria-busy`: busy→listo + filas encadenaban 2 animaciones al entrar.
+    attributeFilter: ['class', 'hidden'],
   });
 
   return () => {

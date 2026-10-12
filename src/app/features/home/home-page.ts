@@ -285,7 +285,7 @@ interface BalanceRowExt extends BalanceAccountRow {
             }
           </div>
           <div class="today-panel__actions">
-            @if (attendanceEmployees().length && !isTodayClosed()) {
+            @if (attendanceEmployees().length && !isTodayAttendanceBlocked()) {
               <button
                 mat-stroked-button
                 type="button"
@@ -296,7 +296,7 @@ interface BalanceRowExt extends BalanceAccountRow {
                 Compartir
               </button>
             }
-            @if (canManageAttendance() && !isTodayClosed()) {
+            @if (canManageAttendance() && !isTodayAttendanceBlocked()) {
               <button
                 mat-stroked-button
                 type="button"
@@ -324,8 +324,28 @@ interface BalanceRowExt extends BalanceAccountRow {
           </div>
         </div>
         @if (isTodayClosed()) {
-          <p class="text-muted small mb-0">Hoy es franco del local. No se marca presentismo.</p>
-        } @else if (attendanceEmployees().length) {
+          <div class="home-franco" role="status">
+            <p class="text-muted small mb-0">
+              @if (allowAttendanceOnClosedDays()) {
+                Hoy es franco. Presentismo habilitado para marcar.
+              } @else {
+                Hoy es franco del local. No se marca presentismo.
+              }
+            </p>
+            @if (canManageAttendance()) {
+              @if (allowAttendanceOnClosedDays()) {
+                <button mat-stroked-button type="button" (click)="disableClosedDayAttendance()">
+                  Bloquear
+                </button>
+              } @else {
+                <button mat-flat-button color="primary" type="button" (click)="enableClosedDayAttendance()">
+                  Habilitar presentismo
+                </button>
+              }
+            }
+          </div>
+        }
+        @if (!isTodayAttendanceBlocked() && attendanceEmployees().length) {
           <div class="today-panel__chips">
             @for (emp of attendanceEmployees(); track emp.employeeId) {
               <button
@@ -334,7 +354,7 @@ interface BalanceRowExt extends BalanceAccountRow {
                 [class.today-chip--present]="isPresentToday(emp.employeeId)"
                 [class.guy-chip-btn--on]="isPresentToday(emp.employeeId)"
                 [class.today-chip--rotating]="emp.type === 'ROTATING'"
-                [disabled]="!canManageAttendance() || attendanceBusy() || isTodayClosed()"
+                [disabled]="!canManageAttendance() || attendanceBusy() || isTodayAttendanceBlocked()"
                 [title]="emp.type === 'ROTATING' ? 'Rotativo: no entra en Todos presentes' : ''"
                 (click)="togglePresentToday(emp)"
               >
@@ -345,7 +365,7 @@ interface BalanceRowExt extends BalanceAccountRow {
               </button>
             }
           </div>
-        } @else {
+        } @else if (!isTodayAttendanceBlocked()) {
           <p class="text-muted small mb-0">
             No hay empleados activos para marcar hoy.
             @if (canManageEmployees()) {
@@ -482,6 +502,16 @@ interface BalanceRowExt extends BalanceAccountRow {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+      }
+      .home-franco {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem 0.75rem;
+        margin: 0 0 0.65rem;
+      }
+      .home-franco button {
+        margin: 0;
       }
       .today-chip mat-icon {
         font-size: 1.15rem;
@@ -910,7 +940,7 @@ export class HomePageComponent {
     if (!shopId) return items;
 
     if (this.canViewAttendance()) {
-      if (this.isTodayClosed()) {
+      if (this.isTodayAttendanceBlocked()) {
         items.push({
           label: 'Presentes hoy',
           value: 'Franco',
@@ -925,18 +955,21 @@ export class HomePageComponent {
         const shiftName = this.showShiftSelect()
           ? this.shopShifts().find((s) => s.id === this.selectedShiftId())?.name
           : null;
+        const francoHint = this.isTodayClosed() ? 'Franco · habilitado' : null;
         items.push({
           label: 'Presentes hoy',
           value: total ? `${present} / ${total}` : '—',
           hint: !total
             ? 'Sin empleados'
-            : present === total
-              ? shiftName
-                ? `Completo · ${shiftName}`
-                : 'Completo'
-              : shiftName
-                ? `Presentismo · ${shiftName}`
-                : 'Presentismo',
+            : francoHint
+              ? francoHint
+              : present === total
+                ? shiftName
+                  ? `Completo · ${shiftName}`
+                  : 'Completo'
+                : shiftName
+                  ? `Presentismo · ${shiftName}`
+                  : 'Presentismo',
           icon: 'event_available',
           route: '/attendance',
           tone: total && present === total ? 'ok' : total && present === 0 ? 'warn' : 'default',
@@ -1473,12 +1506,27 @@ export class HomePageComponent {
     });
   }
 
+  readonly allowAttendanceOnClosedDays = signal(false);
+
   isTodayClosed(): boolean {
     const closed = this.shopContext.selectedShop()?.closedWeekdays ?? [];
     if (!closed.length) return false;
     const p = parseIsoDateParts(this.attendanceTodayIso());
     if (!p) return closed.includes(new Date().getDay());
     return closed.includes(new Date(p.year, p.month - 1, p.day).getDay());
+  }
+
+  isTodayAttendanceBlocked(): boolean {
+    return this.isTodayClosed() && !this.allowAttendanceOnClosedDays();
+  }
+
+  enableClosedDayAttendance(): void {
+    this.allowAttendanceOnClosedDays.set(true);
+    this.snack.open('Presentismo habilitado en días de franco', 'OK', { duration: 2200 });
+  }
+
+  disableClosedDayAttendance(): void {
+    this.allowAttendanceOnClosedDays.set(false);
   }
 
   periodLabel(): string {
@@ -1671,7 +1719,7 @@ export class HomePageComponent {
   }
 
   togglePresentToday(emp: AttendanceEmployee): void {
-    if (!this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed()) return;
+    if (!this.canManageAttendance() || this.attendanceBusy() || this.isTodayAttendanceBlocked()) return;
     const shopId = this.shopContext.selectedShopId();
     if (!shopId) return;
     const cur = this.todayMarks()[emp.employeeId];
@@ -1719,7 +1767,7 @@ export class HomePageComponent {
 
   markAllPresentToday(): void {
     const shopId = this.shopContext.selectedShopId();
-    if (!shopId || !this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed())
+    if (!shopId || !this.canManageAttendance() || this.attendanceBusy() || this.isTodayAttendanceBlocked())
       return;
     const fixed = this.attendanceEmployees().filter((e) => e.type !== 'ROTATING');
     if (!fixed.length) {
@@ -1767,7 +1815,12 @@ export class HomePageComponent {
 
   markAllHolidayToday(): void {
     const shopId = this.shopContext.selectedShopId();
-    if (!shopId || !this.canManageAttendance() || this.attendanceBusy() || this.isTodayClosed())
+    if (
+      !shopId ||
+      !this.canManageAttendance() ||
+      this.attendanceBusy() ||
+      this.isTodayAttendanceBlocked()
+    )
       return;
     const emps = this.attendanceEmployees();
     if (!emps.length) return;

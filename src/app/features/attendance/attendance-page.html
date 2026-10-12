@@ -42,13 +42,17 @@
             <button mat-icon-button type="button" aria-label="Día anterior" (click)="shiftQuickDay(-1)">
               <mat-icon>chevron_left</mat-icon>
             </button>
-            <input
-              class="today-panel__day-input"
-              type="date"
-              [ngModel]="quickDayIso()"
-              (ngModelChange)="onQuickDayChange($event)"
-              aria-label="Fecha de asistencia"
-            />
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="today-panel__day-field">
+              <input
+                matInput
+                [matDatepicker]="quickDayPicker"
+                [value]="dateFromIso(quickDayIso())"
+                (dateChange)="onQuickDayDate($event.value)"
+                aria-label="Fecha de asistencia"
+              />
+              <mat-datepicker-toggle matIconSuffix [for]="quickDayPicker" />
+              <mat-datepicker #quickDayPicker touchUi />
+            </mat-form-field>
             <button mat-icon-button type="button" aria-label="Día siguiente" (click)="shiftQuickDay(1)">
               <mat-icon>chevron_right</mat-icon>
             </button>
@@ -79,7 +83,7 @@
               <mat-icon>share</mat-icon>
               Compartir
             </button>
-            @if (canManage() && !isQuickDayClosed()) {
+            @if (canManage() && !isQuickDayBlocked()) {
               <button
                 mat-flat-button
                 color="primary"
@@ -105,10 +109,28 @@
 
         @if (isQuickDayClosed()) {
           <div class="today-panel__closed" role="status">
-            <mat-icon>event_busy</mat-icon>
-            <span><strong>Franco del local.</strong> No se marca asistencia ese día.</span>
+            <mat-icon>{{ allowAttendanceOnClosedDays() ? 'event_available' : 'event_busy' }}</mat-icon>
+            <span>
+              @if (allowAttendanceOnClosedDays()) {
+                <strong>Franco del local.</strong> Presentismo habilitado para marcar.
+              } @else {
+                <strong>Franco del local.</strong> No se marca asistencia ese día.
+              }
+            </span>
+            @if (canManage()) {
+              @if (allowAttendanceOnClosedDays()) {
+                <button mat-stroked-button type="button" (click)="disableClosedDayAttendance()">
+                  Bloquear
+                </button>
+              } @else {
+                <button mat-flat-button color="primary" type="button" (click)="enableClosedDayAttendance()">
+                  Habilitar presentismo
+                </button>
+              }
+            }
           </div>
-        } @else {
+        }
+        @if (!isQuickDayBlocked()) {
           <div class="today-panel__chips">
             @for (emp of employees(); track emp.employeeId) {
               <div
@@ -210,14 +232,28 @@
           </div>
         </div>
         <div class="ot-report__filters">
-          <label class="ot-report__field">
-            <span>Desde</span>
-            <input type="date" [ngModel]="otFrom()" (ngModelChange)="otFrom.set($event)" />
-          </label>
-          <label class="ot-report__field">
-            <span>Hasta</span>
-            <input type="date" [ngModel]="otTo()" (ngModelChange)="otTo.set($event)" />
-          </label>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ot-report__field">
+            <mat-label>Desde</mat-label>
+            <input
+              matInput
+              [matDatepicker]="otFromPicker"
+              [value]="dateFromIso(otFrom())"
+              (dateChange)="onOtFromDate($event.value)"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="otFromPicker" />
+            <mat-datepicker #otFromPicker touchUi />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ot-report__field">
+            <mat-label>Hasta</mat-label>
+            <input
+              matInput
+              [matDatepicker]="otToPicker"
+              [value]="dateFromIso(otTo())"
+              (dateChange)="onOtToDate($event.value)"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="otToPicker" />
+            <mat-datepicker #otToPicker touchUi />
+          </mat-form-field>
           <div class="ot-report__checks">
             <mat-checkbox
               class="ot-report__check"
@@ -370,14 +406,28 @@
         </button>
       </div>
       <div class="guy-filters__grid guy-filters__grid--dense att-excel-range">
-        <label class="today-ot">
-          <span>Excel desde</span>
-          <input type="date" [ngModel]="excelFrom()" (ngModelChange)="excelFrom.set($event)" />
-        </label>
-        <label class="today-ot">
-          <span>Excel hasta</span>
-          <input type="date" [ngModel]="excelTo()" (ngModelChange)="excelTo.set($event)" />
-        </label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Excel desde</mat-label>
+          <input
+            matInput
+            [matDatepicker]="excelFromPicker"
+            [value]="dateFromIso(excelFrom())"
+            (dateChange)="onExcelFromDate($event.value)"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="excelFromPicker" />
+          <mat-datepicker #excelFromPicker touchUi />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Excel hasta</mat-label>
+          <input
+            matInput
+            [matDatepicker]="excelToPicker"
+            [value]="dateFromIso(excelTo())"
+            (dateChange)="onExcelToDate($event.value)"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="excelToPicker" />
+          <mat-datepicker #excelToPicker touchUi />
+        </mat-form-field>
         <app-export-menu
           [disabled]="!shopId() || exporting()"
           [busy]="exporting()"
@@ -409,6 +459,19 @@
             </div>
             @if (canManage()) {
               <div class="att-board__actions">
+                @if (hasClosedWeekdays()) {
+                  @if (allowAttendanceOnClosedDays()) {
+                    <button mat-stroked-button type="button" (click)="disableClosedDayAttendance()">
+                      <mat-icon>event_busy</mat-icon>
+                      Bloquear francos
+                    </button>
+                  } @else {
+                    <button mat-stroked-button type="button" (click)="enableClosedDayAttendance()">
+                      <mat-icon>event_available</mat-icon>
+                      Habilitar francos
+                    </button>
+                  }
+                }
                 @if (!markingUnlocked()) {
                   <button mat-flat-button color="primary" type="button" (click)="unlockMarking()">
                     <mat-icon>edit</mat-icon>
@@ -427,6 +490,14 @@
             <p class="att-board__lock-hint">
               Activá <strong>Editar tablero</strong> para marcar celdas (viene bloqueado). Cada
               guardado pide confirmación.
+              @if (hasClosedWeekdays() && !allowAttendanceOnClosedDays()) {
+                En francos, tocá <strong>Habilitar francos</strong> para poder marcar.
+              }
+            </p>
+          } @else if (canManage() && hasClosedWeekdays() && !allowAttendanceOnClosedDays()) {
+            <p class="att-board__lock-hint">
+              Los días de franco están bloqueados. Tocá <strong>Habilitar francos</strong> para
+              marcarlos en el tablero.
             </p>
           }
           <div
@@ -444,16 +515,18 @@
                       [class.att-table__day--today]="isTodayColumn(d)"
                       [class.att-table__day--closed]="isClosedDay(d)"
                       [class.att-table__day--holiday]="isDayHoliday(d)"
-                      [class.att-table__day--action]="canManage() && markingUnlocked() && !isClosedDay(d)"
+                      [class.att-table__day--action]="canManage() && markingUnlocked() && !isDayBlocked(d)"
                       [attr.data-day]="d"
                       [attr.title]="
-                        isClosedDay(d)
-                          ? 'Franco'
-                          : isTodayColumn(d)
-                            ? 'Hoy'
-                            : canManage() && markingUnlocked()
-                              ? 'Tocar para marcar/quitar feriado a todos'
-                              : null
+                        isDayBlocked(d)
+                          ? 'Franco · habilitá presentismo arriba'
+                          : isClosedDay(d)
+                            ? 'Franco · tocá para feriado a todos'
+                            : isTodayColumn(d)
+                              ? 'Hoy'
+                              : canManage() && markingUnlocked()
+                                ? 'Tocar para marcar/quitar feriado a todos'
+                                : null
                       "
                       (click)="onDayHeaderClick(d)"
                     >
@@ -489,10 +562,10 @@
                             class="att-cell"
                             [class.att-cell--present]="isPresent(emp, d)"
                             [class.att-cell--holiday]="isHoliday(emp, d)"
-                            [class.att-cell--closed]="isClosedDay(d)"
+                            [class.att-cell--closed]="isClosedDay(d) && !isPresent(emp, d) && !isHoliday(emp, d)"
                             [class.att-cell--today]="isTodayColumn(d)"
                             [class.att-cell--ot]="overtimeHours(emp, d) > 0"
-                            [disabled]="!canManage() || saving() || isClosedDay(d) || !markingUnlocked()"
+                            [disabled]="!canManage() || saving() || isDayBlocked(d) || !markingUnlocked()"
                             [matTooltip]="cellTooltip(emp, d)"
                             (click)="onCellClick(emp, d)"
                             (contextmenu)="toggleHoliday($event, emp, d)"
@@ -502,15 +575,15 @@
                             (pointerleave)="onPressEnd()"
                             (pointercancel)="onPressEnd()"
                           >
-                            @if (isClosedDay(d)) {
-                              <mat-icon class="att-cell__icon">hotel</mat-icon>
-                            } @else if (isHoliday(emp, d)) {
+                            @if (isHoliday(emp, d)) {
                               <mat-icon class="att-cell__icon">star</mat-icon>
                             } @else if (isPresent(emp, d)) {
                               <mat-icon class="att-cell__icon">check</mat-icon>
+                            } @else if (isDayBlocked(d)) {
+                              <mat-icon class="att-cell__icon">hotel</mat-icon>
                             }
                           </button>
-                          @if (shiftTimesEnabled() && canManage() && !isClosedDay(d) && markingUnlocked()) {
+                          @if (shiftTimesEnabled() && canManage() && !isDayBlocked(d) && markingUnlocked()) {
                             <button
                               type="button"
                               class="att-ot-btn"

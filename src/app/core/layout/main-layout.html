@@ -59,7 +59,7 @@
         [class.layout-main-scroll--chrome-off]="showChromeReveal()"
       >
         <main
-          class="layout-content container-fluid guy-page-enter"
+          class="layout-content container-fluid"
           [class.py-4]="!isCashierLayout() && !hideMainToolbar()"
           [class.py-2]="isCashierLayout() || chromeOff()"
           [class.layout-content--cashier]="isCashierLayout()"
@@ -78,7 +78,8 @@
               <mat-progress-bar mode="indeterminate" class="guy-progress route-loading__bar" />
             </div>
           }
-          <div class="route-outlet" [class.route-outlet--dimmed]="routeLoading()">
+          <!-- Sin atenuar el outlet: el dim se sentía como un reload al navegar. -->
+          <div class="route-outlet">
             <router-outlet />
           </div>
         </main>
@@ -115,5 +116,9 @@
         </button>
       </div>
     </div>
+  }
+
+  @if (!isPublicPageViewer()) {
+    <app-salon-floor-monitor />
   }
 </div>

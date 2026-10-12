@@ -178,7 +178,7 @@ function formatIsoShort(iso: string): string {
               <mat-icon>share</mat-icon>
               Compartir
             </button>
-            @if (canManage() && !isQuickDayClosed()) {
+            @if (canManage() && !isQuickDayBlocked()) {
               <button
                 mat-flat-button
                 color="primary"
@@ -193,8 +193,28 @@ function formatIsoShort(iso: string): string {
           </div>
         </div>
         @if (isQuickDayClosed()) {
-          <p class="today-panel__closed">Franco del local. No se marca asistencia ese día.</p>
-        } @else {
+          <div class="today-panel__closed" role="status">
+            <span>
+              @if (allowAttendanceOnClosedDays()) {
+                <strong>Franco del local.</strong> Producción habilitada para marcar.
+              } @else {
+                <strong>Franco del local.</strong> No se marca asistencia ese día.
+              }
+            </span>
+            @if (canManage()) {
+              @if (allowAttendanceOnClosedDays()) {
+                <button mat-stroked-button type="button" (click)="disableClosedDayAttendance()">
+                  Bloquear
+                </button>
+              } @else {
+                <button mat-flat-button color="primary" type="button" (click)="enableClosedDayAttendance()">
+                  Habilitar presentismo
+                </button>
+              }
+            }
+          </div>
+        }
+        @if (!isQuickDayBlocked()) {
           <div class="today-panel__chips">
             @for (emp of employees(); track emp.employeeId) {
               <button
@@ -347,6 +367,19 @@ function formatIsoShort(iso: string): string {
             </div>
             @if (canManage()) {
               <div class="att-board__actions">
+                @if (hasClosedWeekdays()) {
+                  @if (allowAttendanceOnClosedDays()) {
+                    <button mat-stroked-button type="button" (click)="disableClosedDayAttendance()">
+                      <mat-icon>event_busy</mat-icon>
+                      Bloquear francos
+                    </button>
+                  } @else {
+                    <button mat-stroked-button type="button" (click)="enableClosedDayAttendance()">
+                      <mat-icon>event_available</mat-icon>
+                      Habilitar francos
+                    </button>
+                  }
+                }
                 @if (!markingUnlocked()) {
                   <button mat-flat-button color="primary" type="button" (click)="unlockMarking()">
                     <mat-icon>edit</mat-icon>
@@ -365,6 +398,13 @@ function formatIsoShort(iso: string): string {
             <p class="att-board__lock-hint">
               Activá <strong>Editar tablero</strong> para marcar celdas (viene bloqueado). Cada
               guardado pide confirmación.
+              @if (hasClosedWeekdays() && !allowAttendanceOnClosedDays()) {
+                En francos, tocá <strong>Habilitar francos</strong>.
+              }
+            </p>
+          } @else if (canManage() && hasClosedWeekdays() && !allowAttendanceOnClosedDays()) {
+            <p class="att-board__lock-hint">
+              Los francos están bloqueados. Tocá <strong>Habilitar francos</strong> para marcarlos.
             </p>
           }
           <div
@@ -407,9 +447,9 @@ function formatIsoShort(iso: string): string {
                           type="button"
                           class="att-cell"
                           [class.att-cell--present]="hoursOf(emp, d) > 0"
-                          [class.att-cell--closed]="isClosedDay(d)"
+                          [class.att-cell--closed]="isClosedDay(d) && hoursOf(emp, d) <= 0"
                           [class.att-cell--today]="isTodayColumn(d)"
-                          [disabled]="!canManage() || saving() || isClosedDay(d) || !markingUnlocked()"
+                          [disabled]="!canManage() || saving() || isDayBlocked(d) || !markingUnlocked()"
                           [matTooltip]="cellTooltip(emp, d)"
                           (click)="onCellClick(emp, d)"
                           (contextmenu)="editHours($event, emp, d)"
@@ -419,10 +459,10 @@ function formatIsoShort(iso: string): string {
                           (pointerleave)="onPressEnd()"
                           (pointercancel)="onPressEnd()"
                         >
-                          @if (isClosedDay(d)) {
-                            <mat-icon class="att-cell__icon">hotel</mat-icon>
-                          } @else if (hoursOf(emp, d) > 0) {
+                          @if (hoursOf(emp, d) > 0) {
                             <span class="att-cell__hours">{{ formatHours(hoursOf(emp, d)) }}</span>
+                          } @else if (isDayBlocked(d)) {
+                            <mat-icon class="att-cell__icon">hotel</mat-icon>
                           }
                         </button>
                       </td>
@@ -560,9 +600,21 @@ function formatIsoShort(iso: string): string {
         min-height: 40px;
       }
       .today-panel__closed {
-        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem 0.75rem;
+        margin: 0 0 0.65rem;
         font-size: 0.88rem;
         color: var(--guy-muted, #5f6f76);
+      }
+      .today-panel__closed > span {
+        flex: 1 1 12rem;
+        min-width: 0;
+      }
+      .today-panel__closed button {
+        flex: 0 0 auto;
+        margin: 0;
       }
       .today-panel__actions {
         display: flex;
@@ -1042,12 +1094,38 @@ export class ProductionAttendancePage {
     this.quickDayIso.set(this.todayIso());
   }
 
+  /** Permite marcar horas aunque el día sea franco del local. */
+  readonly allowAttendanceOnClosedDays = signal(false);
+
   isQuickDayClosed(): boolean {
     const closed = this.shops.selectedShop()?.closedWeekdays ?? [];
     if (!closed.length) return false;
     const [y, m, d] = this.quickDayIso().split('-').map(Number);
     if (!y || !m || !d) return false;
     return closed.includes(new Date(y, m - 1, d).getDay());
+  }
+
+  isQuickDayBlocked(): boolean {
+    return this.isQuickDayClosed() && !this.allowAttendanceOnClosedDays();
+  }
+
+  isDayBlocked(day: number): boolean {
+    return this.isClosedDay(day) && !this.allowAttendanceOnClosedDays();
+  }
+
+  hasClosedWeekdays(): boolean {
+    return (this.shops.selectedShop()?.closedWeekdays?.length ?? 0) > 0;
+  }
+
+  enableClosedDayAttendance(): void {
+    this.allowAttendanceOnClosedDays.set(true);
+    this.snack.open('Producción habilitada en días de franco (día y tablero)', 'OK', {
+      duration: 2400,
+    });
+  }
+
+  disableClosedDayAttendance(): void {
+    this.allowAttendanceOnClosedDays.set(false);
   }
 
   unlockMarking(): void {
@@ -1227,7 +1305,9 @@ export class ProductionAttendancePage {
   }
 
   cellTooltip(emp: ProdEmployeeRow, day: number): string {
-    if (this.isClosedDay(day)) return 'Franco del local';
+    if (this.isDayBlocked(day)) {
+      return 'Franco del local. Tocá “Habilitar presentismo” arriba para marcar.';
+    }
     if (!this.markingUnlocked()) return 'Activá Editar tablero para marcar celdas';
     const h = this.hoursOf(emp, day);
     if (h > 0) {
@@ -1292,7 +1372,7 @@ export class ProductionAttendancePage {
   }
 
   togglePresentToday(emp: ProdEmployeeRow): void {
-    if (!this.canManage() || this.isQuickDayClosed()) return;
+    if (!this.canManage() || this.isQuickDayBlocked()) return;
     const cur = this.hoursToday(emp);
     this.upsertToday(emp, cur > 0 ? 0 : this.defaultHours());
   }
@@ -1300,14 +1380,14 @@ export class ProductionAttendancePage {
   editHoursToday(event: Event, emp: ProdEmployeeRow): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage() || this.isQuickDayClosed()) return;
+    if (!this.canManage() || this.isQuickDayBlocked()) return;
     const next = this.askHours(this.hoursToday(emp) || this.defaultHours());
     if (next === null) return;
     this.upsertToday(emp, next);
   }
 
   togglePresent(emp: ProdEmployeeRow, day: number): void {
-    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
+    if (!this.canManage() || this.isDayBlocked(day) || !this.markingUnlocked()) return;
     const cur = this.hoursOf(emp, day);
     const next = cur > 0 ? 0 : this.defaultHours();
     const label = next > 0 ? `presente (${this.formatHours(next)} h)` : 'ausente (0 h)';
@@ -1318,7 +1398,7 @@ export class ProductionAttendancePage {
   editHours(event: Event, emp: ProdEmployeeRow, day: number): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
+    if (!this.canManage() || this.isDayBlocked(day) || !this.markingUnlocked()) return;
     const next = this.askHours(this.hoursOf(emp, day) || this.defaultHours());
     if (next === null) return;
     if (
@@ -1352,7 +1432,7 @@ export class ProductionAttendancePage {
 
   markAllPresentToday(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage() || this.isQuickDayClosed()) return;
+    if (!shopId || !this.canManage() || this.isQuickDayBlocked()) return;
     const hours = this.defaultHours();
     const date = this.quickDayIso();
     const items = this.employees().map((e) => ({
@@ -1400,7 +1480,7 @@ export class ProductionAttendancePage {
 
   private upsertToday(emp: ProdEmployeeRow, hours: number): void {
     const shopId = this.shopId();
-    if (!shopId || this.isQuickDayClosed()) return;
+    if (!shopId || this.isQuickDayBlocked()) return;
     const date = this.quickDayIso();
     this.saving.set(true);
     this.http

@@ -143,23 +143,6 @@
   margin-bottom: 0.65rem;
 }
 
-/* Route outlet — transición suave (main-layout) */
-.route-outlet {
-  transition:
-    opacity var(--guy-dur) var(--guy-ease),
-    transform var(--guy-dur) var(--guy-ease);
-}
-
-.route-outlet--dimmed {
-  opacity: 0.42;
-  pointer-events: none;
-  transform: translateY(4px);
-}
-
-.route-loading {
-  animation: guy-slide-down var(--guy-dur) var(--guy-ease) both;
-}
-
 .route-loading__bar {
   height: 3px !important;
 }

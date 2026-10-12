@@ -119,16 +119,17 @@ export interface DataTableColumn {
           </mat-button-toggle-group>
         </div>
 
-      <div class="guy-table-wrap data-table" [class.data-table--dense]="dense()">
-        @if (loading()) {
-          <div class="data-table__skeleton" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando">
-            @for (_ of skeletonRows; track $index) {
-              <div class="data-table__skeleton-row">
-                <div class="guy-skeleton-line guy-skeleton-line--title"></div>
-                <div class="guy-skeleton-line"></div>
-                <div class="guy-skeleton-line guy-skeleton-line--short"></div>
-              </div>
-            }
+      <div
+        class="guy-table-wrap data-table"
+        [class.data-table--dense]="dense()"
+        [class.data-table--refreshing]="loading() && rows().length > 0"
+        [class.data-table--enter]="enterAnim()"
+        [attr.aria-busy]="loading() || null"
+      >
+        @if (loading() && !rows().length) {
+          <!-- Barra fina: el skeleton de cards al reemplazarse por filas provocaba parpadeo. -->
+          <div class="data-table__boot" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando">
+            <div class="data-table__boot-bar" aria-hidden="true"></div>
             <span class="visually-hidden">{{ loadingMessage() }}</span>
           </div>
         } @else if (!pagedRows().length) {
@@ -586,27 +587,54 @@ export interface DataTableColumn {
         min-width: 0;
       }
 
-      .data-table__skeleton {
-        display: grid;
-        gap: 0.55rem;
-        margin: 0.15rem 0 0.85rem;
-        animation: guy-fade-in var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+      .data-table--refreshing {
+        opacity: 0.85;
+        pointer-events: none;
       }
 
-      .data-table__skeleton-row {
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        border: 1px solid var(--guy-border, #d7e0d9);
-        background: var(--guy-card, #fff);
-        box-shadow: 0 4px 12px rgba(0, 51, 102, 0.04);
+      /* Solo opacity al primer pintado de filas. */
+      .data-table--enter {
+        animation: data-table-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
       }
 
-      .data-table__skeleton-row .guy-skeleton-line {
-        margin-bottom: 0.4rem;
+      @keyframes data-table-enter {
+        from {
+          opacity: 0.35;
+        }
+        to {
+          opacity: 1;
+        }
       }
 
-      .data-table__skeleton-row .guy-skeleton-line:last-child {
-        margin-bottom: 0;
+      .data-table__boot {
+        margin: 0.35rem 0 0.5rem;
+        padding: 0.15rem 0 0.85rem;
+      }
+
+      .data-table__boot-bar {
+        height: 3px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: color-mix(in srgb, var(--guy-border, #d7e0d9) 70%, transparent);
+      }
+
+      .data-table__boot-bar::after {
+        content: '';
+        display: block;
+        height: 100%;
+        width: 40%;
+        border-radius: inherit;
+        background: var(--guy-accent, #2e7d32);
+        animation: data-table-boot 0.9s ease-in-out infinite;
+      }
+
+      @keyframes data-table-boot {
+        0% {
+          transform: translateX(-120%);
+        }
+        100% {
+          transform: translateX(320%);
+        }
       }
 
       .visually-hidden {
@@ -632,8 +660,6 @@ export interface DataTableColumn {
         background:
           linear-gradient(135deg, color-mix(in srgb, var(--guy-accent, #2e7d32) 6%, transparent), transparent 60%),
           var(--guy-search-bg, #fafcfb);
-        animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
-          both;
       }
 
       .data-table__view-toggle {
@@ -1085,7 +1111,6 @@ export class DataTableComponent {
   /** Mostrar skeleton en lugar de vacío mientras llegan datos. */
   readonly loading = input(false);
   readonly loadingMessage = input('Obteniendo registros');
-  readonly skeletonRows = [0, 1, 2, 3, 4];
   readonly showActions = input(true);
   /** Compact row padding/typography (e.g. dual base list). */
   readonly dense = input(false);
@@ -1149,6 +1174,9 @@ export class DataTableComponent {
   readonly sortDirection = signal<'asc' | 'desc' | ''>('');
   readonly mobileView = signal<DataTableMobileView>(loadMobileView());
   readonly expandedIds = signal<Set<string>>(new Set());
+  /** Fade corto al primer pintado con filas (sin animar height). */
+  readonly enterAnim = signal(false);
+  private enterPlayed = false;
 
   readonly filteredRows = computed(() => {
     const q = this.normalize(this.search());
@@ -1248,6 +1276,13 @@ export class DataTableComponent {
     effect(() => {
       this.sortActive.set(this.sortActiveInput() || '');
       this.sortDirection.set(this.sortDirectionInput() || '');
+    });
+    effect(() => {
+      const ready = !this.loading() && this.rows().length > 0;
+      if (!ready || this.enterPlayed) return;
+      this.enterPlayed = true;
+      this.enterAnim.set(true);
+      window.setTimeout(() => this.enterAnim.set(false), 240);
     });
   }
 

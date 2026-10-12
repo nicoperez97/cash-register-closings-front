@@ -1,4 +1,4 @@
-import { Component, Inject, effect, inject, signal } from '@angular/core';
+import { Component, Inject, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,7 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { debounceTime, merge } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, merge } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
@@ -359,13 +359,16 @@ export class ComandaReceiptsHistoryPage {
   readonly filtersCollapsed = this.filtersUi.collapsed;
   readonly toggleFilters = () => this.filtersUi.toggleFilters();
 
-  readonly loading = signal(false);
+  readonly loading = signal(true);
   readonly exporting = signal(false);
   readonly rows = signal<ComandaReceiptRow[]>([]);
   readonly waiters = signal<Array<{ id: string; fullName: string }>>([]);
   readonly summary = signal<{ count: number; ticketTotal: number; tipTotal: number } | null>(
     null,
   );
+  private lastLoadKey: string | null = null;
+  private inFlightKey: string | null = null;
+  private acceptFilterLoads = false;
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(this.defaultStart()),
@@ -445,17 +448,36 @@ export class ComandaReceiptsHistoryPage {
   ];
 
   constructor() {
-    usePageRefresh(() => this.load());
+    usePageRefresh(() => this.load({ force: true }));
 
     effect(() => {
       const shopId = this.shops.selectedShopId();
-      this.loadWaiters(shopId);
-      this.load();
+      untracked(() => {
+        this.acceptFilterLoads = false;
+        this.lastLoadKey = null;
+        this.inFlightKey = null;
+        this.loadWaiters(shopId);
+        if (shopId) this.load();
+        else {
+          this.rows.set([]);
+          this.summary.set(null);
+          this.loading.set(false);
+        }
+      });
     });
 
     merge(this.range.valueChanges, this.filters.valueChanges)
-      .pipe(debounceTime(250), takeUntilDestroyed())
-      .subscribe(() => this.load());
+      .pipe(
+        debounceTime(300),
+        map(() => this.currentLoadKey()),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe((key) => {
+        if (!this.acceptFilterLoads || !key) return;
+        if (key === this.lastLoadKey || key === this.inFlightKey) return;
+        this.load();
+      });
   }
 
   money(n: number): string {
@@ -551,7 +573,18 @@ export class ComandaReceiptsHistoryPage {
 
   private loadGen = 0;
 
-  private load(): void {
+  private currentLoadKey(): string | null {
+    const shopId = this.shops.selectedShopId();
+    const from = toIsoDate(this.range.controls.start.value);
+    const to = toIsoDate(this.range.controls.end.value);
+    if (!shopId || !from || !to) return null;
+    const f = this.filters.getRawValue();
+    return [shopId, from, to, f.channel, f.paymentKind, f.waiterEmployeeId, f.hasTip, f.q.trim()].join(
+      '|',
+    );
+  }
+
+  private load(opts?: { force?: boolean }): void {
     const shopId = this.shops.selectedShopId();
     const from = toIsoDate(this.range.controls.start.value);
     const to = toIsoDate(this.range.controls.end.value);
@@ -559,11 +592,19 @@ export class ComandaReceiptsHistoryPage {
       this.rows.set([]);
       this.summary.set(null);
       this.loading.set(false);
+      this.lastLoadKey = null;
+      this.inFlightKey = null;
       return;
     }
     if (!from || !to) return;
+    const key = this.currentLoadKey();
+    if (!key) return;
+    if (!opts?.force) {
+      if (key === this.inFlightKey || key === this.lastLoadKey) return;
+    }
     const gen = ++this.loadGen;
-    this.loading.set(true);
+    this.inFlightKey = key;
+    if (!this.rows().length) this.loading.set(true);
     const f = this.filters.getRawValue();
     this.api
       .staffReceipts(shopId, {
@@ -584,16 +625,28 @@ export class ComandaReceiptsHistoryPage {
             ticketTotal: payload.ticketTotal ?? 0,
             tipTotal: payload.tipTotal ?? 0,
           });
+          this.lastLoadKey = key;
+          this.inFlightKey = null;
           this.loading.set(false);
+          this.armFilterLoads();
         },
         error: (err) => {
           if (gen !== this.loadGen) return;
+          this.inFlightKey = null;
           this.loading.set(false);
+          this.armFilterLoads();
           const msg = apiErrorMessage(err, 'No se pudo cargar el historial');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
             duration: 3500,
           });
         },
       });
+  }
+
+  private armFilterLoads(): void {
+    window.setTimeout(() => {
+      this.lastLoadKey = this.currentLoadKey() ?? this.lastLoadKey;
+      this.acceptFilterLoads = true;
+    }, 400);
   }
 }

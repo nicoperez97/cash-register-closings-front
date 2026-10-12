@@ -10,7 +10,7 @@
   <div class="panel-card co-shell">
     <div class="co-top">
       <div class="co-top__title">
-        <a class="co-top__back" routerLink="/">←</a>
+        <a class="co-top__back" [routerLink]="backLink().route" [attr.aria-label]="'Volver a ' + backLink().label">←</a>
         <div>
           <h1>Pedidos clientes</h1>
           <p>{{ shops.selectedShop()?.name || '' }}</p>

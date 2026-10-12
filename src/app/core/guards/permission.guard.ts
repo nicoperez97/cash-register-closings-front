@@ -12,9 +12,13 @@ import { SettlementsInboxService } from '../../features/settlements/settlements-
 /** Permisos que un super admin puede usar sin local seleccionado. */
 const GLOBAL_ADMIN_WITHOUT_SHOP: Permission[] = ['shops.manage'];
 
-function deniedTree(router: Router): UrlTree {
-  const from = router.url?.split('?')[0] || '';
-  return router.createUrlTree(['/forbidden'], from ? { queryParams: { from } } : {});
+function deniedTree(): UrlTree {
+  const router = inject(Router);
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  return router.createUrlTree([
+    defaultHomeRoute(auth.currentUser(), shops.selectedShopId()),
+  ]);
 }
 
 export const permissionGuard = (permission: Permission): CanActivateFn => {
@@ -40,7 +44,7 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
     }
 
     if (!hasShopPermission(user, shopId, permission)) {
-      return deniedTree(router);
+      return deniedTree();
     }
     return true;
   };
@@ -63,7 +67,7 @@ export const anyPermissionGuard = (...permissions: Permission[]): CanActivateFn 
     if (permissions.some((p) => hasShopPermission(user, shopId, p))) {
       return true;
     }
-    return deniedTree(router);
+    return deniedTree();
   };
 };
 
@@ -84,7 +88,7 @@ export const closingsListGuard: CanActivateFn = () => {
     return router.createUrlTree(['/closings/new']);
   }
   if (!canViewClosingsList(user, shopId)) {
-    return deniedTree(router);
+    return deniedTree();
   }
   return true;
 };
@@ -98,7 +102,7 @@ export const superAdminGuard: CanActivateFn = () => {
     return router.createUrlTree(['/login']);
   }
   if (!auth.isSuperAdmin()) {
-    return deniedTree(router);
+    return deniedTree();
   }
   return true;
 };
@@ -113,7 +117,7 @@ export const shopUsersGuard: CanActivateFn = () => {
   }
   const shopId = shops.selectedShopId();
   if (!canManageShopUsers(auth.currentUser(), shopId)) {
-    return deniedTree(router);
+    return deniedTree();
   }
   // Admin de local necesita local; super admin puede entrar sin local (alcance "todos").
   if (!shopId && !auth.isAdmin()) {
@@ -148,7 +152,7 @@ export const shopFeatureGuard = (
                 ? !!shop?.waiterOrderingEnabled
                 : !!shop?.tipsEnabled;
     if (!shopId || !enabled) {
-      return deniedTree(router);
+      return deniedTree();
     }
     return true;
   };
@@ -181,7 +185,7 @@ export const shopConfigSectionGuard = (
       return router.createUrlTree([defaultHomeRoute(user, null)]);
     }
     if (!canSeeShopConfigSection(user, shopId, section)) {
-      return deniedTree(router);
+      return deniedTree();
     }
     return true;
   };
@@ -201,7 +205,7 @@ export const publicPagesLinksGuard: CanActivateFn = () => {
     return router.createUrlTree([defaultHomeRoute(user, null)]);
   }
   if (!isShopAdministrator(user, shopId)) {
-    return deniedTree(router);
+    return deniedTree();
   }
   return true;
 };
@@ -220,7 +224,7 @@ export const anyPublicPageGuard: CanActivateFn = () => {
     return router.createUrlTree([defaultHomeRoute(user, null)]);
   }
   if (!canAccessAnyPublicPage(user, shopId)) {
-    return deniedTree(router);
+    return deniedTree();
   }
   return true;
 };
@@ -240,7 +244,7 @@ export const publicPageViewerGuard: CanActivateFn = (route) => {
   }
   const pageId = String(route.paramMap.get('pageId') ?? '').trim();
   if (!canAccessPublicPage(user, shopId, pageId)) {
-    return deniedTree(router);
+    return deniedTree();
   }
   return true;
 };

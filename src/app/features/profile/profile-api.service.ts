@@ -33,6 +33,7 @@ export interface ShopProfilePreferences {
   mutedNotificationTypes: string[];
   mutedAppNotificationTypes?: string[];
   mutedEmailNotificationTypes?: string[];
+  salonFloorMonitorEnabled?: boolean;
   eligibleNotifications: EligibleNotification[];
   usingShopMenuDefault: boolean;
   usingShopToolbarDefault?: boolean;
@@ -75,6 +76,7 @@ export class ProfileApiService {
       mutedNotificationTypes?: string[] | null;
       mutedAppNotificationTypes?: string[] | null;
       mutedEmailNotificationTypes?: string[] | null;
+      salonFloorMonitorEnabled?: boolean;
     },
   ) {
     return this.http.patch<ShopProfilePreferences>(
