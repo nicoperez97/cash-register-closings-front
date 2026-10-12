@@ -234,6 +234,7 @@
 }
 
 .layout-content {
+  position: relative;
   padding-top: 1rem !important;
   padding-bottom: 1.5rem !important;
   max-width: 100%;
@@ -412,11 +413,19 @@
 }
 
 .route-loading {
-  margin-bottom: 0.35rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  pointer-events: none;
+  margin: 0;
+  animation: guy-fade-in 160ms ease both;
 }
 
 .route-loading__bar {
-  margin: -0.35rem 0 0.5rem;
-  border-radius: 999px;
+  margin: 0;
+  border-radius: 0;
   overflow: hidden;
+  height: 2px !important;
 }

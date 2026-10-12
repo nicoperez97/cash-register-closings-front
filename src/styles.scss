@@ -1278,38 +1278,37 @@ button.mat-mdc-mini-fab mat-icon {
 }
 
 .guy-filters__body {
-  max-height: 80rem;
+  display: grid;
+  grid-template-rows: 1fr;
   opacity: 1;
-  transform: translateY(0);
-  transform-origin: top center;
-  /* visible: las labels outline de Material sobresalen del campo */
-  overflow: visible;
-  padding-top: 0.35rem;
   transition:
-    max-height 0.36s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    opacity 0.24s ease,
-    transform 0.3s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    padding-top 0.3s ease;
+    grid-template-rows 0.3s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+    opacity 0.22s ease;
+}
+
+.guy-filters__body > * {
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0.35rem;
+}
+
+.guy-filters:not(.guy-filters--collapsed) .guy-filters__body > * {
+  /* Labels outline de Material sobresalen del campo */
+  overflow: visible;
 }
 
 .guy-filters--collapsed .guy-filters__body {
-  overflow: hidden;
-  max-height: 0;
+  grid-template-rows: 0fr;
   opacity: 0;
-  transform: translateY(-0.35rem);
-  padding-top: 0;
   pointer-events: none;
+}
+
+.guy-filters--collapsed .guy-filters__body > * {
+  padding-top: 0;
 }
 
 .guy-filters--collapsed .guy-filters__head {
   margin-bottom: 0;
-}
-
-@media (min-width: 960px) {
-  .guy-filters:not(.guy-filters--collapsed) .guy-filters__body {
-    max-height: none;
-    padding-top: 0.25rem;
-  }
 }
 
 .guy-filters__grid {
@@ -1869,17 +1868,32 @@ button.mat-mdc-mini-fab mat-icon {
 @keyframes guy-list-move {
   from {
     opacity: 0.55;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
-.guy-enter,
-.guy-page-enter > *:not(router-outlet) {
+.guy-enter {
   animation: guy-fade-in var(--guy-dur-slow) var(--guy-ease) both;
+}
+
+/* Entrada de ruta: solo opacity (sin translateY/height → no “estirón”). */
+@keyframes guy-route-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.route-outlet > *:not(router-outlet) {
+  animation: guy-route-in 300ms var(--guy-ease) both;
+}
+
+.guy-page-enter > *:not(router-outlet) {
+  animation: none;
 }
 
 .guy-enter-fast {
@@ -1940,27 +1954,26 @@ button.mat-mdc-mini-fab mat-icon {
   animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
 }
 
-.guy-stagger > *,
-.data-table__mobile > *,
+/* KPIs: fade corto. Las filas del data-table no animan al montar (evita doble entrada tras el skeleton). */
 app-kpi-strip .col-6,
 app-kpi-strip [class*='col-'] {
-  animation: guy-fade-up var(--guy-dur-slow) var(--guy-ease) both;
+  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
+}
+
+.guy-stagger > * {
+  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
 }
 
 @for $i from 1 through 14 {
   .guy-stagger > *:nth-child(#{$i}),
-  .data-table__mobile > *:nth-child(#{$i}),
   app-kpi-strip .col-6:nth-child(#{$i}),
   app-kpi-strip [class*='col-']:nth-child(#{$i}) {
     animation-delay: #{($i - 1) * 45}ms;
   }
 }
 
-.guy-filters,
-.guy-entity-card,
-.guy-empty,
-.panel-card:not(.guy-filters):not(.offline-banner) {
-  animation: guy-fade-up var(--guy-dur-slow) var(--guy-ease) both;
+.guy-entity-card {
+  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
 }
 
 .offline-banner.guy-enter-down {
@@ -2101,7 +2114,9 @@ button.mat-mdc-icon-button:not(:disabled):active {
   .shortage-list > *,
   .shop-hub__grid > *,
   .mat-mdc-dialog-container .mdc-dialog__surface,
-  .mat-mdc-tab-body.mat-mdc-tab-body-active .mat-mdc-tab-body-content {
+  .mat-mdc-tab-body.mat-mdc-tab-body-active .mat-mdc-tab-body-content,
+  .route-outlet > *:not(router-outlet),
+  .data-table--enter {
     animation: none !important;
   }
 

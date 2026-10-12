@@ -348,17 +348,18 @@ tbody td.att-table__day--today {
 :host ::ng-deep .today-panel__shift .mat-mdc-form-field-subscript-wrapper {
   display: none;
 }
-.today-panel__day-input {
-  border: 0;
-  border-radius: 8px;
-  padding: 0.25rem 0.35rem;
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 650;
-  color: var(--guy-navy, #003366);
-  background: transparent;
-  min-height: 34px;
-  min-width: 8.6rem;
+.today-panel__day-field {
+  width: 10.5rem;
+  min-width: 0;
+  margin: 0;
+}
+:host ::ng-deep .today-panel__day-field .mat-mdc-form-field-infix {
+  min-height: 40px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+:host ::ng-deep .today-panel__day-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
 }
 .today-panel__actions {
   display: flex;
@@ -369,11 +370,12 @@ tbody td.att-table__day--today {
 }
 .today-panel__closed {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
+  gap: 0.55rem 0.75rem;
   width: 100%;
-  margin: 0;
+  margin: 0 0 0.75rem;
   padding: 0.85rem 1rem;
   border-radius: 10px;
   border: 1px solid var(--guy-border, #e6ebf0);
@@ -388,6 +390,14 @@ tbody td.att-table__day--today {
 }
 .today-panel__closed strong {
   font-weight: 750;
+}
+.today-panel__closed > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.today-panel__closed button {
+  flex: 0 0 auto;
+  margin: 0;
 }
 .today-panel__chips {
   display: flex;
@@ -521,7 +531,6 @@ tbody td.att-table__day--today {
 .ot-report {
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
 }
 .ot-report__head {
   display: flex;
@@ -539,30 +548,12 @@ tbody td.att-table__day--today {
   margin-bottom: 0.75rem;
 }
 .ot-report__field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.28rem;
-  min-width: 0;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--guy-muted, #5f6f76);
-}
-.ot-report__field input[type='date'] {
   width: 100%;
   min-width: 0;
-  max-width: none;
-  min-height: 42px;
-  box-sizing: border-box;
-  border: 1px solid var(--guy-border, #d7e0d9);
-  border-radius: 10px;
-  padding: 0.35rem 0.55rem;
-  font: inherit;
-  font-size: 0.95rem;
-  font-weight: 650;
-  color: var(--guy-navy, #003366);
-  background: #fff;
+  margin: 0;
+}
+:host ::ng-deep .ot-report__field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
 }
 .ot-report__checks {
   grid-column: 1 / -1;
@@ -679,7 +670,7 @@ tbody td.att-table__day--today {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .today-panel__day-input {
+  .today-panel__day-field {
     flex: 1 1 auto;
     min-width: 0;
     width: auto;

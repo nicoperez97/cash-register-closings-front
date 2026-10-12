@@ -19,7 +19,7 @@ import { userAvatarSrc } from '../../core/utils/drive-url';
 import { ShopNavEditorComponent } from '../admin/shop-nav-editor';
 import { ShopToolbarEditorComponent } from '../admin/shop-toolbar-editor';
 import { AuthService } from '../../core/auth/auth.service';
-import { canCustomizeLayout } from '../../core/auth/auth.models';
+import { canCustomizeLayout, hasShopPermission } from '../../core/auth/auth.models';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import type { ShopNavConfig } from '../../core/layout/nav-config';
 import type { ShopToolbarConfig } from '../../core/layout/toolbar-config';
@@ -312,6 +312,23 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
               </li>
             }
           </ul>
+        }
+        @if (canUseSalonFloorMonitor()) {
+          <div class="salon-monitor">
+            <div class="salon-monitor__copy">
+              <strong>Monitor de salón</strong>
+              <span>
+                Chip flotante de reservas y lista de espera en toda la app (también en comanda),
+                con sonido al llegar una nueva.
+              </span>
+            </div>
+            <mat-slide-toggle
+              [checked]="!!prefs()?.salonFloorMonitorEnabled"
+              [disabled]="busy() || !prefs()"
+              aria-label="Monitor de salón"
+              (change)="setSalonFloorMonitor($event.checked)"
+            />
+          </div>
         }
       </section>
       }
@@ -750,6 +767,32 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
       opacity: 0.45;
       cursor: default;
     }
+    .salon-monitor {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.85rem;
+      margin: 1rem 0 0;
+      padding: 0.85rem 0.9rem;
+      border: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 90%, transparent);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--guy-navy, #003366) 3.5%, #fff);
+    }
+    .salon-monitor__copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+    }
+    .salon-monitor__copy strong {
+      font-size: 0.95rem;
+      color: var(--guy-navy, #003366);
+    }
+    .salon-monitor__copy span {
+      font-size: 0.82rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.35;
+    }
     .notif-list__item {
       display: flex;
       align-items: center;
@@ -966,6 +1009,17 @@ export class ProfilePage {
   });
 
   readonly eligible = computed(() => this.prefs()?.eligibleNotifications ?? []);
+  readonly canUseSalonFloorMonitor = computed(() => {
+    const shopId = this.shopId();
+    const shop = this.shops.selectedShop();
+    const user = this.auth.currentUser();
+    if (!shopId || !shop || !user) return false;
+    const reservations =
+      !!shop.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read');
+    const waiting =
+      !!shop.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read');
+    return reservations || waiting;
+  });
   readonly usingShopMenu = computed(() => {
     const p = this.prefs();
     if (!p) return true;
@@ -1066,12 +1120,38 @@ export class ProfilePage {
       myNavConfig: p.navConfig ?? null,
       myToolbarConfig: p.toolbarConfig ?? null,
       mutedNotificationTypes: p.mutedNotificationTypes ?? [],
+      salonFloorMonitorEnabled: !!p.salonFloorMonitorEnabled,
     };
     this.shops.upsertShop(next);
     const user = this.auth.currentUser();
     if (!user?.shops?.length) return;
     this.auth.patchCurrentUser({
       shops: user.shops.map((s) => (s.id === next.id ? { ...s, ...next } : s)),
+    });
+  }
+
+  setSalonFloorMonitor(enabled: boolean): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.prefs()) return;
+    this.busy.set(true);
+    this.api.updatePreferences(shopId, { salonFloorMonitorEnabled: enabled }).subscribe({
+      next: (p) => {
+        this.prefs.set(p);
+        this.syncShopFromPrefs(p);
+        this.busy.set(false);
+        this.auth.scheduleRefreshMe(0);
+        this.snack.open(
+          enabled
+            ? 'Monitor de salón activado · chip y sonido en toda la app'
+            : 'Monitor de salón apagado',
+          'OK',
+          { duration: 2600 },
+        );
+      },
+      error: () => {
+        this.busy.set(false);
+        this.snack.open('No se pudo actualizar el monitor', 'OK', { duration: 3500 });
+      },
     });
   }
 

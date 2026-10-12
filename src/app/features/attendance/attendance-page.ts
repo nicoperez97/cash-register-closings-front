@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -136,6 +137,7 @@ const MONTH_LABELS = [
     MatTooltipModule,
     MatButtonModule,
     MatCheckboxModule,
+    MatDatepickerModule,
     MatDialogModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -271,6 +273,44 @@ export class AttendancePage {
     this.quickDayIso.set(next);
   }
 
+  dateFromIso(iso: string): Date {
+    const [y, m, d] = String(iso || '').split('-').map(Number);
+    return new Date(y || 1970, (m || 1) - 1, d || 1, 12, 0, 0);
+  }
+
+  onQuickDayDate(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    this.onQuickDayChange(this.toIsoDate(value));
+  }
+
+  onOtFromDate(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    const iso = this.toIsoDate(value);
+    this.otFrom.set(iso);
+    if (iso > this.otTo()) this.otTo.set(iso);
+  }
+
+  onOtToDate(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    const iso = this.toIsoDate(value);
+    this.otTo.set(iso);
+    if (iso < this.otFrom()) this.otFrom.set(iso);
+  }
+
+  onExcelFromDate(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    const iso = this.toIsoDate(value);
+    this.excelFrom.set(iso);
+    if (iso > this.excelTo()) this.excelTo.set(iso);
+  }
+
+  onExcelToDate(value: Date | null): void {
+    if (!value || Number.isNaN(value.getTime())) return;
+    const iso = this.toIsoDate(value);
+    this.excelTo.set(iso);
+    if (iso < this.excelFrom()) this.excelFrom.set(iso);
+  }
+
   shiftQuickDay(delta: number): void {
     const [y, m, d] = this.quickDayIso().split('-').map(Number);
     const dt = new Date(y, m - 1, d);
@@ -282,12 +322,39 @@ export class AttendancePage {
     this.quickDayIso.set(this.todayIso());
   }
 
+  /** Permite marcar presentismo aunque el día sea franco del local. */
+  readonly allowAttendanceOnClosedDays = signal(false);
+
   isQuickDayClosed(): boolean {
     const closed = this.shops.selectedShop()?.closedWeekdays ?? [];
     if (!closed.length) return false;
     const [y, m, d] = this.quickDayIso().split('-').map(Number);
     if (!y || !m || !d) return false;
     return closed.includes(new Date(y, m - 1, d).getDay());
+  }
+
+  /** Franco y aún no se habilitó marcar ese día. */
+  isQuickDayBlocked(): boolean {
+    return this.isQuickDayClosed() && !this.allowAttendanceOnClosedDays();
+  }
+
+  isDayBlocked(day: number): boolean {
+    return this.isClosedDay(day) && !this.allowAttendanceOnClosedDays();
+  }
+
+  hasClosedWeekdays(): boolean {
+    return (this.shops.selectedShop()?.closedWeekdays?.length ?? 0) > 0;
+  }
+
+  enableClosedDayAttendance(): void {
+    this.allowAttendanceOnClosedDays.set(true);
+    this.snack.open('Presentismo habilitado en días de franco (día y tablero)', 'OK', {
+      duration: 2400,
+    });
+  }
+
+  disableClosedDayAttendance(): void {
+    this.allowAttendanceOnClosedDays.set(false);
   }
 
   async shareToday(): Promise<void> {
@@ -613,7 +680,7 @@ export class AttendancePage {
   }
 
   togglePresentToday(emp: AttendanceEmployeeRow): void {
-    if (!this.canManage() || this.isQuickDayClosed()) return;
+    if (!this.canManage() || this.isQuickDayBlocked()) return;
     if (this.consumeLongPressClick()) return;
     const cur = this.todayMarks()[emp.employeeId] ?? emptyCell();
     const nextPresent = !cur.isPresent;
@@ -627,14 +694,14 @@ export class AttendancePage {
   toggleHolidayToday(event: Event, emp: AttendanceEmployeeRow): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage() || this.isQuickDayClosed()) return;
+    if (!this.canManage() || this.isQuickDayBlocked()) return;
     const cur = this.todayMarks()[emp.employeeId] ?? emptyCell();
     this.upsertToday(emp, { isHoliday: !cur.isHoliday });
   }
 
   markAllPresentToday(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage() || this.isQuickDayClosed()) return;
+    if (!shopId || !this.canManage() || this.isQuickDayBlocked()) return;
     const fixed = this.employees().filter((e) => e.type !== 'ROTATING');
     const holiday = this.isTodayHolidayDay();
     const date = this.quickDayIso();
@@ -665,6 +732,7 @@ export class AttendancePage {
           }
           this.todayMarks.set(next);
           void this.loadTodayMarks();
+          this.syncBoardFromQuickDay(date);
           const skipped = this.employees().length - fixed.length;
           this.snack.open(
             skipped
@@ -686,7 +754,7 @@ export class AttendancePage {
 
   markAllHolidayToday(): void {
     const shopId = this.shopId();
-    if (!shopId || !this.canManage() || this.isQuickDayClosed()) return;
+    if (!shopId || !this.canManage() || this.isQuickDayBlocked()) return;
     const emps = this.employees();
     if (!emps.length) return;
     const allHoliday = emps.every((e) => this.isHolidayToday(e));
@@ -714,6 +782,7 @@ export class AttendancePage {
           }
           this.todayMarks.set(next);
           void this.loadTodayMarks();
+          this.syncBoardFromQuickDay(date);
           this.snack.open(
             nextHoliday ? 'Todos marcados feriado' : 'Feriado quitado a todos',
             'OK',
@@ -729,7 +798,7 @@ export class AttendancePage {
   }
 
   onDayHeaderClick(day: number): void {
-    if (!this.canManage() || !this.markingUnlocked() || this.isClosedDay(day) || this.saving()) {
+    if (!this.canManage() || !this.markingUnlocked() || this.isDayBlocked(day) || this.saving()) {
       return;
     }
     this.markHolidayForDay(day);
@@ -859,7 +928,7 @@ export class AttendancePage {
     patch: AttendancePatch,
   ): void {
     const shopId = this.shopId();
-    if (!shopId || this.isQuickDayClosed()) return;
+    if (!shopId || this.isQuickDayBlocked()) return;
     const date = this.quickDayIso();
     this.saving.set(true);
     this.http
@@ -1081,7 +1150,7 @@ export class AttendancePage {
   }
 
   onShiftTodayChange(emp: AttendanceEmployeeRow, checkInAt: string, checkOutAt: string): void {
-    if (!this.canManage() || this.isQuickDayClosed() || !this.isPresentToday(emp) || !this.shiftTimesEnabled()) return;
+    if (!this.canManage() || this.isQuickDayBlocked() || !this.isPresentToday(emp) || !this.shiftTimesEnabled()) return;
     this.todayMarks.update((m) => ({
       ...m,
       [emp.employeeId]: {
@@ -1229,7 +1298,7 @@ export class AttendancePage {
   openOvertimeEditor(event: Event, emp: AttendanceEmployeeRow, day: number): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!this.canManage() || this.isClosedDay(day) || this.saving() || !this.shiftTimesEnabled()) return;
+    if (!this.canManage() || this.isDayBlocked(day) || this.saving() || !this.shiftTimesEnabled()) return;
     const cell = this.cellFor(emp, day);
     const defaults = this.empShiftDefaults(emp);
     this.dialogTitle
@@ -1276,10 +1345,13 @@ export class AttendancePage {
   }
 
   cellTooltip(emp: AttendanceEmployeeRow, day: number): string {
-    if (this.isClosedDay(day)) return 'Franco del local';
+    if (this.isDayBlocked(day)) {
+      return 'Franco del local. Tocá “Habilitar presentismo” arriba para marcar.';
+    }
     if (!this.markingUnlocked()) return 'Activá Editar tablero para marcar celdas';
     const cell = this.cellFor(emp, day);
     const parts = [cell.isPresent ? 'Presente' : 'Ausente'];
+    if (this.isClosedDay(day)) parts.push('Franco');
     if (cell.isHoliday) parts.push('Feriado');
     if (cell.checkInAt || cell.checkOutAt) {
       parts.push(`${cell.checkInAt ?? '—'}–${cell.checkOutAt ?? '—'}`);
@@ -1332,7 +1404,7 @@ export class AttendancePage {
   }
 
   togglePresent(emp: AttendanceEmployeeRow, day: number): void {
-    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
+    if (!this.canManage() || this.isDayBlocked(day) || !this.markingUnlocked()) return;
     const cell = this.cellFor(emp, day);
     const nextPresent = !cell.isPresent;
     const patch: { isPresent: boolean; isHoliday?: boolean } = { isPresent: nextPresent };
@@ -1353,7 +1425,7 @@ export class AttendancePage {
   toggleHoliday(event: Event, emp: AttendanceEmployeeRow, day: number): void {
     event.preventDefault();
     this.clearPressTimer();
-    if (!this.canManage() || this.isClosedDay(day) || !this.markingUnlocked()) return;
+    if (!this.canManage() || this.isDayBlocked(day) || !this.markingUnlocked()) return;
     const cell = this.cellFor(emp, day);
     const next = !cell.isHoliday;
     if (

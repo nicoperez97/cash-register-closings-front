@@ -56,6 +56,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { DemoModeService } from '../demo/demo-mode.service';
 import { DemoTourService } from '../demo/demo-tour.service';
+import { SalonFloorMonitorComponent } from '../../features/reservations/salon-floor-monitor';
 
 const SIDENAV_EXPANDED_KEY = 'crc.sidenav.expanded';
 
@@ -104,6 +105,7 @@ function saveSidenavExpanded(expanded: boolean): void {
     PullToRefreshComponent,
     MainPwaInstallBannerComponent,
     MatButtonModule,
+    SalonFloorMonitorComponent,
   ],
   templateUrl: './main-layout.html',
   styleUrl: './main-layout.scss',
@@ -719,36 +721,37 @@ export class MainLayoutComponent {
         }
         return;
       }
+      if (path === '/forbidden') {
+        void this.router.navigateByUrl(home);
+        return;
+      }
       if (isCashierOnly(user, shopId)) {
         const allowed =
           path.startsWith('/closings/new') ||
           path === '/profile' ||
-          path === '/forbidden' ||
           (path.startsWith('/tips') &&
             hasShopPermission(user, shopId, 'tips.read') &&
             this.shopFeature('tips'));
         if (!allowed) {
-          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+          void this.router.navigateByUrl(home);
         }
         return;
       }
       if (isCustomerOrdersOnly(user, shopId)) {
         const allowed =
           path.startsWith('/customer-orders') ||
-          path === '/profile' ||
-          path === '/forbidden';
+          path === '/profile';
         if (!allowed) {
-          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+          void this.router.navigateByUrl(home);
         }
         return;
       }
       if (isComandaOnly(user, shopId)) {
         const allowed =
           path.startsWith('/comanda') ||
-          path === '/profile' ||
-          path === '/forbidden';
+          path === '/profile';
         if (!allowed) {
-          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+          void this.router.navigateByUrl(home);
         }
         return;
       }
@@ -756,7 +759,6 @@ export class MainLayoutComponent {
         const allowed =
           path === '/my-production' ||
           path.startsWith('/g/') ||
-          path === '/forbidden' ||
           (path.startsWith('/reimbursements') &&
             hasShopPermission(user, shopId, 'reimbursements.self')) ||
           (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
@@ -766,7 +768,7 @@ export class MainLayoutComponent {
             hasShopPermission(user, shopId, 'shortages.read')) ||
           (path.startsWith('/orders') && hasShopPermission(user, shopId, 'orders.read'));
         if (!allowed) {
-          void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+          void this.router.navigateByUrl(home);
         }
         return;
       }
@@ -777,9 +779,9 @@ export class MainLayoutComponent {
           return;
         }
       }
-      if (path === '/inicio' || path === '/' || path === '' || path === '/forbidden') return;
+      if (path === '/inicio' || path === '/' || path === '') return;
       if (!this.isPathAllowed(path, user, shopId)) {
-        void this.router.navigate(['/forbidden'], { queryParams: { from: path } });
+        void this.router.navigateByUrl(home);
       }
     });
 
@@ -798,7 +800,8 @@ export class MainLayoutComponent {
     this.router.events.subscribe((e) => {
       if (e instanceof NavigationStart) {
         if (this.routeLoadingTimer) clearTimeout(this.routeLoadingTimer);
-        this.routeLoadingTimer = setTimeout(() => this.routeLoading.set(true), 120);
+        // Feedback solo si el lazy load tarda; la barra es overlay (no empuja el layout).
+        this.routeLoadingTimer = setTimeout(() => this.routeLoading.set(true), 220);
         return;
       }
       if (

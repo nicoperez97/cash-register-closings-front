@@ -19,12 +19,9 @@ import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { ReservationsApiService } from './reservations-api.service';
 import { isActiveReservationStatus } from './reservation-status';
-import {
-  bindReservationAlertSoundUnlock,
-  playReservationPendingSound,
-} from './reservation-alert-sound';
-
-/** Comensales del día y solicitudes pendientes para badge de menú «Reservas». */
+/** Comensales del día y solicitudes pendientes para badge de menú «Reservas».
+ *  El sonido de nuevas solicitudes lo maneja SalonFloorMonitorService (preferencia del usuario).
+ */
 @Injectable({ providedIn: 'root' })
 export class ReservationsInboxService {
   private readonly api = inject(ReservationsApiService);
@@ -39,11 +36,8 @@ export class ReservationsInboxService {
   readonly menuBadge = computed(() => this.pendingRequests() || this.todayGuests());
 
   private lastShopId: string | null = null;
-  private lastPending: number | null = null;
-  private lastChimeAt = 0;
 
   constructor() {
-    bindReservationAlertSoundUnlock();
     combineLatest([
       toObservable(this.shops.selectedShopId),
       toObservable(this.shops.selectedShop),
@@ -66,7 +60,6 @@ export class ReservationsInboxService {
         switchMap(({ shopId, enabled, allowed, timezone }) => {
           if (!shopId || !enabled || !allowed) {
             this.lastShopId = shopId;
-            this.lastPending = null;
             this.todayGuests.set(0);
             this.pendingRequests.set(0);
             return EMPTY;
@@ -98,7 +91,6 @@ export class ReservationsInboxService {
       !shop?.reservationsEnabled ||
       !hasShopPermission(user, shopId, 'reservations.read')
     ) {
-      this.lastPending = null;
       this.todayGuests.set(0);
       this.pendingRequests.set(0);
       return;
@@ -110,19 +102,9 @@ export class ReservationsInboxService {
     const shopId = this.shops.selectedShopId();
     if (shopId !== this.lastShopId) {
       this.lastShopId = shopId;
-      this.lastPending = null;
     }
-    const pending = inbox.pending;
-    if (this.lastPending != null && pending > this.lastPending) {
-      const now = Date.now();
-      if (now - this.lastChimeAt > 2500) {
-        this.lastChimeAt = now;
-        playReservationPendingSound();
-      }
-    }
-    this.lastPending = pending;
     this.todayGuests.set(inbox.guests);
-    this.pendingRequests.set(pending);
+    this.pendingRequests.set(inbox.pending);
   }
 
   private fetchInbox(shopId: string, timezone?: string | null) {

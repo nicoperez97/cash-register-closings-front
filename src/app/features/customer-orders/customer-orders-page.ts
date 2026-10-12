@@ -1,15 +1,22 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { debounceTime, filter, of, switchMap } from 'rxjs';
+import { debounceTime, filter, map, of, switchMap } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission, canManageOrderingCatalog, canManageShop } from '../../core/auth/auth.models';
+import {
+  defaultHomeRoute,
+  hasShopPermission,
+  canManageOrderingCatalog,
+  canManageShop,
+} from '../../core/auth/auth.models';
+import { NavMenuService } from '../../core/layout/nav-menu.service';
+import { navBackTarget } from '../../core/layout/nav-config';
 import {
   hasAnyOrderingConfigSection,
 } from '../../shared/ordering-config-visibility';
@@ -90,7 +97,27 @@ export class CustomerOrdersPage {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly closingsApi = inject(ClosingsApiService);
+  private readonly navMenu = inject(NavMenuService);
   readonly shops = inject(ShopContextService);
+
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  /** No usar `/`: es la landing pública y parpadea antes de ir a /inicio. */
+  readonly backLink = computed(() => {
+    const home = defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
+    return (
+      navBackTarget(this.currentUrl(), this.navMenu.items(), home) ?? {
+        route: home || '/inicio',
+        label: 'Inicio',
+      }
+    );
+  });
 
   readonly pendingGenerateClosing = signal(false);
   readonly view = signal<ViewMode>('board');

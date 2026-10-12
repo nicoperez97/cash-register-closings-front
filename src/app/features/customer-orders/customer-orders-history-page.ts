@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,7 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { debounceTime, merge } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, merge } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
@@ -196,9 +196,14 @@ export class CustomerOrdersHistoryPage {
   readonly filtersCollapsed = this.filtersUi.collapsed;
   readonly toggleFilters = () => this.filtersUi.toggleFilters();
 
-  readonly loading = signal(false);
+  /** true desde el inicio para no flash vacío → skeleton → datos */
+  readonly loading = signal(true);
   readonly exporting = signal(false);
   readonly rows = signal<StaffCustomerOrder[]>([]);
+  private lastLoadKey: string | null = null;
+  private inFlightKey: string | null = null;
+  /** Ignora valueChanges del datepicker hasta terminar el primer fetch. */
+  private acceptFilterLoads = false;
 
   readonly range = new FormGroup({
     start: new FormControl<Date | null>(this.defaultStart()),
@@ -286,16 +291,35 @@ export class CustomerOrdersHistoryPage {
   );
 
   constructor() {
-    usePageRefresh(() => this.load());
+    usePageRefresh(() => this.load({ force: true }));
 
     effect(() => {
-      this.shops.selectedShopId();
-      this.load();
+      const shopId = this.shops.selectedShopId();
+      untracked(() => {
+        this.acceptFilterLoads = false;
+        this.lastLoadKey = null;
+        this.inFlightKey = null;
+        if (shopId) this.load();
+        else {
+          this.rows.set([]);
+          this.loading.set(false);
+        }
+      });
     });
 
+    // Tras el primer paint del datepicker (reemite fechas) no queremos otro fetch.
     merge(this.range.valueChanges, this.filters.valueChanges)
-      .pipe(debounceTime(250), takeUntilDestroyed())
-      .subscribe(() => this.load());
+      .pipe(
+        debounceTime(300),
+        map(() => this.currentLoadKey()),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe((key) => {
+        if (!this.acceptFilterLoads || !key) return;
+        if (key === this.lastLoadKey || key === this.inFlightKey) return;
+        this.load();
+      });
   }
 
   clearFilters(): void {
@@ -386,18 +410,38 @@ export class CustomerOrdersHistoryPage {
 
   private loadGen = 0;
 
-  private load(): void {
+  private currentLoadKey(): string | null {
+    const shopId = this.shops.selectedShopId();
+    const from = toIsoDate(this.range.controls.start.value);
+    const to = toIsoDate(this.range.controls.end.value);
+    if (!shopId || !from || !to) return null;
+    const f = this.filters.getRawValue();
+    return [shopId, from, to, f.status, f.fulfillment, f.paymentMethod, f.accredited, f.q.trim()].join(
+      '|',
+    );
+  }
+
+  private load(opts?: { force?: boolean }): void {
     const shopId = this.shops.selectedShopId();
     const from = toIsoDate(this.range.controls.start.value);
     const to = toIsoDate(this.range.controls.end.value);
     if (!shopId) {
       this.rows.set([]);
       this.loading.set(false);
+      this.lastLoadKey = null;
+      this.inFlightKey = null;
       return;
     }
     if (!from || !to) return;
+    const key = this.currentLoadKey();
+    if (!key) return;
+    if (!opts?.force) {
+      if (key === this.inFlightKey || key === this.lastLoadKey) return;
+    }
     const gen = ++this.loadGen;
-    this.loading.set(true);
+    this.inFlightKey = key;
+    // Skeleton solo la primera vez; si ya hay filas, refresh silencioso (sin “reload”).
+    if (!this.rows().length) this.loading.set(true);
     const f = this.filters.getRawValue();
     this.api
       .listStaff(shopId, {
@@ -413,16 +457,29 @@ export class CustomerOrdersHistoryPage {
         next: (rows) => {
           if (gen !== this.loadGen) return;
           this.rows.set(rows);
+          this.lastLoadKey = key;
+          this.inFlightKey = null;
           this.loading.set(false);
+          this.armFilterLoads();
         },
         error: (err) => {
           if (gen !== this.loadGen) return;
+          this.inFlightKey = null;
           this.loading.set(false);
+          this.armFilterLoads();
           const msg = apiErrorMessage(err, 'No se pudo cargar el historial');
           this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
             duration: 3500,
           });
         },
       });
+  }
+
+  /** Espera a que el datepicker termine de reemitir fechas y alinea la key sin otro fetch. */
+  private armFilterLoads(): void {
+    window.setTimeout(() => {
+      this.lastLoadKey = this.currentLoadKey() ?? this.lastLoadKey;
+      this.acceptFilterLoads = true;
+    }, 400);
   }
 }

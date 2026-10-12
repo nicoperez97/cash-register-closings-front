@@ -1632,6 +1632,8 @@ export interface ShopSummary {
   /** Override de accesos rápidos del usuario; null = usar toolbarConfig del local. */
   myToolbarConfig?: ShopSummary['toolbarConfig'];
   mutedNotificationTypes?: string[];
+  /** Chip flotante reservas + lista de espera con sonido (preferencia del usuario en el local). */
+  salonFloorMonitorEnabled?: boolean;
   isStockAdmin?: boolean;
   isBeverageStockAdmin?: boolean;
   isShortageAdmin?: boolean;

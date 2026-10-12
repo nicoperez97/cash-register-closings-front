@@ -5,7 +5,15 @@ import { filter } from 'rxjs';
 type ImmersiveKey = 'comanda' | 'customer-orders';
 
 const ROUTES: Array<{ key: ImmersiveKey; test: (path: string) => boolean }> = [
-  { key: 'comanda', test: (p) => p === '/comanda' || p.startsWith('/comanda/') },
+  {
+    key: 'comanda',
+    // Tablero inmersivo; historial y monitor usan chrome normal (como pedidos).
+    test: (p) =>
+      p === '/comanda' ||
+      (p.startsWith('/comanda/') &&
+        !p.startsWith('/comanda/historial') &&
+        !p.startsWith('/comanda/monitor')),
+  },
   {
     key: 'customer-orders',
     // Tablero de operación inmersivo; historial y monitor usan chrome normal.

@@ -23,8 +23,6 @@
   max-width: 100%;
   box-sizing: border-box;
   min-width: 0;
-  animation: guy-fade-up var(--guy-dur-slow, 380ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1))
-    both;
   transition:
     box-shadow var(--guy-dur) var(--guy-ease),
     border-color var(--guy-dur) ease;

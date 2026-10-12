@@ -156,7 +156,7 @@ export const routes: Routes = [
         path: 'forbidden',
         loadComponent: () =>
           import('./features/auth/access-denied-page').then((m) => m.AccessDeniedPageComponent),
-        title: 'Sin acceso',
+        title: 'Inicio',
       },
       {
         path: 'profile',
