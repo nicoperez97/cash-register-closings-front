@@ -53,6 +53,7 @@ import {
   normalizeReportsProductsVisibility,
 } from '../../shared/reports-products-visibility';
 import { AdminUserRow } from './admin-user-dialog';
+import type { ShopProfilePreferences } from '../profile/profile-api.service';
 
 import { apiErrorMessage } from '../../core/http/api-error-message';
 function isAdminRole(role?: string): boolean {
@@ -341,6 +342,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <mat-slide-toggle formControlName="isShortageAdmin">Admin faltantes</mat-slide-toggle>
           <mat-slide-toggle formControlName="isReservationAdmin">Admin reservas</mat-slide-toggle>
           <mat-slide-toggle formControlName="isCustomerOrdersAdmin">Admin pedidos online</mat-slide-toggle>
+          <mat-slide-toggle formControlName="salonFloorMonitorEnabled">
+            Monitor de salón
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin-top: -0.35rem; margin-bottom: 0.65rem">
+            Chip flotante de reservas y lista de espera (con sonido) en toda la app.
+          </p>
 
           @if (canAssignSuperAdmin) {
             <mat-slide-toggle formControlName="canEditExpenses">Puede editar/borrar gastos</mat-slide-toggle>
@@ -792,6 +799,7 @@ export class AdminUserPermissionsPage implements OnInit {
     isShortageAdmin: false,
     isReservationAdmin: false,
     isCustomerOrdersAdmin: false,
+    salonFloorMonitorEnabled: false,
     requireClosingFiles: false,
     canEditExpenses: false,
     canEditPayments: false,
@@ -885,12 +893,31 @@ export class AdminUserPermissionsPage implements OnInit {
         next: (rows) => {
           const found = rows.find((r) => r.id === userId) ?? null;
           this.user.set(found);
-          if (found) this.hydrate(found);
+          if (found) {
+            this.hydrate(found);
+            this.loadSalonFloorMonitor(found.id, shopId);
+          }
           this.loading.set(false);
         },
         error: () => {
           this.loading.set(false);
           this.snack.open('No se pudo cargar el usuario', 'OK', { duration: 3000 });
+        },
+      });
+  }
+
+  private loadSalonFloorMonitor(userId: string, shopId: string): void {
+    this.http
+      .get<ShopProfilePreferences>(
+        `${environment.apiUrl}/users/${userId}/notification-preferences`,
+        { params: { shopId } },
+      )
+      .subscribe({
+        next: (p) => {
+          this.form.controls.salonFloorMonitorEnabled.setValue(!!p.salonFloorMonitorEnabled);
+        },
+        error: () => {
+          /* se deja en false */
         },
       });
   }
@@ -1089,9 +1116,28 @@ export class AdminUserPermissionsPage implements OnInit {
       })
       .subscribe({
         next: () => {
-          this.busy.set(false);
-          this.snack.open('Permisos guardados', 'OK', { duration: 2500 });
-          void this.router.navigate(['/admin/users']);
+          this.http
+            .patch(
+              `${environment.apiUrl}/users/${u.id}/notification-preferences`,
+              { salonFloorMonitorEnabled: !!raw.salonFloorMonitorEnabled },
+              { params: { shopId } },
+            )
+            .subscribe({
+              next: () => {
+                this.busy.set(false);
+                this.snack.open('Permisos guardados', 'OK', { duration: 2500 });
+                void this.router.navigate(['/admin/users']);
+              },
+              error: () => {
+                this.busy.set(false);
+                this.snack.open(
+                  'Permisos guardados, pero no se pudo actualizar Monitor de salón',
+                  'OK',
+                  { duration: 4000 },
+                );
+                void this.router.navigate(['/admin/users']);
+              },
+            });
         },
         error: (err) => {
           this.busy.set(false);

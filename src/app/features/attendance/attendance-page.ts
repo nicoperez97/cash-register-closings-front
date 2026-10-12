@@ -532,11 +532,26 @@ export class AttendancePage {
     return `${window.location.origin}/p/${encodeURIComponent(shop.slug)}`;
   }
 
+  publicCheckInUrl(): string {
+    const shop = this.shops.selectedShop();
+    if (!shop?.publicAttendanceCheckInEnabled || !shop.slug) return '';
+    return `${window.location.origin}/fichar/${encodeURIComponent(shop.slug)}`;
+  }
+
   async copyPublicAttendanceUrl(): Promise<void> {
     const url = this.publicAttendanceUrl();
     if (!url) return;
     const ok = await copyText(url);
     this.snack.open(ok ? 'Link de presentismo copiado' : 'No se pudo copiar la URL', 'OK', {
+      duration: 2500,
+    });
+  }
+
+  async copyPublicCheckInUrl(): Promise<void> {
+    const url = this.publicCheckInUrl();
+    if (!url) return;
+    const ok = await copyText(url);
+    this.snack.open(ok ? 'Link de fichar copiado' : 'No se pudo copiar la URL', 'OK', {
       duration: 2500,
     });
   }

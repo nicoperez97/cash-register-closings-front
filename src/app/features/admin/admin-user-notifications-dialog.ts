@@ -42,90 +42,108 @@ export type AdminUserNotificationsDialogData = {
 
       @if (loading()) {
         <p class="aun__muted">Cargando…</p>
-      } @else if (!eligible().length) {
-        <p class="aun__muted">No tiene notificaciones habilitadas en este local.</p>
       } @else {
-        <div class="aun__bulk" role="group" aria-label="Cambiar todos los canales">
-          <div class="aun__bulk-group">
-            <span class="aun__bulk-label">App</span>
-            <button
-              type="button"
-              class="aun__bulk-btn"
-              [disabled]="busy() || allChannelOn('app')"
-              (click)="setAllChannel('app', false)"
-            >
-              Activar todas
-            </button>
-            <button
-              type="button"
-              class="aun__bulk-btn aun__bulk-btn--mute"
-              [disabled]="busy() || allChannelOff('app')"
-              (click)="setAllChannel('app', true)"
-            >
-              Apagar todas
-            </button>
+        <div class="aun__salon">
+          <div class="aun__salon-copy">
+            <strong>Monitor de salón</strong>
+            <span>
+              Chip flotante de reservas y lista de espera en toda la app (también en comanda),
+              con sonido al llegar una nueva.
+            </span>
           </div>
-          <div class="aun__bulk-group">
-            <span class="aun__bulk-label">Mail</span>
-            <button
-              type="button"
-              class="aun__bulk-btn"
-              [disabled]="busy() || allChannelOn('email')"
-              (click)="setAllChannel('email', false)"
-            >
-              Activar todas
-            </button>
-            <button
-              type="button"
-              class="aun__bulk-btn aun__bulk-btn--mute"
-              [disabled]="busy() || allChannelOff('email')"
-              (click)="setAllChannel('email', true)"
-            >
-              Apagar todas
-            </button>
-          </div>
+          <mat-slide-toggle
+            [checked]="!!prefs()?.salonFloorMonitorEnabled"
+            [disabled]="busy() || !prefs()"
+            aria-label="Monitor de salón"
+            (change)="setSalonFloorMonitor($event.checked)"
+          />
         </div>
 
-        <ul class="aun__list">
-          @for (n of eligible(); track n.type; let i = $index) {
-            <li
-              class="aun__item"
-              [class.aun__item--muted]="channelMuted(n, 'app') && channelMuted(n, 'email')"
-              [style.--ni]="i"
-            >
-              <div class="aun__label">
-                <span>{{ n.label }}</span>
-                @if (channelMuted(n, 'app') && channelMuted(n, 'email')) {
-                  <span class="aun__badge">Silenciada</span>
-                } @else if (channelMuted(n, 'app')) {
-                  <span class="aun__badge">Sin app</span>
-                } @else if (channelMuted(n, 'email')) {
-                  <span class="aun__badge">Sin mail</span>
-                }
-              </div>
-              <div class="aun__channels">
-                <label class="aun__channel">
-                  <mat-slide-toggle
-                    [checked]="!channelMuted(n, 'app')"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'App: ' + n.label"
-                    (change)="toggleChannel(n, 'app', !$event.checked)"
-                  />
-                  App
-                </label>
-                <label class="aun__channel">
-                  <mat-slide-toggle
-                    [checked]="!channelMuted(n, 'email')"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'Mail: ' + n.label"
-                    (change)="toggleChannel(n, 'email', !$event.checked)"
-                  />
-                  Mail
-                </label>
-              </div>
-            </li>
-          }
-        </ul>
+        @if (!eligible().length) {
+          <p class="aun__muted">No tiene notificaciones habilitadas en este local.</p>
+        } @else {
+          <div class="aun__bulk" role="group" aria-label="Cambiar todos los canales">
+            <div class="aun__bulk-group">
+              <span class="aun__bulk-label">App</span>
+              <button
+                type="button"
+                class="aun__bulk-btn"
+                [disabled]="busy() || allChannelOn('app')"
+                (click)="setAllChannel('app', false)"
+              >
+                Activar todas
+              </button>
+              <button
+                type="button"
+                class="aun__bulk-btn aun__bulk-btn--mute"
+                [disabled]="busy() || allChannelOff('app')"
+                (click)="setAllChannel('app', true)"
+              >
+                Apagar todas
+              </button>
+            </div>
+            <div class="aun__bulk-group">
+              <span class="aun__bulk-label">Mail</span>
+              <button
+                type="button"
+                class="aun__bulk-btn"
+                [disabled]="busy() || allChannelOn('email')"
+                (click)="setAllChannel('email', false)"
+              >
+                Activar todas
+              </button>
+              <button
+                type="button"
+                class="aun__bulk-btn aun__bulk-btn--mute"
+                [disabled]="busy() || allChannelOff('email')"
+                (click)="setAllChannel('email', true)"
+              >
+                Apagar todas
+              </button>
+            </div>
+          </div>
+
+          <ul class="aun__list">
+            @for (n of eligible(); track n.type; let i = $index) {
+              <li
+                class="aun__item"
+                [class.aun__item--muted]="channelMuted(n, 'app') && channelMuted(n, 'email')"
+                [style.--ni]="i"
+              >
+                <div class="aun__label">
+                  <span>{{ n.label }}</span>
+                  @if (channelMuted(n, 'app') && channelMuted(n, 'email')) {
+                    <span class="aun__badge">Silenciada</span>
+                  } @else if (channelMuted(n, 'app')) {
+                    <span class="aun__badge">Sin app</span>
+                  } @else if (channelMuted(n, 'email')) {
+                    <span class="aun__badge">Sin mail</span>
+                  }
+                </div>
+                <div class="aun__channels">
+                  <label class="aun__channel">
+                    <mat-slide-toggle
+                      [checked]="!channelMuted(n, 'app')"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'App: ' + n.label"
+                      (change)="toggleChannel(n, 'app', !$event.checked)"
+                    />
+                    App
+                  </label>
+                  <label class="aun__channel">
+                    <mat-slide-toggle
+                      [checked]="!channelMuted(n, 'email')"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'Mail: ' + n.label"
+                      (change)="toggleChannel(n, 'email', !$event.checked)"
+                    />
+                    Mail
+                  </label>
+                </div>
+              </li>
+            }
+          </ul>
+        }
       }
     </mat-dialog-content>
 
@@ -274,6 +292,36 @@ export type AdminUserNotificationsDialogData = {
       border-radius: 999px;
       background: color-mix(in srgb, var(--guy-border, #e5e5e5) 55%, transparent);
     }
+
+    .aun__salon {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.85rem;
+      margin: 0 0 1rem;
+      padding: 0.85rem 0.9rem;
+      border: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 90%, transparent);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--guy-navy, #003366) 3.5%, #fff);
+    }
+
+    .aun__salon-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+    }
+
+    .aun__salon-copy strong {
+      font-size: 0.95rem;
+      color: var(--guy-navy, #003366);
+    }
+
+    .aun__salon-copy span {
+      font-size: 0.82rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.35;
+    }
   `,
 })
 export class AdminUserNotificationsDialogComponent implements OnInit {
@@ -387,5 +435,33 @@ export class AdminUserNotificationsDialogComponent implements OnInit {
       if (emailMuted) email.push(row.type);
     }
     this.saveChannelMutes(app, email);
+  }
+
+  setSalonFloorMonitor(enabled: boolean): void {
+    if (!this.prefs()) return;
+    this.busy.set(true);
+    this.http
+      .patch<ShopProfilePreferences>(
+        this.url(),
+        { salonFloorMonitorEnabled: enabled },
+        { params: { shopId: this.data.shopId } },
+      )
+      .subscribe({
+        next: (p) => {
+          this.prefs.set(p);
+          this.busy.set(false);
+          this.snack.open(
+            enabled
+              ? 'Monitor de salón activado para este usuario'
+              : 'Monitor de salón apagado para este usuario',
+            'OK',
+            { duration: 2600 },
+          );
+        },
+        error: () => {
+          this.busy.set(false);
+          this.snack.open('No se pudo actualizar el monitor', 'OK', { duration: 3500 });
+        },
+      });
   }
 }

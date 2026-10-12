@@ -73,6 +73,8 @@ export interface Employee {
   hasWaiterPin?: boolean;
   /** Últimos dígitos del PIN (admin). */
   waiterPinPrefix?: string | null;
+  /** PIN actual si el backend lo tiene guardado en claro. */
+  waiterPinCurrent?: string | null;
   active: boolean;
 }
 

@@ -160,7 +160,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Notificaciones',
         icon: 'notifications',
         tone: 'do',
-        body: 'Entrá por el menú de usuario → Notificaciones. Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos. Arriba de la lista podés Activar todas o Apagar todas por canal (App o Mail), sin ir una por una. Si tocás un aviso (en la campana o en el celular), abre ese local y el módulo. Cuando se puede, también abre el dato: el pago, el gasto, el cierre, el faltante o la reserva.',
+        body: 'Entrá por el menú de usuario → Notificaciones. Ahí también está Monitor de salón (chip flotante con sonido). Solo aparecen avisos que el local te habilitó. En cada uno podés silenciar la app, el mail o ambos. Arriba de la lista podés Activar todas o Apagar todas por canal (App o Mail), sin ir una por una. Si tocás un aviso (en la campana o en el celular), abre ese local y el módulo. Cuando se puede, también abre el dato: el pago, el gasto, el cierre, el faltante o la reserva.',
         items: [
           'Activar todas / Apagar todas para App o Mail de una.',
           'Abrí la campana: el número rojo se apaga; los no leídos quedan en Nuevas con punto azul y hora en azul.',
@@ -1499,6 +1499,21 @@ export const HELP_TOPICS: HelpTopic[] = [
         tip: 'Si el local apagó “Presentismo con entrada y salida”, solo se marca presente / ausente / feriado: no hay entrada, salida ni extra.',
       },
       {
+        title: 'Fichar',
+        icon: 'pin',
+        tone: 'do',
+        anyOf: ['attendance.read'],
+        body: 'Con “Fichar” activo en Operación, el personal marca presente en /fichar con su código de empleado. Solo ve un “Listo” breve: no hay historial ni lista de nombres. Usa los colores del local.',
+        items: [
+          'El código es el mismo PIN de la ficha del empleado (también sirve para /mozo).',
+          'Después del código elegís el turno: por defecto el vigente según la hora; si ya fichaste uno, solo ves los pendientes.',
+          'Si el local usa presentismo con horarios, también pedí ingreso y salida (defaults del turno/empleado) y Guardar.',
+          'Si no quedan turnos pendientes, dice “Ya registrado” y vuelve a la pantalla del código.',
+          'El tablero /p es aparte: muestra el mes. Si no querés documento público, dejalo apagado y usá solo /fichar.',
+        ],
+        tip: 'Copiá el link o el QR desde Presentismo o desde Enlaces y copiar.',
+      },
+      {
         title: 'Marcar el día',
         icon: 'check_circle',
         tone: 'do',
@@ -1581,7 +1596,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Si trabaja en un turno, podés cargar entrada y retirada de servicio para ese turno.',
           '“Cuenta para presentismo”: si está apagado, no suma el bonus semanal en liquidación.',
           'Si marcás Productor: alias/CBU, supervisor y productores a cargo; usuario vinculado para la app.',
-          'Código mozo (PIN 4–6 dígitos) para la comanda pública /mozo. Solo se muestran los últimos dígitos al guardar.',
+          'Código de empleado (PIN 4–6 dígitos) para fichar (/fichar) y comanda (/mozo). Al editar se muestra el código actual; si es viejo y no aparece, guardá uno nuevo.',
         ],
         tip: 'Para aumentos o cambios de sueldo, andá a Sueldos → pestaña Sueldos.',
       },
@@ -1879,7 +1894,8 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Comanda de mesas es un módulo aparte (preset Comanda). No se habilita con Pedidos clientes. Un local puede tener los dos: mesas y take away/delivery.',
           'Páginas públicas: Off / Ver por cada URL. Enlaces y copiar (listado) solo lo ven administradores del local.',
           'Solo un super admin puede marcar “Puede editar y borrar gastos” y “Puede editar y borrar pagos”.',
-          'Notificaciones: solo aparecen los avisos que el local le habilitó; podés apagar App, Mail o ambos.',
+          'Monitor de salón: en Permisos (junto a Admin reservas / pedidos), en Editar usuario, o en la campana Notificaciones.',
+          'Notificaciones (campana): avisos App/Mail del local y Monitor de salón.',
         ],
         tip: 'Tocá la foto o el nombre en la columna Foto para verla en grande.',
       },
@@ -1993,7 +2009,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   {
     id: 'admin-public-pages',
     title: 'Páginas públicas',
-    summary: 'Links públicos del local: carta, pedir, reservas, mozo, presentismo…',
+    summary: 'Links públicos del local: carta, pedir, reservas, mozo, presentismo, fichar…',
     blocks: [
       {
         title: 'Qué ves',

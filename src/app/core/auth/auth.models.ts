@@ -1123,7 +1123,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Presentismo público',
     icon: 'event_available',
     group: 'public',
-    hint: 'Ver /p dentro del admin',
+    hint: 'Ver /p y /fichar dentro del admin',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
@@ -1460,6 +1460,7 @@ export interface ShopSummary {
   settlementsEnabled?: boolean;
   /** Pantalla pública de presentismo para el personal. */
   publicAttendanceEnabled?: boolean;
+  publicAttendanceCheckInEnabled?: boolean;
   /** Página pública de normas pre/post servicio. */
   publicServiceRulesEnabled?: boolean;
   /** @deprecated Legacy; la entrada/retirada sale del turno o del empleado. */

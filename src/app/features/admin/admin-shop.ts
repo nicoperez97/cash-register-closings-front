@@ -323,6 +323,7 @@ export class AdminShopPage implements OnInit {
     waitingListEnabled: [true],
     tipsEnabled: [false],
     publicAttendanceEnabled: [false],
+    publicAttendanceCheckInEnabled: [false],
     publicServiceRulesEnabled: [false],
     menuEnabled: [false],
     onlineOrderingEnabled: [false],
@@ -962,6 +963,7 @@ export class AdminShopPage implements OnInit {
     waitingListEnabled?: boolean;
     tipsEnabled?: boolean;
     publicAttendanceEnabled?: boolean;
+    publicAttendanceCheckInEnabled?: boolean;
     publicServiceRulesEnabled?: boolean;
     serviceAttendanceWithHours?: boolean;
     holidayPayMultiplier?: number | null;
@@ -1061,6 +1063,7 @@ export class AdminShopPage implements OnInit {
       waitingListEnabled: !!s.waitingListEnabled,
       tipsEnabled: !!s.tipsEnabled,
       publicAttendanceEnabled: !!s.publicAttendanceEnabled,
+      publicAttendanceCheckInEnabled: !!s.publicAttendanceCheckInEnabled,
       publicServiceRulesEnabled: !!s.publicServiceRulesEnabled,
       serviceAttendanceWithHours: s.serviceAttendanceWithHours !== false,
       holidayPayMultiplier: Number(s.holidayPayMultiplier ?? 1) || 1,
@@ -2204,6 +2207,7 @@ export class AdminShopPage implements OnInit {
       waitingListEnabled: raw.waitingListEnabled,
       tipsEnabled: raw.tipsEnabled,
       publicAttendanceEnabled: raw.publicAttendanceEnabled,
+      publicAttendanceCheckInEnabled: raw.publicAttendanceCheckInEnabled,
       publicServiceRulesEnabled: raw.publicServiceRulesEnabled,
       menuEnabled: raw.menuEnabled,
       onlineOrderingEnabled: raw.onlineOrderingEnabled,

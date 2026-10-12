@@ -76,6 +76,14 @@ export const PUBLIC_PAGE_ACCESS = [
     hint: 'Ver /p en el admin',
   },
   {
+    pageId: 'attendanceCheckIn',
+    moduleKey: 'publicAttendance',
+    permission: 'publicAttendance.read',
+    label: 'Fichar',
+    icon: 'pin',
+    hint: 'Ver /fichar en el admin',
+  },
+  {
     pageId: 'serviceRules',
     moduleKey: 'publicNormas',
     permission: 'publicNormas.read',

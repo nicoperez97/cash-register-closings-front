@@ -124,6 +124,15 @@ export function buildPublicPages(shop: ShopSummary | null | undefined): PublicPa
       shop.publicAttendanceEnabled ? 'Activa' : 'Presentismo público apagado',
     ),
     row(
+      'attendanceCheckIn',
+      'Fichar',
+      'Registra presente con código, sin historial',
+      `/fichar/${slug}`,
+      'pin',
+      !!shop.publicAttendanceCheckInEnabled,
+      shop.publicAttendanceCheckInEnabled ? 'Activa' : 'Fichaje apagado',
+    ),
+    row(
       'serviceRules',
       'Normas de servicio',
       'Página pública de normas pre/post servicio',

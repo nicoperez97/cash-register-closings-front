@@ -251,6 +251,9 @@ export class AdminQrPage {
     if (shop.publicAttendanceEnabled) {
       items.push({ label: 'Presentismo', url: `${origin}/p/${slug}`, icon: 'event_available' });
     }
+    if (shop.publicAttendanceCheckInEnabled) {
+      items.push({ label: 'Fichar', url: `${origin}/fichar/${slug}`, icon: 'pin' });
+    }
     if (shop.publicServiceRulesEnabled) {
       items.push({ label: 'Normas de servicio', url: `${origin}/n/${slug}`, icon: 'menu_book' });
     }
