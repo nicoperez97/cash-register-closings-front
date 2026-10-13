@@ -29,6 +29,7 @@ import {
   orderingMoney,
 } from '../customer-orders/ordering-ui.util';
 import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
+import { KioskPinLoginComponent } from '../../shared/components/kiosk-pin-login';
 import {
   WaiterApiService,
   WaiterCatalog,
@@ -82,15 +83,19 @@ type CatalogItem = {
 
 type View = 'login' | 'tables' | 'session';
 
-const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as const;
-
 function tokenKey(slug: string) {
   return `waiter_token_${slug}`;
 }
 
 @Component({
   selector: 'app-waiter-page',
-  imports: [FormsModule, MatFormFieldModule, MatSelectModule, PublicPageInstallBannerComponent],
+  imports: [
+    FormsModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    PublicPageInstallBannerComponent,
+    KioskPinLoginComponent,
+  ],
   templateUrl: './waiter-page.html',
   styleUrl: './waiter-page.scss',
   host: {
@@ -136,15 +141,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly shopName = signal('');
   readonly logoUrl = signal<string | null>(null);
   readonly accent = signal(this.theme.accent());
-  readonly padKeys = PAD_KEYS;
-  readonly pinDots = computed(() => {
-    const len = this.pin().length;
-    return Array.from({ length: 4 }, (_, i) => i < len);
-  });
-  readonly brandInitial = computed(() => {
-    const name = this.shopName().trim();
-    return name ? name.charAt(0).toUpperCase() : 'C';
-  });
   readonly tables = signal<WaiterTable[]>([]);
   readonly counterSessions = signal<WaiterCounterSession[]>([]);
   readonly mapObjects = signal<WaiterMapObject[]>([]);
@@ -671,10 +667,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         }
       },
     });
-  }
-
-  canSubmitPin(): boolean {
-    return /^\d{4}$/.test(this.pin().trim());
   }
 
   onPadKey(key: string): void {
