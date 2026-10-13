@@ -24,57 +24,20 @@
         <p class="err anim-in">{{ err }}</p>
       }
     } @else {
-      <div class="kiosk anim-in">
-        <header class="kiosk__hero">
-          @if (logoUrl(); as logo) {
-            <img class="kiosk__logo" [src]="logo" [alt]="shopName()" />
-          } @else {
-            <div class="kiosk__mark" aria-hidden="true">{{ brandInitial() }}</div>
-          }
-          <p class="kiosk__eyebrow">Comanda mozos</p>
-          <h1 class="kiosk__brand">{{ shopName() || slug() || 'Local' }}</h1>
-          <p class="kiosk__lead">Ingresá tu código</p>
-        </header>
-
-        @if (error(); as err) {
-          <p class="kiosk__err" role="alert">{{ err }}</p>
-        }
-
-        <section class="kiosk__sheet" aria-label="Código">
-          <div class="kiosk__dots" aria-hidden="true">
-            @for (filled of pinDots(); track $index) {
-              <span class="kiosk__dot" [class.kiosk__dot--on]="filled"></span>
-            }
-          </div>
-          <div class="kiosk__pad">
-            @for (key of padKeys; track $index) {
-              @if (key === '') {
-                <span class="kiosk__pad-spacer"></span>
-              } @else {
-                <button
-                  type="button"
-                  class="kiosk__pad-key"
-                  [class.kiosk__pad-key--action]="key === '⌫'"
-                  (click)="onPadKey(key)"
-                  [disabled]="busy()"
-                >
-                  {{ key }}
-                </button>
-              }
-            }
-          </div>
-          <button
-            type="button"
-            class="kiosk__btn"
-            [style.background]="accent()"
-            [style.color]="onAccent()"
-            (click)="login()"
-            [disabled]="busy() || !canSubmitPin()"
-          >
-            {{ busy() ? 'Entrando…' : 'Continuar' }}
-          </button>
-        </section>
-      </div>
+      <app-kiosk-pin-login
+        class="anim-in"
+        eyebrow="Comanda mozos"
+        [brand]="shopName() || slug() || 'Local'"
+        lead="Ingresá tu código"
+        [logoUrl]="logoUrl()"
+        [accent]="accent()"
+        [onAccent]="onAccent()"
+        [pin]="pin()"
+        [busy]="busy()"
+        [error]="error()"
+        (padKey)="onPadKey($event)"
+        (submit)="login()"
+      />
     }
   } @else if (view() === 'tables') {
     <header class="bar anim-in">
