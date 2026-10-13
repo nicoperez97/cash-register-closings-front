@@ -365,9 +365,9 @@ function toDateString(value: Date | null): string | null {
               matInput
               formControlName="waiterPin"
               inputmode="numeric"
-              maxlength="6"
+              maxlength="4"
               autocomplete="off"
-              [placeholder]="waiterPinCurrent || (hasWaiterPin ? '••••' + (waiterPinPrefix ?? '') : '4 a 6 dígitos')"
+              [placeholder]="waiterPinCurrent || (hasWaiterPin ? '••••' : '4 dígitos')"
             />
             <mat-hint>
               @if (waiterPinCurrent) {
@@ -377,7 +377,8 @@ function toDateString(value: Date | null): string | null {
                 Ya tiene PIN (termina en {{ waiterPinPrefix }}), pero el código completo no
                 se guardó. Escribí uno nuevo para poder verlo después.
               } @else {
-                Para fichar (/fichar) y comanda (/mozo). Vacío = sin PIN.
+                4 dígitos. Para fichar (/fichar) y comanda (/mozo). Único por local. Vacío =
+                sin PIN.
               }
             </mat-hint>
           </mat-form-field>
@@ -717,7 +718,7 @@ export class EmployeeDialogComponent implements OnInit {
     hireDate: this.fb.control<Date | null>(toDateInput(this.employee?.hireDate)),
     notes: [this.employee?.notes ?? ''],
     bankAlias: [this.employee?.bankAlias ?? ''],
-    waiterPin: [''],
+    waiterPin: ['', [Validators.pattern(/^\d{0,4}$/)]],
     clearWaiterPin: [false],
     active: [asBool(this.employee?.active, true)],
   });
@@ -905,7 +906,14 @@ export class EmployeeDialogComponent implements OnInit {
     if (raw.clearWaiterPin) {
       body.waiterPin = null;
     } else if (String(raw.waiterPin ?? '').trim()) {
-      body.waiterPin = String(raw.waiterPin).trim();
+      const pin = String(raw.waiterPin).trim();
+      if (!/^\d{4}$/.test(pin)) {
+        this.snack.open('El código de empleado debe tener 4 dígitos', 'OK', {
+          duration: 3000,
+        });
+        return;
+      }
+      body.waiterPin = pin;
     }
     if (!this.isEdit) {
       body.baseSalary = raw.baseSalary;
