@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -31,6 +31,10 @@ import {
   USER_VISIBILITY_OPTIONS,
   normalizeUserVisibility,
 } from '../../shared/user-visibility';
+import {
+  USER_ADMIN_FLAG_OPTIONS,
+  USER_EDIT_FLAG_OPTIONS,
+} from '../../shared/user-admin-flags';
 import {
   ORDERING_CONFIG_LEVELS,
   ORDERING_CONFIG_VISIBILITY_OPTIONS,
@@ -326,38 +330,99 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <div class="divider"></div>
           <div class="section" formGroupName="visibility">
             <p class="section__title">Se muestra en</p>
-            <p class="section__hint">Marcado = visible en este local.</p>
-            <div class="visibility-list">
+            <p class="section__hint">Activado = aparece en ese lugar de este local.</p>
+            <div class="flag-list">
               @for (opt of visibilityOptions; track opt.key) {
-                <div class="visibility-row">
-                  <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
-                  <p class="visibility-row__hint">{{ opt.hint }}</p>
+                <div
+                  class="flag-card"
+                  [class.flag-card--on]="!!form.controls.visibility.controls[opt.key].value"
+                  (click)="toggleBoolControl(form.controls.visibility.controls[opt.key])"
+                >
+                  <span class="flag-card__icon" aria-hidden="true">
+                    <mat-icon>{{ opt.icon }}</mat-icon>
+                  </span>
+                  <span class="flag-card__copy">
+                    <strong>{{ opt.label }}</strong>
+                    <span>{{ opt.hint }}</span>
+                  </span>
+                  <mat-slide-toggle
+                    [formControlName]="opt.key"
+                    (click)="$event.stopPropagation()"
+                  />
                 </div>
               }
             </div>
           </div>
 
-          <mat-slide-toggle formControlName="isStockAdmin">Admin stock alimentos</mat-slide-toggle>
-          <mat-slide-toggle formControlName="isBeverageStockAdmin">Admin stock bebidas</mat-slide-toggle>
-          <mat-slide-toggle formControlName="isShortageAdmin">Admin faltantes</mat-slide-toggle>
-          <mat-slide-toggle formControlName="isReservationAdmin">Admin reservas</mat-slide-toggle>
-          <mat-slide-toggle formControlName="isCustomerOrdersAdmin">Admin pedidos online</mat-slide-toggle>
-          <mat-slide-toggle formControlName="isAttendanceCheckInAdmin">
-            Admin fichaje
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin-top: -0.35rem; margin-bottom: 0.65rem">
-            Notificación cuando un empleado marca presente en /fichar.
-          </p>
-          <mat-slide-toggle formControlName="salonFloorMonitorEnabled">
-            Monitor de salón
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin-top: -0.35rem; margin-bottom: 0.65rem">
-            Chip flotante de reservas y lista de espera (con sonido) en toda la app.
-          </p>
+          <div class="section">
+            <p class="section__title">Avisos de administrador</p>
+            <p class="section__hint">Campana, push y mail cuando pasa algo en ese módulo.</p>
+            <div class="flag-list">
+              @for (opt of adminFlagOptions; track opt.key) {
+                <div
+                  class="flag-card"
+                  [class.flag-card--on]="!!form.get(opt.key)?.value"
+                  (click)="toggleBoolControl(form.get(opt.key))"
+                >
+                  <span class="flag-card__icon" aria-hidden="true">
+                    <mat-icon>{{ opt.icon }}</mat-icon>
+                  </span>
+                  <span class="flag-card__copy">
+                    <strong>{{ opt.label }}</strong>
+                    <span>{{ opt.hint }}</span>
+                  </span>
+                  <mat-slide-toggle
+                    [formControlName]="opt.key"
+                    (click)="$event.stopPropagation()"
+                  />
+                </div>
+              }
+              <div
+                class="flag-card"
+                [class.flag-card--on]="!!form.controls.salonFloorMonitorEnabled.value"
+                (click)="toggleBoolControl(form.controls.salonFloorMonitorEnabled)"
+              >
+                <span class="flag-card__icon" aria-hidden="true">
+                  <mat-icon>storefront</mat-icon>
+                </span>
+                <span class="flag-card__copy">
+                  <strong>Monitor de salón</strong>
+                  <span>Chip flotante de reservas y lista de espera (con sonido).</span>
+                </span>
+                <mat-slide-toggle
+                  formControlName="salonFloorMonitorEnabled"
+                  (click)="$event.stopPropagation()"
+                />
+              </div>
+            </div>
+          </div>
 
           @if (canAssignSuperAdmin) {
-            <mat-slide-toggle formControlName="canEditExpenses">Puede editar/borrar gastos</mat-slide-toggle>
-            <mat-slide-toggle formControlName="canEditPayments">Puede editar/borrar pagos</mat-slide-toggle>
+            <div class="section">
+              <p class="section__title">Edición avanzada</p>
+              <p class="section__hint">Solo super admin puede otorgar estos permisos.</p>
+              <div class="flag-list">
+                @for (opt of editFlagOptions; track opt.key) {
+                  <div
+                    class="flag-card"
+                    [class.flag-card--on]="!!form.get(opt.key)?.value"
+                    (click)="toggleBoolControl(form.get(opt.key))"
+                  >
+                    <span class="flag-card__icon" aria-hidden="true">
+                      <mat-icon>{{ opt.icon }}</mat-icon>
+                    </span>
+                    <span class="flag-card__copy">
+                      <strong>{{ opt.label }}</strong>
+                      <span>{{ opt.hint }}</span>
+                    </span>
+                    <mat-slide-toggle
+                      [formControlName]="opt.key"
+                      (click)="$event.stopPropagation()"
+                    />
+                  </div>
+                }
+              </div>
+            </div>
           }
 
           <div class="actions">
@@ -597,14 +662,66 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
       background: var(--guy-border, #d7e0d9);
       margin: 1rem 0;
     }
-    .visibility-row__hint {
-      margin: 0 0 0.45rem 1.75rem;
-      font-size: 0.72rem;
+    .flag-list {
+      display: grid;
+      gap: 0.45rem;
+    }
+    .flag-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 0.7rem;
+      align-items: center;
+      margin: 0;
+      padding: 0.7rem 0.8rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+    }
+    .flag-card:hover {
+      border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 35%, var(--guy-border));
+    }
+    .flag-card--on {
+      border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 42%, var(--guy-border));
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+    }
+    .flag-card__icon {
+      width: 2.15rem;
+      height: 2.15rem;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: color-mix(in srgb, var(--guy-border, #d7e0d9) 50%, #fff);
       color: var(--guy-muted, #5f6f76);
     }
-    mat-slide-toggle {
-      display: block;
-      margin: 0.45rem 0;
+    .flag-card--on .flag-card__icon {
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, #fff);
+      color: var(--guy-primary, #1d65a0);
+    }
+    .flag-card__icon mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    .flag-card__copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.12rem;
+    }
+    .flag-card__copy strong {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--guy-text, #1b2a33);
+      line-height: 1.25;
+    }
+    .flag-card__copy span {
+      font-size: 0.74rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.35;
     }
     .actions {
       display: flex;
@@ -750,6 +867,8 @@ export class AdminUserPermissionsPage implements OnInit {
     (m) => m.key !== 'users' || this.canAssignUsersModule,
   );
   readonly visibilityOptions = USER_VISIBILITY_OPTIONS;
+  readonly adminFlagOptions = USER_ADMIN_FLAG_OPTIONS;
+  readonly editFlagOptions = USER_EDIT_FLAG_OPTIONS;
   readonly orderingConfigOptions = ORDERING_CONFIG_VISIBILITY_OPTIONS;
   readonly orderingConfigLevels = ORDERING_CONFIG_LEVELS;
   readonly shopConfigOptions = SHOP_CONFIG_VISIBILITY_OPTIONS;
@@ -973,6 +1092,12 @@ export class AdminUserPermissionsPage implements OnInit {
 
   modulesOf(groupId: string) {
     return this.visibleModules.filter((m) => m.group === groupId);
+  }
+
+  toggleBoolControl(ctrl: AbstractControl | null | undefined): void {
+    if (!ctrl || ctrl.disabled) return;
+    ctrl.setValue(!ctrl.value);
+    ctrl.markAsDirty();
   }
 
   moduleLevel(key: ModuleKey): string {

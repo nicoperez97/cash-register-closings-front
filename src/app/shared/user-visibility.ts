@@ -13,36 +13,43 @@ export const USER_VISIBILITY_OPTIONS: Array<{
   key: UserVisibilityKey;
   label: string;
   hint: string;
+  icon: string;
 }> = [
   {
     key: 'cashWithdraw',
     label: 'Quién se lo lleva',
     hint: 'Cierre, retiros de efectivo e iPad',
+    icon: 'payments',
   },
   {
     key: 'closingsFilters',
-    label: 'Filtros de cierres y reportes',
+    label: 'Filtros de cierres',
     hint: '«Quién se lo lleva» y «Creado por»',
+    icon: 'filter_list',
   },
   {
     key: 'payments',
     label: 'Pagos',
-    hint: 'Quién paga / quién valida (filtros y formularios)',
+    hint: 'Quién paga / quién valida',
+    icon: 'account_balance_wallet',
   },
   {
     key: 'movements',
     label: 'Gastos / movimientos',
-    hint: 'Usuario origen / destino en gastos y transferencias',
+    hint: 'Usuario origen / destino',
+    icon: 'swap_horiz',
   },
   {
     key: 'employeeLink',
-    label: 'Usuario vinculado a empleado',
+    label: 'Vínculo a empleado',
     hint: 'Selector al crear/editar empleados',
+    icon: 'badge',
   },
   {
     key: 'usersList',
     label: 'Lista de usuarios',
-    hint: 'Listado de administración (super admin siempre los ve)',
+    hint: 'Listado de administración',
+    icon: 'group',
   },
 ];
 

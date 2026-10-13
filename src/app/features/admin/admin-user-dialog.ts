@@ -1,6 +1,12 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormsModule,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -32,6 +38,10 @@ import {
   UserVisibility,
   normalizeUserVisibility,
 } from '../../shared/user-visibility';
+import {
+  USER_ADMIN_FLAG_OPTIONS,
+  USER_EDIT_FLAG_OPTIONS,
+} from '../../shared/user-admin-flags';
 import {
   ORDERING_CONFIG_LEVELS,
   ORDERING_CONFIG_VISIBILITY_OPTIONS,
@@ -349,28 +359,43 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         margin: 0 0 0.75rem;
       }
       .salon-monitor {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.85rem;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.7rem;
+        align-items: center;
         margin: 0 0 1rem;
-        padding: 0.85rem 0.9rem;
-        border: 1px solid color-mix(in srgb, var(--guy-border, #e5e5e5) 90%, transparent);
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
         border-radius: 12px;
-        background: color-mix(in srgb, var(--guy-navy, #003366) 3.5%, #fff);
+        background: #fff;
+      }
+      .salon-monitor__icon {
+        width: 2.15rem;
+        height: 2.15rem;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, #fff);
+        color: var(--guy-primary, #1d65a0);
+      }
+      .salon-monitor__icon mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
       .salon-monitor__copy {
         display: flex;
         flex-direction: column;
-        gap: 0.2rem;
+        gap: 0.12rem;
         min-width: 0;
       }
       .salon-monitor__copy strong {
-        font-size: 0.95rem;
-        color: var(--guy-navy, #003366);
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--guy-text, #1b2a33);
       }
       .salon-monitor__copy span {
-        font-size: 0.82rem;
+        font-size: 0.74rem;
         color: var(--guy-muted, #5f6f76);
         line-height: 1.35;
       }
@@ -501,26 +526,75 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
         background: var(--guy-border, #d7e0d9);
         margin: 0.35rem 0 0.9rem;
       }
-      .visibility-list {
+      .flag-list {
+        display: grid;
+        gap: 0.45rem;
+      }
+      .flag-card {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.7rem;
+        align-items: center;
+        margin: 0;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--guy-border, #d7e0d9);
+        border-radius: 12px;
+        background: #fff;
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease;
+      }
+      .flag-card:hover {
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 35%, var(--guy-border));
+      }
+      .flag-card--on {
+        border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 42%, var(--guy-border));
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 6%, #fff);
+      }
+      .flag-card__icon {
+        flex: 0 0 auto;
+        width: 2.15rem;
+        height: 2.15rem;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--guy-border, #d7e0d9) 50%, #fff);
+        color: var(--guy-muted, #5f6f76);
+      }
+      .flag-card--on .flag-card__icon {
+        background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, #fff);
+        color: var(--guy-primary, #1d65a0);
+      }
+      .flag-card__icon mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      .flag-card__copy {
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 0.55rem;
+        gap: 0.12rem;
+      }
+      .flag-card__copy strong {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--guy-text, #1b2a33);
+        line-height: 1.25;
+      }
+      .flag-card__copy span {
+        font-size: 0.74rem;
+        color: var(--guy-muted, #5f6f76);
+        line-height: 1.35;
+      }
+      .flag-card mat-slide-toggle {
+        flex: 0 0 auto;
       }
       .partner-pct {
         display: grid;
         gap: 0.45rem;
         margin: 0.35rem 0 0.75rem;
-      }
-      .visibility-row {
-        display: flex;
-        flex-direction: column;
-        gap: 0.1rem;
-      }
-      .visibility-row__hint {
-        margin: 0 0 0 2rem;
-        font-size: 0.75rem;
-        color: #4a5a62;
-        line-height: 1.35;
       }
     `,
   ],
@@ -621,12 +695,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
 
         @if (isEdit && user) {
           <div class="salon-monitor">
+            <span class="salon-monitor__icon" aria-hidden="true">
+              <mat-icon>storefront</mat-icon>
+            </span>
             <div class="salon-monitor__copy">
               <strong>Monitor de salón</strong>
-              <span>
-                Chip flotante de reservas y lista de espera en toda la app (también en comanda),
-                con sonido al llegar una nueva.
-              </span>
+              <span>Chip flotante de reservas y lista de espera (con sonido).</span>
             </div>
             <mat-slide-toggle
               [checked]="salonFloorMonitorEnabled()"
@@ -735,52 +809,54 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <div class="divider"></div>
           <div class="section" formGroupName="visibility">
             <p class="section__title">Se muestra en</p>
-            <p class="section__hint">Marcado = visible · Sin marcar = oculto en ese lugar de este local.</p>
-            <div class="visibility-list">
+            <p class="section__hint">Activado = aparece en ese lugar de este local.</p>
+            <div class="flag-list">
               @for (opt of visibilityOptions; track opt.key) {
-                <div class="visibility-row">
-                  <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
-                  <p class="visibility-row__hint">{{ opt.hint }}</p>
+                <div
+                  class="flag-card"
+                  [class.flag-card--on]="!!form.controls.visibility.controls[opt.key].value"
+                  (click)="toggleBoolControl(form.controls.visibility.controls[opt.key])"
+                >
+                  <span class="flag-card__icon" aria-hidden="true">
+                    <mat-icon>{{ opt.icon }}</mat-icon>
+                  </span>
+                  <span class="flag-card__copy">
+                    <strong>{{ opt.label }}</strong>
+                    <span>{{ opt.hint }}</span>
+                  </span>
+                  <mat-slide-toggle
+                    [formControlName]="opt.key"
+                    (click)="$event.stopPropagation()"
+                  />
                 </div>
               }
             </div>
           </div>
-          <mat-slide-toggle formControlName="isStockAdmin">
-            Administrador de stock de alimentos
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando un alimento baja del mínimo requerido.
-          </p>
-          <mat-slide-toggle formControlName="isBeverageStockAdmin">
-            Administrador de stock de bebidas
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando una bebida baja del mínimo requerido.
-          </p>
-          <mat-slide-toggle formControlName="isShortageAdmin">
-            Administrador de faltantes
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones y mails cuando hay faltantes críticos o resueltos.
-          </p>
-          <mat-slide-toggle formControlName="isReservationAdmin">
-            Administrador de reservas
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones y mails de todas las solicitudes de reserva.
-          </p>
-          <mat-slide-toggle formControlName="isCustomerOrdersAdmin">
-            Administrador de pedidos online
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
-          </p>
-          <mat-slide-toggle formControlName="isAttendanceCheckInAdmin">
-            Administrador de fichaje
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando un empleado marca presente en /fichar.
-          </p>
+          <div class="section">
+            <p class="section__title">Avisos de administrador</p>
+            <p class="section__hint">Campana, push y mail cuando pasa algo en ese módulo.</p>
+            <div class="flag-list">
+              @for (opt of adminFlagOptions; track opt.key) {
+                <div
+                  class="flag-card"
+                  [class.flag-card--on]="!!form.get(opt.key)?.value"
+                  (click)="toggleBoolControl(form.get(opt.key))"
+                >
+                  <span class="flag-card__icon" aria-hidden="true">
+                    <mat-icon>{{ opt.icon }}</mat-icon>
+                  </span>
+                  <span class="flag-card__copy">
+                    <strong>{{ opt.label }}</strong>
+                    <span>{{ opt.hint }}</span>
+                  </span>
+                  <mat-slide-toggle
+                    [formControlName]="opt.key"
+                    (click)="$event.stopPropagation()"
+                  />
+                </div>
+              }
+            </div>
+          </div>
           @if (showOrderingConfigVisibility()) {
             <div class="section" formGroupName="orderingConfigVisibility">
               <p class="section__title">Pestaña Configurar</p>
@@ -875,19 +951,31 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </div>
           }
           @if (data.canAssignSuperAdmin) {
-            <mat-slide-toggle formControlName="canEditExpenses">
-              Puede editar y borrar gastos
-            </mat-slide-toggle>
-            <p class="section__hint" style="margin: 0">
-              Aunque no sea super admin, puede modificar o eliminar gastos de este local.
-            </p>
-            <mat-slide-toggle formControlName="canEditPayments">
-              Puede editar y borrar pagos
-            </mat-slide-toggle>
-            <p class="section__hint" style="margin: 0">
-              Aunque no sea super admin, puede modificar o eliminar pagos de este local.
-              También elige el estado al crear un pago.
-            </p>
+            <div class="section">
+              <p class="section__title">Edición avanzada</p>
+              <p class="section__hint">Solo super admin puede otorgar estos permisos.</p>
+              <div class="flag-list">
+                @for (opt of editFlagOptions; track opt.key) {
+                  <div
+                    class="flag-card"
+                    [class.flag-card--on]="!!form.get(opt.key)?.value"
+                    (click)="toggleBoolControl(form.get(opt.key))"
+                  >
+                    <span class="flag-card__icon" aria-hidden="true">
+                      <mat-icon>{{ opt.icon }}</mat-icon>
+                    </span>
+                    <span class="flag-card__copy">
+                      <strong>{{ opt.label }}</strong>
+                      <span>{{ opt.hint }}</span>
+                    </span>
+                    <mat-slide-toggle
+                      [formControlName]="opt.key"
+                      (click)="$event.stopPropagation()"
+                    />
+                  </div>
+                }
+              </div>
+            </div>
           }
         }
 
@@ -964,52 +1052,54 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
 
           <div class="section" formGroupName="visibility">
             <p class="section__title">Se muestra en</p>
-            <p class="section__hint">Marcado = visible · Sin marcar = oculto en ese lugar de este local.</p>
-            <div class="visibility-list">
+            <p class="section__hint">Activado = aparece en ese lugar de este local.</p>
+            <div class="flag-list">
               @for (opt of visibilityOptions; track opt.key) {
-                <div class="visibility-row">
-                  <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
-                  <p class="visibility-row__hint">{{ opt.hint }}</p>
+                <div
+                  class="flag-card"
+                  [class.flag-card--on]="!!form.controls.visibility.controls[opt.key].value"
+                  (click)="toggleBoolControl(form.controls.visibility.controls[opt.key])"
+                >
+                  <span class="flag-card__icon" aria-hidden="true">
+                    <mat-icon>{{ opt.icon }}</mat-icon>
+                  </span>
+                  <span class="flag-card__copy">
+                    <strong>{{ opt.label }}</strong>
+                    <span>{{ opt.hint }}</span>
+                  </span>
+                  <mat-slide-toggle
+                    [formControlName]="opt.key"
+                    (click)="$event.stopPropagation()"
+                  />
                 </div>
               }
             </div>
           </div>
-          <mat-slide-toggle formControlName="isStockAdmin">
-            Administrador de stock de alimentos
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando un alimento baja del mínimo requerido.
-          </p>
-          <mat-slide-toggle formControlName="isBeverageStockAdmin">
-            Administrador de stock de bebidas
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando una bebida baja del mínimo requerido.
-          </p>
-          <mat-slide-toggle formControlName="isShortageAdmin">
-            Administrador de faltantes
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones y mails cuando hay faltantes críticos o resueltos.
-          </p>
-          <mat-slide-toggle formControlName="isReservationAdmin">
-            Administrador de reservas
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones y mails de todas las solicitudes de reserva.
-          </p>
-          <mat-slide-toggle formControlName="isCustomerOrdersAdmin">
-            Administrador de pedidos online
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
-          </p>
-          <mat-slide-toggle formControlName="isAttendanceCheckInAdmin">
-            Administrador de fichaje
-          </mat-slide-toggle>
-          <p class="section__hint" style="margin: 0">
-            Recibe notificaciones cuando un empleado marca presente en /fichar.
-          </p>
+          <div class="section">
+            <p class="section__title">Avisos de administrador</p>
+            <p class="section__hint">Campana, push y mail cuando pasa algo en ese módulo.</p>
+            <div class="flag-list">
+              @for (opt of adminFlagOptions; track opt.key) {
+                <div
+                  class="flag-card"
+                  [class.flag-card--on]="!!form.get(opt.key)?.value"
+                  (click)="toggleBoolControl(form.get(opt.key))"
+                >
+                  <span class="flag-card__icon" aria-hidden="true">
+                    <mat-icon>{{ opt.icon }}</mat-icon>
+                  </span>
+                  <span class="flag-card__copy">
+                    <strong>{{ opt.label }}</strong>
+                    <span>{{ opt.hint }}</span>
+                  </span>
+                  <mat-slide-toggle
+                    [formControlName]="opt.key"
+                    (click)="$event.stopPropagation()"
+                  />
+                </div>
+              }
+            </div>
+          </div>
           @if (showOrderingConfigVisibility()) {
             <div class="section" formGroupName="orderingConfigVisibility">
               <p class="section__title">Pestaña Configurar</p>
@@ -1104,19 +1194,31 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </div>
           }
           @if (data.canAssignSuperAdmin) {
-            <mat-slide-toggle formControlName="canEditExpenses">
-              Puede editar y borrar gastos
-            </mat-slide-toggle>
-            <p class="section__hint" style="margin: 0">
-              Aunque no sea super admin, puede modificar o eliminar gastos de este local.
-            </p>
-            <mat-slide-toggle formControlName="canEditPayments">
-              Puede editar y borrar pagos
-            </mat-slide-toggle>
-            <p class="section__hint" style="margin: 0">
-              Aunque no sea super admin, puede modificar o eliminar pagos de este local.
-              También elige el estado al crear un pago.
-            </p>
+            <div class="section">
+              <p class="section__title">Edición avanzada</p>
+              <p class="section__hint">Solo super admin puede otorgar estos permisos.</p>
+              <div class="flag-list">
+                @for (opt of editFlagOptions; track opt.key) {
+                  <div
+                    class="flag-card"
+                    [class.flag-card--on]="!!form.get(opt.key)?.value"
+                    (click)="toggleBoolControl(form.get(opt.key))"
+                  >
+                    <span class="flag-card__icon" aria-hidden="true">
+                      <mat-icon>{{ opt.icon }}</mat-icon>
+                    </span>
+                    <span class="flag-card__copy">
+                      <strong>{{ opt.label }}</strong>
+                      <span>{{ opt.hint }}</span>
+                    </span>
+                    <mat-slide-toggle
+                      [formControlName]="opt.key"
+                      (click)="$event.stopPropagation()"
+                    />
+                  </div>
+                }
+              </div>
+            </div>
           }
         }
       </form>
@@ -1222,6 +1324,8 @@ export class AdminUserDialogComponent implements OnInit {
 
   private initialModules = levelsFromUser(this.user);
   readonly visibilityOptions = USER_VISIBILITY_OPTIONS;
+  readonly adminFlagOptions = USER_ADMIN_FLAG_OPTIONS;
+  readonly editFlagOptions = USER_EDIT_FLAG_OPTIONS;
   readonly orderingConfigOptions = ORDERING_CONFIG_VISIBILITY_OPTIONS;
   readonly orderingConfigLevels = ORDERING_CONFIG_LEVELS;
   readonly shopConfigOptions = SHOP_CONFIG_VISIBILITY_OPTIONS;
@@ -1463,6 +1567,12 @@ export class AdminUserDialogComponent implements OnInit {
 
   isEmployee(): boolean {
     return this.form.controls.accountType.value === 'EMPLOYEE';
+  }
+
+  toggleBoolControl(ctrl: AbstractControl | null | undefined): void {
+    if (!ctrl || ctrl.disabled) return;
+    ctrl.setValue(!ctrl.value);
+    ctrl.markAsDirty();
   }
 
   modulesOf(group: 'daily' | 'people' | 'config' | 'public') {
