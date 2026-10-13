@@ -342,6 +342,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <mat-slide-toggle formControlName="isShortageAdmin">Admin faltantes</mat-slide-toggle>
           <mat-slide-toggle formControlName="isReservationAdmin">Admin reservas</mat-slide-toggle>
           <mat-slide-toggle formControlName="isCustomerOrdersAdmin">Admin pedidos online</mat-slide-toggle>
+          <mat-slide-toggle formControlName="isAttendanceCheckInAdmin">
+            Admin fichaje
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin-top: -0.35rem; margin-bottom: 0.65rem">
+            Notificación cuando un empleado marca presente en /fichar.
+          </p>
           <mat-slide-toggle formControlName="salonFloorMonitorEnabled">
             Monitor de salón
           </mat-slide-toggle>
@@ -799,6 +805,7 @@ export class AdminUserPermissionsPage implements OnInit {
     isShortageAdmin: false,
     isReservationAdmin: false,
     isCustomerOrdersAdmin: false,
+    isAttendanceCheckInAdmin: false,
     salonFloorMonitorEnabled: false,
     requireClosingFiles: false,
     canEditExpenses: false,
@@ -948,6 +955,7 @@ export class AdminUserPermissionsPage implements OnInit {
       isBeverageStockAdmin: !!user.isBeverageStockAdmin,
       isShortageAdmin: !!user.isShortageAdmin,
       isReservationAdmin: !!user.isReservationAdmin,
+      isAttendanceCheckInAdmin: !!user.isAttendanceCheckInAdmin,
       isCustomerOrdersAdmin: !!user.isCustomerOrdersAdmin,
       requireClosingFiles: false,
       canEditExpenses: !!user.canEditExpenses,
@@ -1109,6 +1117,7 @@ export class AdminUserPermissionsPage implements OnInit {
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
+        isAttendanceCheckInAdmin: !!raw.isAttendanceCheckInAdmin,
         isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
         requireClosingFiles: false,
         canEditExpenses: !!raw.canEditExpenses,

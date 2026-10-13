@@ -1640,6 +1640,7 @@ export interface ShopSummary {
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
   isCustomerOrdersAdmin?: boolean;
+  isAttendanceCheckInAdmin?: boolean;
   /** Qué bloques ve en Pedidos → Configurar (none | read | manage). */
   orderingConfigVisibility?: {
     caja?: string;
