@@ -71,6 +71,7 @@ export interface AdminUserRow {
   isShortageAdmin?: boolean;
   isReservationAdmin?: boolean;
   isCustomerOrdersAdmin?: boolean;
+  isAttendanceCheckInAdmin?: boolean;
   orderingConfigVisibility?: Partial<OrderingConfigVisibility> | null;
   shopConfigVisibility?: Partial<ShopConfigVisibility> | null;
   reportsProductsVisibility?: Partial<ReportsProductsVisibility> | null;
@@ -774,6 +775,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
           </p>
+          <mat-slide-toggle formControlName="isAttendanceCheckInAdmin">
+            Administrador de fichaje
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones cuando un empleado marca presente en /fichar.
+          </p>
           @if (showOrderingConfigVisibility()) {
             <div class="section" formGroupName="orderingConfigVisibility">
               <p class="section__title">Pestaña Configurar</p>
@@ -996,6 +1003,12 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
           </mat-slide-toggle>
           <p class="section__hint" style="margin: 0">
             Recibe notificaciones (campana, push y mail) cuando hay pedidos online nuevos.
+          </p>
+          <mat-slide-toggle formControlName="isAttendanceCheckInAdmin">
+            Administrador de fichaje
+          </mat-slide-toggle>
+          <p class="section__hint" style="margin: 0">
+            Recibe notificaciones cuando un empleado marca presente en /fichar.
           </p>
           @if (showOrderingConfigVisibility()) {
             <div class="section" formGroupName="orderingConfigVisibility">
@@ -1295,6 +1308,7 @@ export class AdminUserDialogComponent implements OnInit {
     isShortageAdmin: [this.user?.isShortageAdmin ?? false],
     isReservationAdmin: [this.user?.isReservationAdmin ?? false],
     isCustomerOrdersAdmin: [this.user?.isCustomerOrdersAdmin ?? false],
+    isAttendanceCheckInAdmin: [this.user?.isAttendanceCheckInAdmin ?? false],
     requireClosingFiles: [false],
     canEditExpenses: [this.user?.canEditExpenses ?? false],
     canEditPayments: [this.user?.canEditPayments ?? false],
@@ -1597,6 +1611,7 @@ export class AdminUserDialogComponent implements OnInit {
           isShortageAdmin: !!raw.isShortageAdmin,
           isReservationAdmin: !!raw.isReservationAdmin,
           isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
+          isAttendanceCheckInAdmin: !!raw.isAttendanceCheckInAdmin,
           requireClosingFiles: false,
           canEditExpenses: !!raw.canEditExpenses,
           canEditPayments: !!raw.canEditPayments,
@@ -1637,6 +1652,7 @@ export class AdminUserDialogComponent implements OnInit {
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
         isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
+        isAttendanceCheckInAdmin: !!raw.isAttendanceCheckInAdmin,
         requireClosingFiles: false,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,
@@ -1687,6 +1703,7 @@ export class AdminUserDialogComponent implements OnInit {
         isShortageAdmin: !!raw.isShortageAdmin,
         isReservationAdmin: !!raw.isReservationAdmin,
         isCustomerOrdersAdmin: !!raw.isCustomerOrdersAdmin,
+        isAttendanceCheckInAdmin: !!raw.isAttendanceCheckInAdmin,
         requireClosingFiles: false,
         canEditExpenses: !!raw.canEditExpenses,
         canEditPayments: !!raw.canEditPayments,

@@ -23,7 +23,9 @@ export type NotificationType =
   | 'MOVEMENT_DELETED'
   | 'PAYMENT_UPDATED'
   | 'PAYMENT_DELETED'
-  | 'REIMBURSEMENT_CREATED';
+  | 'REIMBURSEMENT_CREATED'
+  | 'ATTENDANCE_CHECK_IN'
+  | 'CUSTOMER_ORDER_CREATED';
 
 export interface AppNotification {
   id: string;
@@ -78,6 +80,10 @@ export function notificationIcon(type: NotificationType | string): string {
       return 'check_circle';
     case 'RESERVATION_REQUEST':
       return 'table_restaurant';
+    case 'CUSTOMER_ORDER_CREATED':
+      return 'shopping_bag';
+    case 'ATTENDANCE_CHECK_IN':
+      return 'pin';
     case 'MOVEMENT_CREATED':
       return 'swap_horiz';
     case 'MOVEMENT_UPDATED':
@@ -125,6 +131,10 @@ export function notificationToneClass(type: NotificationType | string): string {
       return 'notif-tone--green';
     case 'RESERVATION_REQUEST':
       return 'notif-tone--amber';
+    case 'CUSTOMER_ORDER_CREATED':
+      return 'notif-tone--green';
+    case 'ATTENDANCE_CHECK_IN':
+      return 'notif-tone--blue';
     case 'MOVEMENT_CREATED':
       return 'notif-tone--navy';
     case 'MOVEMENT_UPDATED':
