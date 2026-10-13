@@ -6,41 +6,75 @@
   <app-public-page-install-banner kind="waiter" [accent]="accent()" />
 }
 
-<div class="page" [class.page--session]="view() === 'session'">
+<div
+  class="page"
+  [class.page--session]="view() === 'session'"
+  [class.page--login]="view() === 'login' && !staffMode"
+>
   @if (view() === 'login') {
-    <header class="hero anim-in">
-      <p class="eyebrow">{{ staffMode ? 'Comanda' : 'Comanda mozos' }}</p>
-      <h1>{{ shopName() || slug() || 'Local' }}</h1>
-      @if (!staffMode) {
-        <p>Ingresá tu código para ver las mesas.</p>
-      } @else if (busy() || loading()) {
-        <p>Abriendo mapa de mesas…</p>
+    @if (staffMode) {
+      <header class="hero anim-in">
+        <p class="eyebrow">Comanda</p>
+        <h1>{{ shopName() || slug() || 'Local' }}</h1>
+        @if (busy() || loading()) {
+          <p>Abriendo mapa de mesas…</p>
+        }
+      </header>
+      @if (error(); as err) {
+        <p class="err anim-in">{{ err }}</p>
       }
-    </header>
+    } @else {
+      <div class="kiosk anim-in">
+        <header class="kiosk__hero">
+          @if (logoUrl(); as logo) {
+            <img class="kiosk__logo" [src]="logo" [alt]="shopName()" />
+          } @else {
+            <div class="kiosk__mark" aria-hidden="true">{{ brandInitial() }}</div>
+          }
+          <p class="kiosk__eyebrow">Comanda mozos</p>
+          <h1 class="kiosk__brand">{{ shopName() || slug() || 'Local' }}</h1>
+          <p class="kiosk__lead">Ingresá tu código</p>
+        </header>
 
-    @if (error(); as err) {
-      <p class="err anim-in">{{ err }}</p>
-    }
+        @if (error(); as err) {
+          <p class="kiosk__err" role="alert">{{ err }}</p>
+        }
 
-    @if (!staffMode) {
-      <form class="login anim-in anim-delay-1" (ngSubmit)="login()">
-        <label>
-          Código mozo
-          <input
-            type="password"
-            inputmode="numeric"
-            maxlength="6"
-            autocomplete="one-time-code"
-            [ngModel]="pin()"
-            (ngModelChange)="pin.set($event)"
-            name="pin"
-            placeholder="••••"
-          />
-        </label>
-        <button type="submit" class="btn btn--lg" [disabled]="busy()">
-          {{ busy() ? 'Entrando…' : 'Entrar' }}
-        </button>
-      </form>
+        <section class="kiosk__sheet" aria-label="Código">
+          <div class="kiosk__dots" aria-hidden="true">
+            @for (filled of pinDots(); track $index) {
+              <span class="kiosk__dot" [class.kiosk__dot--on]="filled"></span>
+            }
+          </div>
+          <div class="kiosk__pad">
+            @for (key of padKeys; track $index) {
+              @if (key === '') {
+                <span class="kiosk__pad-spacer"></span>
+              } @else {
+                <button
+                  type="button"
+                  class="kiosk__pad-key"
+                  [class.kiosk__pad-key--action]="key === '⌫'"
+                  (click)="onPadKey(key)"
+                  [disabled]="busy()"
+                >
+                  {{ key }}
+                </button>
+              }
+            }
+          </div>
+          <button
+            type="button"
+            class="kiosk__btn"
+            [style.background]="accent()"
+            [style.color]="onAccent()"
+            (click)="login()"
+            [disabled]="busy() || !canSubmitPin()"
+          >
+            {{ busy() ? 'Entrando…' : 'Continuar' }}
+          </button>
+        </section>
+      </div>
     }
   } @else if (view() === 'tables') {
     <header class="bar anim-in">

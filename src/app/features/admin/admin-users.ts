@@ -167,31 +167,6 @@ export class AdminUsersPage implements OnInit {
         label: 'Cuentas',
         format: (r) => String(r['ledgerAccountName'] ?? '—'),
       });
-      cols.push({
-        key: 'isStockAdmin',
-        label: 'Admin stock alimentos',
-        format: (r) => (r['isStockAdmin'] ? 'Sí' : 'No'),
-      });
-      cols.push({
-        key: 'isBeverageStockAdmin',
-        label: 'Admin stock bebidas',
-        format: (r) => (r['isBeverageStockAdmin'] ? 'Sí' : 'No'),
-      });
-      cols.push({
-        key: 'isShortageAdmin',
-        label: 'Admin faltantes',
-        format: (r) => (r['isShortageAdmin'] ? 'Sí' : 'No'),
-      });
-      cols.push({
-        key: 'isReservationAdmin',
-        label: 'Admin reservas',
-        format: (r) => (r['isReservationAdmin'] ? 'Sí' : 'No'),
-      });
-      cols.push({
-        key: 'isCustomerOrdersAdmin',
-        label: 'Admin pedidos clientes',
-        format: (r) => (r['isCustomerOrdersAdmin'] ? 'Sí' : 'No'),
-      });
     }
     cols.push({ key: 'active', label: 'Estado', format: (r) => activeLabel(!!r['active']) });
     return cols;

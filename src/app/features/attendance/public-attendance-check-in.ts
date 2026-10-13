@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 import { resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { PublicPageInstallBannerComponent } from '../../shared/components/public-page-install-banner';
+import { onAccentColor } from '../customer-orders/ordering-ui.util';
 
 /** Formato 24h (18:00 / 00:00) para no confundir medianoche con “12 a. m.”. */
 const FICHAR_DATE_FORMATS = {
@@ -43,6 +44,12 @@ type ShiftOption = {
   checkOutAt?: string;
 };
 
+type CheckInMark = {
+  shiftId?: string;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+};
+
 type CheckInResult = {
   ok: true;
   alreadyMarked?: boolean;
@@ -53,8 +60,9 @@ type CheckInResult = {
   defaultShiftId?: string;
   shiftId?: string;
   shifts?: ShiftOption[];
-  checkInAt?: string;
-  checkOutAt?: string;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+  marks?: CheckInMark[];
 };
 
 type Phase = 'pin' | 'times' | 'ok' | 'already';
@@ -104,6 +112,25 @@ function formatBusinessDateLabel(iso: string): string {
   return `${weekday} ${d} de ${month}`;
 }
 
+function formatHhMmRange(checkIn?: string | null, checkOut?: string | null): string {
+  const a = String(checkIn ?? '').trim();
+  const b = String(checkOut ?? '').trim();
+  if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(a) && /^([01]\d|2[0-3]):([0-5]\d)$/.test(b)) {
+    return `${a} – ${b}`;
+  }
+  return '';
+}
+
+function formatCheckInHours(res: CheckInResult): string {
+  const fromMarks = (Array.isArray(res.marks) ? res.marks : [])
+    .map((m) => formatHhMmRange(m.checkInAt, m.checkOutAt))
+    .filter(Boolean);
+  if (fromMarks.length) {
+    return [...new Set(fromMarks)].join(' · ');
+  }
+  return formatHhMmRange(res.checkInAt, res.checkOutAt);
+}
+
 function hhMmToDate(hhmm: string): Date | null {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(hhmm ?? '').trim());
   if (!m) return null;
@@ -137,6 +164,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
   host: {
     '[style.--accent]': 'accent()',
     '[style.--accent-2]': 'accentSecondary()',
+    '[style.--on-accent]': 'onAccent()',
   },
   template: `
     @if (fatalError(); as err) {
@@ -146,6 +174,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
           type="button"
           class="kiosk__btn"
           [style.background]="accent()"
+          [style.color]="onAccent()"
           (click)="reload()"
         >
           Reintentar
@@ -210,6 +239,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
               type="button"
               class="kiosk__btn"
               [style.background]="accent()"
+              [style.color]="onAccent()"
               (click)="submitPin()"
               [disabled]="busy() || !canSubmitPin()"
             >
@@ -277,6 +307,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
               type="submit"
               class="kiosk__btn"
               [style.background]="accent()"
+              [style.color]="onAccent()"
               [disabled]="busy() || !canSubmitTimes()"
             >
               {{ busy() ? 'Guardando…' : 'Guardar' }}
@@ -297,9 +328,21 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
             <p class="kiosk__done-title">
               {{ phase() === 'already' ? 'Ya registrado' : 'Listo' }}
             </p>
-            @if (flashName(); as name) {
-              <p class="kiosk__done-name">{{ name }}</p>
+            @if (flashHours(); as hours) {
+              <p class="kiosk__done-meta">{{ hours }}</p>
             }
+            @if (dateLabel(); as when) {
+              <p class="kiosk__done-meta kiosk__done-meta--muted">{{ when }}</p>
+            }
+            <button
+              type="button"
+              class="kiosk__btn kiosk__btn--ghost kiosk__done-back"
+              [style.color]="accent()"
+              [style.borderColor]="accent()"
+              (click)="backToPin()"
+            >
+              Volver
+            </button>
           </div>
         }
       </div>
@@ -568,7 +611,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
       font-weight: 800;
       font-family: inherit;
       background: var(--accent);
-      color: #fff;
+      color: var(--on-accent, #fff);
       cursor: pointer;
       width: 100%;
       touch-action: manipulation;
@@ -639,10 +682,23 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
       letter-spacing: -0.02em;
     }
 
-    .kiosk__done-name {
-      margin: 0.5rem 0 0;
-      font-size: 1.05rem;
+    .kiosk__done-meta {
+      margin: 0.55rem 0 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #243028;
+      letter-spacing: -0.01em;
+    }
+
+    .kiosk__done-meta--muted {
+      margin-top: 0.35rem;
+      font-size: 1rem;
+      font-weight: 600;
       color: #5a686f;
+    }
+
+    .kiosk__done-back {
+      margin-top: 1.25rem;
     }
   `,
 })
@@ -666,18 +722,19 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   readonly fatalError = signal('');
   readonly formError = signal('');
   readonly phase = signal<Phase>('pin');
-  readonly flashName = signal('');
+  /** Horas ya fichadas / recién guardadas (sin nombre). */
+  readonly flashHours = signal('');
 
   /** PIN validado, solo en memoria para el paso de horas. */
   private pendingPin = '';
-
-  private resetTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly shopName = computed(() => this.shop()?.name ?? '');
   readonly accent = computed(() => normalizeHex(this.shop()?.accentColor, '#1D65A0'));
   readonly accentSecondary = computed(() =>
     normalizeHex(this.shop()?.accentSecondary, this.accent()),
   );
+  /** Blanco u oscuro según luminancia del acento del local. */
+  readonly onAccent = computed(() => onAccentColor(this.accent()));
   readonly dateLabel = computed(() => formatBusinessDateLabel(this.businessDate()));
   readonly logoUrl = computed(() => {
     const s = this.shop();
@@ -690,8 +747,7 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   });
   readonly pinDots = computed(() => {
     const len = this.pin().length;
-    const slots = Math.max(4, Math.min(6, len || 4));
-    return Array.from({ length: slots }, (_, i) => i < len);
+    return Array.from({ length: 4 }, (_, i) => i < len);
   });
 
   ngOnInit(): void {
@@ -704,13 +760,12 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.clearResetTimer();
     this.pendingPin = '';
     this.pwa.release('attendanceCheckIn', this.slug());
   }
 
   canSubmitPin(): boolean {
-    return /^\d{4,6}$/.test(this.pin().trim());
+    return /^\d{4}$/.test(this.pin().trim());
   }
 
   canSubmitTimes(): boolean {
@@ -726,7 +781,7 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
       this.pin.set(this.pin().slice(0, -1));
       return;
     }
-    if (!/^\d$/.test(key) || this.pin().length >= 6) return;
+    if (!/^\d$/.test(key) || this.pin().length >= 4) return;
     this.pin.set(this.pin() + key);
   }
 
@@ -740,8 +795,9 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   }
 
   backToPin(): void {
-    this.clearResetTimer();
     this.pendingPin = '';
+    this.pin.set('');
+    this.flashHours.set('');
     this.checkInDate.set(null);
     this.checkOutDate.set(null);
     this.businessDate.set('');
@@ -761,7 +817,7 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
     this.fatalError.set('');
     this.formError.set('');
     this.phase.set('pin');
-    this.flashName.set('');
+    this.flashHours.set('');
     this.pin.set('');
     this.checkInDate.set(null);
     this.checkOutDate.set(null);
@@ -852,16 +908,16 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   }
 
   private handleResult(res: CheckInResult, pin: string): void {
-    this.flashName.set(String(res.displayName ?? '').trim());
     if (res.date) this.businessDate.set(String(res.date).slice(0, 10));
     if (res.alreadyMarked) {
+      this.flashHours.set(formatCheckInHours(res));
       this.pin.set('');
       this.pendingPin = '';
       this.phase.set('already');
-      this.scheduleReset();
       return;
     }
     if (res.needsTimes) {
+      this.flashHours.set('');
       this.pendingPin = pin;
       this.pin.set('');
       const list = Array.isArray(res.shifts) ? res.shifts : [];
@@ -888,6 +944,7 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
       this.phase.set('times');
       return;
     }
+    this.flashHours.set(formatCheckInHours(res));
     this.pin.set('');
     this.pendingPin = '';
     this.checkInDate.set(null);
@@ -895,7 +952,6 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
     this.shifts.set([]);
     this.selectedShiftId.set('');
     this.phase.set('ok');
-    this.scheduleReset();
   }
 
   private errorMessage(err: HttpErrorResponse): string {
@@ -908,28 +964,5 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
           ? 'No disponible'
           : 'No se pudo registrar')
     );
-  }
-
-  private scheduleReset(): void {
-    this.clearResetTimer();
-    this.resetTimer = setTimeout(() => {
-      this.phase.set('pin');
-      this.flashName.set('');
-      this.formError.set('');
-      this.pendingPin = '';
-      this.checkInDate.set(null);
-      this.checkOutDate.set(null);
-      this.businessDate.set('');
-      this.shifts.set([]);
-      this.selectedShiftId.set('');
-      this.withHours.set(true);
-    }, 2000);
-  }
-
-  private clearResetTimer(): void {
-    if (this.resetTimer != null) {
-      clearTimeout(this.resetTimer);
-      this.resetTimer = null;
-    }
   }
 }

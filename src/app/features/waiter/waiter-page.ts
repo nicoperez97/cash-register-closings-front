@@ -82,6 +82,8 @@ type CatalogItem = {
 
 type View = 'login' | 'tables' | 'session';
 
+const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as const;
+
 function tokenKey(slug: string) {
   return `waiter_token_${slug}`;
 }
@@ -132,7 +134,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly token = signal<string | null>(null);
   readonly waiterName = signal('');
   readonly shopName = signal('');
+  readonly logoUrl = signal<string | null>(null);
   readonly accent = signal(this.theme.accent());
+  readonly padKeys = PAD_KEYS;
+  readonly pinDots = computed(() => {
+    const len = this.pin().length;
+    return Array.from({ length: 4 }, (_, i) => i < len);
+  });
+  readonly brandInitial = computed(() => {
+    const name = this.shopName().trim();
+    return name ? name.charAt(0).toUpperCase() : 'C';
+  });
   readonly tables = signal<WaiterTable[]>([]);
   readonly counterSessions = signal<WaiterCounterSession[]>([]);
   readonly mapObjects = signal<WaiterMapObject[]>([]);
@@ -640,6 +652,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.shopName.set(res.shop.name);
         this.accent.set(this.resolveAccent(res.shop.accentColor));
+        this.logoUrl.set(orderingLogoUrl(res.shop.logoUrl, res.shop.id));
         this.title.setTitle(`Mozo · ${res.shop.name}`);
         if (!this.staffMode && !this.pwaApplied) {
           this.pwaApplied = true;
@@ -658,6 +671,21 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  canSubmitPin(): boolean {
+    return /^\d{4}$/.test(this.pin().trim());
+  }
+
+  onPadKey(key: string): void {
+    if (this.busy()) return;
+    this.error.set(null);
+    if (key === '⌫') {
+      this.pin.set(this.pin().slice(0, -1));
+      return;
+    }
+    if (!/^\d$/.test(key) || this.pin().length >= 4) return;
+    this.pin.set(this.pin() + key);
   }
 
   ngOnDestroy(): void {
@@ -995,8 +1023,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const slug = this.slug();
     const pin = this.pin().trim();
     if (!slug || this.busy()) return;
-    if (!/^\d{4,6}$/.test(pin)) {
-      this.error.set('Ingresá un PIN de 4 a 6 dígitos');
+    if (!/^\d{4}$/.test(pin)) {
+      this.error.set('Ingresá un PIN de 4 dígitos');
       return;
     }
     this.busy.set(true);

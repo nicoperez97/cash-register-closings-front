@@ -1,11 +1,11 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { DomSanitizer } from '@angular/platform-browser';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { map } from 'rxjs';
+import { filter, map } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { isShopAdministrator } from '../../core/auth/auth.models';
@@ -95,7 +95,7 @@ const TOOLBAR_KEY = 'admin_public_page_toolbar_v2';
             <mat-icon>unfold_more</mat-icon>
           </button>
         }
-        @if (frameUrl(); as src) {
+        @if (frameAlive() && frameUrl(); as src) {
           <iframe class="viewer__frame" [src]="src" [title]="page()!.label"></iframe>
         }
       </div>
@@ -214,6 +214,9 @@ const TOOLBAR_KEY = 'admin_public_page_toolbar_v2';
 })
 export class AdminPublicPageViewerPage {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject(ElementRef<HTMLElement>);
   readonly shops = inject(ShopContextService);
   private readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
@@ -226,6 +229,12 @@ export class AdminPublicPageViewerPage {
   );
 
   readonly barOpen = signal(this.readBarOpen());
+  /**
+   * El iframe bootea otra Angular same-origin y entra al historial conjunto del
+   * browser. Si sigue montado al salir del visor, el shell no puede ir a rutas
+   * del admin. Lo sacamos en NavigationStart (y del DOM al toque).
+   */
+  readonly frameAlive = signal(true);
 
   readonly canManageLinks = computed(() =>
     isShopAdministrator(this.auth.currentUser(), this.shops.selectedShopId()),
@@ -244,6 +253,30 @@ export class AdminPublicPageViewerPage {
     url.searchParams.set('embed', '1');
     return this.sanitizer.bypassSecurityTrustResourceUrl(url.toString());
   });
+
+  constructor() {
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationStart => e instanceof NavigationStart),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((e) => {
+        const next = (e.url || '').split('?')[0] || '';
+        // Seguir en otro :pageId reusa el componente; al listado u otra ruta, detach.
+        if (!/^\/admin\/public-pages\/[^/]+/.test(next)) {
+          this.detachFrame();
+        }
+      });
+    this.destroyRef.onDestroy(() => this.detachFrame());
+  }
+
+  /** Saca el iframe ya: el signal solo no alcanza antes de que siga la navegación. */
+  private detachFrame(): void {
+    if (!this.frameAlive()) return;
+    this.frameAlive.set(false);
+    const frame = this.host.nativeElement.querySelector('iframe');
+    frame?.remove();
+  }
 
   toggleMenu(): void {
     this.navMenu.requestSidenavToggle();

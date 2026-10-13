@@ -125,6 +125,7 @@
            Si el href inicial es manifest.webmanifest, cachea "Cierres" + start_url /
            aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */
         var path = location.pathname || '';
+        var isEmbed = /(?:^|[?&])embed=1(?:&|$)/.test(location.search || '');
         var isLogin = path === '/login' || path.indexOf('/login?') === 0;
         var isLanding = path === '/' || path === '';
         var isPublicOrdering =
@@ -140,6 +141,7 @@
           { re: /^\/pedir\/([^/]+)/, kind: 'ordering', short: 'Pedir', full: 'Pedir', dark: false, bg: '#eef1ee' },
           { re: /^\/mi-pedido\/([^/]+)/, kind: 'orderLookup', short: 'Mi pedido', full: 'Consultar pedido', dark: false, bg: '#eef1ee' },
           { re: /^\/mozo\/([^/]+)/, kind: 'waiter', short: 'Comanda', full: 'Comanda mozos', dark: false, bg: '#eef1ee' },
+          { re: /^\/fichar\/([^/]+)/, kind: 'attendanceCheckIn', short: 'Fichar', full: 'Fichar', dark: false, bg: '#f4f5f4' },
           { re: /^\/r\/([^/]+)/, kind: 'reservations', short: 'Reservas', full: 'Reservas', dark: true, bg: '#0e0c0b' },
           { re: /^\/reservar\/([^/]+)/, kind: 'reservationSignup', short: 'Reservar', full: 'Reservar', dark: true, bg: '#0e0c0b' },
           { re: /^\/mi-reserva\/([^/]+)/, kind: 'reservationLookup', short: 'Mi reserva', full: 'Consultar reserva', dark: true, bg: '#0e0c0b' },
@@ -180,7 +182,8 @@
           if (document.body) document.body.style.backgroundColor = statusColor;
         }
 
-        if (publicPage) {
+        /* Visor admin (?embed=1): sin manifest/favicon de página pública. */
+        if (publicPage && !isEmbed) {
           document.title = publicPage.full;
           var appleTitle = document.getElementById('apple-app-title');
           if (appleTitle) appleTitle.setAttribute('content', publicPage.short);
@@ -231,18 +234,20 @@
             .catch(function () {});
         }
 
-        var manifest = document.createElement('link');
-        manifest.rel = 'manifest';
-        manifest.id = 'app-manifest';
-        manifest.href = manifestHref;
-        document.head.appendChild(manifest);
+        if (!isEmbed) {
+          var manifest = document.createElement('link');
+          manifest.rel = 'manifest';
+          manifest.id = 'app-manifest';
+          manifest.href = manifestHref;
+          document.head.appendChild(manifest);
+        }
 
         var isPwa =
           window.matchMedia('(display-mode: standalone)').matches ||
           window.matchMedia('(display-mode: fullscreen)').matches ||
           window.matchMedia('(display-mode: minimal-ui)').matches ||
           window.navigator.standalone === true;
-        if (!isPwa && !isPublicOrdering) return;
+        if (isEmbed || (!isPwa && !isPublicOrdering)) return;
         var meta = document.getElementById('app-viewport');
         if (meta) {
           meta.setAttribute(

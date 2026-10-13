@@ -55,6 +55,8 @@ export class PublicPagePwaService {
       .trim()
       .toLowerCase();
     if (!slug) return;
+    /** Visor admin (?embed=1): no tocar manifest/status del documento padre vía iframe. */
+    if (this.isEmbedMode()) return;
 
     const meta = PUBLIC_PAGE_PWA_META[kind];
     this.mainPwa.setPublicPageContext(true);
@@ -72,6 +74,7 @@ export class PublicPagePwaService {
       .trim()
       .toLowerCase();
     if (!slug) return;
+    if (this.isEmbedMode()) return;
 
     const meta = PUBLIC_PAGE_PWA_META[opts.kind];
     this.mainPwa.setPublicPageContext(true);
@@ -109,6 +112,7 @@ export class PublicPagePwaService {
    * no deben resetear el manifest).
    */
   release(kind: PublicPagePwaKind, slugRaw: string): void {
+    if (this.isEmbedMode()) return;
     const slug = String(slugRaw || '')
       .trim()
       .toLowerCase();
@@ -123,6 +127,15 @@ export class PublicPagePwaService {
       return;
     }
     this.restore();
+  }
+
+  /** Visor admin: `?embed=1` en la URL del iframe. */
+  private isEmbedMode(): boolean {
+    try {
+      return new URLSearchParams(window.location.search || '').get('embed') === '1';
+    } catch {
+      return false;
+    }
   }
 
   restore(): void {
