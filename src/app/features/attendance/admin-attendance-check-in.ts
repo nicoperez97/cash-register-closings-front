@@ -87,12 +87,31 @@ function formatHours(checkIn?: string | null, checkOut?: string | null): string 
   return '';
 }
 
-function statusLabel(row: PendingRow, withHours: boolean): string {
+function formatIsoDateLabel(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? '').trim());
+  if (!m) return String(iso ?? '').trim();
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function statusLabel(row: PendingRow, withHours: boolean, dateLabel = ''): string {
   if (!withHours) return 'Pendiente';
   if (row.punchPhase === 'checkOut') {
-    return row.checkInAt ? `Falta salida (entrada ${row.checkInAt})` : 'Falta salida';
+    if (!row.checkInAt) return 'Falta salida';
+    const when = dateLabel ? `${row.checkInAt} · ${dateLabel}` : row.checkInAt;
+    return `Falta salida (entrada ${when})`;
   }
   return 'Falta entrada';
+}
+
+function resolveAccent(
+  fromApi: string | null | undefined,
+  fromShop: string | null | undefined,
+  fallback = '#2E7D32',
+): string {
+  const a = String(fromApi ?? '').trim();
+  if (a) return a;
+  const b = String(fromShop ?? '').trim();
+  return b || fallback;
 }
 
 @Component({
@@ -137,6 +156,9 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
           @if (f.hours) {
             <p class="fichar-done__meta">{{ f.hours }}</p>
           }
+          @if (f.date) {
+            <p class="fichar-done__meta fichar-done__meta--muted">{{ f.date }}</p>
+          }
           @if (f.name) {
             <p class="fichar-done__meta fichar-done__meta--muted">{{ f.name }}</p>
           }
@@ -179,6 +201,9 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
               Marcar entrada
             }
           </p>
+          @if (businessDateLabel(); as when) {
+            <p class="fichar-sheet__date">{{ when }}</p>
+          }
 
           @if (error(); as err) {
             <p class="fichar-err" role="alert">{{ err }}</p>
@@ -187,7 +212,12 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
           @if (!withHours()) {
             <p class="fichar-hint">Se marca presente en este turno.</p>
           } @else if (row.punchPhase === 'checkOut') {
-            <p class="fichar-hint">Entrada ya registrada: {{ row.checkInAt }}</p>
+            <p class="fichar-hint">
+              Entrada ya registrada:
+              {{ row.checkInAt }}@if (businessDateLabel(); as when) {
+                · {{ when }}
+              }
+            </p>
             <mat-form-field appearance="outline" class="fichar-field" subscriptSizing="dynamic">
               <mat-label>Hora de salida</mat-label>
               <input
@@ -305,7 +335,9 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
                       </span>
                       <span class="fichar-row__main">
                         <span class="fichar-row__name">{{ row.fullName }}</span>
-                        <span class="fichar-row__meta">{{ statusLabel(row, withHours()) }}</span>
+                        <span class="fichar-row__meta">{{
+                          statusLabel(row, withHours(), businessDateLabel())
+                        }}</span>
                       </span>
                       <mat-icon class="fichar-row__chevron" aria-hidden="true">chevron_right</mat-icon>
                     </button>
@@ -333,7 +365,9 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
                       </span>
                       <span class="fichar-row__main">
                         <span class="fichar-row__name">{{ row.fullName }}</span>
-                        <span class="fichar-row__meta">{{ statusLabel(row, withHours()) }}</span>
+                        <span class="fichar-row__meta">{{
+                          statusLabel(row, withHours(), businessDateLabel())
+                        }}</span>
                       </span>
                       <mat-icon class="fichar-row__chevron" aria-hidden="true">chevron_right</mat-icon>
                     </button>
@@ -348,10 +382,14 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
   `,
   styles: `
     :host {
-      --accent: #1d65a0;
+      --accent: var(--guy-green, #2e7d32);
       --on-accent: #fff;
       display: block;
       color: #142018;
+      /* Botones nativos no heredan color; sin esto el nombre sale celeste del navegador. */
+      button:not(.mat-mdc-button-base) {
+        color: inherit;
+      }
     }
     .fichar-panel {
       display: flex;
@@ -451,6 +489,7 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
     }
     .fichar-row {
       appearance: none;
+      -webkit-appearance: none;
       width: 100%;
       text-align: left;
       border: 1px solid #e2e6e2;
@@ -462,6 +501,7 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
       align-items: center;
       gap: 0.7rem;
       font: inherit;
+      color: inherit;
       transition: border-color 0.15s ease, background 0.15s ease;
     }
     .fichar-row:hover {
@@ -512,6 +552,7 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
     }
     .fichar-row__name {
       font-weight: 750;
+      color: var(--guy-navy, #142018);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -589,6 +630,12 @@ function statusLabel(row: PendingRow, withHours: boolean): string {
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: #5a686f;
+    }
+    .fichar-sheet__date {
+      margin: -0.55rem 0 0;
+      font-size: 1.05rem;
+      font-weight: 750;
+      color: var(--guy-navy, #142018);
     }
     .fichar-field {
       width: 100%;
@@ -695,9 +742,14 @@ export class AdminAttendanceCheckInPage implements OnInit {
   readonly normalizeHhMm = normalizeHhMm;
   readonly shopName = signal('');
   readonly businessDate = signal('');
-  readonly accent = signal('#1D65A0');
+  readonly accentFromApi = signal('');
+  readonly accent = computed(() =>
+    resolveAccent(this.accentFromApi(), this.shops.accentColor()),
+  );
   readonly onAccent = computed(() => onAccentColor(this.accent()));
-  readonly flash = signal<{ title: string; hours: string; name: string } | null>(null);
+  readonly flash = signal<{ title: string; hours: string; date: string; name: string } | null>(
+    null,
+  );
   readonly selectedShiftId = signal('');
 
   readonly shopShifts = computed(() =>
@@ -712,12 +764,7 @@ export class AdminAttendanceCheckInPage implements OnInit {
   });
   readonly fixedRows = computed(() => this.filteredRows().filter((r) => !isRotating(r)));
   readonly rotatingRows = computed(() => this.filteredRows().filter((r) => isRotating(r)));
-  readonly businessDateLabel = computed(() => {
-    const iso = this.businessDate();
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-    if (!m) return iso;
-    return `${m[3]}/${m[2]}/${m[1]}`;
-  });
+  readonly businessDateLabel = computed(() => formatIsoDateLabel(this.businessDate()));
 
   readonly statusLabel = statusLabel;
   readonly shiftHoursLabel = shiftHoursLabel;
@@ -742,9 +789,9 @@ export class AdminAttendanceCheckInPage implements OnInit {
         this.loading.set(false);
         this.withHours.set(!!res.withHours);
         this.rows.set(Array.isArray(res.employees) ? res.employees : []);
-        this.shopName.set(res.shop?.name ?? '');
+        this.shopName.set(res.shop?.name ?? this.shops.selectedShop()?.name ?? '');
         this.businessDate.set(String(res.date ?? '').slice(0, 10));
-        this.accent.set(String(res.shop?.accentColor ?? '').trim() || '#1D65A0');
+        this.accentFromApi.set(String(res.shop?.accentColor ?? '').trim());
         this.ensureSelectedShift(this.shopShifts());
       },
       error: (err: HttpErrorResponse) => {
@@ -824,6 +871,7 @@ export class AdminAttendanceCheckInPage implements OnInit {
         this.flash.set({
           title,
           hours: formatHours(res.checkInAt, res.checkOutAt),
+          date: formatIsoDateLabel(String(res.date ?? this.businessDate()).slice(0, 10)),
           name: row.fullName,
         });
       },
