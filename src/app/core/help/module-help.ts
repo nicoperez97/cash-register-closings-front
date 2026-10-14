@@ -1513,9 +1513,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'En /fichar el código es el PIN del empleado (también sirve para /mozo).',
           'Solo aparecen los turnos fijos pendientes; por defecto el vigente según la hora.',
-          'Con horarios: pedí solo la hora que falta (ingreso o salida) y Guardar. Sin horarios: un toque marca presente.',
+          'Con horarios: pedí solo la hora que falta (ingreso o salida) y Guardar. Ves la fecha del día junto a la hora. Sin horarios: un toque marca presente.',
           'Al guardar ves “Entrada registrada”, “Salida registrada” o “Ya registrado” (horas y fecha, sin nombre). Queda fijo hasta Volver.',
-          'En Asistencia → Fichar (permiso Fichar en el usuario) elegís el turno y ves pendientes en Fijos y Rotativos (solo empleados con “Mostrar en Fichar”). Tocás a la persona: el turno ya elegido se muestra fijo y la hora arranca en la actual. Para otro turno, volvé al listado y cambiá el filtro. Actualizar refresca la lista. El /fichar público sigue siendo solo fijos con esa opción encendida.',
+          'En Asistencia → Fichar (permiso Fichar en el usuario) elegís el turno y ves pendientes en Fijos y Rotativos (solo empleados con “Mostrar en Fichar”). Tocás a la persona: el turno ya elegido se muestra fijo, ves la fecha y la hora arranca en la actual. Para otro turno, volvé al listado y cambiá el filtro. Actualizar refresca la lista. Los colores son los del local. El /fichar público sigue siendo solo fijos con esa opción encendida.',
           'Con “Admin fichaje” en el usuario, llega notificación cuando alguien ficha.',
           'El tablero /p es aparte. Podés apagar /fichar público y seguir fichando desde Asistencia → Fichar.',
         ],
