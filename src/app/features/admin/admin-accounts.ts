@@ -25,7 +25,7 @@ import { AdminAccountDialogComponent, AdminAccountRow } from './admin-account-di
 import { AdminAccountDeleteService } from './admin-account-delete-dialog';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatMoney } from '../../shared/utils/money';
-import type { ShopSummary } from '../../core/auth/auth.models';
+import { hasShopPermission, type ShopSummary } from '../../core/auth/auth.models';
 import { apiErrorMessage } from '../../core/http/api-error-message';
 
 type AccountTypeTab = 'all' | 'CHANNEL' | 'PARTNER' | 'SYSTEM' | 'DIVIDENDS';
@@ -91,12 +91,14 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
     <app-page-header
       title="Cuentas contables"
       [subtitle]="shops.selectedShop()?.name ?? 'Administración'"
-      actionLabel="Nueva cuenta"
+      [actionLabel]="canManage() ? 'Nueva cuenta' : ''"
       actionIcon="add"
       [actionLarge]="true"
+      [actionDisabled]="!canManage()"
       (action)="openCreate()"
     />
 
+    @if (canManage()) {
     <section class="panel-card split-cfg">
       <header class="split-cfg__head">
         <div>
@@ -305,6 +307,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
         </mat-form-field>
       </form>
     </section>
+    }
 
     <app-segment-tabs
       ariaLabel="Tipo de cuenta"
@@ -325,6 +328,7 @@ function isAllowedDividendDest(a: AdminAccountRow): boolean {
           [rows]="visibleRows()"
           [loading]="loading()"
           [sortable]="true"
+          [showActions]="canManage()"
           [canRemove]="canRemove"
           (edit)="openEdit($event)"
           (remove)="onRemove($event)"
@@ -585,6 +589,14 @@ export class AdminAccountsPage {
   });
 
   readonly canRemove = (row: AdminAccountRow) => row.type !== 'SYSTEM';
+
+  canManage(): boolean {
+    return hasShopPermission(
+      this.auth.currentUser(),
+      this.shops.selectedShopId(),
+      'accounts.manage',
+    );
+  }
 
   constructor() {
     usePageRefresh(() => this.reload());

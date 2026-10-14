@@ -11,6 +11,8 @@ import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { hasShopPermission } from '../../core/auth/auth.models';
 import { activeLabel, conceptKindLabel, yesNoLabel } from '../../core/i18n/labels';
 import { formatConceptCategories } from '../../shared/concept-categories';
 import { AdminConceptDialogComponent, AdminConceptRow } from './admin-concept-dialog';
@@ -33,30 +35,35 @@ import { apiErrorMessage } from '../../core/http/api-error-message';
     <app-page-header
       title="Conceptos"
       [subtitle]="shops.selectedShop()?.name ?? 'Administración'"
-      actionLabel="Nuevo concepto"
+      [actionLabel]="canManage() ? 'Nuevo concepto' : ''"
       actionIcon="add"
       [actionLarge]="true"
+      [actionDisabled]="!canManage()"
       (action)="openCreate()"
     />
 
     @if (shops.selectedShopId()) {
       <div class="xl-toolbar mb-3">
-        <button mat-stroked-button type="button" [disabled]="downloading() === 'template'" (click)="downloadTemplate()">
-          <mat-icon>download</mat-icon>
-          {{ downloading() === 'template' ? 'Descargando…' : 'Descargar plantilla' }}
-        </button>
+        @if (canManage()) {
+          <button mat-stroked-button type="button" [disabled]="downloading() === 'template'" (click)="downloadTemplate()">
+            <mat-icon>download</mat-icon>
+            {{ downloading() === 'template' ? 'Descargando…' : 'Descargar plantilla' }}
+          </button>
+        }
         <button mat-stroked-button type="button" [disabled]="downloading() === 'current'" (click)="downloadCurrent()">
           <mat-icon>table_view</mat-icon>
           {{ downloading() === 'current' ? 'Descargando…' : 'Descargar conceptos' }}
         </button>
-        <button mat-stroked-button type="button" (click)="openExcelImport()">
-          <mat-icon>upload_file</mat-icon>
-          Importar Excel
-        </button>
+        @if (canManage()) {
+          <button mat-stroked-button type="button" (click)="openExcelImport()">
+            <mat-icon>upload_file</mat-icon>
+            Importar Excel
+          </button>
+        }
       </div>
     }
 
-    @if (selectedIds().length) {
+    @if (canManage() && selectedIds().length) {
       <div class="bulk-bar mb-3">
         <span class="bulk-bar__count">
           {{ selectedIds().length }} seleccionado{{ selectedIds().length === 1 ? '' : 's' }}
@@ -94,9 +101,10 @@ import { apiErrorMessage } from '../../core/http/api-error-message';
           [rows]="rows()"
           [loading]="loading()"
           [sortable]="true"
-          [selectable]="true"
+          [selectable]="canManage()"
           [selection]="selectedIds()"
           (selectionChange)="selectedIds.set($event)"
+          [showActions]="canManage()"
           (edit)="openEdit($event)"
           (remove)="onRemove($event)"
         />
@@ -132,7 +140,16 @@ export class AdminConceptsPage {
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
   private readonly confirmDialog = inject(ConfirmDialogService);
+  private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
+
+  canManage(): boolean {
+    return hasShopPermission(
+      this.auth.currentUser(),
+      this.shops.selectedShopId(),
+      'concepts.manage',
+    );
+  }
 
   readonly rows = signal<AdminConceptRow[]>([]);
   readonly loading = signal(true);

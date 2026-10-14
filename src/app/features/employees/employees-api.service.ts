@@ -59,6 +59,8 @@ export interface Employee {
   jobRoles?: EmployeeJobRole[];
   /** Si cuenta para el presentismo semanal en liquidación. */
   countsForAttendanceBonus?: boolean;
+  /** Si aparece en Asistencia → Fichar (default true). */
+  showInFichar?: boolean;
   /** Si produce comida → aparece en asistencia de producción. */
   producesFood?: boolean;  /** Productor supervisor a cargo. */
   supervisorEmployeeId?: string | null;

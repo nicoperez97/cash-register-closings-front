@@ -301,8 +301,12 @@
           @if (openCaja()?.shiftName) {
             ({{ openCaja()!.shiftName }})
           }.
-          <a routerLink="/customer-orders/historial">Historial de pedidos</a>
-          para otras fechas.
+          @if (canSeeHistory()) {
+            <a routerLink="/customer-orders/historial">Historial de pedidos</a>
+            para otras fechas.
+          } @else {
+            Otras fechas requieren permiso de historial.
+          }
         </p>
       }
       @if (!archiveOrders().length) {

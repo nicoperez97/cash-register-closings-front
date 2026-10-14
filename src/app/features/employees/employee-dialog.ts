@@ -287,6 +287,10 @@ function toDateString(value: Date | null): string | null {
             Cuenta para presentismo (liquidación)
           </mat-slide-toggle>
 
+          <mat-slide-toggle formControlName="showInFichar">
+            Mostrar en Fichar
+          </mat-slide-toggle>
+
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Tipo / rol</mat-label>
             <mat-icon matPrefix>badge</mat-icon>
@@ -709,6 +713,7 @@ export class EmployeeDialogComponent implements OnInit {
     countsForAttendanceBonus: [
       this.employee?.countsForAttendanceBonus !== false,
     ],
+    showInFichar: [this.employee?.showInFichar !== false],
     jobRoles: this.fb.nonNullable.control<EmployeeJobRole[]>(this.initialJobRoles()),
     supervisorEmployeeId: this.fb.control<string | null>(
       this.employee?.supervisorEmployeeId ?? null,
@@ -895,6 +900,7 @@ export class EmployeeDialogComponent implements OnInit {
       serviceCheckOut: null,
       shiftAssignments,
       countsForAttendanceBonus: !!raw.countsForAttendanceBonus,
+      showInFichar: !!raw.showInFichar,
       jobRoles,
       producesFood,
       supervisorEmployeeId: producesFood ? raw.supervisorEmployeeId || null : null,

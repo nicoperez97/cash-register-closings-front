@@ -27,7 +27,7 @@
         @if (publicCheckInUrl()) {
           <a class="att-public__btn" [href]="publicCheckInUrl()" target="_blank" rel="noopener">
             <mat-icon>pin</mat-icon>
-            Fichar
+            Fichar público
           </a>
           <button
             type="button"
@@ -200,7 +200,8 @@
                         type="time"
                         [disabled]="!canManage() || saving() || !isPresentToday(emp)"
                         [ngModel]="checkInToday(emp)"
-                        (ngModelChange)="onShiftTodayChange(emp, $event, checkOutToday(emp))"
+                        [attr.placeholder]="checkInTodayPlaceholder(emp)"
+                        (ngModelChange)="onCheckInTodayChange(emp, $event)"
                         (click)="$event.stopPropagation()"
                         aria-label="Hora de entrada"
                       />
@@ -211,11 +212,15 @@
                         type="time"
                         [disabled]="!canManage() || saving() || !isPresentToday(emp)"
                         [ngModel]="checkOutToday(emp)"
-                        (ngModelChange)="onShiftTodayChange(emp, checkInToday(emp), $event)"
+                        [attr.placeholder]="checkOutTodayPlaceholder(emp)"
+                        (ngModelChange)="onCheckOutTodayChange(emp, $event)"
                         (click)="$event.stopPropagation()"
                         aria-label="Hora de salida"
                       />
                     </label>
+                    @if (todayPartialHint(emp); as hint) {
+                      <span class="today-partial-hint">{{ hint }}</span>
+                    }
                   </div>
                 }
               </div>

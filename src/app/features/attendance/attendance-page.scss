@@ -528,6 +528,12 @@ tbody td.att-table__day--today {
   color: var(--guy-accent, #f27d16);
   white-space: nowrap;
 }
+.today-partial-hint {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--guy-muted, #5a6b7d);
+}
 .ot-report {
   max-width: 100%;
   min-width: 0;

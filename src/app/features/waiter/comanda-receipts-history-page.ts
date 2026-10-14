@@ -1,4 +1,4 @@
-import { Component, Inject, effect, inject, signal, untracked } from '@angular/core';
+import { Component, Inject, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,9 +12,12 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, distinctUntilChanged, map, merge } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { hasShopPermission } from '../../core/auth/auth.models';
 import { usePageRefresh } from '../../core/page-refresh.service';
 import { formatMoney } from '../../shared/utils/money';
 import { paymentLabel } from '../customer-orders/ordering-ui.util';
@@ -343,7 +346,10 @@ export class ComandaReceiptDetailDialog {
           [showSearch]="false"
           editLabel="Abrir"
           editIcon="open_in_new"
+          [canEdit]="always"
+          [canRemove]="canRemoveRow"
           (edit)="openReceipt($event)"
+          (remove)="onRemove($event)"
         />
       </div>
     </div>
@@ -353,6 +359,8 @@ export class ComandaReceiptsHistoryPage {
   private readonly api = inject(WaiterApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
 
   private readonly filtersUi = createFiltersCollapsed('comanda-receipts-history');
@@ -388,6 +396,18 @@ export class ComandaReceiptsHistoryPage {
     { value: 'CARD' as const, label: paymentLabel('CARD') },
     { value: 'TRANSFER' as const, label: paymentLabel('TRANSFER') },
   ];
+
+  readonly canDelete = computed(() => {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return (
+      hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage') ||
+      hasShopPermission(user, shopId, 'shops.manage')
+    );
+  });
+
+  readonly always = () => true;
+  readonly canRemoveRow = (_row: ComandaReceiptRow) => this.canDelete();
 
   readonly columns: DataTableColumn[] = [
     {
@@ -551,6 +571,38 @@ export class ComandaReceiptsHistoryPage {
       width: 'min(440px, 96vw)',
       maxHeight: '92vh',
       panelClass: 'guy-dialog',
+    });
+  }
+
+  async onRemove(row: ComandaReceiptRow): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canDelete()) return;
+    const place = placeHeading(row.tableLabel, row.channel);
+    const when = formatDateTime(row.closedAt);
+    const ok = await this.confirm.confirm(
+      'Borrar comprobante',
+      `¿Borrar el comprobante de ${place} (${when})? Deja de verse en el historial y en cierres nuevos. No revierte movimientos de caja ya generados.`,
+    );
+    if (!ok) return;
+    this.api.removeStaffReceipt(shopId, row.sessionId).subscribe({
+      next: () => {
+        this.rows.update((list) => list.filter((r) => r.sessionId !== row.sessionId));
+        this.summary.update((sum) => {
+          if (!sum) return sum;
+          return {
+            count: Math.max(0, sum.count - 1),
+            ticketTotal: Math.max(0, Math.round((sum.ticketTotal - (Number(row.ticketTotal) || 0)) * 100) / 100),
+            tipTotal: Math.max(0, Math.round((sum.tipTotal - (Number(row.tipAmount) || 0)) * 100) / 100),
+          };
+        });
+        this.snack.open('Comprobante borrado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        const msg = apiErrorMessage(err, 'No se pudo borrar');
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
+          duration: 4000,
+        });
+      },
     });
   }
 

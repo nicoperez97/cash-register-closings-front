@@ -166,6 +166,20 @@ describe('migrateModuleLevels', () => {
     const levels = migrateModuleLevels({ stock: 'read' });
     expect(levels.orders).toBe('read');
   });
+
+  it('customerOrders manage → historial + monitor', () => {
+    const levels = migrateModuleLevels({ customerOrders: 'manage' });
+    expect(levels.customerOrders).toBe('manage');
+    expect(levels.customerOrdersHistory).toBe('manage');
+    expect(levels.customerOrdersMonitor).toBe('read');
+  });
+
+  it('comanda manage → historial + monitor', () => {
+    const levels = migrateModuleLevels({ comanda: 'manage' });
+    expect(levels.comanda).toBe('manage');
+    expect(levels.comandaReceiptsHistory).toBe('manage');
+    expect(levels.comandaMonitor).toBe('read');
+  });
 });
 
 describe('isClosingsCreateOnly', () => {

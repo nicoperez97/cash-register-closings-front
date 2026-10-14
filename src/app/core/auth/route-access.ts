@@ -7,6 +7,8 @@ import {
   canManageShopUsers,
   canSeeShopConfigSection,
   canViewClosingsList,
+  canViewOrderingCatalog,
+  canViewShopUsers,
   hasShopPermission,
   isClosingsCreateOnly,
   isShopAdministrator,
@@ -156,15 +158,16 @@ export function canAccessAppRoute(
   if (path.startsWith('/admin/menu')) {
     return (
       canSeeShopConfigSection(user, shopId, 'carta') &&
-      (canAccessShopConfig(user, shopId) || canManageOrderingCatalog(user, shopId))
+      (canAccessShopConfig(user, shopId) || canViewOrderingCatalog(user, shopId))
     );
   }
   if (path.startsWith('/admin/promos')) {
     return (
       canSeeShopConfigSection(user, shopId, 'carta') &&
       (canAccessShopConfig(user, shopId) ||
+        hasShopPermission(user, shopId, 'promos.read') ||
         hasShopPermission(user, shopId, 'promos.manage') ||
-        canManageOrderingCatalog(user, shopId))
+        canViewOrderingCatalog(user, shopId))
     );
   }
   if (path.startsWith('/admin/qr')) {
@@ -174,13 +177,20 @@ export function canAccessAppRoute(
     return canAccessShopAdmin(user, shopId);
   }
   if (path.startsWith('/admin/users') || path.startsWith('/admin/user-activity')) {
-    return canManageShopUsers(user, shopId);
+    if (path.includes('/permisos')) return canManageShopUsers(user, shopId);
+    return canViewShopUsers(user, shopId);
   }
   if (path.startsWith('/admin/accounts')) {
-    return hasShopPermission(user, shopId, 'accounts.manage');
+    return (
+      hasShopPermission(user, shopId, 'accounts.read') ||
+      hasShopPermission(user, shopId, 'accounts.manage')
+    );
   }
   if (path.startsWith('/admin/concepts')) {
-    return hasShopPermission(user, shopId, 'concepts.manage');
+    return (
+      hasShopPermission(user, shopId, 'concepts.read') ||
+      hasShopPermission(user, shopId, 'concepts.manage')
+    );
   }
   if (path.startsWith('/admin/sales-systems') || path.startsWith('/admin/pos-products')) {
     return canAccessShopAdmin(user, shopId);
@@ -220,6 +230,9 @@ export function canAccessAppRoute(
   }
   if (path.startsWith('/production-attendance')) {
     return hasShopPermission(user, shopId, 'productionAttendance.read');
+  }
+  if (path.startsWith('/attendance/fichar')) {
+    return hasShopPermission(user, shopId, 'attendance.checkIn');
   }
   if (path.startsWith('/attendance')) {
     return hasShopPermission(user, shopId, 'attendance.read');
@@ -312,10 +325,21 @@ export function canAccessAppRoute(
     return hasShopPermission(user, shopId, 'orders.read');
   }
   if (path.startsWith('/customer-orders')) {
+    if (!featureOn(features, 'onlineOrderingEnabled')) return false;
+    if (path.startsWith('/customer-orders/historial')) {
+      return (
+        hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+        hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+      );
+    }
+    if (path.startsWith('/customer-orders/monitor')) {
+      return hasShopPermission(user, shopId, 'customerOrdersMonitor.read');
+    }
     return (
-      featureOn(features, 'onlineOrderingEnabled') &&
-      (hasShopPermission(user, shopId, 'customerOrders.read') ||
-        hasShopPermission(user, shopId, 'orderingCatalog.manage'))
+      hasShopPermission(user, shopId, 'customerOrders.read') ||
+      hasShopPermission(user, shopId, 'customerOrders.manage') ||
+      hasShopPermission(user, shopId, 'orderingCatalog.read') ||
+      hasShopPermission(user, shopId, 'orderingCatalog.manage')
     );
   }
   if (path.startsWith('/integrations')) {
@@ -325,10 +349,20 @@ export function canAccessAppRoute(
     );
   }
   if (path.startsWith('/comanda')) {
+    if (!featureOn(features, 'waiterOrderingEnabled')) return false;
+    if (hasShopPermission(user, shopId, 'shops.manage')) return true;
+    if (path.startsWith('/comanda/historial')) {
+      return (
+        hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
+        hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage')
+      );
+    }
+    if (path.startsWith('/comanda/monitor')) {
+      return hasShopPermission(user, shopId, 'comandaMonitor.read');
+    }
     return (
-      featureOn(features, 'waiterOrderingEnabled') &&
-      (hasShopPermission(user, shopId, 'comanda.manage') ||
-        hasShopPermission(user, shopId, 'shops.manage'))
+      hasShopPermission(user, shopId, 'comanda.read') ||
+      hasShopPermission(user, shopId, 'comanda.manage')
     );
   }
   if (path.startsWith('/salaries') || path.startsWith('/payroll')) {

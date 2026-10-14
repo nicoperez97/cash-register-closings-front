@@ -24,12 +24,14 @@ export type Permission =
   | 'shops.manage'
   | 'shopConfig.read'
   | 'shopConfig.manage'
+  | 'users.read'
   | 'users.manage'
   | 'employees.manage'
   | 'employees.read'
   | 'candidates.manage'
   | 'candidates.read'
   | 'attendance.manage'
+  | 'attendance.checkIn'
   | 'attendance.read'
   | 'attendance.self'
   | 'productionAttendance.read'
@@ -52,7 +54,9 @@ export type Permission =
   | 'transactions.read'
   | 'incomes.manage'
   | 'incomes.read'
+  | 'accounts.read'
   | 'accounts.manage'
+  | 'concepts.read'
   | 'concepts.manage'
   | 'reservations.read'
   | 'reservations.manage'
@@ -90,9 +94,18 @@ export type Permission =
   | 'orders.manage'
   | 'customerOrders.read'
   | 'customerOrders.manage'
+  | 'customerOrdersHistory.read'
+  | 'customerOrdersHistory.manage'
+  | 'customerOrdersMonitor.read'
+  | 'orderingCatalog.read'
   | 'orderingCatalog.manage'
+  | 'promos.read'
   | 'promos.manage'
+  | 'comanda.read'
   | 'comanda.manage'
+  | 'comandaMonitor.read'
+  | 'comandaReceiptsHistory.read'
+  | 'comandaReceiptsHistory.manage'
   | 'integrations.read'
   | 'integrations.manage'
   | 'tips.read'
@@ -137,12 +150,14 @@ const ALL_PERMISSIONS: Permission[] = [
   'shops.manage',
   'shopConfig.read',
   'shopConfig.manage',
+  'users.read',
   'users.manage',
   'employees.manage',
   'employees.read',
   'candidates.manage',
   'candidates.read',
   'attendance.manage',
+  'attendance.checkIn',
   'attendance.read',
   'attendance.self',
   'productionAttendance.read',
@@ -165,7 +180,9 @@ const ALL_PERMISSIONS: Permission[] = [
   'transactions.read',
   'incomes.manage',
   'incomes.read',
+  'accounts.read',
   'accounts.manage',
+  'concepts.read',
   'concepts.manage',
   'reservations.read',
   'reservations.manage',
@@ -203,9 +220,18 @@ const ALL_PERMISSIONS: Permission[] = [
   'orders.manage',
   'customerOrders.read',
   'customerOrders.manage',
+  'customerOrdersHistory.read',
+  'customerOrdersHistory.manage',
+  'customerOrdersMonitor.read',
+  'orderingCatalog.read',
   'orderingCatalog.manage',
+  'promos.read',
   'promos.manage',
+  'comanda.read',
   'comanda.manage',
+  'comandaMonitor.read',
+  'comandaReceiptsHistory.read',
+  'comandaReceiptsHistory.manage',
   'integrations.read',
   'integrations.manage',
   'tips.read',
@@ -255,6 +281,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'candidates.manage',
     'candidates.read',
     'attendance.manage',
+    'attendance.checkIn',
     'attendance.read',
     'serviceRules.read',
     'serviceRules.manage',
@@ -282,7 +309,9 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'partnerSplits.manage',
     'incomes.manage',
     'incomes.read',
+    'accounts.read',
     'accounts.manage',
+    'concepts.read',
     'concepts.manage',
     'reservations.read',
     'reservations.manage',
@@ -312,8 +341,18 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'orders.manage',
     'customerOrders.read',
     'customerOrders.manage',
+    'customerOrdersHistory.read',
+    'customerOrdersHistory.manage',
+    'customerOrdersMonitor.read',
+    'orderingCatalog.read',
     'orderingCatalog.manage',
+    'promos.read',
+    'promos.manage',
+    'comanda.read',
     'comanda.manage',
+    'comandaMonitor.read',
+    'comandaReceiptsHistory.read',
+    'comandaReceiptsHistory.manage',
     'integrations.read',
     'integrations.manage',
     'tips.read',
@@ -323,6 +362,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'reimbursements.manage',
     'vacations.read',
     'vacations.manage',
+    'users.read',
   ],
   CASHIER: ['closings.create', 'tips.create', 'tips.read'],
   VIEWER: [
@@ -362,6 +402,11 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'shortages.read',
     'orders.read',
     'customerOrders.read',
+    'customerOrdersHistory.read',
+    'customerOrdersMonitor.read',
+    'comanda.read',
+    'comandaMonitor.read',
+    'comandaReceiptsHistory.read',
     'integrations.read',
     'tips.read',
     'reimbursements.read',
@@ -401,6 +446,7 @@ export type ModuleKey =
   | 'transactions'
   | 'incomes'
   | 'attendance'
+  | 'attendanceFichar'
   | 'productionAttendance'
   | 'employees'
   | 'candidates'
@@ -425,9 +471,13 @@ export type ModuleKey =
   | 'shortages'
   | 'orders'
   | 'customerOrders'
+  | 'customerOrdersHistory'
+  | 'customerOrdersMonitor'
   | 'orderingCatalog'
   | 'promos'
   | 'comanda'
+  | 'comandaMonitor'
+  | 'comandaReceiptsHistory'
   | 'integrations'
   | 'tips'
   | 'reimbursements'
@@ -469,7 +519,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'create', label: 'Solo crear', short: 'Crear' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
       { value: 'update', label: 'Editar', short: 'Editar' },
       { value: 'lock', label: 'Bloquear', short: 'Bloquear' },
     ],
@@ -482,8 +532,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Efectivo del cierre que hay que sacar y asignar',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -494,8 +544,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Cuentas que se rinden después, no en el cierre del día',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -506,8 +556,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Egresos del local (gasto rápido y listado)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -518,8 +568,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Transferencias entre cuentas del local',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -530,8 +580,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Reparto igualitario entre socios y reservas en canales',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -542,8 +592,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Historial de divisiones ya hechas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -576,8 +626,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Entradas de plata al local (listado e importación)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -585,12 +635,24 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Presentismo de salón',
     icon: 'storefront',
     group: 'daily',
-    hint: 'Presentismo de salón (aparte de horas de cocina)',
+    hint: 'Tablero y marca del día. Fichar es un módulo aparte.',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'self', label: 'Solo mis horas', short: 'Mías' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'attendanceFichar',
+    label: 'Fichar',
+    icon: 'pin',
+    group: 'daily',
+    hint: 'Asistencia → Fichar: marcar entrada/salida a empleados pendientes del turno',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -601,8 +663,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Horas de producción / cocina',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -613,7 +675,7 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Reporte de cierres (ver y exportar)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
       { value: 'export', label: 'Exportar', short: 'Excel' },
     ],
   },
@@ -669,8 +731,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Ficha de personal. En productores podés cargar alias/CBU para reintegros',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -681,8 +743,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Cargar CV por foto u OCR',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -693,8 +755,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Sueldo diario, historial de aumentos y liquidaciones',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -705,8 +767,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Reglas y cálculo de comisiones',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -717,7 +779,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Cuentas contables del local',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -728,7 +791,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Catálogo de conceptos (nombre, descripción y validado). Solo los validados aparecen en gastos y pagos',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -739,8 +803,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Reservas del día, solicitudes web y confirmar mesas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -751,8 +815,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Sectores y mesas de comanda (mozos)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -763,8 +827,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Mapa Adentro / Afuera para reservas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -775,8 +839,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Cantidad de mesas armadas por tamaño',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -787,8 +851,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Horarios y mensajes del formulario de reservas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -799,8 +863,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Cola de espera con WhatsApp',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -811,8 +875,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Pagos a proveedores',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -823,8 +887,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Pagos a servicios',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -835,8 +899,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Pagos a empleados',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -847,8 +911,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Pagos a socios',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -859,8 +923,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Proveedores y su cuenta asociada',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -871,8 +935,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Servicios y su cuenta asociada',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -883,8 +947,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Administración de stock de alimentos',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -895,8 +959,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Administración de stock de bebidas',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -907,8 +971,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Administración de faltantes del local (Nada / Poco / Normal / Mucho)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -919,8 +983,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Pedidos de alimentos, bebidas o faltantes, con factura',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -928,11 +992,34 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Pedidos clientes',
     icon: 'shopping_bag',
     group: 'daily',
-    hint: 'Bandeja de pedidos take away / delivery de clientes',
+    hint: 'Bandeja del turno: take away / delivery',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'customerOrdersHistory',
+    label: 'Historial de pedidos',
+    icon: 'history',
+    group: 'daily',
+    hint: 'Pedidos de otros días. Gestionar incluye borrar',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'customerOrdersMonitor',
+    label: 'Monitor pedidos',
+    icon: 'monitor',
+    group: 'daily',
+    hint: 'Tablero en vivo de take away / delivery',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
     ],
   },
   {
@@ -943,7 +1030,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Carta del local (ítems, categorías). Promos es un permiso aparte',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -954,7 +1042,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Packs y promos de mesa / venta (aparte de la carta)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -962,10 +1051,34 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Comanda',
     icon: 'room_service',
     group: 'daily',
-    hint: 'Mapa de mesas en Operación → Comanda (independiente de Pedidos clientes)',
+    hint: 'Mapa de mesas en Operación → Comanda',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
+    ],
+  },
+  {
+    key: 'comandaMonitor',
+    label: 'Monitor comanda',
+    icon: 'tv',
+    group: 'daily',
+    hint: 'Tablero del turno de mesas y mostrador',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver', short: 'Ver' },
+    ],
+  },
+  {
+    key: 'comandaReceiptsHistory',
+    label: 'Historial de comprobantes',
+    icon: 'receipt_long',
+    group: 'daily',
+    hint: 'Mesas y mostrador cerrados. Gestionar incluye borrar',
+    levels: [
+      { value: 'none', label: 'Sin acceso', short: 'Off' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -976,8 +1089,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Conexión con Deliverate y otros servicios externos',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -988,9 +1101,9 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Caja diaria de propinas y reparto por empleado',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
       { value: 'create', label: 'Cargar', short: 'Cargar' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -1002,8 +1115,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
       { value: 'self', label: 'Solo mis gastos', short: 'Míos' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar (pagar)', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -1014,8 +1127,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Registro de vacaciones de empleados y socios (días sin franco, sin goce)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -1026,8 +1139,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Reglas pre y post servicio para imprimir en el local',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -1148,8 +1261,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Mensajes, QR, instrucciones, sistemas de ventas y platos POS',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -1160,8 +1273,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Hub del local. Con Todo podés poner Off / Ver / Todo por sección (Identidad, Cuentas del local…)',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
   {
@@ -1172,7 +1285,8 @@ export const MODULE_DEFS: ModuleDef[] = [
     hint: 'Alta y permisos de usuarios',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'manage', label: 'Gestionar', short: 'Todo' },
+      { value: 'read', label: 'Ver (sin ABM)', short: 'Ver' },
+      { value: 'manage', label: 'Todo (con ABM)', short: 'Todo' },
     ],
   },
 ];
@@ -1208,9 +1322,9 @@ export const MODULE_PRESETS: Array<{
   {
     id: 'attendance-only',
     label: 'Presentismo',
-    description: 'Solo marca asistencia',
+    description: 'Marca asistencia y ficha entrada/salida',
     icon: 'event_available',
-    modules: { attendance: 'manage' },
+    modules: { attendance: 'manage', attendanceFichar: 'manage' },
   },
   {
     id: 'producer-only',
@@ -1231,19 +1345,23 @@ export const MODULE_PRESETS: Array<{
   {
     id: 'customer-orders-only',
     label: 'Pedidos clientes',
-    description: 'Solo administra pedidos take away / delivery',
+    description: 'Bandeja, historial y monitor de pedidos',
     icon: 'shopping_bag',
     modules: {
       customerOrders: 'manage',
+      customerOrdersHistory: 'manage',
+      customerOrdersMonitor: 'read',
     },
   },
   {
     id: 'comanda-only',
     label: 'Comanda',
-    description: 'Solo mapa de mesas y comandas de salón',
+    description: 'Mapa, monitor e historial de comprobantes',
     icon: 'room_service',
     modules: {
       comanda: 'manage',
+      comandaMonitor: 'read',
+      comandaReceiptsHistory: 'manage',
     },
   },
   {
@@ -1346,6 +1464,13 @@ export function migrateModuleLevels(
   ) {
     out.reportsSales = 'read';
   }
+  // Legacy: Presentismo Todo incluía Fichar admin.
+  if (
+    !Object.prototype.hasOwnProperty.call(raw, 'attendanceFichar') &&
+    out.attendance === 'manage'
+  ) {
+    out.attendanceFichar = 'manage';
+  }
   // Legacy: un solo módulo "salon" → Mesas / Diagrama / Reglas / Horarios.
   const legacySalon = raw['salon'];
   if (legacySalon && legacySalon !== 'none') {
@@ -1394,6 +1519,39 @@ export function migrateModuleLevels(
       out.shopConfig === 'manage')
   ) {
     for (const k of publicKeys) out[k] = 'read';
+  }
+  // Legacy: Pedidos clientes agrupado → historial + monitor.
+  const co = out.customerOrders;
+  if (co && co !== 'none') {
+    if (
+      !Object.prototype.hasOwnProperty.call(raw, 'customerOrdersHistory') &&
+      (!out.customerOrdersHistory || out.customerOrdersHistory === 'none')
+    ) {
+      out.customerOrdersHistory = co === 'manage' || co === 'read' ? co : 'read';
+    }
+    if (
+      !Object.prototype.hasOwnProperty.call(raw, 'customerOrdersMonitor') &&
+      (!out.customerOrdersMonitor || out.customerOrdersMonitor === 'none')
+    ) {
+      out.customerOrdersMonitor = 'read';
+    }
+  }
+  // Soft: mapa viejo solo con comanda también abría monitor + historial.
+  const rawCmd = String(raw['comanda'] ?? '').trim();
+  const cmd = out.comanda !== 'none' ? out.comanda : rawCmd;
+  if (cmd && cmd !== 'none') {
+    if (
+      !Object.prototype.hasOwnProperty.call(raw, 'comandaReceiptsHistory') &&
+      (!out.comandaReceiptsHistory || out.comandaReceiptsHistory === 'none')
+    ) {
+      out.comandaReceiptsHistory = cmd === 'manage' ? 'manage' : 'read';
+    }
+    if (
+      !Object.prototype.hasOwnProperty.call(raw, 'comandaMonitor') &&
+      (!out.comandaMonitor || out.comandaMonitor === 'none')
+    ) {
+      out.comandaMonitor = 'read';
+    }
   }
   return out;
 }
@@ -1907,6 +2065,9 @@ export function expandModulePermissions(
       addPermission(set, 'attendance.read', 'attendance.manage');
       break;
   }
+  if (levels.attendanceFichar === 'read' || levels.attendanceFichar === 'manage') {
+    addPermission(set, 'attendance.checkIn');
+  }
   pair(levels.productionAttendance, 'productionAttendance.read', 'productionAttendance.manage');
   pair(levels.employees, 'employees.read', 'employees.manage');
   pair(levels.candidates, 'candidates.read', 'candidates.manage');
@@ -1940,9 +2101,17 @@ export function expandModulePermissions(
   pair(levels.shortages, 'shortages.read', 'shortages.manage');
   pair(levels.orders, 'orders.read', 'orders.manage');
   pair(levels.customerOrders, 'customerOrders.read', 'customerOrders.manage');
-  if (levels.orderingCatalog === 'manage') addPermission(set, 'orderingCatalog.manage');
-  if (levels.promos === 'manage') addPermission(set, 'promos.manage');
-  if (levels.comanda === 'manage') addPermission(set, 'comanda.manage');
+  pair(levels.customerOrdersHistory, 'customerOrdersHistory.read', 'customerOrdersHistory.manage');
+  if (levels.customerOrdersMonitor === 'read') addPermission(set, 'customerOrdersMonitor.read');
+  pair(levels.orderingCatalog, 'orderingCatalog.read', 'orderingCatalog.manage');
+  pair(levels.promos, 'promos.read', 'promos.manage');
+  pair(levels.comanda, 'comanda.read', 'comanda.manage');
+  if (levels.comandaMonitor === 'read') addPermission(set, 'comandaMonitor.read');
+  pair(
+    levels.comandaReceiptsHistory,
+    'comandaReceiptsHistory.read',
+    'comandaReceiptsHistory.manage',
+  );
   pair(levels.integrations, 'integrations.read', 'integrations.manage');
   switch (levels.tips) {
     case 'read':
@@ -2013,25 +2182,27 @@ export function expandModulePermissions(
   ) {
     addPermission(set, 'suppliers.read', 'services.read');
   }
-  if (levels.accounts === 'manage') {
+  if (levels.accounts === 'read' || levels.accounts === 'manage') {
     addPermission(
       set,
-      'accounts.manage',
+      'accounts.read',
       'expenses.read',
       'accountTransfers.read',
       'incomes.read',
       'movements.read',
     );
+    if (levels.accounts === 'manage') addPermission(set, 'accounts.manage');
   }
-  if (levels.concepts === 'manage') {
+  if (levels.concepts === 'read' || levels.concepts === 'manage') {
     addPermission(
       set,
-      'concepts.manage',
+      'concepts.read',
       'expenses.read',
       'accountTransfers.read',
       'incomes.read',
       'movements.read',
     );
+    if (levels.concepts === 'manage') addPermission(set, 'concepts.manage');
   }
   if (levels.shop === 'read') addPermission(set, 'shops.read');
   if (levels.shop === 'manage') addPermission(set, 'shops.read', 'shops.manage');
@@ -2043,7 +2214,7 @@ export function expandModulePermissions(
   if (shopConfigLevel === 'read') addPermission(set, 'shopConfig.read');
   if (shopConfigLevel === 'manage')
     addPermission(set, 'shopConfig.read', 'shopConfig.manage');
-  if (levels.users === 'manage') addPermission(set, 'users.manage');
+  pair(levels.users, 'users.read', 'users.manage');
 
   return [...set];
 }
@@ -2101,6 +2272,8 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.transactions = has('transactions.read') ? 'read' : 'none';
   base.incomes = level('incomes.read', 'incomes.manage');
   base.attendance = attendance();
+  base.attendanceFichar =
+    has('attendance.checkIn') || has('attendance.manage') ? 'manage' : 'none';
   base.productionAttendance = level('productionAttendance.read', 'productionAttendance.manage');
   base.employees = level('employees.read', 'employees.manage');
   base.candidates = level('candidates.read', 'candidates.manage');
@@ -2135,9 +2308,19 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.shortages = level('shortages.read', 'shortages.manage');
   base.orders = level('orders.read', 'orders.manage');
   base.customerOrders = level('customerOrders.read', 'customerOrders.manage');
-  base.orderingCatalog = has('orderingCatalog.manage') ? 'manage' : 'none';
-  base.promos = has('promos.manage') ? 'manage' : 'none';
-  base.comanda = has('comanda.manage') ? 'manage' : 'none';
+  base.customerOrdersHistory = level(
+    'customerOrdersHistory.read',
+    'customerOrdersHistory.manage',
+  );
+  base.customerOrdersMonitor = has('customerOrdersMonitor.read') ? 'read' : 'none';
+  base.orderingCatalog = level('orderingCatalog.read', 'orderingCatalog.manage');
+  base.promos = level('promos.read', 'promos.manage');
+  base.comanda = level('comanda.read', 'comanda.manage');
+  base.comandaMonitor = has('comandaMonitor.read') ? 'read' : 'none';
+  base.comandaReceiptsHistory = level(
+    'comandaReceiptsHistory.read',
+    'comandaReceiptsHistory.manage',
+  );
   base.integrations = level('integrations.read', 'integrations.manage');
   base.reportsConcepts = has('reportsConcepts.read') ? 'read' : 'none';
   base.reportsSales = has('reportsSales.read') ? 'read' : 'none';
@@ -2171,8 +2354,9 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
     if (base.accountBalances === 'none') base.accountBalances = 'read';
     if (base.transactions === 'none') base.transactions = 'read';
   }
-  if (has('orderingCatalog.manage') && base.promos === 'none') {
-    base.promos = 'manage';
+  if (base.promos === 'none') {
+    if (has('orderingCatalog.manage')) base.promos = 'manage';
+    else if (has('orderingCatalog.read')) base.promos = 'read';
   }
   base.tips = tips();
   base.reimbursements = reimbursements();
@@ -2206,8 +2390,8 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
       if (base[k] === 'none') base[k] = 'read';
     }
   }
-  base.accounts = has('accounts.manage') ? 'manage' : 'none';
-  base.concepts = has('concepts.manage') ? 'manage' : 'none';
+  base.accounts = level('accounts.read', 'accounts.manage');
+  base.concepts = level('concepts.read', 'concepts.manage');
   base.shop = has('shops.manage') ? 'manage' : has('shops.read') ? 'read' : 'none';
   base.shopConfig = has('shopConfig.manage')
     ? 'manage'
@@ -2218,7 +2402,7 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
         : has('shops.read')
           ? 'read'
           : 'none';
-  base.users = has('users.manage') ? 'manage' : 'none';
+  base.users = level('users.read', 'users.manage');
   return base;
 }
 
@@ -2355,11 +2539,15 @@ function shopConfigSectionLevel(
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return 'manage';
   const moduleLevel = shopConfigModuleLevel(user, shopId);
   if (moduleLevel === 'none') {
-    if (
-      (section === 'pedidos' || section === 'comanda' || section === 'carta') &&
-      hasShopPermission(user, shopId, 'orderingCatalog.manage')
-    ) {
-      return 'manage';
+    if (section === 'pedidos' || section === 'comanda' || section === 'carta') {
+      if (hasShopPermission(user, shopId, 'orderingCatalog.manage')) return 'manage';
+      if (
+        hasShopPermission(user, shopId, 'orderingCatalog.read') ||
+        hasShopPermission(user, shopId, 'promos.read') ||
+        hasShopPermission(user, shopId, 'promos.manage')
+      ) {
+        return 'read';
+      }
     }
     return 'none';
   }
@@ -2386,6 +2574,14 @@ export function canManageOrderingCatalog(user: AuthUser | null, shopId: string |
   );
 }
 
+/** Ver carta / config de pedidos online (sin ABM). */
+export function canViewOrderingCatalog(user: AuthUser | null, shopId: string | null): boolean {
+  return (
+    canManageOrderingCatalog(user, shopId) ||
+    hasShopPermission(user, shopId, 'orderingCatalog.read')
+  );
+}
+
 /** Admin/owner del local (o admin global): puede gestionar usuarios de ese local. */
 export function canManageShopUsers(user: AuthUser | null, shopId: string | null): boolean {
   if (!user) return false;
@@ -2394,6 +2590,16 @@ export function canManageShopUsers(user: AuthUser | null, shopId: string | null)
   if (hasShopPermission(user, shopId, 'users.manage')) return true;
   const role = effectiveRoleForShop(user, shopId);
   return role === 'OWNER' || role === 'ADMIN';
+}
+
+/** Puede ver usuarios del local (Ver o Todo). */
+export function canViewShopUsers(user: AuthUser | null, shopId: string | null): boolean {
+  if (canManageShopUsers(user, shopId)) return true;
+  if (!user || !shopId) return false;
+  return (
+    hasShopPermission(user, shopId, 'users.read') ||
+    hasShopPermission(user, shopId, 'users.manage')
+  );
 }
 
 /** Solo carga cierres: nivel create y sin otros módulos relevantes. */
@@ -2449,10 +2655,20 @@ export function isCustomerOrdersOnly(user: AuthUser | null, shopId: string | nul
   if (!user || !shopId) return false;
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
   const perms = permissionsForShop(user, shopId);
-  if (!perms.includes('customerOrders.read') && !perms.includes('customerOrders.manage')) {
-    return false;
-  }
-  const allowed = new Set<Permission>(['customerOrders.read', 'customerOrders.manage']);
+  const hasAny =
+    perms.includes('customerOrders.read') ||
+    perms.includes('customerOrders.manage') ||
+    perms.includes('customerOrdersHistory.read') ||
+    perms.includes('customerOrdersHistory.manage') ||
+    perms.includes('customerOrdersMonitor.read');
+  if (!hasAny) return false;
+  const allowed = new Set<Permission>([
+    'customerOrders.read',
+    'customerOrders.manage',
+    'customerOrdersHistory.read',
+    'customerOrdersHistory.manage',
+    'customerOrdersMonitor.read',
+  ]);
   return perms.every((p) => allowed.has(p));
 }
 
@@ -2461,16 +2677,51 @@ export function isComandaOnly(user: AuthUser | null, shopId: string | null): boo
   if (!user || !shopId) return false;
   if (user.globalRole === 'OWNER' || user.globalRole === 'ADMIN') return false;
   const perms = permissionsForShop(user, shopId);
-  if (!perms.includes('comanda.manage')) return false;
-  const allowed = new Set<Permission>(['comanda.manage']);
+  const hasAny =
+    perms.includes('comanda.manage') ||
+    perms.includes('comanda.read') ||
+    perms.includes('comandaMonitor.read') ||
+    perms.includes('comandaReceiptsHistory.read') ||
+    perms.includes('comandaReceiptsHistory.manage');
+  if (!hasAny) return false;
+  const allowed = new Set<Permission>([
+    'comanda.read',
+    'comanda.manage',
+    'comandaMonitor.read',
+    'comandaReceiptsHistory.read',
+    'comandaReceiptsHistory.manage',
+  ]);
   return perms.every((p) => allowed.has(p));
 }
 
 export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): string {
   if (isCashierOnly(user, shopId)) return '/closings/new';
   if (isProducerOnly(user, shopId)) return '/my-production';
-  if (isCustomerOrdersOnly(user, shopId)) return '/customer-orders';
-  if (isComandaOnly(user, shopId)) return '/comanda';
+  if (isCustomerOrdersOnly(user, shopId)) {
+    if (
+      hasShopPermission(user, shopId, 'customerOrders.read') ||
+      hasShopPermission(user, shopId, 'customerOrders.manage')
+    ) {
+      return '/customer-orders';
+    }
+    if (
+      hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+      hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+    ) {
+      return '/customer-orders/historial';
+    }
+    return '/customer-orders/monitor';
+  }
+  if (isComandaOnly(user, shopId)) {
+    if (
+      hasShopPermission(user, shopId, 'comanda.manage') ||
+      hasShopPermission(user, shopId, 'comanda.read')
+    ) {
+      return '/comanda';
+    }
+    if (hasShopPermission(user, shopId, 'comandaMonitor.read')) return '/comanda/monitor';
+    return '/comanda/historial';
+  }
   return '/inicio';
 }
 

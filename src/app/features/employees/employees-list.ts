@@ -137,6 +137,11 @@ export class EmployeesListPage {
       format: (r) => (r['countsForAttendanceBonus'] === false ? 'No' : 'Sí'),
     },
     {
+      key: 'showInFichar',
+      label: 'Fichar',
+      format: (r) => (r['showInFichar'] === false ? 'No' : 'Sí'),
+    },
+    {
       key: 'supervisorEmployeeId',
       label: 'Supervisor',
       format: (r) => {

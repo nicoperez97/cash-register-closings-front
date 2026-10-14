@@ -48,7 +48,7 @@ export type AdminUserNotificationsDialogData = {
             <strong>Monitor de salón</strong>
             <span>
               Chip flotante de reservas y lista de espera en toda la app (también en comanda),
-              con sonido al llegar una nueva.
+              con sonido al llegar una nueva. No hace falta permiso de Reservas.
             </span>
           </div>
           <mat-slide-toggle

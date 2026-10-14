@@ -158,6 +158,15 @@ export class CustomerOrdersPage {
     ),
   );
 
+  readonly canSeeHistory = computed(() => {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return (
+      hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+      hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+    );
+  });
+
   readonly canConfigure = computed(() => {
     const shopId = this.shops.selectedShopId();
     const user = this.auth.currentUser();

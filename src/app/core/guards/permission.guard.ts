@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ShopContextService } from '../shop/shop-context.service';
-import { Permission, canManageShopUsers, canSeeShopConfigSection, canViewClosingsList, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly, isShopAdministrator } from '../auth/auth.models';
+import { Permission, canManageShopUsers, canSeeShopConfigSection, canViewClosingsList, canViewShopUsers, defaultHomeRoute, hasShopPermission, isClosingsCreateOnly, isShopAdministrator } from '../auth/auth.models';
 import {
   canAccessAnyPublicPage,
   canAccessPublicPage,
@@ -107,8 +107,27 @@ export const superAdminGuard: CanActivateFn = () => {
   return true;
 };
 
-/** Admin/owner del local activo (o admin global) puede gestionar usuarios. */
+/** Ver usuarios del local (Ver o Todo). Edición de permisos se bloquea en la UI/API. */
 export const shopUsersGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const shops = inject(ShopContextService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+  const shopId = shops.selectedShopId();
+  if (!canViewShopUsers(auth.currentUser(), shopId)) {
+    return deniedTree();
+  }
+  // Admin de local necesita local; super admin puede entrar sin local (alcance "todos").
+  if (!shopId && !auth.isAdmin()) {
+    return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
+  }
+  return true;
+};
+
+/** Solo Todo en usuarios (ABM / permisos). */
+export const shopUsersManageGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const shops = inject(ShopContextService);
   const router = inject(Router);
@@ -119,7 +138,6 @@ export const shopUsersGuard: CanActivateFn = () => {
   if (!canManageShopUsers(auth.currentUser(), shopId)) {
     return deniedTree();
   }
-  // Admin de local necesita local; super admin puede entrar sin local (alcance "todos").
   if (!shopId && !auth.isAdmin()) {
     return router.createUrlTree([defaultHomeRoute(auth.currentUser(), shopId)]);
   }

@@ -2,10 +2,10 @@ import {
   AuthUser,
   canAccessShopAdmin,
   canAccessShopConfig,
-  canManageOrderingCatalog,
-  canManageShopUsers,
   canSeeShopConfigSection,
   canViewClosingsList,
+  canViewOrderingCatalog,
+  canViewShopUsers,
   expandModulePermissions,
   hasShopPermission,
   isShopAdministrator,
@@ -135,21 +135,41 @@ export function buildNavPreview(
   if (
     f.onlineOrderingEnabled &&
     (hasShopPermission(user, shopId, 'customerOrders.read') ||
+      hasShopPermission(user, shopId, 'orderingCatalog.read') ||
       hasShopPermission(user, shopId, 'orderingCatalog.manage'))
   ) {
     pushLeaf(operacion, 'customerOrders');
-    if (hasShopPermission(user, shopId, 'customerOrders.read')) {
+    if (
+      hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+      hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+    ) {
       pushLeaf(operacion, 'customerOrdersHistory');
+    }
+    if (hasShopPermission(user, shopId, 'customerOrdersMonitor.read')) {
       pushLeaf(operacion, 'customerOrdersMonitor');
     }
   }
-  if (
-    f.waiterOrderingEnabled &&
-    (hasShopPermission(user, shopId, 'comanda.manage') ||
-      hasShopPermission(user, shopId, 'shops.manage'))
-  ) {
-    pushLeaf(operacion, 'comanda');
-    pushLeaf(operacion, 'comandaMonitor');
+  if (f.waiterOrderingEnabled) {
+    if (
+      hasShopPermission(user, shopId, 'comanda.manage') ||
+      hasShopPermission(user, shopId, 'comanda.read') ||
+      hasShopPermission(user, shopId, 'shops.manage')
+    ) {
+      pushLeaf(operacion, 'comanda');
+    }
+    if (
+      hasShopPermission(user, shopId, 'comandaMonitor.read') ||
+      hasShopPermission(user, shopId, 'shops.manage')
+    ) {
+      pushLeaf(operacion, 'comandaMonitor');
+    }
+    if (
+      hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
+      hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage') ||
+      hasShopPermission(user, shopId, 'shops.manage')
+    ) {
+      pushLeaf(operacion, 'comandaReceiptsHistory');
+    }
   }
   if (operacion.length) {
     groups.push({ id: 'operacion', label: 'Operación', icon: 'today', children: operacion });
@@ -203,6 +223,9 @@ export function buildNavPreview(
 
   const asistencia: NavPreviewLeaf[] = [];
   if (hasShopPermission(user, shopId, 'attendance.read')) pushLeaf(asistencia, 'attendance');
+  if (hasShopPermission(user, shopId, 'attendance.checkIn')) {
+    pushLeaf(asistencia, 'attendanceFichar');
+  }
   if (hasShopPermission(user, shopId, 'productionAttendance.read')) {
     pushLeaf(asistencia, 'productionAttendance');
   }
@@ -271,8 +294,13 @@ export function buildNavPreview(
     if (canSeeShopConfigSection(user, shopId, 'menu')) pushLeaf(local, 'adminShopMenu');
   }
   if (canSeeShopConfigSection(user, shopId, 'carta')) {
-    if (canManageOrderingCatalog(user, shopId)) pushLeaf(local, 'adminMenu');
-    if (hasShopPermission(user, shopId, 'promos.manage')) pushLeaf(local, 'adminPromos');
+    if (canViewOrderingCatalog(user, shopId)) pushLeaf(local, 'adminMenu');
+    if (
+      hasShopPermission(user, shopId, 'promos.read') ||
+      hasShopPermission(user, shopId, 'promos.manage')
+    ) {
+      pushLeaf(local, 'adminPromos');
+    }
   }
   if (
     hasShopPermission(user, shopId, 'integrations.read') ||
@@ -298,12 +326,22 @@ export function buildNavPreview(
     pushLeaf(admin, 'adminQr');
     pushLeaf(admin, 'adminInstrucciones');
   }
-  if (canManageShopUsers(user, shopId)) {
+  if (canViewShopUsers(user, shopId)) {
     pushLeaf(admin, 'adminUsers');
     pushLeaf(admin, 'adminUserActivity');
   }
-  if (hasShopPermission(user, shopId, 'accounts.manage')) pushLeaf(admin, 'adminAccounts');
-  if (hasShopPermission(user, shopId, 'concepts.manage')) pushLeaf(admin, 'adminConcepts');
+  if (
+    hasShopPermission(user, shopId, 'accounts.read') ||
+    hasShopPermission(user, shopId, 'accounts.manage')
+  ) {
+    pushLeaf(admin, 'adminAccounts');
+  }
+  if (
+    hasShopPermission(user, shopId, 'concepts.read') ||
+    hasShopPermission(user, shopId, 'concepts.manage')
+  ) {
+    pushLeaf(admin, 'adminConcepts');
+  }
   if (canAccessShopAdmin(user, shopId)) {
     pushLeaf(admin, 'adminSalesSystems');
     pushLeaf(admin, 'adminPosProducts');

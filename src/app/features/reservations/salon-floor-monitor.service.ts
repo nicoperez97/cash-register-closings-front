@@ -5,7 +5,6 @@ import {
   combineLatest,
   distinctUntilChanged,
   EMPTY,
-  forkJoin,
   interval,
   map,
   of,
@@ -14,30 +13,18 @@ import {
 } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
-import { resolveShopCalendarDate } from '../../core/shop/business-date';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import {
-  ReservationRow,
   ReservationsApiService,
-  WaitingListRow,
+  SalonFloorMonitorPreview,
+  SalonFloorMonitorSnapshot,
 } from './reservations-api.service';
 import {
   bindReservationAlertSoundUnlock,
   playReservationPendingSound,
 } from './reservation-alert-sound';
 
-export type SalonFloorPreview = {
-  kind: 'reservation' | 'waiting';
-  id: string;
-  label: string;
-  partySize: number;
-};
-
-/** Solo confirmadas: ni marcadas ni sentadas. */
-function isUnmarkedUnseated(status: string | undefined | null): boolean {
-  return status === 'CONFIRMED' || status == null || status === '';
-}
+export type SalonFloorPreview = SalonFloorMonitorPreview;
 
 /** Monitor flotante: mesas confirmadas (sin marcar/sentar) + lista de espera. */
 @Injectable({ providedIn: 'root' })
@@ -54,6 +41,9 @@ export class SalonFloorMonitorService {
   readonly pulse = signal(0);
   /** Último tipo que subió (para destacar el chip). */
   readonly lastBumpKind = signal<'reservation' | 'waiting' | null>(null);
+  /** Qué métricas mostrar (viene del snapshot / flags del local). */
+  readonly showReservationsMetric = signal(false);
+  readonly showWaitingMetric = signal(false);
 
   /** Contador del chip de reservas (= mesas sin marcar ni sentar). */
   readonly pendingReservations = computed(() => this.openReservations());
@@ -63,17 +53,17 @@ export class SalonFloorMonitorService {
     return !!shop?.salonFloorMonitorEnabled;
   });
 
+  /**
+   * Visible si el admin (o el usuario) habilitó el monitor en este local
+   * y el local tiene reservas y/o lista de espera. No exige permisos de módulo.
+   */
   readonly visible = computed(() => {
     if (!this.enabled()) return false;
     const shopId = this.shops.selectedShopId();
     const shop = this.shops.selectedShop();
     const user = this.auth.currentUser();
     if (!shopId || !shop || !user) return false;
-    const reservations =
-      !!shop.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read');
-    const waiting =
-      !!shop.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read');
-    return reservations || waiting;
+    return shop.reservationsEnabled !== false || shop.waitingListEnabled !== false;
   });
 
   readonly totalAttention = computed(
@@ -96,34 +86,28 @@ export class SalonFloorMonitorService {
         map(([shopId, shop, user]) => ({
           shopId,
           monitorOn: !!shop?.salonFloorMonitorEnabled,
-          reservationsOn:
-            !!shop?.reservationsEnabled &&
-            !!shopId &&
-            hasShopPermission(user, shopId, 'reservations.read'),
-          waitingOn:
-            !!shop?.waitingListEnabled &&
-            !!shopId &&
-            hasShopPermission(user, shopId, 'waitingList.read'),
-          timezone: shop?.timezone ?? null,
+          featuresOn:
+            shop?.reservationsEnabled !== false || shop?.waitingListEnabled !== false,
+          userId: user?.id ?? null,
         })),
         distinctUntilChanged(
           (a, b) =>
             a.shopId === b.shopId &&
             a.monitorOn === b.monitorOn &&
-            a.reservationsOn === b.reservationsOn &&
-            a.waitingOn === b.waitingOn &&
-            a.timezone === b.timezone,
+            a.featuresOn === b.featuresOn &&
+            a.userId === b.userId,
         ),
-        switchMap(({ shopId, monitorOn, reservationsOn, waitingOn, timezone }) => {
-          if (!shopId || !monitorOn || (!reservationsOn && !waitingOn)) {
+        switchMap(({ shopId, monitorOn, featuresOn }) => {
+          if (!shopId || !monitorOn || !featuresOn) {
             this.resetCounts(shopId);
             return EMPTY;
           }
+          const shop = this.shops.selectedShop();
+          this.showReservationsMetric.set(shop?.reservationsEnabled !== false);
+          this.showWaitingMetric.set(shop?.waitingListEnabled !== false);
           return interval(60_000).pipe(
             startWith(0),
-            switchMap(() =>
-              this.fetchSnapshot(shopId, reservationsOn, waitingOn, timezone),
-            ),
+            switchMap(() => this.fetchSnapshot(shopId)),
           );
         }),
         distinctUntilChanged(
@@ -145,22 +129,15 @@ export class SalonFloorMonitorService {
   refresh(): void {
     const shopId = this.shops.selectedShopId();
     const shop = this.shops.selectedShop();
-    const user = this.auth.currentUser();
-    if (!shopId || !shop?.salonFloorMonitorEnabled || !user) {
+    if (!shopId || !shop?.salonFloorMonitorEnabled) {
       this.resetCounts(shopId);
       return;
     }
-    const reservationsOn =
-      !!shop.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read');
-    const waitingOn =
-      !!shop.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read');
-    if (!reservationsOn && !waitingOn) {
+    if (shop.reservationsEnabled === false && shop.waitingListEnabled === false) {
       this.resetCounts(shopId);
       return;
     }
-    this.fetchSnapshot(shopId, reservationsOn, waitingOn, shop.timezone).subscribe((snap) =>
-      this.applySnapshot(snap),
-    );
+    this.fetchSnapshot(shopId).subscribe((snap) => this.applySnapshot(snap));
   }
 
   private resetCounts(shopId: string | null): void {
@@ -171,6 +148,9 @@ export class SalonFloorMonitorService {
     this.waitingParties.set(0);
     this.preview.set([]);
     this.lastBumpKind.set(null);
+    const shop = this.shops.selectedShop();
+    this.showReservationsMetric.set(shop?.reservationsEnabled !== false);
+    this.showWaitingMetric.set(shop?.waitingListEnabled !== false);
   }
 
   clearBump(): void {
@@ -182,6 +162,8 @@ export class SalonFloorMonitorService {
     waiting: number;
     preview: SalonFloorPreview[];
     previewKey: string;
+    reservationsEnabled: boolean;
+    waitingListEnabled: boolean;
   }): void {
     const shopId = this.shops.selectedShopId();
     if (shopId !== this.lastShopId) {
@@ -205,57 +187,32 @@ export class SalonFloorMonitorService {
     this.openReservations.set(snap.open);
     this.waitingParties.set(snap.waiting);
     this.preview.set(snap.preview);
+    this.showReservationsMetric.set(snap.reservationsEnabled);
+    this.showWaitingMetric.set(snap.waitingListEnabled);
   }
 
-  private fetchSnapshot(
-    shopId: string,
-    reservationsOn: boolean,
-    waitingOn: boolean,
-    timezone?: string | null,
-  ) {
-    const today = resolveShopCalendarDate(new Date(), { timezone });
-    return forkJoin({
-      dayRows: reservationsOn
-        ? this.api.listReservations(shopId, today).pipe(
-            map((res) => res.reservations ?? []),
-            catchError(() => of([] as ReservationRow[])),
-          )
-        : of([] as ReservationRow[]),
-      waitingRows: waitingOn
-        ? this.api.listWaiting(shopId).pipe(catchError(() => of([] as WaitingListRow[])))
-        : of([] as WaitingListRow[]),
-    }).pipe(
-      map(({ dayRows, waitingRows }) => {
-        const openRows = dayRows.filter((r) => isUnmarkedUnseated(r.status));
-        const waitingActive = waitingRows.filter(
-          (r) => r.status === 'WAITING' || r.status === 'READY',
-        );
-        const preview: SalonFloorPreview[] = [];
-        for (const row of openRows.slice(0, 5)) {
-          preview.push({
-            kind: 'reservation',
-            id: row.id,
-            label: row.guestName?.trim() || 'Sin nombre',
-            partySize: Number(row.partySize || 0) || 1,
-          });
-        }
-        for (const row of waitingActive.slice(0, 3)) {
-          preview.push({
-            kind: 'waiting',
-            id: row.id,
-            label: row.guestName?.trim() || 'Sin nombre',
-            partySize: Number(row.partySize || 0) || 1,
-          });
-        }
-        return {
-          open: openRows.length,
-          waiting: waitingActive.length,
-          preview,
-          previewKey: preview
-            .map((p) => `${p.kind}:${p.id}:${p.partySize}`)
-            .join('|'),
-        };
-      }),
+  private fetchSnapshot(shopId: string) {
+    return this.api.salonFloorMonitor(shopId).pipe(
+      map((res: SalonFloorMonitorSnapshot) => ({
+        open: res.openReservations ?? 0,
+        waiting: res.waitingParties ?? 0,
+        preview: res.preview ?? [],
+        previewKey: (res.preview ?? [])
+          .map((p) => `${p.kind}:${p.id}:${p.partySize}`)
+          .join('|'),
+        reservationsEnabled: !!res.reservationsEnabled,
+        waitingListEnabled: !!res.waitingListEnabled,
+      })),
+      catchError(() =>
+        of({
+          open: 0,
+          waiting: 0,
+          preview: [] as SalonFloorPreview[],
+          previewKey: '',
+          reservationsEnabled: this.shops.selectedShop()?.reservationsEnabled !== false,
+          waitingListEnabled: this.shops.selectedShop()?.waitingListEnabled !== false,
+        }),
+      ),
     );
   }
 }

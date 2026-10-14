@@ -11,7 +11,11 @@ import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { environment } from '../../../environments/environment';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageShopUsers, userRoleLabel } from '../../core/auth/auth.models';
+import {
+  canManageShopUsers,
+  canViewShopUsers,
+  userRoleLabel,
+} from '../../core/auth/auth.models';
 import { activeLabel } from '../../core/i18n/labels';
 import { AdminUserDialogComponent, AdminUserRow } from './admin-user-dialog';
 import { AdminUserNotificationsDialogComponent } from './admin-user-notifications-dialog';
@@ -40,9 +44,10 @@ function accountTypeLabel(row: Record<string, unknown>): string {
     <app-page-header
       title="Usuarios"
       [subtitle]="headerSubtitle()"
-      actionLabel="Nuevo usuario"
+      [actionLabel]="canManageUsers() ? 'Nuevo usuario' : ''"
       actionIcon="person_add"
       [actionLarge]="true"
+      [actionDisabled]="!canManageUsers()"
       (action)="openCreate()"
     />
 
@@ -66,7 +71,7 @@ function accountTypeLabel(row: Record<string, unknown>): string {
           [rows]="rows()"
           [loading]="loading()"
           [previewAvatars]="true"
-          [showActions]="true"
+          [showActions]="canManageUsers()"
           [canRemove]="canRemoveRow"
           [removeLabel]="removeActionLabel()"
           [removeIcon]="removeActionIcon()"
@@ -114,6 +119,13 @@ export class AdminUsersPage implements OnInit {
   /** Scope multi-local: Super admin, o admin con más de un local asignado. */
   readonly isSuperAdmin = () =>
     this.auth.isSuperAdmin() || this.shops.shops().length > 1;
+
+  canManageUsers(): boolean {
+    return (
+      this.auth.isAdmin() ||
+      canManageShopUsers(this.auth.currentUser(), this.shops.selectedShopId())
+    );
+  }
 
   removeActionLabel(): string {
     return this.isOwner() ? 'Eliminar' : 'Activar / desactivar';
@@ -178,10 +190,10 @@ export class AdminUsersPage implements OnInit {
       const shopId = this.shops.selectedShopId();
       const scope = this.scope();
       // untracked: refreshMe actualiza currentUser y no debe re-disparar el listado.
-      const canManage = untracked(
-        () => this.auth.isAdmin() || canManageShopUsers(this.auth.currentUser(), shopId),
+      const canView = untracked(
+        () => this.auth.isAdmin() || canViewShopUsers(this.auth.currentUser(), shopId),
       );
-      if (!canManage) {
+      if (!canView) {
         void this.router.navigate(['/inicio']);
         return;
       }
@@ -196,7 +208,7 @@ export class AdminUsersPage implements OnInit {
 
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
-    if (!canManageShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
+    if (!canViewShopUsers(this.auth.currentUser(), shopId) && !this.auth.isAdmin()) {
       void this.router.navigate(['/inicio']);
       return;
     }

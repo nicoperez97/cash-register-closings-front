@@ -35,13 +35,18 @@ type PublicShop = {
   accentSecondary?: string | null;
 };
 
+type PunchPhase = 'checkIn' | 'checkOut';
+
 type ShiftOption = {
   id: string;
   name: string;
   opensAt?: string;
   closesAt?: string;
+  punchPhase?: PunchPhase;
   checkInAt?: string;
   checkOutAt?: string;
+  recordedCheckInAt?: string | null;
+  recordedCheckOutAt?: string | null;
 };
 
 type CheckInMark = {
@@ -52,8 +57,10 @@ type CheckInMark = {
 
 type CheckInResult = {
   ok: true;
+  status?: 'needsCheckIn' | 'needsCheckOut' | 'complete' | 'alreadyMarked';
   alreadyMarked?: boolean;
   needsTimes?: boolean;
+  punchPhase?: PunchPhase;
   withHours?: boolean;
   displayName?: string;
   date?: string;
@@ -115,9 +122,11 @@ function formatBusinessDateLabel(iso: string): string {
 function formatHhMmRange(checkIn?: string | null, checkOut?: string | null): string {
   const a = String(checkIn ?? '').trim();
   const b = String(checkOut ?? '').trim();
-  if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(a) && /^([01]\d|2[0-3]):([0-5]\d)$/.test(b)) {
-    return `${a} – ${b}`;
-  }
+  const okA = /^([01]\d|2[0-3]):([0-5]\d)$/.test(a);
+  const okB = /^([01]\d|2[0-3]):([0-5]\d)$/.test(b);
+  if (okA && okB) return `${a} – ${b}`;
+  if (okA) return `Entrada ${a}`;
+  if (okB) return `Salida ${b}`;
   return '';
 }
 
@@ -129,6 +138,20 @@ function formatCheckInHours(res: CheckInResult): string {
     return [...new Set(fromMarks)].join(' · ');
   }
   return formatHhMmRange(res.checkInAt, res.checkOutAt);
+}
+
+function doneTitle(res: CheckInResult, phase: Phase): string {
+  if (phase === 'already' || res.alreadyMarked || res.status === 'alreadyMarked') {
+    return 'Ya registrado';
+  }
+  if (res.status === 'needsCheckOut') return 'Entrada registrada';
+  if (res.status === 'complete') {
+    const hasOut = !!String(res.checkOutAt ?? '').trim();
+    const hasIn = !!String(res.checkInAt ?? '').trim();
+    if (hasIn && hasOut) return 'Salida registrada';
+    return 'Listo';
+  }
+  return 'Listo';
 }
 
 function hhMmToDate(hhmm: string): Date | null {
@@ -196,10 +219,12 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
             <p class="kiosk__lead">Ingresá tu código</p>
           } @else if (phase() === 'times') {
             <p class="kiosk__lead">
-              @if (withHours()) {
-                Turno, ingreso y salida
-              } @else {
+              @if (!withHours()) {
                 Elegí el turno
+              } @else if (punchPhase() === 'checkOut') {
+                Marcá la hora de salida
+              } @else {
+                Marcá la hora de ingreso
               }
             </p>
             @if (dateLabel(); as when) {
@@ -261,10 +286,12 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
                       class="kiosk__shift"
                       [class.kiosk__shift--on]="s.id === selectedShiftId()"
                       (click)="selectShift(s.id)"
-                      [disabled]="busy()"
+                      [disabled]="busy() || punchPhase() === 'checkOut'"
                     >
                       <span class="kiosk__shift-name">{{ s.name }}</span>
-                      @if (s.opensAt && s.closesAt) {
+                      @if (s.recordedCheckInAt && !s.recordedCheckOutAt) {
+                        <span class="kiosk__shift-hours">Entrada {{ s.recordedCheckInAt }} · falta salida</span>
+                      } @else if (s.opensAt && s.closesAt) {
                         <span class="kiosk__shift-hours">{{ s.opensAt }} – {{ s.closesAt }}</span>
                       }
                     </button>
@@ -273,7 +300,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
               </div>
             }
 
-            @if (withHours()) {
+            @if (withHours() && punchPhase() === 'checkIn') {
               <mat-form-field appearance="outline" class="kiosk__field" subscriptSizing="dynamic">
                 <mat-label>Hora de ingreso</mat-label>
                 <input
@@ -287,7 +314,12 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
                 <mat-timepicker-toggle matIconSuffix [for]="inPicker" [disabled]="busy()" />
                 <mat-timepicker #inPicker interval="1m" />
               </mat-form-field>
+            }
 
+            @if (withHours() && punchPhase() === 'checkOut') {
+              @if (recordedCheckIn(); as inn) {
+                <p class="kiosk__label">Entrada ya registrada: {{ inn }}</p>
+              }
               <mat-form-field appearance="outline" class="kiosk__field" subscriptSizing="dynamic">
                 <mat-label>Hora de salida</mat-label>
                 <input
@@ -325,9 +357,7 @@ function normalizeHex(raw: string | null | undefined, fallback: string): string 
           </form>
         } @else {
           <div class="kiosk__done" role="status">
-            <p class="kiosk__done-title">
-              {{ phase() === 'already' ? 'Ya registrado' : 'Listo' }}
-            </p>
+            <p class="kiosk__done-title">{{ flashTitle() }}</p>
             @if (flashHours(); as hours) {
               <p class="kiosk__done-meta">{{ hours }}</p>
             }
@@ -718,12 +748,15 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   readonly shifts = signal<ShiftOption[]>([]);
   readonly selectedShiftId = signal('');
   readonly withHours = signal(true);
+  readonly punchPhase = signal<PunchPhase>('checkIn');
+  readonly recordedCheckIn = signal('');
   readonly busy = signal(false);
   readonly fatalError = signal('');
   readonly formError = signal('');
   readonly phase = signal<Phase>('pin');
   /** Horas ya fichadas / recién guardadas (sin nombre). */
   readonly flashHours = signal('');
+  readonly flashTitle = signal('Listo');
 
   /** PIN validado, solo en memoria para el paso de horas. */
   private pendingPin = '';
@@ -771,7 +804,8 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
   canSubmitTimes(): boolean {
     if (!this.selectedShiftId()) return false;
     if (!this.withHours()) return true;
-    return !!dateToHhMm(this.checkInDate()) && !!dateToHhMm(this.checkOutDate());
+    if (this.punchPhase() === 'checkOut') return !!dateToHhMm(this.checkOutDate());
+    return !!dateToHhMm(this.checkInDate());
   }
 
   onPadKey(key: string): void {
@@ -787,23 +821,35 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
 
   selectShift(id: string): void {
     if (this.busy() || id === this.selectedShiftId()) return;
+    if (this.punchPhase() === 'checkOut') return;
     this.selectedShiftId.set(id);
     const shift = this.shifts().find((s) => s.id === id);
     if (!shift || !this.withHours()) return;
-    this.checkInDate.set(hhMmToDate(String(shift.checkInAt ?? '')));
-    this.checkOutDate.set(hhMmToDate(String(shift.checkOutAt ?? '')));
+    const phase = shift.punchPhase === 'checkOut' ? 'checkOut' : 'checkIn';
+    this.punchPhase.set(phase);
+    this.recordedCheckIn.set(String(shift.recordedCheckInAt ?? '').trim());
+    if (phase === 'checkOut') {
+      this.checkInDate.set(null);
+      this.checkOutDate.set(hhMmToDate(String(shift.checkOutAt ?? '')));
+    } else {
+      this.checkInDate.set(hhMmToDate(String(shift.checkInAt ?? '')));
+      this.checkOutDate.set(null);
+    }
   }
 
   backToPin(): void {
     this.pendingPin = '';
     this.pin.set('');
     this.flashHours.set('');
+    this.flashTitle.set('Listo');
     this.checkInDate.set(null);
     this.checkOutDate.set(null);
     this.businessDate.set('');
     this.shifts.set([]);
     this.selectedShiftId.set('');
     this.withHours.set(true);
+    this.punchPhase.set('checkIn');
+    this.recordedCheckIn.set('');
     this.formError.set('');
     this.phase.set('pin');
   }
@@ -818,6 +864,7 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
     this.formError.set('');
     this.phase.set('pin');
     this.flashHours.set('');
+    this.flashTitle.set('Listo');
     this.pin.set('');
     this.checkInDate.set(null);
     this.checkOutDate.set(null);
@@ -825,6 +872,8 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
     this.shifts.set([]);
     this.selectedShiftId.set('');
     this.withHours.set(true);
+    this.punchPhase.set('checkIn');
+    this.recordedCheckIn.set('');
     this.pendingPin = '';
     this.http
       .get<{ shop: PublicShop }>(
@@ -885,8 +934,11 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
       shiftId: this.selectedShiftId(),
     };
     if (this.withHours()) {
-      body['checkInAt'] = dateToHhMm(this.checkInDate());
-      body['checkOutAt'] = dateToHhMm(this.checkOutDate());
+      if (this.punchPhase() === 'checkOut') {
+        body['checkOutAt'] = dateToHhMm(this.checkOutDate());
+      } else {
+        body['checkInAt'] = dateToHhMm(this.checkInDate());
+      }
     }
     this.busy.set(true);
     this.formError.set('');
@@ -909,20 +961,37 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
 
   private handleResult(res: CheckInResult, pin: string): void {
     if (res.date) this.businessDate.set(String(res.date).slice(0, 10));
-    if (res.alreadyMarked) {
+    if (res.alreadyMarked || res.status === 'alreadyMarked') {
       this.flashHours.set(formatCheckInHours(res));
+      this.flashTitle.set(doneTitle(res, 'already'));
       this.pin.set('');
       this.pendingPin = '';
       this.phase.set('already');
       return;
     }
-    if (res.needsTimes) {
+    if (res.needsTimes || res.status === 'needsCheckIn' || res.status === 'needsCheckOut') {
+      // Tras guardar solo la entrada, mostramos confirmación (no seguimos al pad de salida).
+      if (!res.needsTimes && res.status === 'needsCheckOut' && res.checkInAt) {
+        this.flashHours.set(formatCheckInHours(res));
+        this.flashTitle.set(doneTitle(res, 'ok'));
+        this.pin.set('');
+        this.pendingPin = '';
+        this.checkInDate.set(null);
+        this.checkOutDate.set(null);
+        this.shifts.set([]);
+        this.selectedShiftId.set('');
+        this.phase.set('ok');
+        return;
+      }
       this.flashHours.set('');
       this.pendingPin = pin;
       this.pin.set('');
       const list = Array.isArray(res.shifts) ? res.shifts : [];
       this.shifts.set(list);
       this.withHours.set(res.withHours !== false);
+      const phase: PunchPhase =
+        res.punchPhase === 'checkOut' || res.status === 'needsCheckOut' ? 'checkOut' : 'checkIn';
+      this.punchPhase.set(phase);
       const pick =
         String(res.shiftId ?? '').trim() ||
         String(res.defaultShiftId ?? '').trim() ||
@@ -930,13 +999,21 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
         '';
       this.selectedShiftId.set(pick);
       const selected = list.find((s) => s.id === pick);
+      this.recordedCheckIn.set(
+        String(selected?.recordedCheckInAt ?? res.checkInAt ?? '').trim(),
+      );
       if (this.withHours()) {
-        this.checkInDate.set(
-          hhMmToDate(String(selected?.checkInAt ?? res.checkInAt ?? '')),
-        );
-        this.checkOutDate.set(
-          hhMmToDate(String(selected?.checkOutAt ?? res.checkOutAt ?? '')),
-        );
+        if (phase === 'checkOut') {
+          this.checkInDate.set(null);
+          this.checkOutDate.set(
+            hhMmToDate(String(selected?.checkOutAt ?? res.checkOutAt ?? '')),
+          );
+        } else {
+          this.checkInDate.set(
+            hhMmToDate(String(selected?.checkInAt ?? res.checkInAt ?? '')),
+          );
+          this.checkOutDate.set(null);
+        }
       } else {
         this.checkInDate.set(null);
         this.checkOutDate.set(null);
@@ -945,6 +1022,7 @@ export class PublicAttendanceCheckInComponent implements OnInit, OnDestroy {
       return;
     }
     this.flashHours.set(formatCheckInHours(res));
+    this.flashTitle.set(doneTitle(res, 'ok'));
     this.pin.set('');
     this.pendingPin = '';
     this.checkInDate.set(null);

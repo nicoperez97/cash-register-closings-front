@@ -193,7 +193,9 @@ function slugify(raw: string): string {
         <mat-slide-toggle formControlName="waitingListEnabled">Lista de espera habilitada</mat-slide-toggle>
         <mat-slide-toggle formControlName="tipsEnabled">Propinas habilitadas</mat-slide-toggle>
         <mat-slide-toggle formControlName="publicAttendanceEnabled">Presentismo público</mat-slide-toggle>
-        <mat-slide-toggle formControlName="publicAttendanceCheckInEnabled">Fichar</mat-slide-toggle>
+        <mat-slide-toggle formControlName="publicAttendanceCheckInEnabled"
+          >Fichar (página pública)</mat-slide-toggle
+        >
         <mat-slide-toggle formControlName="menuEnabled">Carta pública</mat-slide-toggle>
 
         @if (isEdit) {

@@ -16,6 +16,8 @@ import {
   onSelectSearchOpened,
 } from '../../shared/components/select-search';
 import { ShopContextService } from '../../core/shop/shop-context.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { hasShopPermission } from '../../core/auth/auth.models';
 import { environment } from '../../../environments/environment';
 
 export type ShopPromoItem = { menuItemId: string; qty: number };
@@ -64,34 +66,40 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
         <p class="promo-admin__muted">Cargando…</p>
       } @else {
         <div class="promo-admin__toolbar">
-          <button mat-stroked-button type="button" (click)="addPromo()">
-            <mat-icon>add</mat-icon>
-            Nueva promo
-          </button>
+          @if (canManage()) {
+            <button mat-stroked-button type="button" (click)="addPromo()">
+              <mat-icon>add</mat-icon>
+              Nueva promo
+            </button>
+          }
           <span class="promo-admin__count" aria-live="polite">
             {{ promos().length ? promos().length + (promos().length === 1 ? ' promo' : ' promos') : 'Sin promos' }}
           </span>
-          <button
-            mat-flat-button
-            color="primary"
-            type="button"
-            class="promo-admin__save-btn"
-            [disabled]="saving() || !promos().length"
-            (click)="save()"
-          >
-            <mat-icon>save</mat-icon>
-            {{ saving() ? 'Guardando…' : 'Guardar' }}
-          </button>
+          @if (canManage()) {
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              class="promo-admin__save-btn"
+              [disabled]="saving() || !promos().length"
+              (click)="save()"
+            >
+              <mat-icon>save</mat-icon>
+              {{ saving() ? 'Guardando…' : 'Guardar' }}
+            </button>
+          }
         </div>
 
         @if (!promos().length) {
           <div class="promo-admin__empty">
             <p>Todavía no hay promos.</p>
             <p class="promo-admin__muted">Ej.: 2x1 Heineken los miércoles, o Solo hoy en Aperol.</p>
-            <button mat-flat-button color="primary" type="button" (click)="addPromo()">
-              <mat-icon>add</mat-icon>
-              Nueva promo
-            </button>
+            @if (canManage()) {
+              <button mat-flat-button color="primary" type="button" (click)="addPromo()">
+                <mat-icon>add</mat-icon>
+                Nueva promo
+              </button>
+            }
           </div>
         }
 
@@ -741,6 +749,15 @@ export class AdminPromosPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly shops = inject(ShopContextService);
   private readonly snack = inject(MatSnackBar);
+  private readonly auth = inject(AuthService);
+
+  canManage(): boolean {
+    return (
+      hasShopPermission(this.auth.currentUser(), this.shopId(), 'promos.manage') ||
+      hasShopPermission(this.auth.currentUser(), this.shopId(), 'shops.manage') ||
+      hasShopPermission(this.auth.currentUser(), this.shopId(), 'orderingCatalog.manage')
+    );
+  }
 
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -1054,7 +1071,7 @@ export class AdminPromosPage implements OnInit {
 
   save(): void {
     const shopId = this.shopId();
-    if (!shopId || this.saving()) return;
+    if (!shopId || this.saving() || !this.canManage()) return;
     this.saving.set(true);
     const body = {
       promos: this.promos().map((p) => ({

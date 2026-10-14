@@ -320,23 +320,58 @@ export class ToolbarComponent implements OnInit {
     }
 
     if (isCustomerOrdersOnly(user, shopId)) {
-      if (hasShopPermission(user, shopId, 'customerOrders.read') && shop?.onlineOrderingEnabled) {
-        pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/customer-orders');
-        pushRoute(
-          'customer-orders-history',
-          'Historial de pedidos',
-          'history',
-          '/customer-orders/historial',
-        );
-        pushRoute('customer-orders-monitor', 'Monitor pedidos', 'monitor', '/customer-orders/monitor');
+      if (shop?.onlineOrderingEnabled) {
+        if (
+          hasShopPermission(user, shopId, 'customerOrders.read') ||
+          hasShopPermission(user, shopId, 'customerOrders.manage')
+        ) {
+          pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/customer-orders');
+        }
+        if (
+          hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+          hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+        ) {
+          pushRoute(
+            'customer-orders-history',
+            'Historial de pedidos',
+            'history',
+            '/customer-orders/historial',
+          );
+        }
+        if (hasShopPermission(user, shopId, 'customerOrdersMonitor.read')) {
+          pushRoute(
+            'customer-orders-monitor',
+            'Monitor pedidos',
+            'monitor',
+            '/customer-orders/monitor',
+          );
+        }
       }
       return applyToolbarConfig(items, cfg);
     }
 
     if (isComandaOnly(user, shopId)) {
-      if (hasShopPermission(user, shopId, 'comanda.manage') && shop?.waiterOrderingEnabled) {
-        pushRoute('comanda', 'Comanda', 'room_service', '/comanda');
-        pushRoute('comanda-monitor', 'Monitor comanda', 'tv', '/comanda/monitor');
+      if (shop?.waiterOrderingEnabled) {
+        if (
+          hasShopPermission(user, shopId, 'comanda.manage') ||
+          hasShopPermission(user, shopId, 'comanda.read')
+        ) {
+          pushRoute('comanda', 'Comanda', 'room_service', '/comanda');
+        }
+        if (hasShopPermission(user, shopId, 'comandaMonitor.read')) {
+          pushRoute('comanda-monitor', 'Monitor comanda', 'tv', '/comanda/monitor');
+        }
+        if (
+          hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
+          hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage')
+        ) {
+          pushRoute(
+            'comanda-historial',
+            'Historial de comprobantes',
+            'receipt_long',
+            '/comanda/historial',
+          );
+        }
       }
       return applyToolbarConfig(items, cfg);
     }

@@ -5,7 +5,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { hasShopPermission } from '../../core/auth/auth.models';
 import { canAccessPublicPage } from '../../core/shop/public-page-access';
 import { SalonFloorMonitorService } from './salon-floor-monitor.service';
 
@@ -415,27 +414,10 @@ export class SalonFloorMonitorComponent {
     });
   }
 
-  readonly showReservations = computed(() => {
-    const shopId = this.shops.selectedShopId();
-    const shop = this.shops.selectedShop();
-    const user = this.auth.currentUser();
-    return (
-      !!shopId &&
-      !!shop?.reservationsEnabled &&
-      hasShopPermission(user, shopId, 'reservations.read')
-    );
-  });
+  /** Métricas del chip: según features del local, no permisos de módulo. */
+  readonly showReservations = computed(() => this.monitor.showReservationsMetric());
 
-  readonly showWaiting = computed(() => {
-    const shopId = this.shops.selectedShopId();
-    const shop = this.shops.selectedShop();
-    const user = this.auth.currentUser();
-    return (
-      !!shopId &&
-      !!shop?.waitingListEnabled &&
-      hasShopPermission(user, shopId, 'waitingList.read')
-    );
-  });
+  readonly showWaiting = computed(() => this.monitor.showWaitingMetric());
 
   /** Tablero público /r embebido en el admin. */
   readonly showReservationBoardLink = computed(() => {
