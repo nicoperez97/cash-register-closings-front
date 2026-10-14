@@ -387,7 +387,10 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                 </span>
                 <span class="flag-card__copy">
                   <strong>Monitor de salón</strong>
-                  <span>Chip flotante de reservas y lista de espera (con sonido).</span>
+                  <span
+                    >Chip flotante de reservas y lista de espera (con sonido). No hace falta
+                    permiso de Reservas.</span
+                  >
                 </span>
                 <mat-slide-toggle
                   formControlName="salonFloorMonitorEnabled"
@@ -976,7 +979,13 @@ export class AdminUserPermissionsPage implements OnInit {
           ? modules
           : migrateModuleLevels(
               Object.fromEntries(
-                MODULE_DEFS.map((d) => [d.key, 'manage']),
+                MODULE_DEFS.map((d) => {
+                  const top =
+                    d.levels.find((l) => l.value === 'manage')?.value ??
+                    [...d.levels].reverse().find((l) => l.value !== 'none')?.value ??
+                    'none';
+                  return [d.key, top];
+                }),
               ) as Record<string, string>,
             ),
       shopConfigVisibility,

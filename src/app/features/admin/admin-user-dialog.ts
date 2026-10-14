@@ -700,7 +700,10 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
             </span>
             <div class="salon-monitor__copy">
               <strong>Monitor de salón</strong>
-              <span>Chip flotante de reservas y lista de espera (con sonido).</span>
+              <span
+                >Chip flotante de reservas y lista de espera (con sonido). No hace falta
+                permiso de Reservas.</span
+              >
             </div>
             <mat-slide-toggle
               [checked]="salonFloorMonitorEnabled()"

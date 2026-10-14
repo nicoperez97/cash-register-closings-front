@@ -73,7 +73,21 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
     route: '/comanda/historial',
   },
   { id: 'integrations', label: 'Integraciones', icon: 'hub', defaultGroup: 'local', route: '/integrations' },
-  { id: 'attendance', label: 'Presentismo de salón', icon: 'storefront', defaultGroup: 'asistencia', route: '/attendance' },
+  {
+    id: 'attendance',
+    label: 'Presentismo de salón',
+    icon: 'storefront',
+    defaultGroup: 'asistencia',
+    route: '/attendance',
+    exact: true,
+  },
+  {
+    id: 'attendanceFichar',
+    label: 'Fichar',
+    icon: 'pin',
+    defaultGroup: 'asistencia',
+    route: '/attendance/fichar',
+  },
   { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/production-attendance' },
   { id: 'myProduction', label: 'Mis horas', icon: 'restaurant', defaultGroup: null, route: '/my-production' },
   { id: 'reimbursements', label: 'Reintegros', icon: 'receipt_long', defaultGroup: 'personal', route: '/reimbursements' },
@@ -283,9 +297,11 @@ export function navBackTarget(
     if (!item.children?.length) continue;
     const gid = groupIdFromRoute(item.route);
     if (!gid) continue;
-    const onChild = item.children.some(
-      (c) => p === c.route || (c.route !== '/' && c.route !== '/inicio' && p.startsWith(`${c.route}/`)),
-    );
+    const onChild = item.children.some((c) => {
+      if (p === c.route) return true;
+      if (c.exact === true) return false;
+      return c.route !== '/' && c.route !== '/inicio' && p.startsWith(`${c.route}/`);
+    });
     if (onChild) {
       return { route: navGroupPagePath(gid), label: item.label };
     }

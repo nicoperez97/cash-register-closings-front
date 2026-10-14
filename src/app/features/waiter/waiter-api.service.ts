@@ -438,6 +438,12 @@ export class WaiterApiService {
     );
   }
 
+  removeStaffReceipt(shopId: string, sessionId: string) {
+    return this.http.delete<{ ok: boolean }>(
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/receipts/${encodeURIComponent(sessionId)}`,
+    );
+  }
+
   login(slug: string, pin: string) {
     return this.http.post<WaiterLoginResult>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/login`,

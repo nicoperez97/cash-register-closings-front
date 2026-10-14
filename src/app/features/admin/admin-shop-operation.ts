@@ -435,12 +435,15 @@ export interface AdminShopConceptCategoryOption {
           </div>
           <div class="op__row-toggle">
             <div>
-              <strong>Fichar</strong>
-              <span>Marca presente con PIN; sin historial ni listados</span>
+              <strong>Fichar (página pública)</strong>
+              <span
+                >Link /fichar con PIN. El admin puede fichar igual desde Presentismo → Fichar
+                (admin), aunque esto esté apagado. Entrada y salida van por separado.</span
+              >
             </div>
             <mat-slide-toggle
               formControlName="publicAttendanceCheckInEnabled"
-              aria-label="Fichar"
+              aria-label="Fichar página pública"
             />
           </div>
           <div class="op__row-toggle">

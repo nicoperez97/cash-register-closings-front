@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, distinctUntilChanged, map, merge } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { DataTableComponent, DataTableColumn } from '../../shared/components/data-table';
+import { ConfirmDialogService } from '../../shared/components/confirm-dialog';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -179,7 +180,10 @@ function formatDateTime(iso?: string | null): string {
           [showSearch]="false"
           editLabel="Abrir"
           editIcon="open_in_new"
+          [canEdit]="always"
+          [canRemove]="canRemoveRow"
           (edit)="openOrder($event)"
+          (remove)="onRemove($event)"
         />
       </div>
     </div>
@@ -189,6 +193,7 @@ export class CustomerOrdersHistoryPage {
   private readonly api = inject(CustomerOrdersApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly confirm = inject(ConfirmDialogService);
   private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
 
@@ -282,13 +287,26 @@ export class CustomerOrdersHistoryPage {
     },
   ];
 
-  readonly canManage = computed(() =>
+  /** Abrir/avanzar desde el detalle usa manage de la bandeja o del historial. */
+  readonly canManage = computed(() => {
+    const user = this.auth.currentUser();
+    const shopId = this.shops.selectedShopId();
+    return (
+      hasShopPermission(user, shopId, 'customerOrders.manage') ||
+      hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+    );
+  });
+
+  readonly canDelete = computed(() =>
     hasShopPermission(
       this.auth.currentUser(),
       this.shops.selectedShopId(),
-      'customerOrders.manage',
+      'customerOrdersHistory.manage',
     ),
   );
+
+  readonly always = () => true;
+  readonly canRemoveRow = (_row: StaffCustomerOrder) => this.canDelete();
 
   constructor() {
     usePageRefresh(() => this.load({ force: true }));
@@ -399,6 +417,28 @@ export class CustomerOrdersHistoryPage {
       this.rows.update((list) =>
         list.map((o) => (o.id === result.order.id ? { ...o, ...result.order } : o)),
       );
+    });
+  }
+
+  async onRemove(order: StaffCustomerOrder): Promise<void> {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId || !this.canDelete()) return;
+    const ok = await this.confirm.confirm(
+      'Borrar pedido',
+      `¿Borrar el pedido #${order.code}? Deja de verse en el historial y en cierres nuevos. No revierte movimientos de caja ya generados.`,
+    );
+    if (!ok) return;
+    this.api.removeStaff(shopId, order.id).subscribe({
+      next: () => {
+        this.rows.update((list) => list.filter((o) => o.id !== order.id));
+        this.snack.open('Pedido borrado', 'OK', { duration: 2500 });
+      },
+      error: (err) => {
+        const msg = apiErrorMessage(err, 'No se pudo borrar');
+        this.snack.open(Array.isArray(msg) ? msg.join(', ') : msg, 'OK', {
+          duration: 4000,
+        });
+      },
     });
   }
 

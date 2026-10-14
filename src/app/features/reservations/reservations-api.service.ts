@@ -209,10 +209,34 @@ export interface PublicWaitingBoard {
   }>;
 }
 
+export type SalonFloorMonitorPreview = {
+  kind: 'reservation' | 'waiting';
+  id: string;
+  label: string;
+  partySize: number;
+};
+
+export type SalonFloorMonitorSnapshot = {
+  shopId: string;
+  businessDate: string;
+  reservationsEnabled: boolean;
+  waitingListEnabled: boolean;
+  openReservations: number;
+  waitingParties: number;
+  preview: SalonFloorMonitorPreview[];
+};
+
 @Injectable({ providedIn: 'root' })
 export class ReservationsApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
+
+  /** Chip flotante: no exige permisos de módulo reservas / lista de espera. */
+  salonFloorMonitor(shopId: string) {
+    return this.http.get<SalonFloorMonitorSnapshot>(
+      `${this.base}/shops/${shopId}/salon-floor-monitor`,
+    );
+  }
 
   listReservations(shopId: string, date?: string) {
     let params = new HttpParams();

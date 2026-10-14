@@ -13,7 +13,10 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { canManageOrderingCatalog } from '../../core/auth/auth.models';
+import {
+  canManageOrderingCatalog,
+  hasShopPermission,
+} from '../../core/auth/auth.models';
 import { environment } from '../../../environments/environment';
 import { apiErrorMessage } from '../../core/http/api-error-message';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -2081,6 +2084,10 @@ export class AdminMenuPage {
   readonly onSelectSearchOpened = onSelectSearchOpened;
   readonly shopId = computed(() => this.shops.selectedShopId());
   readonly showCatalog = computed(() =>
+    canManageOrderingCatalog(this.auth.currentUser(), this.shopId()) ||
+    hasShopPermission(this.auth.currentUser(), this.shopId(), 'orderingCatalog.read'),
+  );
+  readonly canEditCatalog = computed(() =>
     canManageOrderingCatalog(this.auth.currentUser(), this.shopId()),
   );
   readonly loading = signal(false);
@@ -2544,7 +2551,7 @@ export class AdminMenuPage {
 
   saveExtras(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || !this.canEditCatalog()) return;
     this.savingExtras.set(true);
     this.http
       .patch(`${environment.apiUrl}/shops/${shopId}/ordering-catalog`, {
@@ -3870,7 +3877,7 @@ export class AdminMenuPage {
 
   saveSectors(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || !this.canEditCatalog()) return;
     this.flushActive();
     this.savingSectors.set(true);
     this.http
@@ -3890,7 +3897,7 @@ export class AdminMenuPage {
 
   save(): void {
     const shopId = this.shopId();
-    if (!shopId) return;
+    if (!shopId || !this.canEditCatalog()) return;
     this.flushActive();
     this.saving.set(true);
     this.http

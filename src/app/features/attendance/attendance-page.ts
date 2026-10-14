@@ -1146,11 +1146,30 @@ export class AttendancePage {
   }
 
   checkInToday(emp: AttendanceEmployeeRow): string {
-    return this.todayMarks()[emp.employeeId]?.checkInAt || this.empShiftDefaults(emp).checkIn;
+    return this.todayMarks()[emp.employeeId]?.checkInAt || '';
   }
 
   checkOutToday(emp: AttendanceEmployeeRow): string {
-    return this.todayMarks()[emp.employeeId]?.checkOutAt || this.empShiftDefaults(emp).checkOut;
+    return this.todayMarks()[emp.employeeId]?.checkOutAt || '';
+  }
+
+  /** Placeholder cuando aún no hay hora cargada. */
+  checkInTodayPlaceholder(emp: AttendanceEmployeeRow): string {
+    return this.empShiftDefaults(emp).checkIn;
+  }
+
+  checkOutTodayPlaceholder(emp: AttendanceEmployeeRow): string {
+    return this.empShiftDefaults(emp).checkOut;
+  }
+
+  todayPartialHint(emp: AttendanceEmployeeRow): string {
+    if (!this.shiftTimesEnabled() || !this.isPresentToday(emp)) return '';
+    const inn = this.checkInToday(emp);
+    const out = this.checkOutToday(emp);
+    if (inn && !out) return 'Falta salida';
+    if (!inn && out) return 'Falta entrada';
+    if (!inn && !out) return 'Falta entrada y salida';
+    return '';
   }
 
   overtimeToday(emp: AttendanceEmployeeRow): number {
@@ -1166,13 +1185,15 @@ export class AttendancePage {
 
   onShiftTodayChange(emp: AttendanceEmployeeRow, checkInAt: string, checkOutAt: string): void {
     if (!this.canManage() || this.isQuickDayBlocked() || !this.isPresentToday(emp) || !this.shiftTimesEnabled()) return;
+    const inn = String(checkInAt ?? '').trim() || null;
+    const out = String(checkOutAt ?? '').trim() || null;
     this.todayMarks.update((m) => ({
       ...m,
       [emp.employeeId]: {
         isPresent: true,
         isHoliday: !!m[emp.employeeId]?.isHoliday,
-        checkInAt,
-        checkOutAt,
+        checkInAt: inn,
+        checkOutAt: out,
         overtimeHours: Number(m[emp.employeeId]?.overtimeHours ?? 0),
       },
     }));
@@ -1180,7 +1201,67 @@ export class AttendancePage {
     if (prev != null) window.clearTimeout(prev);
     const timer = window.setTimeout(() => {
       this.overtimeSaveTimers.delete(emp.employeeId);
-      this.upsertToday(emp, { isPresent: true, checkInAt, checkOutAt });
+      // Punch parcial: mandar solo el campo que cambió respecto al otro vacío
+      // no fuerza defaults en la API.
+      this.upsertToday(emp, {
+        isPresent: true,
+        checkInAt: inn,
+        checkOutAt: out,
+      });
+    }, 450);
+    this.overtimeSaveTimers.set(emp.employeeId, timer);
+  }
+
+  onCheckInTodayChange(emp: AttendanceEmployeeRow, value: string): void {
+    if (!this.canManage() || this.isQuickDayBlocked() || !this.isPresentToday(emp) || !this.shiftTimesEnabled()) {
+      return;
+    }
+    const inn = String(value ?? '').trim() || null;
+    const out = String(this.checkOutToday(emp) ?? '').trim() || null;
+    this.todayMarks.update((m) => ({
+      ...m,
+      [emp.employeeId]: {
+        isPresent: true,
+        isHoliday: !!m[emp.employeeId]?.isHoliday,
+        checkInAt: inn,
+        checkOutAt: out,
+        overtimeHours: Number(m[emp.employeeId]?.overtimeHours ?? 0),
+      },
+    }));
+    const prev = this.overtimeSaveTimers.get(emp.employeeId);
+    if (prev != null) window.clearTimeout(prev);
+    const timer = window.setTimeout(() => {
+      this.overtimeSaveTimers.delete(emp.employeeId);
+      const patch: AttendancePatch = { isPresent: true, checkInAt: inn };
+      if (out) patch.checkOutAt = out;
+      this.upsertToday(emp, patch);
+    }, 450);
+    this.overtimeSaveTimers.set(emp.employeeId, timer);
+  }
+
+  onCheckOutTodayChange(emp: AttendanceEmployeeRow, value: string): void {
+    if (!this.canManage() || this.isQuickDayBlocked() || !this.isPresentToday(emp) || !this.shiftTimesEnabled()) {
+      return;
+    }
+    const out = String(value ?? '').trim() || null;
+    const inn = String(this.checkInToday(emp) ?? '').trim() || null;
+    this.todayMarks.update((m) => ({
+      ...m,
+      [emp.employeeId]: {
+        isPresent: true,
+        isHoliday: !!m[emp.employeeId]?.isHoliday,
+        checkInAt: inn,
+        checkOutAt: out,
+        overtimeHours: Number(m[emp.employeeId]?.overtimeHours ?? 0),
+      },
+    }));
+    const prev = this.overtimeSaveTimers.get(emp.employeeId);
+    if (prev != null) window.clearTimeout(prev);
+    const timer = window.setTimeout(() => {
+      this.overtimeSaveTimers.delete(emp.employeeId);
+      const patch: AttendancePatch = { isPresent: true, checkOutAt: out };
+      if (inn) patch.checkInAt = inn;
+      this.upsertToday(emp, patch);
     }, 450);
     this.overtimeSaveTimers.set(emp.employeeId, timer);
   }

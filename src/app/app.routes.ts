@@ -7,6 +7,7 @@ import {
   shopFeatureGuard,
   shopConfigSectionGuard,
   shopUsersGuard,
+  shopUsersManageGuard,
   superAdminGuard,
   publicPagesLinksGuard,
   publicPageViewerGuard,
@@ -405,7 +406,7 @@ export const routes: Routes = [
       {
         path: 'customer-orders/historial',
         canActivate: [
-          anyPermissionGuard('customerOrders.read'),
+          anyPermissionGuard('customerOrdersHistory.read', 'customerOrdersHistory.manage'),
           shopFeatureGuard('onlineOrdering'),
         ],
         loadComponent: () =>
@@ -417,7 +418,7 @@ export const routes: Routes = [
       {
         path: 'customer-orders/monitor',
         canActivate: [
-          anyPermissionGuard('customerOrders.read'),
+          anyPermissionGuard('customerOrdersMonitor.read'),
           shopFeatureGuard('onlineOrdering'),
         ],
         loadComponent: () =>
@@ -429,7 +430,12 @@ export const routes: Routes = [
       {
         path: 'customer-orders',
         canActivate: [
-          anyPermissionGuard('customerOrders.read', 'orderingCatalog.manage'),
+          anyPermissionGuard(
+            'customerOrders.read',
+            'customerOrders.manage',
+            'orderingCatalog.read',
+            'orderingCatalog.manage',
+          ),
           shopFeatureGuard('onlineOrdering'),
         ],
         loadComponent: () =>
@@ -448,7 +454,7 @@ export const routes: Routes = [
       {
         path: 'comanda/monitor',
         canActivate: [
-          anyPermissionGuard('comanda.manage', 'shops.manage'),
+          anyPermissionGuard('comandaMonitor.read', 'shops.manage'),
           shopFeatureGuard('waiterOrdering'),
         ],
         loadComponent: () =>
@@ -458,7 +464,11 @@ export const routes: Routes = [
       {
         path: 'comanda/historial',
         canActivate: [
-          anyPermissionGuard('comanda.manage', 'shops.manage'),
+          anyPermissionGuard(
+            'comandaReceiptsHistory.read',
+            'comandaReceiptsHistory.manage',
+            'shops.manage',
+          ),
           shopFeatureGuard('waiterOrdering'),
         ],
         loadComponent: () =>
@@ -470,7 +480,7 @@ export const routes: Routes = [
       {
         path: 'comanda',
         canActivate: [
-          anyPermissionGuard('comanda.manage', 'shops.manage'),
+          anyPermissionGuard('comanda.read', 'comanda.manage', 'shops.manage'),
           shopFeatureGuard('waiterOrdering'),
         ],
         loadComponent: () =>
@@ -492,6 +502,7 @@ export const routes: Routes = [
             'shopConfig.read',
             'shopConfig.manage',
             'shops.manage',
+            'orderingCatalog.read',
             'orderingCatalog.manage',
           ),
         ],
@@ -591,6 +602,7 @@ export const routes: Routes = [
             'shopConfig.read',
             'shopConfig.manage',
             'shops.manage',
+            'orderingCatalog.read',
             'orderingCatalog.manage',
           ),
           shopConfigSectionGuard('carta'),
@@ -606,7 +618,9 @@ export const routes: Routes = [
             'shopConfig.read',
             'shopConfig.manage',
             'shops.manage',
+            'promos.read',
             'promos.manage',
+            'orderingCatalog.read',
             'orderingCatalog.manage',
           ),
           shopConfigSectionGuard('carta'),
@@ -638,7 +652,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/users/:userId/permisos',
-        canActivate: [shopUsersGuard],
+        canActivate: [shopUsersManageGuard],
         loadComponent: () =>
           import('./features/admin/admin-user-permissions').then(
             (m) => m.AdminUserPermissionsPage,
@@ -654,14 +668,14 @@ export const routes: Routes = [
       },
       {
         path: 'admin/accounts',
-        canActivate: [permissionGuard('accounts.manage')],
+        canActivate: [anyPermissionGuard('accounts.read', 'accounts.manage')],
         loadComponent: () =>
           import('./features/admin/admin-accounts').then((m) => m.AdminAccountsPage),
         title: 'Cuentas',
       },
       {
         path: 'admin/concepts',
-        canActivate: [permissionGuard('concepts.manage')],
+        canActivate: [anyPermissionGuard('concepts.read', 'concepts.manage')],
         loadComponent: () =>
           import('./features/admin/admin-concepts').then((m) => m.AdminConceptsPage),
         title: 'Conceptos',
@@ -809,6 +823,15 @@ export const routes: Routes = [
             (m) => m.ServiceRulesPage,
           ),
         title: 'Normas de servicio',
+      },
+      {
+        path: 'attendance/fichar',
+        canActivate: [permissionGuard('attendance.checkIn')],
+        loadComponent: () =>
+          import('./features/attendance/admin-attendance-check-in').then(
+            (m) => m.AdminAttendanceCheckInPage,
+          ),
+        title: 'Fichar',
       },
       {
         path: 'attendance',

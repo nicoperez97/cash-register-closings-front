@@ -126,7 +126,7 @@ export function buildPublicPages(shop: ShopSummary | null | undefined): PublicPa
     row(
       'attendanceCheckIn',
       'Fichar',
-      'Registra presente con código, sin historial',
+      'Entrada y salida por separado con código',
       `/fichar/${slug}`,
       'pin',
       !!shop.publicAttendanceCheckInEnabled,

@@ -75,6 +75,7 @@ const ADDABLE_NAV_IDS = [
   'partnerSplits',
   'orders',
   'attendance',
+  'attendanceFichar',
   'productionAttendance',
   'diagrama',
   'salonTables',

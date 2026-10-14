@@ -350,6 +350,12 @@ export class CustomerOrdersApiService {
     );
   }
 
+  removeStaff(shopId: string, id: string) {
+    return this.http.delete<{ ok: boolean }>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}`,
+    );
+  }
+
   /** Totales del turno para armar el cierre (pedidos completados + mesas cobradas). */
   closingSummary(
     shopId: string,

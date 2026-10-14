@@ -17,8 +17,8 @@ import { ActiveAccountResetService } from '../auth/active-account-reset.service'
 import {
   canAccessShopAdmin,
   canAccessShopConfig,
-  canManageShopUsers,
-  canManageOrderingCatalog,
+  canViewOrderingCatalog,
+  canViewShopUsers,
   canSeeShopConfigSection,
   defaultHomeRoute,
   hasShopPermission,
@@ -162,19 +162,48 @@ export class MainLayoutComponent {
       return items;
     }
     if (isCustomerOrdersOnly(user, shopId)) {
-      return [
-        leaf('customerOrders', {
-          badge: this.customerOrdersInbox.pendingCount() || null,
-          exact: true,
-        }),
-        leaf('customerOrdersHistory'),
-        leaf('customerOrdersMonitor'),
-      ];
+      const items: NavItem[] = [];
+      if (
+        hasShopPermission(user, shopId, 'customerOrders.read') ||
+        hasShopPermission(user, shopId, 'customerOrders.manage')
+      ) {
+        items.push(
+          leaf('customerOrders', {
+            badge: this.customerOrdersInbox.pendingCount() || null,
+            exact: true,
+          }),
+        );
+      }
+      if (
+        hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+        hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+      ) {
+        items.push(leaf('customerOrdersHistory'));
+      }
+      if (hasShopPermission(user, shopId, 'customerOrdersMonitor.read')) {
+        items.push(leaf('customerOrdersMonitor'));
+      }
+      return items;
     }
     if (isComandaOnly(user, shopId)) {
-      return this.shopFeature('waiterOrdering')
-        ? [leaf('comanda'), leaf('comandaMonitor'), leaf('comandaReceiptsHistory')]
-        : [];
+      if (!this.shopFeature('waiterOrdering')) return [];
+      const items: NavItem[] = [];
+      if (
+        hasShopPermission(user, shopId, 'comanda.manage') ||
+        hasShopPermission(user, shopId, 'comanda.read')
+      ) {
+        items.push(leaf('comanda'));
+      }
+      if (hasShopPermission(user, shopId, 'comandaMonitor.read')) {
+        items.push(leaf('comandaMonitor'));
+      }
+      if (
+        hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
+        hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage')
+      ) {
+        items.push(leaf('comandaReceiptsHistory'));
+      }
+      return items;
     }
     if (isProducerOnly(user, shopId)) {
       const items: NavItem[] = [leaf('myProduction')];
@@ -243,6 +272,7 @@ export class MainLayoutComponent {
       shopId &&
       this.shopFeature('onlineOrdering') &&
       (hasShopPermission(user, shopId, 'customerOrders.read') ||
+        hasShopPermission(user, shopId, 'orderingCatalog.read') ||
         hasShopPermission(user, shopId, 'orderingCatalog.manage'))
     ) {
       operacion.push(
@@ -252,20 +282,37 @@ export class MainLayoutComponent {
           exact: true,
         }),
       );
-      if (hasShopPermission(user, shopId, 'customerOrders.read')) {
+      if (
+        hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
+        hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
+      ) {
         operacion.push(leaf('customerOrdersHistory'));
+      }
+      if (hasShopPermission(user, shopId, 'customerOrdersMonitor.read')) {
         operacion.push(leaf('customerOrdersMonitor'));
       }
     }
-    if (
-      shopId &&
-      this.shopFeature('waiterOrdering') &&
-      (hasShopPermission(user, shopId, 'comanda.manage') ||
-        hasShopPermission(user, shopId, 'shops.manage'))
-    ) {
-      operacion.push(leaf('comanda'));
-      operacion.push(leaf('comandaMonitor'));
-      operacion.push(leaf('comandaReceiptsHistory'));
+    if (shopId && this.shopFeature('waiterOrdering')) {
+      if (
+        hasShopPermission(user, shopId, 'comanda.manage') ||
+        hasShopPermission(user, shopId, 'comanda.read') ||
+        hasShopPermission(user, shopId, 'shops.manage')
+      ) {
+        operacion.push(leaf('comanda'));
+      }
+      if (
+        hasShopPermission(user, shopId, 'comandaMonitor.read') ||
+        hasShopPermission(user, shopId, 'shops.manage')
+      ) {
+        operacion.push(leaf('comandaMonitor'));
+      }
+      if (
+        hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
+        hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage') ||
+        hasShopPermission(user, shopId, 'shops.manage')
+      ) {
+        operacion.push(leaf('comandaReceiptsHistory'));
+      }
     }
     if (operacion.length) {
       items.push({
@@ -371,6 +418,9 @@ export class MainLayoutComponent {
     const asistencia: NonNullable<NavItem['children']> = [];
     if (shopId && hasShopPermission(user, shopId, 'attendance.read')) {
       asistencia.push(leaf('attendance'));
+    }
+    if (shopId && hasShopPermission(user, shopId, 'attendance.checkIn')) {
+      asistencia.push(leaf('attendanceFichar'));
     }
     if (shopId && hasShopPermission(user, shopId, 'productionAttendance.read')) {
       asistencia.push(leaf('productionAttendance'));
@@ -552,10 +602,13 @@ export class MainLayoutComponent {
       }
     }
     if (shopId && canSeeShopConfigSection(user, shopId, 'carta')) {
-      if (canManageOrderingCatalog(user, shopId)) {
+      if (canViewOrderingCatalog(user, shopId)) {
         local.push(leaf('adminMenu'));
       }
-      if (hasShopPermission(user, shopId, 'promos.manage')) {
+      if (
+        hasShopPermission(user, shopId, 'promos.read') ||
+        hasShopPermission(user, shopId, 'promos.manage')
+      ) {
         local.push(leaf('adminPromos'));
       }
     }
@@ -588,14 +641,22 @@ export class MainLayoutComponent {
       admin.push(leaf('adminQr'));
       admin.push(leaf('adminInstrucciones'));
     }
-    if (canManageShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
+    if (canViewShopUsers(user, shopId) && (shopId || this.auth.isAdmin())) {
       admin.push(leaf('adminUsers'));
       admin.push(leaf('adminUserActivity'));
     }
-    if (shopId && hasShopPermission(user, shopId, 'accounts.manage')) {
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'accounts.read') ||
+        hasShopPermission(user, shopId, 'accounts.manage'))
+    ) {
       admin.push(leaf('adminAccounts'));
     }
-    if (shopId && hasShopPermission(user, shopId, 'concepts.manage')) {
+    if (
+      shopId &&
+      (hasShopPermission(user, shopId, 'concepts.read') ||
+        hasShopPermission(user, shopId, 'concepts.manage'))
+    ) {
       admin.push(leaf('adminConcepts'));
     }
     if (shopId && canAccessShopAdmin(user, shopId)) {

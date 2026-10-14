@@ -318,7 +318,7 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
             <strong>Monitor de salón</strong>
             <span>
               Chip flotante de reservas y lista de espera en toda la app (también en comanda),
-              con sonido al llegar una nueva.
+              con sonido al llegar una nueva. Un admin también puede habilitarlo desde Usuarios.
             </span>
           </div>
           <mat-slide-toggle
