@@ -55,6 +55,7 @@ import {
   type MenuAccountPricesItem,
 } from './menu-account-prices-dialog';
 import {
+  copyAccountPriceGroup,
   removeAccountPrice,
   removeAccountPriceGroup,
   removeAccountPriceRule,
@@ -3214,6 +3215,52 @@ export class AdminMenuPage {
               { duration: 2800 },
             );
             setTimeout(() => this.openAccountPricesDialog({ initialAccountId: accountId }), 0);
+            return;
+          }
+
+          if (result.action === 'duplicate') {
+            const fromAccountId = result.fromAccountId;
+            const toAccountId = result.toAccountId;
+            const groupMode = result.mode ?? null;
+            const groupValue = result.value ?? null;
+            let changed = 0;
+            this.sections.update((list) =>
+              list.map((s) => ({
+                ...s,
+                items: (s.items ?? []).map((it) => {
+                  const { next, copied } = copyAccountPriceGroup(
+                    it.accountPrices,
+                    {
+                      accountId: fromAccountId,
+                      mode: groupMode,
+                      value: groupValue,
+                    },
+                    toAccountId,
+                  );
+                  if (copied) changed += 1;
+                  return { ...it, accountPrices: next };
+                }),
+              })),
+            );
+            if (groupMode != null && groupValue != null) {
+              this.accountPriceRules.update((rules) =>
+                upsertAccountPriceRule(rules, {
+                  accountId: toAccountId,
+                  mode: groupMode,
+                  value: groupValue,
+                }),
+              );
+            }
+            this.resyncAccountPriceRules();
+            const fromName =
+              accountOptions.find((a) => a.id === fromAccountId)?.name || 'cuenta';
+            const toName = accountOptions.find((a) => a.id === toAccountId)?.name || 'cuenta';
+            this.snack.open(
+              `Precios de ${fromName} copiados a ${toName} (${changed} ítem(s))`,
+              'OK',
+              { duration: 2800 },
+            );
+            setTimeout(() => this.openAccountPricesDialog({ initialAccountId: toAccountId }), 0);
             return;
           }
 

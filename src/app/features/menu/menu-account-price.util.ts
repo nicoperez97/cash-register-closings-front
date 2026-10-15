@@ -132,6 +132,28 @@ export function removeAccountPriceGroup(
   return (accountPrices ?? []).filter((r) => !matchesAccountPriceGroup(r, group));
 }
 
+/** Copia un grupo de precios (o legacy) de una cuenta a otra en el mismo ítem. */
+export function copyAccountPriceGroup(
+  accountPrices: MenuItemAccountPrice[] | null | undefined,
+  from: MenuAccountPriceGroupKey,
+  toAccountId: string,
+): { next: MenuItemAccountPrice[]; copied: boolean } {
+  const to = String(toAccountId).trim();
+  if (!to || to === String(from.accountId).trim()) {
+    return { next: [...(accountPrices ?? [])], copied: false };
+  }
+  const src = (accountPrices ?? []).find((r) => matchesAccountPriceGroup(r, from));
+  if (!src) return { next: [...(accountPrices ?? [])], copied: false };
+  const mode = normalizeMode(src.mode);
+  return {
+    next: upsertAccountPrice(accountPrices, to, src.price, {
+      mode: mode ?? undefined,
+      value: src.value,
+    }),
+    copied: true,
+  };
+}
+
 export function upsertAccountPriceRule(
   rules: MenuAccountPriceRule[] | null | undefined,
   rule: MenuAccountPriceRule,
