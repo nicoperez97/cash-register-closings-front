@@ -177,11 +177,19 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
             <div class="op__pay op__pay--public" [formGroupName]="i">
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
                 <mat-label>Nombre</mat-label>
-                <input matInput formControlName="name" placeholder="ej. Efectivo" />
+                <input
+                  matInput
+                  placeholder="ej. Efectivo"
+                  [value]="host.orderingPayName(i)"
+                  (input)="host.onOrderingPayNameChange(i, $any($event.target).value)"
+                />
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-kind">
                 <mat-label>Tipo</mat-label>
-                <mat-select formControlName="kind">
+                <mat-select
+                  [value]="host.orderingPayKind(i)"
+                  (selectionChange)="host.onOrderingPayKindChange(i, $event.value)"
+                >
                   <mat-option value="CASH">Efectivo</mat-option>
                   <mat-option value="TRANSFER">Transferencia</mat-option>
                   <mat-option value="CARD">Tarjeta</mat-option>
@@ -193,7 +201,11 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 class="op__pay-channels"
               >
                 <mat-label>Se muestra en</mat-label>
-                <mat-select formControlName="fulfillments" multiple>
+                <mat-select
+                  multiple
+                  [value]="host.orderingPayFulfillments(i)"
+                  (selectionChange)="host.onOrderingPayFulfillmentsChange(i, $event.value)"
+                >
                   <mat-option value="TAKEAWAY">Retiro</mat-option>
                   <mat-option value="DELIVERY">Delivery</mat-option>
                 </mat-select>
@@ -242,7 +254,11 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                     </mat-select>
                   }
               </mat-form-field>
-              <mat-checkbox formControlName="askCashTender" class="op__pay-tender">
+              <mat-checkbox
+                class="op__pay-tender"
+                [checked]="host.orderingAskCashTender(i)"
+                (change)="host.onOrderingAskCashTenderChange(i, $event.checked)"
+              >
                 Con cuánto abona
               </mat-checkbox>
               <button
@@ -809,7 +825,12 @@ export class AdminShopOrderingComponent {
         active: [true],
       }),
     );
-    this.host.onPaymentAccountSelected('ordering', this.orderingPays.length - 1, null);
+    const idx = this.orderingPays.length - 1;
+    this.host.onOrderingPayNameChange(idx, '');
+    this.host.onOrderingPayKindChange(idx, 'CASH');
+    this.host.onOrderingPayFulfillmentsChange(idx, ['TAKEAWAY', 'DELIVERY']);
+    this.host.onOrderingAskCashTenderChange(idx, false);
+    this.host.onPaymentAccountSelected('ordering', idx, null);
   }
 
   removeOrderingPay(index: number): void {
