@@ -2099,7 +2099,9 @@ export class AdminMenuPage {
   /** menuItemId → código POS */
   readonly posCodeByMenuItemId = signal<Record<string, string>>({});
   /** Cuentas enlazadas a medios de pedido/comanda (para labels de precios por cuenta). */
-  readonly priceAccounts = signal<Array<{ id: string; name: string }>>([]);
+  readonly priceAccounts = signal<
+    Array<{ id: string; name: string; accountId: string }>
+  >([]);
   readonly saving = signal(false);
   readonly savingSectors = signal(false);
   readonly savingExtras = signal(false);
@@ -2350,24 +2352,22 @@ export class AdminMenuPage {
   }
 
   /**
-   * Misma lista que Configuración → Cuentas del local.
-   * La clave de precio es el accountId destino (ledger), que es lo que usa el POS.
+   * Misma lista que Configuración → Cuentas del local (una chip por fila).
+   * El precio se guarda en el accountId destino (ledger), que es lo que usa el POS.
    */
   private priceAccountOptionsFromSources(
     sources: ShopClosingSource[] | null | undefined,
-  ): Array<{ id: string; name: string }> {
-    const seen = new Set<string>();
-    const out: Array<{ id: string; name: string }> = [];
+  ): Array<{ id: string; name: string; accountId: string }> {
+    const out: Array<{ id: string; name: string; accountId: string }> = [];
     for (const s of [...(sources ?? [])].sort(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
     )) {
       if (s.active === false) continue;
+      const sourceId = String(s.id ?? '').trim();
       const accountId = String(s.accountId ?? '').trim();
-      if (!accountId || seen.has(accountId)) continue;
-      seen.add(accountId);
       const name = String(s.name ?? '').trim() || String(s.accountName ?? '').trim();
-      if (!name) continue;
-      out.push({ id: accountId, name });
+      if (!sourceId || !accountId || !name) continue;
+      out.push({ id: sourceId, name, accountId });
     }
     return out;
   }
@@ -2390,7 +2390,11 @@ export class AdminMenuPage {
   itemAccountPriceEntries(
     item: ShopMenuItem,
   ): Array<{ accountId: string; name: string; price: number }> {
-    const names = new Map(this.priceAccounts().map((a) => [a.id, a.name]));
+    const names = new Map<string, string>();
+    for (const a of this.priceAccounts()) {
+      const prev = names.get(a.accountId);
+      names.set(a.accountId, prev && prev !== a.name ? `${prev} / ${a.name}` : a.name);
+    }
     return (item.accountPrices ?? [])
       .map((r) => {
         const accountId = String(r.accountId ?? '').trim();
@@ -3152,7 +3156,15 @@ export class AdminMenuPage {
       });
       return;
     }
-    const openWithAccounts = (accountOptions: Array<{ id: string; name: string }>) => {
+    const openWithAccounts = (
+      accountOptions: Array<{ id: string; name: string; accountId: string }>,
+    ) => {
+      const ledgerName = (ledgerId: string) => {
+        const names = accountOptions
+          .filter((a) => a.accountId === ledgerId)
+          .map((a) => a.name);
+        return [...new Set(names)].join(' / ') || 'cuenta';
+      };
       const data: MenuAccountPricesDialogData = {
         accounts: accountOptions,
         items,
@@ -3208,7 +3220,7 @@ export class AdminMenuPage {
               this.accountPriceRules.update((rules) => removeAccountPriceRule(rules, accountId));
             }
             this.resyncAccountPriceRules();
-            const accName = accountOptions.find((a) => a.id === accountId)?.name || 'cuenta';
+            const accName = ledgerName(accountId);
             this.snack.open(
               partial ? `Ajuste de ${accName} quitado` : `Precios de ${accName} quitados`,
               'OK',
@@ -3252,11 +3264,8 @@ export class AdminMenuPage {
               );
             }
             this.resyncAccountPriceRules();
-            const fromName =
-              accountOptions.find((a) => a.id === fromAccountId)?.name || 'cuenta';
-            const toName = accountOptions.find((a) => a.id === toAccountId)?.name || 'cuenta';
             this.snack.open(
-              `Precios de ${fromName} copiados a ${toName} (${changed} ítem(s))`,
+              `Precios de ${ledgerName(fromAccountId)} copiados a ${ledgerName(toAccountId)} (${changed} ítem(s))`,
               'OK',
               { duration: 2800 },
             );
@@ -3303,9 +3312,7 @@ export class AdminMenuPage {
           );
           this.resyncAccountPriceRules();
           this.selectedItemKeys.set(new Set());
-          const accName =
-            accountOptions.find((a) => a.id === applied.accountId)?.name || 'cuenta';
-          this.snack.open(`Precios de ${accName} en ${changed} ítem(s)`, 'OK', {
+          this.snack.open(`Precios de ${ledgerName(applied.accountId)} en ${changed} ítem(s)`, 'OK', {
             duration: 2800,
           });
           setTimeout(

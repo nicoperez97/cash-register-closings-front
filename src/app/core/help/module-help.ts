@@ -2117,7 +2117,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Buscá por nombre o sección; colapsá secciones para navegar más rápido.',
           'PDF para imprimir (en Cartas): misma cara que la web (logo, tipografía, precios), sin buscar, filtros ni botones.',
         ],
-        tip: 'Para copiar precios de Pedidos Ya a Rappi (u otra), tocá el ícono de copiar en Cuentas con precio y elegí la cuenta destino. Guardá la carta después.',
+        tip: 'Si dos cuentas del local van al mismo destino (ej. Efectivo y Pedidos Ya Efectivo → Efectivo Caja), comparten el mismo precio de cuenta. Para copiar a otra (Rappi, etc.), tocá el ícono de copiar en Cuentas con precio. Guardá la carta después.',
       },
     ],
   },
