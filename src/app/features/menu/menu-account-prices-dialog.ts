@@ -75,8 +75,8 @@ function moneyLabel(n: number | null | undefined): string {
     <mat-dialog-content>
       @if (!data.accounts.length) {
         <p class="map__empty">
-          No hay cuentas enlazadas a medios de pago de pedidos o comanda. Enlazá una cuenta en
-          Configuración del local → Pedidos / Comanda.
+          No hay cuentas del local. Creá cuentas en Configuración → Dispositivos / Cuentas del local
+          (o en Cuentas).
         </p>
       } @else {
         @if (pricedAccounts().length) {
