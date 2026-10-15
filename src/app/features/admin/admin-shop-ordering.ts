@@ -349,14 +349,21 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 <input
                   matInput
                   type="number"
-                  formControlName="discountPercent"
                   min="0"
                   max="100"
                   step="1"
                   placeholder="—"
+                  [value]="host.counterDiscountPercent(i) ?? ''"
+                  (input)="
+                    host.onCounterDiscountPercentChange(i, $any($event.target).value)
+                  "
                 />
               </mat-form-field>
-              <mat-checkbox formControlName="askCashTender" class="op__pay-tender">
+              <mat-checkbox
+                class="op__pay-tender"
+                [checked]="host.counterAskCashTender(i)"
+                (change)="host.onCounterAskCashTenderChange(i, $event.checked)"
+              >
                 Con cuánto abona
               </mat-checkbox>
               <button
@@ -817,6 +824,8 @@ export class AdminShopOrderingComponent {
         active: [true],
       }),
     );
+    this.host.onCounterAskCashTenderChange(this.counterPays.length - 1, false);
+    this.host.onCounterDiscountPercentChange(this.counterPays.length - 1, null);
     this.host.onPaymentAccountSelected('counter', this.counterPays.length - 1, null);
   }
 
