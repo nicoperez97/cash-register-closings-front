@@ -266,8 +266,8 @@ export class StaffOrderingPosComponent implements OnInit {
           choices.find((c) => orderingPayNeedsCashTender(c)) ??
           choices.find((c) => c.kind === 'CASH') ??
           choices[0];
-        if (cashLike) this.paymentChoiceId.set(cashLike.id);
-        this.syncCashIfNeeded();
+        if (cashLike) this.setPayment(cashLike);
+        else this.syncCashIfNeeded();
       },
       error: (err) => {
         this.loading.set(false);
@@ -381,7 +381,26 @@ export class StaffOrderingPosComponent implements OnInit {
   setPayment(choice: OrderingPayChoice): void {
     this.paymentChoiceId.set(choice.id);
     this.repriceLinesForAccount(choice.accountId);
+    this.applyPaymentAutoDiscount(choice);
     this.syncCashIfNeeded();
+  }
+
+  /** Aplica el % configurado en el medio de pago (o quita el descuento si no tiene). */
+  private applyPaymentAutoDiscount(choice: OrderingPayChoice): void {
+    const pct = Number(choice.discountPercent);
+    if (!Number.isFinite(pct) || pct <= 0) {
+      this.discountMode.set('none');
+      this.discountValue.set(null);
+      this.discountPresetId.set(null);
+      return;
+    }
+    const value = Math.min(100, Math.round(pct * 100) / 100);
+    const match = this.discountPresets().find(
+      (p) => p.mode === 'percent' && Number(p.value) === value,
+    );
+    this.discountMode.set('percent');
+    this.discountValue.set(value);
+    this.discountPresetId.set(match?.id ?? null);
   }
 
   /** Recalcula precios de ítems según la cuenta del medio (sin precio de cuenta → precio fijo). */

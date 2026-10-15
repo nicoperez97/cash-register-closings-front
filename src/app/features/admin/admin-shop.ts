@@ -1003,6 +1003,7 @@ export class AdminShopPage implements OnInit {
       accountId?: string | null;
       active?: boolean;
       askCashTender?: boolean;
+      discountPercent?: number | null;
     }> | null;
     deliveryZones?: Array<{
       id?: string;
@@ -1233,6 +1234,11 @@ export class AdminShopPage implements OnInit {
       const name = String(m.name ?? '').trim();
       const accountId = String(m.accountId ?? '').trim() || null;
       this.rememberPaymentAccount('counter', id, accountId);
+      const discountRaw = Number((m as { discountPercent?: number | null }).discountPercent);
+      const discountPercent =
+        Number.isFinite(discountRaw) && discountRaw > 0
+          ? Math.min(100, Math.round(discountRaw * 100) / 100)
+          : null;
       this.counterPaymentMethods.push(
         this.fb.nonNullable.group({
           id: [id],
@@ -1245,6 +1251,7 @@ export class AdminShopPage implements OnInit {
               askCashTender: (m as { askCashTender?: boolean }).askCashTender,
             }),
           ],
+          discountPercent: this.fb.control<number | null>(discountPercent),
           active: [true],
         }),
       );
@@ -1257,6 +1264,7 @@ export class AdminShopPage implements OnInit {
           name: ['Efectivo'],
           accountId: this.fb.control<string | null>(null),
           askCashTender: [true],
+          discountPercent: this.fb.control<number | null>(null),
           active: [true],
         }),
       );
@@ -1760,6 +1768,7 @@ export class AdminShopPage implements OnInit {
     kind?: string;
     fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
     askCashTender?: boolean;
+    discountPercent?: number | null;
   }> {
     let value: unknown = raw;
     if (typeof value === 'string') {
@@ -1778,6 +1787,7 @@ export class AdminShopPage implements OnInit {
           kind?: string;
           fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
           askCashTender?: boolean;
+          discountPercent?: number | null;
         }>)
       : [];
   }
@@ -2265,16 +2275,23 @@ export class AdminShopPage implements OnInit {
           accountId?: string | null;
           active?: boolean;
           askCashTender?: boolean;
+          discountPercent?: number | null;
         }>
       )
         .map((m) => {
           const id = String(m.id ?? '').trim() || undefined;
+          const discountRaw = Number(m.discountPercent);
+          const discountPercent =
+            Number.isFinite(discountRaw) && discountRaw > 0
+              ? Math.min(100, Math.round(discountRaw * 100) / 100)
+              : null;
           return {
             id,
             name: String(m.name ?? '').trim(),
             accountId: this.resolvePaymentAccountId('counter', id ?? '', m.accountId),
             active: m.active !== false,
             askCashTender: !!m.askCashTender,
+            discountPercent,
           };
         })
         .filter((m) => !!m.name),

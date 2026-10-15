@@ -286,7 +286,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
         <h3 class="op__subtitle">Medios de pago — mostrador</h3>
         <p class="op__schedule-hint">
           En la caja de mostrador elegís uno. Marcá “Con cuánto abona” en los que pidan el monto
-          con el que paga el cliente. Lista aparte de la web pública.
+          con el que paga el cliente. En “Desc. %” podés dejar un descuento que se aplica solo al
+          elegir ese medio (ej. 10 en Efectivo estudiante). Lista aparte de la web pública.
         </p>
         <div class="op__pays" formArrayName="counterPaymentMethods">
           @for (m of counterPays.controls; track $index; let i = $index) {
@@ -338,6 +339,22 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                       <mat-option [value]="null">Cargando cuentas…</mat-option>
                     </mat-select>
                   }
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="op__pay-discount"
+              >
+                <mat-label>Desc. %</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="discountPercent"
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder="—"
+                />
               </mat-form-field>
               <mat-checkbox formControlName="askCashTender" class="op__pay-tender">
                 Con cuánto abona
@@ -796,6 +813,7 @@ export class AdminShopOrderingComponent {
         name: [''],
         accountId: this.fb.control<string | null>(null),
         askCashTender: [false],
+        discountPercent: this.fb.control<number | null>(null),
         active: [true],
       }),
     );

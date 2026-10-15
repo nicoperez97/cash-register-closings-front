@@ -438,7 +438,7 @@
 }
 
 .op__pay--counter {
-  grid-template-columns: minmax(0, 1fr) minmax(11rem, 1.1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 1.1fr) minmax(5.5rem, 6.5rem) auto auto;
   align-items: center;
 }
 
@@ -451,7 +451,8 @@
 .op__pay-name,
 .op__pay-account,
 .op__pay-kind,
-.op__pay-channels {
+.op__pay-channels,
+.op__pay-discount {
   width: 100%;
   min-width: 0;
 }
@@ -504,6 +505,7 @@
   }
 
   .op__pay--counter .op__pay-account,
+  .op__pay--counter .op__pay-discount,
   .op__pay--counter .op__pay-tender {
     grid-column: 1 / -1;
   }
