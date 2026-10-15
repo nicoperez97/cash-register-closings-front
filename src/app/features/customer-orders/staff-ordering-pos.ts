@@ -12,6 +12,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { catchError, forkJoin, of } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { OfflineService } from '../../core/offline/offline.service';
 import { prettySection } from '../menu/menu-display';
@@ -48,6 +49,7 @@ import {
   type DiscountPreset,
 } from '../../core/shop/discount-presets';
 import { resolveItemUnitPrice } from '../menu/menu-account-price.util';
+import { ClosingsApiService } from '../closings/closings-api.service';
 
 type PosLine = {
   key: string;
@@ -70,11 +72,15 @@ type CatalogItem = PublicOrderingMenuItem & { section: string };
 })
 export class StaffOrderingPosComponent implements OnInit {
   private readonly api = inject(CustomerOrdersApiService);
+  private readonly closingsApi = inject(ClosingsApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly title = inject(Title);
   readonly shops = inject(ShopContextService);
   readonly offline = inject(OfflineService);
   private readonly outbox = inject(StaffOrderOutboxService);
+
+  /** sourceId → ledger destino (fallback precios legacy). */
+  private readonly priceLedgerBySourceId = signal<Map<string, string>>(new Map());
 
   /** Embebido en la card del tablero (sin navegar). */
   readonly embedded = input(false);
@@ -256,8 +262,20 @@ export class StaffOrderingPosComponent implements OnInit {
     }
     this.loading.set(true);
     this.error.set(null);
-    this.api.getStaffOrderingCatalog(shopId).subscribe({
-      next: (cfg) => {
+    forkJoin({
+      cfg: this.api.getStaffOrderingCatalog(shopId),
+      sources: this.closingsApi
+        .listClosingSources(shopId, true)
+        .pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ cfg, sources }) => {
+        const ledgerBySource = new Map<string, string>();
+        for (const s of sources ?? []) {
+          const id = String(s.id ?? '').trim();
+          const ledger = String(s.accountId ?? '').trim();
+          if (id && ledger) ledgerBySource.set(id, ledger);
+        }
+        this.priceLedgerBySourceId.set(ledgerBySource);
         this.config.set(cfg);
         this.loading.set(false);
         this.fulfillment.set('COUNTER');
@@ -276,11 +294,23 @@ export class StaffOrderingPosComponent implements OnInit {
     });
   }
 
+  private priceForAccount(
+    it: {
+      price?: number | null;
+      accountPrices?: Array<{ accountId: string; price: number }> | null;
+    },
+    accountId?: string | null,
+  ): number {
+    const id = String(accountId ?? '').trim() || null;
+    const fallback = id ? this.priceLedgerBySourceId().get(id) ?? null : null;
+    return resolveItemUnitPrice(it, id, fallback);
+  }
+
   priceForItem(it: {
     price?: number | null;
     accountPrices?: Array<{ accountId: string; price: number }> | null;
   }): number {
-    return resolveItemUnitPrice(it, this.selectedPayment()?.accountId);
+    return this.priceForAccount(it, this.selectedPayment()?.accountId);
   }
 
   /** Precio fijo del catálogo para una línea del ticket. */
@@ -411,7 +441,7 @@ export class StaffOrderingPosComponent implements OnInit {
         if (l.kind !== 'ITEM') return l;
         const cat = byId.get(String(l.menuItemId));
         if (!cat) return l;
-        const unitPrice = resolveItemUnitPrice(cat, accountId);
+        const unitPrice = this.priceForAccount(cat, accountId);
         return { ...l, unitPrice, key: `i:${l.menuItemId}` };
       });
       const merged: PosLine[] = [];

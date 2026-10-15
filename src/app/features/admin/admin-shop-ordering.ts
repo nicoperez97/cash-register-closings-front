@@ -215,7 +215,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 subscriptSizing="dynamic"
                 class="op__pay-account"
               >
-                <mat-label>Cuenta</mat-label>
+                <mat-label>Cuenta del local</mat-label>
                   @if (host.payAccountSelectReady()) {
                     @for (tick of [host.payAccountSelectEpoch()]; track tick) {
                       <mat-select
@@ -230,19 +230,22 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                         <mat-option disabled class="select-search-opt">
                           <app-select-search
                             [(query)]="host.accountSearchQuery"
-                            placeholder="Buscar cuenta…"
+                            placeholder="Buscar cuenta del local…"
                           />
                         </mat-option>
                         <mat-option [value]="null">Sin vincular</mat-option>
                         @for (
-                          a of host.filteredSourceAccounts(host.linkedAccountId('ordering', i));
+                          a of host.filteredPaymentClosingSources(
+                            host.linkedAccountId('ordering', i)
+                          );
                           track a.id
                         ) {
                           <mat-option [value]="a.id">{{ a.name }}</mat-option>
                         }
                         @if (
                           host.accountSearchQuery() &&
-                          !host.filteredSourceAccounts(host.linkedAccountId('ordering', i)).length
+                          !host.filteredPaymentClosingSources(host.linkedAccountId('ordering', i))
+                            .length
                         ) {
                           <mat-option disabled>Sin resultados</mat-option>
                         }
@@ -301,9 +304,11 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
 
         <h3 class="op__subtitle">Medios de pago — mostrador</h3>
         <p class="op__schedule-hint">
-          En la caja de mostrador elegís uno. Marcá “Con cuánto abona” en los que pidan el monto
-          con el que paga el cliente. En “Desc. %” podés dejar un descuento que se aplica solo al
-          elegir ese medio (ej. 10 en Efectivo estudiante). Lista aparte de la web pública.
+          En la caja de mostrador elegís uno. En Cuenta vinculá una cuenta del local (define
+          precios por cuenta; el destino de cierre es el de esa fila). Marcá “Con cuánto abona” en
+          los que pidan el monto con el que paga el cliente. En “Desc. %” podés dejar un descuento
+          que se aplica solo al elegir ese medio (ej. 10 en Efectivo estudiante). Lista aparte de
+          la web pública.
         </p>
         <div class="op__pays" formArrayName="counterPaymentMethods">
           @for (m of counterPays.controls; track $index; let i = $index) {
@@ -322,7 +327,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                 subscriptSizing="dynamic"
                 class="op__pay-account"
               >
-                <mat-label>Cuenta</mat-label>
+                <mat-label>Cuenta del local</mat-label>
                   @if (host.payAccountSelectReady()) {
                     @for (tick of [host.payAccountSelectEpoch()]; track tick) {
                       <mat-select
@@ -337,19 +342,22 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                         <mat-option disabled class="select-search-opt">
                           <app-select-search
                             [(query)]="host.accountSearchQuery"
-                            placeholder="Buscar cuenta…"
+                            placeholder="Buscar cuenta del local…"
                           />
                         </mat-option>
                         <mat-option [value]="null">Sin vincular</mat-option>
                         @for (
-                          a of host.filteredSourceAccounts(host.linkedAccountId('counter', i));
+                          a of host.filteredPaymentClosingSources(
+                            host.linkedAccountId('counter', i)
+                          );
                           track a.id
                         ) {
                           <mat-option [value]="a.id">{{ a.name }}</mat-option>
                         }
                         @if (
                           host.accountSearchQuery() &&
-                          !host.filteredSourceAccounts(host.linkedAccountId('counter', i)).length
+                          !host.filteredPaymentClosingSources(host.linkedAccountId('counter', i))
+                            .length
                         ) {
                           <mat-option disabled>Sin resultados</mat-option>
                         }

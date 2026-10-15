@@ -123,7 +123,8 @@ import { SelectSearchComponent } from '../../shared/components/select-search';
         @if (waiterOn()) {
           <h3 class="op__subtitle">Medios de pago de mesa</h3>
           <p class="op__schedule-hint">
-            Al cerrar una mesa el mozo elige uno. Podés vincular cada medio a una cuenta del local.
+            Al cerrar una mesa el mozo elige uno. Vincular a una cuenta del local define precios por
+            cuenta y el destino de cierre de esa fila.
           </p>
           <div class="op__pays" formArrayName="tablePaymentMethods">
             @for (m of tablePays.controls; track $index; let i = $index) {
@@ -142,7 +143,7 @@ import { SelectSearchComponent } from '../../shared/components/select-search';
                   subscriptSizing="dynamic"
                   class="op__pay-account"
                 >
-                  <mat-label>Cuenta</mat-label>
+                  <mat-label>Cuenta del local</mat-label>
                   @if (host.payAccountSelectReady()) {
                     @for (tick of [host.payAccountSelectEpoch()]; track tick) {
                       <mat-select
@@ -157,19 +158,22 @@ import { SelectSearchComponent } from '../../shared/components/select-search';
                         <mat-option disabled class="select-search-opt">
                           <app-select-search
                             [(query)]="host.accountSearchQuery"
-                            placeholder="Buscar cuenta…"
+                            placeholder="Buscar cuenta del local…"
                           />
                         </mat-option>
                         <mat-option [value]="null">Sin vincular</mat-option>
                         @for (
-                          a of host.filteredSourceAccounts(host.linkedAccountId('table', i));
+                          a of host.filteredPaymentClosingSources(
+                            host.linkedAccountId('table', i)
+                          );
                           track a.id
                         ) {
                           <mat-option [value]="a.id">{{ a.name }}</mat-option>
                         }
                         @if (
                           host.accountSearchQuery() &&
-                          !host.filteredSourceAccounts(host.linkedAccountId('table', i)).length
+                          !host.filteredPaymentClosingSources(host.linkedAccountId('table', i))
+                            .length
                         ) {
                           <mat-option disabled>Sin resultados</mat-option>
                         }

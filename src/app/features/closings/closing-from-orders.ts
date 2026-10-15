@@ -92,7 +92,11 @@ export function buildClosingDraftFromOrdersSummary(opts: {
       : (shop?.defaultChangeAmount ?? null));
   const openingAmt = Math.max(0, Number(opening) || 0);
 
-  const catalog = (sources ?? []).filter((s) => s.active !== false && s.role !== 'CASH');
+  const allActive = (sources ?? []).filter((s) => s.active !== false);
+  const catalog = allActive.filter((s) => s.role !== 'CASH');
+  /** Medio vinculado a id de cuenta del local (incluye Efectivo sistema). */
+  const bySourceId = new Map(allActive.map((s) => [String(s.id), s] as const));
+  /** Legacy: medio vinculado al ledger destino. */
   const byAccount = new Map(
     catalog.filter((s) => !!s.accountId).map((s) => [String(s.accountId), s] as const),
   );
@@ -231,8 +235,11 @@ export function buildClosingDraftFromOrdersSummary(opts: {
 
   const resolveSourceForPay = (pay: ClosingPayMethodRow): ShopClosingSource | null => {
     if (pay.accountId) {
-      const byId = byAccount.get(String(pay.accountId));
-      if (byId) return byId;
+      const key = String(pay.accountId);
+      const bySrc = bySourceId.get(key);
+      if (bySrc) return bySrc;
+      const byLed = byAccount.get(key);
+      if (byLed) return byLed;
     }
     const n = nameKey(pay.paymentMethodName);
     if (!n) return null;
