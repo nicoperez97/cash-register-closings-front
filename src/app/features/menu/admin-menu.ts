@@ -212,6 +212,31 @@ function emptySections(): ShopMenuSection[] {
   return [];
 }
 
+/** Persiste precio + modo/valor (recargo % o suma); sin eso al Guardar se perdía el ajuste. */
+function normalizeAccountPricesForSave(
+  raw: MenuItemAccountPrice[] | null | undefined,
+): MenuItemAccountPrice[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MenuItemAccountPrice[] = [];
+  for (const r of raw) {
+    const accountId = String(r?.accountId ?? '').trim().slice(0, 36);
+    if (!accountId) continue;
+    const price = Math.max(0, Math.round(Number(r.price) || 0));
+    if (!Number.isFinite(price) || price < 0) continue;
+    const entry: MenuItemAccountPrice = { accountId, price };
+    const modeRaw = String(r?.mode ?? '').trim();
+    const mode =
+      modeRaw === 'fixed' || modeRaw === 'add' || modeRaw === 'percent' ? modeRaw : null;
+    const valueRaw = Number(r?.value);
+    if (mode && Number.isFinite(valueRaw) && !(mode === 'fixed' && valueRaw < 0)) {
+      entry.mode = mode;
+      entry.value = mode === 'fixed' ? Math.round(valueRaw) : valueRaw;
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
 function cloneMenu(menu: ShopMenu): ShopMenu {
   return {
     id: menu.id || newMenuId(),
@@ -247,14 +272,7 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
         description: it.description ?? '',
         price: it.price ?? null,
         priceLabel: it.priceLabel ?? '',
-        accountPrices: Array.isArray(it.accountPrices)
-          ? it.accountPrices
-              .map((r) => ({
-                accountId: String(r.accountId ?? '').trim(),
-                price: Math.max(0, Math.round(Number(r.price) || 0)),
-              }))
-              .filter((r) => r.accountId)
-          : [],
+        accountPrices: normalizeAccountPricesForSave(it.accountPrices),
         available: it.available !== false,
         countsAsUnits:
           it.countsAsUnits !== undefined && it.countsAsUnits !== null
@@ -2730,14 +2748,7 @@ export class AdminMenuPage {
             description: String(it.description ?? '').trim() || null,
             price: toPrice(it.price),
             priceLabel: String(it.priceLabel ?? '').trim() || null,
-            accountPrices: Array.isArray(it.accountPrices)
-              ? it.accountPrices
-                  .map((r) => ({
-                    accountId: String(r.accountId ?? '').trim().slice(0, 36),
-                    price: Math.max(0, Math.round(Number(r.price) || 0)),
-                  }))
-                  .filter((r) => r.accountId)
-              : [],
+            accountPrices: normalizeAccountPricesForSave(it.accountPrices),
             available: it.available !== false,
             countsAsUnits: it.countsAsUnits !== false,
             imageUrl: String(it.imageUrl ?? '').trim() || null,
