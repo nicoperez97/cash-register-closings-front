@@ -294,7 +294,12 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
             <div class="op__pay op__pay--counter" [formGroupName]="i">
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
                 <mat-label>Nombre</mat-label>
-                <input matInput formControlName="name" placeholder="ej. Pedidos Ya" />
+                <input
+                  matInput
+                  placeholder="ej. Pedidos Ya"
+                  [value]="host.counterPayName(i)"
+                  (input)="host.onCounterPayNameChange(i, $any($event.target).value)"
+                />
               </mat-form-field>
               <mat-form-field
                 appearance="outline"
@@ -824,9 +829,11 @@ export class AdminShopOrderingComponent {
         active: [true],
       }),
     );
-    this.host.onCounterAskCashTenderChange(this.counterPays.length - 1, false);
-    this.host.onCounterDiscountPercentChange(this.counterPays.length - 1, null);
-    this.host.onPaymentAccountSelected('counter', this.counterPays.length - 1, null);
+    const idx = this.counterPays.length - 1;
+    this.host.onCounterPayNameChange(idx, '');
+    this.host.onCounterAskCashTenderChange(idx, false);
+    this.host.onCounterDiscountPercentChange(idx, null);
+    this.host.onPaymentAccountSelected('counter', idx, null);
   }
 
   removeCounterPay(index: number): void {
