@@ -217,13 +217,22 @@ export function inferAskCashTender(
   return /efectivo|cash|contado|op_cash|tp_cash|cp_cash/.test(`${id} ${name}`.toLowerCase());
 }
 
+/** Acepta bool / 0|1 / "true"|"false" (MySQL JSON a veces no devuelve boolean). */
+export function coerceAskCashTenderFlag(raw: unknown): boolean | undefined {
+  if (typeof raw === 'boolean') return raw;
+  if (raw === 1 || raw === '1' || raw === 'true' || raw === 'TRUE') return true;
+  if (raw === 0 || raw === '0' || raw === 'false' || raw === 'FALSE') return false;
+  return undefined;
+}
+
 export function resolveAskCashTender(opts: {
   id: string;
   name: string;
   kind?: 'CASH' | 'TRANSFER' | 'CARD' | null;
-  askCashTender?: boolean | null;
+  askCashTender?: boolean | null | unknown;
 }): boolean {
-  if (typeof opts.askCashTender === 'boolean') return opts.askCashTender;
+  const coerced = coerceAskCashTenderFlag(opts.askCashTender);
+  if (typeof coerced === 'boolean') return coerced;
   return inferAskCashTender(opts.id, opts.name, opts.kind);
 }
 

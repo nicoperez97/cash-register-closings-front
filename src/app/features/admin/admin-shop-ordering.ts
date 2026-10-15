@@ -52,7 +52,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
     SelectSearchComponent,
   ],
   template: `
-    <div class="op">
+    <div class="op" [formGroup]="host.form">
       <section class="panel-card op__card">
         <header class="op__head">
           <h2 class="op__title">Pedidos</h2>
