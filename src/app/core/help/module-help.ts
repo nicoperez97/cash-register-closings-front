@@ -1113,6 +1113,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'En Mostrador, nombre y celular son opcionales (si no hay celular, no se imprime en el ticket).',
           'Imprimir ticket del cliente viene tildado: sale comanda de cocina + ticket con total. Destildalo si solo querés cocina.',
           'Con cuánto abona aparece solo en los medios que lo tengan marcado en Configuración → Pedidos → Medios de pago — mostrador. Si abona de más, ves el cambio.',
+          'Si el medio tiene Desc. % configurado (ej. Efectivo estudiante = 10), al elegirlo se aplica solo ese descuento. Podés cambiarlo después a mano.',
           'Con Enter en nombre, celular, con cuánto abona o nota creás el pedido (igual que el botón Crear pedido).',
           'Mostrador y Delivery cargados desde el POS entran en En cocina (ya los tomó el local).',
           'Si un plato no aparece, puede estar 86: el insumo de la receta quedó en 0 o bajo el mínimo.',
@@ -1266,8 +1267,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Activá Página pública /pedir, Take away y/o Delivery. No apaga las mesas: Comanda y Reservas se prenden aparte. Un restaurante puede tener mesas y también take away y delivery.',
           'Horarios: en /pedir cada canal (take away o delivery) se muestra fuera de horario según su franja. Además hace falta caja abierta en Pedidos clientes.',
-          'Medios de pago: dos listas — web pública (/pedir) y mostrador (caja). En cada medio podés marcar Con cuánto abona: pide el monto con el que paga el cliente. En la web pública también hay tipo (Efectivo/Transferencia/Tarjeta) y en qué entregas se muestra (Retiro y/o Delivery). CBU, Alias y WhatsApp para comprobantes solo en la web pública (si WhatsApp está vacío, usa el teléfono del local).',
-          'Atajos de descuento: botones rápidos (por defecto 10%) en la caja rápida de Pedidos clientes y en el ticket de mesa. También quedan No, % y $.',
+          'Medios de pago: dos listas — web pública (/pedir) y mostrador (caja). En cada medio podés marcar Con cuánto abona: pide el monto con el que paga el cliente. En mostrador también está Desc. %: al elegir ese medio en la caja rápida se aplica solo ese descuento (ej. 10 en Efectivo estudiante). En la web pública también hay tipo (Efectivo/Transferencia/Tarjeta) y en qué entregas se muestra (Retiro y/o Delivery). CBU, Alias y WhatsApp para comprobantes solo en la web pública (si WhatsApp está vacío, usa el teléfono del local).',
+          'Atajos de descuento: botones rápidos (por defecto 10%) en la caja rápida de Pedidos clientes y en el ticket de mesa. También quedan No, % y $. El Desc. % del medio de mostrador es aparte: se dispara al elegir el pago.',
           'En Pedidos: Configuración del local → Pedidos → Medios de pago — web pública (tipo + se muestra en) y Medios de pago — mostrador. Cada lista es independiente.',
           'En Pedidos clientes → Configurar: abrir caja, take away, delivery e ítems/extras (CBU, Alias y WhatsApp siguen en Configuración del local → Pedidos).',
           'Crear/editar extras, ítems y fotos: en Carta. Horarios, zonas y ETA (rango en minutos, ej. Take away 20 - 30 min): Configuración del local → Pedidos.',

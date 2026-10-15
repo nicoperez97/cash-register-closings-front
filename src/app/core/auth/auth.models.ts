@@ -1688,6 +1688,8 @@ export interface ShopSummary {
     accountId?: string | null;
     active?: boolean;
     askCashTender?: boolean;
+    /** % descuento automático al elegir este medio en mostrador. */
+    discountPercent?: number | null;
   }> | null;
   /** Medios de pago de mesa (comanda). */
   tablePaymentMethods?: Array<{

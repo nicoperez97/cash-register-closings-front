@@ -199,6 +199,8 @@ export type OrderingPayChoice = {
   fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
   /** Si true, pide “con cuánto abona”. Ausente = heurística legacy. */
   askCashTender?: boolean;
+  /** % descuento automático al elegir este medio (mostrador). */
+  discountPercent?: number | null;
 };
 
 /** Heurística legacy cuando el medio aún no tiene askCashTender guardado. */
@@ -249,6 +251,7 @@ export function orderingPayChoices(
           kind?: 'CASH' | 'TRANSFER' | 'CARD' | null;
           fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'> | null;
           askCashTender?: boolean | null;
+          discountPercent?: number | null;
         }> | null;
       }
     | null
@@ -269,6 +272,11 @@ export function orderingPayChoices(
         kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
           ? kindRaw
           : classifyOrderingPayKind(id, name);
+      const discountRaw = Number(i.discountPercent);
+      const discountPercent =
+        Number.isFinite(discountRaw) && discountRaw > 0
+          ? Math.min(100, Math.round(discountRaw * 100) / 100)
+          : null;
       return {
         id,
         name,
@@ -281,6 +289,7 @@ export function orderingPayChoices(
           kind,
           askCashTender: i.askCashTender,
         }),
+        discountPercent,
       };
     });
     if (!fulfillment) return choices;

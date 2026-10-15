@@ -92,6 +92,8 @@ export interface PublicOrderingConfig {
       kind?: 'CASH' | 'TRANSFER' | 'CARD';
       fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
       askCashTender?: boolean;
+      /** % descuento automático (medios de mostrador). */
+      discountPercent?: number | null;
     }>;
     transferCbu?: string | null;
     transferAlias?: string | null;
