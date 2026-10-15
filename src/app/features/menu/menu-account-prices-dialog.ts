@@ -51,6 +51,13 @@ export type MenuAccountPricesDialogResult =
       accountId: string;
       mode?: MenuAccountPriceMode | null;
       value?: number | null;
+    }
+  | {
+      action: 'duplicate';
+      fromAccountId: string;
+      toAccountId: string;
+      mode?: MenuAccountPriceMode | null;
+      value?: number | null;
     };
 
 function moneyLabel(n: number | null | undefined): string {
@@ -83,26 +90,55 @@ function moneyLabel(n: number | null | undefined): string {
           <div class="map__rules" role="list" aria-label="Cuentas con precio">
             <div class="map__rules-title">Cuentas con precio</div>
             @for (row of pricedAccounts(); track row.trackKey) {
-              <div class="map__rule" role="listitem">
-                <div class="map__rule-main">
-                  <strong>{{ row.name }}</strong>
-                  <span class="map__rule-label">{{ row.label }}</span>
-                  <span class="map__muted">{{ row.itemCount }} ítem(s)</span>
+              <div class="map__rule-wrap" role="listitem">
+                <div class="map__rule">
+                  <div class="map__rule-main">
+                    <strong>{{ row.name }}</strong>
+                    <span class="map__rule-label">{{ row.label }}</span>
+                    <span class="map__muted">{{ row.itemCount }} ítem(s)</span>
+                  </div>
+                  <button
+                    type="button"
+                    mat-icon-button
+                    class="map__rule-copy"
+                    (click)="toggleDuplicatePicker(row.trackKey)"
+                    [attr.aria-label]="'Duplicar precios de ' + row.name"
+                    [attr.aria-expanded]="duplicateTrackKey() === row.trackKey"
+                    title="Duplicar a otra cuenta"
+                  >
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    mat-icon-button
+                    class="map__rule-del"
+                    (click)="deleteGroup(row)"
+                    [attr.aria-label]="'Quitar ' + row.label + ' de ' + row.name"
+                    [title]="
+                      row.mode
+                        ? 'Quitar este ajuste de la cuenta'
+                        : 'Quitar precios de esta cuenta'
+                    "
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  mat-icon-button
-                  class="map__rule-del"
-                  (click)="deleteGroup(row)"
-                  [attr.aria-label]="'Quitar ' + row.label + ' de ' + row.name"
-                  [title]="
-                    row.mode
-                      ? 'Quitar este ajuste de la cuenta'
-                      : 'Quitar precios de esta cuenta'
-                  "
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
+                @if (duplicateTrackKey() === row.trackKey) {
+                  <div class="map__dup" role="group" [attr.aria-label]="'Copiar ' + row.name + ' a'">
+                    <span class="map__dup-label">Copiar a…</span>
+                    @for (a of duplicateTargets(row.accountId); track a.id) {
+                      <button
+                        type="button"
+                        class="map__chip map__chip--sm"
+                        (click)="confirmDuplicate(row, a.id)"
+                      >
+                        {{ a.name }}
+                      </button>
+                    } @empty {
+                      <span class="map__muted">No hay otra cuenta para copiar.</span>
+                    }
+                  </div>
+                }
               </div>
             }
           </div>
@@ -274,15 +310,43 @@ function moneyLabel(n: number | null | undefined): string {
       color: var(--guy-muted, #5f6f76);
       margin-bottom: 0.15rem;
     }
+    .map__rule-wrap {
+      display: grid;
+      gap: 0.35rem;
+    }
     .map__rule {
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.15rem;
       min-height: 2.35rem;
       padding: 0.15rem 0.15rem 0.15rem 0.35rem;
       border-radius: 10px;
       background: #fff;
       border: 1px solid var(--guy-border, #e6ebf0);
+    }
+    .map__rule-copy {
+      flex-shrink: 0;
+      color: var(--guy-navy, #003366);
+    }
+    .map__dup {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.45rem 0.45rem;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px dashed var(--guy-border, #d7e0d9);
+    }
+    .map__dup-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--guy-muted, #5f6f76);
+      margin-right: 0.15rem;
+    }
+    .map__chip--sm {
+      padding: 0.3rem 0.7rem;
+      font-size: 0.82rem;
     }
     .map__rule-main {
       flex: 1;
@@ -522,6 +586,8 @@ export class MenuAccountPricesDialogComponent {
   readonly mode = signal<MenuBulkPriceMode>('fixed');
   readonly amount = signal<number | null>(null);
   readonly query = signal('');
+  /** Fila de «Cuentas con precio» cuyo picker de duplicar está abierto. */
+  readonly duplicateTrackKey = signal<string | null>(null);
 
   private readonly selectedKeys = signal<Set<string>>(
     new Set(this.data.preselectedKeys?.length ? this.data.preselectedKeys : []),
@@ -708,6 +774,43 @@ export class MenuAccountPricesDialogComponent {
     this.ref.close({
       action: 'delete',
       accountId: id,
+      mode: row.mode,
+      value: row.value,
+    });
+  }
+
+  toggleDuplicatePicker(trackKey: string): void {
+    this.duplicateTrackKey.update((cur) => (cur === trackKey ? null : trackKey));
+  }
+
+  duplicateTargets(fromAccountId: string): MenuAccountPriceAccount[] {
+    const from = String(fromAccountId ?? '').trim();
+    return this.data.accounts.filter((a) => a.id !== from);
+  }
+
+  confirmDuplicate(
+    row: {
+      accountId: string;
+      name: string;
+      label: string;
+      mode: MenuAccountPriceMode | null;
+      value: number | null;
+    },
+    toAccountId: string,
+  ): void {
+    const from = String(row.accountId ?? '').trim();
+    const to = String(toAccountId ?? '').trim();
+    if (!from || !to || from === to) return;
+    const toName = this.data.accounts.find((a) => a.id === to)?.name || 'cuenta';
+    const msg =
+      row.mode != null && row.value != null
+        ? `¿Copiar «${row.label}» de «${row.name}» a «${toName}»?`
+        : `¿Copiar los precios de «${row.name}» a «${toName}»?`;
+    if (!window.confirm(msg)) return;
+    this.ref.close({
+      action: 'duplicate',
+      fromAccountId: from,
+      toAccountId: to,
       mode: row.mode,
       value: row.value,
     });
