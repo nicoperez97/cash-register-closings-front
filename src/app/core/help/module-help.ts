@@ -2117,7 +2117,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Buscá por nombre o sección; colapsá secciones para navegar más rápido.',
           'PDF para imprimir (en Cartas): misma cara que la web (logo, tipografía, precios), sin buscar, filtros ni botones.',
         ],
-        tip: 'Para Pedidos Ya Efectivo con destino Efectivo Caja: en el medio elegí la cuenta del local Pedidos Ya Efectivo (no Efectivo Caja). En Precios por cuenta cargá o copiá desde Pedidos Ya a esa fila. Guardá la carta y reasigná medios viejos que aún muestren el ledger.',
+        tip: 'En Precios por cuenta, Aplicar / copiar / quitar ya guardan la carta solos. Para Pedidos Ya Efectivo: medio → cuenta del local Pedidos Ya Efectivo; después copiá precios desde Pedidos Ya.',
       },
     ],
   },
