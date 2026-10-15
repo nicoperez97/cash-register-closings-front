@@ -236,11 +236,15 @@ export class AdminShopPage implements OnInit {
    */
   private readonly paymentAccountBindingsSig = signal<Record<string, string | null>>({});
   /**
-   * askCashTender + discountPercent de medios de mostrador (por methodId).
-   * Mismo motivo que accountId: formControlName se pierde al remount del select.
+   * name + askCashTender + discountPercent de medios de mostrador (por methodId).
+   * formControlName en estas filas no queda ligado al FormArray (igual que el
+   * mat-select de cuenta); leemos/escribimos acá y al guardar mandamos esto.
    */
   private readonly counterPayExtrasSig = signal<
-    Record<string, { askCashTender: boolean; discountPercent: number | null }>
+    Record<
+      string,
+      { name: string; askCashTender: boolean; discountPercent: number | null }
+    >
   >({});
   /** Se incrementa cuando ya hay cuentas + bindings listos → remonta el mat-select. */
   readonly payAccountSelectEpoch = signal(0);
@@ -1252,7 +1256,7 @@ export class AdminShopPage implements OnInit {
         name,
         askCashTender: (m as { askCashTender?: boolean }).askCashTender,
       });
-      this.rememberCounterPayExtras(id, askCashTender, discountPercent);
+      this.rememberCounterPayExtras(id, name, askCashTender, discountPercent);
       this.counterPaymentMethods.push(
         this.fb.nonNullable.group({
           id: [id],
@@ -1266,7 +1270,7 @@ export class AdminShopPage implements OnInit {
     }
     if (!this.counterPaymentMethods.length) {
       this.rememberPaymentAccount('counter', 'cp_cash', null);
-      this.rememberCounterPayExtras('cp_cash', true, null);
+      this.rememberCounterPayExtras('cp_cash', 'Efectivo', true, null);
       this.counterPaymentMethods.push(
         this.fb.nonNullable.group({
           id: ['cp_cash'],
@@ -1903,13 +1907,18 @@ export class AdminShopPage implements OnInit {
 
   private rememberCounterPayExtras(
     methodId: string,
+    name: string,
     askCashTender: boolean,
     discountPercent: number | null,
   ): void {
     const id = String(methodId ?? '').trim() || '_';
     this.counterPayExtrasSig.update((prev) => ({
       ...prev,
-      [id]: { askCashTender: !!askCashTender, discountPercent },
+      [id]: {
+        name: String(name ?? '').trim(),
+        askCashTender: !!askCashTender,
+        discountPercent,
+      },
     }));
   }
 
@@ -1918,6 +1927,13 @@ export class AdminShopPage implements OnInit {
       String(this.counterPaymentMethods.at(index)?.get('id')?.value ?? '').trim() ||
       `idx:${index}`
     );
+  }
+
+  counterPayName(index: number): string {
+    const id = this.counterMethodIdAt(index);
+    const extras = this.counterPayExtrasSig()[id];
+    if (extras) return extras.name;
+    return String(this.counterPaymentMethods.at(index)?.get('name')?.value ?? '');
   }
 
   counterAskCashTender(index: number): boolean {
@@ -1935,10 +1951,28 @@ export class AdminShopPage implements OnInit {
     return Number.isFinite(raw) && raw > 0 ? Math.min(100, raw) : null;
   }
 
+  onCounterPayNameChange(index: number, raw: string): void {
+    const id = this.counterMethodIdAt(index);
+    const name = String(raw ?? '');
+    const prev = this.counterPayExtrasSig()[id];
+    this.rememberCounterPayExtras(
+      id,
+      name,
+      prev?.askCashTender ?? false,
+      prev?.discountPercent ?? null,
+    );
+    this.counterPaymentMethods.at(index)?.get('name')?.setValue(name, { emitEvent: false });
+  }
+
   onCounterAskCashTenderChange(index: number, checked: boolean): void {
     const id = this.counterMethodIdAt(index);
     const prev = this.counterPayExtrasSig()[id];
-    this.rememberCounterPayExtras(id, checked, prev?.discountPercent ?? null);
+    this.rememberCounterPayExtras(
+      id,
+      prev?.name ?? this.counterPayName(index),
+      checked,
+      prev?.discountPercent ?? null,
+    );
     this.counterPaymentMethods
       .at(index)
       ?.get('askCashTender')
@@ -1951,7 +1985,12 @@ export class AdminShopPage implements OnInit {
     const discountPercent =
       Number.isFinite(n) && n > 0 ? Math.min(100, Math.round(n * 100) / 100) : null;
     const prev = this.counterPayExtrasSig()[id];
-    this.rememberCounterPayExtras(id, prev?.askCashTender ?? false, discountPercent);
+    this.rememberCounterPayExtras(
+      id,
+      prev?.name ?? this.counterPayName(index),
+      prev?.askCashTender ?? false,
+      discountPercent,
+    );
     this.counterPaymentMethods
       .at(index)
       ?.get('discountPercent')
@@ -1964,8 +2003,12 @@ export class AdminShopPage implements OnInit {
       const methodId = String(group.get('id')?.value ?? '').trim() || `idx:${index}`;
       const row = extras[methodId];
       if (!row) return;
+      const nameCtrl = group.get('name');
       const askCtrl = group.get('askCashTender');
       const discCtrl = group.get('discountPercent');
+      if (nameCtrl && nameCtrl.value !== row.name) {
+        nameCtrl.setValue(row.name, { emitEvent: false });
+      }
       if (askCtrl && askCtrl.value !== row.askCashTender) {
         askCtrl.setValue(row.askCashTender, { emitEvent: false });
       }
@@ -1977,13 +2020,15 @@ export class AdminShopPage implements OnInit {
 
   private resolveCounterPayExtras(
     methodId: string,
+    formName?: unknown,
     formAsk?: unknown,
     formDiscount?: unknown,
-  ): { askCashTender: boolean; discountPercent: number | null } {
+  ): { name: string; askCashTender: boolean; discountPercent: number | null } {
     const extras = this.counterPayExtrasSig()[methodId];
     if (extras) return extras;
     const discountRaw = Number(formDiscount);
     return {
+      name: String(formName ?? '').trim(),
       askCashTender: !!formAsk,
       discountPercent:
         Number.isFinite(discountRaw) && discountRaw > 0
@@ -2392,12 +2437,13 @@ export class AdminShopPage implements OnInit {
             const id = String(m.id ?? '').trim() || undefined;
             const extras = this.resolveCounterPayExtras(
               id ?? '',
+              m.name,
               m.askCashTender,
               m.discountPercent,
             );
             return {
               id,
-              name: String(m.name ?? '').trim(),
+              name: extras.name,
               accountId: this.resolvePaymentAccountId('counter', id ?? '', m.accountId),
               active: m.active !== false,
               askCashTender: extras.askCashTender,
