@@ -2344,46 +2344,31 @@ export class AdminMenuPage {
     });
   }
 
+  /** Cuentas del local aptas para precios (no proveedores/servicios). */
+  private priceAccountOptionsFromRows(
+    accounts: AdminAccountRow[] | null | undefined,
+  ): Array<{ id: string; name: string }> {
+    return (accounts ?? [])
+      .filter(
+        (a) =>
+          a.active !== false &&
+          a.type !== 'SUPPLIER' &&
+          a.type !== 'SERVICE' &&
+          a.type !== 'DIVIDENDS',
+      )
+      .map((a) => ({ id: a.id, name: a.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+
   private loadPriceAccounts(): void {
     const shopId = this.shopId();
     if (!shopId) {
       this.priceAccounts.set([]);
       return;
     }
-    type ShopPayCfg = {
-      orderingPayments?: {
-        items?: Array<{ accountId?: string | null; active?: boolean }>;
-      } | null;
-      counterPaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
-      tablePaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
-    };
-    forkJoin({
-      accounts: this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`),
-      shop: this.http.get<ShopPayCfg>(`${environment.apiUrl}/shops/${shopId}`),
-    }).subscribe({
-      next: ({ accounts, shop }) => {
-        const linkedIds = new Set<string>();
-        for (const m of shop.orderingPayments?.items ?? []) {
-          if (m.active === false) continue;
-          const id = String(m.accountId ?? '').trim();
-          if (id) linkedIds.add(id);
-        }
-        for (const m of shop.counterPaymentMethods ?? []) {
-          if (m.active === false) continue;
-          const id = String(m.accountId ?? '').trim();
-          if (id) linkedIds.add(id);
-        }
-        for (const m of shop.tablePaymentMethods ?? []) {
-          if (m.active === false) continue;
-          const id = String(m.accountId ?? '').trim();
-          if (id) linkedIds.add(id);
-        }
-        this.priceAccounts.set(
-          (accounts ?? [])
-            .filter((a) => a.active !== false && linkedIds.has(a.id))
-            .map((a) => ({ id: a.id, name: a.name }))
-            .sort((a, b) => a.name.localeCompare(b.name, 'es')),
-        );
+    this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
+      next: (accounts) => {
+        this.priceAccounts.set(this.priceAccountOptionsFromRows(accounts));
       },
       error: () => this.priceAccounts.set([]),
     });
@@ -3155,13 +3140,6 @@ export class AdminMenuPage {
       });
       return;
     }
-    type ShopPayCfg = {
-      orderingPayments?: {
-        items?: Array<{ accountId?: string | null; active?: boolean }>;
-      } | null;
-      counterPaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
-      tablePaymentMethods?: Array<{ accountId?: string | null; active?: boolean }> | null;
-    };
     const openWithAccounts = (accountOptions: Array<{ id: string; name: string }>) => {
       const data: MenuAccountPricesDialogData = {
         accounts: accountOptions,
@@ -3279,37 +3257,10 @@ export class AdminMenuPage {
         });
     };
 
-    const cached = this.priceAccounts();
-    if (cached.length) {
-      openWithAccounts(cached);
-      return;
-    }
-
-    forkJoin({
-      accounts: this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`),
-      shop: this.http.get<ShopPayCfg>(`${environment.apiUrl}/shops/${shopId}`),
-    }).subscribe({
-      next: ({ accounts, shop }) => {
-        const linkedIds = new Set<string>();
-        for (const m of shop.orderingPayments?.items ?? []) {
-          if (m.active === false) continue;
-          const id = String(m.accountId ?? '').trim();
-          if (id) linkedIds.add(id);
-        }
-        for (const m of shop.counterPaymentMethods ?? []) {
-          if (m.active === false) continue;
-          const id = String(m.accountId ?? '').trim();
-          if (id) linkedIds.add(id);
-        }
-        for (const m of shop.tablePaymentMethods ?? []) {
-          if (m.active === false) continue;
-          const id = String(m.accountId ?? '').trim();
-          if (id) linkedIds.add(id);
-        }
-        const accountOptions = (accounts ?? [])
-          .filter((a) => a.active !== false && linkedIds.has(a.id))
-          .map((a) => ({ id: a.id, name: a.name }))
-          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    // Siempre refetch: si se creó/enlazó una cuenta en Configuración, el cache quedaba viejo.
+    this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
+      next: (accounts) => {
+        const accountOptions = this.priceAccountOptionsFromRows(accounts);
         this.priceAccounts.set(accountOptions);
         openWithAccounts(accountOptions);
       },
