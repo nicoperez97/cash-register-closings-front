@@ -21,20 +21,33 @@ export type MenuAccountPriceGroupKey = {
   value: number | null;
 };
 
-/** Precio unitario según cuenta del medio; si no hay, el precio fijo. */
+/**
+ * Precio unitario según cuenta del medio (id de cuenta del local).
+ * `fallbackAccountIds`: claves legacy (p. ej. ledger destino) si no hay hit por la clave actual.
+ */
 export function resolveItemUnitPrice(
   item: { price?: number | null; accountPrices?: MenuItemAccountPrice[] | null },
   accountId?: string | null,
+  fallbackAccountIds?: string | string[] | null,
 ): number {
   const base = item.price == null ? 0 : Number(item.price);
   const baseOk = Number.isFinite(base) && base >= 0 ? Math.round(base) : 0;
-  const acc = String(accountId ?? '').trim();
-  if (acc) {
+  const keys: string[] = [];
+  const push = (raw: unknown) => {
+    const id = String(raw ?? '').trim();
+    if (id && !keys.includes(id)) keys.push(id);
+  };
+  push(accountId);
+  if (Array.isArray(fallbackAccountIds)) {
+    for (const f of fallbackAccountIds) push(f);
+  } else {
+    push(fallbackAccountIds);
+  }
+  for (const acc of keys) {
     const hit = (item.accountPrices ?? []).find((r) => String(r.accountId ?? '').trim() === acc);
-    if (hit) {
-      const n = Number(hit.price);
-      if (Number.isFinite(n) && n >= 0) return Math.round(n);
-    }
+    if (!hit) continue;
+    const n = Number(hit.price);
+    if (Number.isFinite(n) && n >= 0) return Math.round(n);
   }
   return baseOk;
 }

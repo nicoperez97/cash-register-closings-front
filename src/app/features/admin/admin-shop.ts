@@ -260,9 +260,8 @@ export class AdminShopPage implements OnInit {
   private readonly tablePayExtrasSig = signal<Record<string, { name: string }>>({});
   /** Se incrementa cuando ya hay cuentas + bindings listos → remonta el mat-select. */
   readonly payAccountSelectEpoch = signal(0);
-  readonly payAccountSelectReady = computed(
-    () => this.payAccountSelectEpoch() > 0 && this.allLedgerAccounts().length > 0,
-  );
+  /** Listo cuando hay cuentas del local (medios) o al menos epoch > 0 con lista vacía post-carga. */
+  readonly payAccountSelectReady = computed(() => this.payAccountSelectEpoch() > 0);
   private readonly destroyRef = inject(DestroyRef);
   /** Fuerza un nuevo GET de fuentes (reintento / pull-to-refresh / post-guardado). */
   private readonly sourcesReloadTick = signal(0);
@@ -719,6 +718,7 @@ export class AdminShopPage implements OnInit {
     this.allLedgerAccounts().filter((a) => a.active && a.type !== 'SYSTEM'),
   );
 
+  /** Destino ledger (Cuentas del local → fila destino). */
   filteredSourceAccounts(keepId?: string | null) {
     return filterBySelectQuery(
       this.sourceAccountOptions(),
@@ -726,6 +726,44 @@ export class AdminShopPage implements OnInit {
       (a) => a.name,
       keepId,
     );
+  }
+
+  /**
+   * Opciones del select «Cuenta» en medios de pago = filas de Cuentas del local.
+   * El value es el id de la closing source (clave de precios por cuenta).
+   */
+  readonly paymentClosingSourceOptions = computed(() => {
+    this.formValue();
+    const rows = this.closingSources.getRawValue() as Array<{
+      id?: string;
+      name?: string;
+      accountId?: string | null;
+      active?: boolean;
+    }>;
+    return rows
+      .filter((r) => r.active !== false)
+      .map((r) => ({
+        id: String(r.id ?? '').trim(),
+        name: String(r.name ?? '').trim(),
+        accountId: String(r.accountId ?? '').trim(),
+      }))
+      .filter((r) => r.id && r.name && r.accountId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  });
+
+  filteredPaymentClosingSources(keepId?: string | null) {
+    const opts = this.paymentClosingSourceOptions().map((a) => ({ id: a.id, name: a.name }));
+    const keep = String(keepId ?? '').trim();
+    if (keep && !opts.some((o) => o.id === keep)) {
+      const ledger = this.allLedgerAccounts().find((a) => a.id === keep);
+      opts.unshift({
+        id: keep,
+        name: ledger
+          ? `${ledger.name} (reasigná a una cuenta del local)`
+          : 'Vínculo anterior (reasigná)',
+      });
+    }
+    return filterBySelectQuery(opts, this.accountSearchQuery(), (a) => a.name, keepId);
   }
 
   readonly formValue = toSignal(
@@ -1756,6 +1794,7 @@ export class AdminShopPage implements OnInit {
       this.closingSources.push(this.buildClosingSourceGroup(row));
     }
     this.syncSectionFormEditable();
+    this.refreshPayAccountSelects();
   }
 
   private buildClosingSourceGroup(value: ShopClosingSource) {
@@ -1795,7 +1834,7 @@ export class AdminShopPage implements OnInit {
   /** Sincroniza controls y remonta selects (evita clear del mat-select sin opciones). */
   private refreshPayAccountSelects(): void {
     this.syncPaymentAccountControlsFromBindings();
-    if (this.allLedgerAccounts().length) {
+    if (this.paymentClosingSourceOptions().length || this.allLedgerAccounts().length) {
       this.payAccountSelectEpoch.update((n) => n + 1);
     }
   }

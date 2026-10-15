@@ -55,6 +55,7 @@ import {
   type DiscountPreset,
 } from '../../core/shop/discount-presets';
 import { resolveItemUnitPrice } from '../menu/menu-account-price.util';
+import { ClosingsApiService } from '../closings/closings-api.service';
 
 type PosLine = {
   key: string;
@@ -111,6 +112,9 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(WaiterApiService);
+  private readonly closingsApi = inject(ClosingsApiService);
+  /** sourceId → ledger (precios legacy). */
+  private readonly priceLedgerBySourceId = signal<Map<string, string>>(new Map());
   private readonly dialog = inject(MatDialog);
   private readonly title = inject(Title);
   private readonly shopContext = inject(ShopContextService);
@@ -621,6 +625,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.view.set('tables');
         this.loadTables();
         this.loadStaffWaiters(shopId);
+        this.loadPriceLedgerFallbacks(shopId);
       },
       error: (err) => {
         this.busy.set(false);
@@ -628,6 +633,21 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.error.set(apiErrorMessage(err, 'No se pudo abrir la comanda'));
         this.view.set('login');
       },
+    });
+  }
+
+  private loadPriceLedgerFallbacks(shopId: string): void {
+    this.closingsApi.listClosingSources(shopId, true).subscribe({
+      next: (sources) => {
+        const map = new Map<string, string>();
+        for (const s of sources ?? []) {
+          const id = String(s.id ?? '').trim();
+          const ledger = String(s.accountId ?? '').trim();
+          if (id && ledger) map.set(id, ledger);
+        }
+        this.priceLedgerBySourceId.set(map);
+      },
+      error: () => this.priceLedgerBySourceId.set(new Map()),
     });
   }
 
@@ -1564,7 +1584,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           return l;
         }
         const cat = byId.get(String(l.menuItemId));
-        const unitPrice = cat ? resolveItemUnitPrice(cat, accountId) : l.unitPrice;
+        const unitPrice = cat ? this.catalogUnitPrice(cat, accountId) : l.unitPrice;
         const baseKey = `i:${l.menuItemId}`;
         return {
           ...l,
@@ -1613,11 +1633,23 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return String(m?.accountId ?? '').trim() || null;
   }
 
+  private catalogUnitPrice(
+    it: {
+      price?: number | null;
+      accountPrices?: Array<{ accountId: string; price: number }> | null;
+    },
+    accountId?: string | null,
+  ): number {
+    const id = String(accountId ?? '').trim() || null;
+    const fallback = id ? this.priceLedgerBySourceId().get(id) ?? null : null;
+    return resolveItemUnitPrice(it, id, fallback);
+  }
+
   priceForCatalogItem(it: {
     price?: number | null;
     accountPrices?: Array<{ accountId: string; price: number }> | null;
   }): number {
-    return resolveItemUnitPrice(it, this.pricingAccountId());
+    return this.catalogUnitPrice(it, this.pricingAccountId());
   }
 
   baseUnitPrice(line: PosLine): number | null {
