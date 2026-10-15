@@ -130,7 +130,12 @@ import { SelectSearchComponent } from '../../shared/components/select-search';
               <div class="op__pay" [formGroupName]="i">
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__pay-name">
                   <mat-label>Nombre</mat-label>
-                  <input matInput formControlName="name" placeholder="ej. Efectivo" />
+                  <input
+                    matInput
+                    placeholder="ej. Efectivo"
+                    [value]="host.tablePayName(i)"
+                    (input)="host.onTablePayNameChange(i, $any($event.target).value)"
+                  />
                 </mat-form-field>
                 <mat-form-field
                   appearance="outline"
@@ -311,7 +316,9 @@ export class AdminShopComandaComponent {
         active: [true],
       }),
     );
-    this.host.onPaymentAccountSelected('table', this.tablePays.length - 1, null);
+    const idx = this.tablePays.length - 1;
+    this.host.onTablePayNameChange(idx, '');
+    this.host.onPaymentAccountSelected('table', idx, null);
   }
 
   removeTablePay(index: number): void {

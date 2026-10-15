@@ -236,7 +236,7 @@ export class AdminShopPage implements OnInit {
    */
   private readonly paymentAccountBindingsSig = signal<Record<string, string | null>>({});
   /**
-   * name + askCashTender + discountPercent de medios de mostrador (por methodId).
+   * Campos de medios (nombre / tipo / etc.) por scope:methodId.
    * formControlName en estas filas no queda ligado al FormArray (igual que el
    * mat-select de cuenta); leemos/escribimos acá y al guardar mandamos esto.
    */
@@ -246,6 +246,18 @@ export class AdminShopPage implements OnInit {
       { name: string; askCashTender: boolean; discountPercent: number | null }
     >
   >({});
+  private readonly orderingPayExtrasSig = signal<
+    Record<
+      string,
+      {
+        name: string;
+        kind: 'CASH' | 'TRANSFER' | 'CARD';
+        fulfillments: Array<'TAKEAWAY' | 'DELIVERY'>;
+        askCashTender: boolean;
+      }
+    >
+  >({});
+  private readonly tablePayExtrasSig = signal<Record<string, { name: string }>>({});
   /** Se incrementa cuando ya hay cuentas + bindings listos → remonta el mat-select. */
   readonly payAccountSelectEpoch = signal(0);
   readonly payAccountSelectReady = computed(
@@ -1148,6 +1160,8 @@ export class AdminShopPage implements OnInit {
     this.clearPaymentAccountBindings('ordering');
     this.clearPaymentAccountBindings('counter');
     this.clearPaymentAccountBindings('table');
+    this.clearOrderingPayExtras();
+    this.clearTablePayExtras();
     this.orderingPaymentMethods.clear();
     const orderingItems = this.asPaymentMethodRows(s.orderingPayments?.items);
     const orderingPays =
@@ -1182,19 +1196,23 @@ export class AdminShopPage implements OnInit {
       const fulfillments = Array.isArray(m.fulfillments)
         ? m.fulfillments.filter((f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY')
         : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>);
+      const resolvedFulfillments = fulfillments.length
+        ? fulfillments
+        : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>);
       const askCashTender = resolveAskCashTender({
         id,
         name,
         kind,
         askCashTender: (m as { askCashTender?: boolean }).askCashTender,
       });
+      this.rememberOrderingPayExtras(id, name, kind, resolvedFulfillments, askCashTender);
       this.orderingPaymentMethods.push(
         this.fb.nonNullable.group({
           id: [id],
           name: [name],
           kind: this.fb.nonNullable.control<'CASH' | 'TRANSFER' | 'CARD'>(kind),
           fulfillments: this.fb.nonNullable.control<Array<'TAKEAWAY' | 'DELIVERY'>>(
-            fulfillments.length ? fulfillments : ['TAKEAWAY', 'DELIVERY'],
+            resolvedFulfillments,
           ),
           // accountId lo muestra el select vía signal; el control se sincroniza al guardar.
           accountId: this.fb.control<string | null>(accountId),
@@ -1205,6 +1223,13 @@ export class AdminShopPage implements OnInit {
     }
     if (!this.orderingPaymentMethods.length) {
       this.rememberPaymentAccount('ordering', 'op_cash', null);
+      this.rememberOrderingPayExtras(
+        'op_cash',
+        'Efectivo',
+        'CASH',
+        ['TAKEAWAY', 'DELIVERY'],
+        true,
+      );
       this.orderingPaymentMethods.push(
         this.fb.nonNullable.group({
           id: ['op_cash'],
@@ -1295,12 +1320,14 @@ export class AdminShopPage implements OnInit {
         ];
     for (const m of seed) {
       const id = String(m.id ?? '').trim();
+      const name = String(m.name ?? '').trim();
       const accountId = String(m.accountId ?? '').trim() || null;
       this.rememberPaymentAccount('table', id, accountId);
+      this.rememberTablePayExtras(id, name);
       this.tablePaymentMethods.push(
         this.fb.nonNullable.group({
           id: [id],
-          name: [m.name ?? ''],
+          name: [name],
           accountId: this.fb.control<string | null>(accountId),
           active: [m.active !== false],
         }),
@@ -1899,6 +1926,8 @@ export class AdminShopPage implements OnInit {
     sync(this.counterPaymentMethods, 'counter');
     sync(this.orderingPaymentMethods, 'ordering');
     this.syncCounterPayExtrasControlsFromBindings();
+    this.syncOrderingPayExtrasControlsFromBindings();
+    this.syncTablePayExtrasControlsFromBindings();
   }
 
   private clearCounterPayExtras(): void {
@@ -2035,6 +2064,250 @@ export class AdminShopPage implements OnInit {
           ? Math.min(100, Math.round(discountRaw * 100) / 100)
           : null,
     };
+  }
+
+  private clearOrderingPayExtras(): void {
+    this.orderingPayExtrasSig.set({});
+  }
+
+  private clearTablePayExtras(): void {
+    this.tablePayExtrasSig.set({});
+  }
+
+  private rememberOrderingPayExtras(
+    methodId: string,
+    name: string,
+    kind: 'CASH' | 'TRANSFER' | 'CARD',
+    fulfillments: Array<'TAKEAWAY' | 'DELIVERY'>,
+    askCashTender: boolean,
+  ): void {
+    const id = String(methodId ?? '').trim() || '_';
+    this.orderingPayExtrasSig.update((prev) => ({
+      ...prev,
+      [id]: {
+        name: String(name ?? '').trim(),
+        kind,
+        fulfillments: fulfillments.length ? [...fulfillments] : ['TAKEAWAY', 'DELIVERY'],
+        askCashTender: !!askCashTender,
+      },
+    }));
+  }
+
+  private rememberTablePayExtras(methodId: string, name: string): void {
+    const id = String(methodId ?? '').trim() || '_';
+    this.tablePayExtrasSig.update((prev) => ({
+      ...prev,
+      [id]: { name: String(name ?? '').trim() },
+    }));
+  }
+
+  private orderingMethodIdAt(index: number): string {
+    return (
+      String(this.orderingPaymentMethods.at(index)?.get('id')?.value ?? '').trim() ||
+      `idx:${index}`
+    );
+  }
+
+  private tableMethodIdAt(index: number): string {
+    return (
+      String(this.tablePaymentMethods.at(index)?.get('id')?.value ?? '').trim() || `idx:${index}`
+    );
+  }
+
+  orderingPayName(index: number): string {
+    const id = this.orderingMethodIdAt(index);
+    const extras = this.orderingPayExtrasSig()[id];
+    if (extras) return extras.name;
+    return String(this.orderingPaymentMethods.at(index)?.get('name')?.value ?? '');
+  }
+
+  orderingPayKind(index: number): 'CASH' | 'TRANSFER' | 'CARD' {
+    const id = this.orderingMethodIdAt(index);
+    const extras = this.orderingPayExtrasSig()[id];
+    if (extras) return extras.kind;
+    const raw = String(this.orderingPaymentMethods.at(index)?.get('kind')?.value ?? '')
+      .trim()
+      .toUpperCase();
+    return raw === 'TRANSFER' || raw === 'CARD' ? raw : 'CASH';
+  }
+
+  orderingPayFulfillments(index: number): Array<'TAKEAWAY' | 'DELIVERY'> {
+    const id = this.orderingMethodIdAt(index);
+    const extras = this.orderingPayExtrasSig()[id];
+    if (extras) return extras.fulfillments;
+    const raw = this.orderingPaymentMethods.at(index)?.get('fulfillments')?.value;
+    const list = (Array.isArray(raw) ? raw : []).filter(
+      (f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY',
+    );
+    return list.length ? list : ['TAKEAWAY', 'DELIVERY'];
+  }
+
+  orderingAskCashTender(index: number): boolean {
+    const id = this.orderingMethodIdAt(index);
+    const extras = this.orderingPayExtrasSig()[id];
+    if (extras) return extras.askCashTender;
+    return !!this.orderingPaymentMethods.at(index)?.get('askCashTender')?.value;
+  }
+
+  tablePayName(index: number): string {
+    const id = this.tableMethodIdAt(index);
+    const extras = this.tablePayExtrasSig()[id];
+    if (extras) return extras.name;
+    return String(this.tablePaymentMethods.at(index)?.get('name')?.value ?? '');
+  }
+
+  onOrderingPayNameChange(index: number, raw: string): void {
+    const id = this.orderingMethodIdAt(index);
+    const prev = this.orderingPayExtrasSig()[id];
+    this.rememberOrderingPayExtras(
+      id,
+      String(raw ?? ''),
+      prev?.kind ?? this.orderingPayKind(index),
+      prev?.fulfillments ?? this.orderingPayFulfillments(index),
+      prev?.askCashTender ?? false,
+    );
+    this.orderingPaymentMethods.at(index)?.get('name')?.setValue(String(raw ?? ''), {
+      emitEvent: false,
+    });
+  }
+
+  onOrderingPayKindChange(index: number, value: 'CASH' | 'TRANSFER' | 'CARD'): void {
+    const id = this.orderingMethodIdAt(index);
+    const kind = value === 'TRANSFER' || value === 'CARD' ? value : 'CASH';
+    const prev = this.orderingPayExtrasSig()[id];
+    this.rememberOrderingPayExtras(
+      id,
+      prev?.name ?? this.orderingPayName(index),
+      kind,
+      prev?.fulfillments ?? this.orderingPayFulfillments(index),
+      prev?.askCashTender ?? false,
+    );
+    this.orderingPaymentMethods.at(index)?.get('kind')?.setValue(kind, { emitEvent: false });
+  }
+
+  onOrderingPayFulfillmentsChange(
+    index: number,
+    value: Array<'TAKEAWAY' | 'DELIVERY'> | null,
+  ): void {
+    const id = this.orderingMethodIdAt(index);
+    const fulfillments = (Array.isArray(value) ? value : []).filter(
+      (f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY',
+    );
+    const resolved = fulfillments.length
+      ? fulfillments
+      : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>);
+    const prev = this.orderingPayExtrasSig()[id];
+    this.rememberOrderingPayExtras(
+      id,
+      prev?.name ?? this.orderingPayName(index),
+      prev?.kind ?? this.orderingPayKind(index),
+      resolved,
+      prev?.askCashTender ?? false,
+    );
+    this.orderingPaymentMethods
+      .at(index)
+      ?.get('fulfillments')
+      ?.setValue(resolved, { emitEvent: false });
+  }
+
+  onOrderingAskCashTenderChange(index: number, checked: boolean): void {
+    const id = this.orderingMethodIdAt(index);
+    const prev = this.orderingPayExtrasSig()[id];
+    this.rememberOrderingPayExtras(
+      id,
+      prev?.name ?? this.orderingPayName(index),
+      prev?.kind ?? this.orderingPayKind(index),
+      prev?.fulfillments ?? this.orderingPayFulfillments(index),
+      checked,
+    );
+    this.orderingPaymentMethods
+      .at(index)
+      ?.get('askCashTender')
+      ?.setValue(!!checked, { emitEvent: false });
+  }
+
+  onTablePayNameChange(index: number, raw: string): void {
+    const id = this.tableMethodIdAt(index);
+    const name = String(raw ?? '');
+    this.rememberTablePayExtras(id, name);
+    this.tablePaymentMethods.at(index)?.get('name')?.setValue(name, { emitEvent: false });
+  }
+
+  private syncOrderingPayExtrasControlsFromBindings(): void {
+    const extras = this.orderingPayExtrasSig();
+    this.orderingPaymentMethods.controls.forEach((group, index) => {
+      const methodId = String(group.get('id')?.value ?? '').trim() || `idx:${index}`;
+      const row = extras[methodId];
+      if (!row) return;
+      const nameCtrl = group.get('name');
+      const kindCtrl = group.get('kind');
+      const fulfillmentsCtrl = group.get('fulfillments');
+      const askCtrl = group.get('askCashTender');
+      if (nameCtrl && nameCtrl.value !== row.name) {
+        nameCtrl.setValue(row.name, { emitEvent: false });
+      }
+      if (kindCtrl && kindCtrl.value !== row.kind) {
+        kindCtrl.setValue(row.kind, { emitEvent: false });
+      }
+      if (fulfillmentsCtrl) {
+        const cur = Array.isArray(fulfillmentsCtrl.value) ? fulfillmentsCtrl.value.join(',') : '';
+        const next = row.fulfillments.join(',');
+        if (cur !== next) fulfillmentsCtrl.setValue([...row.fulfillments], { emitEvent: false });
+      }
+      if (askCtrl && askCtrl.value !== row.askCashTender) {
+        askCtrl.setValue(row.askCashTender, { emitEvent: false });
+      }
+    });
+  }
+
+  private syncTablePayExtrasControlsFromBindings(): void {
+    const extras = this.tablePayExtrasSig();
+    this.tablePaymentMethods.controls.forEach((group, index) => {
+      const methodId = String(group.get('id')?.value ?? '').trim() || `idx:${index}`;
+      const row = extras[methodId];
+      if (!row) return;
+      const nameCtrl = group.get('name');
+      if (nameCtrl && nameCtrl.value !== row.name) {
+        nameCtrl.setValue(row.name, { emitEvent: false });
+      }
+    });
+  }
+
+  private resolveOrderingPayExtras(
+    methodId: string,
+    formName?: unknown,
+    formKind?: unknown,
+    formFulfillments?: unknown,
+    formAsk?: unknown,
+  ): {
+    name: string;
+    kind: 'CASH' | 'TRANSFER' | 'CARD';
+    fulfillments: Array<'TAKEAWAY' | 'DELIVERY'>;
+    askCashTender: boolean;
+  } {
+    const extras = this.orderingPayExtrasSig()[methodId];
+    if (extras) return extras;
+    const name = String(formName ?? '').trim();
+    const kindRaw = String(formKind ?? '').trim().toUpperCase();
+    const kind =
+      kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
+        ? kindRaw
+        : classifyOrderingPayKind(methodId, name);
+    const fulfillments = (
+      Array.isArray(formFulfillments) ? formFulfillments : ['TAKEAWAY', 'DELIVERY']
+    ).filter((f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY');
+    return {
+      name,
+      kind,
+      fulfillments: fulfillments.length ? fulfillments : ['TAKEAWAY', 'DELIVERY'],
+      askCashTender: !!formAsk,
+    };
+  }
+
+  private resolveTablePayExtras(methodId: string, formName?: unknown): { name: string } {
+    const extras = this.tablePayExtrasSig()[methodId];
+    if (extras) return extras;
+    return { name: String(formName ?? '').trim() };
   }
 
   reloadConcepts(): void {
@@ -2385,40 +2658,36 @@ export class AdminShopPage implements OnInit {
         delivery: this.hoursToConfig(this.deliveryHours),
       },
       orderingPayments: {
-        items: (
-          raw.orderingPaymentMethods as Array<{
-            id?: string;
-            name: string;
-            accountId?: string | null;
-            active?: boolean;
-            kind?: 'CASH' | 'TRANSFER' | 'CARD';
-            fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
-            askCashTender?: boolean;
-          }>
-        )
-          .map((m) => {
-            const id = String(m.id ?? '').trim() || undefined;
-            const name = String(m.name ?? '').trim();
-            const kindRaw = String(m.kind ?? '').trim().toUpperCase();
-            const kind =
-              kindRaw === 'CASH' || kindRaw === 'TRANSFER' || kindRaw === 'CARD'
-                ? kindRaw
-                : classifyOrderingPayKind(id ?? '', name);
-            const fulfillments = (
-              Array.isArray(m.fulfillments) ? m.fulfillments : ['TAKEAWAY', 'DELIVERY']
-            ).filter((f): f is 'TAKEAWAY' | 'DELIVERY' => f === 'TAKEAWAY' || f === 'DELIVERY');
-            return {
-              id,
-              name,
-              accountId: this.resolvePaymentAccountId('ordering', id ?? '', m.accountId),
-              active: m.active !== false,
-              kind,
-              fulfillments: fulfillments.length
-                ? fulfillments
-                : (['TAKEAWAY', 'DELIVERY'] as Array<'TAKEAWAY' | 'DELIVERY'>),
-              askCashTender: !!m.askCashTender,
-            };
-          })
+        items: this.orderingPaymentMethods.getRawValue()
+          .map(
+            (m: {
+              id?: string;
+              name?: string;
+              accountId?: string | null;
+              active?: boolean;
+              kind?: 'CASH' | 'TRANSFER' | 'CARD';
+              fulfillments?: Array<'TAKEAWAY' | 'DELIVERY'>;
+              askCashTender?: boolean;
+            }) => {
+              const id = String(m.id ?? '').trim() || undefined;
+              const extras = this.resolveOrderingPayExtras(
+                id ?? '',
+                m.name,
+                m.kind,
+                m.fulfillments,
+                m.askCashTender,
+              );
+              return {
+                id,
+                name: extras.name,
+                accountId: this.resolvePaymentAccountId('ordering', id ?? '', m.accountId),
+                active: m.active !== false,
+                kind: extras.kind,
+                fulfillments: extras.fulfillments,
+                askCashTender: extras.askCashTender,
+              };
+            },
+          )
           .filter((m) => !!m.name),
         transferCbu: String(raw.transferCbu ?? '').trim() || null,
         transferAlias: String(raw.transferAlias ?? '').trim() || null,
@@ -2452,23 +2721,24 @@ export class AdminShopPage implements OnInit {
           },
         )
         .filter((m) => !!m.name),
-      tablePaymentMethods: (
-        raw.tablePaymentMethods as Array<{
-          id?: string;
-          name: string;
-          accountId?: string | null;
-          active?: boolean;
-        }>
-      )
-        .map((m) => {
-          const id = String(m.id ?? '').trim() || undefined;
-          return {
-            id,
-            name: String(m.name ?? '').trim(),
-            accountId: this.resolvePaymentAccountId('table', id ?? '', m.accountId),
-            active: m.active !== false,
-          };
-        })
+      tablePaymentMethods: this.tablePaymentMethods.getRawValue()
+        .map(
+          (m: {
+            id?: string;
+            name?: string;
+            accountId?: string | null;
+            active?: boolean;
+          }) => {
+            const id = String(m.id ?? '').trim() || undefined;
+            const extras = this.resolveTablePayExtras(id ?? '', m.name);
+            return {
+              id,
+              name: extras.name,
+              accountId: this.resolvePaymentAccountId('table', id ?? '', m.accountId),
+              active: m.active !== false,
+            };
+          },
+        )
         .filter((m) => !!m.name),
       waiterCapabilities: normalizeWaiterCapabilities(raw.waiterCapabilities),
       deliveryZones: (raw.deliveryZones as Array<{
