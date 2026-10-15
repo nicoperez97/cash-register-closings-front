@@ -64,7 +64,10 @@ import {
   type MenuAccountPriceRule,
   type MenuItemAccountPrice,
 } from './menu-account-price.util';
-import { AdminAccountRow } from '../admin/admin-account-dialog';
+import {
+  ClosingsApiService,
+  type ShopClosingSource,
+} from '../closings/closings-api.service';
 import { PosMenuLinkDialogComponent } from '../admin/pos-menu-link-dialog';
 import {
   MenuAssignSectorsDialogComponent,
@@ -2078,6 +2081,7 @@ export class AdminMenuPage {
   private readonly auth = inject(AuthService);
   readonly shops = inject(ShopContextService);
   private readonly stockApi = inject(StockApiService);
+  private readonly closingsApi = inject(ClosingsApiService);
   private readonly dialog = inject(MatDialog);
   private readonly dialogTitle = inject(DialogTitleService);
 
@@ -2344,20 +2348,27 @@ export class AdminMenuPage {
     });
   }
 
-  /** Cuentas del local aptas para precios (no proveedores/servicios). */
-  private priceAccountOptionsFromRows(
-    accounts: AdminAccountRow[] | null | undefined,
+  /**
+   * Misma lista que Configuración → Cuentas del local.
+   * La clave de precio es el accountId destino (ledger), que es lo que usa el POS.
+   */
+  private priceAccountOptionsFromSources(
+    sources: ShopClosingSource[] | null | undefined,
   ): Array<{ id: string; name: string }> {
-    return (accounts ?? [])
-      .filter(
-        (a) =>
-          a.active !== false &&
-          a.type !== 'SUPPLIER' &&
-          a.type !== 'SERVICE' &&
-          a.type !== 'DIVIDENDS',
-      )
-      .map((a) => ({ id: a.id, name: a.name }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    const seen = new Set<string>();
+    const out: Array<{ id: string; name: string }> = [];
+    for (const s of [...(sources ?? [])].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+    )) {
+      if (s.active === false) continue;
+      const accountId = String(s.accountId ?? '').trim();
+      if (!accountId || seen.has(accountId)) continue;
+      seen.add(accountId);
+      const name = String(s.name ?? '').trim() || String(s.accountName ?? '').trim();
+      if (!name) continue;
+      out.push({ id: accountId, name });
+    }
+    return out;
   }
 
   private loadPriceAccounts(): void {
@@ -2366,9 +2377,9 @@ export class AdminMenuPage {
       this.priceAccounts.set([]);
       return;
     }
-    this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
-      next: (accounts) => {
-        this.priceAccounts.set(this.priceAccountOptionsFromRows(accounts));
+    this.closingsApi.listClosingSources(shopId, true).subscribe({
+      next: (sources) => {
+        this.priceAccounts.set(this.priceAccountOptionsFromSources(sources));
       },
       error: () => this.priceAccounts.set([]),
     });
@@ -3257,10 +3268,10 @@ export class AdminMenuPage {
         });
     };
 
-    // Siempre refetch: si se creó/enlazó una cuenta en Configuración, el cache quedaba viejo.
-    this.http.get<AdminAccountRow[]>(`${environment.apiUrl}/shops/${shopId}/accounts`).subscribe({
-      next: (accounts) => {
-        const accountOptions = this.priceAccountOptionsFromRows(accounts);
+    // Siempre refetch: si se creó una cuenta en Configuración → Cuentas del local, el cache quedaba viejo.
+    this.closingsApi.listClosingSources(shopId, true).subscribe({
+      next: (sources) => {
+        const accountOptions = this.priceAccountOptionsFromSources(sources);
         this.priceAccounts.set(accountOptions);
         openWithAccounts(accountOptions);
       },

@@ -75,8 +75,8 @@ function moneyLabel(n: number | null | undefined): string {
     <mat-dialog-content>
       @if (!data.accounts.length) {
         <p class="map__empty">
-          No hay cuentas del local. Creá cuentas en Configuración → Dispositivos / Cuentas del local
-          (o en Cuentas).
+          No hay cuentas del local con cuenta destino. Configuralas en Configuración → Cuentas del
+          local (cada fila necesita una cuenta destino).
         </p>
       } @else {
         @if (pricedAccounts().length) {
