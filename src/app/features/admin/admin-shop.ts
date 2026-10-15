@@ -2167,7 +2167,13 @@ export class AdminShopPage implements OnInit {
       return;
     }
     const shopId = this.shops.selectedShopId();
-    if (!shopId || this.form.invalid || this.saving()) return;
+    if (!shopId || this.saving()) return;
+    if (this.form.invalid) {
+      this.snack.open('Revisá los campos marcados en rojo antes de guardar', 'OK', {
+        duration: 3500,
+      });
+      return;
+    }
     // Asegurar que los accountId del signal estén en el form antes de armar el body.
     this.syncPaymentAccountControlsFromBindings();
     const raw = this.form.getRawValue();
@@ -2268,32 +2274,32 @@ export class AdminShopPage implements OnInit {
         transferAlias: String(raw.transferAlias ?? '').trim() || null,
         whatsapp: String(raw.orderingWhatsapp ?? '').trim() || null,
       },
-      counterPaymentMethods: (
-        raw.counterPaymentMethods as Array<{
-          id?: string;
-          name: string;
-          accountId?: string | null;
-          active?: boolean;
-          askCashTender?: boolean;
-          discountPercent?: number | null;
-        }>
-      )
-        .map((m) => {
-          const id = String(m.id ?? '').trim() || undefined;
-          const discountRaw = Number(m.discountPercent);
-          const discountPercent =
-            Number.isFinite(discountRaw) && discountRaw > 0
-              ? Math.min(100, Math.round(discountRaw * 100) / 100)
-              : null;
-          return {
-            id,
-            name: String(m.name ?? '').trim(),
-            accountId: this.resolvePaymentAccountId('counter', id ?? '', m.accountId),
-            active: m.active !== false,
-            askCashTender: !!m.askCashTender,
-            discountPercent,
-          };
-        })
+      counterPaymentMethods: this.counterPaymentMethods.getRawValue()
+        .map(
+          (m: {
+            id?: string;
+            name?: string;
+            accountId?: string | null;
+            active?: boolean;
+            askCashTender?: boolean | unknown;
+            discountPercent?: number | null;
+          }) => {
+            const id = String(m.id ?? '').trim() || undefined;
+            const discountRaw = Number(m.discountPercent);
+            const discountPercent =
+              Number.isFinite(discountRaw) && discountRaw > 0
+                ? Math.min(100, Math.round(discountRaw * 100) / 100)
+                : null;
+            return {
+              id,
+              name: String(m.name ?? '').trim(),
+              accountId: this.resolvePaymentAccountId('counter', id ?? '', m.accountId),
+              active: m.active !== false,
+              askCashTender: !!m.askCashTender,
+              discountPercent,
+            };
+          },
+        )
         .filter((m) => !!m.name),
       tablePaymentMethods: (
         raw.tablePaymentMethods as Array<{
