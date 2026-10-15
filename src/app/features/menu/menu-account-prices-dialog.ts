@@ -16,8 +16,11 @@ import {
 } from './menu-account-price.util';
 
 export type MenuAccountPriceAccount = {
+  /** Id de la fila en Cuentas del local (closing source). */
   id: string;
   name: string;
+  /** Destino ledger: clave de accountPrices / POS. */
+  accountId: string;
 };
 
 export type MenuAccountPricesItem = {
@@ -126,11 +129,11 @@ function moneyLabel(n: number | null | undefined): string {
                 @if (duplicateTrackKey() === row.trackKey) {
                   <div class="map__dup" role="group" [attr.aria-label]="'Copiar ' + row.name + ' a'">
                     <span class="map__dup-label">Copiar a…</span>
-                    @for (a of duplicateTargets(row.accountId); track a.id) {
+                    @for (a of duplicateTargets(row.accountId); track a.accountId) {
                       <button
                         type="button"
                         class="map__chip map__chip--sm"
-                        (click)="confirmDuplicate(row, a.id)"
+                        (click)="confirmDuplicate(row, a.accountId)"
                       >
                         {{ a.name }}
                       </button>
@@ -149,8 +152,8 @@ function moneyLabel(n: number | null | undefined): string {
             <button
               type="button"
               class="map__chip"
-              [class.map__chip--on]="accountId() === a.id"
-              (click)="accountId.set(a.id)"
+              [class.map__chip--on]="sourceId() === a.id"
+              (click)="sourceId.set(a.id)"
             >
               {{ a.name }}
             </button>
@@ -580,9 +583,8 @@ export class MenuAccountPricesDialogComponent {
     MatDialogRef<MenuAccountPricesDialogComponent, MenuAccountPricesDialogResult | null>,
   );
 
-  readonly accountId = signal(
-    this.data.initialAccountId || this.data.accounts[0]?.id || '',
-  );
+  /** Fila de Cuentas del local seleccionada (closing source id). */
+  readonly sourceId = signal(this.resolveInitialSourceId());
   readonly mode = signal<MenuBulkPriceMode>('fixed');
   readonly amount = signal<number | null>(null);
   readonly query = signal('');
@@ -599,9 +601,32 @@ export class MenuAccountPricesDialogComponent {
   readonly selected = computed(() => this.selectedKeys());
   readonly selectedCount = computed(() => this.selectedKeys().size);
 
+  /** Destino ledger de la cuenta del local elegida (clave de precios / POS). */
+  readonly ledgerAccountId = computed(() => {
+    const src = this.data.accounts.find((a) => a.id === this.sourceId());
+    return String(src?.accountId ?? '').trim();
+  });
+
+  /** Nombres por destino ledger (varias filas pueden compartir el mismo). */
+  private ledgerNameOptions(): Array<{ id: string; name: string }> {
+    const byLedger = new Map<string, string[]>();
+    for (const a of this.data.accounts) {
+      const id = String(a.accountId ?? '').trim();
+      if (!id) continue;
+      const list = byLedger.get(id) ?? [];
+      const name = String(a.name ?? '').trim();
+      if (name && !list.includes(name)) list.push(name);
+      byLedger.set(id, list);
+    }
+    return [...byLedger.entries()].map(([id, names]) => ({
+      id,
+      name: names.join(' / '),
+    }));
+  }
+
   /** Cuentas/grupos que ya tienen precio (varios % en la misma cuenta). */
   readonly pricedAccounts = computed(() =>
-    summarizeAccountPriceGroups(this.data.items, this.data.accounts).map((row) => ({
+    summarizeAccountPriceGroups(this.data.items, this.ledgerNameOptions()).map((row) => ({
       ...row,
       trackKey:
         row.mode != null && row.value != null
@@ -609,6 +634,17 @@ export class MenuAccountPricesDialogComponent {
           : `${row.accountId}|legacy`,
     })),
   );
+
+  private resolveInitialSourceId(): string {
+    const initial = String(this.data.initialAccountId ?? '').trim();
+    if (initial) {
+      const bySource = this.data.accounts.find((a) => a.id === initial);
+      if (bySource) return bySource.id;
+      const byLedger = this.data.accounts.find((a) => a.accountId === initial);
+      if (byLedger) return byLedger.id;
+    }
+    return this.data.accounts[0]?.id || '';
+  }
 
   valueLabel(): string {
     if (this.mode() === 'fixed') return 'Nuevo precio de cuenta ($)';
@@ -664,11 +700,11 @@ export class MenuAccountPricesDialogComponent {
   }
 
   currentAccountPrice(it: MenuAccountPricesItem): number | null {
-    return accountPriceOf(it, this.accountId());
+    return accountPriceOf(it, this.ledgerAccountId());
   }
 
   currentAccountEntry(it: MenuAccountPricesItem): MenuItemAccountPrice | null {
-    return accountPriceEntryOf(it, this.accountId());
+    return accountPriceEntryOf(it, this.ledgerAccountId());
   }
 
   onAmountChange(raw: unknown): void {
@@ -738,7 +774,7 @@ export class MenuAccountPricesDialogComponent {
   }
 
   canApply(): boolean {
-    if (!this.accountId()) return false;
+    if (!this.ledgerAccountId()) return false;
     const v = Number(this.amount());
     if (!Number.isFinite(v)) return false;
     if (this.mode() === 'fixed' && v < 0) return false;
@@ -750,7 +786,7 @@ export class MenuAccountPricesDialogComponent {
     if (!this.canApply()) return;
     this.ref.close({
       action: 'apply',
-      accountId: this.accountId(),
+      accountId: this.ledgerAccountId(),
       mode: this.mode(),
       value: Number(this.amount()),
       keys: [...this.selectedKeys()],
@@ -783,9 +819,18 @@ export class MenuAccountPricesDialogComponent {
     this.duplicateTrackKey.update((cur) => (cur === trackKey ? null : trackKey));
   }
 
-  duplicateTargets(fromAccountId: string): MenuAccountPriceAccount[] {
-    const from = String(fromAccountId ?? '').trim();
-    return this.data.accounts.filter((a) => a.id !== from);
+  /** Destinos distintos (por ledger) para no listar dos veces el mismo precio. */
+  duplicateTargets(fromLedgerAccountId: string): MenuAccountPriceAccount[] {
+    const from = String(fromLedgerAccountId ?? '').trim();
+    const seen = new Set<string>();
+    const out: MenuAccountPriceAccount[] = [];
+    for (const a of this.data.accounts) {
+      const ledger = String(a.accountId ?? '').trim();
+      if (!ledger || ledger === from || seen.has(ledger)) continue;
+      seen.add(ledger);
+      out.push(a);
+    }
+    return out;
   }
 
   confirmDuplicate(
@@ -796,12 +841,15 @@ export class MenuAccountPricesDialogComponent {
       mode: MenuAccountPriceMode | null;
       value: number | null;
     },
-    toAccountId: string,
+    toLedgerAccountId: string,
   ): void {
     const from = String(row.accountId ?? '').trim();
-    const to = String(toAccountId ?? '').trim();
+    const to = String(toLedgerAccountId ?? '').trim();
     if (!from || !to || from === to) return;
-    const toName = this.data.accounts.find((a) => a.id === to)?.name || 'cuenta';
+    const toName =
+      this.data.accounts.find((a) => a.accountId === to)?.name ||
+      this.ledgerNameOptions().find((a) => a.id === to)?.name ||
+      'cuenta';
     const msg =
       row.mode != null && row.value != null
         ? `¿Copiar «${row.label}» de «${row.name}» a «${toName}»?`
