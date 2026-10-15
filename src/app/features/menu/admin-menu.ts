@@ -2399,10 +2399,106 @@ export class AdminMenuPage {
     }
     this.closingsApi.listClosingSources(shopId, true).subscribe({
       next: (sources) => {
-        this.priceAccounts.set(this.priceAccountOptionsFromSources(sources));
+        const opts = this.priceAccountOptionsFromSources(sources);
+        this.priceAccounts.set(opts);
+        this.migrateLegacyAccountPrices(opts);
       },
       error: () => this.priceAccounts.set([]),
     });
+  }
+
+  /**
+   * Precios viejos claveaban por ledger destino → aparecen como «Cuenta».
+   * Si ese ledger es destino de una sola cuenta del local, reescribe a su id.
+   */
+  private migrateLegacyAccountPrices(
+    opts: Array<{ id: string; name: string; accountId: string }>,
+  ): boolean {
+    const ledgerToSource = new Map<string, string>();
+    const ambiguous = new Set<string>();
+    for (const o of opts) {
+      const ledger = String(o.accountId ?? '').trim();
+      if (!ledger) continue;
+      if (ambiguous.has(ledger)) continue;
+      if (ledgerToSource.has(ledger) && ledgerToSource.get(ledger) !== o.id) {
+        ledgerToSource.delete(ledger);
+        ambiguous.add(ledger);
+        continue;
+      }
+      ledgerToSource.set(ledger, o.id);
+    }
+    if (!ledgerToSource.size) return false;
+    let changed = false;
+    this.sections.update((list) =>
+      list.map((s) => ({
+        ...s,
+        items: (s.items ?? []).map((it) => {
+          const rows = it.accountPrices ?? [];
+          if (!rows.length) return it;
+          let rowChanged = false;
+          const next = rows.map((r) => {
+            const id = String(r.accountId ?? '').trim();
+            const sourceId = ledgerToSource.get(id);
+            if (!sourceId || sourceId === id) return r;
+            rowChanged = true;
+            return { ...r, accountId: sourceId };
+          });
+          if (!rowChanged) return it;
+          changed = true;
+          return { ...it, accountPrices: next };
+        }),
+      })),
+    );
+    if (changed) this.resyncAccountPriceRules();
+    return changed;
+  }
+
+  /** Guarda la carta en el API (Aplicar/duplicar de precios por cuenta). */
+  private persistMenusAfterAccountPrices(opts?: {
+    reopenAccountId?: string | null;
+    okMessage?: string;
+  }): void {
+    const shopId = this.shopId();
+    if (!shopId || !this.canEditCatalog()) {
+      if (opts?.reopenAccountId != null) {
+        setTimeout(
+          () => this.openAccountPricesDialog({ initialAccountId: opts.reopenAccountId }),
+          0,
+        );
+      }
+      return;
+    }
+    this.flushActive();
+    this.saving.set(true);
+    this.http
+      .put<MenuAdminResponse>(`${environment.apiUrl}/shops/${shopId}/menu`, this.menuSaveBody())
+      .subscribe({
+        next: (res) => {
+          this.saving.set(false);
+          this.applyPayload(res);
+          if (opts?.okMessage) {
+            this.snack.open(opts.okMessage, 'OK', { duration: 2800 });
+          }
+          if (opts?.reopenAccountId != null) {
+            setTimeout(
+              () => this.openAccountPricesDialog({ initialAccountId: opts.reopenAccountId }),
+              0,
+            );
+          }
+        },
+        error: () => {
+          this.saving.set(false);
+          this.snack.open('No se pudieron guardar los precios por cuenta', 'OK', {
+            duration: 3500,
+          });
+          if (opts?.reopenAccountId != null) {
+            setTimeout(
+              () => this.openAccountPricesDialog({ initialAccountId: opts.reopenAccountId }),
+              0,
+            );
+          }
+        },
+      });
   }
 
   /** Precios por cuenta ya cargados en el ítem (para mostrar al lado de Precio). */
@@ -2410,9 +2506,13 @@ export class AdminMenuPage {
     item: ShopMenuItem,
   ): Array<{ accountId: string; name: string; price: number }> {
     const names = new Map(this.priceAccounts().map((a) => [a.id, a.name]));
-    // Legacy: precios claveados por ledger destino.
+    // Legacy: precios claveados por ledger destino (puede haber varias filas).
     for (const a of this.priceAccounts()) {
-      if (!names.has(a.accountId)) names.set(a.accountId, a.name);
+      const prev = names.get(a.accountId);
+      names.set(
+        a.accountId,
+        prev && prev !== a.name ? `${prev} / ${a.name}` : a.name,
+      );
     }
     return (item.accountPrices ?? [])
       .map((r) => {
@@ -3231,12 +3331,12 @@ export class AdminMenuPage {
             }
             this.resyncAccountPriceRules();
             const accName = sourceName(accountId);
-            this.snack.open(
-              partial ? `Ajuste de ${accName} quitado` : `Precios de ${accName} quitados`,
-              'OK',
-              { duration: 2800 },
-            );
-            setTimeout(() => this.openAccountPricesDialog({ initialAccountId: accountId }), 0);
+            this.persistMenusAfterAccountPrices({
+              reopenAccountId: accountId,
+              okMessage: partial
+                ? `Ajuste de ${accName} quitado y guardado`
+                : `Precios de ${accName} quitados y guardados`,
+            });
             return;
           }
 
@@ -3274,12 +3374,10 @@ export class AdminMenuPage {
               );
             }
             this.resyncAccountPriceRules();
-            this.snack.open(
-              `Precios de ${sourceName(fromAccountId)} copiados a ${sourceName(toAccountId)} (${changed} ítem(s))`,
-              'OK',
-              { duration: 2800 },
-            );
-            setTimeout(() => this.openAccountPricesDialog({ initialAccountId: toAccountId }), 0);
+            this.persistMenusAfterAccountPrices({
+              reopenAccountId: toAccountId,
+              okMessage: `Precios de ${sourceName(fromAccountId)} copiados a ${sourceName(toAccountId)} (${changed} ítem(s)) y guardados`,
+            });
             return;
           }
 
@@ -3322,15 +3420,10 @@ export class AdminMenuPage {
           );
           this.resyncAccountPriceRules();
           this.selectedItemKeys.set(new Set());
-          this.snack.open(
-            `Precios de ${sourceName(applied.accountId)} en ${changed} ítem(s)`,
-            'OK',
-            { duration: 2800 },
-          );
-          setTimeout(
-            () => this.openAccountPricesDialog({ initialAccountId: applied.accountId }),
-            0,
-          );
+          this.persistMenusAfterAccountPrices({
+            reopenAccountId: applied.accountId,
+            okMessage: `Precios de ${sourceName(applied.accountId)} en ${changed} ítem(s) guardados`,
+          });
         });
     };
 
@@ -3339,6 +3432,7 @@ export class AdminMenuPage {
       next: (sources) => {
         const accountOptions = this.priceAccountOptionsFromSources(sources);
         this.priceAccounts.set(accountOptions);
+        this.migrateLegacyAccountPrices(accountOptions);
         openWithAccounts(accountOptions);
       },
       error: () => {
