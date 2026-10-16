@@ -891,7 +891,7 @@ export interface PosSalesImportPreview {
   geminiWarning?: string | null;
 }
 
-export type PosSalesProductSource = 'catalog' | 'seed' | 'gemini' | 'none';
+export type PosSalesProductSource = 'catalog' | 'seed' | 'gemini' | 'groq' | 'none';
 
 export interface PosSalesProductPreview {
   productCode: string;

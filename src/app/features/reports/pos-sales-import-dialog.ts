@@ -209,7 +209,8 @@ type EditableProduct = PosSalesProductPreview;
       letter-spacing: 0.02em;
       color: #5f6f76;
     }
-    .pos-import__src[data-src='gemini'] {
+    .pos-import__src[data-src='gemini'],
+    .pos-import__src[data-src='groq'] {
       color: #6a4c93;
     }
     .pos-import__src[data-src='catalog'] {
@@ -269,6 +270,8 @@ export class PosSalesImportDialogComponent {
       case 'seed':
         return 'Sugerido';
       case 'gemini':
+        return 'IA';
+      case 'groq':
         return 'IA';
       default:
         return 'Sin rubro';

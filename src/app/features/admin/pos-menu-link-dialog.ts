@@ -49,7 +49,7 @@ type SuggestResponse = {
     confidence: number;
     reason: string;
   }>;
-  source: 'gemini' | 'local';
+  source: 'gemini' | 'groq' | 'local';
   warnings: string[];
 };
 
@@ -93,7 +93,9 @@ type LinkRow = PosProductLink & {
           </app-busy-label>
         </button>
         @if (source()) {
-          <span class="source">Fuente: {{ source() === 'gemini' ? 'Gemini' : 'nombres locales' }}</span>
+          <span class="source">Fuente: {{
+            source() === 'gemini' ? 'Gemini' : source() === 'groq' ? 'Groq' : 'nombres locales'
+          }}</span>
         }
       </div>
 
@@ -249,7 +251,7 @@ export class PosMenuLinkDialogComponent implements OnInit {
   readonly loading = signal(true);
   readonly suggesting = signal(false);
   readonly busy = signal(false);
-  readonly source = signal<'gemini' | 'local' | null>(null);
+  readonly source = signal<'gemini' | 'groq' | 'local' | null>(null);
   readonly warnings = signal<string[]>([]);
   readonly menuItems = signal<MenuItemOption[]>([]);
   readonly rows = signal<LinkRow[]>([]);
