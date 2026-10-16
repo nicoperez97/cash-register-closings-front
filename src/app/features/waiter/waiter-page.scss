@@ -971,18 +971,70 @@
   background: color-mix(in srgb, var(--accent, #2e7d32) 4%, #fff);
 }
 
+/* Chips y grupos de carta siempre envueltos: se ve todo en PC y mobile. */
 .chips {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin-bottom: 0.65rem;
-  overflow-x: auto;
-  padding-bottom: 0.2rem;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  overflow: visible;
+  align-items: stretch;
+}
 
-  &::-webkit-scrollbar {
-    display: none;
+.chip--all {
+  flex: 1 1 100%;
+  width: 100%;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2.5rem;
+}
+
+.chip-group {
+  display: grid;
+  gap: 0.28rem;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.45rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 4%, #fff);
+}
+
+.chip-group__title {
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted, #5f6f76);
+  padding: 0 0.15rem;
+  line-height: 1.2;
+}
+
+.chip-group__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+@media (min-width: 768px) {
+  .chip--all {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 5.5rem;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .chip-group {
+    flex: 1 1 14rem;
+    width: auto;
   }
 }
 
@@ -990,7 +1042,7 @@
   appearance: none;
   border: 1px solid var(--line);
   background: #fff;
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 0.4rem 0.8rem;
   font: inherit;
   font-size: 0.8rem;

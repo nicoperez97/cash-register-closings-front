@@ -3,7 +3,9 @@
 }
 
 .toolbar {
-  position: relative;
+  /* sticky: iOS 26/27 PWA muestrea fixed/sticky del borde superior; sin eso pinta blur encima. */
+  position: sticky;
+  top: 0;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -12,6 +14,7 @@
   flex-shrink: 0;
   min-height: 58px;
   padding: 0.4rem 0.75rem 0.4rem 0.4rem;
+  background-color: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
   background: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
   border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 65%, transparent);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--guy-border, #d7e0d9) 40%, transparent);

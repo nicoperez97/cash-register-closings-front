@@ -74,26 +74,6 @@
     @if (loading()) {
       <p class="muted anim-in">Cargando mesas…</p>
     } @else {
-      @if (counterSessions().length) {
-        <section class="section anim-in">
-          <h2 class="section__title">Mostrador</h2>
-          <div class="tables">
-            @for (c of counterSessions(); track c.id; let i = $index) {
-              <button
-                type="button"
-                class="table table--busy table--counter anim-pop"
-                [style.animation-delay.ms]="i * 40"
-                (click)="resumeCounter(c)"
-                [disabled]="busy()"
-              >
-                <strong>{{ c.label || 'Mostrador' }}</strong>
-                <span>{{ c.orderCount || 0 }} envíos</span>
-              </button>
-            }
-          </div>
-        </section>
-      }
-
       @if (sectorTabs().length > 1) {
         <nav class="sector-tabs anim-in" aria-label="Sectores">
           <button
@@ -213,12 +193,21 @@
                     >
                       <strong>{{ t.label }}</strong>
                       <span>{{ t.openSession?.covers ?? '—' }} pers.</span>
-                      <small>
-                        {{ t.openSession?.orderCount || 0 }} envíos
-                        @if (showSectorLabels()) {
-                          · {{ group.name }}
-                        }
-                      </small>
+                      @if ((t.openSession?.orderCount || 0) > 0 || showSectorLabels()) {
+                        <small>
+                          @if ((t.openSession?.orderCount || 0) > 0) {
+                            {{ t.openSession?.orderCount }} envío{{
+                              t.openSession?.orderCount === 1 ? '' : 's'
+                            }}
+                          }
+                          @if ((t.openSession?.orderCount || 0) > 0 && showSectorLabels()) {
+                            ·
+                          }
+                          @if (showSectorLabels()) {
+                            {{ group.name }}
+                          }
+                        </small>
+                      }
                     </button>
                   }
                 </div>
@@ -282,16 +271,19 @@
       <div>
         <button type="button" class="link bar__back" (click)="backToTables()">← Mesas</button>
         <h1>{{ sessionPlaceLabel(s) }}</h1>
-        <p class="muted">
-          @if (isCounterSession(s)) {
-            {{ s?.orderCount || s?.orders?.length || 0 }} envíos
-          } @else {
-            {{ s?.covers ?? '—' }} comensales · {{ s?.orderCount || s?.orders?.length || 0 }} envíos
+        @if (!isCounterSession(s)) {
+          <p class="muted">
+            {{ s?.covers ?? '—' }} comensales
+            @if ((s?.orderCount || s?.orders?.length || 0) > 0) {
+              · {{ s?.orderCount || s?.orders?.length }} envío{{
+                (s?.orderCount || s?.orders?.length || 0) === 1 ? '' : 's'
+              }}
+            }
             @if (s?.waiter?.fullName) {
               · {{ s.waiter.fullName }}
             }
-          }
-        </p>
+          </p>
+        }
       </div>
       <div class="bar__actions">
         @if (capabilities().allowPrintCustomerTicket) {
@@ -586,21 +578,41 @@
           <div class="chips" role="tablist">
             <button
               type="button"
-              class="chip"
+              class="chip chip--all"
               [class.chip--on]="!sectionFilter()"
               (click)="setSection(null)"
             >
               Todas
             </button>
-            @for (sec of sections(); track sec) {
-              <button
-                type="button"
-                class="chip"
-                [class.chip--on]="sectionFilter() === sec"
-                (click)="setSection(sec)"
-              >
-                {{ sec }}
-              </button>
+            @for (group of sectionGroups(); track group.menuKey) {
+              @if (group.menuTitle) {
+                <div class="chip-group">
+                  <span class="chip-group__title">{{ group.menuTitle }}</span>
+                  <div class="chip-group__chips">
+                    @for (sec of group.sections; track sec.key) {
+                      <button
+                        type="button"
+                        class="chip"
+                        [class.chip--on]="sectionFilter() === sec.key"
+                        (click)="setSection(sec.key)"
+                      >
+                        {{ sec.label }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @else {
+                @for (sec of group.sections; track sec.key) {
+                  <button
+                    type="button"
+                    class="chip"
+                    [class.chip--on]="sectionFilter() === sec.key"
+                    (click)="setSection(sec.key)"
+                  >
+                    {{ sec.label }}
+                  </button>
+                }
+              }
             }
             @if (sellablePromos().length) {
               <button

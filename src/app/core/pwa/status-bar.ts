@@ -20,6 +20,8 @@ export function applyStatusBar(color: string, tone: StatusBarTone): void {
   const root = document.documentElement;
   root.style.colorScheme = tone;
   root.style.backgroundColor = c;
+  /* iOS 26/27 PWA: el tint fixed usa esta variable (ver styles.scss). */
+  root.style.setProperty('--guy-ios-chrome-bg', c);
   document.body.style.colorScheme = tone;
   document.body.classList.toggle(DARK_CLASS, tone === 'dark');
   if (tone === 'dark') {
@@ -33,6 +35,7 @@ export function resetStatusBar(): void {
   if (typeof document === 'undefined') return;
   applyStatusBar(DEFAULT_LIGHT, 'light');
   document.documentElement.style.removeProperty('background-color');
+  document.documentElement.style.removeProperty('--guy-ios-chrome-bg');
   document.body.style.removeProperty('background-color');
   document.body.classList.remove(DARK_CLASS);
 }

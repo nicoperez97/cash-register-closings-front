@@ -447,24 +447,40 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     return 'Obj';
   }
 
-  readonly sections = computed(() => {
+  /**
+   * Secciones agrupadas por carta. El `key` sigue siendo único (incluye título si hay
+   * varias cartas); el `label` es solo el nombre de sección para la UI.
+   */
+  readonly sectionGroups = computed(() => {
     const menus = this.catalog()?.menus ?? [];
-    const names: string[] = [];
-    const seen = new Set<string>();
+    const multi = menus.length > 1;
+    const groups: Array<{
+      menuKey: string;
+      menuTitle: string | null;
+      sections: Array<{ key: string; label: string }>;
+    }> = [];
     for (const m of menus) {
+      const menuTitle = multi
+        ? String(m.title ?? '').trim() || 'Carta'
+        : null;
+      const menuKey = String(m.id ?? m.slug ?? menuTitle ?? groups.length);
+      const sections: Array<{ key: string; label: string }> = [];
+      const seen = new Set<string>();
       for (const sec of m.sections ?? []) {
-        const label =
-          menus.length > 1 && m.title
-            ? `${prettySection(sec.name)} · ${m.title}`
-            : prettySection(sec.name);
-        if (!seen.has(label)) {
-          seen.add(label);
-          names.push(label);
-        }
+        const label = prettySection(sec.name);
+        const key = menuTitle ? `${label} · ${menuTitle}` : label;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        sections.push({ key, label });
       }
+      if (sections.length) groups.push({ menuKey, menuTitle, sections });
     }
-    return names;
+    return groups;
   });
+
+  readonly sections = computed(() =>
+    this.sectionGroups().flatMap((g) => g.sections.map((s) => s.key)),
+  );
 
   readonly catalogItems = computed((): CatalogItem[] => {
     const menus = this.catalog()?.menus ?? [];
@@ -1219,15 +1235,18 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.coversSheet.set(table);
   }
 
-  /** Pedido de mostrador: va directo a la carta (sin mozo ni comensales). */
+  /**
+   * Pedido de mostrador: va directo a la carta (sin mozo ni comensales).
+   * Si ya hay uno abierto, lo retoma (sin listarlo en el mapa).
+   */
   startCounterOrder(): void {
     if (this.busy()) return;
+    const open = this.counterSessions();
+    if (open.length) {
+      this.resumeSession(open[open.length - 1].id);
+      return;
+    }
     this.openFresh(null, 1, null);
-  }
-
-  resumeCounter(session: WaiterCounterSession): void {
-    if (this.busy()) return;
-    this.resumeSession(session.id);
   }
 
   cancelCovers(): void {

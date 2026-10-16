@@ -159,7 +159,45 @@
 .pos__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+.pos__chip-group {
+  display: grid;
+  gap: 0.28rem;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.45rem 0.45rem;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 4%, #fff);
+}
+
+@media (min-width: 768px) {
+  .pos__chip-group {
+    flex: 1 1 14rem;
+    width: auto;
+  }
+}
+
+.pos__chip-group-title {
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--guy-muted, #5f6f76);
+  padding: 0 0.15rem;
+  line-height: 1.2;
+}
+
+.pos__chip-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
 
 .pos__chip {

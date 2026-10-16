@@ -828,7 +828,7 @@ function toPrice(value: unknown): number | null {
                                 </div>
                                 @if (isItemOpen(section.index, ii)) {
                                   <div class="menu-item__detail">
-                                    <div class="menu-item__photo">
+                                    <div class="menu-item__detail-media">
                                       <div
                                         class="menu-item__gallery"
                                         [class.menu-item__gallery--busy]="uploadingItemPhoto()"
@@ -873,6 +873,7 @@ function toPrice(value: unknown): number | null {
                                           </div>
                                         } @empty {
                                           <div class="menu-item__shot menu-item__shot--empty">
+                                            <mat-icon>image</mat-icon>
                                             <span>Sin fotos</span>
                                           </div>
                                         }
@@ -900,159 +901,162 @@ function toPrice(value: unknown): number | null {
                                                 : 'Fotos'
                                           }}
                                         </button>
-                                        <button
-                                          mat-button
-                                          type="button"
-                                          [disabled]="!itemImages(item).length || uploadingItemPhoto()"
-                                          (click)="clearItemPhoto(section.index, ii)"
+                                        @if (itemImages(item).length) {
+                                          <button
+                                            mat-button
+                                            type="button"
+                                            [disabled]="uploadingItemPhoto()"
+                                            (click)="clearItemPhoto(section.index, ii)"
+                                          >
+                                            Quitar todas
+                                          </button>
+                                        }
+                                      </div>
+                                      <div class="menu-item__flags">
+                                        <label
+                                          class="menu-flag"
+                                          [class.menu-flag--on]="item.countsAsUnits !== false"
                                         >
-                                          Quitar todas
-                                        </button>
+                                          <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
+                                          <mat-icon>{{
+                                            item.countsAsUnits !== false
+                                              ? 'check_box'
+                                              : 'check_box_outline_blank'
+                                          }}</mat-icon>
+                                          <span>Unidades</span>
+                                        </label>
+                                        <label
+                                          class="menu-flag"
+                                          [class.menu-flag--on]="item.available !== false"
+                                        >
+                                          <input type="checkbox" [(ngModel)]="item.available" />
+                                          <mat-icon>{{
+                                            item.available !== false
+                                              ? 'check_box'
+                                              : 'check_box_outline_blank'
+                                          }}</mat-icon>
+                                          <span>Online</span>
+                                        </label>
                                       </div>
                                     </div>
-                                    <div class="menu-item__flags">
-                                      <label
-                                        class="menu-flag"
-                                        [class.menu-flag--on]="item.countsAsUnits !== false"
-                                      >
-                                        <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
-                                        <mat-icon>{{
-                                          item.countsAsUnits !== false
-                                            ? 'check_box'
-                                            : 'check_box_outline_blank'
-                                        }}</mat-icon>
-                                        <span>Unidades</span>
-                                      </label>
-                                      <label
-                                        class="menu-flag"
-                                        [class.menu-flag--on]="item.available !== false"
-                                      >
-                                        <input type="checkbox" [(ngModel)]="item.available" />
-                                        <mat-icon>{{
-                                          item.available !== false
-                                            ? 'check_box'
-                                            : 'check_box_outline_blank'
-                                        }}</mat-icon>
-                                        <span>Online</span>
-                                      </label>
-                                    </div>
-                                    @if (sections().length > 1) {
-                                      <mat-form-field
-                                        appearance="outline"
-                                        subscriptSizing="dynamic"
-                                        class="menu-item__move"
-                                      >
-                                        <mat-label>Mover a sección</mat-label>
-                                        <mat-select
-                                          [value]="section.index"
-                                          (selectionChange)="
-                                            moveItemToSection(section.index, ii, $event.value)
-                                          "
-                                        >
-                                          @for (sec of sections(); track $index; let ti = $index) {
-                                            <mat-option
-                                              [value]="ti"
-                                              [disabled]="ti === section.index"
-                                            >
-                                              {{ sec.name?.trim() || 'Sección ' + (ti + 1) }}
-                                            </mat-option>
-                                          }
-                                        </mat-select>
-                                        <mat-hint>No se borra: pasa el ítem tal cual a otra sección.</mat-hint>
-                                      </mat-form-field>
-                                    }
-                                    <mat-form-field
-                                      appearance="outline"
-                                      subscriptSizing="dynamic"
-                                      class="menu-item__desc"
-                                    >
-                                      <mat-label>Descripción</mat-label>
-                                      <textarea matInput rows="2" [(ngModel)]="item.description"></textarea>
-                                    </mat-form-field>
-                                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                                      <mat-label>Precio (texto, opcional)</mat-label>
-                                      <input
-                                        matInput
-                                        [(ngModel)]="item.priceLabel"
-                                        placeholder="ej. $11.000 / combo"
-                                      />
-                                      <mat-hint>Si está vacío, se muestra el precio numérico.</mat-hint>
-                                    </mat-form-field>
-                                    <mat-form-field
-                                      appearance="outline"
-                                      subscriptSizing="dynamic"
-                                      class="menu-item__ing"
-                                    >
-                                      <mat-label>Ingredientes (se puede pedir sin)</mat-label>
-                                      <input
-                                        matInput
-                                        [(ngModel)]="item.removableIngredients"
-                                        placeholder="cebolla, tomate, mayo"
-                                      />
-                                      <mat-hint>Separá con coma.</mat-hint>
-                                    </mat-form-field>
-                                    <div class="menu-item__recipe">
-                                      <p>
-                                        Receta (baja el stock al vender; si un insumo queda bajo el mínimo, el
-                                        plato se oculta en /pedir, mostrador y comanda)
-                                      </p>
-                                      @for (line of item.recipe ?? []; track line.stockProductId) {
-                                        <div class="menu-item__recipe-line">
-                                          <span>{{ stockProductName(line.stockProductId) }}</span>
-                                          <span>× {{ line.qty }}</span>
-                                          <button
-                                            mat-icon-button
-                                            type="button"
-                                            aria-label="Quitar insumo"
-                                            (click)="
-                                              removeRecipeLine(section.index, ii, line.stockProductId)
+
+                                    <div class="menu-item__detail-fields">
+                                      @if (sections().length > 1) {
+                                        <label class="menu-field menu-field--inline">
+                                          <span class="menu-field__label">Sección</span>
+                                          <select
+                                            class="menu-field__control"
+                                            [value]="section.index"
+                                            (change)="
+                                              moveItemToSection(
+                                                section.index,
+                                                ii,
+                                                +$any($event.target).value
+                                              )
                                             "
                                           >
-                                            <mat-icon>close</mat-icon>
-                                          </button>
-                                        </div>
+                                            @for (sec of sections(); track $index; let ti = $index) {
+                                              <option [value]="ti" [disabled]="ti === section.index">
+                                                {{ sec.name?.trim() || 'Sección ' + (ti + 1) }}
+                                              </option>
+                                            }
+                                          </select>
+                                        </label>
                                       }
-                                      @if (stockProducts().length) {
-                                        <div class="menu-item__recipe-add">
-                                          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                                            <mat-label>Insumo</mat-label>
-                                            <mat-select [(ngModel)]="item.recipePickId">
-                                              @for (p of stockProducts(); track p.id) {
-                                                <mat-option [value]="p.id">
-                                                  {{ p.name }} ({{
-                                                    p.kind === 'beverage' ? 'bebida' : 'alimento'
-                                                  }})
-                                                </mat-option>
-                                              }
-                                            </mat-select>
-                                          </mat-form-field>
-                                          <mat-form-field
-                                            appearance="outline"
-                                            subscriptSizing="dynamic"
-                                            class="menu-item__recipe-qty"
-                                          >
-                                            <mat-label>Cant.</mat-label>
-                                            <input
-                                              matInput
-                                              type="number"
-                                              min="0.01"
-                                              step="0.01"
-                                              [(ngModel)]="item.recipePickQty"
-                                            />
-                                          </mat-form-field>
-                                          <button
-                                            mat-stroked-button
-                                            type="button"
-                                            (click)="addRecipeLine(section.index, ii)"
-                                          >
-                                            Sumar
-                                          </button>
+                                      <label class="menu-field">
+                                        <span class="menu-field__label">Descripción</span>
+                                        <textarea
+                                          class="menu-field__control menu-field__control--area"
+                                          rows="2"
+                                          [(ngModel)]="item.description"
+                                          placeholder="Qué es el plato…"
+                                        ></textarea>
+                                      </label>
+                                      <div class="menu-item__detail-row">
+                                        <label class="menu-field">
+                                          <span class="menu-field__label">Precio texto</span>
+                                          <input
+                                            class="menu-field__control"
+                                            [(ngModel)]="item.priceLabel"
+                                            placeholder="ej. $11.000 / combo"
+                                          />
+                                          <span class="menu-field__hint">Opcional; si vacío, usa el numérico.</span>
+                                        </label>
+                                        <label class="menu-field">
+                                          <span class="menu-field__label">Se puede pedir sin</span>
+                                          <input
+                                            class="menu-field__control"
+                                            [(ngModel)]="item.removableIngredients"
+                                            placeholder="morrones, cebolla…"
+                                          />
+                                          <span class="menu-field__hint">Separá con coma.</span>
+                                        </label>
+                                      </div>
+
+                                      <div class="menu-item__recipe">
+                                        <div class="menu-item__recipe-head">
+                                          <strong>Receta</strong>
+                                          <span>Descuenta stock al vender · 86 si falta insumo</span>
                                         </div>
-                                      } @else {
-                                        <p class="menu-item__recipe-empty">
-                                          Cargá insumos en Stock alimentos o bebidas para armar la receta.
-                                        </p>
-                                      }
+                                        @for (line of item.recipe ?? []; track line.stockProductId) {
+                                          <div class="menu-item__recipe-line">
+                                            <span>{{ stockProductName(line.stockProductId) }}</span>
+                                            <span>× {{ line.qty }}</span>
+                                            <button
+                                              mat-icon-button
+                                              type="button"
+                                              aria-label="Quitar insumo"
+                                              (click)="
+                                                removeRecipeLine(section.index, ii, line.stockProductId)
+                                              "
+                                            >
+                                              <mat-icon>close</mat-icon>
+                                            </button>
+                                          </div>
+                                        }
+                                        @if (stockProducts().length) {
+                                          <div class="menu-item__recipe-add">
+                                            <label class="menu-field">
+                                              <span class="menu-field__label">Insumo</span>
+                                              <select
+                                                class="menu-field__control"
+                                                [(ngModel)]="item.recipePickId"
+                                              >
+                                                <option value="">Elegí…</option>
+                                                @for (p of stockProducts(); track p.id) {
+                                                  <option [value]="p.id">
+                                                    {{ p.name }} ({{
+                                                      p.kind === 'beverage' ? 'bebida' : 'alimento'
+                                                    }})
+                                                  </option>
+                                                }
+                                              </select>
+                                            </label>
+                                            <label class="menu-field menu-field--qty">
+                                              <span class="menu-field__label">Cant.</span>
+                                              <input
+                                                class="menu-field__control"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                [(ngModel)]="item.recipePickQty"
+                                              />
+                                            </label>
+                                            <button
+                                              mat-stroked-button
+                                              type="button"
+                                              class="menu-item__recipe-sum"
+                                              (click)="addRecipeLine(section.index, ii)"
+                                            >
+                                              Sumar
+                                            </button>
+                                          </div>
+                                        } @else {
+                                          <p class="menu-item__recipe-empty">
+                                            Cargá insumos en Stock para armar la receta.
+                                          </p>
+                                        }
+                                      </div>
                                     </div>
                                   </div>
                                 }
@@ -1887,20 +1891,93 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__detail {
       display: grid;
-      gap: 0.45rem;
-      padding: 0.45rem 0.15rem 0.25rem;
-      border-top: 1px dashed var(--guy-border, #d7e0d9);
+      grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+      gap: 0.85rem 1rem;
+      padding: 0.75rem 0.65rem 0.55rem;
+      margin-top: 0.15rem;
+      border-top: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 85%, transparent);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--guy-green, #2e7d32) 4%, #f7f9f7) 0%,
+        #f7f9f7 100%
+      );
+      border-radius: 0 0 10px 10px;
       animation: guy-slide-down var(--guy-dur, 240ms) var(--guy-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
     }
-    .menu-item__photo {
+    .menu-item__detail-media {
       display: grid;
       gap: 0.45rem;
+      align-content: start;
+    }
+    .menu-item__detail-fields {
+      display: grid;
+      gap: 0.55rem;
+      min-width: 0;
+      align-content: start;
+    }
+    .menu-item__detail-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.55rem;
+    }
+    .menu-field {
+      display: grid;
+      gap: 0.22rem;
+      margin: 0;
+      min-width: 0;
+    }
+    .menu-field--inline {
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 0.55rem;
+    }
+    .menu-field--qty {
+      max-width: 5.5rem;
+    }
+    .menu-field__label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .menu-field--inline .menu-field__label {
+      font-size: 0.78rem;
+    }
+    .menu-field__control {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--guy-ink, #1b2a33);
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.65rem;
+      outline: none;
+      transition:
+        border-color var(--guy-dur-fast, 140ms) ease,
+        box-shadow var(--guy-dur-fast, 140ms) ease;
+    }
+    .menu-field__control:focus {
+      border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 45%, #d7e0d9);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--guy-green, #2e7d32) 14%, transparent);
+    }
+    .menu-field__control--area {
+      resize: vertical;
+      min-height: 3.4rem;
+      line-height: 1.35;
+    }
+    .menu-field__hint {
+      font-size: 0.7rem;
+      color: var(--guy-muted, #5f6f76);
+      line-height: 1.3;
     }
     .menu-item__gallery {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
-      min-height: 5.9rem;
+      gap: 0.4rem;
+      min-height: 5.4rem;
       align-content: flex-start;
       transition: opacity var(--guy-dur, 240ms) ease;
     }
@@ -1944,10 +2021,18 @@ function toPrice(value: unknown): number | null {
     .menu-item__shot--empty {
       display: grid;
       place-items: center;
+      gap: 0.15rem;
       height: 5.75rem;
       color: var(--guy-muted, #5f6f76);
       font-size: 0.72rem;
       border-style: dashed;
+      background: #fff;
+    }
+    .menu-item__shot--empty mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      opacity: 0.55;
     }
     .menu-item__shot img {
       display: block;
@@ -1983,23 +2068,27 @@ function toPrice(value: unknown): number | null {
       flex-wrap: wrap;
       gap: 0.35rem;
       align-items: center;
-      min-height: 2.25rem;
-    }
-    .menu-item__desc,
-    .menu-item__ing {
-      width: 100%;
     }
     .menu-item__recipe {
       display: grid;
-      gap: 0.35rem;
-      padding: 0.45rem 0.5rem;
-      border: 1px dashed var(--guy-border, #d7e0d9);
-      border-radius: 10px;
-      background: #fafcfb;
+      gap: 0.4rem;
+      padding: 0.55rem 0.6rem;
+      border: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 90%, transparent);
+      border-radius: 12px;
+      background: #fff;
     }
-    .menu-item__recipe p {
-      margin: 0;
-      font-size: 0.78rem;
+    .menu-item__recipe-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 0.65rem;
+    }
+    .menu-item__recipe-head strong {
+      font-size: 0.82rem;
+      color: var(--guy-ink, #1b2a33);
+    }
+    .menu-item__recipe-head span {
+      font-size: 0.72rem;
       color: var(--guy-muted, #5f6f76);
     }
     .menu-item__recipe-line {
@@ -2007,15 +2096,25 @@ function toPrice(value: unknown): number | null {
       align-items: center;
       gap: 0.4rem;
       font-size: 0.85rem;
+      padding: 0.15rem 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--guy-border, #d7e0d9) 55%, transparent);
+    }
+    .menu-item__recipe-line:last-of-type {
+      border-bottom: 0;
     }
     .menu-item__recipe-line span:first-child {
       flex: 1;
+      min-width: 0;
     }
     .menu-item__recipe-add {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 5.5rem auto;
-      gap: 0.4rem;
-      align-items: center;
+      grid-template-columns: minmax(0, 1fr) 5rem auto;
+      gap: 0.45rem;
+      align-items: end;
+      margin-top: 0.15rem;
+    }
+    .menu-item__recipe-sum {
+      margin-bottom: 1px;
     }
     .menu-item__recipe-empty {
       margin: 0;
@@ -2080,7 +2179,23 @@ function toPrice(value: unknown): number | null {
         flex: none;
       }
       .menu-item__detail {
-        padding-left: 0.15rem;
+        grid-template-columns: 1fr;
+        gap: 0.7rem;
+        padding: 0.65rem 0.45rem 0.5rem;
+      }
+      .menu-item__detail-row {
+        grid-template-columns: 1fr;
+      }
+      .menu-field--inline {
+        grid-template-columns: 1fr;
+        gap: 0.22rem;
+      }
+      .menu-item__recipe-add {
+        grid-template-columns: minmax(0, 1fr) 4.5rem;
+      }
+      .menu-item__recipe-sum {
+        grid-column: 1 / -1;
+        justify-self: start;
       }
     }
     @media (max-width: 560px) {
