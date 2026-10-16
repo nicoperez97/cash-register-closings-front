@@ -3747,15 +3747,16 @@ export class AdminMenuPage {
           const rows = buildMenuImportPreviewRows(res.menu.sections ?? [], existing?.sections ?? null);
           if (!rows.length) {
             this.rawText.set((res.rawText ?? '').trim());
+            const aiEngine = res.engine === 'gemini' || res.engine === 'groq';
             this.parseNote.set(
-              res.engine === 'gemini'
-                ? 'Gemini no encontró ítems claros.'
+              aiEngine
+                ? `${res.engine === 'groq' ? 'Groq' : 'Gemini'} no encontró ítems claros.`
                 : 'No encontramos ítems claros. Revisá el texto leído y cargalos a mano.',
             );
             this.geminiWarning.set(
-              res.engine === 'gemini'
+              aiEngine
                 ? ''
-                : res.geminiWarning || 'No se usó Gemini. Se usó el parseo local.',
+                : res.geminiWarning || 'No se usó IA. Se usó el parseo local.',
             );
             return;
           }
@@ -3764,7 +3765,12 @@ export class AdminMenuPage {
             mode,
             fileName: res.fileName || file.name,
             shopName: this.shops.selectedShop()?.name ?? '',
-            engine: res.engine === 'gemini' ? 'Gemini' : 'parseo local',
+            engine:
+              res.engine === 'groq'
+                ? 'Groq'
+                : res.engine === 'gemini'
+                  ? 'Gemini'
+                  : 'parseo local',
             parsedTitle:
               mode === 'replace'
                 ? existing?.title || res.menu.title || this.title
@@ -3830,15 +3836,17 @@ export class AdminMenuPage {
                   : replaced
                     ? ` Aplicaste ${replaced} reemplazo${replaced === 1 ? '' : 's'}.`
                     : ` Aplicaste ${loaded} ítem${loaded === 1 ? '' : 's'} nuevo${loaded === 1 ? '' : 's'}.`;
+              const aiEngine = res.engine === 'gemini' || res.engine === 'groq';
+              const aiName = res.engine === 'groq' ? 'Groq' : 'Gemini';
               const ingNote =
-                res.engine === 'gemini' && ing > 0
+                aiEngine && ing > 0
                   ? ` También detectamos ingredientes quitables en ${ing} ítem${ing === 1 ? '' : 's'}.`
-                  : res.engine === 'gemini'
+                  : aiEngine
                     ? ' Revisá “Se puede pedir sin” o usá Detectar ingredientes.'
                     : '';
-              if (res.engine === 'gemini') {
+              if (aiEngine) {
                 this.parseNote.set(
-                  `Leímos el archivo con Gemini.${actionNote}${ingNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`,
+                  `Leímos el archivo con ${aiName}.${actionNote}${ingNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`,
                 );
                 this.geminiWarning.set('');
               } else {
@@ -3846,7 +3854,7 @@ export class AdminMenuPage {
                   `Leímos el archivo con parseo local.${actionNote} Revisá y guardá. Para la vista pública usá “Cargar carta física”.`,
                 );
                 this.geminiWarning.set(
-                  res.geminiWarning || 'No se usó Gemini. Se usó el parseo local.',
+                  res.geminiWarning || 'No se usó IA. Se usó el parseo local.',
                 );
               }
             });
