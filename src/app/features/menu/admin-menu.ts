@@ -936,6 +936,31 @@ function toPrice(value: unknown): number | null {
                                         <span>Online</span>
                                       </label>
                                     </div>
+                                    @if (sections().length > 1) {
+                                      <mat-form-field
+                                        appearance="outline"
+                                        subscriptSizing="dynamic"
+                                        class="menu-item__move"
+                                      >
+                                        <mat-label>Mover a sección</mat-label>
+                                        <mat-select
+                                          [value]="section.index"
+                                          (selectionChange)="
+                                            moveItemToSection(section.index, ii, $event.value)
+                                          "
+                                        >
+                                          @for (sec of sections(); track $index; let ti = $index) {
+                                            <mat-option
+                                              [value]="ti"
+                                              [disabled]="ti === section.index"
+                                            >
+                                              {{ sec.name?.trim() || 'Sección ' + (ti + 1) }}
+                                            </mat-option>
+                                          }
+                                        </mat-select>
+                                        <mat-hint>No se borra: pasa el ítem tal cual a otra sección.</mat-hint>
+                                      </mat-form-field>
+                                    }
                                     <mat-form-field
                                       appearance="outline"
                                       subscriptSizing="dynamic"
@@ -3064,6 +3089,58 @@ export class AdminMenuPage {
       next.delete(this.itemKey(sectionIndex, itemIndex));
       return next;
     });
+  }
+
+  /** Mueve el ítem a otra sección sin perder foto, receta ni precios. */
+  moveItemToSection(fromSection: number, itemIndex: number, toSection: number): void {
+    if (
+      !Number.isInteger(toSection) ||
+      fromSection === toSection ||
+      fromSection < 0 ||
+      toSection < 0
+    ) {
+      return;
+    }
+    const list = this.sections();
+    if (!list[fromSection] || !list[toSection]) return;
+    const item = list[fromSection].items?.[itemIndex];
+    if (!item) return;
+
+    const oldKey = this.itemKey(fromSection, itemIndex);
+    const itemId = String(item.id ?? '').trim();
+    let destIndex = -1;
+
+    this.sections.update((secs) => {
+      if (!secs[fromSection] || !secs[toSection]) return secs;
+      const next = secs.map((s) => ({ ...s, items: [...(s.items ?? [])] }));
+      const [moved] = next[fromSection].items.splice(itemIndex, 1);
+      if (!moved) return secs;
+      next[toSection].items.push(moved);
+      destIndex = next[toSection].items.length - 1;
+      return next;
+    });
+
+    if (destIndex < 0) return;
+
+    this.openSectionKeys.update((set) => new Set(set).add(`sec-${toSection}`));
+    const newKey = itemId ? `id:${itemId}` : `pos:${toSection}:${destIndex}`;
+    this.openItemKeys.update((set) => {
+      const next = new Set(set);
+      next.delete(oldKey);
+      next.add(newKey);
+      return next;
+    });
+    this.selectedItemKeys.update((set) => {
+      if (!set.has(oldKey) && !(itemId && set.has(`id:${itemId}`))) return set;
+      const next = new Set(set);
+      next.delete(oldKey);
+      next.add(newKey);
+      return next;
+    });
+
+    const destName =
+      String(this.sections()[toSection]?.name ?? '').trim() || `Sección ${toSection + 1}`;
+    this.snack.open(`Movido a «${destName}». Guardá la carta.`, 'OK', { duration: 2800 });
   }
 
   itemKey(sectionIndex: number, itemIndex: number): string {
