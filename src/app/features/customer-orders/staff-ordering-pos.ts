@@ -139,24 +139,36 @@ export class StaffOrderingPosComponent implements OnInit {
     () => this.discountMode() !== 'none' && !this.discountPresetId(),
   );
 
-  readonly sections = computed(() => {
+  readonly sectionGroups = computed(() => {
     const menus = this.config()?.menus ?? [];
-    const names: string[] = [];
-    const seen = new Set<string>();
+    const multi = menus.length > 1;
+    const groups: Array<{
+      menuKey: string;
+      menuTitle: string | null;
+      sections: Array<{ key: string; label: string }>;
+    }> = [];
     for (const m of menus) {
+      const menuTitle = multi
+        ? String(m.title ?? '').trim() || 'Carta'
+        : null;
+      const menuKey = String(m.id ?? m.slug ?? menuTitle ?? groups.length);
+      const sections: Array<{ key: string; label: string }> = [];
+      const seen = new Set<string>();
       for (const sec of m.sections ?? []) {
-        const label =
-          menus.length > 1 && m.title
-            ? `${prettySection(sec.name)} · ${m.title}`
-            : prettySection(sec.name);
-        if (!seen.has(label)) {
-          seen.add(label);
-          names.push(label);
-        }
+        const label = prettySection(sec.name);
+        const key = menuTitle ? `${label} · ${menuTitle}` : label;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        sections.push({ key, label });
       }
+      if (sections.length) groups.push({ menuKey, menuTitle, sections });
     }
-    return names;
+    return groups;
   });
+
+  readonly sections = computed(() =>
+    this.sectionGroups().flatMap((g) => g.sections.map((s) => s.key)),
+  );
 
   readonly catalog = computed((): CatalogItem[] => {
     const menus = this.config()?.menus ?? [];

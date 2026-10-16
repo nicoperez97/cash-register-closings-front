@@ -107,6 +107,28 @@ html.guy-pwa body {
   overscroll-behavior: none;
 }
 
+/*
+ * iOS 26/27 (Liquid Glass): la PWA instalada dibuja un blur sobre el top
+ * salvo que haya un elemento position:fixed con background-color sólido
+ * cerca del borde superior (≥6px, ≥80% ancho, ≤4px del top).
+ * theme-color / apple-mobile-web-app-status-bar-style ya no alcanzan.
+ */
+html.guy-pwa {
+  --guy-ios-chrome-bg: var(--guy-toolbar-bg, var(--guy-surface, #f3f6f4));
+}
+
+html.guy-pwa body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: max(8px, env(safe-area-inset-top, 0px));
+  background-color: var(--guy-ios-chrome-bg);
+  pointer-events: none;
+  z-index: 2147483000;
+}
+
 /* Safari iPhone: evita zoom por doble toque en toda la app. */
 html,
 body {
@@ -376,6 +398,7 @@ html[data-theme='dark'] .data-table__edit mat-icon {
 
 html[data-theme='dark'] .toolbar,
 html[data-theme='dark'] .toolbar.toolbar--mobile {
+  background-color: var(--guy-toolbar-bg) !important;
   background: var(--guy-toolbar-bg) !important;
   border-bottom-color: var(--guy-border) !important;
   color: var(--guy-text);

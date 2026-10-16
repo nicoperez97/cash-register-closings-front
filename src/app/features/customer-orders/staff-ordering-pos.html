@@ -42,15 +42,35 @@
             >
               Todas
             </button>
-            @for (sec of sections(); track sec) {
-              <button
-                type="button"
-                class="pos__chip"
-                [class.pos__chip--on]="sectionFilter() === sec"
-                (click)="setSection(sec)"
-              >
-                {{ sec }}
-              </button>
+            @for (group of sectionGroups(); track group.menuKey) {
+              @if (group.menuTitle) {
+                <div class="pos__chip-group">
+                  <span class="pos__chip-group-title">{{ group.menuTitle }}</span>
+                  <div class="pos__chip-group-chips">
+                    @for (sec of group.sections; track sec.key) {
+                      <button
+                        type="button"
+                        class="pos__chip"
+                        [class.pos__chip--on]="sectionFilter() === sec.key"
+                        (click)="setSection(sec.key)"
+                      >
+                        {{ sec.label }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @else {
+                @for (sec of group.sections; track sec.key) {
+                  <button
+                    type="button"
+                    class="pos__chip"
+                    [class.pos__chip--on]="sectionFilter() === sec.key"
+                    (click)="setSection(sec.key)"
+                  >
+                    {{ sec.label }}
+                  </button>
+                }
+              }
             }
           </div>
         }
