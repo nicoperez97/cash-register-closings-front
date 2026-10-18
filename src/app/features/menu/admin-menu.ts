@@ -77,6 +77,12 @@ import {
   type MenuAssignSectorItem,
 } from './menu-assign-sectors-dialog';
 import {
+  MenuAssignCategoriesDialogComponent,
+  type MenuAssignCategoriesDialogData,
+  type MenuAssignCategoriesDialogResult,
+  type MenuAssignCategoryItem,
+} from './menu-assign-categories-dialog';
+import {
   MenuPriceSlotsEditorComponent,
   type MenuPriceSlot,
   type PriceSlotMenuItem,
@@ -95,9 +101,14 @@ export type ShopMenuItem = {
   priceLabel?: string | null;
   /** Precios por cuenta ledger (mostrador / comanda). No se ven en /m ni /pedir. */
   accountPrices?: MenuItemAccountPrice[];
+  /** Visible en /pedir y carta pública. */
   available?: boolean;
+  /** Operativo: si está apagado no aparece en comanda ni mostrador. */
+  active?: boolean;
   /** Suma a las unidades del cierre (ej. paninos). Hereda de la sección si no se define. */
   countsAsUnits?: boolean;
+  /** Rubro POS (`pos_categories.id`) para filtros y reportes. */
+  categoryId?: string | null;
   imageUrl?: string | null;
   images?: ShopMenuItemImage[];
   /** Texto o lista: ingredientes que el cliente puede quitar. */
@@ -274,10 +285,12 @@ function cloneMenu(menu: ShopMenu): ShopMenu {
         priceLabel: it.priceLabel ?? '',
         accountPrices: normalizeAccountPricesForSave(it.accountPrices),
         available: it.available !== false,
+        active: it.active !== false,
         countsAsUnits:
           it.countsAsUnits !== undefined && it.countsAsUnits !== null
             ? !!it.countsAsUnits
             : s.countsAsUnits !== false,
+        categoryId: String(it.categoryId ?? '').trim() || null,
         imageUrl: it.imageUrl ?? null,
         images: Array.isArray(it.images)
           ? it.images
@@ -555,6 +568,44 @@ function toPrice(value: unknown): number | null {
                           autocomplete="off"
                         />
                       </label>
+                      <label class="menu-editor__filter">
+                        <span>Online</span>
+                        <select
+                          [ngModel]="availableFilter()"
+                          (ngModelChange)="availableFilter.set($event)"
+                          name="availableFilter"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="on">Online</option>
+                          <option value="off">Offline</option>
+                        </select>
+                      </label>
+                      <label class="menu-editor__filter">
+                        <span>Activo</span>
+                        <select
+                          [ngModel]="activeFilter()"
+                          (ngModelChange)="activeFilter.set($event)"
+                          name="activeFilter"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="on">Activos</option>
+                          <option value="off">Inactivos</option>
+                        </select>
+                      </label>
+                      <label class="menu-editor__filter">
+                        <span>Rubro</span>
+                        <select
+                          [ngModel]="categoryFilter()"
+                          (ngModelChange)="categoryFilter.set($event)"
+                          name="categoryFilter"
+                        >
+                          <option value="">Todos</option>
+                          <option value="none">Sin rubro</option>
+                          @for (c of posCategories(); track c.id) {
+                            <option [value]="c.id">{{ c.name }}</option>
+                          }
+                        </select>
+                      </label>
                       <div class="menu-editor__toolbar-actions">
                         <button
                           mat-flat-button
@@ -667,7 +718,7 @@ function toPrice(value: unknown): number | null {
                             }}</mat-icon>
                             <span>Unidades</span>
                           </label>
-                          @if (isSectionOpen(section.key) || itemQuery().trim()) {
+                          @if (isSectionOpen(section.key) || hasListFilters()) {
                             <button
                               type="button"
                               class="menu-editor__link"
@@ -684,9 +735,9 @@ function toPrice(value: unknown): number | null {
                             </button>
                           }
                         </div>
-                        @if (isSectionOpen(section.key) || itemQuery().trim()) {
+                        @if (isSectionOpen(section.key) || hasListFilters()) {
                           @for (item of section.section.items; track item.id || $index; let ii = $index) {
-                            @if (itemMatchesQuery(section.section.name, item)) {
+                            @if (itemVisible(section.section.name, item)) {
                               <div
                                 class="menu-item"
                                 [class.menu-item--open]="isItemOpen(section.index, ii)"
@@ -720,20 +771,87 @@ function toPrice(value: unknown): number | null {
                                       <span>Sin foto</span>
                                     }
                                   </button>
-                                  <div class="menu-item__core">
+                                  <div class="menu-item__main">
                                     @if (posLinkForMenuItem(item.id); as posLink) {
                                       <span class="menu-item__pos-badge" title="Enlazado al POS">
                                         POS {{ posLink }}
                                       </span>
                                     }
-                                    <mat-form-field
-                                      appearance="outline"
-                                      subscriptSizing="dynamic"
-                                      class="menu-item__name"
-                                    >
-                                      <mat-label>Ítem</mat-label>
-                                      <input matInput [(ngModel)]="item.name" />
-                                    </mat-form-field>
+                                    <div class="menu-item__top">
+                                      <mat-form-field
+                                        appearance="outline"
+                                        subscriptSizing="dynamic"
+                                        class="menu-item__name"
+                                      >
+                                        <mat-label>Ítem</mat-label>
+                                        <input matInput [(ngModel)]="item.name" />
+                                      </mat-form-field>
+                                      <div class="menu-item__actions">
+                                        <label
+                                          class="menu-flag menu-flag--bar"
+                                          [class.menu-flag--on]="item.countsAsUnits !== false"
+                                          title="Suma a las unidades del cierre (ej. paninos)"
+                                        >
+                                          <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
+                                          <mat-icon>{{
+                                            item.countsAsUnits !== false
+                                              ? 'check_box'
+                                              : 'check_box_outline_blank'
+                                          }}</mat-icon>
+                                          <span>Unidades</span>
+                                        </label>
+                                        <label
+                                          class="menu-flag menu-flag--bar"
+                                          [class.menu-flag--on]="item.available !== false"
+                                          title="Visible en /pedir y en la carta pública"
+                                        >
+                                          <input type="checkbox" [(ngModel)]="item.available" />
+                                          <mat-icon>{{
+                                            item.available !== false
+                                              ? 'check_box'
+                                              : 'check_box_outline_blank'
+                                          }}</mat-icon>
+                                          <span>Online</span>
+                                        </label>
+                                        <label
+                                          class="menu-flag menu-flag--bar"
+                                          [class.menu-flag--on]="item.active !== false"
+                                          title="Si está apagado, no aparece en comanda ni en mostrador"
+                                        >
+                                          <input type="checkbox" [(ngModel)]="item.active" />
+                                          <mat-icon>{{
+                                            item.active !== false
+                                              ? 'check_box'
+                                              : 'check_box_outline_blank'
+                                          }}</mat-icon>
+                                          <span>Activo</span>
+                                        </label>
+                                        <button
+                                          mat-icon-button
+                                          type="button"
+                                          [attr.aria-label]="
+                                            isItemOpen(section.index, ii)
+                                              ? 'Ocultar detalle'
+                                              : 'Más campos'
+                                          "
+                                          (click)="toggleItemOpen(section.index, ii)"
+                                        >
+                                          <mat-icon>{{
+                                            isItemOpen(section.index, ii)
+                                              ? 'unfold_less'
+                                              : 'unfold_more'
+                                          }}</mat-icon>
+                                        </button>
+                                        <button
+                                          mat-icon-button
+                                          type="button"
+                                          aria-label="Quitar ítem"
+                                          (click)="removeItem(section.index, ii)"
+                                        >
+                                          <mat-icon>close</mat-icon>
+                                        </button>
+                                      </div>
+                                    </div>
                                     <div class="menu-item__prices">
                                       <label class="menu-item__price-pill">
                                         <span class="menu-item__price-pill-label">Precio</span>
@@ -765,65 +883,75 @@ function toPrice(value: unknown): number | null {
                                         </label>
                                       }
                                     </div>
-                                    <mat-form-field
-                                      appearance="outline"
-                                      subscriptSizing="dynamic"
-                                      class="menu-item__sector"
-                                    >
-                                      <mat-label>Sectores</mat-label>
-                                      <mat-select [(ngModel)]="item.kitchenSectorIds" multiple>
-                                        @for (s of kitchenSectors(); track s.id) {
-                                          <mat-option [value]="s.id">{{ s.name }}</mat-option>
-                                        }
-                                      </mat-select>
-                                    </mat-form-field>
-                                  </div>
-                                  <div class="menu-item__actions">
-                                    <label
-                                      class="menu-flag menu-flag--bar"
-                                      [class.menu-flag--on]="item.countsAsUnits !== false"
-                                      title="Suma a las unidades del cierre (ej. paninos)"
-                                    >
-                                      <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
-                                      <mat-icon>{{
-                                        item.countsAsUnits !== false
-                                          ? 'check_box'
-                                          : 'check_box_outline_blank'
-                                      }}</mat-icon>
-                                      <span>Unidades</span>
-                                    </label>
-                                    <label
-                                      class="menu-flag menu-flag--bar"
-                                      [class.menu-flag--on]="item.available !== false"
-                                    >
-                                      <input type="checkbox" [(ngModel)]="item.available" />
-                                      <mat-icon>{{
-                                        item.available !== false
-                                          ? 'check_box'
-                                          : 'check_box_outline_blank'
-                                      }}</mat-icon>
-                                      <span>Online</span>
-                                    </label>
-                                    <button
-                                      mat-icon-button
-                                      type="button"
-                                      [attr.aria-label]="
-                                        isItemOpen(section.index, ii) ? 'Ocultar detalle' : 'Más campos'
-                                      "
-                                      (click)="toggleItemOpen(section.index, ii)"
-                                    >
-                                      <mat-icon>{{
-                                        isItemOpen(section.index, ii) ? 'unfold_less' : 'unfold_more'
-                                      }}</mat-icon>
-                                    </button>
-                                    <button
-                                      mat-icon-button
-                                      type="button"
-                                      aria-label="Quitar ítem"
-                                      (click)="removeItem(section.index, ii)"
-                                    >
-                                      <mat-icon>close</mat-icon>
-                                    </button>
+                                    <div class="menu-item__meta">
+                                      <mat-form-field
+                                        appearance="outline"
+                                        subscriptSizing="dynamic"
+                                        class="menu-item__rubro"
+                                      >
+                                        <mat-label>Rubro</mat-label>
+                                        <mat-select
+                                          [ngModel]="item.categoryId || ''"
+                                          (ngModelChange)="item.categoryId = $event || null"
+                                          name="itemCategory-{{ section.index }}-{{ ii }}"
+                                        >
+                                          <mat-option value="">Sin rubro</mat-option>
+                                          @for (c of posCategories(); track c.id) {
+                                            <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                                          }
+                                        </mat-select>
+                                      </mat-form-field>
+                                      <mat-form-field
+                                        appearance="outline"
+                                        subscriptSizing="dynamic"
+                                        class="menu-item__sector"
+                                      >
+                                        <mat-label>Sectores</mat-label>
+                                        <mat-select [(ngModel)]="item.kitchenSectorIds" multiple>
+                                          @for (s of kitchenSectors(); track s.id) {
+                                            <mat-option [value]="s.id">{{ s.name }}</mat-option>
+                                          }
+                                        </mat-select>
+                                      </mat-form-field>
+                                    </div>
+                                    <div class="menu-item__flags menu-item__flags--inline">
+                                      <label
+                                        class="menu-flag"
+                                        [class.menu-flag--on]="item.countsAsUnits !== false"
+                                      >
+                                        <input type="checkbox" [(ngModel)]="item.countsAsUnits" />
+                                        <mat-icon>{{
+                                          item.countsAsUnits !== false
+                                            ? 'check_box'
+                                            : 'check_box_outline_blank'
+                                        }}</mat-icon>
+                                        <span>Unidades</span>
+                                      </label>
+                                      <label
+                                        class="menu-flag"
+                                        [class.menu-flag--on]="item.available !== false"
+                                      >
+                                        <input type="checkbox" [(ngModel)]="item.available" />
+                                        <mat-icon>{{
+                                          item.available !== false
+                                            ? 'check_box'
+                                            : 'check_box_outline_blank'
+                                        }}</mat-icon>
+                                        <span>Online</span>
+                                      </label>
+                                      <label
+                                        class="menu-flag"
+                                        [class.menu-flag--on]="item.active !== false"
+                                      >
+                                        <input type="checkbox" [(ngModel)]="item.active" />
+                                        <mat-icon>{{
+                                          item.active !== false
+                                            ? 'check_box'
+                                            : 'check_box_outline_blank'
+                                        }}</mat-icon>
+                                        <span>Activo</span>
+                                      </label>
+                                    </div>
                                   </div>
                                 </div>
                                 @if (isItemOpen(section.index, ii)) {
@@ -928,6 +1056,7 @@ function toPrice(value: unknown): number | null {
                                         <label
                                           class="menu-flag"
                                           [class.menu-flag--on]="item.available !== false"
+                                          title="Visible en /pedir y en la carta pública"
                                         >
                                           <input type="checkbox" [(ngModel)]="item.available" />
                                           <mat-icon>{{
@@ -936,6 +1065,19 @@ function toPrice(value: unknown): number | null {
                                               : 'check_box_outline_blank'
                                           }}</mat-icon>
                                           <span>Online</span>
+                                        </label>
+                                        <label
+                                          class="menu-flag"
+                                          [class.menu-flag--on]="item.active !== false"
+                                          title="Si está apagado, no aparece en comanda ni en mostrador"
+                                        >
+                                          <input type="checkbox" [(ngModel)]="item.active" />
+                                          <mat-icon>{{
+                                            item.active !== false
+                                              ? 'check_box'
+                                              : 'check_box_outline_blank'
+                                          }}</mat-icon>
+                                          <span>Activo</span>
                                         </label>
                                       </div>
                                     </div>
@@ -1247,6 +1389,76 @@ function toPrice(value: unknown): number | null {
                   >
                     <mat-icon>save</mat-icon>
                     {{ savingSectors() ? 'Guardando…' : 'Guardar sectores' }}
+                  </button>
+                </div>
+              </div>
+            </mat-tab>
+
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon class="menu-admin-tabs__ico">category</mat-icon>
+                Rubros
+              </ng-template>
+              <div class="menu-admin-tabs__body">
+                <h2>Rubros</h2>
+                <p class="menu-admin__hint">
+                  Los mismos rubros que en Platos y rubros (POS). Asignalos a los ítems de la carta para
+                  filtrar acá y en el Monitor pedidos. No son la sección de la carta ni el sector de cocina.
+                </p>
+                @for (cat of posCategories(); track cat.id; let ci = $index) {
+                  <div class="menu-sector-row menu-sector-row--rubro">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
+                      <mat-label>Rubro</mat-label>
+                      <input
+                        matInput
+                        [(ngModel)]="cat.name"
+                        name="posCat-{{ cat.id }}"
+                        placeholder="ej. COMIDA"
+                        (blur)="renamePosCategory(cat)"
+                      />
+                    </mat-form-field>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      aria-label="Quitar rubro"
+                      [disabled]="savingCategories()"
+                      (click)="removePosCategory(cat)"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                } @empty {
+                  <p class="menu-admin__hint">Todavía no hay rubros. Agregá al menos uno para asignar.</p>
+                }
+                <div class="menu-sector-actions menu-sector-actions--rubros">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__new-cat">
+                    <mat-label>Nuevo rubro</mat-label>
+                    <input
+                      matInput
+                      [ngModel]="newCategoryName()"
+                      (ngModelChange)="newCategoryName.set($event)"
+                      name="newPosCategory"
+                      placeholder="ej. BEBIDAS"
+                      (keydown.enter)="addPosCategory()"
+                    />
+                  </mat-form-field>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="savingCategories() || !newCategoryName().trim()"
+                    (click)="addPosCategory()"
+                  >
+                    <mat-icon>add</mat-icon>
+                    Agregar
+                  </button>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="!posCategories().length"
+                    (click)="openAssignCategoriesDialog()"
+                  >
+                    <mat-icon>playlist_add_check</mat-icon>
+                    Asignar a ítems
                   </button>
                 </div>
               </div>
@@ -1588,6 +1800,26 @@ function toPrice(value: unknown): number | null {
       padding: 0.45rem 0;
       background: transparent;
     }
+    .menu-editor__filter {
+      display: flex;
+      flex-direction: column;
+      gap: 0.12rem;
+      min-width: 7.5rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--guy-muted, #5f6f76);
+    }
+    .menu-editor__filter select {
+      min-height: 2.35rem;
+      border: 1px solid var(--guy-border, #d7e0d9);
+      border-radius: 10px;
+      padding: 0.35rem 0.5rem;
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--guy-text, #1b2a33);
+      background: #fff;
+    }
     .menu-editor__toolbar-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1711,16 +1943,16 @@ function toPrice(value: unknown): number | null {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.65rem 0.85rem;
-      padding-left: 2rem;
+      gap: 0.5rem 0.75rem;
+      padding: 0.15rem 0 0.35rem 2rem;
     }
     .menu-section__units {
       flex-shrink: 0;
     }
     .menu-item {
       display: grid;
-      gap: 0.45rem;
-      padding: 0.5rem 0.6rem;
+      gap: 0.55rem;
+      padding: 0.65rem 0.7rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 12px;
       background: #fff;
@@ -1731,15 +1963,14 @@ function toPrice(value: unknown): number | null {
     }
     .menu-item__bar {
       display: grid;
-      grid-template-columns: auto auto minmax(0, 1fr) auto;
-      gap: 0.4rem;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      gap: 0.5rem 0.55rem;
       align-items: start;
     }
     .menu-item__check {
       display: grid;
       place-items: center;
-      padding: 0.2rem;
-      margin-top: 0.65rem;
+      padding: 0.55rem 0.1rem 0;
     }
     .menu-item__thumb {
       width: 2.75rem;
@@ -1754,7 +1985,7 @@ function toPrice(value: unknown): number | null {
       font-size: 0.62rem;
       display: grid;
       place-items: center;
-      margin-top: 0.45rem;
+      margin-top: 0.35rem;
       flex-shrink: 0;
     }
     .menu-item__thumb img {
@@ -1762,11 +1993,15 @@ function toPrice(value: unknown): number | null {
       height: 100%;
       object-fit: cover;
     }
-    .menu-item__core {
+    .menu-item__main {
       display: grid;
-      grid-template-columns: minmax(7rem, 1.4fr) auto minmax(6.5rem, 9rem);
-      gap: 0.4rem 0.45rem;
+      gap: 0.5rem;
       min-width: 0;
+    }
+    .menu-item__top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.4rem 0.55rem;
       align-items: start;
     }
     .menu-item__name {
@@ -1775,31 +2010,28 @@ function toPrice(value: unknown): number | null {
       max-width: 100%;
     }
     .menu-item__prices {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      align-items: stretch;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(7.5rem, 8.75rem));
+      gap: 0.4rem;
       min-width: 0;
-      max-width: 100%;
     }
     .menu-item__price-pill {
       display: grid;
       gap: 0.12rem;
       margin: 0;
-      width: 6.1rem;
-      flex: 0 0 auto;
-      padding: 0.22rem 0.4rem 0.28rem;
+      width: auto;
+      min-width: 0;
+      padding: 0.28rem 0.45rem 0.32rem;
       border: 1px solid var(--guy-border, #d7e0d9);
       border-radius: 10px;
       background: #fff;
       box-sizing: border-box;
       align-content: center;
-      min-height: 3.1rem;
+      min-height: 3rem;
     }
     .menu-item__price-pill--acct {
       background: #f3f7f3;
       border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 22%, #d7e0d9);
-      width: 6.75rem;
     }
     .menu-item__price-pill-label {
       font-size: 0.64rem;
@@ -1831,15 +2063,29 @@ function toPrice(value: unknown): number | null {
     .menu-item__price-pill input:focus {
       outline: none;
     }
+    .menu-item__meta {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0.45rem 0.55rem;
+      min-width: 0;
+    }
+    .menu-item__rubro,
+    .menu-item__sector {
+      width: 100%;
+      min-width: 0;
+    }
     .menu-item__actions {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.35rem;
-      margin-top: 0.35rem;
+      gap: 0.3rem;
       flex-shrink: 0;
       justify-content: flex-end;
-      max-width: 13.5rem;
+      max-width: 16rem;
+      padding-top: 0.15rem;
+    }
+    .menu-item__flags--inline {
+      display: none;
     }
     .menu-item__pos-badge {
       grid-column: 1 / -1;
@@ -1857,6 +2103,9 @@ function toPrice(value: unknown): number | null {
       gap: 0.35rem;
       align-items: center;
       margin-bottom: 0.35rem;
+    }
+    .menu-sector-row--rubro {
+      grid-template-columns: 1fr auto;
     }
     @media (max-width: 720px) {
       .menu-sector-row {
@@ -1885,6 +2134,12 @@ function toPrice(value: unknown): number | null {
       flex-wrap: wrap;
       gap: 0.45rem;
       margin-top: 0.35rem;
+      align-items: center;
+    }
+    .menu-sector-actions--rubros .menu-admin__new-cat {
+      flex: 1 1 12rem;
+      min-width: 10rem;
+      max-width: 18rem;
     }
     .menu-flag--bar {
       flex: 0 0 auto;
@@ -2132,51 +2387,25 @@ function toPrice(value: unknown): number | null {
     .menu-item__flags {
       display: none;
       flex-wrap: wrap;
-      gap: 0.45rem;
+      gap: 0.4rem;
       align-items: center;
     }
-    @media (max-width: 1100px) {
-      .menu-item__core {
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-      .menu-item__sector {
-        grid-column: 1 / -1;
-      }
-    }
-    @media (max-width: 900px) {
+    @media (max-width: 960px) {
       .menu-admin__meta {
         grid-template-columns: 1fr;
       }
       .menu-flag--bar {
         display: none;
       }
-      .menu-item__flags {
+      .menu-item__flags--inline {
         display: flex;
       }
-      .menu-item__core {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.45rem;
+      .menu-item__detail-media > .menu-item__flags {
+        display: none;
       }
-      .menu-item__name,
-      .menu-item__prices,
-      .menu-item__sector {
-        width: 100%;
-        max-width: 100%;
-        flex: none;
-      }
-      .menu-item__prices {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
-        gap: 0.35rem;
-      }
-      .menu-item__price-pill,
-      .menu-item__price-pill--acct {
-        width: auto;
-        min-width: 0;
+      .menu-item__actions {
         max-width: none;
-        flex: none;
+        gap: 0;
       }
       .menu-item__detail {
         grid-template-columns: 1fr;
@@ -2198,15 +2427,37 @@ function toPrice(value: unknown): number | null {
         justify-self: start;
       }
     }
+    @media (max-width: 720px) {
+      .menu-item__prices {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .menu-item__price-pill,
+      .menu-item__price-pill--acct {
+        min-height: 2.85rem;
+      }
+      .menu-item__meta {
+        grid-template-columns: 1fr;
+      }
+      .menu-section__tools {
+        padding-left: 0;
+      }
+    }
     @media (max-width: 560px) {
       .menu-item__bar {
-        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 1fr);
       }
       .menu-item__thumb {
         display: none;
       }
-      .menu-item__prices {
-        grid-template-columns: 1fr 1fr;
+      .menu-item__check {
+        padding-top: 0.65rem;
+      }
+      .menu-item__top {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+      }
+      .menu-item {
+        padding: 0.55rem 0.55rem;
       }
     }
     .menu-admin__full {
@@ -2276,7 +2527,7 @@ export class AdminMenuPage {
   readonly kitchenSectors = signal<KitchenSector[]>([]);
   readonly stockProducts = signal<StockProduct[]>([]);
   readonly activeId = signal<string | null>(null);
-  /** 0 Cartas · 1 Carta física · 2 Sectores · (3 Pedidos) · Pública */
+  /** 0 Cartas · 1 Carta física · 2 Sectores · 3 Rubros · (4 Pedidos) · Pública */
   readonly mainTabIndex = signal(0);
   readonly extras = signal<OrderingExtraDraft[]>([]);
   readonly extraItemQuery = signal('');
@@ -2293,6 +2544,15 @@ export class AdminMenuPage {
   readonly downloadingPricedPdf = signal(false);
   readonly sections = signal<ShopMenuSection[]>([]);
   readonly itemQuery = signal('');
+  /** all | on | off — Online (`available`) en /pedir y carta pública. */
+  readonly availableFilter = signal<'all' | 'on' | 'off'>('all');
+  /** all | on | off — Activo (`active`) en comanda / mostrador. */
+  readonly activeFilter = signal<'all' | 'on' | 'off'>('all');
+  /** '' = todos, 'none' = sin rubro, sino id de pos_categories. */
+  readonly categoryFilter = signal('');
+  readonly posCategories = signal<Array<{ id: string; name: string }>>([]);
+  readonly newCategoryName = signal('');
+  readonly savingCategories = signal(false);
   readonly selectedItemKeys = signal<Set<string>>(new Set());
   private readonly openSectionKeys = signal<Set<string>>(new Set());
   private readonly openItemKeys = signal<Set<string>>(new Set());
@@ -2384,18 +2644,21 @@ export class AdminMenuPage {
   }
 
   readonly filteredSections = computed(() => {
-    const q = this.itemQuery().trim().toLowerCase();
-    return this.sections().map((section, index) => ({
-      key: `sec-${index}`,
-      index,
-      section,
-      visible:
-        !q ||
-        String(section.name ?? '')
-          .toLowerCase()
-          .includes(q) ||
-        (section.items ?? []).some((it) => this.itemMatchesQuery(section.name, it, q)),
-    })).filter((row) => row.visible);
+    this.itemQuery();
+    this.availableFilter();
+    this.activeFilter();
+    this.categoryFilter();
+    const filtering = this.hasListFilters();
+    return this.sections()
+      .map((section, index) => ({
+        key: `sec-${index}`,
+        index,
+        section,
+        visible:
+          !filtering ||
+          (section.items ?? []).some((it) => this.itemVisible(section.name, it)),
+      }))
+      .filter((row) => row.visible);
   });
 
   readonly catalogItems = computed(() => {
@@ -2500,6 +2763,7 @@ export class AdminMenuPage {
         if (this.showCatalog()) this.loadExtras();
         this.loadStockProducts();
         this.loadPosLinks();
+        this.loadPosCategories();
         this.loadPriceAccounts();
       },
       error: () => {
@@ -2507,6 +2771,170 @@ export class AdminMenuPage {
         this.snack.open('No se pudieron cargar las cartas', 'OK', { duration: 3000 });
       },
     });
+  }
+
+  private loadPosCategories(): void {
+    const shopId = this.shopId();
+    if (!shopId) {
+      this.posCategories.set([]);
+      return;
+    }
+    this.http
+      .get<Array<{ id?: string; name?: string; active?: boolean }>>(
+        `${environment.apiUrl}/shops/${shopId}/pos-categories`,
+      )
+      .pipe(catchError(() => of([] as Array<{ id?: string; name?: string; active?: boolean }>)))
+      .subscribe((rows) => {
+        this.posCategories.set(
+          (rows ?? [])
+            .filter((r) => r.active !== false)
+            .map((r) => ({
+              id: String(r.id ?? '').trim(),
+              name: String(r.name ?? '').trim(),
+            }))
+            .filter((r) => r.id && r.name)
+            .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+        );
+      });
+  }
+
+  addPosCategory(): void {
+    const shopId = this.shopId();
+    const name = this.newCategoryName().trim();
+    if (!shopId || !name || this.savingCategories()) return;
+    this.savingCategories.set(true);
+    this.http
+      .post<{ id: string; name: string }>(`${environment.apiUrl}/shops/${shopId}/pos-categories`, {
+        name,
+      })
+      .subscribe({
+        next: () => {
+          this.savingCategories.set(false);
+          this.newCategoryName.set('');
+          this.loadPosCategories();
+          this.snack.open('Rubro agregado', 'OK', { duration: 2200 });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.savingCategories.set(false);
+          this.snack.open(apiErrorMessage(err, 'No se pudo agregar el rubro'), 'OK', {
+            duration: 3500,
+          });
+        },
+      });
+  }
+
+  renamePosCategory(cat: { id: string; name: string }): void {
+    const shopId = this.shopId();
+    const name = String(cat.name ?? '').trim();
+    if (!shopId || !cat.id || !name) return;
+    this.http
+      .patch(`${environment.apiUrl}/shops/${shopId}/pos-categories/${cat.id}`, { name })
+      .subscribe({
+        next: () => this.loadPosCategories(),
+        error: (err: HttpErrorResponse) => {
+          this.snack.open(apiErrorMessage(err, 'No se pudo renombrar'), 'OK', { duration: 3500 });
+          this.loadPosCategories();
+        },
+      });
+  }
+
+  removePosCategory(cat: { id: string; name: string }): void {
+    const shopId = this.shopId();
+    if (!shopId || !cat.id || this.savingCategories()) return;
+    this.savingCategories.set(true);
+    this.http.delete(`${environment.apiUrl}/shops/${shopId}/pos-categories/${cat.id}`).subscribe({
+      next: () => {
+        this.savingCategories.set(false);
+        // Limpiar categoryId de ítems que apuntaban a este rubro (solo en editor local).
+        this.sections.update((list) =>
+          list.map((s) => ({
+            ...s,
+            items: (s.items ?? []).map((it) =>
+              String(it.categoryId ?? '') === cat.id ? { ...it, categoryId: null } : it,
+            ),
+          })),
+        );
+        this.loadPosCategories();
+        this.snack.open('Rubro quitado. Guardá la carta si había ítems asignados.', 'OK', {
+          duration: 3200,
+        });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.savingCategories.set(false);
+        this.snack.open(apiErrorMessage(err, 'No se pudo quitar el rubro'), 'OK', {
+          duration: 3500,
+        });
+      },
+    });
+  }
+
+  openAssignCategoriesDialog(): void {
+    const categories = this.posCategories()
+      .map((c) => ({ id: c.id, name: String(c.name ?? '').trim() }))
+      .filter((c) => c.id && c.name);
+    if (!categories.length) {
+      this.snack.open('Agregá al menos un rubro antes de asignar', 'OK', { duration: 3000 });
+      return;
+    }
+    const items: MenuAssignCategoryItem[] = [];
+    this.sections().forEach((sec, si) => {
+      (sec.items ?? []).forEach((it, ii) => {
+        const name = String(it.name ?? '').trim();
+        if (!name) return;
+        items.push({
+          key: this.itemKey(si, ii),
+          sectionName: String(sec.name ?? '').trim() || 'Sin sección',
+          name,
+          categoryId: String(it.categoryId ?? '').trim() || null,
+        });
+      });
+    });
+    if (!items.length) {
+      this.snack.open('Agregá ítems con nombre antes de asignar rubros', 'OK', { duration: 3000 });
+      return;
+    }
+    const data: MenuAssignCategoriesDialogData = { categories, items };
+    this.dialogTitle
+      .track(
+        this.dialog.open<
+          MenuAssignCategoriesDialogComponent,
+          MenuAssignCategoriesDialogData,
+          MenuAssignCategoriesDialogResult | null
+        >(MenuAssignCategoriesDialogComponent, {
+          width: '600px',
+          maxWidth: '96vw',
+          maxHeight: '90vh',
+          autoFocus: 'dialog',
+          panelClass: 'guy-dialog',
+          data,
+        }),
+        'Asignar rubro',
+      )
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result?.keys?.length) return;
+        const keySet = new Set(result.keys);
+        let changed = 0;
+        this.sections.update((list) =>
+          list.map((s, si) => ({
+            ...s,
+            items: (s.items ?? []).map((it, ii) => {
+              const key = this.itemKey(si, ii);
+              if (!keySet.has(key)) return it;
+              changed += 1;
+              return { ...it, categoryId: result.categoryId };
+            }),
+          })),
+        );
+        this.selectedItemKeys.set(keySet);
+        const label =
+          result.categoryId == null
+            ? 'Sin rubro'
+            : categories.find((c) => c.id === result.categoryId)?.name || 'Rubro';
+        this.snack.open(`${label} en ${changed} ítem(s). Guardá la carta.`, 'OK', {
+          duration: 3000,
+        });
+      });
   }
 
   /**
@@ -2990,7 +3418,9 @@ export class AdminMenuPage {
             priceLabel: String(it.priceLabel ?? '').trim() || null,
             accountPrices: normalizeAccountPricesForSave(it.accountPrices),
             available: it.available !== false,
+            active: it.active !== false,
             countsAsUnits: it.countsAsUnits !== false,
+            categoryId: String(it.categoryId ?? '').trim() || null,
             imageUrl: String(it.imageUrl ?? '').trim() || null,
             images: Array.isArray(it.images)
               ? it.images
@@ -3091,7 +3521,9 @@ export class AdminMenuPage {
             price: null,
             priceLabel: '',
             available: true,
+            active: true,
             countsAsUnits: true,
+            categoryId: null,
             imageUrl: null,
             images: [],
             removableIngredients: '',
@@ -3137,7 +3569,9 @@ export class AdminMenuPage {
                   price: null,
                   priceLabel: '',
                   available: true,
+                  active: true,
                   countsAsUnits: s.countsAsUnits !== false,
+                  categoryId: null,
                   imageUrl: null,
                   images: [],
                   removableIngredients: '',
@@ -3264,7 +3698,30 @@ export class AdminMenuPage {
     return id ? `id:${id}` : `pos:${sectionIndex}:${itemIndex}`;
   }
 
-  itemMatchesQuery(sectionName: string, item: ShopMenuItem, q = this.itemQuery().trim().toLowerCase()): boolean {
+  hasListFilters(): boolean {
+    return (
+      !!this.itemQuery().trim() ||
+      this.availableFilter() !== 'all' ||
+      this.activeFilter() !== 'all' ||
+      !!this.categoryFilter()
+    );
+  }
+
+  itemVisible(sectionName: string, item: ShopMenuItem): boolean {
+    const avail = this.availableFilter();
+    if (avail === 'on' && item.available === false) return false;
+    if (avail === 'off' && item.available !== false) return false;
+
+    const act = this.activeFilter();
+    if (act === 'on' && item.active === false) return false;
+    if (act === 'off' && item.active !== false) return false;
+
+    const cat = this.categoryFilter();
+    const itemCat = String(item.categoryId ?? '').trim();
+    if (cat === 'none' && itemCat) return false;
+    if (cat && cat !== 'none' && itemCat !== cat) return false;
+
+    const q = this.itemQuery().trim().toLowerCase();
     if (!q) return true;
     const hay = `${sectionName} ${item.name ?? ''} ${item.description ?? ''}`.toLowerCase();
     return hay.includes(q);

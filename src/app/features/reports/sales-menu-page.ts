@@ -212,7 +212,7 @@ function formatDayLabelEs(isoDate: string): string {
         />
         <app-donut-chart
           title="Mix por rubro"
-          subtitle="% del importe (rubro Restosoft si está enlazado)"
+          subtitle="% del importe (rubro de Carta; si no hay, el del POS enlazado)"
           [items]="categorySlices()"
         />
         <app-hbar-chart
@@ -266,7 +266,7 @@ function formatDayLabelEs(isoDate: string): string {
                 <div>
                   <h2 class="guy-list-head__title">Ventas por rubro</h2>
                   <p class="guy-list-head__meta">
-                    Rubro del catálogo POS cuando el plato está enlazado a la carta.
+                    Rubro asignado en Carta; si falta, el del plato POS enlazado.
                   </p>
                 </div>
               </div>

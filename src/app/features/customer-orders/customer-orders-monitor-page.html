@@ -75,6 +75,63 @@
         }
       </div>
 
+      <div class="mon-shift" [class.mon-shift--open]="categoryMenuOpen()">
+        <button
+          type="button"
+          class="mon-tool"
+          [class.mon-tool--filter-on]="!!filterCategoryId()"
+          (click)="toggleCategoryMenu($event)"
+          [attr.aria-expanded]="categoryMenuOpen()"
+          [attr.aria-label]="'Rubro: ' + selectedCategoryLabel()"
+          title="Filtrar por rubro de la carta"
+        >
+          <mat-icon>category</mat-icon>
+          <span>{{ selectedCategoryLabel() }}</span>
+          <mat-icon class="mon-tool__caret">expand_more</mat-icon>
+        </button>
+        @if (categoryMenuOpen()) {
+          <div class="mon-shift__panel" role="listbox" (click)="$event.stopPropagation()">
+            <div class="mon-shift__head">Rubro</div>
+            <button
+              type="button"
+              class="mon-shift__option"
+              role="option"
+              [attr.aria-selected]="!filterCategoryId()"
+              [class.mon-shift__option--on]="!filterCategoryId()"
+              (click)="selectCategory('', $event)"
+            >
+              <span class="mon-shift__check" aria-hidden="true">
+                @if (!filterCategoryId()) {
+                  <mat-icon>check</mat-icon>
+                }
+              </span>
+              <span class="mon-shift__label">
+                <strong>Todos</strong>
+              </span>
+            </button>
+            @for (c of posCategories(); track c.id) {
+              <button
+                type="button"
+                class="mon-shift__option"
+                role="option"
+                [attr.aria-selected]="filterCategoryId() === c.id"
+                [class.mon-shift__option--on]="filterCategoryId() === c.id"
+                (click)="selectCategory(c.id, $event)"
+              >
+                <span class="mon-shift__check" aria-hidden="true">
+                  @if (filterCategoryId() === c.id) {
+                    <mat-icon>check</mat-icon>
+                  }
+                </span>
+                <span class="mon-shift__label">
+                  <strong>{{ c.name }}</strong>
+                </span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
       @if (!isLiveView()) {
         <button
           type="button"
