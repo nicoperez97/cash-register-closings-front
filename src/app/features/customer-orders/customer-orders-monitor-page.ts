@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, computed, HostListener, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -7,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule, MatDateRangePicker } from '@angular/material/datepicker';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { catchError, debounceTime, filter, interval, merge, of, switchMap } from 'rxjs';
+import { catchError, debounceTime, filter, forkJoin, interval, merge, of, switchMap } from 'rxjs';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
 import {
@@ -23,6 +24,7 @@ import { topicById } from '../../core/help/module-help';
 import { formatMoney } from '../../shared/utils/money';
 import { copyText } from '../../shared/utils/share-text';
 import { MatDialog } from '@angular/material/dialog';
+import { environment } from '../../../environments/environment';
 import {
   CustomerOrderStatus,
   CustomerOrdersApiService,
@@ -63,6 +65,41 @@ function parseIsoToLocalDate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
+type MenuMaps = {
+  countsAsUnits: Map<string, boolean>;
+  categoryByItem: Map<string, string>;
+};
+
+function buildMenuMaps(menus: unknown): MenuMaps {
+  const countsAsUnits = new Map<string, boolean>();
+  const categoryByItem = new Map<string, string>();
+  const list = Array.isArray(menus) ? menus : [];
+  for (const menu of list) {
+    const sections = (menu as { sections?: unknown })?.sections;
+    if (!Array.isArray(sections)) continue;
+    for (const sec of sections) {
+      const sectionCounts =
+        (sec as { countsAsUnits?: unknown })?.countsAsUnits === undefined ||
+        (sec as { countsAsUnits?: unknown })?.countsAsUnits === null
+          ? true
+          : !!(sec as { countsAsUnits?: unknown }).countsAsUnits;
+      const items = (sec as { items?: unknown })?.items;
+      if (!Array.isArray(items)) continue;
+      for (const it of items) {
+        const id = String((it as { id?: unknown })?.id ?? '').trim();
+        if (!id) continue;
+        const raw = (it as { countsAsUnits?: unknown })?.countsAsUnits;
+        const counts =
+          raw === undefined || raw === null ? sectionCounts : !!raw;
+        countsAsUnits.set(id, counts);
+        const categoryId = String((it as { categoryId?: unknown })?.categoryId ?? '').trim();
+        if (categoryId) categoryByItem.set(id, categoryId);
+      }
+    }
+  }
+  return { countsAsUnits, categoryByItem };
+}
+
 @Component({
   selector: 'app-customer-orders-monitor-page',
   imports: [
@@ -79,6 +116,7 @@ function parseIsoToLocalDate(iso: string): Date {
 })
 export class CustomerOrdersMonitorPage {
   private readonly api = inject(CustomerOrdersApiService);
+  private readonly http = inject(HttpClient);
   private readonly snack = inject(MatSnackBar);
   private readonly live = inject(ShopLiveClient);
   private readonly dialog = inject(MatDialog);
@@ -91,7 +129,12 @@ export class CustomerOrdersMonitorPage {
   readonly filterFrom = signal<string | null>(null);
   readonly filterTo = signal<string | null>(null);
   readonly filterShiftIds = signal<string[]>([]);
+  readonly filterCategoryId = signal('');
   readonly shiftMenuOpen = signal(false);
+  readonly categoryMenuOpen = signal(false);
+  readonly posCategories = signal<Array<{ id: string; name: string }>>([]);
+  private readonly countsAsUnitsByItem = signal<Map<string, boolean>>(new Map());
+  private readonly categoryByItem = signal<Map<string, string>>(new Map());
   private lastKnownIds = new Set<string>();
   private skipChime = true;
   private loadGen = 0;
@@ -103,6 +146,27 @@ export class CustomerOrdersMonitorPage {
   readonly shiftIdsCtrl = new FormControl<string[]>([], { nonNullable: true });
 
   readonly shiftOptions = computed(() => shopShiftsOf(this.shops.selectedShop()));
+
+  readonly selectedCategoryLabel = computed(() => {
+    const id = this.filterCategoryId();
+    if (!id) return 'Rubro';
+    return this.posCategories().find((c) => c.id === id)?.name || 'Rubro';
+  });
+
+  /** Pedidos visibles según filtro de rubro (si hay). */
+  readonly visibleOrders = computed(() => {
+    const rows = this.orders();
+    const cat = this.filterCategoryId();
+    if (!cat) return rows;
+    const map = this.categoryByItem();
+    return rows.filter((o) =>
+      (o.items ?? []).some((line) => {
+        if (String(line.kind || 'ITEM').toUpperCase() === 'EXTRA') return false;
+        const mid = String(line.menuItemId ?? '').trim();
+        return !!mid && map.get(mid) === cat;
+      }),
+    );
+  });
 
   readonly isLiveView = computed(() => {
     this.now();
@@ -164,12 +228,15 @@ export class CustomerOrdersMonitorPage {
     if (!this.filterShiftIds().length) {
       return 'Elegí al menos un turno para ver pedidos.';
     }
+    if (this.filterCategoryId()) {
+      return 'No hay pedidos con ítems de ese rubro para el día y los turnos elegidos.';
+    }
     return 'No hay pedidos para el día y los turnos elegidos.';
   });
 
   /** Solo columnas con al menos un pedido. */
   readonly boardColumns = computed(() => {
-    const rows = this.orders();
+    const rows = this.visibleOrders();
     return BOARD_COLUMNS.map((col) => ({
       ...col,
       orders: rows
@@ -198,7 +265,10 @@ export class CustomerOrdersMonitorPage {
   });
 
   readonly summary = computed(() => {
-    const rows = this.orders();
+    const rows = this.visibleOrders();
+    const countsMap = this.countsAsUnitsByItem();
+    const catFilter = this.filterCategoryId();
+    const catMap = this.categoryByItem();
     const count = (pred: (o: StaffCustomerOrder) => boolean) => rows.filter(pred).length;
     const open = count(
       (o) =>
@@ -212,12 +282,16 @@ export class CustomerOrdersMonitorPage {
     const counter = count((o) => o.fulfillment === 'COUNTER');
     const accredited = count((o) => isOrderAccredited(o));
     const total = rows.reduce((s, o) => s + (Number(o.total) || 0), 0);
-    // Misma idea que el cierre: unidades de pedidos completados (ítems, no extras).
+    // Misma regla que el cierre: COMPLETED + countsAsUnits (y rubro si hay filtro).
     const unitsSold = rows
       .filter((o) => o.status === 'COMPLETED')
       .reduce((sum, o) => {
         for (const line of o.items ?? []) {
           if (String(line.kind || 'ITEM').toUpperCase() === 'EXTRA') continue;
+          const mid = String(line.menuItemId ?? '').trim();
+          if (mid && countsMap.has(mid) && countsMap.get(mid) === false) continue;
+          if (catFilter && mid && catMap.get(mid) !== catFilter) continue;
+          if (catFilter && !mid) continue;
           sum += Math.max(0, Number(line.qty) || 0);
         }
         return sum;
@@ -257,7 +331,9 @@ export class CustomerOrdersMonitorPage {
       .subscribe(() => {
         this.lastKnownIds = new Set();
         this.skipChime = true;
+        this.filterCategoryId.set('');
         this.resetToLive();
+        this.loadMenuMaps();
         this.reload();
       });
 
@@ -293,17 +369,26 @@ export class CustomerOrdersMonitorPage {
 
   openDatePicker(): void {
     this.shiftMenuOpen.set(false);
+    this.categoryMenuOpen.set(false);
     this.datePicker()?.open();
   }
 
   toggleShiftMenu(event?: Event): void {
     event?.stopPropagation();
+    this.categoryMenuOpen.set(false);
     this.shiftMenuOpen.update((open) => !open);
   }
 
+  toggleCategoryMenu(event?: Event): void {
+    event?.stopPropagation();
+    this.shiftMenuOpen.set(false);
+    this.categoryMenuOpen.update((open) => !open);
+  }
+
   @HostListener('document:click')
-  closeShiftMenu(): void {
+  closeMenus(): void {
     if (this.shiftMenuOpen()) this.shiftMenuOpen.set(false);
+    if (this.categoryMenuOpen()) this.categoryMenuOpen.set(false);
   }
 
   isShiftSelected(id: string): boolean {
@@ -317,6 +402,13 @@ export class CustomerOrdersMonitorPage {
     const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
     this.filterShiftIds.set(next);
     this.shiftIdsCtrl.setValue(next);
+  }
+
+  selectCategory(id: string, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.filterCategoryId.set(id);
+    this.categoryMenuOpen.set(false);
   }
 
   resetToLive(): void {
@@ -399,6 +491,40 @@ export class CustomerOrdersMonitorPage {
       data: { topic, blocks: topic.blocks },
       autoFocus: 'dialog',
       width: 'min(560px, 94vw)',
+    });
+  }
+
+  private loadMenuMaps(): void {
+    const shopId = this.shops.selectedShopId();
+    if (!shopId) {
+      this.countsAsUnitsByItem.set(new Map());
+      this.categoryByItem.set(new Map());
+      this.posCategories.set([]);
+      return;
+    }
+    forkJoin({
+      menu: this.http
+        .get<{ menus?: unknown }>(`${environment.apiUrl}/shops/${shopId}/menu`)
+        .pipe(catchError(() => of({ menus: [] as unknown[] }))),
+      categories: this.http
+        .get<Array<{ id?: string; name?: string; active?: boolean }>>(
+          `${environment.apiUrl}/shops/${shopId}/pos-categories`,
+        )
+        .pipe(catchError(() => of([] as Array<{ id?: string; name?: string; active?: boolean }>))),
+    }).subscribe(({ menu, categories }) => {
+      const maps = buildMenuMaps(menu?.menus);
+      this.countsAsUnitsByItem.set(maps.countsAsUnits);
+      this.categoryByItem.set(maps.categoryByItem);
+      this.posCategories.set(
+        (categories ?? [])
+          .filter((r) => r.active !== false)
+          .map((r) => ({
+            id: String(r.id ?? '').trim(),
+            name: String(r.name ?? '').trim(),
+          }))
+          .filter((r) => r.id && r.name)
+          .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+      );
     });
   }
 

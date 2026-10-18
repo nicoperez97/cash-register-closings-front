@@ -41,6 +41,7 @@ export class MarketingLandingPage implements OnInit, OnDestroy {
     this.theme.lockLight(true);
     applyStatusBar(LANDING_STATUS, 'dark');
 
+    // Sesión: el canMatch de `/` ya redirige; esto es respaldo si el guard no corrió.
     if (this.auth.isAuthenticated()) {
       void this.router.navigateByUrl(
         defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId()),

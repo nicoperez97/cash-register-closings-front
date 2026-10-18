@@ -305,6 +305,16 @@
   transition: transform 140ms ease;
 }
 
+.mon-tool--filter-on {
+  border-color: color-mix(in srgb, var(--guy-primary, #1d65a0) 40%, var(--guy-border, #d7e0d9));
+  background: color-mix(in srgb, var(--guy-primary, #1d65a0) 10%, #fff);
+  color: var(--guy-primary, #1d65a0);
+
+  > mat-icon {
+    color: var(--guy-primary, #1d65a0);
+  }
+}
+
 .mon-tool--live {
   border-color: color-mix(in srgb, var(--guy-green, #2e7d32) 40%, var(--guy-border, #d7e0d9));
   background: color-mix(in srgb, var(--guy-green, #2e7d32) 12%, #fff);

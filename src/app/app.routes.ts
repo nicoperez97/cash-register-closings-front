@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { redirectAuthedFromLandingGuard } from './core/guards/landing.guard';
 import {
   permissionGuard,
   anyPermissionGuard,
@@ -19,6 +20,7 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
+    canMatch: [redirectAuthedFromLandingGuard],
     loadComponent: () =>
       import('./features/landing/marketing-landing').then((m) => m.MarketingLandingPage),
     title: 'Cierres',
