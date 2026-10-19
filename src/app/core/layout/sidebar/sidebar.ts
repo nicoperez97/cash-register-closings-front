@@ -84,7 +84,7 @@ function saveExpandedGroups(userId: string, open: ReadonlySet<string>): void {
     MatSnackBarModule,
   ],
   templateUrl: './sidebar.html',
-  styleUrl: './sidebar.scss',
+  styleUrls: ['./sidebar.scss', './sidebar.nav.scss'],
 })
 export class SidebarComponent {
   readonly brand = APP_BRAND;

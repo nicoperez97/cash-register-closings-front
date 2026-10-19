@@ -367,7 +367,7 @@ import { AnalyticsEvents } from '../../core/analytics/analytics.events';
       </div>
     }
   `,
-  styleUrl: './public-reservations-board.scss',
+  styleUrls: ['./public-reservations-board.scss', './public-reservations-board.list.scss'],
 })
 export class PublicReservationsBoardComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
