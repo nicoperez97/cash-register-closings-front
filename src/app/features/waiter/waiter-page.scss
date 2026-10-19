@@ -1059,29 +1059,6 @@
   }
 }
 
-.pricing-pay {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0 0 0.65rem;
-}
-
-.pricing-pay__label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--muted, #5f6f76);
-}
-
-.pricing-pay__hint {
-  margin: 0;
-  font-size: 0.72rem;
-  color: var(--muted, #5f6f76);
-  line-height: 1.35;
-}
-
-.chips--pay {
-  margin-bottom: 0;
-}
-
 .items {
   list-style: none;
   margin: 0;
@@ -1800,23 +1777,6 @@
   border-top: 1px solid transparent;
 }
 
-.tips-card__list {
-  list-style: none;
-  margin: 0;
-  padding: 0 1rem 0.85rem;
-  display: grid;
-  gap: 0.4rem;
-  border-top: 1px solid var(--line);
-
-  li {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding-top: 0.45rem;
-    font-size: 0.88rem;
-  }
-}
-
 .close-pays {
   display: grid;
   gap: 0.55rem;
@@ -2231,15 +2191,6 @@
   }
 }
 
-.ticket-sum__label {
-  margin: 0 0 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent, #2e7d32);
-}
-
 .ticket-sum__list {
   list-style: none;
   margin: 0;
@@ -2496,7 +2447,6 @@
   .anim-up,
   .anim-fade,
   .toast,
-  .dock__peek,
   .dock__badge,
   .sheet,
   .sheet-backdrop,
