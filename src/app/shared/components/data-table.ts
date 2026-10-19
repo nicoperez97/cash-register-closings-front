@@ -1176,7 +1176,8 @@ export class DataTableComponent {
   readonly sortActive = signal('');
   readonly sortDirection = signal<'asc' | 'desc' | ''>('');
   readonly mobileView = signal<DataTableMobileView>(loadMobileView());
-  readonly expandedIds = signal<Set<string>>(new Set());
+  /** Filas expandidas: por id, o por la fila misma si no tiene id (reportes agregados). */
+  readonly expandedIds = signal<Set<unknown>>(new Set());
   /** Fade corto al primer pintado con filas (sin animar height). */
   readonly enterAnim = signal(false);
   private enterPlayed = false;
@@ -1303,12 +1304,12 @@ export class DataTableComponent {
   }
 
   isExpanded(row: any): boolean {
-    return this.expandedIds().has(this.rowId(row) || this.trackRow(row, 0).toString());
+    return this.expandedIds().has(this.expandKey(row));
   }
 
   toggleExpand(row: any, ev: Event): void {
     ev.stopPropagation();
-    const id = this.rowId(row) || this.trackRow(row, 0).toString();
+    const id = this.expandKey(row);
     const next = new Set(this.expandedIds());
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -1437,6 +1438,14 @@ export class DataTableComponent {
 
   rowId(row: any): string {
     return String(row?.[this.rowIdKey()] ?? '');
+  }
+
+  /**
+   * Clave para expandir: sin id, la fila misma. Antes caía en trackRow(row, 0),
+   * que daba 0 para todas las filas sin id y expandía todas juntas.
+   */
+  private expandKey(row: any): unknown {
+    return this.rowId(row) || row;
   }
 
   isSelected(row: any): boolean {

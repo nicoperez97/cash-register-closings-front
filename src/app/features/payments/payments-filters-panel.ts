@@ -103,133 +103,136 @@ type FilterUser = {
         />
       </div>
     </div>
-    <div class="guy-filters__body pay-filters">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Valida</mat-label>
-        <mat-select [formControl]="validatorFilter()" multiple>
-          @if (currentUserId()) {
-            <mat-option [value]="currentUserId()">Yo</mat-option>
-          }
-          @for (u of filterUsers(); track u.id) {
-            <mat-option [value]="u.id">
-              <span class="pay-user-opt">
-                <app-user-avatar
-                  [userId]="u.id"
-                  [avatarUrl]="u.avatarUrl ?? null"
-                  [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
-                  size="sm"
-                  [alt]="u.fullName"
-                />
-                <span>{{ u.fullName }}</span>
-              </span>
-            </mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Paga</mat-label>
-        <mat-select [formControl]="payerFilter()" multiple>
-          @if (currentUserId()) {
-            <mat-option [value]="currentUserId()">Yo</mat-option>
-          }
-          @for (u of filterUsers(); track u.id) {
-            <mat-option [value]="u.id">
-              <span class="pay-user-opt">
-                <app-user-avatar
-                  [userId]="u.id"
-                  [avatarUrl]="u.avatarUrl ?? null"
-                  [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
-                  size="sm"
-                  [alt]="u.fullName"
-                />
-                <span>{{ u.fullName }}</span>
-              </span>
-            </mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="pay-filters__range" subscriptSizing="dynamic">
-        <mat-label>Vencimiento</mat-label>
-        <mat-date-range-input [formGroup]="dueRange()" [rangePicker]="duePicker">
-          <input matStartDate formControlName="start" placeholder="Desde" />
-          <input matEndDate formControlName="end" placeholder="Hasta" />
-        </mat-date-range-input>
-        <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
-        <mat-date-range-picker #duePicker />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="pay-filters__range" subscriptSizing="dynamic">
-        <mat-label>Realizado</mat-label>
-        <mat-date-range-input [formGroup]="paidRange()" [rangePicker]="paidPicker">
-          <input matStartDate formControlName="start" placeholder="Desde" />
-          <input matEndDate formControlName="end" placeholder="Hasta" />
-        </mat-date-range-input>
-        <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
-        <mat-date-range-picker #paidPicker />
-      </mat-form-field>
-      @if (kind() === 'supplier') {
+    <!-- El colapso global (grid-template-rows 0fr) necesita un único hijo: la grilla va adentro. -->
+    <div class="guy-filters__body">
+      <div class="pay-filters">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Proveedor</mat-label>
-          <mat-select [formControl]="supplierFilter()" multiple>
-            @for (s of suppliers(); track s.id) {
-              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+          <mat-label>Valida</mat-label>
+          <mat-select [formControl]="validatorFilter()" multiple>
+            @if (currentUserId()) {
+              <mat-option [value]="currentUserId()">Yo</mat-option>
+            }
+            @for (u of filterUsers(); track u.id) {
+              <mat-option [value]="u.id">
+                <span class="pay-user-opt">
+                  <app-user-avatar
+                    [userId]="u.id"
+                    [avatarUrl]="u.avatarUrl ?? null"
+                    [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                    size="sm"
+                    [alt]="u.fullName"
+                  />
+                  <span>{{ u.fullName }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
-      } @else if (kind() === 'service') {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Servicio</mat-label>
-          <mat-select [formControl]="serviceFilter()" multiple>
-            @for (s of services(); track s.id) {
-              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+          <mat-label>Paga</mat-label>
+          <mat-select [formControl]="payerFilter()" multiple>
+            @if (currentUserId()) {
+              <mat-option [value]="currentUserId()">Yo</mat-option>
+            }
+            @for (u of filterUsers(); track u.id) {
+              <mat-option [value]="u.id">
+                <span class="pay-user-opt">
+                  <app-user-avatar
+                    [userId]="u.id"
+                    [avatarUrl]="u.avatarUrl ?? null"
+                    [hasAvatar]="!!u.hasAvatar || !!u.avatarUrl"
+                    size="sm"
+                    [alt]="u.fullName"
+                  />
+                  <span>{{ u.fullName }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
-      } @else if (kind() === 'employee') {
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Empleado</mat-label>
-          <mat-select [formControl]="employeeFilter()" multiple>
-            @for (e of employees(); track e.id) {
-              <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
-            }
-          </mat-select>
+        <mat-form-field appearance="outline" class="pay-filters__range" subscriptSizing="dynamic">
+          <mat-label>Vencimiento</mat-label>
+          <mat-date-range-input [formGroup]="dueRange()" [rangePicker]="duePicker">
+            <input matStartDate formControlName="start" placeholder="Desde" />
+            <input matEndDate formControlName="end" placeholder="Hasta" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
+          <mat-date-range-picker #duePicker />
         </mat-form-field>
-      }
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Monto desde</mat-label>
-        <input
-          matInput
-          type="number"
-          min="0"
-          step="0.01"
-          inputmode="decimal"
-          [formControl]="amountMinFilter()"
-          placeholder="0"
-        />
-      </mat-form-field>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Monto hasta</mat-label>
-        <input
-          matInput
-          type="number"
-          min="0"
-          step="0.01"
-          inputmode="decimal"
-          [formControl]="amountMaxFilter()"
-          placeholder="Sin tope"
-        />
-      </mat-form-field>
-      @if (currentUserId()) {
-        <button
-          mat-stroked-button
-          type="button"
-          class="pay-filters__mine"
-          [class.pay-filters__mine--on]="mineOnly()"
-          (click)="filterMine.emit()"
-        >
-          <mat-icon>person</mat-icon>
-          {{ mineOnly() ? 'Viendo solo míos' : 'Solo míos' }}
-        </button>
-      }
+        <mat-form-field appearance="outline" class="pay-filters__range" subscriptSizing="dynamic">
+          <mat-label>Realizado</mat-label>
+          <mat-date-range-input [formGroup]="paidRange()" [rangePicker]="paidPicker">
+            <input matStartDate formControlName="start" placeholder="Desde" />
+            <input matEndDate formControlName="end" placeholder="Hasta" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="paidPicker" />
+          <mat-date-range-picker #paidPicker />
+        </mat-form-field>
+        @if (kind() === 'supplier') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Proveedor</mat-label>
+            <mat-select [formControl]="supplierFilter()" multiple>
+              @for (s of suppliers(); track s.id) {
+                <mat-option [value]="s.id">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        } @else if (kind() === 'service') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Servicio</mat-label>
+            <mat-select [formControl]="serviceFilter()" multiple>
+              @for (s of services(); track s.id) {
+                <mat-option [value]="s.id">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        } @else if (kind() === 'employee') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Empleado</mat-label>
+            <mat-select [formControl]="employeeFilter()" multiple>
+              @for (e of employees(); track e.id) {
+                <mat-option [value]="e.id">{{ e.fullName }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Monto desde</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            [formControl]="amountMinFilter()"
+            placeholder="0"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Monto hasta</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            [formControl]="amountMaxFilter()"
+            placeholder="Sin tope"
+          />
+        </mat-form-field>
+        @if (currentUserId()) {
+          <button
+            mat-stroked-button
+            type="button"
+            class="pay-filters__mine"
+            [class.pay-filters__mine--on]="mineOnly()"
+            (click)="filterMine.emit()"
+          >
+            <mat-icon>person</mat-icon>
+            {{ mineOnly() ? 'Viendo solo míos' : 'Solo míos' }}
+          </button>
+        }
+      </div>
     </div>
   `,
   styleUrl: './payments-filters-panel.scss',
