@@ -29,10 +29,8 @@ import {
   StaffOrderOutboxService,
   newStaffOrderClientRequestId,
 } from './staff-order-outbox.service';
-import {
-  DeliveryMapPickerComponent,
-  DeliveryMapSelection,
-} from './delivery-map-picker';
+import { DeliveryMapPickerComponent } from './delivery-map-picker';
+import type { DeliveryMapSelection } from './delivery-map-picker';
 import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
 import {
   apiErrorMessage,

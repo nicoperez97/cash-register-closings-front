@@ -1,7 +1,6 @@
-import { toCanvas } from 'html-to-image';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// html-to-image, html2canvas, jspdf y jspdf-autotable se importan bajo demanda
+// (al exportar), así no pesan en los chunks de las pantallas que ofrecen PDF.
+import type { jsPDF } from 'jspdf';
 import { pdfWinAnsi } from './pdf-text';
 import { drawPdfDonut, type PdfDonutChart } from './pdf-donut';
 
@@ -226,13 +225,14 @@ function assertCanvasExportable(canvas: HTMLCanvasElement): void {
   void canvasToJpegDataUrl(canvas);
 }
 
-function canvasToPdfDoc(
+async function canvasToPdfDoc(
   canvas: HTMLCanvasElement,
   singlePage = false,
   /** Cortes preferidos en px de canvas (p.ej. fondo de cada <tr>). */
   preferredBreaksPx?: number[],
-): jsPDF {
+): Promise<jsPDF> {
   assertCanvasExportable(canvas);
+  const { jsPDF } = await import('jspdf');
   const pageW = 595.28;
   const pageH = 841.89;
   const margin = 22;
@@ -311,13 +311,13 @@ function canvasToPdfDoc(
   return pdf;
 }
 
-function canvasToPdf(
+async function canvasToPdf(
   canvas: HTMLCanvasElement,
   filename: string,
   singlePage = false,
   preferredBreaksPx?: number[],
-): void {
-  canvasToPdfDoc(canvas, singlePage, preferredBreaksPx).save(filename);
+): Promise<void> {
+  (await canvasToPdfDoc(canvas, singlePage, preferredBreaksPx)).save(filename);
 }
 
 /** Bordes inferiores preferidos en px de canvas, para no partir bloques al medio. */
@@ -343,8 +343,9 @@ async function renderCanvas(
   const width = Math.max(source.offsetWidth, source.scrollWidth, 1);
   const height = Math.max(source.scrollHeight, source.offsetHeight, 1);
   const attempts: Array<() => Promise<HTMLCanvasElement>> = [
-    () =>
-      toCanvas(source, {
+    async () => {
+      const { toCanvas } = await import('html-to-image');
+      return toCanvas(source, {
         pixelRatio: 2,
         backgroundColor: background,
         cacheBust: true,
@@ -362,9 +363,11 @@ async function renderCanvas(
           top: '0',
           overflow: 'visible',
         },
-      }),
-    () =>
-      html2canvas(source, {
+      });
+    },
+    async () => {
+      const { default: html2canvas } = await import('html2canvas');
+      return html2canvas(source, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
@@ -385,7 +388,8 @@ async function renderCanvas(
             : (clonedDoc.body.firstElementChild as HTMLElement | null);
           if (clone) copyComputedTree(source, clone);
         },
-      }),
+      });
+    },
   ];
 
   let lastError: unknown;
@@ -434,7 +438,7 @@ export async function downloadElementPdf(
     await new Promise((r) => window.setTimeout(r, 80));
     const canvas = await renderCanvas(source, opts?.background ?? pageBackground(source));
     const breaks = contentBreaksPx(source, canvas);
-    canvasToPdf(canvas, filename, opts?.singlePage === true, breaks);
+    await canvasToPdf(canvas, filename, opts?.singlePage === true, breaks);
     saved = true;
   } finally {
     try {
@@ -617,7 +621,7 @@ export async function downloadHtmlPdf(opts: {
     await withGeneratingMask(async () => {
       const canvas = await renderCanvas(mounted.root, '#ffffff');
       const breaks = opts.singlePage ? undefined : contentBreaksPx(mounted.root, canvas);
-      canvasToPdf(canvas, opts.filename, opts.singlePage === true, breaks);
+      await canvasToPdf(canvas, opts.filename, opts.singlePage === true, breaks);
     });
   } finally {
     mounted.dispose();
@@ -635,7 +639,7 @@ export async function htmlPdfBlob(opts: {
     return await withGeneratingMask(async () => {
       const canvas = await renderCanvas(mounted.root, '#ffffff');
       const breaks = opts.singlePage ? undefined : contentBreaksPx(mounted.root, canvas);
-      return canvasToPdfDoc(canvas, opts.singlePage === true, breaks).output('blob');
+      return (await canvasToPdfDoc(canvas, opts.singlePage === true, breaks)).output('blob');
     });
   } finally {
     mounted.dispose();
@@ -660,6 +664,10 @@ export async function downloadTablePdf(opts: {
     /** Mínimo para cabecera de tabla + una fila; si no entra → nueva hoja. */
     const minTableBlock = 56;
     const chartReserve = 150;
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
     const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
     let cursorY = margin;
 

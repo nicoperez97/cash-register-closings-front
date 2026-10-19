@@ -12,7 +12,7 @@ import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../utils/drive-url';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PageRefreshService } from '../../page-refresh.service';
-import { normalizeSelectQuery } from '../../../shared/components/select-search';
+import { normalizeSelectQuery } from '../../../shared/utils/select-query';
 import { groupIdFromRoute, navGroupPagePath } from '../nav-config';
 
 export interface NavChild {

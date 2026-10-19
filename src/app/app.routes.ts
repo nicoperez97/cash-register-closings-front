@@ -14,7 +14,6 @@ import {
   publicPageViewerGuard,
 } from './core/guards/permission.guard';
 import { MainLayoutComponent } from './core/layout/main-layout';
-import { LoginComponent } from './features/auth/login';
 
 export const routes: Routes = [
   {
@@ -25,7 +24,11 @@ export const routes: Routes = [
       import('./features/landing/marketing-landing').then((m) => m.MarketingLandingPage),
     title: 'Cierres',
   },
-  { path: 'login', component: LoginComponent, title: 'Ingresar' },
+  {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login').then((m) => m.LoginComponent),
+    title: 'Ingresar',
+  },
   { path: 'admin/login', redirectTo: 'login', pathMatch: 'full' },
   {
     path: 'r/:slug',

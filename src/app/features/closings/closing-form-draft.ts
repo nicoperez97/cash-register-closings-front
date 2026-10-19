@@ -6,10 +6,8 @@ import { buildCashChangeContributionGroup, buildExpenseGroup, normalizeCobroPaym
 import { buildDniTransferGroup } from './closings-form-payment-lines';
 import { formatIsoDateDisplay, resolveShopBusinessDate } from '../../core/shop/business-date';
 import { resolveCurrentShift } from '../../core/shop/shop-shifts';
-import { isAppLoginPath } from '../../core/routing/public-paths';
 
 const DRAFT_KEY = 'crc.closing-draft.v1';
-const RETURN_URL_KEY = 'crc.return-url';
 const MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
 export type PendingClosingNotice = {
@@ -62,27 +60,6 @@ export function pendingClosingFromOpenCaja(
 
 export function formatPendingClosingLabel(pending: PendingClosingNotice): string {
   return `${formatIsoDateDisplay(pending.businessDate)} · ${pending.shiftName}`;
-}
-
-export function persistReturnUrl(url: string): void {
-  try {
-    const path = String(url || '').trim();
-    if (!path.startsWith('/') || path.startsWith('//') || isAppLoginPath(path)) return;
-    sessionStorage.setItem(RETURN_URL_KEY, path);
-  } catch {
-    /* ignore */
-  }
-}
-
-export function consumeReturnUrl(): string | null {
-  try {
-    const raw = sessionStorage.getItem(RETURN_URL_KEY);
-    if (raw) sessionStorage.removeItem(RETURN_URL_KEY);
-    if (!raw?.startsWith('/') || raw.startsWith('//') || isAppLoginPath(raw)) return null;
-    return raw;
-  } catch {
-    return null;
-  }
 }
 
 export function persistClosingDraft(draft: ClosingFormDraft): void {

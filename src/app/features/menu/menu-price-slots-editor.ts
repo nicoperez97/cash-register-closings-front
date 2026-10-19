@@ -19,7 +19,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom } from 'rxjs';
-import * as pdfjs from 'pdfjs-dist';
+// pdfjs-dist se carga recién al abrir un PDF (ver loadPdf).
+import type * as Pdfjs from 'pdfjs-dist';
 import { environment } from '../../../environments/environment';
 import { menuPriceOf } from './menu-display';
 
@@ -73,7 +74,7 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 /** Worker servido desde /assets (angular.json); CDN como respaldo en stage/prod. */
-function configurePdfWorker(): void {
+function configurePdfWorker(pdfjs: typeof Pdfjs): void {
   if (pdfjs.GlobalWorkerOptions.workerSrc) return;
   const base = document.querySelector('base')?.getAttribute('href') || '/';
   const root = base.endsWith('/') ? base : `${base}/`;
@@ -593,7 +594,7 @@ export class MenuPriceSlotsEditorComponent implements OnDestroy {
     () => `translate(${this.panX()}px, ${this.panY()}px) scale(${this.zoom()})`,
   );
 
-  private pdfDoc: pdfjs.PDFDocumentProxy | null = null;
+  private pdfDoc: Pdfjs.PDFDocumentProxy | null = null;
   private pageSizePt = { width: 595.28, height: 841.89 };
   private drag: { x0: number; y0: number } | null = null;
   private panDrag: { x0: number; y0: number; panX0: number; panY0: number } | null = null;
@@ -936,7 +937,8 @@ export class MenuPriceSlotsEditorComponent implements OnDestroy {
         const ctype = String(resp.headers.get('content-type') || blob.type || '');
         throw new Error(ctype.includes('json') || ctype.includes('html') ? 'not-pdf' : 'not-pdf');
       }
-      configurePdfWorker();
+      const pdfjs = await import('pdfjs-dist');
+      configurePdfWorker(pdfjs);
       try {
         this.pdfDoc = await pdfjs.getDocument({ data: buf }).promise;
       } catch (workerErr) {

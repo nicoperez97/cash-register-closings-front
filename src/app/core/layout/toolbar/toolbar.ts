@@ -50,7 +50,6 @@ import { StaffOrderOutboxService } from '../../../features/customer-orders/staff
 import { ShopContextService } from '../../shop/shop-context.service';
 import { PageRefreshService } from '../../page-refresh.service';
 import { DialogTitleService } from '../../../shared/services/dialog-title.service';
-import { QuickExpenseDialogComponent } from '../../../features/movements/quick-expense-dialog';
 import {
   canAccessCustomRoute,
   type ShopRouteFeatures,
@@ -70,7 +69,7 @@ import { notificationRouterLink } from '../../notifications/notification-deep-li
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PushNotificationsService } from '../../../features/payments/push-notifications.service';
 import { UserAvatarComponent } from '../../../shared/components/user-avatar';
-import { AccountSwitchDialogService } from '../../../shared/components/account-switch-dialog';
+import { AccountSwitchDialogService } from '../../../shared/components/account-switch-dialog.service';
 import { ConfirmDialogService } from '../../../shared/components/confirm-dialog';
 
 export interface ToolbarUser {
@@ -814,7 +813,7 @@ export class ToolbarComponent implements OnInit {
 
   onQuickAction(item: ToolbarQuickAction): void {
     if (item.kind !== 'action') return;
-    if (item.id === 'quick-expense') this.openQuickExpense();
+    if (item.id === 'quick-expense') void this.openQuickExpense();
   }
 
   /** Rutas que un productor-only puede abrir (custom). */
@@ -830,7 +829,7 @@ export class ToolbarComponent implements OnInit {
     };
   }
 
-  openQuickExpense(): void {
+  async openQuickExpense(): Promise<void> {
     const shopId = this.shopContext.selectedShopId();
     if (
       !shopId ||
@@ -838,6 +837,9 @@ export class ToolbarComponent implements OnInit {
     ) {
       return;
     }
+    const { QuickExpenseDialogComponent } = await import(
+      '../../../features/movements/quick-expense-dialog'
+    );
     this.dialogTitle
       .track(
         this.dialog.open(QuickExpenseDialogComponent, {

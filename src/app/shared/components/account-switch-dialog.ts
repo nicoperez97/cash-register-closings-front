@@ -2,7 +2,6 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
-  Injectable,
   OnDestroy,
   ViewChild,
   inject,
@@ -13,7 +12,6 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   MAT_DIALOG_DATA,
-  MatDialog,
   MatDialogModule,
   MatDialogRef,
 } from '@angular/material/dialog';
@@ -22,7 +20,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../core/auth/auth.service';
-import { DialogTitleService } from '../services/dialog-title.service';
 import { FormDialogShellComponent } from './form-dialog-shell';
 import { environment } from '../../../environments/environment';
 import { apiErrorMessage } from '../../core/http/api-error-message';
@@ -375,28 +372,4 @@ export class AccountSwitchDialogComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-}
-
-@Injectable({ providedIn: 'root' })
-export class AccountSwitchDialogService {
-  private readonly dialog = inject(MatDialog);
-  private readonly dialogTitle = inject(DialogTitleService);
-
-  open(data: AccountSwitchDialogData): Promise<boolean> {
-    const title = data.mode === 'add' ? 'Agregar cuenta' : 'Confirmar identidad';
-    return firstValueFrom(
-      this.dialogTitle
-        .track(
-          this.dialog.open(AccountSwitchDialogComponent, {
-            data,
-            width: '420px',
-            maxWidth: '95vw',
-            panelClass: 'guy-dialog',
-            disableClose: false,
-          }),
-          title,
-        )
-        .afterClosed(),
-    ).then((r) => !!r);
-  }
 }

@@ -6,7 +6,7 @@ import { AuthService } from '../auth/auth.service';
 import { defaultHomeRoute } from '../auth/auth.models';
 import { ShopContextService } from '../shop/shop-context.service';
 import { isPublicApiUrl, isPublicAppPath } from '../routing/public-paths';
-import { persistReturnUrl } from '../../features/closings/closing-form-draft';
+import { persistReturnUrl } from '../routing/return-url';
 
 /** Evita logout en cascada si varias requests fallan 401 a la vez (PWA / wake). */
 let lastUnauthorizedLogoutAt = 0;

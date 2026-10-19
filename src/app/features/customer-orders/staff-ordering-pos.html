@@ -309,13 +309,16 @@
                   </p>
                 }
                 @if (mapOpen()) {
-                  <app-delivery-map-picker
-                    [zones]="deliveryZones()"
-                    [accent]="accent()"
-                    [initial]="mapPoint()"
-                    (closed)="closeMapPicker()"
-                    (selected)="onMapSelected($event)"
-                  />
+                  <!-- Leaflet en chunk aparte: se baja recién cuando se muestra el mapa. -->
+                  @defer (on immediate) {
+                    <app-delivery-map-picker
+                      [zones]="deliveryZones()"
+                      [accent]="accent()"
+                      [initial]="mapPoint()"
+                      (closed)="closeMapPicker()"
+                      (selected)="onMapSelected($event)"
+                    />
+                  }
                 }
               </div>
             }

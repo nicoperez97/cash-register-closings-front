@@ -731,13 +731,16 @@ const WEEKDAYS = [1, 2, 3, 4, 5] as const;
                   <input matInput formControlName="note" placeholder="ej. Solo hasta las 22" />
                 </mat-form-field>
                 <div class="op__zone-map">
-                  <app-delivery-zone-map-editor
-                    [polygonText]="zonePolygonText(i)"
-                    (polygonTextChange)="setZonePolygonText(i, $event)"
-                    [color]="zoneColorAt(i)"
-                    [otherZones]="otherZonesFor(i)"
-                    [accent]="shopAccent()"
-                  />
+                  <!-- Leaflet en chunk aparte: se baja recién cuando se muestra el mapa. -->
+                  @defer (on immediate) {
+                    <app-delivery-zone-map-editor
+                      [polygonText]="zonePolygonText(i)"
+                      (polygonTextChange)="setZonePolygonText(i, $event)"
+                      [color]="zoneColorAt(i)"
+                      [otherZones]="otherZonesFor(i)"
+                      [accent]="shopAccent()"
+                    />
+                  }
                 </div>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="op__zone-poly">
                   <mat-label>Polígono (lat,lng por línea)</mat-label>

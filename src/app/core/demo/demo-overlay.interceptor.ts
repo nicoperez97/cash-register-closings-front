@@ -1,12 +1,11 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, asyncScheduler, scheduled } from 'rxjs';
+import { Observable, asyncScheduler, from, map, observeOn, scheduled } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { DemoOverlayStore } from './demo-overlay.store';
 import { assertDemoNeverHitsNetwork, mustHandleDemoLocally } from './demo-offline';
-import { resolveDemoGet, resolveDemoMutationFallback } from './demo-mock.resolver';
-import { DEMO_TOKEN } from './demo-fixtures';
+import { DEMO_LOCAL_TOKEN as DEMO_TOKEN } from './demo-constants';
 
 let warnedOnce = false;
 
@@ -76,6 +75,22 @@ function demoOk(url: string, body: unknown): Observable<HttpResponse<unknown>> {
   return scheduled([ok(url, body)], asyncScheduler);
 }
 
+type DemoResolver = typeof import('./demo-mock.resolver');
+
+/**
+ * Igual que `demoOk`, pero el resolver (y los fixtures) se cargan recién en la
+ * primera request demo: así no pesan en el bundle inicial de cuentas reales.
+ */
+function demoOkLazy(
+  url: string,
+  body: (resolver: DemoResolver) => unknown,
+): Observable<HttpResponse<unknown>> {
+  return from(import('./demo-mock.resolver')).pipe(
+    map((resolver) => ok(url, body(resolver))),
+    observeOn(asyncScheduler),
+  );
+}
+
 /**
  * Demo 100% offline: si hay sesión demo, ninguna request al backend sale a la red.
  * No llama a `next()` para URLs de API.
@@ -96,15 +111,14 @@ export const demoOverlayInterceptor: HttpInterceptorFn = (req, next) => {
   const method = req.method.toUpperCase();
 
   if (!isMutation(method)) {
-    const body = resolveDemoGet(rel, req.url, store);
-    return demoOk(req.url, body);
+    return demoOkLazy(req.url, (r) => r.resolveDemoGet(rel, req.url, store));
   }
 
   snackOnce(snack);
 
   if (/import-excel|unify|backup|\/logo|\/avatar|print-agent|\/live|\/push\//.test(rel)) {
     snack.open('Esa acción no está disponible en la demo', 'OK', { duration: 3500 });
-    return demoOk(req.url, resolveDemoMutationFallback());
+    return demoOkLazy(req.url, (r) => r.resolveDemoMutationFallback());
   }
 
   if (method === 'POST' && (rel === '/auth/demo' || rel === '/auth/login')) {

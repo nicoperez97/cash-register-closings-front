@@ -8,7 +8,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { createSpanishPaginatorIntl } from '../i18n/spanish-paginator-intl';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { UserAvatarComponent } from './user-avatar';
@@ -62,6 +63,8 @@ export interface DataTableColumn {
 
 @Component({
   selector: 'app-data-table',
+  // Intl del paginador acá (no en app.config) para no cargar mat-paginator/select en el bundle inicial.
+  providers: [{ provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl }],
   imports: [
     FormsModule,
     NgClass,
