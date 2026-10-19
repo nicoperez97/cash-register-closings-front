@@ -1195,7 +1195,7 @@ button.mat-mdc-mini-fab mat-icon {
   justify-content: space-between;
   gap: 0.65rem 0.75rem;
   margin-bottom: 0.85rem;
-  transition: margin-bottom 0.3s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  transition: margin-bottom 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .guy-filters__head > :first-child {
@@ -1300,46 +1300,42 @@ button.mat-mdc-mini-fab mat-icon {
   box-shadow: 0 0 0 2px #fff;
 }
 
+/*
+ * Abrir/cerrar filtros: se anima solo el alto del cuerpo entero (0 <-> auto).
+ * Antes era grid-template-rows 0fr/1fr + fade de opacidad + overflow por hijo:
+ * las filas extra saltaban de golpe y el fade se veía como un parpadeo.
+ * Navegadores sin interpolate-size (Safari) abren/cierran al instante.
+ */
 .guy-filters__body {
   display: grid;
-  grid-template-rows: 1fr;
-  opacity: 1;
-  transition:
-    grid-template-rows 0.3s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    opacity 0.22s ease;
-}
-
-.guy-filters__body > * {
-  min-height: 0;
-  overflow: hidden;
-  padding-top: 0.35rem;
-}
-
-.guy-filters:not(.guy-filters--collapsed) .guy-filters__body > * {
-  /* Labels outline de Material sobresalen del campo */
+  interpolate-size: allow-keywords;
+  height: auto;
+  /* Labels outline de Material sobresalen del campo: visible una vez abierto. */
   overflow: visible;
-  /* Recién al terminar de abrir: si no, el form desborda su fila mientras crece
-     y se pisa con las acciones de abajo. Al cerrar vuelve a hidden al instante. */
-  transition: overflow 0s linear 0.3s;
+  transition:
+    height 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    overflow 0s linear 0.26s,
+    visibility 0s linear 0s;
   transition-behavior: allow-discrete;
 }
 
-.guy-filters--collapsed .guy-filters__body {
-  grid-template-rows: 0fr;
-  /* Si el body tiene más de un hijo (form + acciones, campos sueltos), el resto
-     son filas implícitas: sin esto quedaban con su alto y el panel vacío. */
-  grid-auto-rows: 0fr;
-  row-gap: 0;
-  opacity: 0;
-  pointer-events: none;
+.guy-filters__body > * {
+  min-width: 0;
+  padding-top: 0.35rem;
 }
 
-/* Doble clase: tiene que ganarle a márgenes de componente (ej. .att-excel-range). */
-.guy-filters.guy-filters--collapsed .guy-filters__body > * {
-  padding-top: 0;
-  /* Los márgenes del ítem suman al alto de la fila aunque sea 0fr (ej. __actions). */
-  margin-top: 0;
-  margin-bottom: 0;
+.guy-filters--collapsed .guy-filters__body {
+  height: 0;
+  /* Recorta mientras se cierra y al abrir hasta terminar (si no, el form se pisa). */
+  overflow: hidden;
+  /* Oculto para foco y lectores de pantalla, recién al terminar de cerrar. */
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    height 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    overflow 0s,
+    visibility 0s linear 0.26s;
+  transition-behavior: allow-discrete;
 }
 
 .guy-filters--collapsed .guy-filters__head {
