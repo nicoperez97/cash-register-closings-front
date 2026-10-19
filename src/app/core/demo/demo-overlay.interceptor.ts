@@ -130,6 +130,11 @@ export const demoOverlayInterceptor: HttpInterceptorFn = (req, next) => {
       ? { ...(req.body as Record<string, unknown>) }
       : {};
 
+  // Comanda / mozo: simulador con mesas, pedidos y cierre (ver demo-waiter.ts).
+  if (/\/comanda\/enter$/.test(rel) || /^\/public\/shops\/[^/]+\/waiter\//.test(rel)) {
+    return demoOkLazy(req.url, (r) => r.demoWaiterMutation(method, rel, bodyIn) ?? { ok: true });
+  }
+
   if (
     (method === 'PUT' || method === 'PATCH') &&
     (/\/menu$/.test(rel) || /\/promos$/.test(rel) || /^\/shops\/[^/]+$/.test(rel))
