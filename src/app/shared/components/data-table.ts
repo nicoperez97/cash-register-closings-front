@@ -595,6 +595,15 @@ export interface DataTableColumn {
         pointer-events: none;
       }
 
+      /*
+       * Sin el fade global de .guy-entity-card: se reinicia cada vez que la tarjeta
+       * vuelve a mostrarse (pestañas, paneles) y parece que la lista recarga.
+       * La entrada la hace .data-table--enter una sola vez.
+       */
+      .data-card.guy-entity-card {
+        animation: none;
+      }
+
       /* Solo opacity al primer pintado de filas. */
       .data-table--enter {
         animation: data-table-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;

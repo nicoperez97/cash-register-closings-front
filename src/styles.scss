@@ -1972,11 +1972,6 @@ button.mat-mdc-mini-fab mat-icon {
   }
 }
 
-/* Tabs Material: cuerpo con fade corto */
-.mat-mdc-tab-body.mat-mdc-tab-body-active .mat-mdc-tab-body-content {
-  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
-}
-
 /* KPIs: fade corto. Las filas del data-table no animan al montar (evita doble entrada tras el skeleton). */
 app-kpi-strip .col-6,
 app-kpi-strip [class*='col-'] {
