@@ -241,6 +241,12 @@
       }
       @if (config()?.webhookRegisteredAt) {
         <p class="text-muted small">Webhook registrado: {{ config()!.webhookRegisteredAt }}</p>
+        @if (config()!.webhookVerified === false) {
+          <p class="small">
+            El webhook de este local se registró sin clave de verificación. Tocá
+            <strong>Conectar</strong> de nuevo para registrarlo con su clave.
+          </p>
+        }
       }
 
       @if (canManage) {

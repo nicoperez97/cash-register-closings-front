@@ -36,6 +36,8 @@ export type DeliverateConfig = {
   testMode: boolean;
   webhookBaseUrl: string | null;
   webhookRegisteredAt: string | null;
+  /** false = webhook registrado sin secreto del local (hay que volver a Conectar). */
+  webhookVerified?: boolean;
   lastError: string | null;
   webhookUrlHint: string | null;
   closingAccountId: string | null;
