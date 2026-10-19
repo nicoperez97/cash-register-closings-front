@@ -1,4 +1,15 @@
-import { Component, computed, effect, input, output, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -23,6 +34,17 @@ import { formatMoney } from '../utils/money';
 const MOBILE_VIEW_KEY = 'crc.dataTable.mobileView';
 
 export type DataTableMobileView = 'compact' | 'detail';
+
+/** Contenedor que scrollea (en el layout es .layout-main-scroll, no window). */
+function scrollParentOf(el: HTMLElement): Element {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
 
 function loadMobileView(): DataTableMobileView {
   try {
@@ -1187,6 +1209,8 @@ export class DataTableComponent {
   readonly mobileView = signal<DataTableMobileView>(loadMobileView());
   /** Filas expandidas: por id, o por la fila misma si no tiene id (reportes agregados). */
   readonly expandedIds = signal<Set<unknown>>(new Set());
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   /** Fade corto al primer pintado con filas (sin animar height). */
   readonly enterAnim = signal(false);
   private enterPlayed = false;
@@ -1327,11 +1351,24 @@ export class DataTableComponent {
 
   onMobileView(value: string | null | undefined): void {
     const mode: DataTableMobileView = value === 'detail' ? 'detail' : 'compact';
+    // Las tarjetas cambian mucho de alto (≈64 ↔ 250 px) y el scroll anchoring del
+    // navegador sigue a una tarjeta: el toggle saltaba de lugar y parecía un parpadeo.
+    const anchor = this.host.nativeElement.querySelector<HTMLElement>('.data-table__view-toggle');
+    const topBefore = anchor?.getBoundingClientRect().top ?? null;
     this.mobileView.set(mode);
     try {
       localStorage.setItem(MOBILE_VIEW_KEY, mode);
     } catch {
       /* ignore */
+    }
+    if (anchor && topBefore != null) {
+      afterNextRender(
+        () => {
+          const delta = anchor.getBoundingClientRect().top - topBefore;
+          if (Math.abs(delta) > 1) scrollParentOf(anchor).scrollBy({ top: delta });
+        },
+        { injector: this.injector },
+      );
     }
   }
 
