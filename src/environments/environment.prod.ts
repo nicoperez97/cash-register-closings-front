@@ -9,4 +9,6 @@ export const environment = {
    * true = siempre visible; false = oculto; null = mismo que false en prod.
    */
   demoLoginEnabled: true as boolean | null,
+  /** Sentry del front (DSN público del proyecto). Vacío = apagado. */
+  sentryDsn: '' as string,
 };

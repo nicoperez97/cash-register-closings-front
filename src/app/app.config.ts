@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  ErrorHandler,
   inject,
   isDevMode,
   provideAppInitializer,
@@ -32,6 +33,7 @@ import { AppUpdateDialogComponent } from './shared/components/app-update-dialog'
 import { NotificationsInboxService } from './features/payments/notifications-inbox.service';
 import { PushNotificationsService } from './features/payments/push-notifications.service';
 import { AnalyticsService } from './core/analytics/analytics.service';
+import { LazySentryErrorHandler } from './core/monitoring/sentry';
 
 registerLocaleData(localeEsAr);
 
@@ -236,6 +238,7 @@ function dialogDefaultOptions(): MatDialogConfig {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: ErrorHandler, useClass: LazySentryErrorHandler },
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
     provideAppInitializer(startAnalytics),
