@@ -1318,16 +1318,28 @@ button.mat-mdc-mini-fab mat-icon {
 .guy-filters:not(.guy-filters--collapsed) .guy-filters__body > * {
   /* Labels outline de Material sobresalen del campo */
   overflow: visible;
+  /* Recién al terminar de abrir: si no, el form desborda su fila mientras crece
+     y se pisa con las acciones de abajo. Al cerrar vuelve a hidden al instante. */
+  transition: overflow 0s linear 0.3s;
+  transition-behavior: allow-discrete;
 }
 
 .guy-filters--collapsed .guy-filters__body {
   grid-template-rows: 0fr;
+  /* Si el body tiene más de un hijo (form + acciones, campos sueltos), el resto
+     son filas implícitas: sin esto quedaban con su alto y el panel vacío. */
+  grid-auto-rows: 0fr;
+  row-gap: 0;
   opacity: 0;
   pointer-events: none;
 }
 
-.guy-filters--collapsed .guy-filters__body > * {
+/* Doble clase: tiene que ganarle a márgenes de componente (ej. .att-excel-range). */
+.guy-filters.guy-filters--collapsed .guy-filters__body > * {
   padding-top: 0;
+  /* Los márgenes del ítem suman al alto de la fila aunque sea 0fr (ej. __actions). */
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .guy-filters--collapsed .guy-filters__head {
