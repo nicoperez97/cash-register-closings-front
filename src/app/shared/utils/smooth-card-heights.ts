@@ -14,7 +14,9 @@ const CARD_SELECTOR = [
 
 const SKIP_SELECTOR =
   // .guy-filters: ya anima Mostrar/Ocultar con CSS; el smooth-height peleaba y estiraba 2 veces.
-  '.closing-form-shell, .mat-mdc-dialog-container, [data-guy-no-smooth-height], .guy-kpi, .guy-filters';
+  // app-data-table: las tarjetas de la lista cambian todas juntas (compacta/detallada,
+  // expandir); la tabla maneja su alto y animar cada una se veía como un doble estirón.
+  '.closing-form-shell, .mat-mdc-dialog-container, [data-guy-no-smooth-height], .guy-kpi, .guy-filters, app-data-table';
 
 /** Tras montar / navegar: solo sincronizar altura, sin animar (evita “desplegar 2 veces”). */
 const ENTER_GRACE_MS = 800;
@@ -29,6 +31,8 @@ type CardState = {
   bornAt: number;
   /** Ya hizo al menos una animación real (no sync de gracia). */
   hasAnimated: boolean;
+  /** Alto viejo fijado inline mientras se espera el debounce. */
+  locked: boolean;
 };
 
 /**
@@ -99,6 +103,7 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
         endTimer: 0,
         bornAt: Date.now(),
         hasAnimated: false,
+        locked: false,
       };
       states.set(el, s);
     }
@@ -108,6 +113,8 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
   const syncHeight = (el: HTMLElement, s: CardState): void => {
     s.lastHeight = measureAuto(el);
     s.pending = false;
+    if (s.locked && !s.animating) clearInline(el);
+    s.locked = false;
     if (s.animating) {
       clearInline(el);
       s.animating = false;
@@ -136,6 +143,8 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
     const to = measureAuto(el);
     if (Math.abs(to - from) < 2) {
       s.lastHeight = to;
+      if (s.locked) clearInline(el);
+      s.locked = false;
       return;
     }
 
@@ -146,6 +155,7 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
     }
 
     s.animating = true;
+    s.locked = false;
     s.pending = false;
     s.hasAnimated = true;
     el.style.overflow = 'hidden';
@@ -185,6 +195,19 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
 
   const queue = (el: HTMLElement): void => {
     const s = ensureState(el);
+    // El MutationObserver corre antes del pintado: fijar ya el alto viejo. Si no, el
+    // contenido nuevo se pintaba con su alto final y 120 ms después la animación
+    // volvía al alto viejo para recién crecer/achicarse ("se estira dos veces").
+    if (
+      !s.animating &&
+      !s.locked &&
+      s.lastHeight > 0 &&
+      Date.now() - s.bornAt >= ENTER_GRACE_MS
+    ) {
+      el.style.overflow = 'hidden';
+      el.style.height = `${s.lastHeight}px`;
+      s.locked = true;
+    }
     if (s.debounce) window.clearTimeout(s.debounce);
     if (s.frame) cancelAnimationFrame(s.frame);
     // Agrupa mutaciones en ráfaga (varios @if / signals) en una sola animación.
@@ -194,7 +217,7 @@ export function installSmoothCardHeights(root: ParentNode = document): () => voi
         s.frame = 0;
         animate(el);
       });
-    }, 120);
+    }, 60);
   };
 
   root.querySelectorAll(CARD_SELECTOR).forEach((node) => {

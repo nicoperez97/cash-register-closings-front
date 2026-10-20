@@ -139,14 +139,17 @@
               </div>
 
               @if (mapOpen()) {
-                <app-delivery-map-picker
-                  [zones]="c.deliveryZones"
-                  [accent]="accent()"
-                  [onAccent]="onAccent()"
-                  [initial]="mapPoint()"
-                  (closed)="closeMapPicker()"
-                  (selected)="onMapSelected($event)"
-                />
+                <!-- Leaflet en chunk aparte: se baja recién cuando se muestra el mapa. -->
+                @defer (on immediate) {
+                  <app-delivery-map-picker
+                    [zones]="c.deliveryZones"
+                    [accent]="accent()"
+                    [onAccent]="onAccent()"
+                    [initial]="mapPoint()"
+                    (closed)="closeMapPicker()"
+                    (selected)="onMapSelected($event)"
+                  />
+                }
               } @else if (addressSheetOpen()) {
                 <div class="addr-card" role="group" aria-label="Completar datos de entrega">
                   <header class="addr-card__head">

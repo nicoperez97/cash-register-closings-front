@@ -119,6 +119,8 @@
   }
 
   @if (!isPublicPageViewer()) {
-    <app-salon-floor-monitor />
+    @defer (on idle) {
+      <app-salon-floor-monitor />
+    }
   }
 </div>

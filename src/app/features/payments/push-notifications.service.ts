@@ -11,10 +11,7 @@ import { DialogTitleService } from '../../shared/services/dialog-title.service';
 import { pathFromPushData } from '../../core/notifications/notification-deep-link';
 import { NotificationsInboxService } from './notifications-inbox.service';
 import { PageRefreshService } from '../../core/page-refresh.service';
-import {
-  PushEnableDialogComponent,
-  PushEnableDialogResult,
-} from './push-enable-dialog';
+import type { PushEnableDialogResult } from './push-enable-dialog';
 
 type VapidResponse = { publicKey: string | null; enabled: boolean };
 
@@ -289,6 +286,7 @@ export class PushNotificationsService {
 
     this.promptedThisSession = true;
 
+    const { PushEnableDialogComponent } = await import('./push-enable-dialog');
     const result = await firstValueFrom(
       this.dialogTitle
         .track(

@@ -14,10 +14,8 @@ import {
 } from './customer-orders-api.service';
 import { OrderingCartService } from './ordering-cart.service';
 import { rememberOrderPhone } from './public-order-session';
-import {
-  DeliveryMapPickerComponent,
-  DeliveryMapSelection,
-} from './delivery-map-picker';
+import { DeliveryMapPickerComponent } from './delivery-map-picker';
+import type { DeliveryMapSelection } from './delivery-map-picker';
 import { composeDeliveryAddress, LatLng } from './delivery-geo.util';
 import {
   apiErrorMessage,

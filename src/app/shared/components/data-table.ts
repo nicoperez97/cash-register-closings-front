@@ -1,4 +1,15 @@
-import { Component, computed, effect, input, output, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -8,7 +19,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { createSpanishPaginatorIntl } from '../i18n/spanish-paginator-intl';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { UserAvatarComponent } from './user-avatar';
@@ -22,6 +34,17 @@ import { formatMoney } from '../utils/money';
 const MOBILE_VIEW_KEY = 'crc.dataTable.mobileView';
 
 export type DataTableMobileView = 'compact' | 'detail';
+
+/** Contenedor que scrollea (en el layout es .layout-main-scroll, no window). */
+function scrollParentOf(el: HTMLElement): Element {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
 
 function loadMobileView(): DataTableMobileView {
   try {
@@ -62,6 +85,8 @@ export interface DataTableColumn {
 
 @Component({
   selector: 'app-data-table',
+  // Intl del paginador acá (no en app.config) para no cargar mat-paginator/select en el bundle inicial.
+  providers: [{ provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl }],
   imports: [
     FormsModule,
     NgClass,
@@ -590,6 +615,15 @@ export interface DataTableColumn {
       .data-table--refreshing {
         opacity: 0.85;
         pointer-events: none;
+      }
+
+      /*
+       * Sin el fade global de .guy-entity-card: se reinicia cada vez que la tarjeta
+       * vuelve a mostrarse (pestañas, paneles) y parece que la lista recarga.
+       * La entrada la hace .data-table--enter una sola vez.
+       */
+      .data-card.guy-entity-card {
+        animation: none;
       }
 
       /* Solo opacity al primer pintado de filas. */
@@ -1173,7 +1207,10 @@ export class DataTableComponent {
   readonly sortActive = signal('');
   readonly sortDirection = signal<'asc' | 'desc' | ''>('');
   readonly mobileView = signal<DataTableMobileView>(loadMobileView());
-  readonly expandedIds = signal<Set<string>>(new Set());
+  /** Filas expandidas: por id, o por la fila misma si no tiene id (reportes agregados). */
+  readonly expandedIds = signal<Set<unknown>>(new Set());
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   /** Fade corto al primer pintado con filas (sin animar height). */
   readonly enterAnim = signal(false);
   private enterPlayed = false;
@@ -1300,12 +1337,12 @@ export class DataTableComponent {
   }
 
   isExpanded(row: any): boolean {
-    return this.expandedIds().has(this.rowId(row) || this.trackRow(row, 0).toString());
+    return this.expandedIds().has(this.expandKey(row));
   }
 
   toggleExpand(row: any, ev: Event): void {
     ev.stopPropagation();
-    const id = this.rowId(row) || this.trackRow(row, 0).toString();
+    const id = this.expandKey(row);
     const next = new Set(this.expandedIds());
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -1314,11 +1351,24 @@ export class DataTableComponent {
 
   onMobileView(value: string | null | undefined): void {
     const mode: DataTableMobileView = value === 'detail' ? 'detail' : 'compact';
+    // Las tarjetas cambian mucho de alto (≈64 ↔ 250 px) y el scroll anchoring del
+    // navegador sigue a una tarjeta: el toggle saltaba de lugar y parecía un parpadeo.
+    const anchor = this.host.nativeElement.querySelector<HTMLElement>('.data-table__view-toggle');
+    const topBefore = anchor?.getBoundingClientRect().top ?? null;
     this.mobileView.set(mode);
     try {
       localStorage.setItem(MOBILE_VIEW_KEY, mode);
     } catch {
       /* ignore */
+    }
+    if (anchor && topBefore != null) {
+      afterNextRender(
+        () => {
+          const delta = anchor.getBoundingClientRect().top - topBefore;
+          if (Math.abs(delta) > 1) scrollParentOf(anchor).scrollBy({ top: delta });
+        },
+        { injector: this.injector },
+      );
     }
   }
 
@@ -1434,6 +1484,14 @@ export class DataTableComponent {
 
   rowId(row: any): string {
     return String(row?.[this.rowIdKey()] ?? '');
+  }
+
+  /**
+   * Clave para expandir: sin id, la fila misma. Antes caía en trackRow(row, 0),
+   * que daba 0 para todas las filas sin id y expandía todas juntas.
+   */
+  private expandKey(row: any): unknown {
+    return this.rowId(row) || row;
   }
 
   isSelected(row: any): boolean {

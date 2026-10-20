@@ -12,7 +12,7 @@ import { defaultHomeRoute } from '../../auth/auth.models';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../utils/drive-url';
 import { NotificationsInboxService } from '../../../features/payments/notifications-inbox.service';
 import { PageRefreshService } from '../../page-refresh.service';
-import { normalizeSelectQuery } from '../../../shared/components/select-search';
+import { normalizeSelectQuery } from '../../../shared/utils/select-query';
 import { groupIdFromRoute, navGroupPagePath } from '../nav-config';
 
 export interface NavChild {
@@ -84,7 +84,7 @@ function saveExpandedGroups(userId: string, open: ReadonlySet<string>): void {
     MatSnackBarModule,
   ],
   templateUrl: './sidebar.html',
-  styleUrl: './sidebar.scss',
+  styleUrls: ['./sidebar.scss', './sidebar.nav.scss'],
 })
 export class SidebarComponent {
   readonly brand = APP_BRAND;

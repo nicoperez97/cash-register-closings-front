@@ -35,6 +35,9 @@ import {
   demoSuppliers,
   demoUsers,
 } from './demo-fixtures';
+import { demoComandaShopGet, demoWaiterGet } from './demo-waiter';
+
+export { demoWaiterMutation } from './demo-waiter';
 
 function kindFromUrl(fullUrl: string): import('./demo-constants').DemoStockKind {
   try {
@@ -138,6 +141,8 @@ export function resolveDemoGet(
   if (publicMatch) {
     const slug = decodeURIComponent(publicMatch[1] || 'demo-gastro');
     const rest = publicMatch[2] ?? '';
+    const waiter = demoWaiterGet(rest);
+    if (waiter !== undefined) return waiter;
     if (!rest || rest === 'menu' || rest.startsWith('menu/')) {
       return demoPublicMenu(slug);
     }
@@ -461,6 +466,8 @@ export function resolveDemoGet(
         items: [],
       };
     }
+    const comanda = demoComandaShopGet(rest);
+    if (comanda !== undefined) return comanda;
     if (rest.startsWith('orders') || rest.startsWith('comanda')) {
       return {
         items: [

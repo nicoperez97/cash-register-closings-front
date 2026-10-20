@@ -253,7 +253,7 @@ function formatDayLabelEs(isoDate: string): string {
 
     @if (vis().tabProducts || vis().tabCategories || vis().tabDays) {
       <div class="panel-card panel-card--flush mb-3">
-        <mat-tab-group animationDuration="200ms" class="sales-tabs">
+        <mat-tab-group animationDuration="200ms" class="sales-tabs" preserveContent>
           @if (vis().tabProducts) {
             <mat-tab label="Por plato">
               <div class="panel-card__body">
@@ -470,8 +470,8 @@ export class SalesProductsPage {
 
   readonly productColumns = computed<DataTableColumn[]>(() => {
     const cols: DataTableColumn[] = [
-      { key: 'productCode', label: 'Código' },
       { key: 'productName', label: 'Plato' },
+      { key: 'productCode', label: 'Código' },
       {
         key: 'category',
         label: 'Rubro',

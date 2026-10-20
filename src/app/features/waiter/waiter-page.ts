@@ -98,7 +98,7 @@ function tokenKey(slug: string) {
     KioskPinLoginComponent,
   ],
   templateUrl: './waiter-page.html',
-  styleUrl: './waiter-page.scss',
+  styleUrls: ['./waiter-page.scss', './waiter-page.sheets.scss'],
   host: {
     '[style.--accent]': 'hostAccentVar()',
     '[style.--on-accent]': 'hostOnAccentVar()',

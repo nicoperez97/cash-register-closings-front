@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  ErrorHandler,
   inject,
   isDevMode,
   provideAppInitializer,
@@ -9,7 +10,6 @@ import {
 import { provideRouter, TitleStrategy } from '@angular/router';
 import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideServiceWorker, SwPush, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
-import { MatPaginatorIntl } from '@angular/material/paginator';
 import { MAT_DIALOG_DEFAULT_OPTIONS, MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { MAT_SNACK_BAR_DEFAULT_OPTIONS, MatSnackBarConfig } from '@angular/material/snack-bar';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
@@ -21,7 +21,6 @@ import { filter } from 'rxjs';
 
 import { routes } from './app.routes';
 import { AppTitleStrategy } from './core/routing/app-title.strategy';
-import { createSpanishPaginatorIntl } from './shared/i18n/spanish-paginator-intl';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { unauthorizedInterceptor } from './core/http/unauthorized.interceptor';
 import { authRefreshInterceptor } from './core/http/auth-refresh.interceptor';
@@ -34,6 +33,7 @@ import { AppUpdateDialogComponent } from './shared/components/app-update-dialog'
 import { NotificationsInboxService } from './features/payments/notifications-inbox.service';
 import { PushNotificationsService } from './features/payments/push-notifications.service';
 import { AnalyticsService } from './core/analytics/analytics.service';
+import { LazySentryErrorHandler } from './core/monitoring/sentry';
 
 registerLocaleData(localeEsAr);
 
@@ -238,6 +238,7 @@ function dialogDefaultOptions(): MatDialogConfig {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: ErrorHandler, useClass: LazySentryErrorHandler },
     provideAppInitializer(watchAppUpdates),
     provideAppInitializer(refreshSession),
     provideAppInitializer(startAnalytics),
@@ -263,7 +264,6 @@ export const appConfig: ApplicationConfig = {
       },
     },
     { provide: TitleStrategy, useClass: AppTitleStrategy },
-    { provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl },
     { provide: MAT_DIALOG_DEFAULT_OPTIONS, useFactory: dialogDefaultOptions },
     {
       provide: MAT_SNACK_BAR_DEFAULT_OPTIONS,

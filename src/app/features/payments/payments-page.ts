@@ -15,7 +15,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatPaginatorIntl, MatPaginatorModule } from '@angular/material/paginator';
+import { createSpanishPaginatorIntl } from '../../shared/i18n/spanish-paginator-intl';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { SegmentTabsComponent } from '../../shared/components/filter-bar';
@@ -88,6 +89,8 @@ import {
 import { apiErrorMessage } from '../../core/http/api-error-message';
 @Component({
   selector: 'app-payments-page',
+  // Intl del paginador acá (no en app.config) para no cargar mat-paginator/select en el bundle inicial.
+  providers: [{ provide: MatPaginatorIntl, useFactory: createSpanishPaginatorIntl }],
   imports: [
     PageHeaderComponent,
     MatButtonModule,

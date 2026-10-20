@@ -12,7 +12,7 @@ import { APP_BRAND } from '../../core/config/app-brand';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
-import { consumeReturnUrl } from '../closings/closing-form-draft';
+import { consumeReturnUrl } from '../../core/routing/return-url';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
 import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';

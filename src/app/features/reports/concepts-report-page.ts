@@ -332,7 +332,7 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
     </div>
 
     <div class="panel-card panel-card--flush mb-3">
-      <mat-tab-group animationDuration="200ms" class="sales-tabs">
+      <mat-tab-group animationDuration="200ms" class="sales-tabs" preserveContent>
         <mat-tab label="Detalle por concepto">
           <div class="panel-card__body">
             <div class="guy-list-head">

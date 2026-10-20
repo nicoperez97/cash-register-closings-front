@@ -35,6 +35,9 @@ jobs:
       - name: Instalar dependencias
         run: npm ci --no-audit --no-fund
 
+      - name: Tests
+        run: npm run test:unit
+
       - name: Build producción
         run: npm run build -- --configuration production
 

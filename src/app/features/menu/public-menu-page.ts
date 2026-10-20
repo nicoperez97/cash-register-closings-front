@@ -4,7 +4,6 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { toDataURL } from 'qrcode';
 import { environment } from '../../../environments/environment';
 import { normalizeLogoUrl, resolveShopLogoSrc } from '../../core/utils/drive-url';
 import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
@@ -1065,6 +1064,7 @@ export class PublicMenuPageComponent implements OnInit {
     const link = this.menuLink();
     if (!link) return;
     try {
+      const { toDataURL } = await import('qrcode');
       const url = await toDataURL(link, {
         width: 640,
         margin: 2,

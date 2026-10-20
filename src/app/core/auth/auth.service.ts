@@ -6,7 +6,7 @@ import { AuthUser, isMorePrivileged, toUiRole } from './auth.models';
 import { ShopContextService } from '../shop/shop-context.service';
 import { isPublicAppPath } from '../routing/public-paths';
 import { AnalyticsService } from '../analytics/analytics.service';
-import { buildDemoAuthUser, DEMO_TOKEN } from '../demo/demo-fixtures';
+import { DEMO_LOCAL_TOKEN as DEMO_TOKEN } from '../demo/demo-constants';
 import { isDemoSession } from '../demo/demo-offline';
 import { DemoOverlayStore } from '../demo/demo-overlay.store';
 
@@ -102,6 +102,8 @@ export class AuthService {
   }
 
   async loginDemo(): Promise<boolean> {
+    // Fixtures demo bajo demanda: no pesan en el bundle inicial.
+    const { buildDemoAuthUser } = await import('../demo/demo-fixtures');
     this.demoOverlay.clear();
     const user = buildDemoAuthUser();
     this.writeSessions(

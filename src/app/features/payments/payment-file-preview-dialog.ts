@@ -96,16 +96,23 @@ export class PaymentFilePreviewDialogComponent implements OnDestroy {
   readonly ref = inject(MatDialogRef<PaymentFilePreviewDialogComponent>);
   private readonly sanitizer = inject(DomSanitizer);
 
-  private readonly url = URL.createObjectURL(this.data.blob);
-  readonly objectUrl = signal(this.url);
-  readonly safeUrl = signal<SafeResourceUrl>(
-    this.sanitizer.bypassSecurityTrustResourceUrl(this.url),
+  readonly isImage = signal(
+    (this.data.blob.type || '').startsWith('image/') && this.data.blob.type !== 'image/svg+xml',
   );
-
-  readonly isImage = signal((this.data.blob.type || '').startsWith('image/'));
   readonly isPdf = signal(
     (this.data.blob.type || '') === 'application/pdf' ||
       /\.pdf$/i.test(this.data.fileName || ''),
+  );
+
+  // El blob: hereda nuestro origen; el tipo se fuerza para que un HTML con nombre .pdf no corra script.
+  private readonly url = URL.createObjectURL(
+    this.isPdf() && !this.isImage()
+      ? new Blob([this.data.blob], { type: 'application/pdf' })
+      : this.data.blob,
+  );
+  readonly objectUrl = signal(this.url);
+  readonly safeUrl = signal<SafeResourceUrl>(
+    this.sanitizer.bypassSecurityTrustResourceUrl(this.url),
   );
 
   ngOnDestroy(): void {

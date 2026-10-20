@@ -240,7 +240,7 @@ function formatDayLabelEs(isoDate: string): string {
       </div>
 
       <div class="panel-card panel-card--flush mb-3">
-        <mat-tab-group animationDuration="200ms" class="sales-tabs">
+        <mat-tab-group animationDuration="200ms" class="sales-tabs" preserveContent>
           <mat-tab label="Por plato">
             <div class="panel-card__body">
               <div class="guy-list-head">
@@ -437,8 +437,8 @@ export class SalesMenuPage {
   );
 
   readonly productColumns: DataTableColumn[] = [
-    { key: 'productCode', label: 'Código' },
     { key: 'productName', label: 'Plato' },
+    { key: 'productCode', label: 'Código' },
     {
       key: 'category',
       label: 'Rubro',

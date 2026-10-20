@@ -3,14 +3,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelect } from '@angular/material/select';
+import { normalizeSelectQuery } from '../utils/select-query';
 
-export function normalizeSelectQuery(value: string): string {
-  return (value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
+export { normalizeSelectQuery };
 
 export function filterBySelectQuery<T>(
   items: T[],

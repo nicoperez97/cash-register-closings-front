@@ -5,7 +5,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { toDataURL } from 'qrcode';
 import { PageHeaderComponent } from '../../shared/components/page-header';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { downloadCaptureRootPdf } from '../../shared/pdf/html-pdf';
@@ -350,6 +349,7 @@ export class AdminQrPage {
       return;
     }
     try {
+      const { toDataURL } = await import('qrcode');
       const url = await toDataURL(text, {
         width: 640,
         margin: 2,

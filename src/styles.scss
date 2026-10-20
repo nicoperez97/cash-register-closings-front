@@ -1195,7 +1195,7 @@ button.mat-mdc-mini-fab mat-icon {
   justify-content: space-between;
   gap: 0.65rem 0.75rem;
   margin-bottom: 0.85rem;
-  transition: margin-bottom 0.3s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  transition: margin-bottom 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .guy-filters__head > :first-child {
@@ -1300,34 +1300,42 @@ button.mat-mdc-mini-fab mat-icon {
   box-shadow: 0 0 0 2px #fff;
 }
 
+/*
+ * Abrir/cerrar filtros: se anima solo el alto del cuerpo entero (0 <-> auto).
+ * Antes era grid-template-rows 0fr/1fr + fade de opacidad + overflow por hijo:
+ * las filas extra saltaban de golpe y el fade se veía como un parpadeo.
+ * Navegadores sin interpolate-size (Safari) abren/cierran al instante.
+ */
 .guy-filters__body {
   display: grid;
-  grid-template-rows: 1fr;
-  opacity: 1;
+  interpolate-size: allow-keywords;
+  height: auto;
+  /* Labels outline de Material sobresalen del campo: visible una vez abierto. */
+  overflow: visible;
   transition:
-    grid-template-rows 0.3s var(--guy-ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    opacity 0.22s ease;
+    height 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    overflow 0s linear 0.26s,
+    visibility 0s linear 0s;
+  transition-behavior: allow-discrete;
 }
 
 .guy-filters__body > * {
-  min-height: 0;
-  overflow: hidden;
+  min-width: 0;
   padding-top: 0.35rem;
 }
 
-.guy-filters:not(.guy-filters--collapsed) .guy-filters__body > * {
-  /* Labels outline de Material sobresalen del campo */
-  overflow: visible;
-}
-
 .guy-filters--collapsed .guy-filters__body {
-  grid-template-rows: 0fr;
-  opacity: 0;
+  height: 0;
+  /* Recorta mientras se cierra y al abrir hasta terminar (si no, el form se pisa). */
+  overflow: hidden;
+  /* Oculto para foco y lectores de pantalla, recién al terminar de cerrar. */
+  visibility: hidden;
   pointer-events: none;
-}
-
-.guy-filters--collapsed .guy-filters__body > * {
-  padding-top: 0;
+  transition:
+    height 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    overflow 0s,
+    visibility 0s linear 0.26s;
+  transition-behavior: allow-discrete;
 }
 
 .guy-filters--collapsed .guy-filters__head {
@@ -1970,11 +1978,6 @@ button.mat-mdc-mini-fab mat-icon {
   .shop-hub__grid > *:nth-child(#{$i}) {
     animation-delay: #{($i - 1) * 40}ms;
   }
-}
-
-/* Tabs Material: cuerpo con fade corto */
-.mat-mdc-tab-body.mat-mdc-tab-body-active .mat-mdc-tab-body-content {
-  animation: guy-fade-in var(--guy-dur) var(--guy-ease) both;
 }
 
 /* KPIs: fade corto. Las filas del data-table no animan al montar (evita doble entrada tras el skeleton). */

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { driver, type DriveStep, type Driver } from 'driver.js';
+import type { DriveStep, Driver } from 'driver.js';
 import { AuthService } from '../auth/auth.service';
 
 const TOUR_FLAG = 'crc_demo_tour';
@@ -168,6 +168,8 @@ export class DemoTourService {
 
         // Solo el popover del paso activo usa los handlers de arriba; al hacer
         // drive(index) driver.js toma los on*Click de ese step.
+        // driver.js se carga recién al iniciar el tour (fuera del bundle inicial).
+        const { driver } = await import('driver.js');
         this.drv = driver({
           showProgress: true,
           animate: true,
