@@ -1214,6 +1214,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         items: [
           'Arriba a la derecha: el día (o rango), los turnos y el filtro Rubro. Si no estás en el turno actual, En vivo te vuelve al día y turno de ahora.',
           'El resumen muestra abiertos, completados, cancelados, canales, acreditados, unidades vendidas (con la etiqueta del local, ej. paninos) y total en $.',
+          'El Total en $ suma abiertos y completados; los cancelados no entran.',
           'Las unidades usan la misma regla que el cierre: pedidos completados, sin extras, y solo ítems con Unidades marcado en Carta. Si filtrás por rubro, solo cuentan (y se listan) pedidos con ítems de ese rubro.',
           'Las columnas vacías no se muestran.',
           'No hay botones para avanzar ni acreditar: es para mirar. Para operar usá Pedidos clientes.',
