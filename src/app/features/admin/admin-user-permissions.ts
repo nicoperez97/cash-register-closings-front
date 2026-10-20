@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { AbstractControl, FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -56,6 +56,15 @@ import {
   defaultReportsProductsVisibility,
   normalizeReportsProductsVisibility,
 } from '../../shared/reports-products-visibility';
+import {
+  REPORT_AMOUNT_MODE_OPTIONS,
+  REPORT_VISIBILITY_UI,
+  ReportAmountMode,
+  ReportKey,
+  ReportVisibilityUi,
+  defaultReportVisibility,
+  normalizeReportsVisibility,
+} from '../../shared/reports-visibility';
 import { AdminUserRow } from './admin-user-dialog';
 import type { ShopProfilePreferences } from '../profile/profile-api.service';
 
@@ -237,6 +246,47 @@ function levelsFromUser(user: AdminUserRow | null): Record<ModuleKey, string> {
                             </div>
                           }
                         </div>
+                      }
+                      @if (reportConfig(mod.key); as cfg) {
+                        @if (moduleLevel(mod.key) !== 'none') {
+                          <div class="module-row__extra">
+                            <button
+                              type="button"
+                              mat-stroked-button
+                              class="config-btn"
+                              (click)="toggleReportConfig(mod.key)"
+                            >
+                              <mat-icon>tune</mat-icon>
+                              Configurar
+                            </button>
+                            @if (isReportConfigOpen(mod.key)) {
+                              <div class="rp-config" [formGroup]="reportGroup(cfg.report)">
+                                <p class="section__hint">{{ cfg.hint }}</p>
+                                <div class="rp-flags">
+                                  @for (opt of cfg.flags; track opt.key) {
+                                    <mat-checkbox [formControlName]="opt.key">{{ opt.label }}</mat-checkbox>
+                                  }
+                                </div>
+                                @if (cfg.amountMode) {
+                                  <p class="section__hint">Datos numéricos</p>
+                                  <div class="level-pills">
+                                    @for (opt of reportAmountModes; track opt.value) {
+                                      <button
+                                        type="button"
+                                        class="level-pill"
+                                        [class.level-pill--active]="reportAmountMode(cfg.report) === opt.value"
+                                        [class.level-pill--off]="opt.value === 'none'"
+                                        (click)="setReportAmountMode(cfg.report, opt.value)"
+                                      >
+                                        {{ opt.label }}
+                                      </button>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
                       }
                     </div>
                   }
@@ -879,6 +929,9 @@ export class AdminUserPermissionsPage implements OnInit {
   readonly reportsProductsFlags = REPORTS_PRODUCTS_VISIBILITY_FLAGS;
   readonly reportsProductsAmountModes = REPORTS_PRODUCTS_AMOUNT_MODE_OPTIONS;
   readonly reportsProductsConfigOpen = signal(false);
+  readonly reportAmountModes = REPORT_AMOUNT_MODE_OPTIONS;
+  /** Módulos de reporte con el panel Configurar abierto. */
+  readonly reportConfigOpen = signal<ReadonlySet<string>>(new Set());
 
   readonly form = this.fb.nonNullable.group({
     accountType: 'EMPLOYEE',
@@ -922,6 +975,15 @@ export class AdminUserPermissionsPage implements OnInit {
       import: true,
       amountMode: 'both' as ReportsProductsAmountMode,
     }),
+    /** Cierres, Conceptos, Ventas y Estadísticas: un grupo por reporte. */
+    reportsVisibility: this.fb.nonNullable.group(
+      Object.fromEntries(
+        Object.values(REPORT_VISIBILITY_UI).map((ui) => [
+          ui.report,
+          this.fb.nonNullable.group(defaultReportVisibility(ui.report) as Record<string, unknown>),
+        ]),
+      ) as Record<ReportKey, FormGroup>,
+    ),
     isStockAdmin: false,
     isBeverageStockAdmin: false,
     isShortageAdmin: false,
@@ -1093,6 +1155,10 @@ export class AdminUserPermissionsPage implements OnInit {
       shopConfigVisibility: shopConfig,
       reportsProductsVisibility: reportsProducts,
     });
+    this.form.controls.reportsVisibility.patchValue(
+      normalizeReportsVisibility(user.reportsVisibility as Record<string, unknown> | null),
+    );
+    this.reportConfigOpen.set(new Set());
     this.form.controls.modules.patchValue(levels);
     this.reportsProductsConfigOpen.set((levels['reportsProducts'] ?? 'none') !== 'none');
     this.modulesTick.update((n) => n + 1);
@@ -1116,6 +1182,11 @@ export class AdminUserPermissionsPage implements OnInit {
 
   setModuleLevel(key: ModuleKey, value: string): void {
     this.form.controls.modules.get(key)?.setValue(value);
+    if (REPORT_VISIBILITY_UI[key] && value === 'none') {
+      const report = REPORT_VISIBILITY_UI[key].report;
+      this.reportGroup(report).patchValue(defaultReportVisibility(report));
+      this.setReportConfigOpen(key, false);
+    }
     if (key === 'reportsProducts') {
       if (value === 'none') {
         this.reportsProductsConfigOpen.set(false);
@@ -1154,6 +1225,52 @@ export class AdminUserPermissionsPage implements OnInit {
       (this.form.controls.reportsProductsVisibility.get('amountMode')
         ?.value as ReportsProductsAmountMode) ?? 'both'
     );
+  }
+
+  reportConfig(key: string): ReportVisibilityUi | null {
+    return REPORT_VISIBILITY_UI[key] ?? null;
+  }
+
+  reportGroup(report: ReportKey): FormGroup {
+    return this.form.controls.reportsVisibility.get(report) as FormGroup;
+  }
+
+  isReportConfigOpen(key: string): boolean {
+    return this.reportConfigOpen().has(key);
+  }
+
+  toggleReportConfig(key: string): void {
+    this.setReportConfigOpen(key, !this.isReportConfigOpen(key));
+  }
+
+  private setReportConfigOpen(key: string, open: boolean): void {
+    const next = new Set(this.reportConfigOpen());
+    if (open) next.add(key);
+    else next.delete(key);
+    this.reportConfigOpen.set(next);
+  }
+
+  reportAmountMode(report: ReportKey): ReportAmountMode {
+    return (this.reportGroup(report).get('amountMode')?.value as ReportAmountMode) ?? 'both';
+  }
+
+  setReportAmountMode(report: ReportKey, value: ReportAmountMode): void {
+    const ctrl = this.reportGroup(report).get('amountMode');
+    ctrl?.setValue(value);
+    ctrl?.markAsDirty();
+  }
+
+  /** Lo que se guarda: con el módulo apagado (o cuenta no empleado), el reporte vuelve a ver todo. */
+  private reportsVisibilityPayload(raw: { accountType: string; modules: unknown }) {
+    const modules = raw.modules as Record<string, string>;
+    const out: Record<string, unknown> = {};
+    for (const [moduleKey, ui] of Object.entries(REPORT_VISIBILITY_UI)) {
+      const enabled = raw.accountType === 'EMPLOYEE' && modules[moduleKey] !== 'none';
+      out[ui.report] = enabled
+        ? this.reportGroup(ui.report).getRawValue()
+        : defaultReportVisibility(ui.report);
+    }
+    return out;
   }
 
   setReportsProductsAmountMode(value: ReportsProductsAmountMode): void {
@@ -1247,6 +1364,7 @@ export class AdminUserPermissionsPage implements OnInit {
           (raw.modules as Record<string, string>)['reportsProducts'] !== 'none'
             ? raw.reportsProductsVisibility
             : defaultReportsProductsVisibility(),
+        reportsVisibility: this.reportsVisibilityPayload(raw),
         isStockAdmin: !!raw.isStockAdmin,
         isBeverageStockAdmin: !!raw.isBeverageStockAdmin,
         isShortageAdmin: !!raw.isShortageAdmin,

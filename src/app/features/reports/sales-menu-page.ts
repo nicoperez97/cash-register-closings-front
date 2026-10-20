@@ -41,6 +41,11 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
 import { formatMoney, formatNumber } from '../../shared/utils/money';
+import {
+  normalizeReportVisibility,
+  reportCanSeeAmount,
+  reportCanSeeQty,
+} from '../../shared/reports-visibility';
 
 /** Fecha corta es-AR: mié. 18 mar. */
 function formatDayLabelEs(isoDate: string): string {
@@ -186,7 +191,11 @@ function formatDayLabelEs(isoDate: string): string {
       </div>
     </div>
 
-    @if (loading() && !summary()) {
+    @if (!hasVisibleBlocks()) {
+      <div class="panel-card">
+        <p class="muted">No tenés datos habilitados en este reporte. Pedile a un admin que active bloques en tus permisos de Reportes · Ventas.</p>
+      </div>
+    } @else if (loading() && !summary()) {
       <app-loading-state
         [loading]="true"
         [skeleton]="true"
@@ -201,9 +210,13 @@ function formatDayLabelEs(isoDate: string): string {
           refreshMessage="Recalculando el período"
         />
       }
-      <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
+      @if (vis()['kpis']) {
+        <app-kpi-strip class="mb-3" [items]="visibleKpis()" [loading]="loading()" />
+      }
 
+      @if (vis()['charts']) {
       <div class="charts-grid mb-3">
+        @if (seeAmount()) {
         <app-line-chart
           class="charts-grid__wide"
           title="Importe por día"
@@ -232,15 +245,19 @@ function formatDayLabelEs(isoDate: string): string {
           [items]="paretoSlices()"
           [maxItems]="15"
         />
+        }
         <app-line-chart
           title="Pedidos por día"
           subtitle="Cantidad de pedidos / tickets"
           [points]="dayTicketPoints()"
         />
       </div>
+      }
 
+      @if (vis()['tabProducts'] || vis()['tabCategories'] || vis()['tabDays']) {
       <div class="panel-card panel-card--flush mb-3">
         <mat-tab-group animationDuration="200ms" class="sales-tabs" preserveContent>
+          @if (vis()['tabProducts']) {
           <mat-tab label="Por plato">
             <div class="panel-card__body">
               <div class="guy-list-head">
@@ -252,7 +269,7 @@ function formatDayLabelEs(isoDate: string): string {
                 </div>
               </div>
               <app-data-table
-                [columns]="productColumns"
+                [columns]="productColumnsVisible()"
                 [rows]="products()"
                 [sortable]="true"
                 [showActions]="false"
@@ -260,6 +277,8 @@ function formatDayLabelEs(isoDate: string): string {
               />
             </div>
           </mat-tab>
+          }
+          @if (vis()['tabCategories']) {
           <mat-tab label="Por rubro">
             <div class="panel-card__body">
               <div class="guy-list-head">
@@ -271,7 +290,7 @@ function formatDayLabelEs(isoDate: string): string {
                 </div>
               </div>
               <app-data-table
-                [columns]="categoryColumns"
+                [columns]="categoryColumnsVisible()"
                 [rows]="categories()"
                 [sortable]="true"
                 [showActions]="false"
@@ -279,6 +298,8 @@ function formatDayLabelEs(isoDate: string): string {
               />
             </div>
           </mat-tab>
+          }
+          @if (vis()['tabDays']) {
           <mat-tab label="Por día">
             <div class="panel-card__body">
               <div class="guy-list-head">
@@ -288,7 +309,7 @@ function formatDayLabelEs(isoDate: string): string {
                 </div>
               </div>
               <app-data-table
-                [columns]="dayColumns"
+                [columns]="dayColumnsVisible()"
                 [rows]="byDay()"
                 [sortable]="true"
                 [showActions]="false"
@@ -296,8 +317,10 @@ function formatDayLabelEs(isoDate: string): string {
               />
             </div>
           </mat-tab>
+          }
         </mat-tab-group>
       </div>
+      }
     }
   `,
   styles: `
@@ -355,6 +378,43 @@ export class SalesMenuPage {
 
   readonly summary = signal<SalesProductsSummary | null>(null);
   readonly kpis = signal<KpiItem[]>([]);
+
+  /** Usuarios → Reportes · Ventas → Configurar (la API ya borra lo que no corresponde). */
+  readonly vis = computed(() =>
+    normalizeReportVisibility(
+      'sales',
+      this.shops.selectedShop()?.reportsVisibility?.sales as Record<string, unknown> | null,
+    ),
+  );
+  readonly seeAmount = computed(() => reportCanSeeAmount(this.vis()));
+  readonly seeQty = computed(() => reportCanSeeQty(this.vis()));
+  readonly hasVisibleBlocks = computed(() => {
+    const v = this.vis();
+    return v['kpis'] || v['charts'] || v['tabProducts'] || v['tabCategories'] || v['tabDays'];
+  });
+  private static readonly AMOUNT_KPIS = new Set(['Importe total', 'Ticket prom.', '% top 10']);
+  private static readonly QTY_KPIS = new Set(['Unidades', 'Platos / pedido']);
+  readonly visibleKpis = computed(() =>
+    this.kpis().filter(
+      (k) =>
+        (this.seeAmount() || !SalesMenuPage.AMOUNT_KPIS.has(k.label)) &&
+        (this.seeQty() || !SalesMenuPage.QTY_KPIS.has(k.label)),
+    ),
+  );
+  private columnAllowed(key: string): boolean {
+    if ((key === 'amount' || key === 'share') && !this.seeAmount()) return false;
+    if (key === 'qty' && !this.seeQty()) return false;
+    return true;
+  }
+  readonly productColumnsVisible = computed(() =>
+    this.productColumns.filter((c) => this.columnAllowed(c.key)),
+  );
+  readonly categoryColumnsVisible = computed(() =>
+    this.categoryColumns.filter((c) => this.columnAllowed(c.key)),
+  );
+  readonly dayColumnsVisible = computed(() =>
+    this.dayColumns.filter((c) => this.columnAllowed(c.key)),
+  );
   readonly loading = signal(true);
   readonly products = signal<Record<string, unknown>[]>([]);
   readonly categories = signal<Record<string, unknown>[]>([]);
@@ -519,6 +579,7 @@ export class SalesMenuPage {
   }
 
   canDownload(): boolean {
+    if (!this.vis()['export']) return false;
     return (
       hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reports.export') ||
       hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reportsSales.read')

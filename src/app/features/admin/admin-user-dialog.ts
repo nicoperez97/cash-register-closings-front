@@ -59,6 +59,7 @@ import {
   normalizeShopConfigVisibility,
 } from '../../shared/shop-config-visibility';
 import type { ReportsProductsVisibility } from '../../shared/reports-products-visibility';
+import type { ReportsVisibility } from '../../shared/reports-visibility';
 import { asBool } from '../../core/utils/as-bool';
 import type { ShopProfilePreferences } from '../profile/profile-api.service';
 
@@ -85,6 +86,7 @@ export interface AdminUserRow {
   orderingConfigVisibility?: Partial<OrderingConfigVisibility> | null;
   shopConfigVisibility?: Partial<ShopConfigVisibility> | null;
   reportsProductsVisibility?: Partial<ReportsProductsVisibility> | null;
+  reportsVisibility?: Partial<ReportsVisibility> | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   requireClosingFiles?: boolean;

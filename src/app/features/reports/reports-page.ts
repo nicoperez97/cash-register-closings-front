@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -36,6 +36,7 @@ import { isUserVisible } from '../../shared/user-visibility';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { UserAvatarComponent } from '../../shared/components/user-avatar';
 import { formatMoney } from '../../shared/utils/money';
+import { normalizeReportVisibility } from '../../shared/reports-visibility';
 
 @Component({
   selector: 'app-reports-page',
@@ -209,8 +210,11 @@ import { formatMoney } from '../../shared/utils/money';
       </div>
     </div>
 
-    <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
+    @if (vis()['kpis']) {
+      <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
+    }
 
+    @if (vis()['detail']) {
     <div class="panel-card panel-card--flush mb-3">
       <div class="panel-card__body">
         <div class="guy-list-head">
@@ -232,6 +236,7 @@ import { formatMoney } from '../../shared/utils/money';
         />
       </div>
     </div>
+    }
 
     <div class="reports-extra mb-3">
       @if (balanceRows().length) {
@@ -248,7 +253,7 @@ import { formatMoney } from '../../shared/utils/money';
         </div>
       }
 
-      @if (expenseRows().length) {
+      @if (vis()['expenses'] && expenseRows().length) {
         <div class="panel-card panel-card--flush">
           <div class="panel-card__body">
             <div class="guy-list-head">
@@ -290,6 +295,13 @@ import { formatMoney } from '../../shared/utils/money';
   `,
 })
 export class ReportsPage {
+  /** Usuarios → Reportes → Configurar (la API ya borra lo que no corresponde). */
+  readonly vis = computed(() =>
+    normalizeReportVisibility(
+      'closings',
+      this.shops.selectedShop()?.reportsVisibility?.closings as Record<string, unknown> | null,
+    ),
+  );
   private readonly filtersUi = createFiltersCollapsed('reports');
   readonly filtersCollapsed = this.filtersUi.collapsed;
   readonly toggleFilters = this.filtersUi.toggleFilters;

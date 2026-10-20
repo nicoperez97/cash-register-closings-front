@@ -1,4 +1,5 @@
 import type { ReportsProductsVisibility } from '../../shared/reports-products-visibility';
+import type { ReportsVisibility } from '../../shared/reports-visibility';
 
 export type GlobalRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'CASHIER' | 'VIEWER' | 'PARTNER';
 
@@ -1824,6 +1825,8 @@ export interface ShopSummary {
   } | null;
   /** Visibilidad granular de Reportes · Ventas POS. */
   reportsProductsVisibility?: ReportsProductsVisibility | null;
+  /** Visibilidad granular de Cierres, Conceptos, Ventas y Estadísticas. */
+  reportsVisibility?: Partial<ReportsVisibility> | null;
   canEditExpenses?: boolean;
   canEditPayments?: boolean;
   /** En el cierre, si hay monto hay que adjuntar foto o archivo. */
