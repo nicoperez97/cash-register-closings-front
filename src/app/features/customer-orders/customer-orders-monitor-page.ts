@@ -281,7 +281,9 @@ export class CustomerOrdersMonitorPage {
     const delivery = count((o) => o.fulfillment === 'DELIVERY');
     const counter = count((o) => o.fulfillment === 'COUNTER');
     const accredited = count((o) => isOrderAccredited(o));
-    const total = rows.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const total = rows
+      .filter((o) => o.status !== 'CANCELLED')
+      .reduce((s, o) => s + (Number(o.total) || 0), 0);
     // Misma regla que el cierre: COMPLETED + countsAsUnits (y rubro si hay filtro).
     const unitsSold = rows
       .filter((o) => o.status === 'COMPLETED')
