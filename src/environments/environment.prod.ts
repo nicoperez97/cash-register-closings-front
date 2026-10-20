@@ -9,6 +9,7 @@ export const environment = {
    * true = siempre visible; false = oculto; null = mismo que false en prod.
    */
   demoLoginEnabled: true as boolean | null,
-  /** Sentry del front (DSN público del proyecto). Vacío = apagado. */
-  sentryDsn: '' as string,
+  /** Sentry del front (proyecto cierres-front; el DSN es público por diseño). Vacío = apagado. */
+  sentryDsn:
+    'https://99269a056d2cc01bf9f11c87e93c2f59@o4512284909109248.ingest.us.sentry.io/4512288866828288' as string,
 };
