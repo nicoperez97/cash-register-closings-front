@@ -38,6 +38,7 @@ import { FiltersCollapseBtnComponent } from '../../shared/components/filters-col
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
 import { parseIsoDateParts } from '../../core/shop/business-date';
 import { formatMoney, formatNumber } from '../../shared/utils/money';
+import { normalizeReportVisibility } from '../../shared/reports-visibility';
 
 import { apiErrorMessage } from '../../core/http/api-error-message';
 function formatDayLabelEs(isoDate: string): string {
@@ -293,8 +294,11 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
       </div>
     </ng-template>
 
-    <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
+    @if (vis()['kpis']) {
+      <app-kpi-strip class="mb-3" [items]="kpis()" [loading]="loading()" />
+    }
 
+    @if (vis()['charts']) {
     <div class="charts-grid mb-3">
       <app-donut-chart
         title="Mix por concepto"
@@ -330,9 +334,12 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
         />
       }
     </div>
+    }
 
+    @if (vis()['tabConcepts'] || vis()['tabDays']) {
     <div class="panel-card panel-card--flush mb-3">
       <mat-tab-group animationDuration="200ms" class="sales-tabs" preserveContent>
+        @if (vis()['tabConcepts']) {
         <mat-tab label="Detalle por concepto">
           <div class="panel-card__body">
             <div class="guy-list-head">
@@ -352,6 +359,8 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
             />
           </div>
         </mat-tab>
+        }
+        @if (vis()['tabDays']) {
         <mat-tab label="Por día">
           <div class="panel-card__body">
             <div class="guy-list-head">
@@ -369,8 +378,10 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
             />
           </div>
         </mat-tab>
+        }
       </mat-tab-group>
     </div>
+    }
     }
   `,
   styles: `
@@ -457,6 +468,13 @@ function periodBanner(kind: string | null | undefined, from?: string | null, to?
   `,
 })
 export class ConceptsReportPage {
+  /** Usuarios → Reportes → Configurar (la API ya borra lo que no corresponde). */
+  readonly vis = computed(() =>
+    normalizeReportVisibility(
+      'concepts',
+      this.shops.selectedShop()?.reportsVisibility?.concepts as Record<string, unknown> | null,
+    ),
+  );
   private readonly filtersUi = createFiltersCollapsed('reports-concepts');
   readonly filtersCollapsed = this.filtersUi.collapsed;
   readonly toggleFilters = this.filtersUi.toggleFilters;
@@ -629,6 +647,7 @@ export class ConceptsReportPage {
   }
 
   canExport(): boolean {
+    if (!this.vis()['export']) return false;
     return hasShopPermission(this.auth.currentUser(), this.shops.selectedShopId(), 'reports.export');
   }
 
