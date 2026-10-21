@@ -194,6 +194,7 @@ export class PushNotificationsService {
         return false;
       }
 
+      await this.ensureServiceWorkerControlling();
       // Suscripción vieja (otra clave VAPID / SW anterior) suele romper el subscribe.
       await this.clearBrowserPushSubscription();
 
@@ -223,6 +224,29 @@ export class PushNotificationsService {
     }
   }
 
+  /** Espera a que el SW controle esta pestaña (si no, el PushManager suele fallar). */
+  private async ensureServiceWorkerControlling(): Promise<void> {
+    if (navigator.serviceWorker.controller) return;
+    await navigator.serviceWorker.ready;
+    if (navigator.serviceWorker.controller) return;
+    await new Promise<void>((resolve) => {
+      const onChange = () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+        resolve();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onChange);
+      window.setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+        resolve();
+      }, 2500);
+    });
+    if (!navigator.serviceWorker.controller) {
+      throw new Error(
+        'El service worker aún no controla esta pestaña. Recargá la app (F5) e intentá de nuevo.',
+      );
+    }
+  }
+
   /** Quita una suscripción local previa (no toca el API). */
   private async clearBrowserPushSubscription(): Promise<void> {
     try {
@@ -243,20 +267,21 @@ export class PushNotificationsService {
     if (!reg.pushManager) {
       throw new Error('Este navegador no expone PushManager en el service worker');
     }
+    const applicationServerKey = this.urlBase64ToUint8Array(publicKey);
     return reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: this.urlBase64ToUint8Array(publicKey),
+      // Cast: TS 5.7 tipa Uint8Array con ArrayBufferLike; el runtime espera Uint8Array.
+      applicationServerKey: applicationServerKey as unknown as BufferSource,
     });
   }
 
-  private urlBase64ToUint8Array(base64String: string): BufferSource {
+  private urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
     const raw = atob(base64);
     const out = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-    // TS 5.7+: Uint8Array default buffer is ArrayBufferLike; Push API pide ArrayBuffer.
-    return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
+    return out;
   }
 
   private isBraveBrowser(): boolean {
@@ -270,13 +295,14 @@ export class PushNotificationsService {
       (err as Error)?.message ??
       'No se pudo activar';
     const msg = Array.isArray(raw) ? raw.join(', ') : String(raw);
+    if (/service worker aún no controla/i.test(msg)) return msg;
     if (/push service error/i.test(msg)) {
       if (this.isBraveBrowser()) {
         return 'Brave bloquea el push de Google. En brave://settings/privacy activá “Use Google services for push messaging” y reintentá.';
       }
-      return 'El navegador no pudo registrar push. Probá en Chrome, o borrá datos del sitio / desinstalá la PWA y volvé a instalar desde /admin.';
+      return 'Chrome no pudo hablar con el servicio de push (FCM). Probá ventana de incógnito o https://gauntface.github.io/simple-push-demo — si ahí también falla, es el navegador/PC, no la app.';
     }
-    if (/permission/i.test(msg) && /denied|denied/i.test(msg)) {
+    if (/permission/i.test(msg) && /denied/i.test(msg)) {
       return 'Permiso de notificaciones denegado';
     }
     return msg;
