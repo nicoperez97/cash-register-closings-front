@@ -926,32 +926,13 @@
   color: var(--muted);
 }
 
-.fire-mains {
-  margin: 0.75rem 0 1rem;
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--accent, #0b5cab) 35%, transparent);
-  background: color-mix(in srgb, var(--accent, #0b5cab) 8%, transparent);
-}
-
-.fire-mains__btn {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-}
-
-.fire-mains__btn em {
-  font-style: normal;
-  font-weight: 800;
-  opacity: 0.85;
-}
-
-.fire-mains__hint {
+.sent-card__notes {
   margin: 0.45rem 0 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
   font-size: 0.8rem;
   color: var(--muted);
+  background: color-mix(in srgb, var(--ink, #111) 4%, transparent);
 }
 
 .pos__catalog {

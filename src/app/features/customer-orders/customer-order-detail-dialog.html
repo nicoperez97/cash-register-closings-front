@@ -30,52 +30,235 @@
   </section>
 
   <section class="cod__block">
-    <h3>Ítems</h3>
-    <ul class="cod__items">
-      @for (g of itemGroups(); track $index) {
-        @if (g.item; as it) {
-          <li>
-            <div class="cod__item-row">
-              <span>{{ it.qty }}× {{ it.name }}</span>
-              <span>{{ money(lineAmount(it)) }}</span>
-            </div>
-            @if (it.notes) {
-              <p class="cod__item-note">{{ it.notes }}</p>
-            }
-            @if (it.removedIngredients?.length) {
-              <p class="cod__item-note">Sin {{ it.removedIngredients.join(', ') }}</p>
-            }
-          </li>
-        }
-        @for (ex of g.extras; track $index) {
-          <li class="cod__extra">
-            <div class="cod__item-row">
-              <span>+ {{ ex.name }}</span>
-              <span>{{ money(lineAmount(ex)) }}</span>
-            </div>
-            @if (ex.notes) {
-              <p class="cod__item-note">{{ ex.notes }}</p>
-            }
-          </li>
-        }
+    <div class="cod__block-head">
+      <h3>Ítems</h3>
+      @if (canEdit() && !editing()) {
+        <button type="button" class="cod__link" [disabled]="busy()" (click)="startEdit()">
+          Editar pedido
+        </button>
       }
-    </ul>
-    <div class="cod__totals">
-      <div><span>Subtotal</span><span>{{ money(order().subtotal) }}</span></div>
-      @if ((order().discountAmount ?? 0) > 0) {
-        <div>
-          <span>Desc. {{ order().discountLabel || '' }}</span>
-          <span>−{{ money(order().discountAmount ?? 0) }}</span>
-        </div>
-      }
-      @if ((order().deliveryFee ?? 0) > 0) {
-        <div><span>Envío</span><span>{{ money(order().deliveryFee) }}</span></div>
-      }
-      <div class="cod__totals-strong">
-        <span>Total</span><span>{{ money(order().total) }}</span>
-      </div>
     </div>
+
+    @if (editing()) {
+      <ul class="cod__edit-lines">
+        @for (line of draftLines(); track line.key) {
+          <li>
+            <div class="cod__edit-top">
+              <strong>{{ line.name }}</strong>
+              <button
+                type="button"
+                class="cod__link cod__link--danger"
+                (click)="removeDraft(line)"
+                [disabled]="busy()"
+              >
+                Quitar
+              </button>
+            </div>
+            <div class="cod__edit-controls">
+              <div class="cod__qty">
+                <button type="button" (click)="bumpDraft(line, -1)" [disabled]="busy()">−</button>
+                <span>{{ line.qty }}</span>
+                <button type="button" (click)="bumpDraft(line, 1)" [disabled]="busy()">+</button>
+              </div>
+              <label class="cod__price">
+                <span>$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  [ngModel]="line.unitPrice"
+                  (ngModelChange)="setDraftPrice(line, $event)"
+                  [disabled]="busy()"
+                />
+              </label>
+              <span class="cod__edit-amt">{{ money(line.unitPrice * line.qty) }}</span>
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (adding()) {
+        <div class="cod__add">
+          <input
+            type="search"
+            class="cod__add-q"
+            placeholder="Buscar en la carta…"
+            [ngModel]="addQuery()"
+            (ngModelChange)="addQuery.set($event)"
+          />
+          <ul class="cod__add-list">
+            @for (it of filteredCatalogItems(); track it.id) {
+              <li>
+                <button type="button" (click)="addFromCatalog(it)" [disabled]="busy()">
+                  <span>{{ it.name }}</span>
+                  <span>{{ money(it.price) }}</span>
+                </button>
+              </li>
+            } @empty {
+              <li class="cod__muted">Sin resultados</li>
+            }
+          </ul>
+          <button type="button" class="cod__link" (click)="adding.set(false)">Cerrar carta</button>
+        </div>
+      } @else {
+        <p>
+          <button type="button" class="cod__chip" (click)="openAddPicker()" [disabled]="busy()">
+            <mat-icon>add</mat-icon>
+            Agregar producto
+          </button>
+        </p>
+      }
+
+      <div class="cod__discount">
+        <span class="cod__discount-label">Descuento</span>
+        <div class="cod__chips">
+          <button
+            type="button"
+            class="cod__chip"
+            [class.cod__chip--on]="discountMode() === 'none'"
+            (click)="setDiscountMode('none')"
+          >
+            No
+          </button>
+          @for (p of discountPresets(); track p.id) {
+            <button
+              type="button"
+              class="cod__chip"
+              [class.cod__chip--on]="discountPresetId() === p.id"
+              (click)="applyDiscountPreset(p)"
+            >
+              {{ p.label }}
+            </button>
+          }
+          <button
+            type="button"
+            class="cod__chip"
+            [class.cod__chip--on]="discountMode() === 'percent' && !discountPresetId()"
+            (click)="setDiscountMode('percent')"
+          >
+            %
+          </button>
+          <button
+            type="button"
+            class="cod__chip"
+            [class.cod__chip--on]="discountMode() === 'fixed' && !discountPresetId()"
+            (click)="setDiscountMode('fixed')"
+          >
+            $
+          </button>
+        </div>
+        @if (showDiscountInput()) {
+          <input
+            type="number"
+            min="0"
+            class="cod__disc-input"
+            [attr.max]="discountMode() === 'percent' ? 100 : null"
+            step="1"
+            [ngModel]="discountValue()"
+            (ngModelChange)="discountValue.set($event === '' || $event == null ? null : +$event)"
+            [placeholder]="discountMode() === 'percent' ? 'ej. 10' : 'ej. 500'"
+          />
+        }
+      </div>
+
+      <label class="cod__note">
+        <span>Nota del cambio (opcional)</span>
+        <input type="text" maxlength="200" [ngModel]="editNote()" (ngModelChange)="editNote.set($event)" />
+      </label>
+
+      <div class="cod__totals">
+        <div><span>Subtotal</span><span>{{ money(draftSubtotal()) }}</span></div>
+        @if (draftDiscountAmount() > 0) {
+          <div><span>Descuento</span><span>−{{ money(draftDiscountAmount()) }}</span></div>
+        }
+        @if ((order().deliveryFee ?? 0) > 0) {
+          <div><span>Envío</span><span>{{ money(order().deliveryFee) }}</span></div>
+        }
+        <div class="cod__totals-strong">
+          <span>Total</span><span>{{ money(draftTotal()) }}</span>
+        </div>
+      </div>
+
+      <div class="cod__edit-actions">
+        <button type="button" class="cod__link" [disabled]="busy()" (click)="cancelEdit()">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="cod__chip cod__chip--go"
+          [disabled]="busy() || !draftLines().length"
+          (click)="saveEdit()"
+        >
+          Guardar cambios
+        </button>
+      </div>
+    } @else {
+      <ul class="cod__items">
+        @for (g of itemGroups(); track $index) {
+          @if (g.item; as it) {
+            <li>
+              <div class="cod__item-row">
+                <span>{{ it.qty }}× {{ it.name }}</span>
+                <span>{{ money(lineAmount(it)) }}</span>
+              </div>
+              @if (it.notes) {
+                <p class="cod__item-note">{{ it.notes }}</p>
+              }
+              @if (it.removedIngredients?.length) {
+                <p class="cod__item-note">Sin {{ it.removedIngredients.join(', ') }}</p>
+              }
+            </li>
+          }
+          @for (ex of g.extras; track $index) {
+            <li class="cod__extra">
+              <div class="cod__item-row">
+                <span>+ {{ ex.name }}</span>
+                <span>{{ money(lineAmount(ex)) }}</span>
+              </div>
+              @if (ex.notes) {
+                <p class="cod__item-note">{{ ex.notes }}</p>
+              }
+            </li>
+          }
+        }
+      </ul>
+      <div class="cod__totals">
+        <div><span>Subtotal</span><span>{{ money(order().subtotal) }}</span></div>
+        @if ((order().discountAmount ?? 0) > 0) {
+          <div>
+            <span>Desc. {{ order().discountLabel || '' }}</span>
+            <span>−{{ money(order().discountAmount ?? 0) }}</span>
+          </div>
+        }
+        @if ((order().deliveryFee ?? 0) > 0) {
+          <div><span>Envío</span><span>{{ money(order().deliveryFee) }}</span></div>
+        }
+        <div class="cod__totals-strong">
+          <span>Total</span><span>{{ money(order().total) }}</span>
+        </div>
+      </div>
+    }
   </section>
+
+  @if (audits().length) {
+    <section class="cod__block">
+      <h3>Historial de cambios</h3>
+      <ul class="cod__audits">
+        @for (a of audits(); track a.id) {
+          <li>
+            <div class="cod__audit-main">{{ auditLabel(a) }}</div>
+            <div class="cod__audit-meta">
+              {{ a.actorName }}
+              · {{ a.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+              @if (a.note) {
+                · {{ a.note }}
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
 
   <section class="cod__block">
     <h3>Pago</h3>
@@ -205,7 +388,7 @@
     </ul>
   </section>
 
-  @if (canManage && (canAcredit() || canDesacredit() || backAction() || forwardAction())) {
+  @if (!editing() && canManage && (canAcredit() || canDesacredit() || backAction() || forwardAction())) {
     <section class="cod__flow" aria-label="Cambiar estado">
       <div class="cod__flow-pay">
         @if (canAcredit()) {
@@ -263,7 +446,7 @@
 </mat-dialog-content>
 
 <mat-dialog-actions class="cod__actions">
-  @if (canManage && order().status !== 'CANCELLED' && order().status !== 'COMPLETED') {
+  @if (!editing() && canManage && order().status !== 'CANCELLED' && order().status !== 'COMPLETED') {
     <button
       type="button"
       class="cod__link cod__link--danger"
@@ -276,9 +459,11 @@
 
   <span class="cod__actions-spacer"></span>
 
-  <button type="button" class="cod__link" (click)="close()">Cerrar</button>
+  <button type="button" class="cod__link" (click)="close()">
+    {{ editing() ? 'Volver' : 'Cerrar' }}
+  </button>
 
-  @if (canRequestDeliverate()) {
+  @if (!editing() && canRequestDeliverate()) {
     <button
       type="button"
       class="cod__chip cod__chip--deliverate"

@@ -438,26 +438,14 @@
                     </li>
                   }
                 </ul>
+                @if (o.customerNotes) {
+                  <p class="sent-card__notes">Nota: {{ o.customerNotes }}</p>
+                }
               </li>
             }
           </ul>
         }
       </section>
-
-      @if (capabilities().allowPrintKitchen && (s?.pendingMainsCount ?? 0) > 0) {
-        <div class="fire-mains anim-in">
-          <button
-            type="button"
-            class="btn btn--primary fire-mains__btn"
-            [disabled]="busy()"
-            (click)="fireMains()"
-          >
-            Mandar principales
-            <em>{{ s!.pendingMainsCount }}</em>
-          </button>
-          <p class="fire-mains__hint">Imprime en cocina solo lo que no es entrada y todavía no se disparó.</p>
-        </div>
-      }
 
       @if (lineAudits().length) {
         <section class="session-fold anim-in" [class.session-fold--open]="sessionAuditOpen()">
@@ -883,18 +871,16 @@
                 <p class="total">Total {{ money(subtotal()) }}</p>
               }
 
-              @if (cartDetail()) {
-                <label class="notes">
-                  Nota
-                  <textarea
-                    rows="2"
-                    [ngModel]="notes()"
-                    (ngModelChange)="notes.set($event)"
-                    name="notes"
-                    placeholder="Sin cebolla…"
-                  ></textarea>
-                </label>
-              }
+              <label class="notes">
+                Nota
+                <textarea
+                  rows="2"
+                  [ngModel]="notes()"
+                  (ngModelChange)="notes.set($event)"
+                  name="notes"
+                  placeholder="Sin cebolla, al punto…"
+                ></textarea>
+              </label>
 
               @if (!isCounterSession()) {
                 <div class="checks">
@@ -978,7 +964,7 @@
         </mat-form-field>
         @if (!staffWaiters().length) {
           <p class="muted covers-waiter__hint">
-            No hay mozos cargados. Marcá el rol Mozo o un PIN en Empleados.
+            No hay mozos cargados. En Empleados activá «Mostrar en Comanda (Mozo a cargo)».
           </p>
         }
       } @else if (staffMode) {
@@ -1283,6 +1269,9 @@
     <p class="sheet__total">
       <span>A cobrar</span><strong>{{ money(closeToCollect()) }}</strong>
     </p>
+    @if (closeToCollect() <= 0.02) {
+      <p class="muted close-pay-hint">Total $0 (descuento total). Podés cerrar sin cobro.</p>
+    }
 
     <div class="sheet__field">
       <span class="sheet__label">Formas de pago</span>

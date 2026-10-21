@@ -205,9 +205,12 @@ button:disabled {
 }
 
 .timeline {
+  --timeline-dot: 0.85rem;
+  --timeline-dot-nudge: 0.15rem;
+  --timeline-step-pad: 0.45rem;
   list-style: none;
   margin: 0.35rem 0 0.15rem;
-  padding: 0.35rem 0 0.15rem 0.15rem;
+  padding: 0.35rem 0 0.15rem;
   display: grid;
   gap: 0;
   border-top: 1px solid var(--line);
@@ -215,11 +218,11 @@ button:disabled {
 
 .timeline li {
   display: grid;
-  grid-template-columns: 1.1rem 1fr;
-  gap: 0.55rem;
+  grid-template-columns: var(--timeline-dot) 1fr;
+  column-gap: 0.65rem;
   align-items: start;
   position: relative;
-  padding: 0.45rem 0;
+  padding: var(--timeline-step-pad) 0;
   animation: ord-status-in var(--ord-dur-slow) var(--ord-ease) both;
 }
 
@@ -232,11 +235,17 @@ button:disabled {
 .timeline li:not(:last-child)::before {
   content: '';
   position: absolute;
-  left: 0.42rem;
-  top: 1.15rem;
-  bottom: -0.1rem;
+  left: calc(var(--timeline-dot) / 2);
+  transform: translateX(-50%);
+  top: calc(
+    var(--timeline-step-pad) + var(--timeline-dot-nudge) + var(--timeline-dot) / 2
+  );
+  bottom: calc(
+    -1 * (var(--timeline-step-pad) + var(--timeline-dot-nudge) + var(--timeline-dot) / 2)
+  );
   width: 2px;
   background: var(--line);
+  z-index: 0;
 }
 
 .timeline li[data-state='done']:not(:last-child)::before,
@@ -245,13 +254,15 @@ button:disabled {
 }
 
 .timeline__dot {
-  width: 0.85rem;
-  height: 0.85rem;
-  margin-top: 0.15rem;
+  width: var(--timeline-dot);
+  height: var(--timeline-dot);
+  margin-top: var(--timeline-dot-nudge);
   border-radius: 50%;
   border: 2px solid var(--line);
   background: #fff;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 li[data-state='done'] .timeline__dot {

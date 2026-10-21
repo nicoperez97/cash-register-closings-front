@@ -61,6 +61,8 @@ export interface Employee {
   countsForAttendanceBonus?: boolean;
   /** Si aparece en Asistencia → Fichar (default true). */
   showInFichar?: boolean;
+  /** Si aparece como Mozo a cargo en Operación → Comanda. */
+  showInComanda?: boolean;
   /** Si produce comida → aparece en asistencia de producción. */
   producesFood?: boolean;  /** Productor supervisor a cargo. */
   supervisorEmployeeId?: string | null;

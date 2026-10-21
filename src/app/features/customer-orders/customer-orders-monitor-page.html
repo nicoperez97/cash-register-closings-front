@@ -132,6 +132,123 @@
         }
       </div>
 
+      <div class="mon-shift" [class.mon-shift--open]="fulfillmentMenuOpen()">
+        <button
+          type="button"
+          class="mon-tool"
+          [class.mon-tool--filter-on]="!!filterFulfillment()"
+          (click)="toggleFulfillmentMenu($event)"
+          [attr.aria-expanded]="fulfillmentMenuOpen()"
+          [attr.aria-label]="'Tipo: ' + selectedFulfillmentLabel()"
+          title="Filtrar por tipo de pedido"
+        >
+          <mat-icon>storefront</mat-icon>
+          <span>{{ selectedFulfillmentLabel() }}</span>
+          <mat-icon class="mon-tool__caret">expand_more</mat-icon>
+        </button>
+        @if (fulfillmentMenuOpen()) {
+          <div class="mon-shift__panel" role="listbox" (click)="$event.stopPropagation()">
+            <div class="mon-shift__head">Tipo</div>
+            <button
+              type="button"
+              class="mon-shift__option"
+              role="option"
+              [attr.aria-selected]="!filterFulfillment()"
+              [class.mon-shift__option--on]="!filterFulfillment()"
+              (click)="selectFulfillment('', $event)"
+            >
+              <span class="mon-shift__check" aria-hidden="true">
+                @if (!filterFulfillment()) {
+                  <mat-icon>check</mat-icon>
+                }
+              </span>
+              <span class="mon-shift__label"><strong>Todos</strong></span>
+            </button>
+            @for (opt of fulfillmentOptions; track opt.value) {
+              <button
+                type="button"
+                class="mon-shift__option"
+                role="option"
+                [attr.aria-selected]="filterFulfillment() === opt.value"
+                [class.mon-shift__option--on]="filterFulfillment() === opt.value"
+                (click)="selectFulfillment(opt.value, $event)"
+              >
+                <span class="mon-shift__check" aria-hidden="true">
+                  @if (filterFulfillment() === opt.value) {
+                    <mat-icon>check</mat-icon>
+                  }
+                </span>
+                <span class="mon-shift__label"><strong>{{ opt.label }}</strong></span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="mon-shift" [class.mon-shift--open]="paymentMenuOpen()">
+        <button
+          type="button"
+          class="mon-tool"
+          [class.mon-tool--filter-on]="!!filterPaymentMethod()"
+          (click)="togglePaymentMenu($event)"
+          [attr.aria-expanded]="paymentMenuOpen()"
+          [attr.aria-label]="'Pago: ' + selectedPaymentLabel()"
+          title="Filtrar por medio de pago"
+        >
+          <mat-icon>payments</mat-icon>
+          <span>{{ selectedPaymentLabel() }}</span>
+          <mat-icon class="mon-tool__caret">expand_more</mat-icon>
+        </button>
+        @if (paymentMenuOpen()) {
+          <div class="mon-shift__panel" role="listbox" (click)="$event.stopPropagation()">
+            <div class="mon-shift__head">Pago</div>
+            <button
+              type="button"
+              class="mon-shift__option"
+              role="option"
+              [attr.aria-selected]="!filterPaymentMethod()"
+              [class.mon-shift__option--on]="!filterPaymentMethod()"
+              (click)="selectPayment('', $event)"
+            >
+              <span class="mon-shift__check" aria-hidden="true">
+                @if (!filterPaymentMethod()) {
+                  <mat-icon>check</mat-icon>
+                }
+              </span>
+              <span class="mon-shift__label"><strong>Todos</strong></span>
+            </button>
+            @for (opt of paymentOptions; track opt.value) {
+              <button
+                type="button"
+                class="mon-shift__option"
+                role="option"
+                [attr.aria-selected]="filterPaymentMethod() === opt.value"
+                [class.mon-shift__option--on]="filterPaymentMethod() === opt.value"
+                (click)="selectPayment(opt.value, $event)"
+              >
+                <span class="mon-shift__check" aria-hidden="true">
+                  @if (filterPaymentMethod() === opt.value) {
+                    <mat-icon>check</mat-icon>
+                  }
+                </span>
+                <span class="mon-shift__label"><strong>{{ opt.label }}</strong></span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="mon-tool"
+        [class.mon-tool--filter-on]="filterEditedOnly()"
+        (click)="toggleEditedOnly($event)"
+        title="Solo pedidos con cambios de ítems, precio o descuento"
+      >
+        <mat-icon>edit_note</mat-icon>
+        <span>Editados</span>
+      </button>
+
       @if (!isLiveView()) {
         <button
           type="button"
@@ -244,6 +361,27 @@
                       <span class="mon-card__wait">Sin acreditar</span>
                     }
                   </p>
+                  @if (orderEdits(o).length) {
+                    <div class="mon-card__edits">
+                      <p class="mon-card__edited">
+                        Cambios
+                        @if ((o.editCount ?? 0) > orderEdits(o).length) {
+                          · {{ o.editCount }}
+                        }
+                      </p>
+                      <ul>
+                        @for (e of orderEdits(o); track e.id) {
+                          <li>
+                            <span>{{ auditLabel(e) }}</span>
+                            <small>
+                              {{ e.actorName }}
+                              · {{ e.createdAt | date: 'dd/MM HH:mm' }}
+                            </small>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
                   <p class="mon-card__total">{{ money(o.total) }}</p>
                 </article>
               }

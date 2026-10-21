@@ -26,12 +26,21 @@ import { copyText } from '../../shared/utils/share-text';
 import { MatDialog } from '@angular/material/dialog';
 import { environment } from '../../../environments/environment';
 import {
+  CustomerOrderAudit,
+  CustomerOrderFulfillment,
+  CustomerOrderPaymentMethod,
   CustomerOrderStatus,
   CustomerOrdersApiService,
   StaffCustomerOrder,
 } from './customer-orders-api.service';
+import { formatCustomerOrderAuditLabel } from './customer-order-audit.util';
 import { isOrderAccredited, orderPaymentText, STATUS_LABEL } from './customer-orders-status.util';
-import { groupOrderLines, OrderLineGroup } from './ordering-ui.util';
+import {
+  fulfillmentLabel,
+  groupOrderLines,
+  paymentLabel,
+  OrderLineGroup,
+} from './ordering-ui.util';
 import { playCustomerOrderPendingSound, bindReservationAlertSoundUnlock } from '../reservations/reservation-alert-sound';
 
 type BoardColumnId = 'pending' | 'kitchen' | 'ready' | 'delivery' | 'done' | 'cancelled';
@@ -130,9 +139,26 @@ export class CustomerOrdersMonitorPage {
   readonly filterTo = signal<string | null>(null);
   readonly filterShiftIds = signal<string[]>([]);
   readonly filterCategoryId = signal('');
+  readonly filterEditedOnly = signal(false);
+  readonly filterFulfillment = signal<CustomerOrderFulfillment | ''>('');
+  readonly filterPaymentMethod = signal<CustomerOrderPaymentMethod | ''>('');
   readonly shiftMenuOpen = signal(false);
   readonly categoryMenuOpen = signal(false);
+  readonly fulfillmentMenuOpen = signal(false);
+  readonly paymentMenuOpen = signal(false);
   readonly posCategories = signal<Array<{ id: string; name: string }>>([]);
+
+  readonly fulfillmentOptions: Array<{ value: CustomerOrderFulfillment; label: string }> = [
+    { value: 'TAKEAWAY', label: fulfillmentLabel('TAKEAWAY') },
+    { value: 'DELIVERY', label: fulfillmentLabel('DELIVERY') },
+    { value: 'COUNTER', label: fulfillmentLabel('COUNTER') },
+  ];
+
+  readonly paymentOptions: Array<{ value: CustomerOrderPaymentMethod; label: string }> = [
+    { value: 'CASH', label: paymentLabel('CASH') },
+    { value: 'TRANSFER', label: paymentLabel('TRANSFER') },
+    { value: 'CARD', label: paymentLabel('CARD') },
+  ];
   private readonly countsAsUnitsByItem = signal<Map<string, boolean>>(new Map());
   private readonly categoryByItem = signal<Map<string, string>>(new Map());
   private lastKnownIds = new Set<string>();
@@ -153,19 +179,44 @@ export class CustomerOrdersMonitorPage {
     return this.posCategories().find((c) => c.id === id)?.name || 'Rubro';
   });
 
-  /** Pedidos visibles según filtro de rubro (si hay). */
+  readonly selectedFulfillmentLabel = computed(() => {
+    const v = this.filterFulfillment();
+    if (!v) return 'Tipo';
+    return this.fulfillmentOptions.find((o) => o.value === v)?.label || 'Tipo';
+  });
+
+  readonly selectedPaymentLabel = computed(() => {
+    const v = this.filterPaymentMethod();
+    if (!v) return 'Pago';
+    return this.paymentOptions.find((o) => o.value === v)?.label || 'Pago';
+  });
+
+  /** Pedidos visibles según filtros de rubro / editados / canal / pago. */
   readonly visibleOrders = computed(() => {
-    const rows = this.orders();
+    let rows = this.orders();
     const cat = this.filterCategoryId();
-    if (!cat) return rows;
-    const map = this.categoryByItem();
-    return rows.filter((o) =>
-      (o.items ?? []).some((line) => {
-        if (String(line.kind || 'ITEM').toUpperCase() === 'EXTRA') return false;
-        const mid = String(line.menuItemId ?? '').trim();
-        return !!mid && map.get(mid) === cat;
-      }),
-    );
+    if (cat) {
+      const map = this.categoryByItem();
+      rows = rows.filter((o) =>
+        (o.items ?? []).some((line) => {
+          if (String(line.kind || 'ITEM').toUpperCase() === 'EXTRA') return false;
+          const mid = String(line.menuItemId ?? '').trim();
+          return !!mid && map.get(mid) === cat;
+        }),
+      );
+    }
+    if (this.filterEditedOnly()) {
+      rows = rows.filter((o) => (o.editCount ?? 0) > 0 || (o.edits?.length ?? 0) > 0);
+    }
+    const fulfillment = this.filterFulfillment();
+    if (fulfillment) {
+      rows = rows.filter((o) => o.fulfillment === fulfillment);
+    }
+    const payment = this.filterPaymentMethod();
+    if (payment) {
+      rows = rows.filter((o) => o.paymentMethod === payment);
+    }
+    return rows;
   });
 
   readonly isLiveView = computed(() => {
@@ -222,14 +273,19 @@ export class CustomerOrdersMonitorPage {
   );
 
   readonly emptyMessage = computed(() => {
-    if (this.isLiveView()) {
-      return 'No hay pedidos en este turno. Cuando confirmen en /pedir, aparecen acá.';
-    }
-    if (!this.filterShiftIds().length) {
+    if (!this.filterShiftIds().length && !this.isLiveView()) {
       return 'Elegí al menos un turno para ver pedidos.';
     }
-    if (this.filterCategoryId()) {
-      return 'No hay pedidos con ítems de ese rubro para el día y los turnos elegidos.';
+    if (
+      this.filterEditedOnly() ||
+      this.filterFulfillment() ||
+      this.filterPaymentMethod() ||
+      this.filterCategoryId()
+    ) {
+      return 'No hay pedidos con esos filtros.';
+    }
+    if (this.isLiveView()) {
+      return 'No hay pedidos en este turno. Cuando confirmen en /pedir, aparecen acá.';
     }
     return 'No hay pedidos para el día y los turnos elegidos.';
   });
@@ -334,6 +390,9 @@ export class CustomerOrdersMonitorPage {
         this.lastKnownIds = new Set();
         this.skipChime = true;
         this.filterCategoryId.set('');
+        this.filterEditedOnly.set(false);
+        this.filterFulfillment.set('');
+        this.filterPaymentMethod.set('');
         this.resetToLive();
         this.loadMenuMaps();
         this.reload();
@@ -369,28 +428,49 @@ export class CustomerOrdersMonitorPage {
     return shiftHoursLabel(shift);
   }
 
-  openDatePicker(): void {
+  private closeAllFilterMenus(): void {
     this.shiftMenuOpen.set(false);
     this.categoryMenuOpen.set(false);
+    this.fulfillmentMenuOpen.set(false);
+    this.paymentMenuOpen.set(false);
+  }
+
+  openDatePicker(): void {
+    this.closeAllFilterMenus();
     this.datePicker()?.open();
   }
 
   toggleShiftMenu(event?: Event): void {
     event?.stopPropagation();
-    this.categoryMenuOpen.set(false);
-    this.shiftMenuOpen.update((open) => !open);
+    const next = !this.shiftMenuOpen();
+    this.closeAllFilterMenus();
+    this.shiftMenuOpen.set(next);
   }
 
   toggleCategoryMenu(event?: Event): void {
     event?.stopPropagation();
-    this.shiftMenuOpen.set(false);
-    this.categoryMenuOpen.update((open) => !open);
+    const next = !this.categoryMenuOpen();
+    this.closeAllFilterMenus();
+    this.categoryMenuOpen.set(next);
+  }
+
+  toggleFulfillmentMenu(event?: Event): void {
+    event?.stopPropagation();
+    const next = !this.fulfillmentMenuOpen();
+    this.closeAllFilterMenus();
+    this.fulfillmentMenuOpen.set(next);
+  }
+
+  togglePaymentMenu(event?: Event): void {
+    event?.stopPropagation();
+    const next = !this.paymentMenuOpen();
+    this.closeAllFilterMenus();
+    this.paymentMenuOpen.set(next);
   }
 
   @HostListener('document:click')
   closeMenus(): void {
-    if (this.shiftMenuOpen()) this.shiftMenuOpen.set(false);
-    if (this.categoryMenuOpen()) this.categoryMenuOpen.set(false);
+    this.closeAllFilterMenus();
   }
 
   isShiftSelected(id: string): boolean {
@@ -411,6 +491,35 @@ export class CustomerOrdersMonitorPage {
     event?.stopPropagation();
     this.filterCategoryId.set(id);
     this.categoryMenuOpen.set(false);
+  }
+
+  toggleEditedOnly(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.closeAllFilterMenus();
+    this.filterEditedOnly.update((v) => !v);
+  }
+
+  selectFulfillment(value: CustomerOrderFulfillment | '', event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.filterFulfillment.set(value);
+    this.fulfillmentMenuOpen.set(false);
+  }
+
+  selectPayment(value: CustomerOrderPaymentMethod | '', event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.filterPaymentMethod.set(value);
+    this.paymentMenuOpen.set(false);
+  }
+
+  auditLabel(a: CustomerOrderAudit): string {
+    return formatCustomerOrderAuditLabel(a);
+  }
+
+  orderEdits(order: StaffCustomerOrder): CustomerOrderAudit[] {
+    return order.edits ?? [];
   }
 
   resetToLive(): void {

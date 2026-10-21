@@ -194,6 +194,34 @@ export interface PublicCustomerOrder {
   cancelledAt?: string | null;
 }
 
+export type CustomerOrderAuditAction =
+  | 'ADD'
+  | 'REMOVE'
+  | 'QTY'
+  | 'PRICE'
+  | 'EDIT'
+  | 'DISCOUNT';
+
+export interface CustomerOrderAudit {
+  id: string;
+  action: CustomerOrderAuditAction;
+  lineIndex?: number | null;
+  itemName?: string | null;
+  lineKind?: string | null;
+  qtyBefore?: number | null;
+  qtyAfter?: number | null;
+  unitPriceBefore?: number | null;
+  unitPriceAfter?: number | null;
+  discountBefore?: number | null;
+  discountAfter?: number | null;
+  discountLabelBefore?: string | null;
+  discountLabelAfter?: string | null;
+  actorUserId?: string | null;
+  actorName: string;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface StaffCustomerOrder extends PublicCustomerOrder {
   id: string;
   shopId: string;
@@ -210,6 +238,32 @@ export interface StaffCustomerOrder extends PublicCustomerOrder {
   externalId?: string | null;
   externalMeta?: Record<string, unknown> | null;
   updatedAt?: string | null;
+  /** Cantidad de cambios registrados (edición de ítems/descuento). */
+  editCount?: number;
+  /** Cambios recientes (más nuevos primero). */
+  edits?: CustomerOrderAudit[];
+}
+
+export interface PatchCustomerOrderBody {
+  items: Array<{
+    menuItemId: string;
+    name: string;
+    qty: number;
+    unitPrice: number;
+    notes?: string | null;
+    kind?: 'ITEM' | 'EXTRA' | 'PROMO' | null;
+    extraId?: string | null;
+    attachedToMenuItemId?: string | null;
+    promoId?: string | null;
+    promoBundleKey?: string | null;
+    removedIngredients?: string[];
+    isEntrada?: boolean;
+    combinesWithNames?: string[];
+  }>;
+  discountPercent?: number | null;
+  discountFixed?: number | null;
+  clearDiscount?: boolean;
+  note?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -335,6 +389,19 @@ export class CustomerOrdersApiService {
     return this.http.patch<StaffCustomerOrder>(
       `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}/status`,
       { status },
+    );
+  }
+
+  patchOrder(shopId: string, id: string, body: PatchCustomerOrderBody) {
+    return this.http.patch<{ order: StaffCustomerOrder; audits: CustomerOrderAudit[] }>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}`,
+      body,
+    );
+  }
+
+  listOrderAudits(shopId: string, id: string) {
+    return this.http.get<CustomerOrderAudit[]>(
+      `${environment.apiUrl}/shops/${encodeURIComponent(shopId)}/customer-orders/${encodeURIComponent(id)}/audits`,
     );
   }
 
