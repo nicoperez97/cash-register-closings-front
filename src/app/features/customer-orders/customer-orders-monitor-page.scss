@@ -3,6 +3,7 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .mon-shell {
@@ -11,9 +12,13 @@
   min-height: 0;
   height: 100%;
   padding: 0.85rem 1rem 1rem;
+  overflow: hidden;
 }
 
 .mon-top {
+  position: relative;
+  z-index: 40;
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -76,6 +81,7 @@
 }
 
 .mon-summary {
+  flex: 0 0 auto;
   margin: 0 0 0.75rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--guy-border, #d7e0d9);
@@ -166,9 +172,12 @@
   position: absolute;
   top: calc(100% + 0.35rem);
   right: 0;
-  z-index: 20;
+  z-index: 50;
   min-width: max(100%, 14.5rem);
   max-width: min(92vw, 20rem);
+  max-height: min(60vh, 20rem);
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 0.4rem;
   border: 1px solid var(--guy-border, #d7e0d9);
   border-radius: 14px;
@@ -338,8 +347,9 @@
   display: grid;
   grid-template-columns: repeat(var(--mon-cols), minmax(0, 1fr));
   gap: 0.65rem;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .mon-col {
@@ -396,11 +406,17 @@
   padding: 0.5rem;
   overflow: auto;
   min-height: 0;
+  scrollbar-gutter: stable;
 }
 
 .mon-col__empty,
 .mon-empty {
-  margin: 0.75rem 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-height: 0;
   text-align: center;
   color: var(--guy-muted, #5f6f76);
   font-size: 0.88rem;
@@ -510,6 +526,44 @@
 
 .mon-card__wait {
   color: #9a6700;
+}
+
+.mon-card__edits {
+  margin: 0.4rem 0 0;
+  padding: 0.4rem 0.45rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, #5b21b6 8%, #fff);
+  border: 1px solid color-mix(in srgb, #5b21b6 18%, #e8e0f0);
+}
+
+.mon-card__edited {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b21b6;
+}
+
+.mon-card__edits ul {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.mon-card__edits li {
+  display: grid;
+  gap: 0.05rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: #3b0764;
+}
+
+.mon-card__edits small {
+  font-size: 0.7rem;
+  color: color-mix(in srgb, #5b21b6 55%, #6b7280);
 }
 
 .mon-card__total {

@@ -14,11 +14,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription, debounceTime, filter, interval } from 'rxjs';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ImmersiveChromeService } from '../../core/layout/immersive-chrome.service';
+import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { prettySection } from '../menu/menu-display';
 import {
   apiErrorMessage,
@@ -121,7 +123,16 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   private readonly theme = inject(ThemeService);
   private readonly immersiveChrome = inject(ImmersiveChromeService);
   private readonly pagePwa = inject(PublicPagePwaService);
+  private readonly live = inject(ShopLiveClient);
   private pwaApplied = false;
+  /** SSE + poll: mesas/sesión al día entre mozos. */
+  private liveSub: Subscription | null = null;
+  private pollSub: Subscription | null = null;
+  private readonly onVisibility = () => {
+    if (document.visibilityState === 'visible' && this.token()) {
+      this.onLiveFloorTick();
+    }
+  };
 
   /** Operación → Comanda (JWT, sin PIN). */
   readonly staffMode = !!this.route.snapshot.data['staffComanda'];
@@ -563,6 +574,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    document.addEventListener('visibilitychange', this.onVisibility);
     if (this.staffMode) {
       applyStatusBar('#eef1ee', 'light');
       this.enterAsStaff();
@@ -590,6 +602,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.title.setTitle(`Mozo · ${me.shop.name}`);
           this.view.set('tables');
           this.loadTables();
+          this.startFloorLive();
         },
         error: () => {
           localStorage.removeItem(tokenKey(slug));
@@ -642,6 +655,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.loadTables();
         this.loadStaffWaiters(shopId);
         this.loadPriceLedgerFallbacks(shopId);
+        this.startFloorLive();
       },
       error: (err) => {
         this.busy.set(false);
@@ -717,12 +731,120 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    this.stopFloorLive();
     this.immersiveChrome.setBottomBlocked('comanda', false);
     if (this.staffMode) {
       resetStatusBar();
     } else {
       this.pagePwa.release('waiter', this.slug());
     }
+  }
+
+  /** SSE + respaldo por poll: mapa y mesa abierta se sincronizan entre mozos. */
+  private startFloorLive(): void {
+    this.stopFloorLive();
+    const slug = this.slug();
+    if (!slug || !this.token()) return;
+
+    this.liveSub = this.live
+      .connect(slug)
+      .pipe(
+        filter((t) => t.domain === 'customer-orders'),
+        debounceTime(350),
+      )
+      .subscribe(() => this.onLiveFloorTick());
+
+    this.pollSub = interval(45_000).subscribe(() => {
+      if (this.token() && document.visibilityState === 'visible') {
+        this.onLiveFloorTick();
+      }
+    });
+  }
+
+  private stopFloorLive(): void {
+    this.liveSub?.unsubscribe();
+    this.liveSub = null;
+    this.pollSub?.unsubscribe();
+    this.pollSub = null;
+  }
+
+  private onLiveFloorTick(): void {
+    if (!this.token() || this.busy()) return;
+    const v = this.view();
+    if (v === 'tables') {
+      this.refreshTablesQuiet();
+      return;
+    }
+    if (v === 'session') {
+      this.refreshSessionQuiet();
+    }
+  }
+
+  /** Refresco del mapa sin spinner (para no parpadear con cada tick). */
+  private refreshTablesQuiet(): void {
+    const slug = this.slug();
+    const token = this.token();
+    if (!slug || !token) return;
+    this.api.tables(slug, token).subscribe({
+      next: (floor) => {
+        const rows = floor?.tables ?? [];
+        this.tables.set(rows);
+        this.counterSessions.set(floor?.counterSessions ?? []);
+        this.mapObjects.set(floor?.mapObjects ?? []);
+        const tab = this.sectorTab();
+        if (tab) {
+          const names = new Set(
+            rows.map(
+              (t) =>
+                (t.sectorName ?? '').trim() || (t.area === 'OUTSIDE' ? 'Afuera' : 'Adentro'),
+            ),
+          );
+          if (!names.has(tab)) this.sectorTab.set(null);
+        }
+        this.loadTipsSummary();
+      },
+      error: (err) => {
+        if (err?.status === 401) this.logout();
+      },
+    });
+  }
+
+  /** Refresco de la mesa abierta: envíos/cambios de otro mozo, o kick si la cerraron. */
+  private refreshSessionQuiet(): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session) return;
+    this.api.getSession(slug, token, session.id).subscribe({
+      next: (updated) => {
+        if (updated.status === 'CLOSED') {
+          this.showToast(this.isCounterSession(updated) ? 'Pedido cerrado' : 'Mesa cerrada por otro');
+          this.session.set(null);
+          this.lines.set([]);
+          this.cartOpen.set(false);
+          this.closeSheet.set(false);
+          this.ticketSheet.set(false);
+          this.view.set('tables');
+          this.refreshTablesQuiet();
+          return;
+        }
+        this.session.set(updated);
+      },
+      error: (err) => {
+        if (err?.status === 401) {
+          this.logout();
+          return;
+        }
+        if (err?.status === 404) {
+          this.showToast('La mesa ya no está disponible');
+          this.session.set(null);
+          this.lines.set([]);
+          this.view.set('tables');
+          this.refreshTablesQuiet();
+        }
+      },
+    });
   }
 
   bumpCovers(delta: number): void {
@@ -1070,6 +1192,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.pin.set('');
         this.view.set('tables');
         this.loadTables();
+        this.startFloorLive();
       },
       error: (err) => {
         this.busy.set(false);
@@ -1079,6 +1202,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
+    this.stopFloorLive();
     const slug = this.slug();
     if (slug) localStorage.removeItem(tokenKey(slug));
     this.token.set(null);
@@ -2111,30 +2235,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  fireMains(): void {
-    const slug = this.slug();
-    const token = this.token();
-    const session = this.session();
-    if (!slug || !token || !session || this.busy()) return;
-    if (!this.capabilities().allowPrintKitchen) {
-      this.error.set('No está permitido imprimir cocina');
-      return;
-    }
-    this.busy.set(true);
-    this.error.set(null);
-    this.api.fireMains(slug, token, session.id).subscribe({
-      next: (updated) => {
-        this.busy.set(false);
-        this.session.set(updated);
-        this.showToast('Principales enviados a cocina');
-      },
-      error: (err) => {
-        this.busy.set(false);
-        this.error.set(apiErrorMessage(err, 'No se pudieron mandar los principales'));
-      },
-    });
-  }
-
   askCloseTable(): void {
     const session = this.session();
     if (!session || this.busy()) return;
@@ -2324,6 +2424,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     if (!this.paymentMethodsForClose().length) return false;
     const paid = this.closePaidTotal();
     const due = this.closeToCollect();
+    // Ticket $0 (ej. descuento 100%): nada que cobrar; alcanza con tener medios configurados.
+    if (due <= 0.02) return true;
     return paid > 0 && Math.abs(paid - due) <= 0.02;
   }
 
@@ -2452,17 +2554,22 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.error.set('La suma de pagos debe coincidir con el total a cobrar');
       return;
     }
+    const toCollect = this.closeToCollect();
     const payments = Object.entries(this.closePayAmounts())
       .map(([paymentMethodId, amount]) => ({
         paymentMethodId,
         amount: Number(amount) || 0,
       }))
       .filter((p) => p.amount > 0);
+    const primary =
+      this.closePayPrimaryId() ?? this.paymentMethodsForClose()[0]?.id ?? null;
     this.closeSheet.set(false);
     this.busy.set(true);
     this.api
       .closeSession(slug, token, session.id, {
-        payments,
+        // Total $0: sin montos; el API registra el medio elegido (o el primero).
+        payments: toCollect <= 0.02 ? undefined : payments,
+        paymentMethodId: toCollect <= 0.02 ? primary ?? undefined : undefined,
         tipMode: this.closeTipMode(),
         tipValue: this.closeTipValue(),
       })

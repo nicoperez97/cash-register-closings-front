@@ -142,6 +142,11 @@ export class EmployeesListPage {
       format: (r) => (r['showInFichar'] === false ? 'No' : 'Sí'),
     },
     {
+      key: 'showInComanda',
+      label: 'Comanda',
+      format: (r) => (r['showInComanda'] ? 'Sí' : 'No'),
+    },
+    {
       key: 'supervisorEmployeeId',
       label: 'Supervisor',
       format: (r) => {

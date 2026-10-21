@@ -52,6 +52,209 @@
   color: var(--guy-muted, #5f6f76);
 }
 
+.cod__block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.cod__block-head h3 {
+  margin: 0;
+}
+
+.cod__edit-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.cod__edit-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+
+.cod__edit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin-top: 0.3rem;
+}
+
+.cod__qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 8px;
+  padding: 0.1rem 0.25rem;
+}
+
+.cod__qty button {
+  border: 0;
+  background: transparent;
+  width: 1.6rem;
+  height: 1.6rem;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.cod__qty span {
+  min-width: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.cod__price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.cod__price input {
+  width: 5.5rem;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 8px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.88rem;
+}
+
+.cod__edit-amt {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.88rem;
+}
+
+.cod__add {
+  margin-top: 0.55rem;
+  padding: 0.55rem;
+  border-radius: 10px;
+  border: 1px dashed var(--guy-border, #d7e0d9);
+  background: #fff;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cod__add-q {
+  width: 100%;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.cod__add-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 11rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cod__add-list button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 0;
+  background: color-mix(in srgb, var(--guy-surface, #f3f6f4) 80%, #fff);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.cod__discount {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.cod__discount-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.cod__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.cod__chip--on {
+  background: color-mix(in srgb, var(--guy-accent, #1e3a5f) 14%, #fff) !important;
+  border-color: var(--guy-accent, #1e3a5f) !important;
+  color: var(--guy-accent, #1e3a5f) !important;
+}
+
+.cod__disc-input {
+  width: 7rem;
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.9rem;
+}
+
+.cod__note {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+  color: var(--guy-muted, #5f6f76);
+}
+
+.cod__note input {
+  border: 1px solid var(--guy-border, #d7e0d9);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.cod__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+  align-items: center;
+}
+
+.cod__audits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.cod__audit-main {
+  font-size: 0.88rem;
+}
+
+.cod__audit-meta {
+  font-size: 0.78rem;
+  color: var(--guy-muted, #5f6f76);
+  margin-top: 0.1rem;
+}
+
 .cod__block p {
   margin: 0.15rem 0 0;
   font-size: 0.92rem;

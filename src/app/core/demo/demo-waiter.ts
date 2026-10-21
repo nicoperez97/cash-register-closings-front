@@ -92,7 +92,6 @@ function toSession(s: DemoSessionState): WaiterSession {
     paymentMethodName: s.payments[0]?.paymentMethodName ?? null,
     tipAmount: s.tipAmount,
     orderCount: s.orders.length,
-    pendingMainsCount: 0,
     openedAt: s.openedAt,
     closedAt: s.closedAt,
     table: table ? { id: table.id, label: table.label, area: table.area, seats: table.seats } : null,
@@ -408,6 +407,6 @@ export function demoWaiterMutation(method: string, rel: string, body: Body): unk
     return toSession(s);
   }
 
-  // fire-mains, reprint-kitchen, promo: sin impresión real; devolver la mesa.
+  // reprint-kitchen, promo: sin impresión real; devolver la mesa.
   return { ...toSession(s), ok: true, printedOrders: 0, status: s.status };
 }

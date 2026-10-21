@@ -249,7 +249,6 @@ export type WaiterSession = {
   paymentMethods?: TablePaymentMethod[];
   sessionSubtotal?: number;
   orderCount: number;
-  pendingMainsCount?: number;
   openedAt: string;
   closedAt?: string | null;
   table: { id: string; label: string; area: string; seats: number } | null;
@@ -555,14 +554,6 @@ export class WaiterApiService {
   reprintKitchen(slug: string, token: string, sessionId: string, orderId: string) {
     return this.http.post<{ ok: boolean; id: string; status: string }>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/orders/${orderId}/reprint-kitchen`,
-      {},
-      this.authHeaders(token),
-    );
-  }
-
-  fireMains(slug: string, token: string, sessionId: string) {
-    return this.http.post<WaiterSession & { ok: boolean; printedOrders?: number }>(
-      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/fire-mains`,
       {},
       this.authHeaders(token),
     );
