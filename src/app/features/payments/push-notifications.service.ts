@@ -249,13 +249,14 @@ export class PushNotificationsService {
     });
   }
 
-  private urlBase64ToUint8Array(base64String: string): Uint8Array {
+  private urlBase64ToUint8Array(base64String: string): BufferSource {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
     const raw = atob(base64);
     const out = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-    return out;
+    // TS 5.7+: Uint8Array default buffer is ArrayBufferLike; Push API pide ArrayBuffer.
+    return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
   }
 
   private isBraveBrowser(): boolean {
