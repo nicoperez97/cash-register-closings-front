@@ -82,41 +82,41 @@ export function canAccessAppRoute(
     return false;
   }
 
-  if (path.startsWith('/closings/new')) {
+  if (path.startsWith('/admin/closings/new')) {
     return hasShopPermission(user, shopId, 'closings.create');
   }
-  if (path === '/closings' || path === '/closings/') {
+  if (path === '/admin/closings' || path === '/admin/closings/') {
     return canViewClosingsList(user, shopId);
   }
-  if (path.startsWith('/closings/')) {
+  if (path.startsWith('/admin/closings/')) {
     return (
       hasShopPermission(user, shopId, 'closings.update') ||
       (!isClosingsCreateOnly(user, shopId) &&
         hasShopPermission(user, shopId, 'closings.read'))
     );
   }
-  if (path.startsWith('/cash-withdrawals')) {
+  if (path.startsWith('/admin/cash-withdrawals')) {
     return hasShopPermission(user, shopId, 'cashWithdrawals.read');
   }
-  if (path.startsWith('/settlements')) {
+  if (path.startsWith('/admin/settlements')) {
     return (
       hasShopPermission(user, shopId, 'settlements.read') &&
       featureOn(features, 'settlementsEnabled')
     );
   }
-  if (path.startsWith('/reports/concepts')) {
+  if (path.startsWith('/admin/reports/concepts')) {
     return hasShopPermission(user, shopId, 'reportsConcepts.read');
   }
-  if (path.startsWith('/reports/sales')) {
+  if (path.startsWith('/admin/reports/sales')) {
     return hasShopPermission(user, shopId, 'reportsSales.read');
   }
-  if (path.startsWith('/reports/products')) {
+  if (path.startsWith('/admin/reports/products')) {
     return hasShopPermission(user, shopId, 'reportsProducts.read');
   }
-  if (path.startsWith('/reports/stats')) {
+  if (path.startsWith('/admin/reports/stats')) {
     return hasShopPermission(user, shopId, 'reportsStats.read');
   }
-  if (path.startsWith('/reports')) {
+  if (path.startsWith('/admin/reports')) {
     return hasShopPermission(user, shopId, 'reports.view');
   }
   if (path.startsWith('/admin/shops')) {
@@ -195,85 +195,85 @@ export function canAccessAppRoute(
   if (path.startsWith('/admin/sales-systems') || path.startsWith('/admin/pos-products')) {
     return canAccessShopAdmin(user, shopId);
   }
-  if (path.startsWith('/employees')) {
+  if (path.startsWith('/admin/employees')) {
     return hasShopPermission(user, shopId, 'employees.read');
   }
-  if (path.startsWith('/vacations')) {
+  if (path.startsWith('/admin/vacations')) {
     return hasShopPermission(user, shopId, 'vacations.read');
   }
-  if (path.startsWith('/candidates')) {
+  if (path.startsWith('/admin/candidates')) {
     return hasShopPermission(user, shopId, 'candidates.read');
   }
-  if (path.startsWith('/expenses') || path.startsWith('/movements')) {
+  if (path.startsWith('/admin/expenses') || path.startsWith('/admin/movements')) {
     return hasShopPermission(user, shopId, 'expenses.read');
   }
-  if (path.startsWith('/incomes')) {
+  if (path.startsWith('/admin/incomes')) {
     return hasShopPermission(user, shopId, 'incomes.read');
   }
-  if (path.startsWith('/account-transfers')) {
+  if (path.startsWith('/admin/account-transfers')) {
     return hasShopPermission(user, shopId, 'accountTransfers.read');
   }
-  if (path.startsWith('/account-balances')) {
+  if (path.startsWith('/admin/account-balances')) {
     return hasShopPermission(user, shopId, 'accountBalances.read');
   }
-  if (path.startsWith('/transactions')) {
+  if (path.startsWith('/admin/transactions')) {
     return hasShopPermission(user, shopId, 'transactions.read');
   }
-  if (path.startsWith('/partner-splits')) {
+  if (path.startsWith('/admin/partner-splits')) {
     return hasShopPermission(user, shopId, 'partnerSplits.read');
   }
-  if (path.startsWith('/splits')) {
+  if (path.startsWith('/admin/splits')) {
     return hasShopPermission(user, shopId, 'splits.read');
   }
-  if (path.startsWith('/my-production')) {
+  if (path.startsWith('/admin/my-production')) {
     return hasShopPermission(user, shopId, 'attendance.self');
   }
-  if (path.startsWith('/production-attendance')) {
+  if (path.startsWith('/admin/production-attendance')) {
     return hasShopPermission(user, shopId, 'productionAttendance.read');
   }
-  if (path.startsWith('/attendance/fichar')) {
+  if (path.startsWith('/admin/attendance/fichar')) {
     return hasShopPermission(user, shopId, 'attendance.checkIn');
   }
-  if (path.startsWith('/attendance')) {
+  if (path.startsWith('/admin/attendance')) {
     return hasShopPermission(user, shopId, 'attendance.read');
   }
-  if (path.startsWith('/reservations')) {
+  if (path.startsWith('/admin/reservations')) {
     return (
       hasShopPermission(user, shopId, 'reservations.read') &&
       featureOn(features, 'reservationsEnabled')
     );
   }
-  if (path.startsWith('/waiting-list')) {
+  if (path.startsWith('/admin/waiting-list')) {
     return (
       hasShopPermission(user, shopId, 'waitingList.read') &&
       featureOn(features, 'waitingListEnabled')
     );
   }
-  if (path.startsWith('/salon/mesas')) {
+  if (path.startsWith('/admin/salon/mesas')) {
     return (
       hasShopPermission(user, shopId, 'salonTables.read') &&
       featureOn(features, 'reservationsEnabled')
     );
   }
-  if (path.startsWith('/salon/diagrama')) {
+  if (path.startsWith('/admin/salon/diagrama')) {
     return (
       hasShopPermission(user, shopId, 'diagrama.read') &&
       featureOn(features, 'reservationsEnabled')
     );
   }
-  if (path.startsWith('/salon/reglas')) {
+  if (path.startsWith('/admin/salon/reglas')) {
     return (
       hasShopPermission(user, shopId, 'salonRules.read') &&
       featureOn(features, 'reservationsEnabled')
     );
   }
-  if (path.startsWith('/salon/horarios')) {
+  if (path.startsWith('/admin/salon/horarios')) {
     return (
       hasShopPermission(user, shopId, 'salonHours.read') &&
       featureOn(features, 'reservationsEnabled')
     );
   }
-  if (path === '/salon' || path.startsWith('/salon/')) {
+  if (path === '/admin/salon' || path.startsWith('/admin/salon/')) {
     return (
       featureOn(features, 'reservationsEnabled') &&
       (hasShopPermission(user, shopId, 'salonTables.read') ||
@@ -282,22 +282,22 @@ export function canAccessAppRoute(
         hasShopPermission(user, shopId, 'salonHours.read'))
     );
   }
-  if (path.startsWith('/tips')) {
+  if (path.startsWith('/admin/tips')) {
     return hasShopPermission(user, shopId, 'tips.read') && featureOn(features, 'tipsEnabled');
   }
-  if (path.startsWith('/payments/suppliers')) {
+  if (path.startsWith('/admin/payments/suppliers')) {
     return hasShopPermission(user, shopId, 'paymentsSuppliers.read');
   }
-  if (path.startsWith('/payments/services')) {
+  if (path.startsWith('/admin/payments/services')) {
     return hasShopPermission(user, shopId, 'paymentsServices.read');
   }
-  if (path.startsWith('/payments/employees')) {
+  if (path.startsWith('/admin/payments/employees')) {
     return hasShopPermission(user, shopId, 'paymentsEmployees.read');
   }
-  if (path.startsWith('/payments/partners')) {
+  if (path.startsWith('/admin/payments/partners')) {
     return hasShopPermission(user, shopId, 'paymentsPartners.read');
   }
-  if (path.startsWith('/payments')) {
+  if (path.startsWith('/admin/payments')) {
     return (
       hasShopPermission(user, shopId, 'paymentsSuppliers.read') ||
       hasShopPermission(user, shopId, 'paymentsServices.read') ||
@@ -306,33 +306,33 @@ export function canAccessAppRoute(
       hasShopPermission(user, shopId, 'payments.read')
     );
   }
-  if (path.startsWith('/suppliers')) {
+  if (path.startsWith('/admin/suppliers')) {
     return hasShopPermission(user, shopId, 'suppliers.read');
   }
-  if (path.startsWith('/services')) {
+  if (path.startsWith('/admin/services')) {
     return hasShopPermission(user, shopId, 'services.read');
   }
-  if (path === '/stock' || path.startsWith('/stock/')) {
+  if (path === '/admin/stock' || path.startsWith('/admin/stock/')) {
     return hasShopPermission(user, shopId, 'stock.read');
   }
-  if (path === '/beverage-stock' || path.startsWith('/beverage-stock/')) {
+  if (path === '/admin/beverage-stock' || path.startsWith('/admin/beverage-stock/')) {
     return hasShopPermission(user, shopId, 'beverageStock.read');
   }
-  if (path.startsWith('/shortages')) {
+  if (path.startsWith('/admin/shortages')) {
     return hasShopPermission(user, shopId, 'shortages.read');
   }
-  if (path.startsWith('/orders')) {
+  if (path.startsWith('/admin/orders')) {
     return hasShopPermission(user, shopId, 'orders.read');
   }
-  if (path.startsWith('/customer-orders')) {
+  if (path.startsWith('/admin/customer-orders')) {
     if (!featureOn(features, 'onlineOrderingEnabled')) return false;
-    if (path.startsWith('/customer-orders/historial')) {
+    if (path.startsWith('/admin/customer-orders/historial')) {
       return (
         hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
         hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
       );
     }
-    if (path.startsWith('/customer-orders/monitor')) {
+    if (path.startsWith('/admin/customer-orders/monitor')) {
       return hasShopPermission(user, shopId, 'customerOrdersMonitor.read');
     }
     return (
@@ -342,22 +342,22 @@ export function canAccessAppRoute(
       hasShopPermission(user, shopId, 'orderingCatalog.manage')
     );
   }
-  if (path.startsWith('/integrations')) {
+  if (path.startsWith('/admin/integrations')) {
     return (
       hasShopPermission(user, shopId, 'integrations.read') ||
       hasShopPermission(user, shopId, 'integrations.manage')
     );
   }
-  if (path.startsWith('/comanda')) {
+  if (path.startsWith('/admin/comanda')) {
     if (!featureOn(features, 'waiterOrderingEnabled')) return false;
     if (hasShopPermission(user, shopId, 'shops.manage')) return true;
-    if (path.startsWith('/comanda/historial')) {
+    if (path.startsWith('/admin/comanda/historial')) {
       return (
         hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
         hasShopPermission(user, shopId, 'comandaReceiptsHistory.manage')
       );
     }
-    if (path.startsWith('/comanda/monitor')) {
+    if (path.startsWith('/admin/comanda/monitor')) {
       return hasShopPermission(user, shopId, 'comandaMonitor.read');
     }
     return (
@@ -365,32 +365,32 @@ export function canAccessAppRoute(
       hasShopPermission(user, shopId, 'comanda.manage')
     );
   }
-  if (path.startsWith('/salaries') || path.startsWith('/payroll')) {
+  if (path.startsWith('/admin/salaries') || path.startsWith('/admin/payroll')) {
     return hasShopPermission(user, shopId, 'payroll.read');
   }
-  if (path.startsWith('/commissions')) {
+  if (path.startsWith('/admin/commissions')) {
     return hasShopPermission(user, shopId, 'commissions.read');
   }
-  if (path.startsWith('/reimbursements')) {
+  if (path.startsWith('/admin/reimbursements')) {
     return (
       hasShopPermission(user, shopId, 'reimbursements.read') ||
       hasShopPermission(user, shopId, 'reimbursements.manage') ||
       hasShopPermission(user, shopId, 'reimbursements.self')
     );
   }
-  if (path.startsWith('/service-rules')) {
+  if (path.startsWith('/admin/service-rules')) {
     return hasShopPermission(user, shopId, 'serviceRules.read');
   }
-  if (path === '/' || path === '' || path === '/inicio') {
+  if (path === '/' || path === '' || path === '/admin/inicio') {
     return true;
   }
-  if (path === '/profile') {
+  if (path === '/admin/profile') {
     return true;
   }
-  if (path === '/g' || path.startsWith('/g/')) {
+  if (path === '/admin/g' || path.startsWith('/admin/g/')) {
     return true;
   }
-  if (path === '/forbidden' || path.startsWith('/forbidden')) {
+  if (path === '/admin/forbidden' || path.startsWith('/admin/forbidden')) {
     return true;
   }
   if (path.startsWith('/admin/opening-balances')) {
@@ -404,17 +404,17 @@ export function canAccessAppRoute(
 /** Atajos built-in de la toolbar (id → ruta o acción especial). */
 const TOOLBAR_BUILTIN_ACCESS: Record<string, string> = {
   'quick-expense': '__action:quick-expense',
-  closings: '/closings',
-  shortages: '/shortages',
-  payments: '/payments/suppliers',
-  reservations: '/reservations',
-  'waiting-list': '/waiting-list',
-  tips: '/tips',
-  'new-closing': '/closings/new',
-  'my-hours': '/my-production',
-  'my-reimbursements': '/reimbursements',
-  stock: '/stock',
-  'beverage-stock': '/beverage-stock',
+  closings: '/admin/closings',
+  shortages: '/admin/shortages',
+  payments: '/admin/payments/suppliers',
+  reservations: '/admin/reservations',
+  'waiting-list': '/admin/waiting-list',
+  tips: '/admin/tips',
+  'new-closing': '/admin/closings/new',
+  'my-hours': '/admin/my-production',
+  'my-reimbursements': '/admin/reimbursements',
+  stock: '/admin/stock',
+  'beverage-stock': '/admin/beverage-stock',
 };
 
 export function canAccessToolbarAction(

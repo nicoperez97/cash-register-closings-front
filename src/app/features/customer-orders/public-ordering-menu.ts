@@ -581,7 +581,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     }
     if (this.staffMode()) {
       this.cart.clear();
-      void this.router.navigate(['/customer-orders']);
+      void this.router.navigate(['/admin/customer-orders']);
       return;
     }
     if (this.dineInMode()) {
@@ -644,7 +644,7 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   goCheckout(): void {
     if (!this.cartCount()) return;
     if (this.staffMode()) {
-      void this.router.navigate(['/customer-orders/nuevo/checkout']);
+      void this.router.navigate(['/admin/customer-orders/nuevo/checkout']);
       return;
     }
     if (this.dineInMode()) {

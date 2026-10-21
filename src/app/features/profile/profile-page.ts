@@ -75,7 +75,7 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
     <nav class="profile-sections" aria-label="Secciones de perfil">
       <a
         class="profile-sections__link"
-        routerLink="/profile"
+        routerLink="/admin/profile"
         [queryParams]="{ section: 'perfil' }"
         [class.profile-sections__link--active]="section() === 'perfil'"
       >
@@ -84,7 +84,7 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
       </a>
       <a
         class="profile-sections__link"
-        routerLink="/profile"
+        routerLink="/admin/profile"
         [queryParams]="{ section: 'notificaciones' }"
         [class.profile-sections__link--active]="section() === 'notificaciones'"
       >
@@ -95,7 +95,7 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
       @if (canCustomize()) {
         <a
           class="profile-sections__link"
-          routerLink="/profile"
+          routerLink="/admin/profile"
           [queryParams]="{ section: 'menu' }"
           [class.profile-sections__link--active]="section() === 'menu'"
         >
@@ -105,7 +105,7 @@ function parseProfileSection(raw: string | null | undefined): ProfileSection {
         </a>
         <a
           class="profile-sections__link"
-          routerLink="/profile"
+          routerLink="/admin/profile"
           [queryParams]="{ section: 'accesos' }"
           [class.profile-sections__link--active]="section() === 'accesos'"
         >

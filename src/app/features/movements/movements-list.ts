@@ -846,10 +846,10 @@ export class MovementsListPage {
         if (this.kind() !== 'all' && wantedKind !== this.kind()) {
           const path =
             wantedKind === 'income'
-              ? '/incomes'
+              ? '/admin/incomes'
               : wantedKind === 'transfer'
-                ? '/account-transfers'
-                : '/expenses';
+                ? '/admin/account-transfers'
+                : '/admin/expenses';
           void this.router.navigate([path], {
             queryParams: { shop: shopId, movement: row.id },
             replaceUrl: true,
@@ -1396,9 +1396,9 @@ export class MovementsListPage {
 
   private paymentsListPath(row: Movement): string {
     const party = row.paymentPartyType;
-    if (party === 'service') return '/payments/services';
-    if (party === 'employee') return '/payments/employees';
-    return '/payments/suppliers';
+    if (party === 'service') return '/admin/payments/services';
+    if (party === 'employee') return '/admin/payments/employees';
+    return '/admin/payments/suppliers';
   }
 
   async onRemove(row: Movement): Promise<void> {

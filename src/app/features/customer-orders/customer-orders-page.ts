@@ -113,7 +113,7 @@ export class CustomerOrdersPage {
     const home = defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
     return (
       navBackTarget(this.currentUrl(), this.navMenu.items(), home) ?? {
-        route: home || '/inicio',
+        route: home || '/admin/inicio',
         label: 'Inicio',
       }
     );

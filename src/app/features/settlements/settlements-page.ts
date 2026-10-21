@@ -195,7 +195,7 @@ type SettlementGroup = {
                         }
                         <a
                           class="settle-card__link"
-                          [routerLink]="['/closings', row.closingId]"
+                          [routerLink]="['/admin/closings', row.closingId]"
                           (click)="$event.stopPropagation()"
                         >
                           Ver cierre
@@ -263,7 +263,7 @@ type SettlementGroup = {
                           {{ item.name }}
                           · {{ formatDate(item.businessDate) }}
                         </span>
-                        <a [routerLink]="['/closings', item.closingId]">Ver cierre</a>
+                        <a [routerLink]="['/admin/closings', item.closingId]">Ver cierre</a>
                         <strong>{{ money(item.amount) }}</strong>
                       </li>
                     }

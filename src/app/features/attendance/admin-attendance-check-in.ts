@@ -777,7 +777,7 @@ export class AdminAttendanceCheckInPage implements OnInit {
   reload(): void {
     const shopId = this.shops.selectedShopId();
     if (!shopId) {
-      void this.router.navigate(['/inicio']);
+      void this.router.navigate(['/admin/inicio']);
       return;
     }
     this.loading.set(true);

@@ -313,7 +313,7 @@ export class ToolbarComponent implements OnInit {
 
     if (cashierOnly) {
       if (hasShopPermission(user, shopId, 'closings.create')) {
-        pushRoute('new-closing', 'Nuevo cierre', 'point_of_sale', '/closings/new');
+        pushRoute('new-closing', 'Nuevo cierre', 'point_of_sale', '/admin/closings/new');
       }
       return applyToolbarConfig(items, cfg);
     }
@@ -324,7 +324,7 @@ export class ToolbarComponent implements OnInit {
           hasShopPermission(user, shopId, 'customerOrders.read') ||
           hasShopPermission(user, shopId, 'customerOrders.manage')
         ) {
-          pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/customer-orders');
+          pushRoute('customer-orders', 'Pedidos clientes', 'shopping_bag', '/admin/customer-orders');
         }
         if (
           hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
@@ -334,7 +334,7 @@ export class ToolbarComponent implements OnInit {
             'customer-orders-history',
             'Historial de pedidos',
             'history',
-            '/customer-orders/historial',
+            '/admin/customer-orders/historial',
           );
         }
         if (hasShopPermission(user, shopId, 'customerOrdersMonitor.read')) {
@@ -342,7 +342,7 @@ export class ToolbarComponent implements OnInit {
             'customer-orders-monitor',
             'Monitor pedidos',
             'monitor',
-            '/customer-orders/monitor',
+            '/admin/customer-orders/monitor',
           );
         }
       }
@@ -355,10 +355,10 @@ export class ToolbarComponent implements OnInit {
           hasShopPermission(user, shopId, 'comanda.manage') ||
           hasShopPermission(user, shopId, 'comanda.read')
         ) {
-          pushRoute('comanda', 'Comanda', 'room_service', '/comanda');
+          pushRoute('comanda', 'Comanda', 'room_service', '/admin/comanda');
         }
         if (hasShopPermission(user, shopId, 'comandaMonitor.read')) {
-          pushRoute('comanda-monitor', 'Monitor comanda', 'tv', '/comanda/monitor');
+          pushRoute('comanda-monitor', 'Monitor comanda', 'tv', '/admin/comanda/monitor');
         }
         if (
           hasShopPermission(user, shopId, 'comandaReceiptsHistory.read') ||
@@ -368,7 +368,7 @@ export class ToolbarComponent implements OnInit {
             'comanda-historial',
             'Historial de comprobantes',
             'receipt_long',
-            '/comanda/historial',
+            '/admin/comanda/historial',
           );
         }
       }
@@ -376,18 +376,18 @@ export class ToolbarComponent implements OnInit {
     }
 
     if (producerOnly) {
-      pushRoute('my-hours', 'Mis horas', 'restaurant', '/my-production');
+      pushRoute('my-hours', 'Mis horas', 'restaurant', '/admin/my-production');
       if (hasShopPermission(user, shopId, 'reimbursements.self')) {
-        pushRoute('my-reimbursements', 'Reintegros', 'receipt_long', '/reimbursements');
+        pushRoute('my-reimbursements', 'Reintegros', 'receipt_long', '/admin/reimbursements');
       }
       if (hasShopPermission(user, shopId, 'stock.read')) {
-        pushRoute('stock', 'Alimentos', 'inventory', '/stock');
+        pushRoute('stock', 'Alimentos', 'inventory', '/admin/stock');
       }
       if (hasShopPermission(user, shopId, 'beverageStock.read')) {
-        pushRoute('beverage-stock', 'Bebidas', 'local_bar', '/beverage-stock');
+        pushRoute('beverage-stock', 'Bebidas', 'local_bar', '/admin/beverage-stock');
       }
       if (hasShopPermission(user, shopId, 'shortages.read')) {
-        pushRoute('shortages', 'Faltantes', 'error_outline', '/shortages');
+        pushRoute('shortages', 'Faltantes', 'error_outline', '/admin/shortages');
       }
       if (cfg?.custom?.length) {
         const seen = new Set(items.map((i) => i.id));
@@ -413,50 +413,50 @@ export class ToolbarComponent implements OnInit {
     }
     if (canViewClosingsList(user, shopId)) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'closings')!;
-      pushRoute('closings', d.label, d.icon, '/closings');
+      pushRoute('closings', d.label, d.icon, '/admin/closings');
     }
     if (hasShopPermission(user, shopId, 'shortages.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'shortages')!;
-      pushRoute('shortages', d.label, d.icon, '/shortages');
+      pushRoute('shortages', d.label, d.icon, '/admin/shortages');
     }
     if (hasShopPermission(user, shopId, 'payments.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'payments')!;
-      pushRoute('payments', d.label, d.icon, '/g/pagos');
+      pushRoute('payments', d.label, d.icon, '/admin/g/pagos');
     }
     if (shop?.reservationsEnabled && hasShopPermission(user, shopId, 'reservations.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'reservations')!;
-      pushRoute('reservations', d.label, d.icon, '/reservations');
+      pushRoute('reservations', d.label, d.icon, '/admin/reservations');
     }
     if (shop?.waitingListEnabled && hasShopPermission(user, shopId, 'waitingList.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'waiting-list')!;
-      pushRoute('waiting-list', d.label, d.icon, '/waiting-list');
+      pushRoute('waiting-list', d.label, d.icon, '/admin/waiting-list');
     }
     if (shop?.tipsEnabled && hasShopPermission(user, shopId, 'tips.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'tips')!;
-      pushRoute('tips', d.label, d.icon, '/tips');
+      pushRoute('tips', d.label, d.icon, '/admin/tips');
     }
     if (hasShopPermission(user, shopId, 'closings.create')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'new-closing')!;
-      pushRoute('new-closing', d.label, d.icon, '/closings/new');
+      pushRoute('new-closing', d.label, d.icon, '/admin/closings/new');
     }
     if (hasShopPermission(user, shopId, 'reimbursements.self')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'my-hours')!;
-      pushRoute('my-hours', d.label, d.icon, '/my-production');
+      pushRoute('my-hours', d.label, d.icon, '/admin/my-production');
     }
     if (
       hasShopPermission(user, shopId, 'reimbursements.self') ||
       hasShopPermission(user, shopId, 'reimbursements.read')
     ) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'my-reimbursements')!;
-      pushRoute('my-reimbursements', d.label, d.icon, '/reimbursements');
+      pushRoute('my-reimbursements', d.label, d.icon, '/admin/reimbursements');
     }
     if (hasShopPermission(user, shopId, 'stock.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'stock')!;
-      pushRoute('stock', d.label, d.icon, '/stock');
+      pushRoute('stock', d.label, d.icon, '/admin/stock');
     }
     if (hasShopPermission(user, shopId, 'beverageStock.read')) {
       const d = TOOLBAR_QUICK_ACTION_DEFS.find((x) => x.id === 'beverage-stock')!;
-      pushRoute('beverage-stock', d.label, d.icon, '/beverage-stock');
+      pushRoute('beverage-stock', d.label, d.icon, '/admin/beverage-stock');
     }
 
     if (cfg?.custom?.length) {
@@ -801,8 +801,8 @@ export class ToolbarComponent implements OnInit {
     const path = this.router.url.split('?')[0];
     const atHome =
       path === home ||
-      ((home === '/inicio' || home === '/' || home === '') &&
-        (path === '/inicio' || path === '/' || path === ''));
+      ((home === '/admin/inicio' || home === '/' || home === '') &&
+        (path === '/admin/inicio' || path === '/' || path === ''));
     if (!atHome) {
       void this.router.navigateByUrl(home);
       return;

@@ -392,7 +392,7 @@ export class ReportsPage {
 
   openClosing(row: { id?: string }): void {
     if (!row?.id) return;
-    void this.router.navigate(['/closings', row.id]);
+    void this.router.navigate(['/admin/closings', row.id]);
   }
 
   hasRange(): boolean {

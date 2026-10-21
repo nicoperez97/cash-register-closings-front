@@ -2700,34 +2700,34 @@ export function isComandaOnly(user: AuthUser | null, shopId: string | null): boo
 }
 
 export function defaultHomeRoute(user: AuthUser | null, shopId: string | null): string {
-  if (isCashierOnly(user, shopId)) return '/closings/new';
-  if (isProducerOnly(user, shopId)) return '/my-production';
+  if (isCashierOnly(user, shopId)) return '/admin/closings/new';
+  if (isProducerOnly(user, shopId)) return '/admin/my-production';
   if (isCustomerOrdersOnly(user, shopId)) {
     if (
       hasShopPermission(user, shopId, 'customerOrders.read') ||
       hasShopPermission(user, shopId, 'customerOrders.manage')
     ) {
-      return '/customer-orders';
+      return '/admin/customer-orders';
     }
     if (
       hasShopPermission(user, shopId, 'customerOrdersHistory.read') ||
       hasShopPermission(user, shopId, 'customerOrdersHistory.manage')
     ) {
-      return '/customer-orders/historial';
+      return '/admin/customer-orders/historial';
     }
-    return '/customer-orders/monitor';
+    return '/admin/customer-orders/monitor';
   }
   if (isComandaOnly(user, shopId)) {
     if (
       hasShopPermission(user, shopId, 'comanda.manage') ||
       hasShopPermission(user, shopId, 'comanda.read')
     ) {
-      return '/comanda';
+      return '/admin/comanda';
     }
-    if (hasShopPermission(user, shopId, 'comandaMonitor.read')) return '/comanda/monitor';
-    return '/comanda/historial';
+    if (hasShopPermission(user, shopId, 'comandaMonitor.read')) return '/admin/comanda/monitor';
+    return '/admin/comanda/historial';
   }
-  return '/inicio';
+  return '/admin/inicio';
 }
 
 /** Solo puede cargar cierres (sin editar/bloquear/listar). */

@@ -213,7 +213,7 @@ function formatMoney(value: number): string {
                 }
                 <a
                   class="withdrawal-card__link"
-                  [routerLink]="['/closings', row.closingId]"
+                  [routerLink]="['/admin/closings', row.closingId]"
                   (click)="$event.stopPropagation()"
                 >
                   Ver cierre
@@ -287,7 +287,7 @@ function formatMoney(value: number): string {
                           <span class="history-card__shift"> · {{ shift }}</span>
                         }
                       </span>
-                      <a [routerLink]="['/closings', item.closingId]">Ver cierre</a>
+                      <a [routerLink]="['/admin/closings', item.closingId]">Ver cierre</a>
                       <strong>{{ money(item.amount) }}</strong>
                     </li>
                   }

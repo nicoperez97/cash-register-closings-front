@@ -27,7 +27,7 @@ export const permissionGuard = (permission: Permission): CanActivateFn => {
     const shops = inject(ShopContextService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) {
-      return router.createUrlTree(['/login']);
+      return router.createUrlTree(['/admin/login']);
     }
     const user = auth.currentUser();
     const shopId = shops.selectedShopId();
@@ -57,7 +57,7 @@ export const anyPermissionGuard = (...permissions: Permission[]): CanActivateFn 
     const shops = inject(ShopContextService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) {
-      return router.createUrlTree(['/login']);
+      return router.createUrlTree(['/admin/login']);
     }
     const user = auth.currentUser();
     const shopId = shops.selectedShopId();
@@ -77,7 +77,7 @@ export const closingsListGuard: CanActivateFn = () => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   const user = auth.currentUser();
   const shopId = shops.selectedShopId();
@@ -85,7 +85,7 @@ export const closingsListGuard: CanActivateFn = () => {
     return router.createUrlTree([defaultHomeRoute(user, null)]);
   }
   if (isClosingsCreateOnly(user, shopId)) {
-    return router.createUrlTree(['/closings/new']);
+    return router.createUrlTree(['/admin/closings/new']);
   }
   if (!canViewClosingsList(user, shopId)) {
     return deniedTree();
@@ -99,7 +99,7 @@ export const superAdminGuard: CanActivateFn = () => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   if (!auth.isSuperAdmin()) {
     return deniedTree();
@@ -113,7 +113,7 @@ export const shopUsersGuard: CanActivateFn = () => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   const shopId = shops.selectedShopId();
   if (!canViewShopUsers(auth.currentUser(), shopId)) {
@@ -132,7 +132,7 @@ export const shopUsersManageGuard: CanActivateFn = () => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   const shopId = shops.selectedShopId();
   if (!canManageShopUsers(auth.currentUser(), shopId)) {
@@ -153,7 +153,7 @@ export const shopFeatureGuard = (
     const shops = inject(ShopContextService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) {
-      return router.createUrlTree(['/login']);
+      return router.createUrlTree(['/admin/login']);
     }
     const shopId = shops.selectedShopId();
     const shop = shops.selectedShop();
@@ -195,7 +195,7 @@ export const shopConfigSectionGuard = (
     const shops = inject(ShopContextService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) {
-      return router.createUrlTree(['/login']);
+      return router.createUrlTree(['/admin/login']);
     }
     const user = auth.currentUser();
     const shopId = shops.selectedShopId();
@@ -215,7 +215,7 @@ export const publicPagesLinksGuard: CanActivateFn = () => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   const user = auth.currentUser();
   const shopId = shops.selectedShopId();
@@ -234,7 +234,7 @@ export const anyPublicPageGuard: CanActivateFn = () => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   const user = auth.currentUser();
   const shopId = shops.selectedShopId();
@@ -253,7 +253,7 @@ export const publicPageViewerGuard: CanActivateFn = (route) => {
   const shops = inject(ShopContextService);
   const router = inject(Router);
   if (!auth.isAuthenticated()) {
-    return router.createUrlTree(['/login']);
+    return router.createUrlTree(['/admin/login']);
   }
   const user = auth.currentUser();
   const shopId = shops.selectedShopId();

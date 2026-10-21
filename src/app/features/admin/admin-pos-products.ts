@@ -188,7 +188,7 @@ export class AdminPosProductsPage implements OnInit {
   ngOnInit(): void {
     const shopId = this.shops.selectedShopId();
     if (!canManageShop(this.auth.currentUser(), shopId)) {
-      void this.router.navigate(['/inicio']);
+      void this.router.navigate(['/admin/inicio']);
       return;
     }
     this.reloadAll();

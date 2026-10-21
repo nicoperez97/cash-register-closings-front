@@ -1,3 +1,5 @@
+import { ensureAdminPath } from '../routing/admin-base';
+
 export type NotificationLinkInput = {
   type: string;
   shopId?: string | null;
@@ -17,25 +19,25 @@ export function notificationRouterLink(n: NotificationLinkInput): NotificationRo
   if (n.shopId) q['shop'] = n.shopId;
 
   if (n.closingId) {
-    return { commands: ['/closings', n.closingId], queryParams: q };
+    return { commands: ['/admin/closings', n.closingId], queryParams: q };
   }
   if (n.type === 'CLOSING_CREATED') {
-    return { commands: ['/closings'], queryParams: q };
+    return { commands: ['/admin/closings'], queryParams: q };
   }
   if (n.type === 'CASH_WITHDRAWAL_PICKED') {
-    return { commands: ['/cash-withdrawals'], queryParams: q };
+    return { commands: ['/admin/cash-withdrawals'], queryParams: q };
   }
   if (n.type === 'PRODUCTION_HOURS_LOGGED') {
-    return { commands: ['/production-attendance'], queryParams: q };
+    return { commands: ['/admin/production-attendance'], queryParams: q };
   }
   if (n.type === 'STOCK_BELOW_MINIMUM' || n.type === 'STOCK_SHARED') {
-    return { commands: ['/stock'], queryParams: q };
+    return { commands: ['/admin/stock'], queryParams: q };
   }
   if (
     n.type === 'BEVERAGE_STOCK_BELOW_MINIMUM' ||
     n.type === 'BEVERAGE_STOCK_SHARED'
   ) {
-    return { commands: ['/beverage-stock'], queryParams: q };
+    return { commands: ['/admin/beverage-stock'], queryParams: q };
   }
   if (
     n.type === 'SHORTAGE_CREATED' ||
@@ -43,29 +45,29 @@ export function notificationRouterLink(n: NotificationLinkInput): NotificationRo
     n.type === 'SHORTAGE_RESOLVED'
   ) {
     if (n.targetId) q['shortage'] = n.targetId;
-    return { commands: ['/shortages'], queryParams: q };
+    return { commands: ['/admin/shortages'], queryParams: q };
   }
   if (n.paymentId || n.type.startsWith('PAYMENT_')) {
     if (n.paymentId) q['payment'] = n.paymentId;
-    return { commands: ['/payments/suppliers'], queryParams: q };
+    return { commands: ['/admin/payments/suppliers'], queryParams: q };
   }
   if (n.type === 'RESERVATION_REQUEST') {
     if (n.targetId) q['request'] = n.targetId;
-    return { commands: ['/reservations'], queryParams: q };
+    return { commands: ['/admin/reservations'], queryParams: q };
   }
   if (n.type === 'CUSTOMER_ORDER_CREATED') {
     if (n.targetId) q['order'] = n.targetId;
-    return { commands: ['/customer-orders'], queryParams: q };
+    return { commands: ['/admin/customer-orders'], queryParams: q };
   }
   if (n.type.startsWith('MOVEMENT_')) {
     if (n.targetId && n.type !== 'MOVEMENT_DELETED') q['movement'] = n.targetId;
-    return { commands: ['/expenses'], queryParams: q };
+    return { commands: ['/admin/expenses'], queryParams: q };
   }
   if (n.type === 'REIMBURSEMENT_CREATED') {
     if (n.targetId) q['reimbursement'] = n.targetId;
-    return { commands: ['/reimbursements'], queryParams: q };
+    return { commands: ['/admin/reimbursements'], queryParams: q };
   }
-  return { commands: ['/inicio'], queryParams: q };
+  return { commands: ['/admin/inicio'], queryParams: q };
 }
 
 export function notificationUrl(n: NotificationLinkInput): string {
@@ -84,14 +86,15 @@ export function pathFromPushData(data?: {
   closingId?: string | null;
   targetId?: string | null;
 } | null): string {
-  if (!data) return '/inicio';
+  if (!data) return '/admin/inicio';
   const raw = String(data.url || '').trim();
-  if (raw && raw !== '/' && raw !== '/inicio') {
+  if (raw && raw !== '/' && raw !== '/admin/inicio') {
     try {
       const u = new URL(raw, 'https://local.invalid');
-      return `${u.pathname}${u.search}${u.hash}` || '/inicio';
+      return ensureAdminPath(`${u.pathname}${u.search}${u.hash}`) || '/admin/inicio';
     } catch {
-      return raw.startsWith('/') ? raw : `/${raw}`;
+      const path = raw.startsWith('/') ? raw : `/${raw}`;
+      return ensureAdminPath(path);
     }
   }
   if (data.type) {
@@ -103,5 +106,5 @@ export function pathFromPushData(data?: {
       targetId: data.targetId,
     });
   }
-  return '/inicio';
+  return '/admin/inicio';
 }

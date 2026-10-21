@@ -6,7 +6,7 @@ import { ShopContextService } from '../shop/shop-context.service';
 
 /**
  * Evita montar la portada (`/`) si ya hay sesión: redirige al home del rol
- * antes de cargar MarketingLanding (si no, la URL ya dice /inicio y se ve la landing).
+ * antes de cargar MarketingLanding (si no, la URL ya dice /admin/inicio y se ve la landing).
  */
 export const redirectAuthedFromLandingGuard: CanMatchFn = () => {
   const auth = inject(AuthService);

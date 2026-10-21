@@ -1209,7 +1209,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.session.set(null);
     this.lines.set([]);
     if (this.staffMode) {
-      void this.router.navigate(['/inicio']);
+      void this.router.navigate(['/admin/inicio']);
       return;
     }
     this.view.set('login');

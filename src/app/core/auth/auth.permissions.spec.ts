@@ -116,11 +116,11 @@ describe('route-access', () => {
 
   it('cajero puede /closings/new pero no /waiting-list', () => {
     const user = cashierUser();
-    expect(canAccessAppRoute('/closings/new', user, 's1', { features })).toBe(true);
-    expect(canAccessAppRoute('/closings', user, 's1', { features })).toBe(false);
-    expect(canAccessAppRoute('/waiting-list', user, 's1', { features })).toBe(false);
-    expect(canAccessAppRoute('/reservations', user, 's1', { features })).toBe(false);
-    expect(canAccessAppRoute('/profile', user, 's1', { features })).toBe(true);
+    expect(canAccessAppRoute('/admin/closings/new', user, 's1', { features })).toBe(true);
+    expect(canAccessAppRoute('/admin/closings', user, 's1', { features })).toBe(false);
+    expect(canAccessAppRoute('/admin/waiting-list', user, 's1', { features })).toBe(false);
+    expect(canAccessAppRoute('/admin/reservations', user, 's1', { features })).toBe(false);
+    expect(canAccessAppRoute('/admin/profile', user, 's1', { features })).toBe(true);
   });
 
   it('atajos: cajero ve new-closing, no closings ni waiting-list', () => {
@@ -197,7 +197,7 @@ describe('isClosingsCreateOnly', () => {
     expect(isCashierOnly(user, 's1')).toBe(false);
     expect(isClosingsCreateOnly(user, 's1')).toBe(true);
     expect(canViewClosingsList(user, 's1')).toBe(false);
-    expect(canAccessAppRoute('/beverage-stock', user, 's1', {
+    expect(canAccessAppRoute('/admin/beverage-stock', user, 's1', {
       features: { waitingListEnabled: true, tipsEnabled: true, reservationsEnabled: true },
     })).toBe(true);
   });

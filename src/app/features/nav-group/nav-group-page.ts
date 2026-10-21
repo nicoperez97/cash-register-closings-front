@@ -137,7 +137,7 @@ export class NavGroupPageComponent {
   constructor() {
     const id = this.groupId();
     if (!id) {
-      void this.router.navigateByUrl('/inicio');
+      void this.router.navigateByUrl('/admin/inicio');
     }
   }
 }

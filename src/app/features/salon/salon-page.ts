@@ -58,14 +58,14 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
 
     <nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
       @if (canSeeTab('mesas')) {
-        <a routerLink="/salon/mesas" class="salon-tabs__link">
+        <a routerLink="/admin/salon/mesas" class="salon-tabs__link">
           <mat-icon>table_restaurant</mat-icon>
           Mesas
         </a>
       }
       @if (canSeeTab('diagrama')) {
         <a
-          routerLink="/salon/diagrama"
+          routerLink="/admin/salon/diagrama"
           class="salon-tabs__link"
           [class.salon-tabs__link--on]="view() === 'diagrama'"
         >
@@ -75,7 +75,7 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
       }
       @if (canSeeTab('reglas')) {
         <a
-          routerLink="/salon/reglas"
+          routerLink="/admin/salon/reglas"
           class="salon-tabs__link"
           [class.salon-tabs__link--on]="view() === 'reglas'"
         >
@@ -84,7 +84,7 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
         </a>
       }
       @if (canSeeTab('horarios')) {
-        <a routerLink="/salon/horarios" class="salon-tabs__link">
+        <a routerLink="/admin/salon/horarios" class="salon-tabs__link">
           <mat-icon>schedule</mat-icon>
           Horarios
         </a>
@@ -123,7 +123,7 @@ const AREAS: Array<{ id: SalonArea; label: string; hint: string; icon: string }>
             </app-busy-label>
           </button>
           @if (canSeeTab('mesas')) {
-            <a routerLink="/salon/mesas" class="salon-add">
+            <a routerLink="/admin/salon/mesas" class="salon-add">
               <mat-icon>table_restaurant</mat-icon>
               Ir a Mesas
             </a>
@@ -495,7 +495,7 @@ export class SalonPage {
   }
 
   private parseView(): SalonView {
-    return this.router.url.includes('/salon/reglas') ? 'reglas' : 'diagrama';
+    return this.router.url.includes('/admin/salon/reglas') ? 'reglas' : 'diagrama';
   }
 
   private slotsFromDraft(area: SalonArea): SalonRuleSlot[] {

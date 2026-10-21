@@ -176,7 +176,7 @@ export const demoOverlayInterceptor: HttpInterceptorFn = (req, next) => {
     return demoOk(req.url, row);
   }
 
-  if (rel.includes('/attendance')) {
+  if (rel.includes('/admin/attendance')) {
     return demoOk(req.url, { ok: true });
   }
   if (rel.includes('/favorite-shop')) {
