@@ -345,7 +345,7 @@ export class AdminShopsPage implements OnInit {
 
   ngOnInit(): void {
     if (!this.auth.isSuperAdmin()) {
-      void this.router.navigate(['/inicio']);
+      void this.router.navigate(['/admin/inicio']);
       return;
     }
     this.reload();

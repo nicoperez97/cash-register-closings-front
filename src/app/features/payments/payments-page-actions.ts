@@ -196,10 +196,10 @@ export function kindOfPayment(
 }
 
 export function paymentKindPath(kind: PaymentKind): string {
-  if (kind === 'supplier') return '/payments/suppliers';
-  if (kind === 'service') return '/payments/services';
-  if (kind === 'partner') return '/payments/partners';
-  return '/payments/employees';
+  if (kind === 'supplier') return '/admin/payments/suppliers';
+  if (kind === 'service') return '/admin/payments/services';
+  if (kind === 'partner') return '/admin/payments/partners';
+  return '/admin/payments/employees';
 }
 
 export function paymentMatchesKind(

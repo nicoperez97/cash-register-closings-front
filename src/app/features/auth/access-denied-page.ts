@@ -4,7 +4,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
 
-/** Ruta legada `/forbidden`: redirige al inicio del rol (no se muestra UI). */
+/** Ruta legada `/admin/forbidden`: redirige al inicio del rol (no se muestra UI). */
 @Component({
   selector: 'app-access-denied-page',
   template: '',

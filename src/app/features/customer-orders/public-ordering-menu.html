@@ -39,7 +39,7 @@
         </div>
       </div>
       @if (staffMode()) {
-        <a class="top__status" routerLink="/customer-orders">Tablero</a>
+        <a class="top__status" routerLink="/admin/customer-orders">Tablero</a>
       } @else if (dineInMode()) {
         <a class="top__status" [routerLink]="['/pedir', slug(), 'mesa']">Mesas</a>
       } @else {

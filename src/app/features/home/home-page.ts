@@ -189,7 +189,7 @@ interface BalanceRowExt extends BalanceAccountRow {
     @if (canViewSettlements() && channelReceivables()?.count) {
       <a
         class="panel-card mb-3 channel-receivables-card guy-enter-scale"
-        routerLink="/settlements"
+        routerLink="/admin/settlements"
       >
         <div class="channel-receivables-card__body">
           <div>
@@ -234,7 +234,7 @@ interface BalanceRowExt extends BalanceAccountRow {
       <a
         class="panel-card mb-3 pending-reservations-card guy-enter-scale"
         [class.pending-reservations-card--warn]="pendingReservations() > 0"
-        routerLink="/reservations"
+        routerLink="/admin/reservations"
       >
         <div class="pending-reservations-card__body">
           <div>
@@ -317,7 +317,7 @@ interface BalanceRowExt extends BalanceAccountRow {
                 Todos presentes
               </button>
             }
-            <a mat-stroked-button routerLink="/attendance">
+            <a mat-stroked-button routerLink="/admin/attendance">
               <mat-icon>calendar_month</mat-icon>
               Ver mes
             </a>
@@ -369,7 +369,7 @@ interface BalanceRowExt extends BalanceAccountRow {
           <p class="text-muted small mb-0">
             No hay empleados activos para marcar hoy.
             @if (canManageEmployees()) {
-              <a routerLink="/employees">Cargalos en Empleados</a>.
+              <a routerLink="/admin/employees">Cargalos en Empleados</a>.
             }
           </p>
         }
@@ -946,7 +946,7 @@ export class HomePageComponent {
           value: 'Franco',
           hint: 'Local cerrado',
           icon: 'hotel',
-          route: '/attendance',
+          route: '/admin/attendance',
           tone: 'muted',
         });
       } else {
@@ -971,7 +971,7 @@ export class HomePageComponent {
                   ? `Presentismo · ${shiftName}`
                   : 'Presentismo',
           icon: 'event_available',
-          route: '/attendance',
+          route: '/admin/attendance',
           tone: total && present === total ? 'ok' : total && present === 0 ? 'warn' : 'default',
         });
       }
@@ -984,7 +984,7 @@ export class HomePageComponent {
         value: count != null ? count : '—',
         hint: this.periodLabel(),
         icon: 'point_of_sale',
-        route: '/closings',
+        route: '/admin/closings',
       });
     }
 
@@ -995,7 +995,7 @@ export class HomePageComponent {
         value: declared != null ? formatMoneyValue(declared, { spaced: true }) : '—',
         hint: 'Mes en curso',
         icon: 'insights',
-        route: '/reports',
+        route: '/admin/reports',
       });
     }
 
@@ -1030,7 +1030,7 @@ export class HomePageComponent {
         this.supplierPaymentsPending(),
         this.supplierPaymentsToValidateMine(),
         this.supplierPaymentsToPayMine(),
-        '/payments/suppliers',
+        '/admin/payments/suppliers',
         'storefront',
       );
       pushPaymentKpi(
@@ -1038,7 +1038,7 @@ export class HomePageComponent {
         this.servicePaymentsPending(),
         this.servicePaymentsToValidateMine(),
         this.servicePaymentsToPayMine(),
-        '/payments/services',
+        '/admin/payments/services',
         'home_repair_service',
       );
       pushPaymentKpi(
@@ -1046,7 +1046,7 @@ export class HomePageComponent {
         this.employeePaymentsPending(),
         this.employeePaymentsToValidateMine(),
         this.employeePaymentsToPayMine(),
-        '/payments/employees',
+        '/admin/payments/employees',
         'badge',
       );
     }
@@ -1064,7 +1064,7 @@ export class HomePageComponent {
             : undefined,
         hint: pending == null ? (this.cashDrawerAccount()?.name ?? 'Sin cuenta de efectivo') : undefined,
         icon: 'account_balance_wallet',
-        route: canWithdraw ? '/cash-withdrawals' : '/expenses',
+        route: canWithdraw ? '/admin/cash-withdrawals' : '/admin/expenses',
         tone: pending != null && pending > 0.009 ? 'warn' : 'default',
       });
     }
@@ -1084,7 +1084,7 @@ export class HomePageComponent {
               ? `${count} pend. · ~${this.formatDate(earliest)}`
               : `${count} pendiente${count === 1 ? '' : 's'}`,
         icon: 'storefront',
-        route: '/settlements',
+        route: '/admin/settlements',
         tone: count > 0 ? 'warn' : 'default',
       });
     }
@@ -1676,7 +1676,7 @@ export class HomePageComponent {
   }
 
   goCreate(): void {
-    void this.router.navigate(['/closings/new']);
+    void this.router.navigate(['/admin/closings/new']);
   }
 
   goCreateShop(): void {

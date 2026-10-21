@@ -58,7 +58,7 @@ type SplitsTab = 'equalize' | 'history';
           Cada vez que aplicás una división o un equilibrado queda acá, con pases, montos y quién
           la hizo.
         </p>
-        <a mat-stroked-button routerLink="/partner-splits">
+        <a mat-stroked-button routerLink="/admin/partner-splits">
           <mat-icon>call_split</mat-icon>
           Armar una nueva
         </a>

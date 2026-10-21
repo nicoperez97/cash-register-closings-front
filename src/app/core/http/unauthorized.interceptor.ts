@@ -36,7 +36,7 @@ export const unauthorizedInterceptor: HttpInterceptorFn = (req, next) => {
               void router.navigateByUrl(home);
             } else {
               persistReturnUrl(here);
-              void router.navigate(['/login'], {
+              void router.navigate(['/admin/login'], {
                 queryParams: { returnUrl: here, reason: 'session' },
               });
             }

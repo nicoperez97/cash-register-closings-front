@@ -133,7 +133,7 @@ export class SidebarComponent {
               icon: child.icon,
               groupLabel: item.label,
               badge: child.badge,
-              exact: child.exact === true || child.route === '/reports',
+              exact: child.exact === true || child.route === '/admin/reports',
             });
           }
         }
@@ -342,8 +342,8 @@ export class SidebarComponent {
   }
 
   private routeMatches(path: string, route: string): boolean {
-    if (route === '/' || route === '/inicio') {
-      return path === '/' || path === '' || path === '/inicio';
+    if (route === '/' || route === '/admin/inicio') {
+      return path === '/' || path === '' || path === '/admin/inicio';
     }
     return path === route || path.startsWith(route + '/');
   }
@@ -354,8 +354,8 @@ export class SidebarComponent {
     const path = this.currentUrl().split('?')[0];
     const atHome =
       path === home ||
-      ((home === '/inicio' || home === '/' || home === '') &&
-        (path === '/inicio' || path === '/' || path === ''));
+      ((home === '/admin/inicio' || home === '/' || home === '') &&
+        (path === '/admin/inicio' || path === '/' || path === ''));
     // Si ya estamos en home, no re-navegar: evita remount y doble carga de KPIs.
     if (!atHome) {
       void this.router.navigateByUrl(home);
@@ -406,8 +406,8 @@ export class SidebarComponent {
     const path = this.currentUrl().split('?')[0];
     const atHome =
       path === home ||
-      ((home === '/inicio' || home === '/' || home === '') &&
-        (path === '/inicio' || path === '/' || path === ''));
+      ((home === '/admin/inicio' || home === '/' || home === '') &&
+        (path === '/admin/inicio' || path === '/' || path === ''));
     if (!atHome) {
       void this.router.navigateByUrl(home);
       this.navigate.emit();

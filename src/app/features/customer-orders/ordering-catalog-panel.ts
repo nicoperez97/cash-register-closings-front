@@ -1258,7 +1258,7 @@ export class OrderingCatalogPanelComponent {
               'OK',
               { duration: pending ? 5200 : 3200 },
             );
-            void this.router.navigate(['/closings/new'], {
+            void this.router.navigate(['/admin/closings/new'], {
               queryParams: { fromGenerate: '1' },
             });
           };

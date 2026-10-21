@@ -1,6 +1,6 @@
 /* Custom SW: Angular ngsw + Web Push (iOS PWA / Android / desktop). */
 /* global self, clients, registration */
-/* rev: notification-deeplink-v2 */
+/* rev: notification-deeplink-v3-admin-prefix */
 importScripts('./ngsw-worker.js');
 
 self.addEventListener('push', (event) => {
@@ -68,24 +68,46 @@ self.addEventListener('push', (event) => {
   event.waitUntil(Promise.all([show, setBadge]));
 });
 
+function ensureAdminPath(pathnameWithSearch) {
+  let path = String(pathnameWithSearch || '').trim() || '/';
+  let search = '';
+  let hash = '';
+  const hashIdx = path.indexOf('#');
+  if (hashIdx >= 0) {
+    hash = path.slice(hashIdx);
+    path = path.slice(0, hashIdx);
+  }
+  const qIdx = path.indexOf('?');
+  if (qIdx >= 0) {
+    search = path.slice(qIdx);
+    path = path.slice(0, qIdx);
+  }
+  if (!path.startsWith('/')) path = '/' + path;
+  if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+  if (path === '/' || path === '/admin' || path.indexOf('/admin/') === 0) {
+    return (path === '/' ? '/admin/inicio' : path) + search + hash;
+  }
+  return '/admin' + (path === '/' ? '/inicio' : path) + search + hash;
+}
+
 function resolveNotificationUrl(data) {
-  if (!data) return '/';
+  if (!data) return '/admin/inicio';
   let raw = String(data.url || '').trim();
-  if ((!raw || raw === '/') && data.paymentId) {
+  if ((!raw || raw === '/' || raw === '/admin/' || raw === '/admin') && data.paymentId) {
     const q = new URLSearchParams();
     if (data.shopId) q.set('shop', data.shopId);
     q.set('payment', data.paymentId);
-    raw = `/payments/suppliers?${q.toString()}`;
+    raw = `/admin/payments/suppliers?${q.toString()}`;
   }
   try {
-    const u = new URL(raw, self.location.origin);
+    const u = new URL(raw || '/admin/inicio', self.location.origin);
     if (data.shopId && !u.searchParams.get('shop')) u.searchParams.set('shop', data.shopId);
     if (data.paymentId && !u.searchParams.get('payment')) {
       u.searchParams.set('payment', data.paymentId);
     }
-    return u.pathname + u.search + u.hash;
+    return ensureAdminPath(u.pathname + u.search + u.hash);
   } catch {
-    return raw || '/';
+    return ensureAdminPath(raw || '/admin/inicio');
   }
 }
 

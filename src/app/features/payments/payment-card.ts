@@ -663,7 +663,7 @@ export class PaymentCardComponent {
               ),
               listAction: {
                 label: 'Ir a gastos',
-                commands: ['/expenses'],
+                commands: ['/admin/expenses'],
                 queryParams: this.expenseListQuery(p),
               },
             },

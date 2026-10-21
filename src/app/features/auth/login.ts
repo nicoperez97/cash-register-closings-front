@@ -12,6 +12,8 @@ import { APP_BRAND } from '../../core/config/app-brand';
 import { ThemeService } from '../../core/theme/theme.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { defaultHomeRoute } from '../../core/auth/auth.models';
+import { ensureAdminPath } from '../../core/routing/admin-base';
+import { isAppLoginPath } from '../../core/routing/public-paths';
 import { consumeReturnUrl } from '../../core/routing/return-url';
 import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { MainPwaInstallBannerComponent } from '../../shared/components/main-pwa-install-banner';
@@ -19,7 +21,6 @@ import { MainPwaInstallService } from '../../core/pwa/main-pwa-install.service';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { environment } from '../../../environments/environment';
 import { apiErrorMessage } from '../../core/http/api-error-message';
-import { isAppLoginPath } from '../../core/routing/public-paths';
 
 /** Color del tope del gradiente de login (barra de estado móvil). */
 const LOGIN_STATUS = '#000000';
@@ -241,7 +242,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       !isAppLoginPath(raw) &&
       raw !== '/'
     ) {
-      return raw;
+      return ensureAdminPath(raw);
     }
     return defaultHomeRoute(this.auth.currentUser(), this.shops.selectedShopId());
   }

@@ -126,7 +126,11 @@
            aunque después lo cambiemos. Por eso el link se inyecta acá, con el href final. */
         var path = location.pathname || '';
         var isEmbed = /(?:^|[?&])embed=1(?:&|$)/.test(location.search || '');
-        var isLogin = path === '/login' || path.indexOf('/login?') === 0;
+        var isLogin =
+          path === '/login' ||
+          path.indexOf('/login?') === 0 ||
+          path === '/admin/login' ||
+          path.indexOf('/admin/login?') === 0;
         var isLanding = path === '/' || path === '';
         var isPublicOrdering =
           path.indexOf('/pedir/') === 0 ||

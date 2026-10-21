@@ -1,9 +1,11 @@
 /**
  * Rutas del front que son públicas (sin sesión).
  * Usar en guards, interceptors e inicialización para no empujar a /login.
+ * El panel autenticado vive bajo `/admin` (no es público salvo login).
  */
 const PUBLIC_PREFIXES = [
   '/login',
+  '/admin/login',
   '/r/',
   '/w/',
   '/p/',
@@ -22,6 +24,7 @@ const PUBLIC_PREFIXES = [
 const PUBLIC_EXACT = new Set([
   '/',
   '/login',
+  '/admin/login',
   '/r',
   '/w',
   '/p',
@@ -44,7 +47,8 @@ export function normalizeAppPath(url: string): string {
 
 /** Pantalla de ingreso del panel. */
 export function isAppLoginPath(url: string): boolean {
-  return normalizeAppPath(url) === '/login';
+  const path = normalizeAppPath(url);
+  return path === '/login' || path === '/admin/login';
 }
 
 /** True si la URL del SPA es (o debería ser) accesible sin login. */

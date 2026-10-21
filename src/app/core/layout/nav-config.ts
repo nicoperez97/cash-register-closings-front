@@ -37,48 +37,48 @@ export type NavItemDef = {
 };
 
 export const NAV_ITEM_DEFS: NavItemDef[] = [
-  { id: 'home', label: 'Inicio', icon: 'home', defaultGroup: null, route: '/inicio' },
-  { id: 'closings', label: 'Cierres', icon: 'point_of_sale', defaultGroup: 'operacion', route: '/closings', pathPrefixes: ['/closings'] },
-  { id: 'cashWithdrawals', label: 'A retirar', icon: 'payments', defaultGroup: 'operacion', route: '/cash-withdrawals' },
-  { id: 'settlements', label: 'Rendiciones', icon: 'account_balance_wallet', defaultGroup: 'operacion', route: '/settlements' },
-  { id: 'tips', label: 'Propinas', icon: 'volunteer_activism', defaultGroup: 'operacion', route: '/tips' },
-  { id: 'serviceRules', label: 'Normas de servicio', icon: 'menu_book', defaultGroup: 'operacion', route: '/service-rules' },
-  { id: 'expenses', label: 'Gastos', icon: 'payments', defaultGroup: 'cuentas', route: '/expenses' },
-  { id: 'incomes', label: 'Ingresos', icon: 'south_west', defaultGroup: 'cuentas', route: '/incomes' },
-  { id: 'accountTransfers', label: 'Movimientos entre cuentas', icon: 'swap_horiz', defaultGroup: 'cuentas', route: '/account-transfers' },
-  { id: 'accountBalances', label: 'Saldos', icon: 'account_balance_wallet', defaultGroup: 'cuentas', route: '/account-balances' },
-  { id: 'transactions', label: 'Transacciones', icon: 'receipt_long', defaultGroup: 'cuentas', route: '/transactions' },
-  { id: 'partnerSplits', label: 'División de socios', icon: 'groups', defaultGroup: 'cuentas', route: '/partner-splits' },
-  { id: 'splits', label: 'Divisiones', icon: 'history', defaultGroup: 'cuentas', route: '/splits' },
-  { id: 'reservations', label: 'Reservas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/reservations' },
-  { id: 'waitingList', label: 'Lista de espera', icon: 'hourglass_top', defaultGroup: 'salon', route: '/waiting-list' },
-  { id: 'salonTables', label: 'Mesas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/salon/mesas' },
-  { id: 'diagrama', label: 'Diagrama', icon: 'grid_view', defaultGroup: 'salon', route: '/salon/diagrama' },
-  { id: 'salonRules', label: 'Reglas', icon: 'tune', defaultGroup: 'salon', route: '/salon/reglas' },
-  { id: 'salonHours', label: 'Horarios', icon: 'schedule', defaultGroup: 'salon', route: '/salon/horarios' },
-  { id: 'stockFood', label: 'Alimentos', icon: 'inventory', defaultGroup: 'stock', route: '/stock' },
-  { id: 'beverageStock', label: 'Bebidas', icon: 'local_bar', defaultGroup: 'stock', route: '/beverage-stock' },
-  { id: 'shortages', label: 'Faltantes', icon: 'error_outline', defaultGroup: 'stock', route: '/shortages' },
-  { id: 'orders', label: 'Pedidos', icon: 'local_shipping', defaultGroup: 'stock', route: '/orders' },
-  { id: 'customerOrders', label: 'Pedidos clientes', icon: 'shopping_bag', defaultGroup: 'operacion', route: '/customer-orders', exact: true },
-  { id: 'customerOrdersHistory', label: 'Historial de pedidos', icon: 'history', defaultGroup: 'operacion', route: '/customer-orders/historial' },
-  { id: 'customerOrdersMonitor', label: 'Monitor pedidos', icon: 'monitor', defaultGroup: 'operacion', route: '/customer-orders/monitor' },
-  { id: 'comanda', label: 'Comanda', icon: 'room_service', defaultGroup: 'operacion', route: '/comanda', exact: true },
-  { id: 'comandaMonitor', label: 'Monitor comanda', icon: 'tv', defaultGroup: 'operacion', route: '/comanda/monitor' },
+  { id: 'home', label: 'Inicio', icon: 'home', defaultGroup: null, route: '/admin/inicio' },
+  { id: 'closings', label: 'Cierres', icon: 'point_of_sale', defaultGroup: 'operacion', route: '/admin/closings', pathPrefixes: ['/admin/closings'] },
+  { id: 'cashWithdrawals', label: 'A retirar', icon: 'payments', defaultGroup: 'operacion', route: '/admin/cash-withdrawals' },
+  { id: 'settlements', label: 'Rendiciones', icon: 'account_balance_wallet', defaultGroup: 'operacion', route: '/admin/settlements' },
+  { id: 'tips', label: 'Propinas', icon: 'volunteer_activism', defaultGroup: 'operacion', route: '/admin/tips' },
+  { id: 'serviceRules', label: 'Normas de servicio', icon: 'menu_book', defaultGroup: 'operacion', route: '/admin/service-rules' },
+  { id: 'expenses', label: 'Gastos', icon: 'payments', defaultGroup: 'cuentas', route: '/admin/expenses' },
+  { id: 'incomes', label: 'Ingresos', icon: 'south_west', defaultGroup: 'cuentas', route: '/admin/incomes' },
+  { id: 'accountTransfers', label: 'Movimientos entre cuentas', icon: 'swap_horiz', defaultGroup: 'cuentas', route: '/admin/account-transfers' },
+  { id: 'accountBalances', label: 'Saldos', icon: 'account_balance_wallet', defaultGroup: 'cuentas', route: '/admin/account-balances' },
+  { id: 'transactions', label: 'Transacciones', icon: 'receipt_long', defaultGroup: 'cuentas', route: '/admin/transactions' },
+  { id: 'partnerSplits', label: 'División de socios', icon: 'groups', defaultGroup: 'cuentas', route: '/admin/partner-splits' },
+  { id: 'splits', label: 'Divisiones', icon: 'history', defaultGroup: 'cuentas', route: '/admin/splits' },
+  { id: 'reservations', label: 'Reservas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/admin/reservations' },
+  { id: 'waitingList', label: 'Lista de espera', icon: 'hourglass_top', defaultGroup: 'salon', route: '/admin/waiting-list' },
+  { id: 'salonTables', label: 'Mesas', icon: 'table_restaurant', defaultGroup: 'salon', route: '/admin/salon/mesas' },
+  { id: 'diagrama', label: 'Diagrama', icon: 'grid_view', defaultGroup: 'salon', route: '/admin/salon/diagrama' },
+  { id: 'salonRules', label: 'Reglas', icon: 'tune', defaultGroup: 'salon', route: '/admin/salon/reglas' },
+  { id: 'salonHours', label: 'Horarios', icon: 'schedule', defaultGroup: 'salon', route: '/admin/salon/horarios' },
+  { id: 'stockFood', label: 'Alimentos', icon: 'inventory', defaultGroup: 'stock', route: '/admin/stock' },
+  { id: 'beverageStock', label: 'Bebidas', icon: 'local_bar', defaultGroup: 'stock', route: '/admin/beverage-stock' },
+  { id: 'shortages', label: 'Faltantes', icon: 'error_outline', defaultGroup: 'stock', route: '/admin/shortages' },
+  { id: 'orders', label: 'Pedidos', icon: 'local_shipping', defaultGroup: 'stock', route: '/admin/orders' },
+  { id: 'customerOrders', label: 'Pedidos clientes', icon: 'shopping_bag', defaultGroup: 'operacion', route: '/admin/customer-orders', exact: true },
+  { id: 'customerOrdersHistory', label: 'Historial de pedidos', icon: 'history', defaultGroup: 'operacion', route: '/admin/customer-orders/historial' },
+  { id: 'customerOrdersMonitor', label: 'Monitor pedidos', icon: 'monitor', defaultGroup: 'operacion', route: '/admin/customer-orders/monitor' },
+  { id: 'comanda', label: 'Comanda', icon: 'room_service', defaultGroup: 'operacion', route: '/admin/comanda', exact: true },
+  { id: 'comandaMonitor', label: 'Monitor comanda', icon: 'tv', defaultGroup: 'operacion', route: '/admin/comanda/monitor' },
   {
     id: 'comandaReceiptsHistory',
     label: 'Historial de comprobantes',
     icon: 'receipt_long',
     defaultGroup: 'operacion',
-    route: '/comanda/historial',
+    route: '/admin/comanda/historial',
   },
-  { id: 'integrations', label: 'Integraciones', icon: 'hub', defaultGroup: 'local', route: '/integrations' },
+  { id: 'integrations', label: 'Integraciones', icon: 'hub', defaultGroup: 'local', route: '/admin/integrations' },
   {
     id: 'attendance',
     label: 'Presentismo de salón',
     icon: 'storefront',
     defaultGroup: 'asistencia',
-    route: '/attendance',
+    route: '/admin/attendance',
     exact: true,
   },
   {
@@ -86,27 +86,27 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
     label: 'Fichar',
     icon: 'pin',
     defaultGroup: 'asistencia',
-    route: '/attendance/fichar',
+    route: '/admin/attendance/fichar',
   },
-  { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/production-attendance' },
-  { id: 'myProduction', label: 'Mis horas', icon: 'restaurant', defaultGroup: null, route: '/my-production' },
-  { id: 'reimbursements', label: 'Reintegros', icon: 'receipt_long', defaultGroup: 'personal', route: '/reimbursements' },
-  { id: 'paymentsSuppliers', label: 'A proveedores', icon: 'local_shipping', defaultGroup: 'pagos', route: '/payments/suppliers' },
-  { id: 'paymentsServices', label: 'A servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/payments/services' },
-  { id: 'paymentsEmployees', label: 'A empleados', icon: 'badge', defaultGroup: 'pagos', route: '/payments/employees' },
-  { id: 'paymentsPartners', label: 'A socios', icon: 'groups', defaultGroup: 'pagos', route: '/payments/partners' },
-  { id: 'suppliers', label: 'Proveedores', icon: 'inventory_2', defaultGroup: 'pagos', route: '/suppliers' },
-  { id: 'services', label: 'Servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/services' },
-  { id: 'reports', label: 'Cierres', icon: 'insights', defaultGroup: 'reportes', route: '/reports' },
-  { id: 'reportsConcepts', label: 'Conceptos', icon: 'category', defaultGroup: 'reportes', route: '/reports/concepts' },
-  { id: 'reportsSales', label: 'Ventas', icon: 'point_of_sale', defaultGroup: 'reportes', route: '/reports/sales' },
-  { id: 'reportsProducts', label: 'Ventas POS', icon: 'restaurant_menu', defaultGroup: 'reportes', route: '/reports/products' },
-  { id: 'reportsStats', label: 'Estadísticas', icon: 'analytics', defaultGroup: 'reportes', route: '/reports/stats' },
-  { id: 'employees', label: 'Empleados', icon: 'badge', defaultGroup: 'personal', route: '/employees' },
-  { id: 'vacations', label: 'Vacaciones', icon: 'beach_access', defaultGroup: 'personal', route: '/vacations' },
-  { id: 'candidates', label: 'CVs / Candidatos', icon: 'person_search', defaultGroup: 'personal', route: '/candidates' },
-  { id: 'payroll', label: 'Sueldos', icon: 'request_quote', defaultGroup: 'personal', route: '/salaries' },
-  { id: 'commissions', label: 'Comisiones', icon: 'percent', defaultGroup: 'personal', route: '/commissions' },
+  { id: 'productionAttendance', label: 'Horas de cocina', icon: 'restaurant', defaultGroup: 'asistencia', route: '/admin/production-attendance' },
+  { id: 'myProduction', label: 'Mis horas', icon: 'restaurant', defaultGroup: null, route: '/admin/my-production' },
+  { id: 'reimbursements', label: 'Reintegros', icon: 'receipt_long', defaultGroup: 'personal', route: '/admin/reimbursements' },
+  { id: 'paymentsSuppliers', label: 'A proveedores', icon: 'local_shipping', defaultGroup: 'pagos', route: '/admin/payments/suppliers' },
+  { id: 'paymentsServices', label: 'A servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/admin/payments/services' },
+  { id: 'paymentsEmployees', label: 'A empleados', icon: 'badge', defaultGroup: 'pagos', route: '/admin/payments/employees' },
+  { id: 'paymentsPartners', label: 'A socios', icon: 'groups', defaultGroup: 'pagos', route: '/admin/payments/partners' },
+  { id: 'suppliers', label: 'Proveedores', icon: 'inventory_2', defaultGroup: 'pagos', route: '/admin/suppliers' },
+  { id: 'services', label: 'Servicios', icon: 'home_repair_service', defaultGroup: 'pagos', route: '/admin/services' },
+  { id: 'reports', label: 'Cierres', icon: 'insights', defaultGroup: 'reportes', route: '/admin/reports' },
+  { id: 'reportsConcepts', label: 'Conceptos', icon: 'category', defaultGroup: 'reportes', route: '/admin/reports/concepts' },
+  { id: 'reportsSales', label: 'Ventas', icon: 'point_of_sale', defaultGroup: 'reportes', route: '/admin/reports/sales' },
+  { id: 'reportsProducts', label: 'Ventas POS', icon: 'restaurant_menu', defaultGroup: 'reportes', route: '/admin/reports/products' },
+  { id: 'reportsStats', label: 'Estadísticas', icon: 'analytics', defaultGroup: 'reportes', route: '/admin/reports/stats' },
+  { id: 'employees', label: 'Empleados', icon: 'badge', defaultGroup: 'personal', route: '/admin/employees' },
+  { id: 'vacations', label: 'Vacaciones', icon: 'beach_access', defaultGroup: 'personal', route: '/admin/vacations' },
+  { id: 'candidates', label: 'CVs / Candidatos', icon: 'person_search', defaultGroup: 'personal', route: '/admin/candidates' },
+  { id: 'payroll', label: 'Sueldos', icon: 'request_quote', defaultGroup: 'personal', route: '/admin/salaries' },
+  { id: 'commissions', label: 'Comisiones', icon: 'percent', defaultGroup: 'personal', route: '/admin/commissions' },
   { id: 'adminShops', label: 'Locales', icon: 'add_business', defaultGroup: 'admin', route: '/admin/shops' },
   { id: 'adminShop', label: 'Resumen', icon: 'dashboard', defaultGroup: 'local', route: '/admin/shop' },
   { id: 'adminShopIdentidad', label: 'Identidad', icon: 'badge', defaultGroup: 'local', route: '/admin/shop/identidad' },
@@ -174,7 +174,7 @@ export const APP_SHORTCUT_DEFS = [
     id: 'new-closing',
     label: 'Nuevo cierre',
     icon: 'point_of_sale',
-    route: '/closings/new',
+    route: '/admin/closings/new',
   },
   {
     id: 'quick-expense',
@@ -186,7 +186,7 @@ export const APP_SHORTCUT_DEFS = [
     id: 'payments',
     label: 'Pagos',
     icon: 'payments',
-    route: '/g/pagos',
+    route: '/admin/g/pagos',
   },
 ] as const;
 
@@ -207,12 +207,12 @@ export function groupIdFromRoute(route: string): string | null {
 
 /** Pantalla con los módulos de un grupo del menú. */
 export function navGroupPagePath(groupId: string): string {
-  return `/g/${groupId}`;
+  return `/admin/g/${groupId}`;
 }
 
 export function navItemIdForRoute(route: string): string | null {
   const path = route.split('?')[0] || route;
-  if (path === '/' || path === '' || path === '/inicio') return 'home';
+  if (path === '/' || path === '' || path === '/admin/inicio') return 'home';
   let best: { id: string; len: number } | null = null;
   for (const def of NAV_ITEM_DEFS) {
     if (def.id === 'home') continue;
@@ -259,9 +259,9 @@ function leafFromChild(child: NavChild, groupId: string | null): Leaf | null {
 
 /**
  * Aplica orden de grupos, `itemGroup`, `itemOrder` y `hidden` del local.
- * Home (`/inicio`) queda fijo primero y no se oculta ni mueve.
+ * Home (`/admin/inicio`) queda fijo primero y no se oculta ni mueve.
  */
-/** Click del grupo = grilla `/g/:id`, no el primer hijo (así vale con o sin menú del local). */
+/** Click del grupo = grilla `/admin/g/:id`, no el primer hijo (así vale con o sin menú del local). */
 export function assignGroupHubRoutes(items: NavItem[]): NavItem[] {
   return items.map((item) => {
     const gid = groupIdFromRoute(item.route);
@@ -274,24 +274,25 @@ export function assignGroupHubRoutes(items: NavItem[]): NavItem[] {
 export function navBackTarget(
   path: string,
   items: NavItem[],
-  homeRoute = '/inicio',
+  homeRoute = '/admin/inicio',
 ): { route: string; label: string } | null {
   const p = (path.split('?')[0] || path).trim();
   if (
     !p ||
     p === '/' ||
-    p === '/inicio' ||
+    p === '/admin/inicio' ||
     p === homeRoute ||
     p === '/login' ||
-    p === '/profile'
+    p === '/admin/login' ||
+    p === '/admin/profile'
   ) {
     return null;
   }
-  if (p === '/forbidden' || p.startsWith('/forbidden')) {
-    return { route: homeRoute || '/inicio', label: 'Inicio' };
+  if (p === '/admin/forbidden' || p.startsWith('/admin/forbidden')) {
+    return { route: homeRoute || '/admin/inicio', label: 'Inicio' };
   }
-  if (p.startsWith('/g/')) {
-    return { route: homeRoute || '/inicio', label: 'Inicio' };
+  if (p.startsWith('/admin/g/')) {
+    return { route: homeRoute || '/admin/inicio', label: 'Inicio' };
   }
   for (const item of items) {
     if (!item.children?.length) continue;
@@ -300,7 +301,7 @@ export function navBackTarget(
     const onChild = item.children.some((c) => {
       if (p === c.route) return true;
       if (c.exact === true) return false;
-      return c.route !== '/' && c.route !== '/inicio' && p.startsWith(`${c.route}/`);
+      return c.route !== '/' && c.route !== '/admin/inicio' && p.startsWith(`${c.route}/`);
     });
     if (onChild) {
       return { route: navGroupPagePath(gid), label: item.label };
@@ -319,8 +320,8 @@ export function applyNavConfig(
   const sourced = assignGroupHubRoutes(builtItems);
   if (!config) return sourced;
 
-  const home = sourced.find((i) => (i.route === '/inicio' || i.route === '/') && i.exact);
-  const rest = sourced.filter((i) => !((i.route === '/inicio' || i.route === '/') && i.exact));
+  const home = sourced.find((i) => (i.route === '/admin/inicio' || i.route === '/') && i.exact);
+  const rest = sourced.filter((i) => !((i.route === '/admin/inicio' || i.route === '/') && i.exact));
 
   const leaves: Leaf[] = [];
   const groupMeta = new Map<

@@ -955,7 +955,7 @@ export class AdminShopPage implements OnInit {
       !canAccessShopConfig(user, shopId) &&
       !canManageOrderingCatalog(user, shopId)
     ) {
-      void this.router.navigate(['/inicio']);
+      void this.router.navigate(['/admin/inicio']);
       return;
     }
     this.api.listSalesSystems().subscribe({

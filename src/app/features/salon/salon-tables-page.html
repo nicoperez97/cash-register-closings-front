@@ -6,25 +6,25 @@
 
 <nav class="salon-tabs" aria-label="Mesas, diagrama, reglas y horarios">
   @if (canSeeTab('mesas')) {
-    <a routerLink="/salon/mesas" class="salon-tabs__link salon-tabs__link--on">
+    <a routerLink="/admin/salon/mesas" class="salon-tabs__link salon-tabs__link--on">
       <mat-icon>table_restaurant</mat-icon>
       Mesas
     </a>
   }
   @if (canSeeTab('diagrama')) {
-    <a routerLink="/salon/diagrama" class="salon-tabs__link">
+    <a routerLink="/admin/salon/diagrama" class="salon-tabs__link">
       <mat-icon>grid_view</mat-icon>
       Diagrama
     </a>
   }
   @if (canSeeTab('reglas')) {
-    <a routerLink="/salon/reglas" class="salon-tabs__link">
+    <a routerLink="/admin/salon/reglas" class="salon-tabs__link">
       <mat-icon>tune</mat-icon>
       Reglas
     </a>
   }
   @if (canSeeTab('horarios')) {
-    <a routerLink="/salon/horarios" class="salon-tabs__link">
+    <a routerLink="/admin/salon/horarios" class="salon-tabs__link">
       <mat-icon>schedule</mat-icon>
       Horarios
     </a>

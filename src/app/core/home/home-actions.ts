@@ -83,27 +83,27 @@ function homeDef(
 
 /** Orden de prioridad en la grilla de atajos del inicio (labels desde el catálogo). */
 const HOME_SHORTCUT_DEFS: HomeShortcutDef[] = [
-  homeDef('new-closing', { route: '/closings/new', primary: true }),
-  homeDef('closings', { route: '/closings' }),
+  homeDef('new-closing', { route: '/admin/closings/new', primary: true }),
+  homeDef('closings', { route: '/admin/closings' }),
   homeDef('quick-expense', { action: 'quick-expense', primary: true }),
-  homeDef('reservations', { route: '/reservations' }),
-  homeDef('waiting-list', { route: '/waiting-list' }),
-  homeDef('tips', { route: '/tips' }),
-  homeDef('payments', { route: '/g/pagos' }),
-  homeDef('reports', { route: '/reports' }),
-  homeDef('cash-withdrawals', { route: '/cash-withdrawals' }),
-  homeDef('settlements', { route: '/settlements' }),
-  homeDef('expenses', { route: '/expenses' }),
-  homeDef('incomes', { route: '/incomes' }),
-  homeDef('transactions', { route: '/transactions' }),
-  homeDef('stock', { route: '/stock' }),
-  homeDef('beverage-stock', { route: '/beverage-stock' }),
-  homeDef('shortages', { route: '/shortages' }),
-  homeDef('orders', { route: '/orders' }),
-  homeDef('attendance', { route: '/attendance' }),
-  homeDef('my-production', { route: '/my-production' }),
-  homeDef('reimbursements', { route: '/reimbursements' }),
-  homeDef('employees', { route: '/employees' }),
+  homeDef('reservations', { route: '/admin/reservations' }),
+  homeDef('waiting-list', { route: '/admin/waiting-list' }),
+  homeDef('tips', { route: '/admin/tips' }),
+  homeDef('payments', { route: '/admin/g/pagos' }),
+  homeDef('reports', { route: '/admin/reports' }),
+  homeDef('cash-withdrawals', { route: '/admin/cash-withdrawals' }),
+  homeDef('settlements', { route: '/admin/settlements' }),
+  homeDef('expenses', { route: '/admin/expenses' }),
+  homeDef('incomes', { route: '/admin/incomes' }),
+  homeDef('transactions', { route: '/admin/transactions' }),
+  homeDef('stock', { route: '/admin/stock' }),
+  homeDef('beverage-stock', { route: '/admin/beverage-stock' }),
+  homeDef('shortages', { route: '/admin/shortages' }),
+  homeDef('orders', { route: '/admin/orders' }),
+  homeDef('attendance', { route: '/admin/attendance' }),
+  homeDef('my-production', { route: '/admin/my-production' }),
+  homeDef('reimbursements', { route: '/admin/reimbursements' }),
+  homeDef('employees', { route: '/admin/employees' }),
   homeDef('admin-shop', { route: '/admin/shop' }),
   homeDef('admin-shops', {
     route: '/admin/shops',
@@ -127,16 +127,16 @@ function canUseShortcut(
     return !!shopId && canAccessToolbarAction('quick-expense', user, shopId, routeOpts(features));
   }
   if (!def.route) return false;
-  if (def.route.startsWith('/g/')) {
+  if (def.route.startsWith('/admin/g/')) {
     const groupId = def.route.slice(3).split('/')[0];
     const probes: Record<string, string[]> = {
       pagos: [
-        '/payments/suppliers',
-        '/payments/services',
-        '/payments/employees',
-        '/payments/partners',
-        '/suppliers',
-        '/services',
+        '/admin/payments/suppliers',
+        '/admin/payments/services',
+        '/admin/payments/employees',
+        '/admin/payments/partners',
+        '/admin/suppliers',
+        '/admin/services',
       ],
     };
     const routes = probes[groupId] ?? [];
@@ -210,7 +210,7 @@ export function homePrimaryShortcutId(
 ): string | null {
   if (!user) return null;
   if (!shopId && isSuperAdminUser(user)) return 'admin-shops';
-  if (shopId && canAccessAppRoute('/closings/new', user, shopId, routeOpts())) {
+  if (shopId && canAccessAppRoute('/admin/closings/new', user, shopId, routeOpts())) {
     return 'new-closing';
   }
   return null;

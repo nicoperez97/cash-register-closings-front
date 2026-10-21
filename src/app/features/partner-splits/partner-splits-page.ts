@@ -347,7 +347,7 @@ function parseMoney(raw: number | string): number {
           <mat-icon>picture_as_pdf</mat-icon>
           Exportar PDF
         </button>
-        <a mat-stroked-button routerLink="/splits">
+        <a mat-stroked-button routerLink="/admin/splits">
           <mat-icon>history</mat-icon>
           Divisiones
         </a>

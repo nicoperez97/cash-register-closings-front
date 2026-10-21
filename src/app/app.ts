@@ -73,7 +73,7 @@ export class App {
   private readonly router = inject(Router);
 
   /**
-   * Cubre el primer navegación (p.ej. `/` → `/inicio` con sesión) para no
+   * Cubre el primer navegación (p.ej. `/` → `/admin/inicio` con sesión) para no
    * pintar la portada mientras la URL ya cambió.
    */
   readonly shellReady = signal(false);

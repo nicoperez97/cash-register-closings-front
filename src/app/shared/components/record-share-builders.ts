@@ -305,10 +305,10 @@ export function paymentsSharePayload(
 export function paymentDeepLink(payment: ShopPayment): string {
   if (typeof window === 'undefined' || !window.location?.origin) {
     const kind = paymentKindSegment(payment);
-    return `/payments/${kind}?payment=${encodeURIComponent(payment.id)}`;
+    return `/admin/payments/${kind}?payment=${encodeURIComponent(payment.id)}`;
   }
   const kind = paymentKindSegment(payment);
-  const url = new URL(`/payments/${kind}`, window.location.origin);
+  const url = new URL(`/admin/payments/${kind}`, window.location.origin);
   url.searchParams.set('payment', payment.id);
   if (payment.shopId) url.searchParams.set('shop', payment.shopId);
   return url.toString();

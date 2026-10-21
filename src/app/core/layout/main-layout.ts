@@ -319,7 +319,7 @@ export class MainLayoutComponent {
         label: 'Operación',
         route: '__group_operacion',
         icon: 'today',
-        defaultRoute: operacion.find((c) => c.route === '/closings')?.route ?? operacion[0]?.route,
+        defaultRoute: operacion.find((c) => c.route === '/admin/closings')?.route ?? operacion[0]?.route,
         children: operacion,
       });
     }
@@ -385,7 +385,7 @@ export class MainLayoutComponent {
         label: 'Salón',
         route: '__group_salon',
         icon: 'table_restaurant',
-        defaultRoute: salon.find((c) => c.route === '/reservations')?.route ?? salon[0]?.route,
+        defaultRoute: salon.find((c) => c.route === '/admin/reservations')?.route ?? salon[0]?.route,
         children: salon,
         badge: this.reservationsInbox.menuBadge() || null,
         badgeInGroup: false,
@@ -410,7 +410,7 @@ export class MainLayoutComponent {
         label: 'Stock',
         route: '__group_stock',
         icon: 'inventory_2',
-        defaultRoute: stockChildren.find((c) => c.route === '/stock')?.route ?? stockChildren[0]?.route,
+        defaultRoute: stockChildren.find((c) => c.route === '/admin/stock')?.route ?? stockChildren[0]?.route,
         children: stockChildren,
       });
     }
@@ -486,7 +486,7 @@ export class MainLayoutComponent {
         route: '__group_pagos',
         icon: 'payments',
         defaultRoute:
-          pagos.find((c) => c.route === '/payments/suppliers')?.route ?? pagos[0]?.route,
+          pagos.find((c) => c.route === '/admin/payments/suppliers')?.route ?? pagos[0]?.route,
         children: pagos,
       });
     }
@@ -549,7 +549,7 @@ export class MainLayoutComponent {
         label: 'Personal',
         route: '__group_personal',
         icon: 'groups',
-        defaultRoute: personal.find((c) => c.route === '/employees')?.route ?? personal[0]?.route,
+        defaultRoute: personal.find((c) => c.route === '/admin/employees')?.route ?? personal[0]?.route,
         children: personal,
       });
     }
@@ -772,25 +772,29 @@ export class MainLayoutComponent {
       const home = defaultHomeRoute(user, shopId);
       if (!shopId) {
         const allowedWithoutShop =
-          path === '/inicio' ||
+          path === '/admin/inicio' ||
           path === '/' ||
           path === '' ||
           (path.startsWith('/admin/shops') && this.auth.isSuperAdmin()) ||
           (path.startsWith('/admin/users') && this.auth.isAdmin());
-        if (!allowedWithoutShop && path !== '/login') {
+        if (
+          !allowedWithoutShop &&
+          path !== '/login' &&
+          path !== '/admin/login'
+        ) {
           void this.router.navigateByUrl(home);
         }
         return;
       }
-      if (path === '/forbidden') {
+      if (path === '/admin/forbidden') {
         void this.router.navigateByUrl(home);
         return;
       }
       if (isCashierOnly(user, shopId)) {
         const allowed =
-          path.startsWith('/closings/new') ||
-          path === '/profile' ||
-          (path.startsWith('/tips') &&
+          path.startsWith('/admin/closings/new') ||
+          path === '/admin/profile' ||
+          (path.startsWith('/admin/tips') &&
             hasShopPermission(user, shopId, 'tips.read') &&
             this.shopFeature('tips'));
         if (!allowed) {
@@ -800,8 +804,8 @@ export class MainLayoutComponent {
       }
       if (isCustomerOrdersOnly(user, shopId)) {
         const allowed =
-          path.startsWith('/customer-orders') ||
-          path === '/profile';
+          path.startsWith('/admin/customer-orders') ||
+          path === '/admin/profile';
         if (!allowed) {
           void this.router.navigateByUrl(home);
         }
@@ -809,8 +813,8 @@ export class MainLayoutComponent {
       }
       if (isComandaOnly(user, shopId)) {
         const allowed =
-          path.startsWith('/comanda') ||
-          path === '/profile';
+          path.startsWith('/admin/comanda') ||
+          path === '/admin/profile';
         if (!allowed) {
           void this.router.navigateByUrl(home);
         }
@@ -818,29 +822,29 @@ export class MainLayoutComponent {
       }
       if (isProducerOnly(user, shopId)) {
         const allowed =
-          path === '/my-production' ||
-          path.startsWith('/g/') ||
-          (path.startsWith('/reimbursements') &&
+          path === '/admin/my-production' ||
+          path.startsWith('/admin/g/') ||
+          (path.startsWith('/admin/reimbursements') &&
             hasShopPermission(user, shopId, 'reimbursements.self')) ||
-          (path === '/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
-          (path === '/beverage-stock' &&
+          (path === '/admin/stock' && hasShopPermission(user, shopId, 'stock.read')) ||
+          (path === '/admin/beverage-stock' &&
             hasShopPermission(user, shopId, 'beverageStock.read')) ||
-          (path.startsWith('/shortages') &&
+          (path.startsWith('/admin/shortages') &&
             hasShopPermission(user, shopId, 'shortages.read')) ||
-          (path.startsWith('/orders') && hasShopPermission(user, shopId, 'orders.read'));
+          (path.startsWith('/admin/orders') && hasShopPermission(user, shopId, 'orders.read'));
         if (!allowed) {
           void this.router.navigateByUrl(home);
         }
         return;
       }
       if (isClosingsCreateOnly(user, shopId)) {
-        const onList = path === '/closings' || path === '/closings/';
+        const onList = path === '/admin/closings' || path === '/admin/closings/';
         if (onList) {
-          void this.router.navigateByUrl('/closings/new');
+          void this.router.navigateByUrl('/admin/closings/new');
           return;
         }
       }
-      if (path === '/inicio' || path === '/' || path === '') return;
+      if (path === '/admin/inicio' || path === '/' || path === '') return;
       if (!this.isPathAllowed(path, user, shopId)) {
         void this.router.navigateByUrl(home);
       }
@@ -964,7 +968,7 @@ export class MainLayoutComponent {
     this.demoMode.exit();
     const stillIn = this.auth.logout();
     if (!stillIn) {
-      void this.router.navigate(['/login']);
+      void this.router.navigate(['/admin/login']);
       return;
     }
     const home = defaultHomeRoute(
@@ -979,7 +983,7 @@ export class MainLayoutComponent {
   logoutAll(): void {
     this.demoMode.exit();
     this.auth.logoutAll();
-    void this.router.navigate(['/login']);
+    void this.router.navigate(['/admin/login']);
   }
 
   exitDemo(): void {

@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+import { Routes, UrlMatcher, UrlSegment } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { redirectAuthedFromLandingGuard } from './core/guards/landing.guard';
 import {
@@ -15,6 +15,58 @@ import {
 } from './core/guards/permission.guard';
 import { MainLayoutComponent } from './core/layout/main-layout';
 
+
+const LEGACY_ADMIN_ROOT_SEGMENTS = new Set([
+  'inicio',
+  'g',
+  'forbidden',
+  'profile',
+  'closings',
+  'cash-withdrawals',
+  'settlements',
+  'reports',
+  'reservations',
+  'waiting-list',
+  'salon',
+  'tips',
+  'payments',
+  'suppliers',
+  'services',
+  'stock',
+  'beverage-stock',
+  'shortages',
+  'orders',
+  'customer-orders',
+  'integrations',
+  'comanda',
+  'employees',
+  'vacations',
+  'candidates',
+  'expenses',
+  'incomes',
+  'account-transfers',
+  'account-balances',
+  'partner-splits',
+  'splits',
+  'transactions',
+  'movements',
+  'my-production',
+  'reimbursements',
+  'service-rules',
+  'attendance',
+  'production-attendance',
+  'salaries',
+  'payroll',
+  'commissions',
+]);
+
+/** Rutas operativas viejas en la raíz → /admin/... (config ya estaba en /admin/*). */
+const legacyAdminRedirectMatcher: UrlMatcher = (segments: UrlSegment[]) => {
+  if (!segments.length) return null;
+  if (!LEGACY_ADMIN_ROOT_SEGMENTS.has(segments[0].path)) return null;
+  return { consumed: segments };
+};
+
 export const routes: Routes = [
   {
     path: '',
@@ -26,10 +78,9 @@ export const routes: Routes = [
   },
   {
     path: 'login',
-    loadComponent: () => import('./features/auth/login').then((m) => m.LoginComponent),
-    title: 'Ingresar',
+    redirectTo: 'admin/login',
+    pathMatch: 'full',
   },
-  { path: 'admin/login', redirectTo: 'login', pathMatch: 'full' },
   {
     path: 'r/:slug',
     loadComponent: () =>
@@ -150,10 +201,23 @@ export const routes: Routes = [
     title: 'Normas de servicio',
   },
   {
-    path: '',
-    component: MainLayoutComponent,
-    canActivate: [authGuard],
+    path: 'admin',
     children: [
+      {
+        path: 'login',
+        loadComponent: () => import('./features/auth/login').then((m) => m.LoginComponent),
+        title: 'Ingresar',
+      },
+      {
+        path: '',
+        component: MainLayoutComponent,
+        canActivate: [authGuard],
+        children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'inicio',
+      },
       {
         path: 'inicio',
         loadComponent: () =>
@@ -275,7 +339,7 @@ export const routes: Routes = [
       {
         path: 'salon',
         pathMatch: 'full',
-        redirectTo: '/salon/mesas',
+        redirectTo: '/admin/salon/mesas',
       },
       {
         path: 'salon/mesas',
@@ -494,14 +558,14 @@ export const routes: Routes = [
         title: 'Comanda',
       },
       {
-        path: 'admin/shops',
+        path: 'shops',
         canActivate: [superAdminGuard],
         loadComponent: () =>
           import('./features/admin/admin-shops').then((m) => m.AdminShopsPage),
         title: 'Locales',
       },
       {
-        path: 'admin/shop',
+        path: 'shop',
         canActivate: [
           anyPermissionGuard(
             'shopConfig.read',
@@ -594,14 +658,14 @@ export const routes: Routes = [
         ],
       },
       {
-        path: 'admin/messages',
+        path: 'messages',
         canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-messages').then((m) => m.AdminMessagesPage),
         title: 'Mensajes',
       },
       {
-        path: 'admin/menu',
+        path: 'menu',
         canActivate: [
           anyPermissionGuard(
             'shopConfig.read',
@@ -617,7 +681,7 @@ export const routes: Routes = [
         title: 'Carta',
       },
       {
-        path: 'admin/promos',
+        path: 'promos',
         canActivate: [
           anyPermissionGuard(
             'shopConfig.read',
@@ -635,28 +699,28 @@ export const routes: Routes = [
         title: 'Promos',
       },
       {
-        path: 'admin/qr',
+        path: 'qr',
         canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-qr').then((m) => m.AdminQrPage),
         title: 'QR',
       },
       {
-        path: 'admin/instrucciones',
+        path: 'instrucciones',
         canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-help-page').then((m) => m.AdminHelpPage),
         title: 'Instrucciones',
       },
       {
-        path: 'admin/users',
+        path: 'users',
         canActivate: [shopUsersGuard],
         loadComponent: () =>
           import('./features/admin/admin-users').then((m) => m.AdminUsersPage),
         title: 'Usuarios',
       },
       {
-        path: 'admin/users/:userId/permisos',
+        path: 'users/:userId/permisos',
         canActivate: [shopUsersManageGuard],
         loadComponent: () =>
           import('./features/admin/admin-user-permissions').then(
@@ -665,35 +729,35 @@ export const routes: Routes = [
         title: 'Permisos de usuario',
       },
       {
-        path: 'admin/user-activity',
+        path: 'user-activity',
         canActivate: [shopUsersGuard],
         loadComponent: () =>
           import('./features/admin/user-activity-page').then((m) => m.UserActivityPage),
         title: 'Actividad de usuarios',
       },
       {
-        path: 'admin/accounts',
+        path: 'accounts',
         canActivate: [anyPermissionGuard('accounts.read', 'accounts.manage')],
         loadComponent: () =>
           import('./features/admin/admin-accounts').then((m) => m.AdminAccountsPage),
         title: 'Cuentas',
       },
       {
-        path: 'admin/concepts',
+        path: 'concepts',
         canActivate: [anyPermissionGuard('concepts.read', 'concepts.manage')],
         loadComponent: () =>
           import('./features/admin/admin-concepts').then((m) => m.AdminConceptsPage),
         title: 'Conceptos',
       },
       {
-        path: 'admin/public-pages',
+        path: 'public-pages',
         canActivate: [publicPagesLinksGuard],
         loadComponent: () =>
           import('./features/admin/admin-public-pages').then((m) => m.AdminPublicPagesPage),
         title: 'Páginas públicas',
       },
       {
-        path: 'admin/public-pages/:pageId',
+        path: 'public-pages/:pageId',
         canActivate: [publicPageViewerGuard],
         loadComponent: () =>
           import('./features/admin/admin-public-page-viewer').then(
@@ -702,14 +766,14 @@ export const routes: Routes = [
         title: 'Página pública',
       },
       {
-        path: 'admin/sales-systems',
+        path: 'sales-systems',
         canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-sales-systems').then((m) => m.AdminSalesSystemsPage),
         title: 'Sistemas de ventas',
       },
       {
-        path: 'admin/pos-products',
+        path: 'pos-products',
         canActivate: [anyPermissionGuard('shops.read', 'shops.manage')],
         loadComponent: () =>
           import('./features/admin/admin-pos-products').then((m) => m.AdminPosProductsPage),
@@ -873,7 +937,13 @@ export const routes: Routes = [
           import('./features/commissions/commissions-page').then((m) => m.CommissionsPage),
         title: 'Comisiones',
       },
+        ],
+      },
     ],
+  },
+  {
+    matcher: legacyAdminRedirectMatcher,
+    redirectTo: ({ url }) => '/admin/' + url.map((seg) => seg.path).join('/'),
   },
   { path: '**', loadComponent: () => import('./features/public/public-not-found').then((m) => m.PublicNotFoundPage), title: 'No encontrada' },
 ];

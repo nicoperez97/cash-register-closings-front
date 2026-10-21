@@ -37,7 +37,7 @@
           }}
         </p>
         @if (staffMode()) {
-          <a class="btn btn--ghost" routerLink="/customer-orders">Volver</a>
+          <a class="btn btn--ghost" routerLink="/admin/customer-orders">Volver</a>
         } @else {
           <a class="btn btn--ghost" [routerLink]="['/pedir', slug()]">Volver</a>
         }

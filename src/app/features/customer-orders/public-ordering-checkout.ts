@@ -190,7 +190,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   });
 
   readonly menuLink = computed(() =>
-    this.staffMode() ? ['/customer-orders/nuevo'] : ['/pedir', this.slug(), 'menu'],
+    this.staffMode() ? ['/admin/customer-orders/nuevo'] : ['/pedir', this.slug(), 'menu'],
   );
 
   readonly selectedZone = computed(() => {
@@ -713,7 +713,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         this.cart.clear();
         if (this.staffMode()) {
           const staffOrder = order as { id?: string; code: string };
-          void this.router.navigate(['/customer-orders'], {
+          void this.router.navigate(['/admin/customer-orders'], {
             queryParams: staffOrder.id ? { order: staffOrder.id } : {},
             replaceUrl: true,
           });

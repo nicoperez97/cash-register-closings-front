@@ -342,7 +342,7 @@ export class ClosingsListPage {
       const user = this.auth.currentUser();
       const id = this.shopId();
       if (id && isClosingsCreateOnly(user, id)) {
-        void this.router.navigateByUrl('/closings/new');
+        void this.router.navigateByUrl('/admin/closings/new');
         return;
       }
       this.reloadToken();
@@ -458,15 +458,15 @@ export class ClosingsListPage {
   }
 
   goCreate(): void {
-    void this.router.navigate(['/closings/new']);
+    void this.router.navigate(['/admin/closings/new']);
   }
 
   goCreateEvent(): void {
-    void this.router.navigate(['/closings/new'], { queryParams: { evento: '1' } });
+    void this.router.navigate(['/admin/closings/new'], { queryParams: { evento: '1' } });
   }
 
   goEdit(row: CashClosing): void {
-    void this.router.navigate(['/closings', row.id]);
+    void this.router.navigate(['/admin/closings', row.id]);
   }
 
   readonly canShareRow = (_row: CashClosing) => true;
