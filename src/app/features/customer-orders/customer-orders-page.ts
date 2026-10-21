@@ -212,6 +212,10 @@ export class CustomerOrdersPage {
     this.boardColumns().reduce((n, c) => n + c.orders.length, 0),
   );
 
+  /** Pedidos COMPLETED / CANCELLED del turno actual (badges de pestaña). */
+  readonly completedCount = signal(0);
+  readonly cancelledCount = signal(0);
+
   constructor() {
     usePageRefresh(() => this.reload());
 
@@ -397,6 +401,8 @@ export class CustomerOrdersPage {
     if (!shopId) {
       this.orders.set([]);
       this.openCaja.set(null);
+      this.completedCount.set(0);
+      this.cancelledCount.set(0);
       this.lastKnownIds = new Set();
       this.skipNewToast = true;
       return;
@@ -435,9 +441,12 @@ export class CustomerOrdersPage {
         this.skipNewToast = false;
         this.lastKnownIds = nextIds;
         this.orders.set(rows);
+        if (v === 'COMPLETED') this.completedCount.set(rows.length);
+        if (v === 'CANCELLED') this.cancelledCount.set(rows.length);
         this.loading.set(false);
         this.focusOrderFromQuery();
         this.inbox.refresh();
+        this.refreshShiftArchiveCounts(shopId, v);
       },
       error: (err) => {
         this.loading.set(false);
@@ -447,6 +456,26 @@ export class CustomerOrdersPage {
         });
       },
     });
+  }
+
+  /** Cuenta Completados / Cancelados del turno sin depender de la pestaña activa. */
+  private refreshShiftArchiveCounts(shopId: string, activeView: ViewMode): void {
+    if (activeView !== 'COMPLETED') {
+      this.api
+        .listStaff(shopId, { status: 'COMPLETED', scope: 'current-shift' })
+        .subscribe({
+          next: (rows) => this.completedCount.set(rows.length),
+          error: () => undefined,
+        });
+    }
+    if (activeView !== 'CANCELLED') {
+      this.api
+        .listStaff(shopId, { status: 'CANCELLED', scope: 'current-shift' })
+        .subscribe({
+          next: (rows) => this.cancelledCount.set(rows.length),
+          error: () => undefined,
+        });
+    }
   }
 
   private focusOrderFromQuery(): void {
@@ -505,6 +534,11 @@ export class CustomerOrdersPage {
     if (view === 'board') {
       if (updated.status === 'COMPLETED' || updated.status === 'CANCELLED') {
         this.orders.update((list) => list.filter((o) => o.id !== updated.id));
+        if (updated.status === 'COMPLETED') {
+          this.completedCount.update((n) => n + 1);
+        } else {
+          this.cancelledCount.update((n) => n + 1);
+        }
         return;
       }
       const exists = this.orders().some((o) => o.id === updated.id);
@@ -520,6 +554,8 @@ export class CustomerOrdersPage {
     if (view === 'COMPLETED' || view === 'CANCELLED') {
       if (updated.status !== view) {
         this.orders.update((list) => list.filter((o) => o.id !== updated.id));
+        if (view === 'COMPLETED') this.completedCount.set(Math.max(0, this.orders().length));
+        if (view === 'CANCELLED') this.cancelledCount.set(Math.max(0, this.orders().length));
         return;
       }
       this.orders.update((list) =>

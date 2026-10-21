@@ -1,6 +1,6 @@
 /* Custom SW: Angular ngsw + Web Push (iOS PWA / Android / desktop). */
 /* global self, clients, registration */
-/* rev: notification-deeplink-v3-admin-prefix */
+/* rev: notification-deeplink-v4-push-resubscribe */
 importScripts('./ngsw-worker.js');
 
 self.addEventListener('push', (event) => {

@@ -93,6 +93,9 @@
           (click)="setView('COMPLETED')"
         >
           Completados
+          @if (completedCount()) {
+            <span class="co-views__n">{{ completedCount() }}</span>
+          }
         </button>
         <button
           type="button"
@@ -101,6 +104,9 @@
           (click)="setView('CANCELLED')"
         >
           Cancelados
+          @if (cancelledCount()) {
+            <span class="co-views__n">{{ cancelledCount() }}</span>
+          }
         </button>
       }
       @if (canConfigure()) {

@@ -194,9 +194,10 @@ export class PushNotificationsService {
         return false;
       }
 
-      const sub = await this.swPush.requestSubscription({
-        serverPublicKey: vapid.publicKey,
-      });
+      // Suscripción vieja (otra clave VAPID / SW anterior) suele romper el subscribe.
+      await this.clearBrowserPushSubscription();
+
+      const sub = await this.subscribeWithVapid(vapid.publicKey);
       const json = sub.toJSON();
       const p256dh = json.keys?.['p256dh'];
       const auth = json.keys?.['auth'];
@@ -214,16 +215,70 @@ export class PushNotificationsService {
       this.subscribed.set(true);
       return true;
     } catch (err) {
-      const msg =
-        (err as { error?: { message?: string | string[] } })?.error?.message ??
-        (err as Error)?.message ??
-        'No se pudo activar';
-      this.lastError.set(Array.isArray(msg) ? msg.join(', ') : String(msg));
+      this.lastError.set(this.friendlyPushError(err));
       return false;
     } finally {
       this.busy.set(false);
       await this.refreshStatus();
     }
+  }
+
+  /** Quita una suscripción local previa (no toca el API). */
+  private async clearBrowserPushSubscription(): Promise<void> {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) await existing.unsubscribe();
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Suscribe con clave VAPID paddeada vía PushManager nativo (más fiable que
+   * SwPush.requestSubscription, que a veces falla con “push service error”).
+   */
+  private async subscribeWithVapid(publicKey: string): Promise<PushSubscription> {
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg.pushManager) {
+      throw new Error('Este navegador no expone PushManager en el service worker');
+    }
+    return reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: this.urlBase64ToUint8Array(publicKey),
+    });
+  }
+
+  private urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  private isBraveBrowser(): boolean {
+    const nav = navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } };
+    return !!nav.brave || /Brave/i.test(navigator.userAgent || '');
+  }
+
+  private friendlyPushError(err: unknown): string {
+    const raw =
+      (err as { error?: { message?: string | string[] } })?.error?.message ??
+      (err as Error)?.message ??
+      'No se pudo activar';
+    const msg = Array.isArray(raw) ? raw.join(', ') : String(raw);
+    if (/push service error/i.test(msg)) {
+      if (this.isBraveBrowser()) {
+        return 'Brave bloquea el push de Google. En brave://settings/privacy activá “Use Google services for push messaging” y reintentá.';
+      }
+      return 'El navegador no pudo registrar push. Probá en Chrome, o borrá datos del sitio / desinstalá la PWA y volvé a instalar desde /admin.';
+    }
+    if (/permission/i.test(msg) && /denied|denied/i.test(msg)) {
+      return 'Permiso de notificaciones denegado';
+    }
+    return msg;
   }
 
   async disable(): Promise<void> {
