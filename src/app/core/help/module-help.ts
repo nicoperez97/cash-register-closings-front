@@ -1064,7 +1064,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           'Cada columna es un estado. La tarjeta tiene el siguiente paso a un toque.',
           'Usá Abrir (o tocá la tarjeta) para ver el detalle completo y volver a un estado anterior.',
           'Los extras van debajo del plato (+ …), en la tarjeta y en el detalle.',
-          'Completados y Cancelados muestran solo los del turno de ahora.',
+          'Completados y Cancelados muestran solo los del turno de ahora; el número en la pestaña es la cantidad.',
           'Para otras fechas usá Operación → Historial de pedidos.',
           'Para una pantalla grande de solo lectura usá Operación → Monitor pedidos.',
           'Tocá el código para copiarlo. El teléfono abre la llamada.',
@@ -1078,7 +1078,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'check_circle',
         tone: 'read',
         anyOf: ['customerOrders.read'],
-        body: 'Las pestañas Completados y Cancelados listan solo los pedidos de ese estado del turno de ahora (el mismo recorte de caja).',
+        body: 'Las pestañas Completados y Cancelados listan solo los pedidos de ese estado del turno de ahora (el mismo recorte de caja). El badge de cada pestaña es cuántos hay en ese turno.',
         items: [
           'Si hay caja abierta, ves el nombre del turno junto al aviso.',
           'Pedidos de turnos o días anteriores no aparecen acá.',
