@@ -66,7 +66,40 @@ function watchAppUpdates(): void {
   const push = inject(SwPush);
   if (!updates.isEnabled) return;
 
+  const JUST_UPDATED_KEY = 'crc_sw_just_updated';
+  const SEEN_VERSION_KEY = 'crc_sw_seen_version';
+  /** Tras Actualizar, no volver a molestar unos minutos (evita el loop del diálogo). */
+  const GRACE_MS = 3 * 60_000;
+
   let prompting = false;
+  let pendingVersionHash: string | null = null;
+
+  const recentlyUpdated = (): boolean => {
+    try {
+      const t = Number(sessionStorage.getItem(JUST_UPDATED_KEY) || 0);
+      return Number.isFinite(t) && Date.now() - t < GRACE_MS;
+    } catch {
+      return false;
+    }
+  };
+
+  const alreadySeenVersion = (hash: string | null | undefined): boolean => {
+    if (!hash) return false;
+    try {
+      return sessionStorage.getItem(SEEN_VERSION_KEY) === hash;
+    } catch {
+      return false;
+    }
+  };
+
+  const markSeenVersion = (hash: string | null | undefined): void => {
+    if (!hash) return;
+    try {
+      sessionStorage.setItem(SEEN_VERSION_KEY, hash);
+    } catch {
+      // ignore
+    }
+  };
 
   const activateAndReload = async (): Promise<void> => {
     // Limpiar locks de dialog antes del reload (PWA iOS a veces conserva estilos).
@@ -78,16 +111,29 @@ function watchAppUpdates(): void {
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.overflow = '';
+    try {
+      sessionStorage.setItem(JUST_UPDATED_KEY, String(Date.now()));
+      markSeenVersion(pendingVersionHash);
+    } catch {
+      // ignore
+    }
     await updates.activateUpdate();
     // Hard reload: evita viewport/fixed “pegados” del ciclo anterior en standalone.
     const url = new URL(window.location.href);
+    url.searchParams.delete('_sw');
     url.searchParams.set('_sw', String(Date.now()));
-    window.location.replace(url.toString());
+    window.location.replace(url.pathname + url.search + url.hash);
   };
 
-  const promptReload = (): void => {
-    if (prompting) return;
+  const promptReload = (versionHash?: string | null): void => {
+    if (prompting || recentlyUpdated()) return;
+    if (versionHash && alreadySeenVersion(versionHash)) return;
+    // Ya hay un diálogo de update abierto.
+    if (dialog.openDialogs.some((d) => d.componentInstance instanceof AppUpdateDialogComponent)) {
+      return;
+    }
     prompting = true;
+    if (versionHash) pendingVersionHash = versionHash;
     // Páginas públicas (/pedir, /m, reservas, etc.): sin aviso, recarga al toque.
     if (isPublicAppPath(location.pathname || '/')) {
       void activateAndReload().catch(() => {
@@ -95,7 +141,7 @@ function watchAppUpdates(): void {
       });
       return;
     }
-    dialog.open(AppUpdateDialogComponent, {
+    const ref = dialog.open(AppUpdateDialogComponent, {
       width: '440px',
       maxWidth: '94vw',
       disableClose: true,
@@ -109,20 +155,21 @@ function watchAppUpdates(): void {
         activate: activateAndReload,
       },
     });
+    ref.afterClosed().subscribe(() => {
+      prompting = false;
+    });
   };
 
   updates.versionUpdates
     .pipe(filter((event): event is VersionReadyEvent => event.type === 'VERSION_READY'))
-    .subscribe(() => promptReload());
+    .subscribe((event) => promptReload(event.latestVersion?.hash ?? null));
 
   const check = (): void => {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (prompting || recentlyUpdated()) return;
     void updates.checkForUpdate().catch(() => undefined);
-    if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
-      void navigator.serviceWorker.getRegistration().then((reg) => {
-        if (reg?.waiting) promptReload();
-      });
-    }
+    // No re-prompt solo por reg.waiting: tras Actualizar el worker viejo puede
+    // seguir “waiting” un rato y reabría el diálogo en loop. VERSION_READY alcanza.
   };
 
   check();
