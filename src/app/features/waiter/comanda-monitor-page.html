@@ -12,7 +12,7 @@
       </div>
       <span class="mon-clock">{{ clockLabel() }}</span>
       @if (!loading()) {
-        <span class="mon-pill">{{ summary().sends }} envíos · {{ summary().openTables }} mesas</span>
+        <span class="mon-pill">{{ countPill() }}</span>
       }
       <button type="button" class="mon-icon" mat-icon-button (click)="openHelp()" aria-label="Ayuda">
         <mat-icon>info_outline</mat-icon>
@@ -41,6 +41,18 @@
           <strong>{{ summary().openCovers }}</strong>
         </div>
         <div class="mon-summary__item">
+          <span class="mon-summary__label">Mostrador</span>
+          <strong>{{ summary().openCounter + summary().closedCounter }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Mesas cerradas</span>
+          <strong>{{ summary().closedTables }}</strong>
+        </div>
+        <div class="mon-summary__item">
+          <span class="mon-summary__label">Con recambio</span>
+          <strong>{{ summary().tablesWithChanges }}</strong>
+        </div>
+        <div class="mon-summary__item">
           <span class="mon-summary__label">Envíos</span>
           <strong>{{ summary().sends }}</strong>
         </div>
@@ -52,36 +64,54 @@
           <span class="mon-summary__label">Cambios</span>
           <strong>{{ summary().audits }}</strong>
         </div>
-        <div class="mon-summary__item mon-summary__item--money">
-          <span class="mon-summary__label">Abierto $</span>
-          <strong>{{ money(summary().openTotal) }}</strong>
-        </div>
-        <div class="mon-summary__item mon-summary__item--money">
-          <span class="mon-summary__label">Envíos $</span>
-          <strong>{{ money(summary().sendsTotal) }}</strong>
-        </div>
+        @if (canSeeAmounts()) {
+          <div class="mon-summary__item mon-summary__item--money">
+            <span class="mon-summary__label">Abierto $</span>
+            <strong>{{ money(summary().openTotal) }}</strong>
+          </div>
+          <div class="mon-summary__item mon-summary__item--money">
+            <span class="mon-summary__label">Cerrado $</span>
+            <strong>{{ money(summary().closedTotal) }}</strong>
+          </div>
+          <div class="mon-summary__item mon-summary__item--money">
+            <span class="mon-summary__label">Turno $</span>
+            <strong>{{ money(summary().shiftTotal) }}</strong>
+          </div>
+        }
       </div>
     </section>
 
     @if (visibleColumns().length) {
       <div class="mon-grid" [style.--mon-cols]="visibleColumns().length">
-        @if (visibleColumns().includes('tables')) {
-          <section class="mon-col">
+        @for (col of boardColumns(); track col.id) {
+          <section class="mon-col" [attr.data-col]="col.id">
             <header>
-              <h2>Mesas abiertas</h2>
-              <span>{{ data()?.tables?.length || 0 }}</span>
+              <h2>{{ col.title }}</h2>
+              <span>{{ col.rows.length }}</span>
             </header>
             <div class="mon-col__list">
-              @for (t of data()?.tables ?? []; track t.sessionId) {
-                <article class="mon-card">
+              @for (t of col.rows; track t.sessionId) {
+                <article class="mon-card" [class.mon-card--closed]="!!t.closedAt">
                   <header>
                     <strong>{{ placeHeading(t.tableLabel) }}</strong>
-                    <time>{{ ageLabel(t.openedAt) }}</time>
+                    <time>
+                      @if (t.closedAt) {
+                        {{ t.closedAt | date: 'HH:mm' }}
+                      } @else {
+                        {{ ageLabel(t.openedAt) }}
+                      }
+                    </time>
                   </header>
                   <p class="mon-meta">
-                    {{ t.sectorName }} · {{ t.covers }} com. · {{ t.waiterName }}
+                    @if (t.channel !== 'COUNTER') {
+                      {{ t.sectorName }} · {{ t.covers }} com. ·
+                    }
+                    {{ t.waiterName }}
                     @if (t.customerTicketPrinted) {
                       · ticket
+                    }
+                    @if (canSeeAmounts() && t.discountAmount && t.discountAmount > 0) {
+                      · desc. {{ money(t.discountAmount) }}
                     }
                   </p>
                   <ul>
@@ -91,7 +121,9 @@
                       </li>
                     }
                   </ul>
-                  <p class="mon-card__total">{{ money(t.total) }}</p>
+                  @if (canSeeAmounts()) {
+                    <p class="mon-card__total">{{ money(t.total) }}</p>
+                  }
                 </article>
               }
             </div>
@@ -119,7 +151,9 @@
                       </li>
                     }
                   </ul>
-                  <p class="mon-card__total">{{ money(o.total) }}</p>
+                  @if (canSeeAmounts()) {
+                    <p class="mon-card__total">{{ money(o.total) }}</p>
+                  }
                 </article>
               }
             </div>

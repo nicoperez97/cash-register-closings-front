@@ -9,6 +9,8 @@
 <div
   class="page"
   [class.page--session]="view() === 'session'"
+  [class.page--review]="view() === 'session' && sessionPane() === 'order' && orderStep() === 'review'"
+  [class.page--order-split]="view() === 'session' && sessionPane() === 'order' && orderSplitLayout()"
   [class.page--login]="view() === 'login' && !staffMode"
 >
   @if (view() === 'login') {
@@ -267,52 +269,266 @@
     }
   } @else {
     @let s = session();
-    <header class="bar bar--sticky anim-in">
+    <header class="bar bar--sticky bar--session anim-in">
       <div>
         <button type="button" class="link bar__back" (click)="backToTables()">← Mesas</button>
-        <h1>{{ sessionPlaceLabel(s) }}</h1>
-        @if (!isCounterSession(s)) {
-          <p class="muted">
-            {{ s?.covers ?? '—' }} comensales
-            @if ((s?.orderCount || s?.orders?.length || 0) > 0) {
-              · {{ s?.orderCount || s?.orders?.length }} envío{{
-                (s?.orderCount || s?.orders?.length || 0) === 1 ? '' : 's'
-              }}
-            }
-            @if (s?.waiter?.fullName) {
-              · {{ s.waiter.fullName }}
-            }
-          </p>
+        @if (sessionPane() === 'info') {
+          <h1>Información</h1>
+          <p class="muted">{{ sessionPlaceLabel(s) }}</p>
+        } @else {
+          <h1>{{ sessionPlaceLabel(s) }}</h1>
+          @if (!isCounterSession(s)) {
+            <p class="muted">
+              {{ s?.covers ?? '—' }} comensales
+              @if ((s?.orderCount || s?.orders?.length || 0) > 0) {
+                · {{ s?.orderCount || s?.orders?.length }} envío{{
+                  (s?.orderCount || s?.orders?.length || 0) === 1 ? '' : 's'
+                }}
+              }
+              @if (s?.waiter?.fullName) {
+                · {{ s.waiter.fullName }}
+              }
+            </p>
+          }
         }
       </div>
-      <div class="bar__actions">
-        @if (capabilities().allowPrintCustomerTicket) {
-          <button
-            type="button"
-            class="btn btn--ghost btn--sm"
-            (click)="openTicketSheet()"
-            [disabled]="busy() || !(s?.orderCount || s?.orders?.length)"
-          >
-            Ticket
-          </button>
-        }
-        @if (capabilities().allowCloseTable) {
-          <button
-            type="button"
-            class="btn btn--danger btn--sm"
-            (click)="askCloseTable()"
-            [disabled]="busy()"
-          >
-            Cerrar
-          </button>
-        }
-      </div>
+      @if (!isCounterSession(s)) {
+        <div class="bar__actions">
+          @if (sessionPane() === 'info') {
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm bar__info"
+              (click)="goToOrderPane()"
+            >
+              Pedido
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm bar__info"
+              (click)="openSessionInfo()"
+            >
+              Información
+            </button>
+          }
+          @if (capabilities().allowPrintCustomerTicket) {
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm"
+              (click)="openTicketSheet()"
+              [disabled]="busy() || !(s?.orderCount || s?.orders?.length)"
+            >
+              Ticket
+            </button>
+          }
+          @if (capabilities().allowCloseTable) {
+            <button
+              type="button"
+              class="btn btn--danger btn--sm"
+              (click)="askCloseTable()"
+              [disabled]="busy()"
+            >
+              Cerrar
+            </button>
+          }
+        </div>
+      }
     </header>
 
     @if (error(); as err) {
       <p class="err anim-in">{{ err }}</p>
     }
 
+    @if (sessionPane() === 'info') {
+      @if (!isCounterSession(s)) {
+        <section class="session-block session-covers anim-in">
+          <div class="covers covers--session">
+            <span class="covers__label">Comensales</span>
+            <button
+              type="button"
+              class="covers__btn"
+              [disabled]="busy() || (s?.covers ?? 2) <= 1"
+              (click)="bumpSessionCovers(-1)"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min="1"
+              max="30"
+              inputmode="numeric"
+              [ngModel]="s?.covers ?? 2"
+              [disabled]="busy()"
+              (change)="onSessionCoversInput($any($event.target).value)"
+              name="sessionCovers"
+              aria-label="Comensales"
+            />
+            <button
+              type="button"
+              class="covers__btn"
+              [disabled]="busy() || (s?.covers ?? 2) >= 30"
+              (click)="bumpSessionCovers(1)"
+            >
+              +
+            </button>
+          </div>
+        </section>
+      }
+      @if (s?.orders?.length) {
+        <section class="session-fold anim-in" [class.session-fold--open]="sessionEnviosOpen()">
+          <button
+            type="button"
+            class="session-fold__toggle"
+            (click)="sessionEnviosOpen.update((v) => !v)"
+            [attr.aria-expanded]="sessionEnviosOpen()"
+          >
+            <span class="session-fold__label">
+              Envíos
+              <span class="session-fold__badge">{{ s!.orders!.length }}</span>
+            </span>
+            <span class="session-fold__chev" aria-hidden="true">{{ sessionEnviosOpen() ? '▾' : '▸' }}</span>
+          </button>
+          @if (sessionEnviosOpen()) {
+            <ul class="sent-list">
+              @for (o of s!.orders; track o.id) {
+                <li class="sent-card">
+                  <div class="sent-card__head">
+                    <div class="sent-card__meta">
+                      <strong>#{{ o.code }}</strong>
+                      <time>{{ orderTime(o.createdAt) }}</time>
+                    </div>
+                    <div class="sent-card__actions">
+                      @if (capabilities().allowPrintKitchen) {
+                        <button
+                          type="button"
+                          class="link sent-card__reprint"
+                          [disabled]="busy()"
+                          (click)="reprintKitchen(o.id)"
+                        >
+                          Reimprimir
+                        </button>
+                      }
+                      <span class="sent-card__total">{{ money(o.total) }}</span>
+                    </div>
+                  </div>
+                  <ul class="sent-card__items">
+                    @for (g of orderGroups(o.items); track $index) {
+                      <li>
+                        @if (g.item; as it) {
+                          <span class="sent-card__qty">{{ it.qty }}×</span>
+                          <span class="sent-card__name">{{ it.name }}</span>
+                          @if (g.extras.length) {
+                            <span class="sent-card__extras">
+                              @for (ex of g.extras; track $index; let last = $last) {
+                                + {{ ex.name }}{{ last ? '' : ', ' }}
+                              }
+                            </span>
+                          }
+                        } @else {
+                          @for (ex of g.extras; track $index) {
+                            <span class="sent-card__qty">{{ ex.qty }}×</span>
+                            <span class="sent-card__name">{{ ex.name }}</span>
+                          }
+                        }
+                      </li>
+                    }
+                  </ul>
+                  @if (o.customerNotes) {
+                    <p class="sent-card__notes">Nota: {{ o.customerNotes }}</p>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </section>
+
+        @if (lineAudits().length) {
+          <section class="session-block anim-in">
+            <h2 class="session-block__title">
+              Cambios
+              <em>{{ lineAudits().length }}</em>
+            </h2>
+            <ul class="audit-list audit-list--open">
+              @for (a of lineAudits(); track a.id) {
+                <li>
+                  <div class="audit-list__meta">
+                    <time>{{ orderTime(a.createdAt) }}</time>
+                    <span>{{ a.actorName }}</span>
+                    <span class="audit-list__code">#{{ a.orderCode }}</span>
+                  </div>
+                  <p>{{ auditText(a) }}</p>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        <section class="session-block anim-in">
+          <h2 class="session-block__title">
+            Resumen
+            <em>{{ money(sessionSubtotal()) }}</em>
+          </h2>
+          <div class="session-block__body session-resumen">
+            <ul class="ticket-sum__list">
+              @for (row of ticketEditableRows(); track row.key) {
+                <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
+                  @if (row.extra) {
+                    <div class="ticket-sum__info">
+                      <span class="ticket-sum__name">+ {{ row.name }}</span>
+                      <button
+                        type="button"
+                        class="ticket-sum__remove"
+                        [disabled]="busy() || !capabilities().allowRemoveTicketLines"
+                        (click)="removeTicketLine(row)"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="ticket-sum__info">
+                      <span class="ticket-sum__name">{{ row.name }}</span>
+                      <div class="ticket-sum__qty">
+                        <button
+                          type="button"
+                          [disabled]="busy() || !capabilities().allowEditTicket"
+                          (click)="bumpTicketItem(row, -1)"
+                        >
+                          −
+                        </button>
+                        <span>{{ row.qty }}</span>
+                        <button
+                          type="button"
+                          [disabled]="busy() || !capabilities().allowEditTicket"
+                          (click)="bumpTicketItem(row, 1)"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  }
+                  <label class="ticket-sum__price">
+                    <span aria-hidden="true">$</span>
+                    <span class="sr-only">Precio</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      [ngModel]="row.unitPrice"
+                      [disabled]="busy() || !capabilities().allowEditTicket"
+                      (change)="setTicketLinePrice(row, +$any($event.target).value)"
+                      [attr.name]="'sp-' + row.key"
+                    />
+                  </label>
+                </li>
+              }
+            </ul>
+            <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
+          </div>
+        </section>
+      } @else {
+        <p class="muted anim-in">Todavía no hay envíos en esta mesa.</p>
+      }
+    } @else {
     @if (matchablePromos().length) {
       <section class="session-promo anim-in">
         <span class="session-promo__label">Promos de mesa</span>
@@ -379,444 +595,350 @@
       </section>
     }
 
-    @if (s?.orders?.length) {
-      <section class="session-fold anim-in" [class.session-fold--open]="sessionEnviosOpen()">
-        <button
-          type="button"
-          class="session-fold__toggle"
-          (click)="sessionEnviosOpen.update((v) => !v)"
-          [attr.aria-expanded]="sessionEnviosOpen()"
-        >
-          <span>
-            Envíos
-            <em>{{ s!.orders!.length }}</em>
-          </span>
-          <span class="session-fold__chev" aria-hidden="true">{{ sessionEnviosOpen() ? '▾' : '▸' }}</span>
-        </button>
-        @if (sessionEnviosOpen()) {
-          <ul class="sent-list">
-            @for (o of s!.orders; track o.id) {
-              <li class="sent-card">
-                <div class="sent-card__head">
-                  <div class="sent-card__meta">
-                    <strong>#{{ o.code }}</strong>
-                    <time>{{ orderTime(o.createdAt) }}</time>
-                  </div>
-                  <div class="sent-card__actions">
-                    @if (capabilities().allowPrintKitchen) {
-                      <button
-                        type="button"
-                        class="link sent-card__reprint"
-                        [disabled]="busy()"
-                        (click)="reprintKitchen(o.id)"
-                      >
-                        Reimprimir
-                      </button>
-                    }
-                    <span class="sent-card__total">{{ money(o.total) }}</span>
-                  </div>
-                </div>
-                <ul class="sent-card__items">
-                  @for (g of orderGroups(o.items); track $index) {
-                    <li>
-                      @if (g.item; as it) {
-                        <span class="sent-card__qty">{{ it.qty }}×</span>
-                        <span class="sent-card__name">{{ it.name }}</span>
-                        @if (g.extras.length) {
-                          <span class="sent-card__extras">
-                            @for (ex of g.extras; track $index; let last = $last) {
-                              + {{ ex.name }}{{ last ? '' : ', ' }}
-                            }
-                          </span>
-                        }
-                      } @else {
-                        @for (ex of g.extras; track $index) {
-                          <span class="sent-card__qty">{{ ex.qty }}×</span>
-                          <span class="sent-card__name">{{ ex.name }}</span>
-                        }
-                      }
-                    </li>
-                  }
-                </ul>
-                @if (o.customerNotes) {
-                  <p class="sent-card__notes">Nota: {{ o.customerNotes }}</p>
-                }
-              </li>
-            }
-          </ul>
-        }
-      </section>
-
-      @if (lineAudits().length) {
-        <section class="session-fold anim-in" [class.session-fold--open]="sessionAuditOpen()">
-          <button
-            type="button"
-            class="session-fold__toggle"
-            (click)="sessionAuditOpen.update((v) => !v)"
-            [attr.aria-expanded]="sessionAuditOpen()"
-          >
-            <span>
-              Cambios
-              <em>{{ lineAudits().length }}</em>
-            </span>
-            <span class="session-fold__chev" aria-hidden="true">{{ sessionAuditOpen() ? '▾' : '▸' }}</span>
-          </button>
-          @if (sessionAuditOpen()) {
-            <ul class="audit-list">
-              @for (a of lineAudits(); track a.id) {
-                <li>
-                  <div class="audit-list__meta">
-                    <time>{{ orderTime(a.createdAt) }}</time>
-                    <span>{{ a.actorName }}</span>
-                    <span class="audit-list__code">#{{ a.orderCode }}</span>
-                  </div>
-                  <p>{{ auditText(a) }}</p>
-                </li>
-              }
-            </ul>
-          }
-        </section>
-      }
-
-      <section class="session-fold anim-in" [class.session-fold--open]="sessionResumenOpen()">
-        <button
-          type="button"
-          class="session-fold__toggle"
-          (click)="sessionResumenOpen.update((v) => !v)"
-          [attr.aria-expanded]="sessionResumenOpen()"
-        >
-          <span>
-            Resumen
-            <em>{{ money(sessionSubtotal()) }}</em>
-          </span>
-          <span class="session-fold__chev" aria-hidden="true">{{ sessionResumenOpen() ? '▾' : '▸' }}</span>
-        </button>
-        @if (sessionResumenOpen()) {
-          <div class="session-fold__body session-resumen">
-            <ul class="ticket-sum__list">
-              @for (row of ticketEditableRows(); track row.key) {
-                <li class="ticket-sum__row" [class.ticket-sum__row--extra]="row.extra">
-                  @if (row.extra) {
-                    <div class="ticket-sum__info">
-                      <span class="ticket-sum__name">+ {{ row.name }}</span>
-                      <button
-                        type="button"
-                        class="ticket-sum__remove"
-                        [disabled]="busy() || !capabilities().allowRemoveTicketLines"
-                        (click)="removeTicketLine(row)"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  } @else {
-                    <div class="ticket-sum__info">
-                      <span class="ticket-sum__name">{{ row.name }}</span>
-                      <div class="ticket-sum__qty">
+    <div class="session-order" [attr.data-step]="orderStep()">
+      <div class="pos anim-in anim-delay-1">
+        <section class="pos__catalog">
+          <input
+            type="search"
+            class="search"
+            placeholder="Buscar plato…"
+            [ngModel]="query()"
+            (ngModelChange)="query.set($event)"
+            name="q"
+          />
+          @if (showCatalogChips()) {
+            <div class="chips" role="tablist">
+              <button
+                type="button"
+                class="chip chip--all"
+                [class.chip--on]="!sectionFilter()"
+                (click)="setSection(null)"
+              >
+                Todas
+              </button>
+              @for (group of sectionGroups(); track group.menuKey) {
+                @if (group.menuTitle) {
+                  <div class="chip-group">
+                    <span class="chip-group__title">{{ group.menuTitle }}</span>
+                    <div class="chip-group__chips">
+                      @for (sec of group.sections; track sec.key) {
                         <button
                           type="button"
-                          [disabled]="busy() || !capabilities().allowEditTicket"
-                          (click)="bumpTicketItem(row, -1)"
+                          class="chip"
+                          [class.chip--on]="sectionFilter() === sec.key"
+                          (click)="setSection(sec.key)"
+                        >
+                          {{ sec.label }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                } @else {
+                  @for (sec of group.sections; track sec.key) {
+                    <button
+                      type="button"
+                      class="chip"
+                      [class.chip--on]="sectionFilter() === sec.key"
+                      (click)="setSection(sec.key)"
+                    >
+                      {{ sec.label }}
+                    </button>
+                  }
+                }
+              }
+              @if (sellablePromos().length) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.chip--on]="showingPromosOnly()"
+                  (click)="setSection(promosSection)"
+                >
+                  Promos
+                </button>
+              }
+            </div>
+          }
+          @if (!showingPromosOnly()) {
+            <ul class="items">
+              @for (it of filteredCatalog(); track it.id) {
+                <li class="item-wrap">
+                  @if (catalogQty(it); as qty) {
+                    <div class="item item--selected" role="group" [attr.aria-label]="it.name">
+                      <button type="button" class="item__main" (click)="bumpCatalogItem(it, 1)">
+                        <span>{{ it.name }}</span>
+                        <span class="item__price">{{ money(it.price) }}</span>
+                      </button>
+                      <div class="item-qty" (click)="$event.stopPropagation()">
+                        <button
+                          type="button"
+                          class="item-qty__btn"
+                          (click)="bumpCatalogItem(it, -1, $event)"
+                          aria-label="Restar"
                         >
                           −
                         </button>
-                        <span>{{ row.qty }}</span>
+                        <span class="item-qty__n">{{ qty }}</span>
                         <button
                           type="button"
-                          [disabled]="busy() || !capabilities().allowEditTicket"
-                          (click)="bumpTicketItem(row, 1)"
+                          class="item-qty__btn"
+                          (click)="bumpCatalogItem(it, 1, $event)"
+                          aria-label="Sumar"
                         >
                           +
                         </button>
                       </div>
                     </div>
+                  } @else {
+                    <button type="button" class="item" (click)="addItem(it)">
+                      <span>{{ it.name }}</span>
+                      <span class="item__price">{{ money(it.price) }}</span>
+                    </button>
                   }
-                  <label class="ticket-sum__price">
-                    <span aria-hidden="true">$</span>
-                    <span class="sr-only">Precio</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="100"
-                      [ngModel]="row.unitPrice"
-                      [disabled]="busy() || !capabilities().allowEditTicket"
-                      (change)="setTicketLinePrice(row, +$any($event.target).value)"
-                      [attr.name]="'sp-' + row.key"
-                    />
-                  </label>
-                </li>
-              }
-            </ul>
-            <p class="ticket-sum__sub"><span>Subtotal</span><span>{{ money(sessionSubtotal()) }}</span></p>
-          </div>
-        }
-      </section>
-    }
-
-    <div class="pos anim-in anim-delay-1">
-      <section class="pos__catalog">
-        <input
-          type="search"
-          class="search"
-          placeholder="Buscar plato…"
-          [ngModel]="query()"
-          (ngModelChange)="query.set($event)"
-          name="q"
-        />
-        @if (showCatalogChips()) {
-          <div class="chips" role="tablist">
-            <button
-              type="button"
-              class="chip chip--all"
-              [class.chip--on]="!sectionFilter()"
-              (click)="setSection(null)"
-            >
-              Todas
-            </button>
-            @for (group of sectionGroups(); track group.menuKey) {
-              @if (group.menuTitle) {
-                <div class="chip-group">
-                  <span class="chip-group__title">{{ group.menuTitle }}</span>
-                  <div class="chip-group__chips">
-                    @for (sec of group.sections; track sec.key) {
-                      <button
-                        type="button"
-                        class="chip"
-                        [class.chip--on]="sectionFilter() === sec.key"
-                        (click)="setSection(sec.key)"
-                      >
-                        {{ sec.label }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              } @else {
-                @for (sec of group.sections; track sec.key) {
-                  <button
-                    type="button"
-                    class="chip"
-                    [class.chip--on]="sectionFilter() === sec.key"
-                    (click)="setSection(sec.key)"
-                  >
-                    {{ sec.label }}
-                  </button>
-                }
-              }
-            }
-            @if (sellablePromos().length) {
-              <button
-                type="button"
-                class="chip"
-                [class.chip--on]="showingPromosOnly()"
-                (click)="setSection(promosSection)"
-              >
-                Promos
-              </button>
-            }
-          </div>
-        }
-        @if (!showingPromosOnly()) {
-          <ul class="items">
-            @for (it of filteredCatalog(); track it.id) {
-              <li class="item-wrap">
-                <button type="button" class="item" (click)="addItem(it)">
-                  <span>{{ it.name }}</span>
-                  <span class="item__price">{{ money(it.price) }}</span>
-                </button>
-                @if (itemExtras(it.id); as exs) {
-                  @if (exs.length) {
-                    <div class="extras-bar">
-                      <button
-                        type="button"
-                        class="extras-toggle"
-                        [class.extras-toggle--on]="extrasOpenFor() === it.id"
-                        (click)="toggleItemExtras(it.id, $event)"
-                        [attr.aria-expanded]="extrasOpenFor() === it.id"
-                      >
-                        Extras
-                        <span class="extras-badge">{{ exs.length }}</span>
-                      </button>
-                      @if (extrasOpenFor() === it.id) {
-                        <div class="extras">
-                          @for (ex of exs; track ex.id) {
-                            <button
-                              type="button"
-                              class="extra"
-                              (click)="addExtra(ex, it, $event)"
-                            >
-                              + {{ ex.name }}
-                            </button>
-                          }
-                        </div>
-                      }
-                    </div>
-                  }
-                }
-              </li>
-            } @empty {
-              @if (!sellablePromos().length || sectionFilter()) {
-                <li class="muted">Sin ítems. Revisá la carta del local.</li>
-              }
-            }
-          </ul>
-        }
-
-        @if (sellablePromos().length && (!sectionFilter() || showingPromosOnly())) {
-          @if (!showingPromosOnly()) {
-            <h3 class="cat-sub">Promos</h3>
-          }
-          <ul class="items">
-            @for (pr of sellablePromos(); track pr.id) {
-              <li class="item-wrap">
-                <button
-                  type="button"
-                  class="item"
-                  [class.item--dim]="pr.inSchedule === false"
-                  [disabled]="pr.inSchedule === false"
-                  [title]="pr.inSchedule === false ? 'Fuera de horario' : pr.name"
-                  (click)="addPromo(pr)"
-                >
-                  <span>{{ pr.name }}</span>
-                  <span class="item__price">
-                    @if (pr.inSchedule === false) {
-                      Fuera de horario
-                    } @else {
-                      {{ money(pr.fixedPrice) }}
-                    }
-                  </span>
-                </button>
-              </li>
-            }
-          </ul>
-        }
-      </section>
-    </div>
-
-    <div class="dock" [class.dock--open]="cartOpen() || lineCount() > 0">
-      @if (!cartOpen() && lineCount() > 0) {
-        <button type="button" class="dock__badge" (click)="cartOpen.set(true)" aria-label="Abrir carrito">
-          <span class="dock__badge-count">{{ lineCount() }}</span>
-          <span class="dock__badge-copy">
-            <strong>{{ money(subtotal()) }}</strong>
-            <span>Ver carrito</span>
-          </span>
-        </button>
-      }
-
-      @if (cartOpen()) {
-        <aside class="dock__panel anim-up" [class.dock__panel--detail]="cartDetail()">
-          <div class="cart-head">
-            <h2>Carrito</h2>
-            <div class="cart-head__actions">
-              @if (lines().length) {
-                <button
-                  type="button"
-                  class="link"
-                  (click)="cartDetail.set(!cartDetail())"
-                >
-                  {{ cartDetail() ? 'Resumen' : 'Detalle' }}
-                </button>
-              }
-              <button type="button" class="link" (click)="cartOpen.set(false)">Contraer</button>
-            </div>
-          </div>
-
-          <div class="cart-body">
-            @if (!lines().length) {
-              <p class="muted cart-empty">Tocá platos para armar el envío.</p>
-            } @else {
-              <ul class="lines" [class.lines--simple]="!cartDetail()">
-                @for (group of cartGroups(); track group.item.key) {
-                  <li>
-                    @if (cartDetail()) {
-                      <div class="lines__row">
-                        <strong>
-                          @if (group.item.isEntrada && !isCounterSession()) {
-                            <span class="entrada-tag">Entrada</span>
-                          }
-                          {{ group.item.name }}
-                        </strong>
-                        <span>
-                          @if (linePriceChanged(group.item); as prices) {
-                            <span class="line-price line-price--changed">
-                              <span class="line-price__base">{{ money(prices.base * group.item.qty) }}</span>
-                              <span aria-hidden="true">→</span>
-                              <strong>{{ money(prices.charged * group.item.qty) }}</strong>
-                            </span>
-                          } @else {
-                            {{ money(group.item.unitPrice * group.item.qty) }}
-                          }
-                        </span>
-                      </div>
-                      <div class="qty">
-                        <button type="button" (click)="bump(group.item, -1)">−</button>
-                        <span>{{ group.item.qty }}</span>
-                        <button type="button" (click)="bump(group.item, 1)">+</button>
-                      </div>
-                      @if (group.item.kind === 'ITEM' && !isCounterSession()) {
-                        <div class="cart-flags">
-                          <button
-                            type="button"
-                            class="entrada-toggle"
-                            [class.on]="group.item.isEntrada"
-                            (click)="toggleEntrada(group.item, $event)"
-                          >
-                            {{ group.item.isEntrada ? 'Quitar entrada' : 'Marcar entrada' }}
-                          </button>
-                          @if (otherCartItems(group.item).length) {
-                            <button
-                              type="button"
-                              class="entrada-toggle"
-                              [class.on]="hasCombines(group.item)"
-                              (click)="toggleCombinePanel(group.item, $event)"
-                            >
-                              {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
-                            </button>
-                          }
-                        </div>
-                        @if (combineOpenKey() === group.item.key) {
-                          <div class="combine-pick">
-                            @for (other of otherCartItems(group.item); track other.key) {
-                              <label class="combine-pick__row">
-                                <input
-                                  type="checkbox"
-                                  [checked]="isCombinedWith(group.item, other)"
-                                  (change)="toggleCombine(group.item, other, $event)"
-                                />
-                                <span>{{ other.name }}</span>
-                              </label>
+                  @if (itemExtras(it.id); as exs) {
+                    @if (exs.length) {
+                      <div class="extras-bar">
+                        <button
+                          type="button"
+                          class="extras-toggle"
+                          [class.extras-toggle--on]="extrasOpenFor() === it.id"
+                          (click)="toggleItemExtras(it.id, $event)"
+                          [attr.aria-expanded]="extrasOpenFor() === it.id"
+                        >
+                          Extras
+                          <span class="extras-badge">{{ exs.length }}</span>
+                        </button>
+                        @if (extrasOpenFor() === it.id) {
+                          <div class="extras">
+                            @for (ex of exs; track ex.id) {
+                              <button
+                                type="button"
+                                class="extra"
+                                (click)="addExtra(ex, it, $event)"
+                              >
+                                + {{ ex.name }}
+                              </button>
                             }
                           </div>
                         }
-                      }
-                      @for (ex of group.extras; track ex.key) {
-                        <div class="lines__extra">
-                          <span>+ {{ ex.name }}</span>
-                          <span>{{ money(ex.unitPrice * ex.qty) }}</span>
+                      </div>
+                    }
+                  }
+                </li>
+              } @empty {
+                @if (!sellablePromos().length || sectionFilter()) {
+                  <li class="muted">Sin ítems. Revisá la carta del local.</li>
+                }
+              }
+            </ul>
+          }
+
+          @if (sellablePromos().length && (!sectionFilter() || showingPromosOnly())) {
+            @if (!showingPromosOnly()) {
+              <h3 class="cat-sub">Promos</h3>
+            }
+            <ul class="items">
+              @for (pr of sellablePromos(); track pr.id) {
+                <li class="item-wrap">
+                  @if (pr.inSchedule === false) {
+                    <button
+                      type="button"
+                      class="item item--dim"
+                      disabled
+                      title="Fuera de horario"
+                    >
+                      <span>{{ pr.name }}</span>
+                      <span class="item__price">Fuera de horario</span>
+                    </button>
+                  } @else if (!(pr.items ?? []).length) {
+                    @if (promoQty(pr); as pq) {
+                      <div class="item item--selected" role="group" [attr.aria-label]="pr.name">
+                        <button type="button" class="item__main" (click)="bumpPromo(pr, 1)">
+                          <span>{{ pr.name }}</span>
+                          <span class="item__price">{{ money(pr.fixedPrice) }}</span>
+                        </button>
+                        <div class="item-qty" (click)="$event.stopPropagation()">
+                          <button
+                            type="button"
+                            class="item-qty__btn"
+                            (click)="bumpPromo(pr, -1, $event)"
+                            aria-label="Restar"
+                          >
+                            −
+                          </button>
+                          <span class="item-qty__n">{{ pq }}</span>
+                          <button
+                            type="button"
+                            class="item-qty__btn"
+                            (click)="bumpPromo(pr, 1, $event)"
+                            aria-label="Sumar"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    } @else {
+                      <button type="button" class="item" (click)="addPromo(pr)">
+                        <span>{{ pr.name }}</span>
+                        <span class="item__price">{{ money(pr.fixedPrice) }}</span>
+                      </button>
+                    }
+                  } @else {
+                    <button type="button" class="item" (click)="addPromo(pr)">
+                      <span>{{ pr.name }}</span>
+                      <span class="item__price">{{ money(pr.fixedPrice) }}</span>
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+
+      <section class="review-panel anim-in anim-delay-1">
+        <div class="cart-head cart-head--review">
+          <button type="button" class="review-back" (click)="goToPick()">
+            ← Seguir eligiendo
+          </button>
+          @if (lines().length) {
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm review-compact"
+              (click)="cartDetail.set(!cartDetail())"
+            >
+              {{ cartDetail() ? 'Compacta' : 'Detalle' }}
+            </button>
+          }
+          <h2>Resumen</h2>
+        </div>
+
+        <div class="cart-body">
+          @if (!lines().length) {
+            <p class="muted cart-empty">No hay ítems. Elegí platos en la carta.</p>
+          } @else {
+            <ul class="lines" [class.lines--simple]="!cartDetail()">
+              @for (group of cartGroups(); track group.item.key) {
+                <li>
+                  @if (cartDetail()) {
+                    <div class="lines__row">
+                      <strong>
+                        @if (group.item.isEntrada && !isCounterSession()) {
+                          <span class="entrada-tag">Entrada</span>
+                        }
+                        {{ group.item.name }}
+                      </strong>
+                      <span>
+                        @if (linePriceChanged(group.item); as prices) {
+                          <span class="line-price line-price--changed">
+                            <span class="line-price__base">{{ money(prices.base * group.item.qty) }}</span>
+                            <span aria-hidden="true">→</span>
+                            <strong>{{ money(prices.charged * group.item.qty) }}</strong>
+                          </span>
+                        } @else {
+                          {{ money(group.item.unitPrice * group.item.qty) }}
+                        }
+                      </span>
+                    </div>
+                    <div class="line-tools">
+                      <div class="qty" aria-label="Cantidad">
+                        <button type="button" (click)="bump(group.item, -1)" aria-label="Restar">−</button>
+                        <span>{{ group.item.qty }}</span>
+                        <button type="button" (click)="bump(group.item, 1)" aria-label="Sumar">+</button>
+                      </div>
+                      @if (group.item.kind === 'ITEM') {
+                        <div class="cart-flags">
+                          @if (!isCounterSession()) {
+                            <button
+                              type="button"
+                              class="entrada-toggle"
+                              [class.on]="group.item.isEntrada"
+                              (click)="toggleEntrada(group.item, $event)"
+                            >
+                              {{ group.item.isEntrada ? 'Entrada ✓' : 'Entrada' }}
+                            </button>
+                            @if (otherCartItems(group.item).length) {
+                              <button
+                                type="button"
+                                class="entrada-toggle"
+                                [class.on]="hasCombines(group.item)"
+                                (click)="toggleCombinePanel(group.item, $event)"
+                              >
+                                {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
+                              </button>
+                            }
+                          }
+                          <button
+                            type="button"
+                            class="entrada-toggle"
+                            [class.on]="hasLineNotes(group.item) || noteOpenKey() === group.item.key"
+                            (click)="toggleNotePanel(group.item, $event)"
+                          >
+                            {{ hasLineNotes(group.item) ? 'Nota ✓' : 'Nota' }}
+                          </button>
                         </div>
                       }
-                    } @else {
-                      <div class="lines__simple">
-                        <span class="lines__simple-qty">{{ group.item.qty }}×</span>
-                        <strong>
-                          @if (group.item.isEntrada && !isCounterSession()) {
-                            <span class="entrada-tag">E</span>
+                    </div>
+                    @if (group.item.kind === 'ITEM') {
+                      @if (combineOpenKey() === group.item.key && !isCounterSession()) {
+                        <div class="combine-pick">
+                          @for (other of otherCartItems(group.item); track other.key) {
+                            <label class="combine-pick__row">
+                              <input
+                                type="checkbox"
+                                [checked]="isCombinedWith(group.item, other)"
+                                (change)="toggleCombine(group.item, other, $event)"
+                              />
+                              <span>{{ other.name }}</span>
+                            </label>
                           }
-                          {{ group.item.name }}
-                        </strong>
-                        <span class="lines__simple-price">
-                          @if (linePriceChanged(group.item); as prices) {
-                            <span class="line-price line-price--changed">
-                              <span class="line-price__base">{{ money(prices.base * group.item.qty) }}</span>
-                              <span aria-hidden="true">→</span>
-                              <strong>{{ money(prices.charged * group.item.qty) }}</strong>
-                            </span>
-                          } @else {
-                            {{ money(group.item.unitPrice * group.item.qty) }}
-                          }
-                        </span>
+                        </div>
+                      }
+                      @if (noteOpenKey() === group.item.key) {
+                        <label class="line-note">
+                          Nota del plato
+                          <textarea
+                            rows="2"
+                            [ngModel]="group.item.notes ?? ''"
+                            (ngModelChange)="setLineNotes(group.item, $event)"
+                            [name]="'lineNote_' + group.item.key"
+                            placeholder="Sin cebolla, al punto…"
+                            maxlength="300"
+                          ></textarea>
+                        </label>
+                      } @else if (hasLineNotes(group.item)) {
+                        <p class="line-note-preview">{{ group.item.notes }}</p>
+                      }
+                    }
+                    @for (ex of group.extras; track ex.key) {
+                      <div class="lines__extra">
+                        <span>+ {{ ex.name }}</span>
+                        <span>{{ money(ex.unitPrice * ex.qty) }}</span>
                       </div>
-                      @if (group.item.kind === 'ITEM' && !isCounterSession()) {
-                        <div class="cart-flags cart-flags--compact">
+                    }
+                  } @else {
+                    <div class="lines__simple">
+                      <span class="lines__simple-qty">{{ group.item.qty }}×</span>
+                      <strong>
+                        @if (group.item.isEntrada && !isCounterSession()) {
+                          <span class="entrada-tag">E</span>
+                        }
+                        {{ group.item.name }}
+                      </strong>
+                      <span class="lines__simple-price">
+                        @if (linePriceChanged(group.item); as prices) {
+                          <span class="line-price line-price--changed">
+                            <span class="line-price__base">{{ money(prices.base * group.item.qty) }}</span>
+                            <span aria-hidden="true">→</span>
+                            <strong>{{ money(prices.charged * group.item.qty) }}</strong>
+                          </span>
+                        } @else {
+                          {{ money(group.item.unitPrice * group.item.qty) }}
+                        }
+                      </span>
+                    </div>
+                    @if (group.item.kind === 'ITEM') {
+                      <div class="cart-flags cart-flags--compact">
+                        @if (!isCounterSession()) {
                           <button
                             type="button"
                             class="entrada-toggle entrada-toggle--compact"
@@ -835,96 +957,146 @@
                               {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
                             </button>
                           }
-                        </div>
-                        @if (combineOpenKey() === group.item.key) {
-                          <div class="combine-pick">
-                            @for (other of otherCartItems(group.item); track other.key) {
-                              <label class="combine-pick__row">
-                                <input
-                                  type="checkbox"
-                                  [checked]="isCombinedWith(group.item, other)"
-                                  (change)="toggleCombine(group.item, other, $event)"
-                                />
-                                <span>{{ other.name }}</span>
-                              </label>
-                            }
-                          </div>
                         }
-                      }
-                      @for (ex of group.extras; track ex.key) {
-                        <div class="lines__simple lines__simple--extra">
-                          <span class="lines__simple-qty"></span>
-                          <strong>+ {{ ex.name }}</strong>
-                          <span class="lines__simple-price">{{
-                            money(ex.unitPrice * ex.qty)
-                          }}</span>
+                        <button
+                          type="button"
+                          class="entrada-toggle entrada-toggle--compact"
+                          [class.on]="hasLineNotes(group.item)"
+                          (click)="toggleNotePanel(group.item, $event)"
+                        >
+                          {{ hasLineNotes(group.item) ? 'Nota ✓' : 'Nota' }}
+                        </button>
+                      </div>
+                      @if (combineOpenKey() === group.item.key && !isCounterSession()) {
+                        <div class="combine-pick">
+                          @for (other of otherCartItems(group.item); track other.key) {
+                            <label class="combine-pick__row">
+                              <input
+                                type="checkbox"
+                                [checked]="isCombinedWith(group.item, other)"
+                                (change)="toggleCombine(group.item, other, $event)"
+                              />
+                              <span>{{ other.name }}</span>
+                            </label>
+                          }
                         </div>
+                      }
+                      @if (noteOpenKey() === group.item.key) {
+                        <label class="line-note line-note--compact">
+                          Nota del plato
+                          <textarea
+                            rows="2"
+                            [ngModel]="group.item.notes ?? ''"
+                            (ngModelChange)="setLineNotes(group.item, $event)"
+                            [name]="'lineNoteCompact_' + group.item.key"
+                            placeholder="Sin cebolla, al punto…"
+                            maxlength="300"
+                          ></textarea>
+                        </label>
+                      } @else if (hasLineNotes(group.item)) {
+                        <p class="line-note-preview">{{ group.item.notes }}</p>
                       }
                     }
-                  </li>
-                }
-              </ul>
+                    @for (ex of group.extras; track ex.key) {
+                      <div class="lines__simple lines__simple--extra">
+                        <span class="lines__simple-qty"></span>
+                        <strong>+ {{ ex.name }}</strong>
+                        <span class="lines__simple-price">{{
+                          money(ex.unitPrice * ex.qty)
+                        }}</span>
+                      </div>
+                    }
+                  }
+                </li>
+              }
+            </ul>
+          }
+
+          <div class="cart-foot">
+            @if (lines().length) {
+              <p class="total">Total {{ money(subtotal()) }}</p>
             }
 
-            <div class="cart-foot">
-              @if (lines().length) {
-                <p class="total">Total {{ money(subtotal()) }}</p>
+            <div class="order-note">
+              <button
+                type="button"
+                class="entrada-toggle"
+                [class.on]="!!notes().trim() || orderNoteOpen()"
+                (click)="orderNoteOpen.set(!orderNoteOpen())"
+              >
+                {{ notes().trim() ? 'Nota ✓' : 'Agregar nota' }}
+              </button>
+              @if (orderNoteOpen()) {
+                <label class="notes">
+                  Nota del envío
+                  <textarea
+                    rows="2"
+                    [ngModel]="notes()"
+                    (ngModelChange)="notes.set($event)"
+                    name="notes"
+                    placeholder="Nota del envío…"
+                  ></textarea>
+                </label>
+              } @else if (notes().trim()) {
+                <p class="line-note-preview">{{ notes() }}</p>
               }
+            </div>
 
-              <label class="notes">
-                Nota
-                <textarea
-                  rows="2"
-                  [ngModel]="notes()"
-                  (ngModelChange)="notes.set($event)"
-                  name="notes"
-                  placeholder="Sin cebolla, al punto…"
-                ></textarea>
-              </label>
-
-              @if (!isCounterSession()) {
-                <div class="checks">
-                  @if (capabilities().allowPrintKitchen) {
-                    <label class="check">
-                      <input
-                        type="checkbox"
-                        [ngModel]="printKitchen()"
-                        (ngModelChange)="printKitchen.set($event)"
-                        name="kitchen"
-                        [disabled]="capabilities().lockPrintKitchen"
-                      />
-                      Cocina
-                    </label>
-                  }
-                </div>
-              }
-
-              <div class="dock__actions">
-                <button type="button" class="btn btn--ghost" [disabled]="!lines().length" (click)="clearCart()">
-                  Vaciar
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--lg"
-                  [disabled]="busy() || !lines().length || !capabilities().allowSendOrder"
-                  (click)="sendOrder()"
-                >
-                  {{
-                    busy()
-                      ? 'Enviando…'
-                      : isCounterSession()
-                        ? 'Enviar y cobrar'
-                        : printKitchen()
-                          ? 'Enviar comanda'
-                          : 'Agregar sin imprimir'
-                  }}
-                </button>
+            @if (!isCounterSession()) {
+              <div class="checks">
+                @if (capabilities().allowPrintKitchen) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [ngModel]="printKitchen()"
+                      (ngModelChange)="printKitchen.set($event)"
+                      name="kitchen"
+                      [disabled]="capabilities().lockPrintKitchen"
+                    />
+                    Cocina
+                  </label>
+                }
               </div>
+            }
+
+            <div class="dock__actions">
+              <button type="button" class="btn btn--ghost" [disabled]="!lines().length" (click)="clearCart()">
+                Vaciar
+              </button>
+              <button
+                type="button"
+                class="btn btn--lg"
+                [disabled]="busy() || !lines().length || !capabilities().allowSendOrder"
+                (click)="sendOrder()"
+              >
+                {{
+                  busy()
+                    ? 'Enviando…'
+                    : isCounterSession()
+                      ? 'Enviar y cobrar'
+                      : printKitchen()
+                        ? 'Enviar comanda'
+                        : 'Agregar sin imprimir'
+                }}
+              </button>
             </div>
           </div>
-        </aside>
-      }
+        </div>
+      </section>
     </div>
+
+    @if (lineCount() > 0 && orderStep() === 'pick' && !orderSplitLayout()) {
+      <div class="pick-bar">
+        <button type="button" class="pick-bar__btn" (click)="goToReview()">
+          <span class="pick-bar__count">{{ lineCount() }}</span>
+          <span class="pick-bar__copy">
+            <strong>Continuar</strong>
+            <span>{{ money(subtotal()) }}</span>
+          </span>
+        </button>
+      </div>
+    }
+    }
   }
 </div>
 
@@ -1216,8 +1388,69 @@
     <h2 id="close-title">Cerrar {{ sessionPlaceLabel() }}</h2>
     <div class="sheet__body">
     <p class="sheet__total sheet__total--sm">
-      <span>Ticket</span><strong>{{ money(closeDueAmount()) }}</strong>
+      <span>Ticket</span><strong>{{ money(sessionSubtotal()) }}</strong>
     </p>
+
+    @if (capabilities().allowTicketDiscount && isCounterSession()) {
+      <div class="sheet__field">
+        <span class="sheet__label">Descuento</span>
+        <div class="choices choices--row">
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="ticketDiscountMode() === 'none'"
+            (click)="setTicketDiscountMode('none')"
+          >
+            No
+          </button>
+          @for (p of discountPresets(); track p.id) {
+            <button
+              type="button"
+              class="choice"
+              [class.choice--on]="ticketDiscountPresetId() === p.id"
+              (click)="applyTicketDiscountPreset(p)"
+            >
+              {{ p.label }}
+            </button>
+          }
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="ticketDiscountMode() === 'percent' && !ticketDiscountPresetId()"
+            (click)="setTicketDiscountMode('percent')"
+          >
+            %
+          </button>
+          <button
+            type="button"
+            class="choice"
+            [class.choice--on]="ticketDiscountMode() === 'fixed' && !ticketDiscountPresetId()"
+            (click)="setTicketDiscountMode('fixed')"
+          >
+            $
+          </button>
+        </div>
+      </div>
+      @if (showTicketDiscountInput()) {
+        <label class="sheet__field">
+          <span class="sheet__label">{{ ticketDiscountMode() === 'percent' ? 'Porcentaje' : 'Monto' }}</span>
+          <input
+            type="number"
+            min="0"
+            [attr.max]="ticketDiscountMode() === 'percent' ? 100 : null"
+            step="1"
+            [ngModel]="ticketDiscountValue()"
+            (ngModelChange)="onCloseDiscountValue($event)"
+            name="closeDiscount"
+          />
+        </label>
+      }
+      @if (ticketDiscountMode() !== 'none') {
+        <p class="sheet__total sheet__total--sm">
+          <span>Con descuento</span><strong>{{ money(closeDueAmount()) }}</strong>
+        </p>
+      }
+    }
 
     @if (capabilities().allowTipOnClose) {
       <div class="sheet__field">

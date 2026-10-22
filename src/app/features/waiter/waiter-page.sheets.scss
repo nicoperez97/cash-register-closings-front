@@ -126,13 +126,13 @@
   }
 }
 
-/* Panel abierto: más reserva de scroll para no tapar platos / teclado. */
-:host:has(.dock__panel) {
-  --waiter-dock-height: min(52dvh, 24rem);
+/* Reserva inferior: barra Continuar en elegir; resumen sin dock. */
+:host:has(.pick-bar) {
+  --waiter-dock-height: 4.75rem;
 }
 
-:host:has(.dock__panel--detail) {
-  --waiter-dock-height: min(62dvh, 28rem);
+:host:has(.review-panel) {
+  --waiter-dock-height: 0px;
 }
 
 .cart-head {
@@ -289,34 +289,45 @@
   font-weight: 800;
 }
 
+.line-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin: 0.35rem 0 0.15rem;
+}
+
 .entrada-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin: 0.15rem 0 0.35rem;
-  padding: 0.35rem 0.75rem;
-  min-height: var(--guy-touch-min, 44px);
+  margin: 0;
+  padding: 0 0.85rem;
+  height: 2.25rem;
+  min-height: 2.25rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent, #007a14) 35%, #c5cdd2);
-  background: #fff;
-  color: var(--muted, #5f6f76);
-  font-size: 0.75rem;
-  font-weight: 650;
+  border: 1px solid color-mix(in srgb, var(--accent, #007a14) 28%, #c5cdd2);
+  background: color-mix(in srgb, var(--ink, #1a2421) 3%, #fff);
+  color: var(--ink, #1a2421);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
   touch-action: manipulation;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .entrada-toggle.on {
-  border-color: var(--accent, #007a14);
-  background: color-mix(in srgb, var(--accent, #007a14) 12%, #fff);
-  color: var(--accent, #007a14);
+  border-color: transparent;
+  background: var(--accent, #007a14);
+  color: var(--on-accent, #fff);
 }
 
 .entrada-toggle--compact {
-  margin: 0.1rem 0 0.25rem;
-  padding: 0.25rem 0.65rem;
-  min-height: var(--guy-touch-min, 44px);
-  font-size: 0.7rem;
+  padding: 0 0.7rem;
+  height: 2rem;
+  min-height: 2rem;
+  font-size: 0.72rem;
 }
 
 .cart-flags {
@@ -324,6 +335,7 @@
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
+  flex: 1 1 auto;
 }
 
 .cart-flags--compact {
@@ -359,22 +371,65 @@
   accent-color: var(--accent, #007a14);
 }
 
+.line-note {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.25rem 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted, #5f6f76);
+
+  textarea {
+    font: inherit;
+    font-weight: 500;
+    color: var(--ink, #1a2421);
+    border: 1px solid var(--line, #d7e0d9);
+    border-radius: 10px;
+    padding: 0.4rem 0.55rem;
+    resize: vertical;
+    min-height: 2.4rem;
+    max-height: 5.5rem;
+  }
+}
+
+.line-note--compact {
+  margin-top: 0.15rem;
+}
+
+.line-note-preview {
+  margin: 0.15rem 0 0.3rem;
+  padding: 0 0.1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted, #5f6f76);
+  line-height: 1.25;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .qty {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.15rem;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0.15rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #007a14) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent, #007a14) 22%, var(--line, #d7e0d9));
+  flex: 0 0 auto;
 
   button {
-    width: var(--guy-touch-min, 44px);
-    height: var(--guy-touch-min, 44px);
-    min-width: var(--guy-touch-min, 44px);
-    min-height: var(--guy-touch-min, 44px);
+    width: 2.25rem;
+    height: 2.25rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
     border-radius: 10px;
-    border: 1px solid var(--line);
+    border: 0;
     background: #fff;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--ink, #1a2421) 8%, transparent);
     font: inherit;
     font-size: 1.15rem;
+    font-weight: 700;
     line-height: 1;
     color: var(--ink);
     cursor: pointer;
@@ -382,10 +437,11 @@
   }
 
   span {
-    min-width: 1.25rem;
+    min-width: 1.4rem;
     text-align: center;
-    font-size: 0.92rem;
-    font-weight: 700;
+    font-size: 0.95rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
   }
 }
 

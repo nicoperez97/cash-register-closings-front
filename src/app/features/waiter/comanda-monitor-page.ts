@@ -7,6 +7,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { debounceTime, filter, interval, of, switchMap } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
+import { hasShopPermission } from '../../core/auth/auth.models';
 import { ShopContextService } from '../../core/shop/shop-context.service';
 import { ShopLiveClient } from '../../core/live/shop-live.service';
 import { usePageRefresh } from '../../core/page-refresh.service';
@@ -15,12 +17,25 @@ import { topicById } from '../../core/help/module-help';
 import { formatMoney } from '../../shared/utils/money';
 import {
   ComandaMonitorPayload,
+  ComandaMonitorTable,
   WaiterApiService,
   WaiterLineAudit,
 } from './waiter-api.service';
 import { comandaReasonLabel } from './comanda-line-reason-dialog';
 
-type MonitorColId = 'tables' | 'sends' | 'audits';
+type MonitorColId =
+  | 'tables'
+  | 'counters'
+  | 'closed'
+  | 'changes'
+  | 'sends'
+  | 'audits';
+
+type BoardCol = {
+  id: MonitorColId;
+  title: string;
+  rows: ComandaMonitorTable[];
+};
 
 @Component({
   selector: 'app-comanda-monitor-page',
@@ -30,6 +45,7 @@ type MonitorColId = 'tables' | 'sends' | 'audits';
 })
 export class ComandaMonitorPage {
   private readonly api = inject(WaiterApiService);
+  private readonly auth = inject(AuthService);
   private readonly snack = inject(MatSnackBar);
   private readonly live = inject(ShopLiveClient);
   private readonly dialog = inject(MatDialog);
@@ -45,32 +61,129 @@ export class ComandaMonitorPage {
     ),
   );
 
+  /** Montos del monitor: permiso de rol o flag del payload. */
+  readonly canSeeAmounts = computed(() => {
+    const d = this.data();
+    if (d?.showAmounts === false) return false;
+    if (d?.showAmounts === true) return true;
+    const shopId = this.shops.selectedShopId();
+    return (
+      hasShopPermission(this.auth.currentUser(), shopId, 'comandaMonitor.amounts') ||
+      hasShopPermission(this.auth.currentUser(), shopId, 'shops.manage')
+    );
+  });
+
   readonly summary = computed(() => {
     const d = this.data();
     const s = d?.summary;
-    if (s) return s;
     const tables = d?.tables ?? [];
+    const counters = d?.counters ?? [];
+    const closedTables = d?.closedTables ?? [];
+    const closedCounters = d?.closedCounters ?? [];
     const sends = d?.recentOrders ?? [];
     const audits = d?.recentAudits ?? [];
+    const openTotal =
+      s?.openTotal ??
+      [...tables, ...counters].reduce((n, t) => n + (Number(t.total) || 0), 0);
+    const closedTotal =
+      s?.closedTotal ??
+      [...closedTables, ...closedCounters].reduce(
+        (n, t) => n + (Number(t.total) || 0),
+        0,
+      );
     return {
-      openTables: tables.length,
-      openCovers: tables.reduce((n, t) => n + (Number(t.covers) || 0), 0),
-      openTotal: tables.reduce((n, t) => n + (Number(t.total) || 0), 0),
-      sends: sends.length,
-      sendsTotal: sends.reduce((n, o) => n + (Number(o.total) || 0), 0),
-      ticketsPrinted: tables.filter((t) => t.customerTicketPrinted).length,
-      audits: audits.length,
+      openTables: s?.openTables ?? tables.length,
+      openCovers:
+        s?.openCovers ?? tables.reduce((n, t) => n + (Number(t.covers) || 0), 0),
+      openCounter: s?.openCounter ?? counters.length,
+      closedTables: s?.closedTables ?? closedTables.length,
+      closedCovers:
+        s?.closedCovers ??
+        closedTables.reduce((n, t) => n + (Number(t.covers) || 0), 0),
+      closedCounter: s?.closedCounter ?? closedCounters.length,
+      tablesWithChanges: s?.tablesWithChanges ?? 0,
+      openTotal,
+      closedTotal,
+      shiftTotal: s?.shiftTotal ?? openTotal + closedTotal,
+      sends: s?.sends ?? sends.length,
+      sendsTotal:
+        s?.sendsTotal ?? sends.reduce((n, o) => n + (Number(o.total) || 0), 0),
+      ticketsPrinted:
+        s?.ticketsPrinted ??
+        [...tables, ...counters, ...closedTables, ...closedCounters].filter(
+          (t) => t.customerTicketPrinted,
+        ).length,
+      audits: s?.audits ?? audits.length,
     };
+  });
+
+  readonly changedSessions = computed((): ComandaMonitorTable[] => {
+    const d = this.data();
+    if (!d) return [];
+    const ids = new Set(
+      (d.recentAudits ?? [])
+        .map((a) => String(a.tableSessionId ?? '').trim())
+        .filter(Boolean),
+    );
+    if (!ids.size) return [];
+    const seen = new Set<string>();
+    const rows: ComandaMonitorTable[] = [];
+    for (const t of [
+      ...(d.tables ?? []),
+      ...(d.counters ?? []),
+      ...(d.closedTables ?? []),
+      ...(d.closedCounters ?? []),
+    ]) {
+      if (!ids.has(t.sessionId) || seen.has(t.sessionId)) continue;
+      seen.add(t.sessionId);
+      rows.push(t);
+    }
+    return rows;
+  });
+
+  readonly boardColumns = computed((): BoardCol[] => {
+    const d = this.data();
+    if (!d) return [];
+    const cols: BoardCol[] = [];
+    if (d.tables?.length) {
+      cols.push({ id: 'tables', title: 'Mesas abiertas', rows: d.tables });
+    }
+    const counters = [...(d.counters ?? []), ...(d.closedCounters ?? [])];
+    if (counters.length) {
+      cols.push({ id: 'counters', title: 'Mostrador', rows: counters });
+    }
+    if (d.closedTables?.length) {
+      cols.push({ id: 'closed', title: 'Mesas cerradas', rows: d.closedTables });
+    }
+    const changed = this.changedSessions();
+    if (changed.length) {
+      cols.push({ id: 'changes', title: 'Con recambio', rows: changed });
+    }
+    return cols;
   });
 
   /** Solo columnas con datos del turno. */
   readonly visibleColumns = computed((): MonitorColId[] => {
+    const cols: MonitorColId[] = this.boardColumns().map((c) => c.id);
     const d = this.data();
-    const cols: MonitorColId[] = [];
-    if (d?.tables?.length) cols.push('tables');
     if (d?.recentOrders?.length) cols.push('sends');
     if (d?.recentAudits?.length) cols.push('audits');
     return cols;
+  });
+
+  readonly countPill = computed(() => {
+    const s = this.summary();
+    const bits: string[] = [];
+    if (s.sends) bits.push(`${s.sends} envío${s.sends === 1 ? '' : 's'}`);
+    if (s.openTables) bits.push(`${s.openTables} mesa${s.openTables === 1 ? '' : 's'}`);
+    if (s.openCounter + s.closedCounter) {
+      const n = s.openCounter + s.closedCounter;
+      bits.push(`${n} mostrador`);
+    }
+    if (s.closedTables) {
+      bits.push(`${s.closedTables} cerrada${s.closedTables === 1 ? '' : 's'}`);
+    }
+    return bits.join(' · ') || 'Sin actividad';
   });
 
   constructor() {
@@ -132,10 +245,14 @@ export class ComandaMonitorPage {
       return s;
     }
     if (a.action === 'PRICE') {
+      if (!this.canSeeAmounts()) return `Cambió el precio de ${name}`;
       return `Precio de ${name}: ${this.money(a.unitPriceBefore ?? 0)} → ${this.money(a.unitPriceAfter ?? 0)}`;
     }
     if (a.action === 'QTY') {
       return `Cantidad de ${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${extraBit}${reasonBit}`;
+    }
+    if (!this.canSeeAmounts()) {
+      return `${name}: ${a.qtyBefore ?? '—'} → ${a.qtyAfter ?? '—'}${reasonBit}`;
     }
     return `${name}: ${a.qtyBefore ?? '—'}× ${this.money(a.unitPriceBefore ?? 0)} → ${a.qtyAfter ?? '—'}× ${this.money(a.unitPriceAfter ?? 0)}${reasonBit}`;
   }

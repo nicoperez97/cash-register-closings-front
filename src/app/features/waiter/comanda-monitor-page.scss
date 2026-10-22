@@ -203,6 +203,11 @@
   border-color: color-mix(in srgb, #c62828 22%, var(--guy-border, #d7e0d9));
 }
 
+.mon-card--closed {
+  background: color-mix(in srgb, var(--guy-border, #d7e0d9) 22%, #fff);
+  opacity: 0.92;
+}
+
 .mon-card header {
   display: flex;
   justify-content: space-between;

@@ -8,13 +8,24 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription, debounceTime, filter, interval } from 'rxjs';
+import {
+  Subscription,
+  catchError,
+  debounceTime,
+  filter,
+  forkJoin,
+  interval,
+  map,
+  of,
+} from 'rxjs';
 import { applyStatusBar, resetStatusBar } from '../../core/pwa/status-bar';
 import { PublicPagePwaService } from '../../core/pwa/public-page-pwa.service';
 import { ShopContextService } from '../../core/shop/shop-context.service';
@@ -69,10 +80,14 @@ type PosLine = {
   extraId?: string;
   attachedToMenuItemId?: string;
   promoId?: string;
+  /** Sectores de cocina del ítem (para Combina automático). */
+  kitchenSectorIds?: string[];
   /** Sale a cocina como entrada. */
   isEntrada?: boolean;
   /** Keys de otras líneas del carrito con las que combina. */
   combinesWithKeys?: string[];
+  /** Nota del plato (va a cocina bajo el ítem). */
+  notes?: string;
 };
 
 type CatalogItem = {
@@ -82,6 +97,7 @@ type CatalogItem = {
   price: number;
   accountPrices?: Array<{ accountId: string; price: number }>;
   section: string;
+  kitchenSectorIds?: string[];
 };
 
 type View = 'login' | 'tables' | 'session';
@@ -167,19 +183,31 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   /** Filtro de chip «Promos» (no es una sección de carta). */
   readonly promosSection = '__promos__';
   readonly notes = signal('');
+  /** Panel de nota del envío abierto en el resumen. */
+  readonly orderNoteOpen = signal(false);
   readonly printKitchen = signal(true);
   readonly printCustomerTicket = signal(false);
-  readonly cartOpen = signal(false);
-  /** Vista detallada del carrito (qty +/− y nota). Por defecto resumen. */
-  readonly cartDetail = signal(false);
+  /** Paso de la mesa: elegir platos o resumen / enviar. */
+  readonly orderStep = signal<'pick' | 'review'>('pick');
+  /** Carta + resumen lado a lado (mismo corte que el CSS ≥900px). */
+  readonly orderSplitLayout = toSignal(
+    inject(BreakpointObserver)
+      .observe('(min-width: 900px)')
+      .pipe(map((r) => r.matches)),
+    { initialValue: false },
+  );
+  /** Pedido (carta) o Información (envíos + resumen). */
+  readonly sessionPane = signal<'order' | 'info'>('order');
+  /** Envíos en Información: contraídos por defecto. */
+  readonly sessionEnviosOpen = signal(false);
+  /** Vista detallada del carrito en resumen (qty +/− y nota). */
+  readonly cartDetail = signal(true);
   /** Key de la línea cuyo panel «Combina» está abierto. */
   readonly combineOpenKey = signal<string | null>(null);
+  /** Key de la línea cuyo panel «Nota» está abierto (vista resumen). */
+  readonly noteOpenKey = signal<string | null>(null);
   /** Ítem de carta con extras desplegados (null = todos contraídos). */
   readonly extrasOpenFor = signal<string | null>(null);
-  /** Envíos / Resumen de mesa: colapsados por defecto para priorizar la carta. */
-  readonly sessionEnviosOpen = signal(false);
-  readonly sessionResumenOpen = signal(false);
-  readonly sessionAuditOpen = signal(false);
   /** Borrador del cupo por promoId (vacío = ilimitado). */
   readonly promoCupoDrafts = signal<Record<string, string>>({});
 
@@ -822,7 +850,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           this.showToast(this.isCounterSession(updated) ? 'Pedido cerrado' : 'Mesa cerrada por otro');
           this.session.set(null);
           this.lines.set([]);
-          this.cartOpen.set(false);
+          this.orderStep.set('pick');
           this.closeSheet.set(false);
           this.ticketSheet.set(false);
           this.view.set('tables');
@@ -1454,14 +1482,16 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.session.set(session);
     this.lines.set([]);
     this.notes.set('');
+    this.noteOpenKey.set(null);
+    this.orderNoteOpen.set(false);
+    this.orderStep.set('pick');
+    this.sessionPane.set('order');
+    this.sessionEnviosOpen.set(false);
+    this.cartDetail.set(true);
     const caps = this.capabilities();
     this.printKitchen.set(caps.allowPrintKitchen && caps.defaultPrintKitchen);
     // Ticket cliente y pago van al cerrar / ticket, no al enviar comanda.
     this.printCustomerTicket.set(false);
-    this.cartOpen.set(false);
-    this.sessionEnviosOpen.set(false);
-    this.sessionResumenOpen.set(false);
-    this.sessionAuditOpen.set(false);
     this.syncPromoCupoDraft(session);
     this.view.set('session');
     this.ensureCatalog();
@@ -1605,6 +1635,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
               i === idx ? { ...l, qty: Math.min(99, l.qty + qtyAdd) } : l,
             );
           } else {
+            const kitchenSectorIds = this.sectorIdsForCatalogItem(found);
             next.push({
               key,
               kind: 'ITEM',
@@ -1612,7 +1643,11 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
               name: found.name,
               unitPrice: Number(found.price) || 0,
               qty: qtyAdd,
+              kitchenSectorIds,
+              combinesWithKeys: [],
+              notes: '',
             });
+            next = this.withAutoCombines(next, key);
           }
         }
         return next;
@@ -1620,7 +1655,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       if (promo.tableMatchable !== false && !this.isSessionPromoOn(promo.id)) {
         this.toggleSessionPromo(promo.id);
       }
-      this.cartOpen.set(true);
       return;
     }
 
@@ -1646,7 +1680,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         },
       ];
     });
-    this.cartOpen.set(true);
   }
 
   backToTables(): void {
@@ -1658,7 +1691,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const go = () => {
       this.session.set(null);
       this.lines.set([]);
-      this.cartOpen.set(false);
+      this.orderStep.set('pick');
+      this.sessionPane.set('order');
       this.closeSheet.set(false);
       this.view.set('tables');
       this.loadTables();
@@ -1814,9 +1848,138 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.sectionFilter.set(sec);
   }
 
+  goToReview(): void {
+    if (!this.lineCount()) return;
+    this.cartDetail.set(true);
+    this.combineOpenKey.set(null);
+    this.noteOpenKey.set(null);
+    this.orderNoteOpen.set(!!this.notes().trim());
+    this.sessionPane.set('order');
+    this.orderStep.set('review');
+  }
+
+  goToPick(): void {
+    this.orderStep.set('pick');
+    this.combineOpenKey.set(null);
+    this.noteOpenKey.set(null);
+    this.orderNoteOpen.set(false);
+  }
+
+  openSessionInfo(): void {
+    if (this.isCounterSession()) return;
+    this.sessionPane.set('info');
+    this.sessionEnviosOpen.set(false);
+    this.combineOpenKey.set(null);
+    this.noteOpenKey.set(null);
+    this.orderNoteOpen.set(false);
+  }
+
+  goToOrderPane(): void {
+    this.sessionPane.set('order');
+  }
+
+  bumpSessionCovers(delta: number): void {
+    const s = this.session();
+    if (!s || this.isCounterSession(s) || this.busy() || !delta) return;
+    const cur = Math.max(1, Number(s.covers) || 2);
+    const next = Math.max(1, Math.min(30, cur + delta));
+    if (next === cur) return;
+    this.saveSessionCovers(next);
+  }
+
+  onSessionCoversInput(raw: string | number): void {
+    const s = this.session();
+    if (!s || this.isCounterSession(s) || this.busy()) return;
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n)) return;
+    const next = Math.max(1, Math.min(30, n));
+    if (next === (Number(s.covers) || 2)) return;
+    this.saveSessionCovers(next);
+  }
+
+  private saveSessionCovers(covers: number): void {
+    const slug = this.slug();
+    const token = this.token();
+    const session = this.session();
+    if (!slug || !token || !session) return;
+    this.busy.set(true);
+    this.error.set(null);
+    this.api.patchSessionCovers(slug, token, session.id, covers).subscribe({
+      next: (updated) => {
+        this.busy.set(false);
+        this.session.set(updated);
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudieron actualizar los comensales'));
+      },
+    });
+  }
+
+  /** Cantidad en carrito del plato (línea no-entrada). */
+  catalogQty(it: { id: string }): number {
+    const key = `i:${it.id}`;
+    const line = this.lines().find((l) => l.key === key && l.kind === 'ITEM' && !l.isEntrada);
+    return line?.qty ?? 0;
+  }
+
+  catalogLine(it: { id: string }): PosLine | null {
+    const key = `i:${it.id}`;
+    return this.lines().find((l) => l.key === key && l.kind === 'ITEM' && !l.isEntrada) ?? null;
+  }
+
+  bumpCatalogItem(it: CatalogItem, delta: number, ev?: Event): void {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+    if (!delta) return;
+    const line = this.catalogLine(it);
+    if (!line) {
+      if (delta > 0) this.addItem(it);
+      return;
+    }
+    this.bump(line, delta);
+  }
+
+  /** Promo sin composición (línea PROMO). */
+  promoQty(promo: { id: string }): number {
+    const key = `p:${promo.id}`;
+    return this.lines().find((l) => l.key === key && l.kind === 'PROMO')?.qty ?? 0;
+  }
+
+  bumpPromo(
+    promo: {
+      id: string;
+      name: string;
+      fixedPrice: number;
+      items?: Array<{ menuItemId: string; qty: number }>;
+      specialName?: string | null;
+      tableMatchable?: boolean;
+      inSchedule?: boolean;
+    },
+    delta: number,
+    ev?: Event,
+  ): void {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+    if (promo.inSchedule === false) return;
+    const items = promo.items ?? [];
+    if (items.length) {
+      if (delta > 0) this.addPromo(promo);
+      return;
+    }
+    const key = `p:${promo.id}`;
+    const line = this.lines().find((l) => l.key === key && l.kind === 'PROMO');
+    if (!line) {
+      if (delta > 0) this.addPromo(promo);
+      return;
+    }
+    this.bump(line, delta);
+  }
+
   addItem(it: CatalogItem): void {
     const unitPrice = this.priceForCatalogItem(it);
     const key = `i:${it.id}`;
+    const kitchenSectorIds = this.sectorIdsForCatalogItem(it);
     this.lines.update((list) => {
       const idx = list.findIndex((l) => l.key === key && !l.isEntrada);
       if (idx >= 0) {
@@ -1824,21 +1987,20 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
           i === idx ? { ...l, qty: Math.min(99, l.qty + 1) } : l,
         );
       }
-      return [
-        ...list,
-        {
-          key,
-          kind: 'ITEM',
-          menuItemId: it.id,
-          name: it.name,
-          unitPrice,
-          qty: 1,
-          isEntrada: false,
-          combinesWithKeys: [],
-        },
-      ];
+      const newLine: PosLine = {
+        key,
+        kind: 'ITEM',
+        menuItemId: it.id,
+        name: it.name,
+        unitPrice,
+        qty: 1,
+        kitchenSectorIds,
+        isEntrada: false,
+        combinesWithKeys: [],
+        notes: '',
+      };
+      return this.withAutoCombines([...list, newLine], newLine.key);
     });
-    this.cartOpen.set(true);
   }
 
   toggleEntrada(line: PosLine, ev?: Event): void {
@@ -1865,13 +2027,31 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         };
       });
     });
+    const nextKey = !line.isEntrada ? `${baseKey}:entrada` : baseKey;
     if (this.combineOpenKey() === oldKey) {
-      this.combineOpenKey.set(!line.isEntrada ? `${baseKey}:entrada` : baseKey);
+      this.combineOpenKey.set(nextKey);
+    }
+    if (this.noteOpenKey() === oldKey) {
+      this.noteOpenKey.set(nextKey);
     }
   }
 
+  /** Otros platos del carrito para Combina (excluye mismo sector de cocina). */
   otherCartItems(line: PosLine): PosLine[] {
-    return this.lines().filter((l) => l.kind === 'ITEM' && l.key !== line.key);
+    return this.lines().filter(
+      (l) =>
+        l.kind === 'ITEM' &&
+        l.key !== line.key &&
+        !this.sharesKitchenSector(line, l),
+    );
+  }
+
+  private sharesKitchenSector(a: PosLine, b: PosLine): boolean {
+    const aIds = (a.kitchenSectorIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+    const bIds = (b.kitchenSectorIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+    if (!aIds.length || !bIds.length) return false;
+    const bSet = new Set(bIds);
+    return aIds.some((id) => bSet.has(id));
   }
 
   hasCombines(line: PosLine): boolean {
@@ -1891,23 +2071,102 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   toggleCombine(line: PosLine, other: PosLine, ev?: Event): void {
     ev?.stopPropagation();
     if (line.kind !== 'ITEM' || other.kind !== 'ITEM') return;
+    this.lines.update((list) => this.linkCombinePair(list, line.key, other.key, 'toggle'));
+  }
+
+  hasLineNotes(line: PosLine): boolean {
+    return !!String(line.notes ?? '').trim();
+  }
+
+  toggleNotePanel(line: PosLine, ev?: Event): void {
+    ev?.stopPropagation();
+    if (line.kind !== 'ITEM') return;
+    this.noteOpenKey.update((cur) => (cur === line.key ? null : line.key));
+  }
+
+  setLineNotes(line: PosLine, value: string): void {
+    if (line.kind !== 'ITEM') return;
+    const notes = String(value ?? '').slice(0, 300);
     this.lines.update((list) =>
-      list.map((l) => {
-        if (l.key === line.key) {
-          const set = new Set(l.combinesWithKeys ?? []);
-          if (set.has(other.key)) set.delete(other.key);
-          else set.add(other.key);
-          return { ...l, combinesWithKeys: [...set] };
-        }
-        if (l.key === other.key) {
-          const set = new Set(l.combinesWithKeys ?? []);
-          if (set.has(line.key)) set.delete(line.key);
-          else set.add(line.key);
-          return { ...l, combinesWithKeys: [...set] };
-        }
-        return l;
-      }),
+      list.map((l) => (l.key === line.key ? { ...l, notes } : l)),
     );
+  }
+
+  private sectorIdsForCatalogItem(it: {
+    id?: string;
+    kitchenSectorIds?: string[];
+  }): string[] {
+    if (Array.isArray(it.kitchenSectorIds) && it.kitchenSectorIds.length) {
+      return it.kitchenSectorIds.map((id) => String(id ?? '').trim()).filter(Boolean);
+    }
+    const fromCatalog = this.catalogItems().find((c) => c.id === it.id);
+    return (fromCatalog?.kitchenSectorIds ?? [])
+      .map((id) => String(id ?? '').trim())
+      .filter(Boolean);
+  }
+
+  /** Vínculo configurado entre sectores (A→B o B→A). */
+  private sectorsLinked(aIds: string[] | undefined, bIds: string[] | undefined): boolean {
+    const a = (aIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+    const b = (bIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+    if (!a.length || !b.length) return false;
+    const sectors = this.catalog()?.kitchenSectors ?? [];
+    const links = new Map<string, Set<string>>();
+    for (const s of sectors) {
+      const id = String(s.id ?? '').trim();
+      if (!id) continue;
+      const set = links.get(id) ?? new Set<string>();
+      for (const other of s.combinesWithSectorIds ?? []) {
+        const oid = String(other ?? '').trim();
+        if (!oid || oid === id) continue;
+        set.add(oid);
+      }
+      links.set(id, set);
+    }
+    for (const aid of a) {
+      for (const bid of b) {
+        if (links.get(aid)?.has(bid) || links.get(bid)?.has(aid)) return true;
+      }
+    }
+    return false;
+  }
+
+  private linkCombinePair(
+    list: PosLine[],
+    keyA: string,
+    keyB: string,
+    mode: 'toggle' | 'add' = 'add',
+  ): PosLine[] {
+    if (!keyA || !keyB || keyA === keyB) return list;
+    return list.map((l) => {
+      if (l.key === keyA) {
+        const set = new Set(l.combinesWithKeys ?? []);
+        if (mode === 'toggle' && set.has(keyB)) set.delete(keyB);
+        else set.add(keyB);
+        return { ...l, combinesWithKeys: [...set] };
+      }
+      if (l.key === keyB) {
+        const set = new Set(l.combinesWithKeys ?? []);
+        if (mode === 'toggle' && set.has(keyA)) set.delete(keyA);
+        else set.add(keyA);
+        return { ...l, combinesWithKeys: [...set] };
+      }
+      return l;
+    });
+  }
+
+  /** Tras agregar una línea nueva, enlaza Combina con ítems de sectores vinculados. */
+  private withAutoCombines(list: PosLine[], newKey: string): PosLine[] {
+    if (this.isCounterSession()) return list;
+    const neu = list.find((l) => l.key === newKey && l.kind === 'ITEM');
+    if (!neu) return list;
+    let next = list;
+    for (const other of list) {
+      if (other.key === newKey || other.kind !== 'ITEM') continue;
+      if (!this.sectorsLinked(neu.kitchenSectorIds, other.kitchenSectorIds)) continue;
+      next = this.linkCombinePair(next, newKey, other.key, 'add');
+    }
+    return next;
   }
 
   private combinesWithNamesFor(line: PosLine, all: PosLine[]): string[] {
@@ -1974,8 +2233,10 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
             name: parent.name,
             unitPrice,
             qty: 1,
+            kitchenSectorIds: this.sectorIdsForCatalogItem(parent),
             isEntrada: false,
             combinesWithKeys: [],
+            notes: '',
           },
           {
             key: extraKey,
@@ -1988,7 +2249,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
             attachedToMenuItemId: itemId,
           },
         );
-        return next;
+        return this.withAutoCombines(next, itemKey);
       }
 
       if (exIdx < 0) {
@@ -2014,7 +2275,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         return l;
       });
     });
-    this.cartOpen.set(true);
   }
 
   bump(line: PosLine, delta: number): void {
@@ -2039,6 +2299,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         if (updated.qty > 0) return pruned;
         const gone = line.key;
         if (this.combineOpenKey() === gone) this.combineOpenKey.set(null);
+        if (this.noteOpenKey() === gone) this.noteOpenKey.set(null);
         return pruned.map((l) => ({
           ...l,
           combinesWithKeys: (l.combinesWithKeys ?? []).filter((k) => k !== gone),
@@ -2046,12 +2307,19 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       }
       return next.filter((l) => l.qty > 0);
     });
+    if (this.orderStep() === 'review' && !this.lineCount()) {
+      this.goToPick();
+    }
   }
 
   clearCart(): void {
     this.lines.set([]);
-    this.cartDetail.set(false);
+    this.cartDetail.set(true);
     this.combineOpenKey.set(null);
+    this.noteOpenKey.set(null);
+    this.orderNoteOpen.set(false);
+    this.notes.set('');
+    this.orderStep.set('pick');
   }
 
   sendOrder(): void {
@@ -2070,24 +2338,24 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       return;
     }
     const counter = this.isCounterSession(session);
-    let printKitchen = counter ? true : this.printKitchen();
-    // Mesa: ticket cliente al cerrar. Mostrador: cocina + ticket cliente y cobro.
+    // Mostrador: no imprime hasta confirmar el cobro (cocina + ticket ahí).
+    let printKitchen = counter ? false : this.printKitchen();
     let printCustomerTicket = false;
     if (!caps.allowPrintKitchen) printKitchen = false;
-    if (caps.lockPrintKitchen) {
-      printKitchen = counter
-        ? caps.allowPrintKitchen
-        : !!caps.defaultPrintKitchen;
+    if (caps.lockPrintKitchen && !counter) {
+      printKitchen = !!caps.defaultPrintKitchen;
     }
     const items = lines
       .filter((l) => l.kind === 'ITEM')
       .map((l) => {
         const combinesWithNames = counter ? [] : this.combinesWithNamesFor(l, lines);
+        const itemNotes = String(l.notes ?? '').trim().slice(0, 300);
         return {
           menuItemId: l.menuItemId,
           qty: l.qty,
           unitPrice: l.unitPrice,
           isEntrada: counter ? false : !!l.isEntrada,
+          ...(itemNotes ? { notes: itemNotes } : {}),
           ...(combinesWithNames.length ? { combinesWithNames } : {}),
         };
       });
@@ -2116,12 +2384,14 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.lines.set([]);
           this.notes.set('');
-          this.cartOpen.set(false);
-          this.cartDetail.set(false);
+          this.orderStep.set('pick');
+          this.cartDetail.set(true);
           this.combineOpenKey.set(null);
+          this.noteOpenKey.set(null);
+          this.orderNoteOpen.set(false);
           const warn = res?.print?.kitchenWarning;
           if (counter) {
-            this.finishCounterSend(slug, token, session.id, printKitchen ? warn ?? null : null);
+            this.finishCounterSend(slug, token, session.id, warn ?? null);
             return;
           }
           this.busy.set(false);
@@ -2141,52 +2411,29 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  /** Mostrador: ticket cliente de sesión y abre cobro. */
+  /** Mostrador: refresca sesión y abre cobro (descuento + ticket al confirmar). */
   private finishCounterSend(
     slug: string,
     token: string,
     sessionId: string,
     kitchenWarn: string | null,
   ): void {
-    const afterSession = (updated: WaiterSession, toast: string) => {
-      this.busy.set(false);
-      this.session.set(updated);
-      this.showToast(toast);
-      this.openClosePaymentSheet();
-    };
-    if (!this.capabilities().allowPrintCustomerTicket) {
-      this.api.getSession(slug, token, sessionId).subscribe({
-        next: (updated) => afterSession(updated, kitchenWarn || 'Listo para cobrar'),
-        error: (err) => {
-          this.busy.set(false);
-          this.error.set(apiErrorMessage(err, 'No se pudo actualizar el pedido'));
-        },
-      });
-      return;
-    }
-    this.api
-      .printCustomerTicket(slug, token, sessionId, {
-        discountMode: 'none',
-        discountValue: null,
-      })
-      .subscribe({
-        next: (updated) =>
-          afterSession(updated, kitchenWarn || 'Comanda y ticket enviados'),
-        error: (err) => {
-          this.api.getSession(slug, token, sessionId).subscribe({
-            next: (updated) => {
-              this.busy.set(false);
-              this.session.set(updated);
-              this.error.set(apiErrorMessage(err, 'No se pudo imprimir el ticket'));
-              this.openClosePaymentSheet();
-            },
-            error: () => {
-              this.busy.set(false);
-              this.error.set(apiErrorMessage(err, 'No se pudo imprimir el ticket'));
-            },
-          });
-        },
-      });
+    this.api.getSession(slug, token, sessionId).subscribe({
+      next: (updated) => {
+        this.busy.set(false);
+        this.session.set(updated);
+        this.showToast(kitchenWarn || 'Listo para cobrar');
+        this.sessionPane.set('order');
+        this.ticketDiscountMode.set('none');
+        this.ticketDiscountValue.set(null);
+        this.ticketDiscountPresetId.set(null);
+        this.openClosePaymentSheet();
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err, 'No se pudo actualizar el pedido'));
+      },
+    });
   }
 
   /** Abre el sheet de pago (sin revalidar ticket: ya se imprimió o se intenta cobrar igual). */
@@ -2248,6 +2495,16 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.backToTables();
       return;
     }
+    // Mostrador: descuento en el cobro; el ticket sale al confirmar.
+    if (this.isCounterSession(session)) {
+      if (!session.customerTicketPrinted) {
+        this.ticketDiscountMode.set('none');
+        this.ticketDiscountValue.set(null);
+        this.ticketDiscountPresetId.set(null);
+      }
+      this.openClosePaymentSheet();
+      return;
+    }
     if (caps.requireTicketBeforeClose && !session.customerTicketPrinted) {
       this.error.set('Primero imprimí el ticket del cliente');
       this.openTicketSheet();
@@ -2267,8 +2524,23 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   closeDueAmount(): number {
     const s = this.session();
     if (!s) return 0;
+    // Mostrador: descuento en el cobro (preview). Si ya hay ticket y no tocó desc., usá ese total.
+    if (
+      this.isCounterSession(s) &&
+      this.closeSheet() &&
+      this.capabilities().allowTicketDiscount &&
+      (this.ticketDiscountMode() !== 'none' || !s.customerTicketPrinted)
+    ) {
+      return this.ticketPreviewTotal();
+    }
     if (s.ticketTotal != null) return Number(s.ticketTotal) || 0;
     return this.sessionSubtotal();
+  }
+
+  /** Recalcula pagos al cambiar descuento en el cobro de mostrador. */
+  private syncClosePrimaryPay(): void {
+    if (!this.closeSheet()) return;
+    this.redistributeClosePays();
   }
 
   closeTipAmount(): number {
@@ -2453,12 +2725,19 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.ticketDiscountMode.set(mode);
     this.ticketDiscountPresetId.set(null);
     if (mode === 'none') this.ticketDiscountValue.set(null);
+    this.syncClosePrimaryPay();
   }
 
   applyTicketDiscountPreset(preset: DiscountPreset): void {
     this.ticketDiscountPresetId.set(preset.id);
     this.ticketDiscountMode.set(preset.mode);
     this.ticketDiscountValue.set(preset.value);
+    this.syncClosePrimaryPay();
+  }
+
+  onCloseDiscountValue(raw: number | string | null): void {
+    this.ticketDiscountValue.set(raw === '' || raw == null ? null : +raw);
+    this.syncClosePrimaryPay();
   }
 
   cancelTicketSheet(): void {
@@ -2546,7 +2825,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const session = this.session();
     if (!slug || !token || !session || this.busy()) return;
     const counter = this.isCounterSession(session);
-    if (!session.customerTicketPrinted) {
+    if (!counter && !session.customerTicketPrinted) {
       this.error.set('Primero imprimí el ticket del cliente');
       return;
     }
@@ -2563,32 +2842,87 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       .filter((p) => p.amount > 0);
     const primary =
       this.closePayPrimaryId() ?? this.paymentMethodsForClose()[0]?.id ?? null;
+    const tipMode = this.closeTipMode();
+    const tipValue = this.closeTipValue();
+    const discountMode = this.ticketDiscountMode();
+    const discountValue = this.ticketDiscountValue();
+
+    const runClose = (sessionId: string) => {
+      this.api
+        .closeSession(slug, token, sessionId, {
+          // Total $0: sin montos; el API registra el medio elegido (o el primero).
+          payments: toCollect <= 0.02 ? undefined : payments,
+          paymentMethodId: toCollect <= 0.02 ? primary ?? undefined : undefined,
+          tipMode,
+          tipValue,
+        })
+        .subscribe({
+          next: () => {
+            this.busy.set(false);
+            this.showToast(counter ? 'Pedido cerrado' : 'Mesa cerrada');
+            this.session.set(null);
+            this.lines.set([]);
+            this.view.set('tables');
+            this.loadTables();
+          },
+          error: (err) => {
+            this.busy.set(false);
+            this.closeSheet.set(true);
+            this.error.set(
+              apiErrorMessage(err, counter ? 'No se pudo cerrar el pedido' : 'No se pudo cerrar la mesa'),
+            );
+          },
+        });
+    };
+
     this.closeSheet.set(false);
     this.busy.set(true);
-    this.api
-      .closeSession(slug, token, session.id, {
-        // Total $0: sin montos; el API registra el medio elegido (o el primero).
-        payments: toCollect <= 0.02 ? undefined : payments,
-        paymentMethodId: toCollect <= 0.02 ? primary ?? undefined : undefined,
-        tipMode: this.closeTipMode(),
-        tipValue: this.closeTipValue(),
-      })
-      .subscribe({
-        next: () => {
-          this.busy.set(false);
-          this.showToast(counter ? 'Pedido cerrado' : 'Mesa cerrada');
-          this.session.set(null);
-          this.lines.set([]);
-          this.view.set('tables');
-          this.loadTables();
-        },
-        error: (err) => {
-          this.busy.set(false);
-          this.closeSheet.set(true);
-          this.error.set(
-            apiErrorMessage(err, counter ? 'No se pudo cerrar el pedido' : 'No se pudo cerrar la mesa'),
-          );
-        },
-      });
+
+    // Mostrador: cocina + ticket recién al confirmar el cobro.
+    if (counter) {
+      const caps = this.capabilities();
+      const orders = session.orders ?? [];
+      const afterPrint = (updated: WaiterSession) => {
+        this.session.set(updated);
+        runClose(updated.id);
+      };
+      const onPrintErr = (err: unknown) => {
+        this.busy.set(false);
+        this.closeSheet.set(true);
+        this.error.set(apiErrorMessage(err, 'No se pudo imprimir'));
+      };
+      const printTicketThenClose = () => {
+        if (!caps.allowPrintCustomerTicket) {
+          this.api.getSession(slug, token, session.id).subscribe({
+            next: afterPrint,
+            error: onPrintErr,
+          });
+          return;
+        }
+        this.api
+          .printCustomerTicket(slug, token, session.id, {
+            discountMode,
+            discountValue,
+          })
+          .subscribe({ next: afterPrint, error: onPrintErr });
+      };
+      if (caps.allowPrintKitchen && orders.length) {
+        forkJoin(
+          orders.map((o) =>
+            this.api.reprintKitchen(slug, token, session.id, o.id).pipe(
+              catchError(() => of(null)),
+            ),
+          ),
+        ).subscribe({
+          next: () => printTicketThenClose(),
+          error: () => printTicketThenClose(),
+        });
+      } else {
+        printTicketThenClose();
+      }
+      return;
+    }
+
+    runClose(session.id);
   }
 }

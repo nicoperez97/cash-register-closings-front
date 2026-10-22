@@ -105,6 +105,7 @@ export type Permission =
   | 'comanda.read'
   | 'comanda.manage'
   | 'comandaMonitor.read'
+  | 'comandaMonitor.amounts'
   | 'comandaReceiptsHistory.read'
   | 'comandaReceiptsHistory.manage'
   | 'integrations.read'
@@ -231,6 +232,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'comanda.read',
   'comanda.manage',
   'comandaMonitor.read',
+  'comandaMonitor.amounts',
   'comandaReceiptsHistory.read',
   'comandaReceiptsHistory.manage',
   'integrations.read',
@@ -352,6 +354,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'comanda.read',
     'comanda.manage',
     'comandaMonitor.read',
+    'comandaMonitor.amounts',
     'comandaReceiptsHistory.read',
     'comandaReceiptsHistory.manage',
     'integrations.read',
@@ -407,6 +410,7 @@ export const ROLE_PERMISSIONS: Record<GlobalRole, Permission[]> = {
     'customerOrdersMonitor.read',
     'comanda.read',
     'comandaMonitor.read',
+    'comandaMonitor.amounts',
     'comandaReceiptsHistory.read',
     'integrations.read',
     'tips.read',
@@ -1064,10 +1068,11 @@ export const MODULE_DEFS: ModuleDef[] = [
     label: 'Monitor comanda',
     icon: 'tv',
     group: 'daily',
-    hint: 'Tablero del turno de mesas y mostrador',
+    hint: 'Tablero del turno. Con montos o solo cantidades',
     levels: [
       { value: 'none', label: 'Sin acceso', short: 'Off' },
-      { value: 'read', label: 'Ver', short: 'Ver' },
+      { value: 'basic', label: 'Ver sin montos', short: 'Sin $' },
+      { value: 'read', label: 'Ver con montos', short: 'Con $' },
     ],
   },
   {
@@ -2111,7 +2116,10 @@ export function expandModulePermissions(
   pair(levels.orderingCatalog, 'orderingCatalog.read', 'orderingCatalog.manage');
   pair(levels.promos, 'promos.read', 'promos.manage');
   pair(levels.comanda, 'comanda.read', 'comanda.manage');
-  if (levels.comandaMonitor === 'read') addPermission(set, 'comandaMonitor.read');
+  if (levels.comandaMonitor === 'basic' || levels.comandaMonitor === 'read') {
+    addPermission(set, 'comandaMonitor.read');
+  }
+  if (levels.comandaMonitor === 'read') addPermission(set, 'comandaMonitor.amounts');
   pair(
     levels.comandaReceiptsHistory,
     'comandaReceiptsHistory.read',
@@ -2321,7 +2329,11 @@ export function deriveModulesFromRole(role: GlobalRole): Record<ModuleKey, strin
   base.orderingCatalog = level('orderingCatalog.read', 'orderingCatalog.manage');
   base.promos = level('promos.read', 'promos.manage');
   base.comanda = level('comanda.read', 'comanda.manage');
-  base.comandaMonitor = has('comandaMonitor.read') ? 'read' : 'none';
+  base.comandaMonitor = has('comandaMonitor.read')
+    ? has('comandaMonitor.amounts')
+      ? 'read'
+      : 'basic'
+    : 'none';
   base.comandaReceiptsHistory = level(
     'comandaReceiptsHistory.read',
     'comandaReceiptsHistory.manage',
