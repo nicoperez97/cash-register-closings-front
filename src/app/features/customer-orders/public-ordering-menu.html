@@ -32,6 +32,8 @@
               } @else {
                 Menú
               }
+            } @else if (view() === 'promo') {
+              {{ promo()?.name }}
             } @else {
               {{ item()?.name }}
             }
@@ -62,7 +64,7 @@
     }
 
     @if (view() === 'menu') {
-      @if (sections().length > 1) {
+      @if (navTabs().length > 1) {
         <nav
           class="sec-tabs"
           [class.sec-tabs--scrollable]="tabsOverflow()"
@@ -82,15 +84,15 @@
             class="sec-tabs__track"
             (scroll)="onTabsScroll()"
           >
-            @for (sec of sections(); track sec.name; let i = $index) {
+            @for (tab of navTabs(); track tab.id) {
               <button
                 type="button"
                 class="sec-tabs__btn"
-                [attr.data-sec]="sectionDomId(i)"
-                [class.sec-tabs__btn--on]="activeSectionId() === sectionDomId(i)"
-                (click)="scrollToSection(i)"
+                [attr.data-sec]="tab.id"
+                [class.sec-tabs__btn--on]="activeSectionId() === tab.id"
+                (click)="scrollToTab(tab.id)"
               >
-                {{ sec.name }}
+                {{ tab.name }}
               </button>
             }
           </div>
@@ -104,6 +106,53 @@
             ›
           </button>
         </nav>
+      }
+
+      @if (promos().length) {
+        <section class="menu-sec" id="sec-promos" data-sec="sec-promos">
+          <h2 class="menu-sec__title">Promos</h2>
+          <ul class="list">
+            @for (pr of promos(); track pr.id) {
+              <li>
+                <article class="item" [class.item--photo]="!!promoCoverPhoto(pr)">
+                  <div class="item__main">
+                    <div class="item__body">
+                      <strong class="item__name">{{ pr.name }}</strong>
+                      @if (promoItemLabel(pr); as itemLabel) {
+                        <p class="item__promo-item">{{ itemLabel }}</p>
+                      }
+                      @if (promoCardDesc(pr); as desc) {
+                        <p class="item__desc">{{ desc }}</p>
+                      }
+                      <span class="price">
+                        @if (pr.packQty > 1) {
+                          {{ pr.packQty }} a elección ·
+                        }
+                        {{ money(pr.fixedPrice) }}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="item__add ord-press"
+                      (click)="openPromo(pr)"
+                    >
+                      @if (!canOrder()) {
+                        Ver
+                      } @else if (promoAddsDirect(pr)) {
+                        Agregar
+                      } @else {
+                        Elegir
+                      }
+                    </button>
+                  </div>
+                  @if (promoCoverPhoto(pr); as photo) {
+                    <img class="item__photo" [src]="photo" [alt]="pr.name" loading="lazy" />
+                  }
+                </article>
+              </li>
+            }
+          </ul>
+        </section>
       }
 
       @for (sec of sections(); track sec.name; let i = $index) {
@@ -289,6 +338,77 @@
                 Agregado
               } @else {
                 Agregar · {{ money(it.price * qty()) }}
+              }
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    @if (view() === 'promo' && promo(); as pr) {
+      <section class="detail">
+        <div class="detail__body">
+          <p class="detail__price">
+            @if (pr.packQty > 1) {
+              {{ pr.packQty }} a elección ·
+            }
+            {{ money(pr.fixedPrice) }}
+          </p>
+          @if (pr.description) {
+            <p class="detail__desc">{{ pr.description }}</p>
+          }
+          <p class="extras__hint">
+            Elegí {{ pr.packQty }} ({{ promoPickSelected() }}/{{ pr.packQty }})
+          </p>
+          <ul class="list pool-pick">
+            @for (pit of pr.poolItems; track pit.id) {
+              <li>
+                <article class="item" [class.item--photo]="!!itemPhoto(pit)">
+                  <div class="item__main">
+                    <div class="item__body">
+                      <strong class="item__name">{{ pit.name }}</strong>
+                      @if (pit.description) {
+                        <p class="item__desc">{{ pit.description }}</p>
+                      }
+                    </div>
+                    <div class="qty" role="group" [attr.aria-label]="'Cantidad de ' + pit.name">
+                      <button
+                        type="button"
+                        (click)="bumpPromoPick(pit.id, -1)"
+                        [disabled]="promoPickCount(pit.id) <= 0"
+                        aria-label="Restar"
+                      >
+                        −
+                      </button>
+                      <span>{{ promoPickCount(pit.id) }}</span>
+                      <button
+                        type="button"
+                        (click)="bumpPromoPick(pit.id, 1)"
+                        [disabled]="promoPickSelected() >= pr.packQty"
+                        aria-label="Sumar"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  @if (itemPhoto(pit); as photo) {
+                    <img class="item__photo" [src]="photo" [alt]="pit.name" loading="lazy" />
+                  }
+                </article>
+              </li>
+            }
+          </ul>
+          @if (canOrder()) {
+            <button
+              type="button"
+              class="btn btn--primary ord-press"
+              [disabled]="promoPickSelected() !== pr.packQty"
+              (click)="addPromoToCart()"
+            >
+              @if (addedFlash()) {
+                Agregado
+              } @else {
+                Agregar · {{ money(pr.fixedPrice) }}
               }
             </button>
           }

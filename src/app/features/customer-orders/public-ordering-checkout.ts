@@ -207,7 +207,7 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   /** Grupos del resumen: cada ítem con sus extras (una unidad para +/-). */
   readonly summaryGroups = computed(() => {
     const lines = this.cart.lines();
-    const items = lines.filter((l) => l.kind !== 'EXTRA');
+    const items = lines.filter((l) => l.kind === 'ITEM' || l.kind === 'PROMO');
     const extras = lines.filter((l) => l.kind === 'EXTRA');
     const used = new Set<string>();
     type Line = (typeof lines)[number];
@@ -477,11 +477,13 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     line: {
       menuItemId: string;
       notes: string;
-      kind?: 'ITEM' | 'EXTRA';
+      kind?: 'ITEM' | 'EXTRA' | 'PROMO';
       qty: number;
       extraId?: string;
       attachedToMenuItemId?: string;
       removedIngredients?: string[];
+      promoId?: string;
+      selections?: Array<{ menuItemId: string; name: string; qty: number }>;
     },
     delta: number,
   ): void {
@@ -490,16 +492,19 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
       this.removeLine(line);
       return;
     }
+    const kind = line.kind === 'EXTRA' ? 'EXTRA' : line.kind === 'PROMO' ? 'PROMO' : 'ITEM';
     this.cart.updateQty(
       line.menuItemId,
       line.notes,
       nextQty,
-      line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
+      kind,
       line.extraId,
       line.attachedToMenuItemId,
       line.removedIngredients,
+      line.promoId,
+      line.selections,
     );
-    if (line.kind === 'EXTRA') return;
+    if (line.kind === 'EXTRA' || line.kind === 'PROMO') return;
     // Ítem + extras van juntos: la cantidad del plato manda.
     for (const ex of this.cart.lines()) {
       if (ex.kind !== 'EXTRA' || ex.attachedToMenuItemId !== line.menuItemId) continue;
@@ -518,12 +523,14 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
   removeLine(line: {
     menuItemId: string;
     notes: string;
-    kind?: 'ITEM' | 'EXTRA';
+    kind?: 'ITEM' | 'EXTRA' | 'PROMO';
     extraId?: string;
     attachedToMenuItemId?: string;
     removedIngredients?: string[];
+    promoId?: string;
+    selections?: Array<{ menuItemId: string; name: string; qty: number }>;
   }): void {
-    if (line.kind !== 'EXTRA') {
+    if (line.kind === 'ITEM') {
       for (const ex of this.cart.lines()) {
         if (ex.kind !== 'EXTRA' || ex.attachedToMenuItemId !== line.menuItemId) continue;
         this.cart.remove(
@@ -536,13 +543,16 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         );
       }
     }
+    const kind = line.kind === 'EXTRA' ? 'EXTRA' : line.kind === 'PROMO' ? 'PROMO' : 'ITEM';
     this.cart.remove(
       line.menuItemId,
       line.notes,
-      line.kind === 'EXTRA' ? 'EXTRA' : 'ITEM',
+      kind,
       line.extraId,
       line.attachedToMenuItemId,
       line.removedIngredients,
+      line.promoId,
+      line.selections,
     );
   }
 
@@ -569,11 +579,34 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
         extraPrices[String(e.id)] = { unitPrice: Number(e.price) || 0, name: e.name };
       }
     }
+    for (const pr of cfg.promos ?? []) {
+      for (const pit of pr.poolItems ?? []) {
+        if (pit?.id && !itemIds.has(String(pit.id))) {
+          itemIds.add(String(pit.id));
+          itemPrices[String(pit.id)] = {
+            unitPrice: Number(pit.price) || 0,
+            name: pit.name,
+          };
+        }
+      }
+    }
+    const promoIds = new Set((cfg.promos ?? []).map((p) => String(p.id)));
+    const promoPrices: Record<string, { unitPrice: number; name?: string }> = {};
+    for (const p of cfg.promos ?? []) {
+      if (p?.id) {
+        promoPrices[String(p.id)] = {
+          unitPrice: Number(p.fixedPrice) || 0,
+          name: p.name,
+        };
+      }
+    }
     const { removedQty, priceChanged } = this.cart.reconcileAvailable({
       itemIds,
       extraIds,
+      promoIds,
       itemPrices,
       extraPrices,
+      promoPrices,
     });
     if (removedQty > 0) {
       this.snack.open(
@@ -597,7 +630,11 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     const lines = this.cart.lines();
     const fulfillment = this.fulfillment();
     const pay = this.selectedPayment();
-    if (!slug || !lines.length) {
+    if (
+      !slug ||
+      !lines.length ||
+      (!lines.some((l) => l.kind === 'ITEM') && !lines.some((l) => l.kind === 'PROMO'))
+    ) {
       this.formError.set('El carrito está vacío.');
       return;
     }
@@ -657,10 +694,11 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
     }
 
     const paymentMethod = orderingPayToApiMethod(pay);
+    const promoLines = lines.filter((l) => l.kind === 'PROMO' && l.promoId);
     const body: CreatePublicCustomerOrderBody = {
       fulfillment,
       items: lines
-        .filter((l) => l.kind !== 'EXTRA')
+        .filter((l) => l.kind === 'ITEM')
         .map((l) => ({
           menuItemId: l.menuItemId,
           qty: l.qty,
@@ -674,6 +712,16 @@ export class PublicOrderingCheckoutComponent implements OnInit, OnDestroy {
           qty: l.qty,
           attachedToMenuItemId: l.attachedToMenuItemId || null,
         })),
+      promos: promoLines.length
+        ? promoLines.map((l) => ({
+            promoId: String(l.promoId),
+            qty: l.qty,
+            selections: (l.selections ?? []).map((s) => ({
+              menuItemId: s.menuItemId,
+              qty: s.qty,
+            })),
+          }))
+        : undefined,
       firstName: this.firstName.trim(),
       lastName: this.lastName.trim(),
       phone: this.phone.trim(),

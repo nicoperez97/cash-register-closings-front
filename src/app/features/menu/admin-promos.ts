@@ -20,23 +20,65 @@ import { AuthService } from '../../core/auth/auth.service';
 import { hasShopPermission } from '../../core/auth/auth.models';
 import { environment } from '../../../environments/environment';
 
-export type ShopPromoItem = { menuItemId: string; qty: number };
-
 export type ShopPromo = {
   id: string;
   name: string;
   description?: string | null;
   available: boolean;
-  showOnPublicMenu: boolean;
-  sellable: boolean;
-  tableMatchable: boolean;
   fixedPrice: number;
-  items: ShopPromoItem[];
-  specialName?: string | null;
+  poolItemIds: string[];
+  packQty: number;
+  forComanda: boolean;
+  forPedidos: boolean;
+  showOnPublicOrdering: boolean;
+  tableMatchable: boolean;
+  showOnPublicMenu: boolean;
   schedule?: Record<string, Array<{ open: string; close: string }> | null> | null;
   /** Fechas puntuales YYYY-MM-DD (modo solo hoy / fechas). */
   validDates?: string[] | null;
 };
+
+function normalizeAdminPromo(raw: Partial<ShopPromo> & Record<string, unknown>): ShopPromo {
+  const poolFromLegacy: string[] = [];
+  let packFromLegacy = 0;
+  const legacyItems = raw['items'];
+  if (Array.isArray(legacyItems)) {
+    for (const it of legacyItems as Array<{ menuItemId?: string; qty?: number }>) {
+      const id = String(it?.menuItemId ?? '').trim();
+      if (!id) continue;
+      if (!poolFromLegacy.includes(id)) poolFromLegacy.push(id);
+      packFromLegacy += Math.max(1, Math.round(Number(it?.qty) || 1));
+    }
+  }
+  const poolItemIds = Array.isArray(raw.poolItemIds)
+    ? [...new Set((raw.poolItemIds as string[]).map((x) => String(x ?? '').trim()).filter(Boolean))]
+    : poolFromLegacy;
+  let packQty = Math.round(Number(raw.packQty) || 0);
+  if (!packQty) packQty = packFromLegacy || 1;
+  const legacySellable = raw['sellable'];
+  const legacyTable = raw['tableMatchable'];
+  const forComanda =
+    raw.forComanda !== undefined
+      ? raw.forComanda !== false
+      : legacySellable !== false || legacyTable !== false;
+  const forPedidos = raw.forPedidos === true;
+  return {
+    id: String(raw.id ?? ''),
+    name: String(raw.name ?? ''),
+    description: (raw.description as string | null | undefined) ?? '',
+    available: raw.available !== false,
+    fixedPrice: Number(raw.fixedPrice) || 0,
+    poolItemIds,
+    packQty: Math.max(1, Math.min(99, packQty)),
+    forComanda,
+    forPedidos,
+    showOnPublicOrdering: forPedidos && raw.showOnPublicOrdering === true,
+    tableMatchable: forComanda && raw.tableMatchable !== false,
+    showOnPublicMenu: !!raw.showOnPublicMenu,
+    schedule: (raw.schedule as ShopPromo['schedule']) ?? null,
+    validDates: Array.isArray(raw.validDates) ? [...(raw.validDates as string[])] : null,
+  };
+}
 
 type MenuPickItem = { id: string; name: string; price: number | null; section: string };
 
@@ -58,13 +100,38 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
   template: `
     <app-page-header
       title="Promos"
-      subtitle="Packs a precio fijo. Con vigencia por día u hoy se aplican solas al abrir mesa."
+      subtitle="Separá packs de comanda y de pedidos. Pool de ítems + cantidad + monto."
     />
 
     <section class="panel-card promo-admin">
       @if (loading()) {
         <p class="promo-admin__muted">Cargando…</p>
       } @else {
+        <div class="promo-admin__tabs" role="tablist" aria-label="Canal de promos">
+          <button
+            type="button"
+            role="tab"
+            class="promo-admin__tab"
+            [class.promo-admin__tab--on]="tab() === 'comanda'"
+            [attr.aria-selected]="tab() === 'comanda'"
+            (click)="tab.set('comanda')"
+          >
+            Comanda
+            <span class="promo-admin__tab-count">{{ comandaCount() }}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="promo-admin__tab"
+            [class.promo-admin__tab--on]="tab() === 'pedidos'"
+            [attr.aria-selected]="tab() === 'pedidos'"
+            (click)="tab.set('pedidos')"
+          >
+            Pedidos
+            <span class="promo-admin__tab-count">{{ pedidosCount() }}</span>
+          </button>
+        </div>
+
         <div class="promo-admin__toolbar">
           @if (canManage()) {
             <button mat-stroked-button type="button" (click)="addPromo()">
@@ -73,7 +140,13 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
             </button>
           }
           <span class="promo-admin__count" aria-live="polite">
-            {{ promos().length ? promos().length + (promos().length === 1 ? ' promo' : ' promos') : 'Sin promos' }}
+            {{
+              visiblePromos().length
+                ? visiblePromos().length +
+                  (visiblePromos().length === 1 ? ' promo' : ' promos')
+                : 'Sin promos'
+            }}
+            · {{ tab() === 'comanda' ? 'comanda' : 'pedidos' }}
           </span>
           @if (canManage()) {
             <button
@@ -90,10 +163,19 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
           }
         </div>
 
-        @if (!promos().length) {
+        @if (!visiblePromos().length) {
           <div class="promo-admin__empty">
-            <p>Todavía no hay promos.</p>
-            <p class="promo-admin__muted">Ej.: 2x1 Heineken los miércoles, o Solo hoy en Aperol.</p>
+            <p>
+              Todavía no hay promos de
+              {{ tab() === 'comanda' ? 'comanda' : 'pedidos' }}.
+            </p>
+            <p class="promo-admin__muted">
+              @if (tab() === 'comanda') {
+                Ej.: 2×1 Heineken los miércoles, o 5 paninos a elección en mesa.
+              } @else {
+                Ej.: panino del día en /pedir, o 5 paninos a elección por $X.
+              }
+            </p>
             @if (canManage()) {
               <button mat-flat-button color="primary" type="button" (click)="addPromo()">
                 <mat-icon>add</mat-icon>
@@ -104,16 +186,17 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
         }
 
         <div class="promo-admin__list">
-          @for (p of promos(); track p.id || i; let i = $index) {
+          @for (p of visiblePromos(); track promoTrack(p, $index)) {
+            @let i = promoIndex(p);
             <article class="promo-card" [class.promo-card--off]="!p.available">
               <header class="promo-card__top">
                 <div class="promo-card__identity">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__name">
                     <mat-label>Nombre</mat-label>
-                    <input matInput [(ngModel)]="p.name" [name]="'n' + i" placeholder="ej. 2x1 Heineken" />
+                    <input matInput [(ngModel)]="p.name" [name]="'n' + i" placeholder="ej. 5 paninos a elección" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__price">
-                    <mat-label>Precio</mat-label>
+                    <mat-label>Monto</mat-label>
                     <span matTextPrefix>$&nbsp;</span>
                     <input
                       matInput
@@ -122,6 +205,17 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
                       step="1"
                       [(ngModel)]="p.fixedPrice"
                       [name]="'fp' + i"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__qty">
+                    <mat-label>Cant. pack</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      min="1"
+                      max="99"
+                      [(ngModel)]="p.packQty"
+                      [name]="'pq' + i"
                     />
                   </mat-form-field>
                 </div>
@@ -154,27 +248,31 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
                 <input matInput [(ngModel)]="p.description" [name]="'d' + i" />
               </mat-form-field>
 
-              <div class="promo-card__chips" role="group" aria-label="Dónde se usa">
-                <button
-                  type="button"
-                  class="promo-card__chip"
-                  [class.promo-card__chip--on]="p.sellable"
-                  (click)="p.sellable = !p.sellable"
-                  [attr.aria-pressed]="p.sellable"
-                  title="El mozo la agrega como pack"
-                >
-                  Comanda
-                </button>
-                <button
-                  type="button"
-                  class="promo-card__chip"
-                  [class.promo-card__chip--on]="p.tableMatchable"
-                  (click)="p.tableMatchable = !p.tableMatchable"
-                  [attr.aria-pressed]="p.tableMatchable"
-                  title="Matching automático en el ticket de mesa"
-                >
-                  Mesa
-                </button>
+              <div class="promo-card__chips" role="group" aria-label="Opciones del canal">
+                @if (tab() === 'comanda') {
+                  <button
+                    type="button"
+                    class="promo-card__chip"
+                    [class.promo-card__chip--on]="p.tableMatchable"
+                    (click)="p.tableMatchable = !p.tableMatchable"
+                    [attr.aria-pressed]="p.tableMatchable"
+                    title="Matching automático en el ticket de mesa"
+                  >
+                    Mesa
+                  </button>
+                }
+                @if (tab() === 'pedidos') {
+                  <button
+                    type="button"
+                    class="promo-card__chip"
+                    [class.promo-card__chip--on]="p.showOnPublicOrdering"
+                    (click)="p.showOnPublicOrdering = !p.showOnPublicOrdering"
+                    [attr.aria-pressed]="p.showOnPublicOrdering"
+                    title="Sección Promos en la página pública /pedir"
+                  >
+                    En /pedir
+                  </button>
+                }
                 <button
                   type="button"
                   class="promo-card__chip"
@@ -190,70 +288,39 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
               <div class="promo-card__grid">
                 <div class="promo-card__panel">
                   <div class="promo-card__panel-head">
-                    <h3 class="promo-card__label">Pack</h3>
-                    <button mat-stroked-button type="button" class="promo-card__add" (click)="addComp(i)">
-                      <mat-icon>add</mat-icon>
-                      Ítem
-                    </button>
+                    <h3 class="promo-card__label">Ítems a elección</h3>
                   </div>
-
-                  @if (!p.items.length) {
-                    <p class="promo-admin__muted">Sin ítems = evento especial (nombre en cocina).</p>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__desc">
-                      <mat-label>Nombre en cocina</mat-label>
-                      <input
-                        matInput
-                        [(ngModel)]="p.specialName"
-                        [name]="'sp' + i"
-                        placeholder="ej. Promo happy hour"
-                      />
-                    </mat-form-field>
-                  } @else {
-                    <div class="promo-card__comps">
-                      @for (it of p.items; track $index; let j = $index) {
-                        <div class="promo-card__comp">
-                          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__item">
-                            <mat-label>Ítem</mat-label>
-                            <mat-select
-                              [(ngModel)]="it.menuItemId"
-                              [name]="'mi' + i + '_' + j"
-                              panelClass="guy-select-search-panel"
-                              (openedChange)="onSelectSearchOpened($event, itemQuery)"
-                            >
-                              <app-select-search [(query)]="itemQuery" placeholder="Buscar ítem…" />
-                              @for (opt of filteredMenuItems(it.menuItemId); track opt.id) {
-                                <mat-option [value]="opt.id">
-                                  {{ opt.name }}
-                                  @if (opt.price != null) {
-                                    <span> — {{ opt.price | number: '1.0-0' }}</span>
-                                  }
-                                  ({{ opt.section }})
-                                </mat-option>
-                              }
-                            </mat-select>
-                          </mat-form-field>
-                          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__qty">
-                            <mat-label>Cant.</mat-label>
-                            <input
-                              matInput
-                              type="number"
-                              min="1"
-                              [(ngModel)]="it.qty"
-                              [name]="'q' + i + '_' + j"
-                            />
-                          </mat-form-field>
-                          <button
-                            mat-icon-button
-                            type="button"
-                            class="promo-card__del"
-                            (click)="removeComp(i, j)"
-                            aria-label="Quitar ítem"
-                          >
-                            <mat-icon>close</mat-icon>
-                          </button>
-                        </div>
+                  <p class="promo-card__hint">
+                    @if (tab() === 'comanda') {
+                      El mozo elige {{ p.packQty || 1 }} unidad(es) de este listado por
+                    } @else {
+                      El cliente elige {{ p.packQty || 1 }} unidad(es) de este listado por
+                    }
+                    {{ p.fixedPrice | number: '1.0-0' }}.
+                  </p>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="promo-card__desc">
+                    <mat-label>Pool de ítems</mat-label>
+                    <mat-select
+                      multiple
+                      [(ngModel)]="p.poolItemIds"
+                      [name]="'pool' + i"
+                      panelClass="guy-select-search-panel"
+                      (openedChange)="onSelectSearchOpened($event, itemQuery)"
+                    >
+                      <app-select-search [(query)]="itemQuery" placeholder="Buscar ítem…" />
+                      @for (opt of filteredMenuItems(); track opt.id) {
+                        <mat-option [value]="opt.id">
+                          {{ opt.name }}
+                          @if (opt.price != null) {
+                            <span> — {{ opt.price | number: '1.0-0' }}</span>
+                          }
+                          ({{ opt.section }})
+                        </mat-option>
                       }
-                    </div>
+                    </mat-select>
+                  </mat-form-field>
+                  @if (!p.poolItemIds.length) {
+                    <p class="promo-admin__muted">Elegí al menos un ítem de la carta.</p>
                   }
                 </div>
 
@@ -287,7 +354,13 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
                   </div>
 
                   @if (scheduleMode(p) === 'always') {
-                    <p class="promo-card__hint">Se asigna a mano en la mesa (no automática).</p>
+                    <p class="promo-card__hint">
+                      @if (tab() === 'comanda') {
+                        Se asigna a mano en la mesa (no automática).
+                      } @else {
+                        Disponible mientras esté activa (sin ventana de días).
+                      }
+                    </p>
                   }
 
                   @if (scheduleMode(p) === 'weekly') {
@@ -414,6 +487,49 @@ type MenuPickItem = { id: string; name: string; price: number | null; section: s
       flex-direction: column;
       gap: 0.85rem;
       padding: 0.85rem 1rem 1.15rem;
+    }
+    .promo-admin__tabs {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.15rem;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--guy-border, #d7e0d9) 35%, #fff);
+    }
+    .promo-admin__tab {
+      flex: 1 1 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      min-height: 2.35rem;
+      margin: 0;
+      padding: 0.4rem 0.75rem;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--guy-muted, #5f6f76);
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .promo-admin__tab--on {
+      background: #fff;
+      color: var(--guy-navy, #003366);
+      box-shadow: 0 1px 3px rgba(0, 51, 102, 0.1);
+    }
+    .promo-admin__tab-count {
+      min-width: 1.35rem;
+      padding: 0.05rem 0.4rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--guy-border, #d7e0d9) 55%, #fff);
+      font-size: 0.75rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .promo-admin__tab--on .promo-admin__tab-count {
+      background: color-mix(in srgb, var(--guy-primary, #1d65a0) 14%, #fff);
+      color: var(--guy-primary, #1d65a0);
     }
     .promo-admin__toolbar {
       position: sticky;
@@ -761,12 +877,20 @@ export class AdminPromosPage implements OnInit {
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly tab = signal<'comanda' | 'pedidos'>('comanda');
   readonly promos = signal<ShopPromo[]>([]);
   readonly menuItems = signal<MenuPickItem[]>([]);
   readonly itemQuery = signal('');
   /** Borrador del datepicker por índice de promo. */
   readonly dateDrafts = signal<Record<number, Date | null>>({});
   readonly onSelectSearchOpened = onSelectSearchOpened;
+
+  readonly visiblePromos = computed(() => {
+    const t = this.tab();
+    return this.promos().filter((p) => (t === 'comanda' ? p.forComanda : p.forPedidos));
+  });
+  readonly comandaCount = computed(() => this.promos().filter((p) => p.forComanda).length);
+  readonly pedidosCount = computed(() => this.promos().filter((p) => p.forPedidos).length);
 
   readonly weekDays = [
     { key: 0, label: 'Dom' },
@@ -804,7 +928,7 @@ export class AdminPromosPage implements OnInit {
       `${environment.apiUrl}/shops/${shopId}/promos`,
     ).subscribe({
       next: (res) => {
-        this.promos.set((res.promos ?? []).map((p) => ({ ...p, items: [...(p.items ?? [])] })));
+        this.promos.set((res.promos ?? []).map((p) => normalizeAdminPromo(p as never)));
         const picks: MenuPickItem[] = [];
         for (const m of res.menus ?? []) {
           for (const sec of m.sections ?? []) {
@@ -829,7 +953,24 @@ export class AdminPromosPage implements OnInit {
     });
   }
 
+  promoTrack(p: ShopPromo, index: number): string {
+    return p.id || `new-${this.tab()}-${index}-${p.name}`;
+  }
+
+  promoIndex(p: ShopPromo): number {
+    const list = this.promos();
+    const byRef = list.indexOf(p);
+    if (byRef >= 0) return byRef;
+    if (p.id) {
+      const byId = list.findIndex((x) => x.id === p.id);
+      if (byId >= 0) return byId;
+    }
+    return -1;
+  }
+
   addPromo(): void {
+    const first = this.menuItems()[0]?.id;
+    const isComanda = this.tab() === 'comanda';
     this.promos.update((list) => [
       ...list,
       {
@@ -837,12 +978,14 @@ export class AdminPromosPage implements OnInit {
         name: 'Nueva promo',
         description: '',
         available: true,
-        showOnPublicMenu: false,
-        sellable: true,
-        tableMatchable: true,
         fixedPrice: 0,
-        items: [],
-        specialName: '',
+        poolItemIds: first ? [first] : [],
+        packQty: 1,
+        forComanda: isComanda,
+        forPedidos: !isComanda,
+        showOnPublicOrdering: !isComanda,
+        tableMatchable: isComanda,
+        showOnPublicMenu: false,
         schedule: null,
         validDates: null,
       },
@@ -850,28 +993,8 @@ export class AdminPromosPage implements OnInit {
   }
 
   removePromo(index: number): void {
+    if (index < 0) return;
     this.promos.update((list) => list.filter((_, i) => i !== index));
-  }
-
-  addComp(index: number): void {
-    const first = this.menuItems()[0]?.id ?? '';
-    this.promos.update((list) =>
-      list.map((p, i) =>
-        i === index
-          ? { ...p, items: [...p.items, { menuItemId: first, qty: 1 }], specialName: null }
-          : p,
-      ),
-    );
-  }
-
-  removeComp(promoIndex: number, itemIndex: number): void {
-    this.promos.update((list) =>
-      list.map((p, i) =>
-        i === promoIndex
-          ? { ...p, items: p.items.filter((_, j) => j !== itemIndex) }
-          : p,
-      ),
-    );
   }
 
   scheduleMode(p: ShopPromo): 'always' | 'weekly' | 'dates' {
@@ -1073,25 +1196,33 @@ export class AdminPromosPage implements OnInit {
     const shopId = this.shopId();
     if (!shopId || this.saving() || !this.canManage()) return;
     this.saving.set(true);
+    const incomplete = this.promos().find((p) => !p.poolItemIds?.length || !p.name?.trim());
+    if (incomplete) {
+      this.saving.set(false);
+      this.snack.open('Cada promo necesita nombre y al menos un ítem', 'OK', { duration: 3500 });
+      return;
+    }
     const body = {
       promos: this.promos().map((p) => ({
         id: p.id || undefined,
         name: p.name,
         description: p.description || null,
         available: p.available,
-        showOnPublicMenu: p.showOnPublicMenu,
-        sellable: p.sellable,
-        tableMatchable: p.tableMatchable,
         fixedPrice: Number(p.fixedPrice) || 0,
-        items: p.items.filter((it) => it.menuItemId),
-        specialName: p.items.length ? null : p.specialName || p.name,
+        poolItemIds: p.poolItemIds,
+        packQty: Math.max(1, Math.round(Number(p.packQty) || 1)),
+        forComanda: !!p.forComanda,
+        forPedidos: !!p.forPedidos,
+        showOnPublicOrdering: !!p.forPedidos && !!p.showOnPublicOrdering,
+        tableMatchable: !!p.forComanda && !!p.tableMatchable,
+        showOnPublicMenu: !!p.showOnPublicMenu,
         schedule: p.schedule ?? null,
         validDates: p.validDates?.length ? p.validDates : null,
       })),
     };
     this.http.put<{ promos: ShopPromo[] }>(`${environment.apiUrl}/shops/${shopId}/promos`, body).subscribe({
       next: (res) => {
-        this.promos.set((res.promos ?? []).map((p) => ({ ...p, items: [...(p.items ?? [])] })));
+        this.promos.set((res.promos ?? []).map((p) => normalizeAdminPromo(p as never)));
         this.saving.set(false);
         this.snack.open('Promos guardadas', 'OK', { duration: 2500 });
       },

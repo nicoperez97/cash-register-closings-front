@@ -29,11 +29,13 @@ import {
   PublicOrderingSection,
 } from './customer-orders-api.service';
 import { OrderingCartService } from './ordering-cart.service';
+
+type PublicOrderingPromo = NonNullable<PublicOrderingConfig['promos']>[number];
 import { DineInApiService } from './dine-in-api.service';
 import { DineInSessionService } from './dine-in-session.service';
 import { apiErrorMessage, onAccentColor, orderingItemImageUrl, orderingItemImageUrls, orderingLogoUrl, orderingMoney } from './ordering-ui.util';
 
-type View = 'menu' | 'detail';
+type View = 'menu' | 'detail' | 'promo';
 
 /** Evita chips tipo "Stuzzichini · TUTTO PASSA" cuando el título del menú es el nombre del local. */
 function shortMenuTag(title: string | null | undefined, shopName: string): string {
@@ -99,6 +101,8 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
 
   readonly view = signal<View>('menu');
   readonly item = signal<PublicOrderingMenuItem | null>(null);
+  readonly promo = signal<PublicOrderingPromo | null>(null);
+  readonly promoPickCounts = signal<Record<string, number>>({});
   readonly qty = signal(1);
   readonly notes = signal('');
   readonly selectedExtraIds = signal<string[]>([]);
@@ -137,6 +141,8 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     return this.staffMode();
   }
 
+  readonly promos = computed(() => this.config()?.promos ?? []);
+
   readonly sections = computed(() => {
     const menus = this.config()?.menus ?? [];
     const shopName = this.shop()?.name?.trim() || '';
@@ -155,6 +161,20 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     }
     return out;
   });
+
+  /** Tabs: Promos (si hay) + secciones de carta. */
+  readonly navTabs = computed(() => {
+    const tabs: Array<{ id: string; name: string }> = [];
+    if (this.promos().length) tabs.push({ id: 'sec-promos', name: 'Promos' });
+    this.sections().forEach((sec, i) => {
+      tabs.push({ id: this.sectionDomId(i), name: sec.name });
+    });
+    return tabs;
+  });
+
+  readonly promoPickSelected = computed(() =>
+    Object.values(this.promoPickCounts()).reduce((s, n) => s + (Number(n) || 0), 0),
+  );
 
   readonly cartCount = computed(() => this.cart.count());
   readonly cartSubtotal = computed(() => this.cart.subtotal());
@@ -200,12 +220,47 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     });
   }
 
-  itemPhoto(it: PublicOrderingMenuItem): string | null {
+  itemPhoto(
+    it: { id?: string; imageUrl?: string | null; images?: Array<{ id?: string; url?: string }> },
+  ): string | null {
     return orderingItemImageUrl(this.slug(), it);
   }
 
   itemPhotos(it: PublicOrderingMenuItem): string[] {
     return orderingItemImageUrls(this.slug(), it);
+  }
+
+  /** Portada de la promo: primera foto del pool (o del único ítem). */
+  promoCoverPhoto(pr: PublicOrderingPromo): string | null {
+    for (const pit of pr.poolItems ?? []) {
+      const url = this.itemPhoto(pit);
+      if (url) return url;
+    }
+    return null;
+  }
+
+  /** Nombre del plato cuando el pool tiene un solo ítem (ej. Genovese bajo “Panino del día”). */
+  promoItemLabel(pr: PublicOrderingPromo): string | null {
+    if ((pr.poolItems?.length ?? 0) !== 1) return null;
+    const name = String(pr.poolItems[0].name ?? '').trim();
+    if (!name) return null;
+    if (name.toLowerCase() === String(pr.name ?? '').trim().toLowerCase()) return null;
+    return name;
+  }
+
+  /** Descripción en la lista: la de la promo, o la del plato si es un solo ítem. */
+  promoCardDesc(pr: PublicOrderingPromo): string | null {
+    const own = String(pr.description ?? '').trim();
+    if (own) return own;
+    if ((pr.poolItems?.length ?? 0) === 1) {
+      const d = String(pr.poolItems[0].description ?? '').trim();
+      return d || null;
+    }
+    return null;
+  }
+
+  promoAddsDirect(pr: PublicOrderingPromo): boolean {
+    return (pr.poolItems?.length ?? 0) === 1 && Math.max(1, Number(pr.packQty) || 1) === 1;
   }
 
   readonly detailPhotoIndex = signal(0);
@@ -395,11 +450,34 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
         extraPrices[String(e.id)] = { unitPrice: Number(e.price) || 0, name: e.name };
       }
     }
+    for (const pr of cfg.promos ?? []) {
+      for (const pit of pr.poolItems ?? []) {
+        if (pit?.id && !itemIds.has(String(pit.id))) {
+          itemIds.add(String(pit.id));
+          itemPrices[String(pit.id)] = {
+            unitPrice: Number(pit.price) || 0,
+            name: pit.name,
+          };
+        }
+      }
+    }
+    const promoIds = new Set((cfg.promos ?? []).map((p) => String(p.id)));
+    const promoPrices: Record<string, { unitPrice: number; name?: string }> = {};
+    for (const p of cfg.promos ?? []) {
+      if (p?.id) {
+        promoPrices[String(p.id)] = {
+          unitPrice: Number(p.fixedPrice) || 0,
+          name: p.name,
+        };
+      }
+    }
     const { removedQty, priceChanged } = this.cart.reconcileAvailable({
       itemIds,
       extraIds,
+      promoIds,
       itemPrices,
       extraPrices,
+      promoPrices,
     });
     if (removedQty > 0) {
       this.snack.open(
@@ -491,7 +569,10 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
   }
 
   scrollToSection(index: number): void {
-    const id = this.sectionDomId(index);
+    this.scrollToTab(this.sectionDomId(index));
+  }
+
+  scrollToTab(id: string): void {
     this.jumping = true;
     this.activeSectionId.set(id);
     this.hostEl
@@ -507,6 +588,83 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
     const label = String(item.priceLabel ?? '').trim();
     if (label) return label;
     return orderingMoney(item.price);
+  }
+
+  openPromo(pr: PublicOrderingPromo): void {
+    if (!this.promos().some((p) => p.id === pr.id)) {
+      this.snack.open('Esa promo ya no está disponible', 'OK', { duration: 2500 });
+      this.load();
+      return;
+    }
+    const need = Math.max(1, Number(pr.packQty) || 1);
+    const only = pr.poolItems?.length === 1 ? pr.poolItems[0] : null;
+    // Un solo ítem en el pool: ya está elegido (y si es cant. 1, va al carrito directo).
+    if (only && this.canOrder() && need === 1) {
+      this.promo.set(pr);
+      this.promoPickCounts.set({ [only.id]: 1 });
+      this.addPromoToCart();
+      return;
+    }
+    this.promo.set(pr);
+    this.promoPickCounts.set(only ? { [only.id]: need } : {});
+    this.view.set('promo');
+  }
+
+  promoPickCount(menuItemId: string): number {
+    return Number(this.promoPickCounts()[menuItemId]) || 0;
+  }
+
+  bumpPromoPick(menuItemId: string, delta: number): void {
+    const pr = this.promo();
+    if (!pr || !delta) return;
+    const need = Math.max(1, Number(pr.packQty) || 1);
+    const cur = this.promoPickCounts();
+    const have = Object.values(cur).reduce((s, n) => s + (Number(n) || 0), 0);
+    const prev = Number(cur[menuItemId]) || 0;
+    let next = prev + delta;
+    if (next < 0) next = 0;
+    if (delta > 0 && have >= need) return;
+    if (delta > 0 && have + delta > need) next = prev + (need - have);
+    const counts = { ...cur };
+    if (next <= 0) delete counts[menuItemId];
+    else counts[menuItemId] = next;
+    this.promoPickCounts.set(counts);
+  }
+
+  addPromoToCart(): void {
+    const pr = this.promo();
+    if (!pr || !this.canOrder()) return;
+    const need = Math.max(1, Number(pr.packQty) || 1);
+    const selections = Object.entries(this.promoPickCounts())
+      .map(([menuItemId, qty]) => {
+        const pit = pr.poolItems.find((x) => x.id === menuItemId);
+        return {
+          menuItemId,
+          name: pit?.name || menuItemId,
+          qty: Math.round(Number(qty) || 0),
+        };
+      })
+      .filter((s) => s.qty > 0);
+    const sum = selections.reduce((s, x) => s + x.qty, 0);
+    if (sum !== need) {
+      this.snack.open(`Elegí ${need} ítem(s) para la promo`, 'OK', { duration: 2500 });
+      return;
+    }
+    this.cart.add({
+      kind: 'PROMO',
+      menuItemId: pr.id,
+      promoId: pr.id,
+      name: pr.name,
+      unitPrice: Number(pr.fixedPrice) || 0,
+      qty: 1,
+      notes: '',
+      selections,
+    });
+    this.addedFlash.set(true);
+    setTimeout(() => this.addedFlash.set(false), 900);
+    this.promo.set(null);
+    this.promoPickCounts.set({});
+    this.view.set('menu');
   }
 
   openItem(item: PublicOrderingMenuItem): void {
@@ -576,6 +734,12 @@ export class PublicOrderingMenuComponent implements OnInit, OnDestroy {
       this.item.set(null);
       this.selectedExtraIds.set([]);
       this.removedIngredientIds.set([]);
+      this.view.set('menu');
+      return;
+    }
+    if (v === 'promo') {
+      this.promo.set(null);
+      this.promoPickCounts.set({});
       this.view.set('menu');
       return;
     }

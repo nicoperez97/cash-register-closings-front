@@ -213,6 +213,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   /** Borrador del cupo por promoId (vacío = ilimitado). */
   readonly promoCupoDrafts = signal<Record<string, string>>({});
 
+  /** Sheet: elegir ítems del pool de una promo. */
+  readonly promoPick = signal<{
+    id: string;
+    name: string;
+    fixedPrice: number;
+    packQty: number;
+    poolItemIds: string[];
+    tableMatchable?: boolean;
+  } | null>(null);
+  readonly promoPickCounts = signal<Record<string, number>>({});
+
   /** Sheet: pedir comensales (y mozo en admin) antes de abrir mesa. */
   readonly coversSheet = signal<WaiterTable | null>(null);
   readonly coversDraft = signal(2);
@@ -556,8 +567,26 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly extras = computed(() => this.catalog()?.extras ?? []);
 
   readonly sellablePromos = computed(() =>
-    (this.catalog()?.promos ?? []).filter((p) => p.sellable),
+    (this.catalog()?.promos ?? []).filter(
+      (p) => (p.forComanda ?? p.sellable) && (p.poolItemIds?.length || p.items?.length),
+    ),
   );
+
+  readonly promoPickSelected = computed(() =>
+    Object.values(this.promoPickCounts()).reduce((s, n) => s + (Number(n) || 0), 0),
+  );
+
+  readonly promoPickPoolItems = computed(() => {
+    const pick = this.promoPick();
+    if (!pick) return [] as CatalogItem[];
+    const catalog = this.catalogItems();
+    const ids = pick.poolItemIds?.length
+      ? pick.poolItemIds
+      : [];
+    return ids
+      .map((id) => catalog.find((c) => c.id === id))
+      .filter((x): x is CatalogItem => !!x);
+  });
 
   readonly showCatalogChips = computed(
     () => this.sections().length > 1 || this.sellablePromos().length > 0,
@@ -1691,72 +1720,127 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     id: string;
     name: string;
     fixedPrice: number;
+    packQty?: number;
+    poolItemIds?: string[];
     items?: Array<{ menuItemId: string; qty: number }>;
-    specialName?: string | null;
     tableMatchable?: boolean;
+    inSchedule?: boolean;
   }): void {
-    const items = promo.items ?? [];
-    if (items.length) {
-      // Composición = mismos ítems de carta; el matching de mesa hace el precio.
-      const catalog = this.catalogItems();
-      this.lines.update((list) => {
-        let next = [...list];
-        for (const it of items) {
-          const found = catalog.find((c) => c.id === it.menuItemId);
-          if (!found) continue;
-          const key = `i:${found.id}`;
-          const qtyAdd = Math.max(1, Number(it.qty) || 1);
-          const idx = next.findIndex((l) => l.key === key);
-          if (idx >= 0) {
-            next = next.map((l, i) =>
-              i === idx ? { ...l, qty: Math.min(99, l.qty + qtyAdd) } : l,
-            );
-          } else {
-            const kitchenSectorIds = this.sectorIdsForCatalogItem(found);
-            next.push({
-              key,
-              kind: 'ITEM',
-              menuItemId: found.id,
-              name: found.name,
-              unitPrice: Number(found.price) || 0,
-              qty: qtyAdd,
-              kitchenSectorIds,
-              combinesWithKeys: [],
-              notes: '',
-            });
-            next = this.withAutoCombines(next, key);
-          }
-        }
-        return next;
-      });
-      if (promo.tableMatchable !== false && !this.isSessionPromoOn(promo.id)) {
-        this.toggleSessionPromo(promo.id);
-      }
+    if (promo.inSchedule === false) return;
+    let poolItemIds = (promo.poolItemIds ?? []).filter(Boolean);
+    let packQty = Math.max(1, Math.round(Number(promo.packQty) || 0));
+    if (!poolItemIds.length && promo.items?.length) {
+      poolItemIds = [...new Set(promo.items.map((i) => i.menuItemId).filter(Boolean))];
+      packQty = promo.items.reduce((s, i) => s + Math.max(1, Number(i.qty) || 1), 0);
+    }
+    if (!poolItemIds.length) return;
+    if (!packQty) packQty = 1;
+    // Un solo ítem en el pool y packQty 1 → agregar directo.
+    if (poolItemIds.length === 1 && packQty === 1) {
+      this.applyPromoSelections(promo.id, promo.name, promo.fixedPrice, promo.tableMatchable, [
+        { menuItemId: poolItemIds[0], qty: 1 },
+      ]);
       return;
     }
-
-    // Evento sin composición: línea PROMO.
-    const key = `p:${promo.id}`;
-    this.lines.update((list) => {
-      const idx = list.findIndex((l) => l.key === key);
-      if (idx >= 0) {
-        return list.map((l, i) =>
-          i === idx ? { ...l, qty: Math.min(99, l.qty + 1) } : l,
-        );
-      }
-      return [
-        ...list,
-        {
-          key,
-          kind: 'PROMO',
-          menuItemId: promo.id,
-          name: promo.name,
-          unitPrice: Number(promo.fixedPrice) || 0,
-          qty: 1,
-          promoId: promo.id,
-        },
-      ];
+    this.promoPick.set({
+      id: promo.id,
+      name: promo.name,
+      fixedPrice: promo.fixedPrice,
+      packQty,
+      poolItemIds,
+      tableMatchable: promo.tableMatchable,
     });
+    this.promoPickCounts.set({});
+  }
+
+  cancelPromoPick(): void {
+    this.promoPick.set(null);
+    this.promoPickCounts.set({});
+  }
+
+  promoPickCount(menuItemId: string): number {
+    return Number(this.promoPickCounts()[menuItemId]) || 0;
+  }
+
+  bumpPromoPick(menuItemId: string, delta: number): void {
+    const pick = this.promoPick();
+    if (!pick || !delta) return;
+    const need = pick.packQty;
+    const cur = this.promoPickCounts();
+    const have = Object.values(cur).reduce((s, n) => s + (Number(n) || 0), 0);
+    const prev = Number(cur[menuItemId]) || 0;
+    let next = prev + delta;
+    if (next < 0) next = 0;
+    if (delta > 0 && have >= need) return;
+    if (delta > 0 && have + delta > need) next = prev + (need - have);
+    const counts = { ...cur };
+    if (next <= 0) delete counts[menuItemId];
+    else counts[menuItemId] = next;
+    this.promoPickCounts.set(counts);
+  }
+
+  confirmPromoPick(): void {
+    const pick = this.promoPick();
+    if (!pick) return;
+    const selections = Object.entries(this.promoPickCounts())
+      .map(([menuItemId, qty]) => ({ menuItemId, qty: Math.round(Number(qty) || 0) }))
+      .filter((s) => s.qty > 0);
+    const sum = selections.reduce((s, x) => s + x.qty, 0);
+    if (sum !== pick.packQty) {
+      this.error.set(`Elegí ${pick.packQty} ítem(s) para la promo`);
+      return;
+    }
+    this.applyPromoSelections(
+      pick.id,
+      pick.name,
+      pick.fixedPrice,
+      pick.tableMatchable,
+      selections,
+    );
+    this.cancelPromoPick();
+  }
+
+  private applyPromoSelections(
+    promoId: string,
+    _promoName: string,
+    _fixedPrice: number,
+    tableMatchable: boolean | undefined,
+    selections: Array<{ menuItemId: string; qty: number }>,
+  ): void {
+    const catalog = this.catalogItems();
+    this.lines.update((list) => {
+      let next = [...list];
+      for (const it of selections) {
+        const found = catalog.find((c) => c.id === it.menuItemId);
+        if (!found) continue;
+        const key = `i:${found.id}`;
+        const qtyAdd = Math.max(1, Number(it.qty) || 1);
+        const idx = next.findIndex((l) => l.key === key);
+        if (idx >= 0) {
+          next = next.map((l, i) =>
+            i === idx ? { ...l, qty: Math.min(99, l.qty + qtyAdd) } : l,
+          );
+        } else {
+          const kitchenSectorIds = this.sectorIdsForCatalogItem(found);
+          next.push({
+            key,
+            kind: 'ITEM',
+            menuItemId: found.id,
+            name: found.name,
+            unitPrice: Number(found.price) || 0,
+            qty: qtyAdd,
+            kitchenSectorIds,
+            combinesWithKeys: [],
+            notes: '',
+          });
+          next = this.withAutoCombines(next, key);
+        }
+      }
+      return next;
+    });
+    if (tableMatchable !== false && !this.isSessionPromoOn(promoId)) {
+      this.toggleSessionPromo(promoId);
+    }
   }
 
   backToTables(): void {
@@ -2017,19 +2101,14 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.bump(line, delta);
   }
 
-  /** Promo sin composición (línea PROMO). */
-  promoQty(promo: { id: string }): number {
-    const key = `p:${promo.id}`;
-    return this.lines().find((l) => l.key === key && l.kind === 'PROMO')?.qty ?? 0;
-  }
-
   bumpPromo(
     promo: {
       id: string;
       name: string;
       fixedPrice: number;
+      packQty?: number;
+      poolItemIds?: string[];
       items?: Array<{ menuItemId: string; qty: number }>;
-      specialName?: string | null;
       tableMatchable?: boolean;
       inSchedule?: boolean;
     },
@@ -2039,18 +2118,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     ev?.stopPropagation();
     ev?.preventDefault();
     if (promo.inSchedule === false) return;
-    const items = promo.items ?? [];
-    if (items.length) {
-      if (delta > 0) this.addPromo(promo);
-      return;
-    }
-    const key = `p:${promo.id}`;
-    const line = this.lines().find((l) => l.key === key && l.kind === 'PROMO');
-    if (!line) {
-      if (delta > 0) this.addPromo(promo);
-      return;
-    }
-    this.bump(line, delta);
+    if (delta > 0) this.addPromo(promo);
   }
 
   addItem(it: CatalogItem): void {
@@ -2443,16 +2511,13 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         qty: l.qty,
         attachedToMenuItemId: l.attachedToMenuItemId ?? null,
       }));
-    const promos = lines
-      .filter((l) => l.kind === 'PROMO' && l.promoId)
-      .map((l) => ({ promoId: l.promoId!, qty: l.qty }));
+    // Promos de pool se cargan como ítems de carta; el matching de mesa usa sessionPromos.
     this.busy.set(true);
     this.error.set(null);
     this.api
       .createOrder(slug, token, session.id, {
         items,
         extras,
-        promos: promos.length ? promos : undefined,
         customerNotes: this.notes().trim() || null,
         printKitchen,
         printCustomerTicket,

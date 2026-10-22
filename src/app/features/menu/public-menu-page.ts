@@ -57,6 +57,8 @@ type PublicPromo = {
   name: string;
   description?: string | null;
   fixedPrice: number;
+  packQty?: number;
+  poolItemIds?: string[];
 };
 
 type FilterId = 'all' | 'veggie' | 'dessert' | 'combo' | 'drinks';
@@ -276,7 +278,12 @@ type FilterOpt = { id: FilterId; label: string };
                     <div class="menu__row">
                       <span class="menu__name">{{ pr.name }}</span>
                       <span class="menu__dots" aria-hidden="true"></span>
-                      <span class="menu__price">{{ money(pr.fixedPrice) }}</span>
+                      <span class="menu__price">
+                        @if (pr.packQty && pr.packQty > 1) {
+                          {{ pr.packQty }} a elección ·
+                        }
+                        {{ money(pr.fixedPrice) }}
+                      </span>
                     </div>
                     @if (pr.description) {
                       <p class="menu__desc">{{ pr.description }}</p>
