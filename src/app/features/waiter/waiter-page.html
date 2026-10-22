@@ -1569,6 +1569,9 @@
         @if (detail.covers) {
           · {{ detail.covers }} comensales
         }
+        @if (detail.waiterName) {
+          · {{ detail.waiterName }}
+        }
       </p>
       <p class="sheet__total"><span>Ticket</span><strong>{{ money(detail.ticketTotal) }}</strong></p>
       @if (detail.tipAmount > 0) {
@@ -1632,10 +1635,41 @@
       <h2 id="history-title">Historial de mesas</h2>
       <div class="sheet__body">
       @if (tipsSummary(); as tips) {
+        @let stats = historyFilteredStats();
         <p class="muted">
-          {{ tips.shift.name }} · {{ tips.closedTables }} cerrada{{ tips.closedTables === 1 ? '' : 's' }}
-          · {{ money(tips.ticketTotal ?? 0) }}
+          {{ tips.shift.name }} · {{ stats.closedTables }} cerrada{{ stats.closedTables === 1 ? '' : 's' }}
+          · {{ money(stats.ticketTotal) }}
         </p>
+        <div class="history-filter" role="group" aria-label="Filtrar por mozo">
+          <button
+            type="button"
+            class="history-filter__btn"
+            [class.history-filter__btn--on]="historyWaiterFilter() === 'all'"
+            (click)="historyWaiterFilter.set('all')"
+          >
+            Todos
+          </button>
+          @for (w of historyWaiterOptions(); track w.id) {
+            <button
+              type="button"
+              class="history-filter__btn"
+              [class.history-filter__btn--on]="historyWaiterFilter() === w.id"
+              (click)="historyWaiterFilter.set(w.id)"
+            >
+              {{ w.fullName }}@if (w.id === waiterEmployeeId()) { · vos }
+            </button>
+          }
+          @if (historyHasUnassigned()) {
+            <button
+              type="button"
+              class="history-filter__btn"
+              [class.history-filter__btn--on]="historyWaiterFilter() === 'none'"
+              (click)="historyWaiterFilter.set('none')"
+            >
+              Caja
+            </button>
+          }
+        </div>
       }
       <ul class="history-list">
         @for (row of historySessions(); track row.sessionId) {
@@ -1650,6 +1684,9 @@
                   @if (row.paymentLabel) {
                     · {{ row.paymentLabel }}
                   }
+                  @if (historyWaiterFilter() === 'all') {
+                    · {{ row.waiterName || 'Caja' }}
+                  }
                 </span>
               </div>
               <div class="history-list__amounts">
@@ -1661,7 +1698,15 @@
             </button>
           </li>
         } @empty {
-          <li class="muted">Todavía no hay mesas cerradas en este turno.</li>
+          <li class="muted">
+            @if (historyWaiterFilter() === 'all') {
+              Todavía no hay mesas cerradas en este turno.
+            }             @else if (historyWaiterFilter() === 'none') {
+              No hay cierres de caja en el turno.
+            } @else {
+              Este mozo no cerró mesas en el turno.
+            }
+          </li>
         }
       </ul>
       </div>

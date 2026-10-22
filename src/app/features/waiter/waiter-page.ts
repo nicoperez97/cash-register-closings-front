@@ -169,6 +169,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly pin = signal('');
   readonly token = signal<string | null>(null);
   readonly waiterName = signal('');
+  /** Empleado vinculado a la sesión (PIN o staff); null si no hay vínculo. */
+  readonly waiterEmployeeId = signal<string | null>(null);
   readonly shopName = signal('');
   readonly logoUrl = signal<string | null>(null);
   readonly accent = signal(this.theme.accent());
@@ -239,6 +241,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   );
   readonly historyOpen = signal(false);
   readonly historyDetailId = signal<string | null>(null);
+  /** Filtro del historial: `all` o id de empleado. */
+  readonly historyWaiterFilter = signal<string>('all');
 
   /** Sheet: imprimir ticket con descuento. */
   readonly ticketSheet = signal(false);
@@ -623,7 +627,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
       this.token.set(saved);
       this.api.me(slug, saved).subscribe({
         next: (me) => {
-          this.waiterName.set(me.waiter.fullName);
+          this.applyWaiterIdentity(me.waiter);
           this.shopName.set(me.shop.name);
           this.accent.set(this.resolveAccent(me.shop.accentColor));
           this.applyCapabilities((me as { capabilities?: WaiterCapProfile }).capabilities);
@@ -674,7 +678,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.slugSignal.set(res.shop.slug);
         localStorage.setItem(tokenKey(res.shop.slug), res.token);
         this.token.set(res.token);
-        this.waiterName.set(res.waiter.fullName);
+        this.applyWaiterIdentity(res.waiter);
         this.shopName.set(res.shop.name);
         this.accent.set(this.resolveAccent(res.shop.accentColor));
         this.applyCapabilities(res.capabilities);
@@ -1212,7 +1216,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.busy.set(false);
         this.token.set(res.token);
         localStorage.setItem(tokenKey(slug), res.token);
-        this.waiterName.set(res.waiter.fullName);
+        this.applyWaiterIdentity(res.waiter);
         this.shopName.set(res.shop.name);
         this.accent.set(this.resolveAccent(res.shop.accentColor));
         this.applyCapabilities(res.capabilities);
@@ -1227,6 +1231,20 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
         this.error.set(apiErrorMessage(err, 'PIN incorrecto'));
       },
     });
+  }
+
+  private applyWaiterIdentity(waiter: { id?: string | null; fullName?: string | null }): void {
+    this.waiterName.set(String(waiter.fullName ?? '').trim());
+    const id = String(waiter.id ?? '').trim();
+    this.waiterEmployeeId.set(id && id !== 'staff' ? id : null);
+  }
+
+  private defaultHistoryWaiterFilter(sum?: WaiterShiftTipsSummary | null): string {
+    const self =
+      String(sum?.selfWaiterEmployeeId ?? '').trim() ||
+      this.waiterEmployeeId() ||
+      '';
+    return self || 'all';
   }
 
   logout(): void {
@@ -1285,19 +1303,77 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const token = this.token();
     if (!slug || !token) return;
     this.api.shiftTipsSummary(slug, token).subscribe({
-      next: (sum) => this.tipsSummary.set(sum),
+      next: (sum) => {
+        this.tipsSummary.set(sum);
+        const self = String(sum.selfWaiterEmployeeId ?? '').trim();
+        if (self) this.waiterEmployeeId.set(self);
+      },
       error: () => this.tipsSummary.set(null),
     });
   }
 
+  historyWaiterOptions(): Array<{ id: string; fullName: string }> {
+    const sum = this.tipsSummary();
+    const byId = new Map<string, string>();
+    for (const w of sum?.waiters ?? []) {
+      const id = String(w.id ?? '').trim();
+      if (id) byId.set(id, w.fullName?.trim() || '—');
+    }
+    for (const s of sum?.sessions ?? []) {
+      const id = String(s.waiterEmployeeId ?? '').trim();
+      if (id && !byId.has(id)) byId.set(id, s.waiterName?.trim() || '—');
+    }
+    // En Operación → Comanda: listá mozos del local aunque aún no hayan cerrado.
+    if (this.staffMode) {
+      for (const w of this.staffWaiters()) {
+        const id = String(w.id ?? '').trim();
+        if (id && !byId.has(id)) byId.set(id, w.fullName?.trim() || '—');
+      }
+    }
+    const self = this.waiterEmployeeId();
+    if (self && !byId.has(self)) {
+      byId.set(self, this.waiterName() || 'Yo');
+    }
+    const selfId = self ?? '';
+    return [...byId.entries()]
+      .map(([id, fullName]) => ({ id, fullName }))
+      .sort((a, b) => {
+        if (a.id === selfId) return -1;
+        if (b.id === selfId) return 1;
+        return a.fullName.localeCompare(b.fullName, 'es');
+      });
+  }
+
+  historyHasUnassigned(): boolean {
+    return (this.tipsSummary()?.sessions ?? []).some(
+      (s) => !String(s.waiterEmployeeId ?? '').trim(),
+    );
+  }
+
   historySessions(): NonNullable<WaiterShiftTipsSummary['sessions']> {
-    return this.tipsSummary()?.sessions ?? [];
+    const all = this.tipsSummary()?.sessions ?? [];
+    const filter = this.historyWaiterFilter();
+    if (filter === 'all') return all;
+    if (filter === 'none') {
+      return all.filter((s) => !String(s.waiterEmployeeId ?? '').trim());
+    }
+    return all.filter((s) => String(s.waiterEmployeeId ?? '') === filter);
+  }
+
+  historyFilteredStats(): { closedTables: number; ticketTotal: number } {
+    const sessions = this.historySessions();
+    return {
+      closedTables: sessions.length,
+      ticketTotal:
+        Math.round(sessions.reduce((n, s) => n + (Number(s.ticketTotal) || 0), 0) * 100) / 100,
+    };
   }
 
   historyDetail(): NonNullable<WaiterShiftTipsSummary['sessions']>[number] | null {
     const id = this.historyDetailId();
     if (!id) return null;
-    return this.historySessions().find((s) => s.sessionId === id) ?? null;
+    const all = this.tipsSummary()?.sessions ?? [];
+    return all.find((s) => s.sessionId === id) ?? null;
   }
 
   readonly historyOrderItems = signal<
@@ -1311,6 +1387,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.historyDetailId.set(null);
     this.historyOrderItems.set([]);
     this.historyLineAudits.set([]);
+    this.historyWaiterFilter.set(this.defaultHistoryWaiterFilter(this.tipsSummary()));
     this.historyOpen.set(true);
     this.loadTipsSummary();
   }
