@@ -157,6 +157,7 @@ export type ComandaMonitorTable = {
   tableLabel: string;
   sectorName: string;
   covers: number;
+  waiterEmployeeId?: string | null;
   waiterName: string;
   openedAt: string;
   closedAt?: string | null;
@@ -175,6 +176,7 @@ export type ComandaMonitorOrder = {
   code: string;
   channel?: 'TABLE' | 'COUNTER';
   tableLabel: string;
+  waiterEmployeeId?: string | null;
   waiterName: string;
   createdAt: string;
   total: number;
@@ -187,6 +189,9 @@ export type ComandaMonitorPayload = {
   businessDate?: string | null;
   /** false si el rol ve el monitor sin montos. */
   showAmounts?: boolean;
+  /** Empleado vinculado al usuario staff (si hay). */
+  selfWaiterEmployeeId?: string | null;
+  waiters?: Array<{ id: string; fullName: string }>;
   tables: ComandaMonitorTable[];
   counters?: ComandaMonitorTable[];
   closedTables?: ComandaMonitorTable[];
@@ -196,9 +201,10 @@ export type ComandaMonitorPayload = {
   summary?: {
     openTables: number;
     openCovers: number;
+    closedCovers?: number;
+    coversTotal?: number;
     openCounter?: number;
     closedTables?: number;
-    closedCovers?: number;
     closedCounter?: number;
     tablesWithChanges?: number;
     openTotal: number;
@@ -353,10 +359,12 @@ export type WaiterCatalog = {
     fixedPrice: number;
     sellable: boolean;
     tableMatchable: boolean;
+    forComanda?: boolean;
+    packQty: number;
+    poolItemIds: string[];
     /** false = fuera de la ventana horaria de la promo. */
     inSchedule?: boolean;
-    items: Array<{ menuItemId: string; qty: number }>;
-    specialName?: string | null;
+    items?: Array<{ menuItemId: string; qty: number }>;
   }>;
   tablePaymentMethods?: TablePaymentMethod[];
   capabilities?: WaiterCapProfile;
@@ -403,9 +411,17 @@ export class WaiterApiService {
     );
   }
 
-  staffMonitor(shopId: string) {
+  staffMonitor(
+    shopId: string,
+    params?: { from?: string; to?: string; shiftIds?: string[] },
+  ) {
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set('from', params.from);
+    if (params?.to) qs.set('to', params.to);
+    if (params?.shiftIds?.length) qs.set('shiftIds', params.shiftIds.join(','));
+    const q = qs.toString();
     return this.http.get<ComandaMonitorPayload>(
-      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/monitor`,
+      `${this.base}/shops/${encodeURIComponent(shopId)}/comanda/monitor${q ? `?${q}` : ''}`,
     );
   }
 
@@ -568,7 +584,11 @@ export class WaiterApiService {
         qty: number;
         attachedToMenuItemId?: string | null;
       }>;
-      promos?: Array<{ promoId: string; qty: number }>;
+      promos?: Array<{
+        promoId: string;
+        qty: number;
+        selections?: Array<{ menuItemId: string; qty: number }>;
+      }>;
       customerNotes?: string | null;
       printKitchen?: boolean;
       printCustomerTicket?: boolean;

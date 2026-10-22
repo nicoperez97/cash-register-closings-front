@@ -54,6 +54,13 @@
                   <strong>{{ item.qty }}× {{ item.name }}</strong>
                   <span>{{ money(item.unitPrice * item.qty) }}</span>
                 </div>
+                @if (item.kind === 'PROMO' && item.selections?.length) {
+                  <p class="line__notes">
+                    @for (s of item.selections; track s.menuItemId; let last = $last) {
+                      {{ s.qty }}× {{ s.name }}{{ last ? '' : ', ' }}
+                    }
+                  </p>
+                }
                 @if (item.removedIngredients?.length) {
                   <p class="line__notes">Sin {{ item.removedIngredients.join(', ') }}</p>
                 }

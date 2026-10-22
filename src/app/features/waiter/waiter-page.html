@@ -749,43 +749,15 @@
                       <span>{{ pr.name }}</span>
                       <span class="item__price">Fuera de horario</span>
                     </button>
-                  } @else if (!(pr.items ?? []).length) {
-                    @if (promoQty(pr); as pq) {
-                      <div class="item item--selected" role="group" [attr.aria-label]="pr.name">
-                        <button type="button" class="item__main" (click)="bumpPromo(pr, 1)">
-                          <span>{{ pr.name }}</span>
-                          <span class="item__price">{{ money(pr.fixedPrice) }}</span>
-                        </button>
-                        <div class="item-qty" (click)="$event.stopPropagation()">
-                          <button
-                            type="button"
-                            class="item-qty__btn"
-                            (click)="bumpPromo(pr, -1, $event)"
-                            aria-label="Restar"
-                          >
-                            −
-                          </button>
-                          <span class="item-qty__n">{{ pq }}</span>
-                          <button
-                            type="button"
-                            class="item-qty__btn"
-                            (click)="bumpPromo(pr, 1, $event)"
-                            aria-label="Sumar"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    } @else {
-                      <button type="button" class="item" (click)="addPromo(pr)">
-                        <span>{{ pr.name }}</span>
-                        <span class="item__price">{{ money(pr.fixedPrice) }}</span>
-                      </button>
-                    }
                   } @else {
                     <button type="button" class="item" (click)="addPromo(pr)">
                       <span>{{ pr.name }}</span>
-                      <span class="item__price">{{ money(pr.fixedPrice) }}</span>
+                      <span class="item__price">
+                        @if ((pr.packQty || 1) > 1) {
+                          {{ pr.packQty || 1 }} a elección ·
+                        }
+                        {{ money(pr.fixedPrice) }}
+                      </span>
                     </button>
                   }
                 </li>
@@ -1167,6 +1139,66 @@
         (click)="confirmCovers()"
       >
         Continuar
+      </button>
+    </div>
+  </div>
+}
+
+@if (promoPick(); as pick) {
+  <div class="sheet-backdrop anim-fade" (click)="cancelPromoPick()"></div>
+  <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="promo-pick-title">
+    <div class="sheet__handle" aria-hidden="true"></div>
+    <h2 id="promo-pick-title">{{ pick.name }}</h2>
+    <div class="sheet__body">
+      <p class="muted">
+        Elegí {{ pick.packQty }} ítem(s) · {{ money(pick.fixedPrice) }}
+        ({{ promoPickSelected() }}/{{ pick.packQty }})
+      </p>
+      <ul class="items">
+        @for (it of promoPickPoolItems(); track it.id) {
+          <li class="item-wrap">
+            <div class="item item--selected item--promo-pick" role="group" [attr.aria-label]="it.name">
+              <button type="button" class="item__main" (click)="bumpPromoPick(it.id, 1)">
+                <span class="item__copy">
+                  <span class="item__name">{{ it.name }}</span>
+                  @if (it.description) {
+                    <span class="item__desc">{{ it.description }}</span>
+                  }
+                </span>
+              </button>
+              <div class="item-qty" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="item-qty__btn"
+                  (click)="bumpPromoPick(it.id, -1)"
+                  aria-label="Restar"
+                >
+                  −
+                </button>
+                <span class="item-qty__n">{{ promoPickCount(it.id) }}</span>
+                <button
+                  type="button"
+                  class="item-qty__btn"
+                  (click)="bumpPromoPick(it.id, 1)"
+                  aria-label="Sumar"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+    <div class="sheet__actions">
+      <button type="button" class="btn btn--ghost" (click)="cancelPromoPick()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn--lg"
+        [disabled]="promoPickSelected() !== pick.packQty"
+        (click)="confirmPromoPick()"
+      >
+        Agregar
       </button>
     </div>
   </div>

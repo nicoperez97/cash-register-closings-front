@@ -113,6 +113,21 @@ export interface PublicOrderingConfig {
     mode: 'percent' | 'fixed';
     value: number;
   }>;
+  promos?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    fixedPrice: number;
+    packQty: number;
+    poolItems: Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      price: number | null;
+      imageUrl?: string | null;
+      images?: Array<{ id: string; url: string }>;
+    }>;
+  }>;
   menus: PublicOrderingMenu[];
 }
 
@@ -127,6 +142,11 @@ export interface CreatePublicCustomerOrderBody {
     removedIngredients?: string[];
   }>;
   extras?: Array<{ extraId: string; qty: number; attachedToMenuItemId?: string | null }>;
+  promos?: Array<{
+    promoId: string;
+    qty: number;
+    selections: Array<{ menuItemId: string; qty: number }>;
+  }>;
   firstName: string;
   lastName: string;
   phone?: string;
