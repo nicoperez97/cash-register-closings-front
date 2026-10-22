@@ -145,6 +145,7 @@ export type WaiterLineAudit = {
   reasonNote?: string | null;
   createdAt: string;
   tableLabel?: string | null;
+  tableSessionId?: string | null;
 };
 
 export type ComandaMonitorLine = { qty: number; name: string; extra?: boolean };
@@ -152,22 +153,27 @@ export type ComandaMonitorLine = { qty: number; name: string; extra?: boolean };
 export type ComandaMonitorTable = {
   sessionId: string;
   tableId: string | null;
+  channel?: 'TABLE' | 'COUNTER';
   tableLabel: string;
   sectorName: string;
   covers: number;
   waiterName: string;
   openedAt: string;
+  closedAt?: string | null;
   orderCount: number;
   customerTicketPrinted: boolean;
   lastOrderAt?: string | null;
   lastOrderCode?: string | null;
   total: number;
+  discountAmount?: number;
+  discountLabel?: string | null;
   lines: ComandaMonitorLine[];
 };
 
 export type ComandaMonitorOrder = {
   id: string;
   code: string;
+  channel?: 'TABLE' | 'COUNTER';
   tableLabel: string;
   waiterName: string;
   createdAt: string;
@@ -179,13 +185,25 @@ export type ComandaMonitorPayload = {
   shopName: string;
   shiftName?: string | null;
   businessDate?: string | null;
+  /** false si el rol ve el monitor sin montos. */
+  showAmounts?: boolean;
   tables: ComandaMonitorTable[];
+  counters?: ComandaMonitorTable[];
+  closedTables?: ComandaMonitorTable[];
+  closedCounters?: ComandaMonitorTable[];
   recentOrders: ComandaMonitorOrder[];
   recentAudits: WaiterLineAudit[];
   summary?: {
     openTables: number;
     openCovers: number;
+    openCounter?: number;
+    closedTables?: number;
+    closedCovers?: number;
+    closedCounter?: number;
+    tablesWithChanges?: number;
     openTotal: number;
+    closedTotal?: number;
+    shiftTotal?: number;
     sends: number;
     sendsTotal: number;
     ticketsPrinted: number;
@@ -302,6 +320,12 @@ export type WaiterCatalog = {
     accentColor?: string | null;
     currency?: string;
   };
+  /** Sectores de cocina (vínculos Combina automático). */
+  kitchenSectors?: Array<{
+    id: string;
+    name: string;
+    combinesWithSectorIds?: string[];
+  }>;
   extras: Array<{
     id: string;
     name: string;
@@ -343,6 +367,7 @@ export type WaiterCatalog = {
         accountPrices?: Array<{ accountId: string; price: number }>;
         removableIngredients?: string[];
         imageUrl?: string | null;
+        kitchenSectorIds?: string[];
       }>;
     }>;
   }>;
@@ -555,6 +580,14 @@ export class WaiterApiService {
     return this.http.post<{ ok: boolean; id: string; status: string }>(
       `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/orders/${orderId}/reprint-kitchen`,
       {},
+      this.authHeaders(token),
+    );
+  }
+
+  patchSessionCovers(slug: string, token: string, sessionId: string, covers: number) {
+    return this.http.patch<WaiterSession>(
+      `${this.base}/public/shops/${encodeURIComponent(slug)}/waiter/sessions/${sessionId}/covers`,
+      { covers },
       this.authHeaders(token),
     );
   }

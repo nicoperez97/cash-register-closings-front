@@ -126,6 +126,8 @@ export type KitchenSector = {
   name: string;
   /** Avisar entradas de otros sectores en esta comanda (texto chico). */
   showEntradas?: boolean;
+  /** Otros sectores: en comanda, Combina se marca solo entre ítems de estos pares. */
+  combinesWithSectorIds?: string[];
 };
 
 export type ShopMenuSection = {
@@ -1340,13 +1342,30 @@ function toPrice(value: unknown): number | null {
                 <p class="menu-admin__hint">
                   Cocina, Pizzería, Bar… Cada ítem puede ir a uno o más sectores. En el print agent asignás
                   cada sector a una comandera. Con «Mostrar entradas», esa comanda avisa en chico las entradas
-                  que salen en otro sector.
+                  que salen en otro sector. Con «Combina con», al cargar ítems de esos sectores en comanda se
+                  marca Combina solo entre ellos (el vínculo es de ida y vuelta).
                 </p>
                 @for (sector of kitchenSectors(); track sector.id; let si = $index) {
                   <div class="menu-sector-row">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="menu-admin__full">
                       <mat-label>Sector</mat-label>
                       <input matInput [(ngModel)]="sector.name" placeholder="ej. Cocina" />
+                    </mat-form-field>
+                    <mat-form-field
+                      appearance="outline"
+                      subscriptSizing="dynamic"
+                      class="menu-sector-combine"
+                    >
+                      <mat-label>Combina con</mat-label>
+                      <mat-select
+                        [ngModel]="sector.combinesWithSectorIds"
+                        (ngModelChange)="setCombinesWith(sector.id, $event)"
+                        multiple
+                      >
+                        @for (other of otherKitchenSectors(sector.id); track other.id) {
+                          <mat-option [value]="other.id">{{ other.name || 'Sin nombre' }}</mat-option>
+                        }
+                      </mat-select>
                     </mat-form-field>
                     <label class="menu-sector-flag">
                       <input type="checkbox" [(ngModel)]="sector.showEntradas" />
@@ -2099,7 +2118,7 @@ function toPrice(value: unknown): number | null {
     }
     .menu-sector-row {
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: minmax(8rem, 1fr) minmax(9rem, 1.1fr) auto auto;
       gap: 0.35rem;
       align-items: center;
       margin-bottom: 0.35rem;
@@ -2107,10 +2126,15 @@ function toPrice(value: unknown): number | null {
     .menu-sector-row--rubro {
       grid-template-columns: 1fr auto;
     }
+    .menu-sector-combine {
+      width: 100%;
+      min-width: 0;
+    }
     @media (max-width: 720px) {
       .menu-sector-row {
         grid-template-columns: 1fr auto;
       }
+      .menu-sector-combine,
       .menu-sector-flag {
         grid-column: 1 / -1;
       }
@@ -3274,13 +3298,18 @@ export class AdminMenuPage {
     const menus = (res.menus ?? []).map((m) => cloneMenu(m));
     this.menus.set(menus);
     this.kitchenSectors.set(
-      (res.kitchenSectors ?? [])
-        .map((s) => ({
-          id: String(s.id ?? '').trim() || newKitchenSectorId(),
-          name: String(s.name ?? '').trim(),
-          showEntradas: !!s.showEntradas,
-        }))
-        .filter((s) => s.name),
+      this.symmetrizeCombinesWith(
+        (res.kitchenSectors ?? [])
+          .map((s) => ({
+            id: String(s.id ?? '').trim() || newKitchenSectorId(),
+            name: String(s.name ?? '').trim(),
+            showEntradas: !!s.showEntradas,
+            combinesWithSectorIds: Array.isArray(s.combinesWithSectorIds)
+              ? s.combinesWithSectorIds.map((id) => String(id ?? '').trim()).filter(Boolean)
+              : [],
+          }))
+          .filter((s) => s.name),
+      ),
     );
     const keep = menus.find((m) => m.id === this.activeId()) ?? menus[0];
     this.activeId.set(keep?.id ?? null);
@@ -3296,15 +3325,76 @@ export class AdminMenuPage {
         id: newKitchenSectorId(),
         name: n === 1 ? 'Cocina' : `Sector ${n}`,
         showEntradas: false,
+        combinesWithSectorIds: [],
       },
     ]);
+  }
+
+  otherKitchenSectors(sectorId: string): KitchenSector[] {
+    const id = String(sectorId ?? '').trim();
+    return this.kitchenSectors().filter((s) => s.id !== id);
+  }
+
+  /** Marca Combina con y refleja el vínculo en el otro sector (ida y vuelta). */
+  setCombinesWith(sectorId: string, nextIds: string[] | null | undefined): void {
+    const id = String(sectorId ?? '').trim();
+    if (!id) return;
+    const next = new Set(
+      (Array.isArray(nextIds) ? nextIds : [])
+        .map((v) => String(v ?? '').trim())
+        .filter((v) => v && v !== id),
+    );
+    this.kitchenSectors.update((list) =>
+      list.map((s) => {
+        if (s.id === id) {
+          return { ...s, combinesWithSectorIds: [...next] };
+        }
+        const links = new Set(s.combinesWithSectorIds ?? []);
+        if (next.has(s.id)) links.add(id);
+        else links.delete(id);
+        return { ...s, combinesWithSectorIds: [...links] };
+      }),
+    );
+  }
+
+  /** Completa pares faltantes (A→B implica B→A). */
+  private symmetrizeCombinesWith(sectors: KitchenSector[]): KitchenSector[] {
+    const known = new Set(sectors.map((s) => s.id));
+    const links = new Map<string, Set<string>>();
+    for (const s of sectors) {
+      const set = links.get(s.id) ?? new Set<string>();
+      for (const other of s.combinesWithSectorIds ?? []) {
+        const oid = String(other ?? '').trim();
+        if (!oid || oid === s.id || !known.has(oid)) continue;
+        set.add(oid);
+      }
+      links.set(s.id, set);
+    }
+    for (const [a, set] of links) {
+      for (const b of set) {
+        const back = links.get(b) ?? new Set<string>();
+        back.add(a);
+        links.set(b, back);
+      }
+    }
+    return sectors.map((s) => ({
+      ...s,
+      combinesWithSectorIds: [...(links.get(s.id) ?? [])],
+    }));
   }
 
   removeKitchenSector(index: number): void {
     const removed = this.kitchenSectors()[index];
     if (!removed) return;
-    this.kitchenSectors.update((list) => list.filter((_, i) => i !== index));
     const clearId = removed.id;
+    this.kitchenSectors.update((list) =>
+      list
+        .filter((_, i) => i !== index)
+        .map((s) => ({
+          ...s,
+          combinesWithSectorIds: (s.combinesWithSectorIds ?? []).filter((id) => id !== clearId),
+        })),
+    );
     const scrub = (menus: ShopMenu[]) =>
       menus.map((m) => ({
         ...m,
@@ -3329,15 +3419,21 @@ export class AdminMenuPage {
   }
 
   private menuSaveBody(): { menus: ShopMenu[]; kitchenSectors: KitchenSector[] } {
-    return {
-      menus: this.menus(),
-      kitchenSectors: this.kitchenSectors()
+    const sectors = this.symmetrizeCombinesWith(
+      this.kitchenSectors()
         .map((s) => ({
           id: String(s.id ?? '').trim() || newKitchenSectorId(),
           name: String(s.name ?? '').trim().slice(0, 60),
           showEntradas: !!s.showEntradas,
+          combinesWithSectorIds: Array.isArray(s.combinesWithSectorIds)
+            ? s.combinesWithSectorIds.map((id) => String(id ?? '').trim()).filter(Boolean)
+            : [],
         }))
         .filter((s) => s.name),
+    );
+    return {
+      menus: this.menus(),
+      kitchenSectors: sectors,
     };
   }
 
