@@ -280,22 +280,30 @@ export type WaiterShiftTipsSummary = {
   shift: { id: string; name: string };
   from: string;
   to: string;
+  /** Empleado de la sesión de mozo/staff (si hay vínculo). */
+  selfWaiterEmployeeId?: string | null;
   tipTotal: number;
   ticketTotal?: number;
   coversTotal?: number;
   tippedTables: number;
   closedTables: number;
+  /** Mozos que cerraron al menos una mesa/mostrador en el turno. */
+  waiters?: Array<{ id: string; fullName: string }>;
   recent: Array<{
     sessionId: string;
     tableLabel: string;
     tipAmount: number;
     tipLabel?: string | null;
     closedAt?: string | null;
+    waiterEmployeeId?: string | null;
+    waiterName?: string | null;
   }>;
   sessions?: Array<{
     sessionId: string;
     tableLabel: string;
     covers: number;
+    waiterEmployeeId?: string | null;
+    waiterName?: string | null;
     openedAt?: string | null;
     closedAt?: string | null;
     ticketTotal: number;

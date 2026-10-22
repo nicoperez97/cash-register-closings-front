@@ -718,6 +718,38 @@
   padding: 0.25rem 0;
 }
 
+.history-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.55rem 0 0;
+}
+
+.history-filter__btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  min-height: 2.1rem;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 750;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  &--on {
+    background: var(--accent, #2e7d32);
+    color: var(--on-accent, #fff);
+    border-color: transparent;
+  }
+}
+
 .history-list {
   list-style: none;
   margin: 0.65rem 0 0;
