@@ -828,16 +828,16 @@
                             >
                               {{ group.item.isEntrada ? 'Entrada ✓' : 'Entrada' }}
                             </button>
-                            @if (otherCartItems(group.item).length) {
-                              <button
-                                type="button"
-                                class="entrada-toggle"
-                                [class.on]="hasCombines(group.item)"
-                                (click)="toggleCombinePanel(group.item, $event)"
-                              >
-                                {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
-                              </button>
-                            }
+                          }
+                          @if (otherCartItems(group.item).length) {
+                            <button
+                              type="button"
+                              class="entrada-toggle"
+                              [class.on]="hasCombines(group.item)"
+                              (click)="toggleCombinePanel(group.item, $event)"
+                            >
+                              {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
+                            </button>
                           }
                           <button
                             type="button"
@@ -851,7 +851,7 @@
                       }
                     </div>
                     @if (group.item.kind === 'ITEM') {
-                      @if (combineOpenKey() === group.item.key && !isCounterSession()) {
+                      @if (combineOpenKey() === group.item.key) {
                         <div class="combine-pick">
                           @for (other of otherCartItems(group.item); track other.key) {
                             <label class="combine-pick__row">
@@ -919,16 +919,16 @@
                           >
                             {{ group.item.isEntrada ? 'Entrada ✓' : 'Entrada' }}
                           </button>
-                          @if (otherCartItems(group.item).length) {
-                            <button
-                              type="button"
-                              class="entrada-toggle entrada-toggle--compact"
-                              [class.on]="hasCombines(group.item)"
-                              (click)="toggleCombinePanel(group.item, $event)"
-                            >
-                              {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
-                            </button>
-                          }
+                        }
+                        @if (otherCartItems(group.item).length) {
+                          <button
+                            type="button"
+                            class="entrada-toggle entrada-toggle--compact"
+                            [class.on]="hasCombines(group.item)"
+                            (click)="toggleCombinePanel(group.item, $event)"
+                          >
+                            {{ hasCombines(group.item) ? 'Combina ✓' : 'Combina' }}
+                          </button>
                         }
                         <button
                           type="button"
@@ -939,7 +939,7 @@
                           {{ hasLineNotes(group.item) ? 'Nota ✓' : 'Nota' }}
                         </button>
                       </div>
-                      @if (combineOpenKey() === group.item.key && !isCounterSession()) {
+                      @if (combineOpenKey() === group.item.key) {
                         <div class="combine-pick">
                           @for (other of otherCartItems(group.item); track other.key) {
                             <label class="combine-pick__row">
