@@ -2302,7 +2302,6 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   /** Tras agregar una línea nueva, enlaza Combina con ítems de sectores vinculados. */
   private withAutoCombines(list: PosLine[], newKey: string): PosLine[] {
-    if (this.isCounterSession()) return list;
     const neu = list.find((l) => l.key === newKey && l.kind === 'ITEM');
     if (!neu) return list;
     let next = list;
@@ -2493,7 +2492,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     const items = lines
       .filter((l) => l.kind === 'ITEM')
       .map((l) => {
-        const combinesWithNames = counter ? [] : this.combinesWithNamesFor(l, lines);
+        const combinesWithNames = this.combinesWithNamesFor(l, lines);
         const itemNotes = String(l.notes ?? '').trim().slice(0, 300);
         return {
           menuItemId: l.menuItemId,
