@@ -102,6 +102,9 @@ type CatalogItem = {
 
 type View = 'login' | 'tables' | 'session';
 
+/** «Mozo a cargo» = el usuario logueado sin empleado vinculado (la API lo resuelve). */
+const STAFF_SELF_WAITER = 'self';
+
 function tokenKey(slug: string) {
   return `waiter_token_${slug}`;
 }
@@ -116,7 +119,7 @@ function tokenKey(slug: string) {
     KioskPinLoginComponent,
   ],
   templateUrl: './waiter-page.html',
-  styleUrls: ['./waiter-page.scss', './waiter-page.sheets.scss'],
+  styleUrls: ['./waiter-page.scss', './waiter-page.sheets.scss', './waiter-page.pay.scss'],
   host: {
     '[style.--accent]': 'hostAccentVar()',
     '[style.--on-accent]': 'hostOnAccentVar()',
@@ -229,6 +232,17 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly coversDraft = signal(2);
   readonly staffWaiters = signal<Array<{ id: string; fullName: string }>>([]);
   readonly coversWaiterId = signal<string | null>(null);
+  /**
+   * Opciones de «Mozo a cargo» al abrir mesa desde Operación → Comanda: el usuario
+   * logueado primero (su empleado vinculado, o 'self' si no tiene) y después los mozos.
+   */
+  readonly coversWaiterChoices = computed(() => {
+    const waiters = this.staffWaiters();
+    if (!this.staffMode) return waiters;
+    const selfId = this.waiterEmployeeId() || STAFF_SELF_WAITER;
+    const self = { id: selfId, fullName: `${this.waiterName() || 'Yo'} (vos)` };
+    return [self, ...waiters.filter((w) => w.id !== selfId)];
+  });
 
   /** Sheet: cerrar mesa (ticket + pagos mixtos + propina). */
   readonly closeSheet = signal(false);
@@ -236,6 +250,8 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
   readonly closeTipValue = signal<number | null>(null);
   /** Montos por medio de pago (id → monto). */
   readonly closePayAmounts = signal<Record<string, number | null>>({});
+  /** Cierre en dos pasos: resumen (descuento/propina) → pantalla de cobro. */
+  readonly closeStep = signal<'summary' | 'pay'>('summary');
   /** Medio que absorbe el resto / último «Todo». */
   readonly closePayPrimaryId = signal<string | null>(null);
 
@@ -1484,7 +1500,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     }
     this.coversDraft.set(Math.max(1, Math.min(30, table.seats || 2)));
     if (this.staffMode) {
-      const waiters = this.staffWaiters();
+      const waiters = this.coversWaiterChoices();
       const current = this.coversWaiterId();
       if (!current || !waiters.some((w) => w.id === current)) {
         this.coversWaiterId.set(waiters.length === 1 ? waiters[0].id : null);
@@ -2598,7 +2614,59 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
     this.closeTipMode.set('none');
     this.closeTipValue.set(null);
     this.closePayAmounts.set(amounts);
+    this.closeStep.set('summary');
     this.closeSheet.set(true);
+  }
+
+  /** Paso 2: pantalla de cobro (sin medio preelegido). Con $0 a cobrar, cierra directo. */
+  goToClosePay(): void {
+    if (this.closeToCollect() <= 0.02) {
+      this.confirmClose();
+      return;
+    }
+    const amounts: Record<string, number | null> = {};
+    for (const m of this.paymentMethodsForClose()) amounts[m.id] = null;
+    this.closePayAmounts.set(amounts);
+    this.closePayPrimaryId.set(null);
+    this.closeStep.set('pay');
+  }
+
+  backToCloseSummary(): void {
+    this.closeStep.set('summary');
+    this.redistributeClosePays();
+  }
+
+  closePayAmountOf(methodId: string): number {
+    return Number(this.closePayAmounts()[methodId]) || 0;
+  }
+
+  closePaidPct(): number {
+    const due = this.closeToCollect();
+    if (due <= 0) return 100;
+    return Math.max(0, Math.min(100, (this.closePaidTotal() / due) * 100));
+  }
+
+  /**
+   * Tocar un medio: sin nada cargado → cobra todo con él; si falta plata → le suma
+   * lo que resta; si ya está completo con otros → pasa todo a este.
+   */
+  tapClosePayMethod(methodId: string): void {
+    const remaining = this.closeRemaining();
+    if (this.closePaidTotal() > 0 && remaining > 0.02) {
+      this.fillClosePayRest(methodId);
+      return;
+    }
+    this.fillClosePayAll(methodId);
+  }
+
+  /** Suma a este medio lo que falta cobrar (sin tocar los demás). */
+  fillClosePayRest(methodId: string): void {
+    const remaining = this.closeRemaining();
+    if (remaining <= 0) return;
+    const amounts = { ...this.closePayAmounts() };
+    amounts[methodId] = Math.round((this.closePayAmountOf(methodId) + remaining) * 100) / 100;
+    this.closePayPrimaryId.set(methodId);
+    this.closePayAmounts.set(amounts);
   }
 
   reprintKitchen(orderId: string): void {
@@ -2656,6 +2724,7 @@ export class WaiterPageComponent implements OnInit, OnDestroy {
 
   cancelClose(): void {
     this.closeSheet.set(false);
+    this.closeStep.set('summary');
     this.closePayAmounts.set({});
     this.closePayPrimaryId.set(null);
     this.closeTipMode.set('none');

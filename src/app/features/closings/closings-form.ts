@@ -130,6 +130,7 @@ import {
 } from './closings-form.utils';
 
 import { apiErrorMessage } from '../../core/http/api-error-message';
+import { ticketPerCover } from '../../shared/utils/ticket-per-cover';
 @Component({
   selector: 'app-closings-form',
   imports: [
@@ -384,6 +385,8 @@ import { apiErrorMessage } from '../../core/http/api-error-message';
                 [differenceTone]="cajaDifference()"
                 [asideTotal]="asideTotal() > 0 ? money(asideTotal()) : ''"
                 [dayTotal]="money(dayTotal())"
+                [coversCount]="coversForSummary()"
+                [perCoverAmount]="perCover() != null ? money(perCover()!) : ''"
                 [asideLines]="asideLines()"
                 [saving]="saving()"
                 [saveDisabled]="saving() || (isLocked() && !auth.isAdmin())"
@@ -895,6 +898,16 @@ export class ClosingsFormPage implements OnInit {
   });
 
   readonly dayTotal = computed(() => this.declaredTotal() + this.asideTotal());
+
+  /** Comensales cargados (solo si el local los usa). */
+  readonly coversForSummary = computed(() => {
+    if (!this.shop()?.coversEnabled) return null;
+    const c = Math.floor(this.n(this.formValue().coversCount));
+    return c > 0 ? c : null;
+  });
+
+  /** Ticket promedio por persona: total del día ÷ comensales. */
+  readonly perCover = computed(() => ticketPerCover(this.dayTotal(), this.coversForSummary()));
 
   readonly summaryDate = computed(() => {
     const date = toDateString(this.formValue().businessDate as Date | string | null);

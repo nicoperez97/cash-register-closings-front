@@ -14,6 +14,7 @@ import {
 } from '../../features/closings/closings-api.service';
 import { closingStatusLabel } from '../../core/i18n/labels';
 import { formatDateAr, formatMoneyAr } from '../utils/share-text';
+import { ticketPerCover } from '../utils/ticket-per-cover';
 import { RecordSavedDialogData, RecordSavedField } from './record-saved-dialog';
 
 export function movementSavedDialogData(
@@ -399,6 +400,11 @@ export function closingSharePayload(
 
   if (closing.coversCount != null && Number(closing.coversCount) > 0) {
     lines.push(`Cubiertos: ${Number(closing.coversCount)}`);
+    const perCover = ticketPerCover(
+      Number(closing.declaredTotal || 0) + asideSum,
+      closing.coversCount,
+    );
+    if (perCover != null) pushMoneyLine(lines, 'Ticket promedio por persona', perCover, true);
   }
   pushMoneyLine(lines, 'Cambio en caja', closing.cashLeftInRegister);
   pushMoneyLine(lines, 'Efectivo retirado', closing.cashWithdrawn);

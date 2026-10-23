@@ -212,6 +212,9 @@ export type ComandaMonitorPayload = {
     shiftTotal?: number;
     sends: number;
     sendsTotal: number;
+    /** Neto de mesas (abiertas + cerradas) y ticket promedio por comensal. */
+    tablesAmount?: number;
+    perCoverAvg?: number;
     ticketsPrinted: number;
     audits: number;
   };
@@ -227,6 +230,9 @@ export type ComandaReceiptRow = {
   openedAt: string;
   closedAt: string | null;
   ticketTotal: number;
+  /** Descuento aplicado al ticket (0 si no hubo). */
+  discountAmount?: number;
+  discountLabel?: string | null;
   tipAmount: number;
   tipLabel?: string | null;
   payments: Array<{
@@ -244,6 +250,7 @@ export type ComandaReceiptsPayload = {
   count: number;
   ticketTotal: number;
   tipTotal: number;
+  discountTotal?: number;
   rows: ComandaReceiptRow[];
 };
 
@@ -313,6 +320,8 @@ export type WaiterShiftTipsSummary = {
     openedAt?: string | null;
     closedAt?: string | null;
     ticketTotal: number;
+    discountAmount?: number;
+    discountLabel?: string | null;
     tipAmount: number;
     tipLabel?: string | null;
     payments: Array<{

@@ -1,0 +1,325 @@
+/* ---- Cierre: total destacado y pantalla de cobro ---- */
+
+.close-due {
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  margin: 1rem 0 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent, #2e7d32) 9%, var(--sheet));
+  border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 24%, var(--line));
+
+  span {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  strong {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  small {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+}
+
+.close-go-pay {
+  font-size: 1.15rem;
+}
+
+.pay-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  overscroll-behavior: contain;
+
+  &__top {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: calc(0.5rem + var(--guy-safe-top, 0px)) 1rem 0.5rem;
+    background: var(--sheet);
+    border-bottom: 1px solid var(--line);
+
+    h2 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+  }
+
+  &__back {
+    min-height: var(--guy-touch-min, 44px);
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.25rem;
+    font-weight: 700;
+  }
+
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  &__hint {
+    margin: 0.85rem 0 0.6rem;
+    font-size: 0.86rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  &__actions {
+    flex: 0 0 auto;
+    padding: 0.85rem 1rem calc(0.85rem + var(--guy-safe-bottom, 0px));
+    background: var(--sheet);
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: center;
+  }
+
+  &__confirm {
+    width: 100%;
+    max-width: 38rem;
+    font-size: 1.15rem;
+  }
+}
+
+.pay-hero {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  padding: 1.1rem 1rem 1rem;
+  border-radius: 20px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  text-align: center;
+
+  &__label {
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  &__amount {
+    font-size: clamp(2.4rem, 11vw, 3.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__note {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  &__bar {
+    width: 100%;
+    height: 0.6rem;
+    margin-top: 0.6rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent, #2e7d32) 12%, #e7ece7);
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: inherit;
+    background: #d08a1d;
+    transition: width 0.25s ease, background-color 0.2s ease;
+  }
+
+  &__status {
+    margin: 0.45rem 0 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #9a5b00;
+
+    strong {
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &--ok {
+    border-color: color-mix(in srgb, var(--accent, #2e7d32) 45%, var(--line));
+
+    .pay-hero__fill {
+      background: var(--accent, #2e7d32);
+    }
+
+    .pay-hero__status {
+      color: var(--accent, #2e7d32);
+    }
+  }
+}
+
+.pay-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+}
+
+.pay-tile {
+  display: grid;
+  border-radius: 18px;
+  background: var(--sheet);
+  border: 2px solid var(--line);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &--on {
+    border-color: var(--accent, #2e7d32);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--accent, #2e7d32) 18%, transparent);
+
+    .pay-tile__main {
+      background: color-mix(in srgb, var(--accent, #2e7d32) 10%, var(--sheet));
+    }
+  }
+
+  &__main {
+    appearance: none;
+    border: 0;
+    display: grid;
+    gap: 0.2rem;
+    justify-items: start;
+    min-height: 5.25rem;
+    padding: 0.9rem 1rem;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+    color: var(--ink);
+
+    &:active {
+      transform: scale(0.99);
+    }
+  }
+
+  &__name {
+    font-size: 1.1rem;
+    font-weight: 800;
+  }
+
+  &__amount {
+    font-size: 1.6rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent, #2e7d32);
+  }
+
+  &__cta {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  &__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.75rem 0.75rem;
+    border-top: 1px solid var(--line);
+  }
+
+  &__input {
+    flex: 1 1 6rem;
+    min-width: 0;
+    min-height: var(--guy-touch-min, 44px);
+    margin: 0;
+    padding: 0 0.7rem;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    font: inherit;
+    font-weight: 700;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    background: #fff;
+    color: var(--ink);
+  }
+}
+
+button.pay-chip {
+  appearance: none;
+  min-height: var(--guy-touch-min, 44px);
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent, #2e7d32) 32%, var(--line));
+  background: color-mix(in srgb, var(--accent, #2e7d32) 8%, var(--sheet));
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--accent, #2e7d32);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Celulares bajos: que entren el total y al menos dos medios sin scrollear. */
+@media (max-height: 720px) {
+  .pay-screen__body {
+    padding: 0.65rem 0.75rem;
+  }
+
+  .pay-screen__hint {
+    display: none;
+  }
+
+  .pay-hero {
+    padding: 0.7rem 0.85rem 0.75rem;
+    margin-bottom: 0.65rem;
+
+    &__amount {
+      font-size: clamp(2rem, 9vw, 2.6rem);
+    }
+
+    &__bar {
+      margin-top: 0.4rem;
+    }
+
+    &__status {
+      margin-top: 0.3rem;
+      font-size: 0.92rem;
+    }
+  }
+
+  .pay-tiles {
+    gap: 0.55rem;
+  }
+
+  .pay-tile {
+    &__main {
+      min-height: 0;
+      padding: 0.6rem 0.85rem;
+    }
+
+    &__amount {
+      font-size: 1.35rem;
+    }
+
+    &__tools {
+      padding: 0.45rem 0.6rem 0.55rem;
+    }
+  }
+}

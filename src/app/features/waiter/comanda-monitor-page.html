@@ -183,6 +183,13 @@
             <span class="mon-summary__label">Turno $</span>
             <strong>{{ money(summary().shiftTotal) }}</strong>
           </div>
+          <div
+            class="mon-summary__item mon-summary__item--money"
+            title="Total de mesas (abiertas y cerradas) dividido por comensales. No incluye mostrador."
+          >
+            <span class="mon-summary__label">Ticket x persona</span>
+            <strong>{{ summary().perCoverAvg ? money(summary().perCoverAvg!) : '—' }}</strong>
+          </div>
         }
       </div>
     </section>
