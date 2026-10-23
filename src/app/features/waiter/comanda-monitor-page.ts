@@ -24,6 +24,7 @@ import { usePageRefresh } from '../../core/page-refresh.service';
 import { HelpDialogComponent } from '../../shared/components/help-dialog';
 import { topicById } from '../../core/help/module-help';
 import { formatMoney } from '../../shared/utils/money';
+import { ticketPerCover } from '../../shared/utils/ticket-per-cover';
 import {
   ComandaMonitorPayload,
   ComandaMonitorTable,
@@ -267,6 +268,14 @@ export class ComandaMonitorPage {
     const coversTotal = waiterFilter
       ? openCovers + closedCovers
       : (s?.coversTotal ?? openCovers + closedCovers);
+    // Ticket promedio por persona: solo mesas (el mostrador no tiene comensales).
+    const perCoverAvg =
+      !waiterFilter && s?.perCoverAvg != null
+        ? Number(s.perCoverAvg) || null
+        : ticketPerCover(
+            [...tables, ...closedTables].reduce((n, t) => n + (Number(t.total) || 0), 0),
+            coversTotal,
+          );
     return {
       openTables: tables.length,
       openCovers,
@@ -285,6 +294,7 @@ export class ComandaMonitorPage {
       openTotal,
       closedTotal,
       shiftTotal: openTotal + closedTotal,
+      perCoverAvg,
       sends: waiterFilter ? sends.length : (s?.sends ?? sends.length),
       sendsTotal: waiterFilter
         ? sends.reduce((n, o) => n + (Number(o.total) || 0), 0)

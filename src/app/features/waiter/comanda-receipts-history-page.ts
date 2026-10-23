@@ -78,6 +78,16 @@ function placeHeading(label: string | null | undefined, channel?: string): strin
           }
         </p>
         <div class="receipt-detail__totals">
+          @if ((s.ticketDiscountAmount ?? 0) > 0) {
+            <div>
+              <span>Subtotal</span>
+              <strong>{{ money(ticketTotal(s) + (s.ticketDiscountAmount ?? 0)) }}</strong>
+            </div>
+            <div>
+              <span>Descuento{{ s.ticketDiscountLabel ? ' (' + s.ticketDiscountLabel + ')' : '' }}</span>
+              <strong>−{{ money(s.ticketDiscountAmount ?? 0) }}</strong>
+            </div>
+          }
           <div>
             <span>Ticket</span>
             <strong>{{ money(ticketTotal(s)) }}</strong>
@@ -303,7 +313,7 @@ export class ComandaReceiptDetailDialog {
             <mat-label>Mozo</mat-label>
             <mat-select formControlName="waiterEmployeeId">
               <mat-option value="">Todos</mat-option>
-              @for (w of waiters(); track w.id) {
+              @for (w of waiterChoices(); track w.id) {
                 <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
               }
             </mat-select>
@@ -330,6 +340,9 @@ export class ComandaReceiptDetailDialog {
       <p class="muted mb-2">
         {{ sum.count }} comprobante{{ sum.count === 1 ? '' : 's' }}
         · Ticket {{ money(sum.ticketTotal) }}
+        @if (sum.discountTotal > 0) {
+          · Descuentos {{ money(sum.discountTotal) }}
+        }
         @if (sum.tipTotal > 0) {
           · Propinas {{ money(sum.tipTotal) }}
         }
@@ -371,7 +384,18 @@ export class ComandaReceiptsHistoryPage {
   readonly exporting = signal(false);
   readonly rows = signal<ComandaReceiptRow[]>([]);
   readonly waiters = signal<Array<{ id: string; fullName: string }>>([]);
-  readonly summary = signal<{ count: number; ticketTotal: number; tipTotal: number } | null>(
+  /** Usuarios sin legajo que quedaron a cargo de alguna mesa (clave `user:<id>`). */
+  private readonly userWaiters = signal<Array<{ id: string; fullName: string }>>([]);
+  readonly waiterChoices = computed(() => [
+    ...this.waiters(),
+    ...this.userWaiters().filter((u) => !this.waiters().some((w) => w.id === u.id)),
+  ]);
+  readonly summary = signal<{
+    count: number;
+    ticketTotal: number;
+    tipTotal: number;
+    discountTotal: number;
+  } | null>(
     null,
   );
   private lastLoadKey: string | null = null;
@@ -445,6 +469,20 @@ export class ComandaReceiptsHistoryPage {
       key: 'paymentLabel',
       label: 'Pago',
       format: (r) => (r as ComandaReceiptRow).paymentLabel || '—',
+    },
+    {
+      key: 'discountAmount',
+      label: 'Descuento',
+      format: (r) => {
+        const row = r as ComandaReceiptRow;
+        const n = Number(row.discountAmount) || 0;
+        if (!(n > 0)) return '—';
+        const money = formatMoney(n, { spaced: true });
+        return row.discountLabel ? `${money} (${row.discountLabel})` : money;
+      },
+      totalize: true,
+      totalValue: (r) => Number((r as ComandaReceiptRow).discountAmount) || 0,
+      totalFormat: (sum) => formatMoney(sum, { spaced: true, compact: false }),
     },
     {
       key: 'tipAmount',
@@ -593,6 +631,10 @@ export class ComandaReceiptsHistoryPage {
             count: Math.max(0, sum.count - 1),
             ticketTotal: Math.max(0, Math.round((sum.ticketTotal - (Number(row.ticketTotal) || 0)) * 100) / 100),
             tipTotal: Math.max(0, Math.round((sum.tipTotal - (Number(row.tipAmount) || 0)) * 100) / 100),
+            discountTotal: Math.max(
+              0,
+              Math.round((sum.discountTotal - (Number(row.discountAmount) || 0)) * 100) / 100,
+            ),
           };
         });
         this.snack.open('Comprobante borrado', 'OK', { duration: 2500 });
@@ -612,7 +654,23 @@ export class ComandaReceiptsHistoryPage {
     return d;
   }
 
+  private rememberUserWaiters(rows: ComandaReceiptRow[]): void {
+    const known = new Map(this.userWaiters().map((u) => [u.id, u.fullName]));
+    for (const r of rows) {
+      const id = String(r.waiterEmployeeId ?? '').trim();
+      if (!id.startsWith('user:') || known.has(id)) continue;
+      known.set(id, r.waiterName?.trim() || '—');
+    }
+    if (known.size === this.userWaiters().length) return;
+    this.userWaiters.set(
+      [...known.entries()]
+        .map(([id, fullName]) => ({ id, fullName }))
+        .sort((a, b) => a.fullName.localeCompare(b.fullName, 'es')),
+    );
+  }
+
   private loadWaiters(shopId: string | null): void {
+    this.userWaiters.set([]);
     if (!shopId) {
       this.waiters.set([]);
       return;
@@ -672,10 +730,12 @@ export class ComandaReceiptsHistoryPage {
         next: (payload) => {
           if (gen !== this.loadGen) return;
           this.rows.set(payload.rows ?? []);
+          this.rememberUserWaiters(payload.rows ?? []);
           this.summary.set({
             count: payload.count ?? 0,
             ticketTotal: payload.ticketTotal ?? 0,
             tipTotal: payload.tipTotal ?? 0,
+            discountTotal: payload.discountTotal ?? 0,
           });
           this.lastLoadKey = key;
           this.inFlightKey = null;

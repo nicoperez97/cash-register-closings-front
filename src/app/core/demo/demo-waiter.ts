@@ -1,5 +1,6 @@
 import { DEFAULT_WAITER_CAP_STAFF } from '../../features/admin/waiter-capabilities';
 import type {
+  ComandaReceiptRow,
   WaiterCatalog,
   WaiterFloor,
   WaiterLoginResult,
@@ -44,6 +45,8 @@ type DemoSessionState = {
   orders: WaiterSessionOrder[];
   payments: NonNullable<WaiterSession['payments']>;
   tipAmount: number;
+  discountAmount?: number;
+  discountLabel?: string | null;
 };
 
 const sessions = new Map<string, DemoSessionState>();
@@ -80,12 +83,15 @@ function waiterOf(id: string) {
 function toSession(s: DemoSessionState): WaiterSession {
   const table = DEMO_TABLES.find((t) => t.id === s.tableId) ?? null;
   const subtotal = round2(s.orders.reduce((acc, o) => acc + o.total, 0));
+  const discount = Math.min(subtotal, s.discountAmount ?? 0);
   return {
     id: s.id,
     status: s.status,
     covers: s.covers,
     customerTicketPrinted: s.customerTicketPrinted,
-    ticketTotal: subtotal,
+    ticketTotal: round2(subtotal - discount),
+    ticketDiscountAmount: discount,
+    ticketDiscountLabel: discount > 0 ? s.discountLabel ?? null : null,
     sessionSubtotal: subtotal,
     paymentMethods: PAYMENT_METHODS,
     payments: s.payments,
@@ -216,6 +222,28 @@ function demoTips(): WaiterShiftTipsSummary {
       tipAmount: s.tipAmount,
       closedAt: s.closedAt,
     })),
+    sessions: closed.map((s) => demoClosedRow(s)),
+  };
+}
+
+/** Mesa cerrada como fila de historial (comanda e historial de comprobantes). */
+function demoClosedRow(s: DemoSessionState): ComandaReceiptRow {
+  const ses = toSession(s);
+  return {
+    sessionId: s.id,
+    channel: s.tableId ? 'TABLE' : 'COUNTER',
+    tableLabel: ses.table?.label ?? 'Mostrador',
+    covers: s.covers,
+    waiterEmployeeId: s.waiterId,
+    waiterName: ses.waiter.fullName,
+    openedAt: s.openedAt,
+    closedAt: s.closedAt,
+    ticketTotal: ses.ticketTotal ?? 0,
+    discountAmount: ses.ticketDiscountAmount ?? 0,
+    discountLabel: ses.ticketDiscountLabel ?? null,
+    tipAmount: s.tipAmount,
+    payments: s.payments,
+    paymentLabel: s.payments.map((p) => p.paymentMethodName).join(' · '),
   };
 }
 
@@ -268,13 +296,47 @@ export function demoComandaShopGet(rest: string): unknown {
       recentAudits: [],
     };
   }
+  const receipt = rest.match(/^comanda\/receipts\/([^/?]+)$/);
+  if (receipt) {
+    const s = sessions.get(receipt[1]);
+    return s ? toSession(s) : undefined;
+  }
   if (rest.startsWith('comanda/receipts')) {
-    return { from: '', to: '', count: 0, ticketTotal: 0, tipTotal: 0, rows: [] };
+    const rows = [...sessions.values()]
+      .filter((s) => s.status === 'CLOSED')
+      .map((s) => demoClosedRow(s));
+    const sum = (f: (r: ComandaReceiptRow) => number) => round2(rows.reduce((a, r) => a + f(r), 0));
+    return {
+      from: '',
+      to: '',
+      count: rows.length,
+      ticketTotal: sum((r) => r.ticketTotal),
+      tipTotal: sum((r) => r.tipAmount),
+      discountTotal: sum((r) => r.discountAmount ?? 0),
+      rows,
+    };
   }
   return undefined;
 }
 
 type Body = Record<string, unknown>;
+
+/** Descuento del ticket como en la API: % sobre el subtotal o monto fijo. */
+function applyDemoDiscount(s: DemoSessionState, body: Body): void {
+  const mode = String(body['discountMode'] ?? 'none');
+  const value = Math.max(0, Number(body['discountValue']) || 0);
+  const subtotal = toSession({ ...s, discountAmount: 0 }).sessionSubtotal ?? 0;
+  if (mode === 'percent' && value > 0) {
+    s.discountAmount = round2((subtotal * Math.min(100, value)) / 100);
+    s.discountLabel = `${value}%`;
+  } else if (mode === 'fixed' && value > 0) {
+    s.discountAmount = round2(Math.min(subtotal, value));
+    s.discountLabel = 'Desc.';
+  } else {
+    s.discountAmount = 0;
+    s.discountLabel = null;
+  }
+}
 
 /** Mutaciones de la comanda (entrar, mesas, pedidos, cierre). undefined si no corresponde. */
 export function demoWaiterMutation(method: string, rel: string, body: Body): unknown {
@@ -295,7 +357,10 @@ export function demoWaiterMutation(method: string, rel: string, body: Body): unk
       id: newId('demo-ses'),
       tableId,
       covers: Math.max(1, Number(body['covers']) || 1),
-      waiterId: (body['waiterEmployeeId'] as string | undefined) ?? DEMO_WAITERS[0].id,
+      waiterId:
+        body['waiterEmployeeId'] && body['waiterEmployeeId'] !== 'self'
+          ? String(body['waiterEmployeeId'])
+          : DEMO_WAITERS[0].id,
       openedAt: new Date().toISOString(),
       closedAt: null,
       status: 'OPEN',
@@ -369,6 +434,7 @@ export function demoWaiterMutation(method: string, rel: string, body: Body): unk
 
   if (action === 'print-customer-ticket' && method === 'POST') {
     s.customerTicketPrinted = true;
+    applyDemoDiscount(s, body);
     return toSession(s);
   }
 

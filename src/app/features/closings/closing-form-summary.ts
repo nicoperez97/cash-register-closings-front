@@ -60,6 +60,16 @@ import { MatStepperModule } from '@angular/material/stepper';
             <strong>{{ difference() }}</strong>
           </div>
         }
+        @if (perCoverAmount()) {
+          <div class="closing-totals__item">
+            <span>Comensales</span>
+            <strong>{{ coversCount() }}</strong>
+          </div>
+          <div class="closing-totals__item" title="Total del día dividido por comensales">
+            <span>Ticket x persona</span>
+            <strong>{{ perCoverAmount() }}</strong>
+          </div>
+        }
         @if (asideTotal()) {
           <div class="closing-totals__item">
             <span>Cuentas aparte</span>
@@ -112,6 +122,9 @@ export class ClosingFormSummaryComponent {
   readonly differenceTone = input<number | null>(null);
   readonly asideTotal = input('');
   readonly dayTotal = input('');
+  /** Comensales del cierre y ticket promedio por persona (vacío = no se muestra). */
+  readonly coversCount = input<number | null>(null);
+  readonly perCoverAmount = input('');
   readonly asideLines = input<Array<{ name: string; amount: string }>>([]);
   readonly saving = input(false);
   readonly saveDisabled = input(false);

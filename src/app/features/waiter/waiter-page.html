@@ -1101,14 +1101,15 @@
             name="waiter"
           >
             <mat-option [value]="null">Elegí un mozo…</mat-option>
-            @for (w of staffWaiters(); track w.id) {
+            @for (w of coversWaiterChoices(); track w.id) {
               <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
         @if (!staffWaiters().length) {
           <p class="muted covers-waiter__hint">
-            No hay mozos cargados. En Empleados activá «Mostrar en Comanda (Mozo a cargo)».
+            No hay mozos cargados: podés abrirla a tu nombre o, en Empleados, activá «Mostrar en
+            Comanda (Mozo a cargo)».
           </p>
         }
       } @else if (staffMode) {
@@ -1120,7 +1121,7 @@
             name="waiter"
           >
             <mat-option [value]="null">Sin asignar</mat-option>
-            @for (w of staffWaiters(); track w.id) {
+            @for (w of coversWaiterChoices(); track w.id) {
               <mat-option [value]="w.id">{{ w.fullName }}</mat-option>
             }
           </mat-select>
@@ -1413,7 +1414,7 @@
   </div>
 }
 
-@if (closeSheet()) {
+@if (closeSheet() && closeStep() === 'summary') {
   <div class="sheet-backdrop anim-fade" (click)="cancelClose()"></div>
   <div class="sheet anim-up" role="dialog" aria-modal="true" aria-labelledby="close-title">
     <div class="sheet__handle" aria-hidden="true"></div>
@@ -1531,58 +1532,120 @@
       }
     }
 
-    <p class="sheet__total">
-      <span>A cobrar</span><strong>{{ money(closeToCollect()) }}</strong>
-    </p>
+    <div class="close-due">
+      <span>A cobrar</span>
+      <strong>{{ money(closeToCollect()) }}</strong>
+      @if (closeTipAmount() > 0) {
+        <small>Incluye propina {{ money(closeTipAmount()) }}</small>
+      }
+    </div>
     @if (closeToCollect() <= 0.02) {
       <p class="muted close-pay-hint">Total $0 (descuento total). Podés cerrar sin cobro.</p>
     }
-
-    <div class="sheet__field">
-      <span class="sheet__label">Formas de pago</span>
-      <p class="muted close-pay-hint">Podés repartir el total en más de un medio.</p>
-      <div class="close-pays">
-        @for (m of paymentMethodsForClose(); track m.id) {
-          <div class="close-pay">
-            <span class="close-pay__name">{{ m.name }}</span>
-            <button type="button" class="link close-pay__fill" (click)="fillClosePayHalf(m.id)">
-              50%
-            </button>
-            <input
-              type="number"
-              min="0"
-              step="100"
-              placeholder="0"
-              [ngModel]="closePayAmounts()[m.id]"
-              (ngModelChange)="setClosePayAmount(m.id, $event)"
-              [attr.name]="'pay-' + m.id"
-            />
-            <button type="button" class="link close-pay__fill" (click)="fillClosePayAll(m.id)">
-              Todo
-            </button>
-          </div>
-        } @empty {
-          <p class="muted">Configurá medios de pago en Configuración del local → Comandas.</p>
-        }
-      </div>
-      <p class="close-pay-sum" [class.close-pay-sum--ok]="canConfirmClose()">
-        <span>Pagado {{ money(closePaidTotal()) }}</span>
-        <span>Restan {{ money(closeRemaining()) }}</span>
-      </p>
-    </div>
     </div>
 
     <div class="sheet__actions sheet__actions--col">
       <button
         type="button"
-        class="btn btn--danger"
+        class="btn btn--lg close-go-pay"
+        [disabled]="busy() || !paymentMethodsForClose().length"
+        (click)="goToClosePay()"
+      >
+        @if (closeToCollect() <= 0.02) {
+          {{ isCounterSession() ? 'Cerrar mostrador sin cobro' : 'Cerrar mesa sin cobro' }}
+        } @else {
+          Cobrar {{ money(closeToCollect()) }}
+        }
+      </button>
+      @if (!paymentMethodsForClose().length) {
+        <p class="muted close-pay-hint">Configurá medios de pago en Configuración del local → Comandas.</p>
+      }
+      <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
+    </div>
+  </div>
+}
+
+@if (closeSheet() && closeStep() === 'pay') {
+  <div class="pay-screen anim-up" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+    <header class="pay-screen__top">
+      <button type="button" class="link pay-screen__back" (click)="backToCloseSummary()">← Volver</button>
+      <h2 id="pay-title">Cobrar {{ sessionPlaceLabel() }}</h2>
+    </header>
+
+    <div class="pay-screen__body">
+      <section class="pay-hero" [class.pay-hero--ok]="canConfirmClose()">
+        <span class="pay-hero__label">A cobrar</span>
+        <strong class="pay-hero__amount">{{ money(closeToCollect()) }}</strong>
+        @if (closeTipAmount() > 0) {
+          <small class="pay-hero__note">Incluye propina {{ money(closeTipAmount()) }}</small>
+        }
+        <div class="pay-hero__bar" aria-hidden="true">
+          <div class="pay-hero__fill" [style.width.%]="closePaidPct()"></div>
+        </div>
+        <p class="pay-hero__status" aria-live="polite">
+          @if (closeRemaining() > 0.02) {
+            Falta cobrar <strong>{{ money(closeRemaining()) }}</strong>
+          } @else if (closeRemaining() < -0.02) {
+            Sobran <strong>{{ money(-closeRemaining()) }}</strong>: ajustá los montos
+          } @else {
+            ✓ Pago completo
+          }
+        </p>
+      </section>
+
+      <p class="pay-screen__hint">
+        Tocá un medio para cobrar todo con él. Para dividir usá <b>50%</b>, <b>Resto</b> o escribí el monto.
+      </p>
+
+      <div class="pay-tiles">
+        @for (m of paymentMethodsForClose(); track m.id) {
+          <div class="pay-tile" [class.pay-tile--on]="closePayAmountOf(m.id) > 0">
+            <button type="button" class="pay-tile__main" (click)="tapClosePayMethod(m.id)">
+              <span class="pay-tile__name">{{ m.name }}</span>
+              @if (closePayAmountOf(m.id) > 0) {
+                <strong class="pay-tile__amount">{{ money(closePayAmountOf(m.id)) }}</strong>
+              } @else {
+                <span class="pay-tile__cta">
+                  {{ closePaidTotal() > 0 && closeRemaining() > 0.02 ? 'Cobrar el resto' : 'Cobrar todo' }}
+                </span>
+              }
+            </button>
+            <div class="pay-tile__tools">
+              <button type="button" class="pay-chip" (click)="fillClosePayAll(m.id)">Todo</button>
+              <button type="button" class="pay-chip" (click)="fillClosePayHalf(m.id)">50%</button>
+              @if (closePaidTotal() > 0 && closeRemaining() > 0.02) {
+                <button type="button" class="pay-chip" (click)="fillClosePayRest(m.id)">Resto</button>
+              }
+              <input
+                class="pay-tile__input"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="100"
+                placeholder="Monto"
+                [ngModel]="closePayAmounts()[m.id]"
+                (ngModelChange)="setClosePayAmount(m.id, $event)"
+                [attr.name]="'pay-' + m.id"
+                [attr.aria-label]="'Monto en ' + m.name"
+              />
+            </div>
+          </div>
+        } @empty {
+          <p class="muted">Configurá medios de pago en Configuración del local → Comandas.</p>
+        }
+      </div>
+    </div>
+
+    <footer class="pay-screen__actions">
+      <button
+        type="button"
+        class="btn btn--lg btn--danger pay-screen__confirm"
         [disabled]="busy() || !canConfirmClose()"
         (click)="confirmClose()"
       >
-        {{ isCounterSession() ? 'Cerrar mostrador' : 'Cerrar mesa' }}
+        {{ isCounterSession() ? 'Cerrar mostrador' : 'Cerrar mesa' }} · {{ money(closeToCollect()) }}
       </button>
-      <button type="button" class="link" (click)="cancelClose()">Cancelar</button>
-    </div>
+    </footer>
   </div>
 }
 
@@ -1605,6 +1668,16 @@
           · {{ detail.waiterName }}
         }
       </p>
+      @if ((detail.discountAmount ?? 0) > 0) {
+        <p class="sheet__total sheet__total--sm">
+          <span>Subtotal</span>
+          <strong>{{ money(detail.ticketTotal + (detail.discountAmount ?? 0)) }}</strong>
+        </p>
+        <p class="sheet__total sheet__total--sm">
+          <span>Descuento@if (detail.discountLabel) { ({{ detail.discountLabel }}) }</span>
+          <strong>−{{ money(detail.discountAmount ?? 0) }}</strong>
+        </p>
+      }
       <p class="sheet__total"><span>Ticket</span><strong>{{ money(detail.ticketTotal) }}</strong></p>
       @if (detail.tipAmount > 0) {
         <p class="sheet__total sheet__total--sm">
@@ -1723,6 +1796,9 @@
               </div>
               <div class="history-list__amounts">
                 <strong>{{ money(row.ticketTotal) }}</strong>
+                @if ((row.discountAmount ?? 0) > 0) {
+                  <span class="muted">Desc. −{{ money(row.discountAmount ?? 0) }}</span>
+                }
                 @if (row.tipAmount > 0) {
                   <span class="muted">+{{ money(row.tipAmount) }}</span>
                 }
