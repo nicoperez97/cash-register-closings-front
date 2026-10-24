@@ -75,7 +75,7 @@ function formatDelta(pct: number | null | undefined): string {
         <div>
           <h2 class="guy-filters__title">Filtros</h2>
           <p class="guy-filters__subtitle">
-            Vista mixta: reservas, ventas POS, caja y propinas
+            Vista mixta: reservas, Ventas (pedidos y comanda), Ventas POS, caja y propinas
           </p>
         </div>
         <div class="guy-filters__tools">
@@ -134,7 +134,8 @@ function formatDelta(pct: number | null | undefined): string {
         />
       }
     <p class="hint mb-3">
-      Las ventas POS vienen del import Restosoft/POS; no modifican cierres ni saldos.
+      Ventas = pedidos online, mostrador y comanda. Ventas POS = import Restosoft/POS (no
+      modifica cierres ni saldos). Si un período está cargado en los dos, se suma dos veces.
       Los totales de caja salen de los cierres cargados por separado.
       @if (comparisonHint()) {
         <span> · {{ comparisonHint() }}</span>
@@ -157,6 +158,17 @@ function formatDelta(pct: number | null | undefined): string {
         title="Covers reservados"
         subtitle="Comensales por día"
         [points]="reservationGuestPoints()"
+      />
+      <app-line-chart
+        class="charts-grid__wide"
+        title="Ventas por día"
+        subtitle="Pedidos online, mostrador y comanda"
+        [points]="salesAmountPoints()"
+      />
+      <app-line-chart
+        title="Tickets de ventas"
+        subtitle="Pedidos y mesas por día"
+        [points]="salesTicketPoints()"
       />
       <app-line-chart
         class="charts-grid__wide"
@@ -197,7 +209,7 @@ function formatDelta(pct: number | null | undefined): string {
       />
       <app-hbar-chart
         title="Volumen por día de semana"
-        subtitle="Ventas POS (promedio / día)"
+        subtitle="Ventas + Ventas POS (promedio / día)"
         [items]="weekdayBars()"
       />
     </div>
@@ -230,7 +242,7 @@ function formatDelta(pct: number | null | undefined): string {
           <div>
             <h2 class="guy-list-head__title">Detalle diario</h2>
             <p class="guy-list-head__meta">
-              Cruce reservas · POS · caja · propinas
+              Cruce reservas · Ventas · Ventas POS · caja · propinas
             </p>
           </div>
         </div>
@@ -316,6 +328,20 @@ export class StatsPage {
     })),
   );
 
+  readonly salesAmountPoints = computed<ChartPoint[]>(() =>
+    (this.dashboard()?.sales?.byDay ?? []).map((d) => ({
+      label: formatDayLabelEs(d.businessDate),
+      value: d.amount,
+    })),
+  );
+
+  readonly salesTicketPoints = computed<ChartPoint[]>(() =>
+    (this.dashboard()?.sales?.byDay ?? []).map((d) => ({
+      label: formatDayLabelEs(d.businessDate),
+      value: d.ticketCount,
+    })),
+  );
+
   readonly posAmountPoints = computed<ChartPoint[]>(() =>
     (this.dashboard()?.pos?.byDay ?? []).map((d) => ({
       label: formatDayLabelEs(d.businessDate),
@@ -377,7 +403,7 @@ export class StatsPage {
   readonly comparisonHint = computed(() => {
     const c = this.dashboard()?.comparison;
     if (!c) return '';
-    return `Vs período anterior: POS ${formatDelta(c.posAmountDeltaPct)} · Caja ${formatDelta(c.boxDeclaredDeltaPct)} · Covers ${formatDelta(c.coversDeltaPct)}${this.tipsEnabled() ? ` · Propinas ${formatDelta(c.tipsDeltaPct)}` : ''}`;
+    return `Vs período anterior: Ventas ${formatDelta(c.salesAmountDeltaPct ?? null)} · Ventas POS ${formatDelta(c.posAmountDeltaPct)} · Caja ${formatDelta(c.boxDeclaredDeltaPct)} · Covers ${formatDelta(c.coversDeltaPct)}${this.tipsEnabled() ? ` · Propinas ${formatDelta(c.tipsDeltaPct)}` : ''}`;
   });
 
   readonly tipEmployeeRows = computed(() =>
@@ -413,6 +439,8 @@ export class StatsPage {
           businessDate: date,
           parties: 0,
           guests: 0,
+          salesAmount: 0,
+          salesTickets: 0,
           posAmount: 0,
           posTickets: 0,
           declaredTotal: 0,
@@ -427,6 +455,11 @@ export class StatsPage {
       const row = ensure(d.businessDate);
       row['parties'] = d.parties;
       row['guests'] = d.guests;
+    }
+    for (const d of data.sales?.byDay ?? []) {
+      const row = ensure(d.businessDate);
+      row['salesAmount'] = d.amount;
+      row['salesTickets'] = d.ticketCount;
     }
     for (const d of data.pos?.byDay ?? []) {
       const row = ensure(d.businessDate);
@@ -457,11 +490,17 @@ export class StatsPage {
     { key: 'parties', label: 'Reservas' },
     { key: 'guests', label: 'Covers res.' },
     {
+      key: 'salesAmount',
+      label: 'Ventas $',
+      format: (r) => formatMoney(r['salesAmount'] ?? 0, { spaced: true }),
+    },
+    { key: 'salesTickets', label: 'Tickets ventas' },
+    {
       key: 'posAmount',
-      label: 'POS $',
+      label: 'Ventas POS $',
       format: (r) => formatMoney(r['posAmount'] ?? 0, { spaced: true }),
     },
-    { key: 'posTickets', label: 'Tickets' },
+    { key: 'posTickets', label: 'Tickets POS' },
     {
       key: 'declaredTotal',
       label: 'Caja $',
@@ -519,6 +558,7 @@ export class StatsPage {
         this.dashboard.set(data);
         const res = data.reservations?.totals;
         const pos = data.pos?.totals;
+        const sales = data.sales?.totals;
         const box = data.closings?.totals;
         const tips = data.tips?.totals;
         const cmp = data.comparison;
@@ -532,6 +572,15 @@ export class StatsPage {
             value: formatNumber(res?.guests ?? 0, { maximumFractionDigits: 0 }),
           },
           {
+            label: 'Ventas',
+            value: formatMoney(sales?.amount ?? 0, { spaced: true }),
+            hint: cmp ? `Pedidos y comanda · ${formatDelta(cmp.salesAmountDeltaPct ?? null)}` : 'Pedidos y comanda',
+          },
+          {
+            label: 'Tickets ventas',
+            value: formatNumber(sales?.ticketCount ?? 0, { maximumFractionDigits: 0 }),
+          },
+          {
             label: 'Ventas POS',
             value: formatMoney(pos?.amount ?? 0, { spaced: true }),
             hint: cmp ? formatDelta(cmp.posAmountDeltaPct) : undefined,
@@ -539,6 +588,13 @@ export class StatsPage {
           {
             label: 'Tickets POS',
             value: formatNumber(pos?.ticketCount ?? 0, { maximumFractionDigits: 0 }),
+          },
+          {
+            label: 'Ventas + POS',
+            value: formatMoney(data.combined?.amount ?? (sales?.amount ?? 0) + (pos?.amount ?? 0), {
+              spaced: true,
+            }),
+            hint: cmp ? formatDelta(cmp.combinedAmountDeltaPct ?? null) : undefined,
           },
           {
             label: 'Caja declarada',
@@ -582,8 +638,8 @@ export class StatsPage {
               value: formatNumber(tips?.pendingCount ?? 0, { maximumFractionDigits: 0 }),
             },
             {
-              label: 'Tips/caja · Tips/POS',
-              value: `${tips?.tipsToBoxRatio != null ? tips.tipsToBoxRatio + '%' : '—'} · ${tips?.tipsToPosRatio != null ? tips.tipsToPosRatio + '%' : '—'}`,
+              label: 'Tips/caja · Tips/ventas',
+              value: `${tips?.tipsToBoxRatio != null ? tips.tipsToBoxRatio + '%' : '—'} · ${(tips?.tipsToSalesRatio ?? tips?.tipsToPosRatio) != null ? (tips?.tipsToSalesRatio ?? tips?.tipsToPosRatio) + '%' : '—'}`,
             },
           );
         }

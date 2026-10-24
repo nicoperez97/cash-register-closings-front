@@ -570,6 +570,25 @@ export interface ReportsDashboard {
       tipsAmount?: number;
     }>;
   } | null;
+  /** Ventas del sistema: pedidos online, mostrador y comanda. */
+  sales?: {
+    totals: {
+      amount: number;
+      qty: number;
+      ticketCount: number;
+      productCount: number;
+      avgTicketAmount: number;
+    };
+    byDay: Array<{
+      businessDate: string;
+      amount: number;
+      qty: number;
+      ticketCount: number;
+    }>;
+  } | null;
+  /** Ventas + Ventas POS (cada una también viene aparte). */
+  combined?: { salesAmount: number; posAmount: number; amount: number } | null;
+  /** Ventas POS importadas. */
   pos: {
     totals: {
       amount: number;
@@ -615,6 +634,8 @@ export interface ReportsDashboard {
       avgPerEmployee: number;
       tipsToBoxRatio?: number | null;
       tipsToPosRatio?: number | null;
+      /** Propinas / (Ventas + Ventas POS). */
+      tipsToSalesRatio?: number | null;
     };
     byDay: Array<{
       businessDate: string;
@@ -652,11 +673,14 @@ export interface ReportsDashboard {
     previousFrom: string;
     previousTo: string;
     posAmountDeltaPct: number | null;
+    salesAmountDeltaPct?: number | null;
+    combinedAmountDeltaPct?: number | null;
     boxDeclaredDeltaPct: number | null;
     coversDeltaPct: number | null;
     tipsDeltaPct: number | null;
     previous: {
       posAmount: number;
+      salesAmount?: number;
       boxDeclared: number;
       covers: number;
       tipsTotal: number;
