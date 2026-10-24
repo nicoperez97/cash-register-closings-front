@@ -218,3 +218,22 @@ export function demoStatsDashboard(shopId: string) {
     },
   };
 }
+
+/** Rubros de Carta (Ventas) de la demo. */
+export function demoPosCategories() {
+  return ['Clásicos', 'Bebidas'].map((name, i) => ({
+    id: `demo-cat-${i + 1}`,
+    name,
+    sortOrder: i,
+    notes: null,
+    active: true,
+  }));
+}
+
+/** Platos POS de la demo (sus rubros son los de Ventas POS). */
+export function demoPosProducts() {
+  return [
+    { id: 'demo-pp-1', productCode: 'MIL', productName: 'Milanesa al pan', category: 'CLÁSICOS', subcategory: null, menuItemId: 'demo-mi-milanesa', active: true },
+    { id: 'demo-pp-2', productCode: 'FLAN', productName: 'Flan casero', category: 'Postres', subcategory: null, menuItemId: null, active: true },
+  ];
+}
