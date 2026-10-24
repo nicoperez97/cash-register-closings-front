@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import type { SalesSource } from '../../shared/sales-source';
 
 export interface CommissionRule {
   id: string;
@@ -16,7 +17,11 @@ export interface CommissionRule {
 export interface CommissionCalcLine {
   ruleId: string;
   category: string;
+  /** Base de la comisión según el origen elegido. */
   salesAmount: number;
+  /** Desglose del rubro: Ventas (pedidos + comanda) y Ventas POS. */
+  ventasAmount?: number;
+  posAmount?: number;
   ratePercent: number;
   commissionAmount: number;
 }
@@ -32,8 +37,19 @@ export interface CommissionCalculateResult {
   shopId: string;
   from: string;
   to: string;
+  source?: SalesSource;
+  sourceLabel?: string;
+  /** Base total (según origen) y desglose. */
   salesTotal: number;
-  salesByCategory: Array<{ category: string; amount: number; qty: number }>;
+  ventasTotal?: number;
+  posTotal?: number;
+  salesByCategory: Array<{
+    category: string;
+    amount: number;
+    qty: number;
+    salesAmount?: number;
+    posAmount?: number;
+  }>;
   employees: CommissionEmployeeResult[];
   grandTotal: number;
   unmatchedRules: Array<{
@@ -80,16 +96,16 @@ export class CommissionsApiService {
     );
   }
 
-  calculate(shopId: string, from: string, to: string) {
+  calculate(shopId: string, from: string, to: string, source: SalesSource = 'all') {
     return this.http.get<CommissionCalculateResult>(
       `${this.base}/shops/${shopId}/commissions/calculate`,
-      { params: { from, to } },
+      { params: { from, to, source } },
     );
   }
 
-  exportExcel(shopId: string, from: string, to: string) {
+  exportExcel(shopId: string, from: string, to: string, source: SalesSource = 'all') {
     return this.http.get(`${this.base}/shops/${shopId}/commissions/export.xlsx`, {
-      params: { from, to },
+      params: { from, to, source },
       responseType: 'blob',
     });
   }

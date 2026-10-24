@@ -36,6 +36,11 @@ import {
   demoUsers,
 } from './demo-fixtures';
 import { demoComandaShopGet, demoWaiterGet } from './demo-waiter';
+import {
+  demoCommissionRules,
+  demoCommissionsCalculate,
+  demoStatsDashboard,
+} from './demo-sales-mix';
 
 export { demoWaiterMutation } from './demo-waiter';
 
@@ -314,6 +319,7 @@ export function resolveDemoGet(
       return demoConceptsReport(shopId);
     }
     if (rest.startsWith('reports/summary')) return home.reportsSummary;
+    if (rest.startsWith('reports/dashboard')) return demoStatsDashboard(shopId);
     if (rest.startsWith('reports')) {
       return demoConceptsReport(shopId);
     }
@@ -489,6 +495,11 @@ export function resolveDemoGet(
         active: true,
       }));
     }
+    if (rest.startsWith('commissions/calculate')) {
+      const q = fullUrl.includes('?') ? fullUrl.split('?')[1] : '';
+      return demoCommissionsCalculate(shopId, new URLSearchParams(q));
+    }
+    if (rest.startsWith('commissions/rules')) return demoCommissionRules(shopId);
     if (rest.startsWith('candidates') || rest.startsWith('payroll') || rest.startsWith('commissions')) {
       return [];
     }

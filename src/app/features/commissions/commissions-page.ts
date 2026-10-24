@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header';
@@ -31,6 +32,7 @@ import { BusyLabelComponent } from '../../shared/components/busy-label';
 import { formatMoney, formatNumber } from '../../shared/utils/money';
 import { FiltersCollapseBtnComponent } from '../../shared/components/filters-collapse-btn';
 import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
+import { SALES_SOURCE_OPTIONS, SalesSource } from '../../shared/sales-source';
 
 @Component({
   selector: 'app-commissions-page',
@@ -42,6 +44,7 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     MatIconModule,
     MatDatepickerModule,
     MatTabsModule,
+    MatButtonToggleModule,
     MatDialogModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -71,7 +74,8 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
             <div>
               <h2 class="guy-filters__title">Período</h2>
               <p class="guy-filters__subtitle">
-                Usa ventas POS por rubro × % de cada empleado (ej. COMIDA 1%, PIZZA 2,5%)
+                Ventas por rubro × % de cada empleado (ej. COMIDA 1%, PIZZA 2,5%). Elegí si se
+                calcula sobre Ventas (pedidos y comanda), Ventas POS o ambas.
               </p>
             </div>
             <div class="guy-filters__tools">
@@ -92,6 +96,19 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
               <mat-datepicker-toggle matIconSuffix [for]="picker" />
               <mat-date-range-picker #picker />
             </mat-form-field>
+            <div class="comm-source guy-filters__span-2">
+              <span class="comm-source__label">Calcular sobre</span>
+              <mat-button-toggle-group
+                [value]="source()"
+                (change)="setSource($event.value)"
+                aria-label="Origen de las ventas"
+                hideSingleSelectionIndicator
+              >
+                @for (o of sourceOptions; track o.value) {
+                  <mat-button-toggle [value]="o.value" [attr.title]="o.hint">{{ o.label }}</mat-button-toggle>
+                }
+              </mat-button-toggle-group>
+            </div>
           </form>
           <div class="guy-filters__actions">
             <button
@@ -188,6 +205,17 @@ import { createFiltersCollapsed } from '../../shared/utils/filters-collapse';
     </mat-tab-group>
   `,
   styles: `
+    .comm-source {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.75rem;
+    }
+    .comm-source__label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--guy-muted);
+    }
     .comm-warn {
       margin: 0;
       font-size: 0.875rem;
@@ -215,6 +243,8 @@ export class CommissionsPage {
   readonly never = () => false;
   readonly canManageFn = () => this.canManage();
   readonly busy = signal(false);
+  readonly sourceOptions = SALES_SOURCE_OPTIONS;
+  readonly source = signal<SalesSource>('all');
   readonly result = signal<CommissionCalculateResult | null>(null);
   readonly kpis = signal<KpiItem[]>([]);
   readonly calcRows = signal<Record<string, unknown>[]>([]);
@@ -235,15 +265,27 @@ export class CommissionsPage {
     { key: 'employeeName', label: 'Empleado' },
     { key: 'category', label: 'Rubro' },
     {
-      key: 'salesAmount',
+      key: 'ventasAmount',
       label: 'Ventas',
-      format: (r) => formatMoney(r['salesAmount'] ?? 0, { spaced: true }),
+      format: (r) => (r['ventasAmount'] == null ? '' : formatMoney(r['ventasAmount'] ?? 0, { spaced: true })),
+    },
+    {
+      key: 'posAmount',
+      label: 'Ventas POS',
+      format: (r) => (r['posAmount'] == null ? '' : formatMoney(r['posAmount'] ?? 0, { spaced: true })),
+    },
+    {
+      key: 'salesAmount',
+      label: 'Base',
+      format: (r) => (r['salesAmount'] == null ? '' : formatMoney(r['salesAmount'] ?? 0, { spaced: true })),
     },
     {
       key: 'ratePercent',
       label: '%',
       format: (r) =>
-        `${Number(r['ratePercent'] ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}%`,
+        r['ratePercent'] == null
+          ? ''
+          : `${Number(r['ratePercent']).toLocaleString('es-AR', { maximumFractionDigits: 2 })}%`,
     },
     {
       key: 'commissionAmount',
@@ -255,14 +297,24 @@ export class CommissionsPage {
   readonly salesColumns: DataTableColumn[] = [
     { key: 'category', label: 'Rubro' },
     {
-      key: 'qty',
-      label: 'Cantidad',
-      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 1 }),
+      key: 'salesAmount',
+      label: 'Ventas',
+      format: (r) => formatMoney(r['salesAmount'] ?? 0, { spaced: true }),
+    },
+    {
+      key: 'posAmount',
+      label: 'Ventas POS',
+      format: (r) => formatMoney(r['posAmount'] ?? 0, { spaced: true }),
     },
     {
       key: 'amount',
-      label: 'Importe',
+      label: 'Base',
       format: (r) => formatMoney(r['amount'] ?? 0, { spaced: true }),
+    },
+    {
+      key: 'qty',
+      label: 'Cantidad',
+      format: (r) => formatNumber(r['qty'] ?? 0, { maximumFractionDigits: 1 }),
     },
   ];
 
@@ -311,6 +363,12 @@ export class CommissionsPage {
     );
   }
 
+  setSource(value: SalesSource): void {
+    if (!value || value === this.source()) return;
+    this.source.set(value);
+    this.calculate();
+  }
+
   hasRange(): boolean {
     return !!this.range.controls.start.value && !!this.range.controls.end.value;
   }
@@ -339,7 +397,7 @@ export class CommissionsPage {
     const to = this.formatDate(this.range.controls.end.value);
     if (!shopId || !from || !to) return;
     this.busy.set(true);
-    this.api.calculate(shopId, from, to).subscribe({
+    this.api.calculate(shopId, from, to, this.source()).subscribe({
       next: (res) => {
         this.busy.set(false);
         this.result.set(res);
@@ -351,6 +409,8 @@ export class CommissionsPage {
             rows.push({
               employeeName: emp.employeeName,
               category: line.category,
+              ventasAmount: line.ventasAmount ?? null,
+              posAmount: line.posAmount ?? null,
               salesAmount: line.salesAmount,
               ratePercent: line.ratePercent,
               commissionAmount: line.commissionAmount,
@@ -359,6 +419,8 @@ export class CommissionsPage {
           rows.push({
             employeeName: emp.employeeName,
             category: 'TOTAL',
+            ventasAmount: null,
+            posAmount: null,
             salesAmount: null,
             ratePercent: null,
             commissionAmount: emp.total,
@@ -367,15 +429,29 @@ export class CommissionsPage {
         this.calcRows.set(rows);
         this.kpis.set([
           {
+            label: 'Ventas',
+            value: formatMoney(res.ventasTotal ?? 0, { spaced: true }),
+            hint: 'Pedidos y comanda',
+          },
+          {
             label: 'Ventas POS',
+            value: formatMoney(res.posTotal ?? 0, { spaced: true }),
+            hint: 'Import POS',
+          },
+          {
+            label: 'Base de comisión',
             value: formatMoney(res.salesTotal, { spaced: true }),
+            hint: res.sourceLabel ?? 'Ventas + Ventas POS',
           },
           {
             label: 'Total comisiones',
             value: formatMoney(res.grandTotal, { spaced: true }),
           },
           { label: 'Empleados', value: String(res.employees?.length ?? 0) },
-          { label: 'Rubros con venta', value: String(res.salesByCategory?.length ?? 0) },
+          {
+            label: 'Rubros con venta',
+            value: String((res.salesByCategory ?? []).filter((c) => c.amount > 0).length),
+          },
         ]);
       },
       error: () => {
@@ -392,7 +468,7 @@ export class CommissionsPage {
       const to = this.formatDate(this.range.controls.end.value);
       await downloadColumnsPdf({
         title: 'Comisiones',
-        subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''}`,
+        subtitle: `${shop?.name ?? ''} · ${from ?? ''} a ${to ?? ''} · Base: ${this.result()?.sourceLabel ?? 'Ventas + Ventas POS'}`,
         filename: `comisiones-${this.shopFileSlug(shop?.name)}-${from}_${to}.pdf`,
         columns: this.calcColumns,
         rows: this.calcRows(),
@@ -408,7 +484,7 @@ export class CommissionsPage {
     const from = this.formatDate(this.range.controls.start.value);
     const to = this.formatDate(this.range.controls.end.value);
     if (!shopId || !from || !to) return;
-    this.api.exportExcel(shopId, from, to).subscribe({
+    this.api.exportExcel(shopId, from, to, this.source()).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

@@ -195,8 +195,17 @@ export class CommissionRuleDialogComponent implements OnInit {
           `${environment.apiUrl}/shops/${shopId}/pos-products`,
         )
         .pipe(catchError(() => of(null))),
+      // Rubros de Carta (los usan Ventas de pedidos y comanda).
+      cartaCategories: this.http
+        .get<Array<{ name?: string | null }>>(
+          `${environment.apiUrl}/shops/${shopId}/pos-categories`,
+        )
+        .pipe(catchError(() => of([] as Array<{ name?: string | null }>))),
     }).subscribe({
-      next: ({ employees, products }) => {
+      next: ({ employees, products: posProducts, cartaCategories }) => {
+        const products = posProducts
+          ? [...posProducts, ...cartaCategories.map((c) => ({ category: c.name }))]
+          : null;
         this.loadingLists.set(false);
         if (!employees || !products) {
           this.listsFailed.set(true);

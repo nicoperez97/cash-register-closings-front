@@ -111,7 +111,7 @@ export const demoOverlayInterceptor: HttpInterceptorFn = (req, next) => {
   const method = req.method.toUpperCase();
 
   if (!isMutation(method)) {
-    return demoOkLazy(req.url, (r) => r.resolveDemoGet(rel, req.url, store));
+    return demoOkLazy(req.url, (r) => r.resolveDemoGet(rel, req.urlWithParams, store));
   }
 
   snackOnce(snack);
