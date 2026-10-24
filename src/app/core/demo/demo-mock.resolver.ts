@@ -39,6 +39,8 @@ import { demoComandaShopGet, demoWaiterGet } from './demo-waiter';
 import {
   demoCommissionRules,
   demoCommissionsCalculate,
+  demoPosCategories,
+  demoPosProducts,
   demoStatsDashboard,
 } from './demo-sales-mix';
 
@@ -216,7 +218,8 @@ export function resolveDemoGet(
       return store.mergeGet(`/shops/${shopId}/promos`, demoPromos());
     }
 
-    if (rest === 'pos-products' || rest === 'pos-categories') return [];
+    if (rest === 'pos-categories') return demoPosCategories();
+    if (rest === 'pos-products') return demoPosProducts();
 
     if (rest === 'shortages' || rest.startsWith('shortages/')) {
       const listKey = `/shops/${shopId}/shortages`;

@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -6,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -14,6 +16,11 @@ import { apiErrorMessage } from '../../core/http/api-error-message';
 import { SpinnerComponent } from '../../shared/components/spinner';
 import { EmployeesApiService } from '../employees/employees-api.service';
 import { CommissionRule, CommissionsApiService } from './commissions-api.service';
+import {
+  commissionCategoryHint,
+  groupCommissionCategories,
+  indexCommissionCategories,
+} from './commission-categories';
 
 export type CommissionRuleDialogData = {
   shopId: string;
@@ -32,6 +39,7 @@ export type CommissionRuleDialogData = {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatAutocompleteModule,
     MatIconModule,
     MatSnackBarModule,
     SpinnerComponent,
@@ -80,15 +88,25 @@ export type CommissionRuleDialogData = {
             <input
               matInput
               formControlName="category"
-              list="comm-categories"
-              placeholder="Ej. COMIDA, PIZZA"
+              [matAutocomplete]="catAuto"
+              placeholder="Elegí o escribí un rubro"
+              autocomplete="off"
             />
-            <datalist id="comm-categories">
-              @for (c of categories(); track c) {
-                <option [value]="c"></option>
+            <mat-icon matIconSuffix aria-hidden="true">arrow_drop_down</mat-icon>
+            <mat-autocomplete #catAuto="matAutocomplete" class="comm-rule__cats">
+              @for (g of categoryGroups(); track g.origin) {
+                <mat-optgroup [label]="g.label">
+                  @for (c of g.items; track c) {
+                    <mat-option [value]="c">{{ c }}</mat-option>
+                  }
+                </mat-optgroup>
+              } @empty {
+                <mat-option disabled>
+                  {{ categoryIndex().size ? 'Ningún rubro coincide' : 'No hay rubros cargados' }}
+                </mat-option>
               }
-            </datalist>
-            <mat-hint>Debe coincidir con el rubro de Platos POS</mat-hint>
+            </mat-autocomplete>
+            <mat-hint>{{ categoryHint() }}</mat-hint>
           </mat-form-field>
 
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -157,7 +175,12 @@ export class CommissionRuleDialogComponent implements OnInit {
   readonly employees = signal<Array<{ id: string; fullName: string }>>(
     this.data.employees ?? [],
   );
-  readonly categories = signal<string[]>(this.data.categories ?? []);
+  /** Rubros de Ventas (Carta) y de Ventas POS (Platos POS). */
+  readonly salesCategories = signal<string[]>([]);
+  readonly posCategories = signal<string[]>(this.data.categories ?? []);
+  readonly categoryIndex = computed(() =>
+    indexCommissionCategories(this.salesCategories(), this.posCategories()),
+  );
 
   readonly form = this.fb.nonNullable.group({
     employeeId: [
@@ -174,6 +197,22 @@ export class CommissionRuleDialogComponent implements OnInit {
     ],
     notes: [this.data.mode === 'edit' ? (this.data.rule.notes ?? '') : ''],
   });
+
+  private readonly categoryValue = toSignal(this.form.controls.category.valueChanges, {
+    initialValue: this.form.controls.category.value,
+  });
+
+  /** Lista agrupada; al abrir con un rubro ya elegido muestra todos. */
+  readonly categoryGroups = computed(() => {
+    const value = this.categoryValue() ?? '';
+    const index = this.categoryIndex();
+    const exact = [...index.values()].some((c) => c.name === value);
+    return groupCommissionCategories(index, exact ? '' : value);
+  });
+
+  readonly categoryHint = computed(() =>
+    commissionCategoryHint(this.categoryIndex(), this.categoryValue() ?? ''),
+  );
 
   ngOnInit(): void {
     this.reloadLists();
@@ -202,10 +241,10 @@ export class CommissionRuleDialogComponent implements OnInit {
         )
         .pipe(catchError(() => of([] as Array<{ name?: string | null }>))),
     }).subscribe({
-      next: ({ employees, products: posProducts, cartaCategories }) => {
-        const products = posProducts
-          ? [...posProducts, ...cartaCategories.map((c) => ({ category: c.name }))]
-          : null;
+      next: ({ employees, products, cartaCategories }) => {
+        this.salesCategories.set(
+          cartaCategories.map((c) => String(c.name ?? '').trim()).filter(Boolean),
+        );
         this.loadingLists.set(false);
         if (!employees || !products) {
           this.listsFailed.set(true);
@@ -214,11 +253,11 @@ export class CommissionRuleDialogComponent implements OnInit {
               employees.map((e) => ({ id: e.id, fullName: e.fullName })),
             );
           }
-          if (products) this.categories.set(this.categoriesFromProducts(products));
+          if (products) this.posCategories.set(this.categoriesFromProducts(products));
           return;
         }
         this.employees.set(employees.map((e) => ({ id: e.id, fullName: e.fullName })));
-        this.categories.set(this.categoriesFromProducts(products));
+        this.posCategories.set(this.categoriesFromProducts(products));
         this.listsFailed.set(false);
       },
       error: () => {
